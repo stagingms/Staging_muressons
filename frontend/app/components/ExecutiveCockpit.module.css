@@ -39,7 +39,7 @@
   align-items: center;
   gap: 10px;
   font-weight: 800;
-  font-size: 0.82rem;
+  font-size: 0.88rem;
   letter-spacing: 0.14em;
   color: #e2e8f0;
   text-transform: uppercase;
@@ -63,14 +63,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.72rem;
-  color: #94a3b8;
+  font-size: 0.78rem;
+  color: #8091a5;
   font-weight: 500;
 }
 
 .headerYear {
   font-weight: 700;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   color: #f1f5f9;
   letter-spacing: 0.02em;
 }
@@ -84,7 +84,7 @@
 .headerModule {
   font-weight: 600;
   color: #cbd5e1;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
 }
 
 .headerRight {
@@ -227,11 +227,11 @@
 }
 
 .kpiTitle {
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6b7a8d;
+  letter-spacing: 0.06em;
+  color: #4a5c6e;
   margin-bottom: 2px;
   display: flex;
   align-items: center;
@@ -241,7 +241,7 @@
 }
 
 .kpiValue {
-  font-size: 1.05rem;
+  font-size: 1.1rem;
   font-weight: 800;
   color: #0c1524;
   line-height: 1.3;
@@ -264,10 +264,10 @@
 }
 
 .briefingRound {
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: #ffffff;
   padding: 3px 10px;
   background: #1b2a4a;
@@ -275,7 +275,7 @@
 }
 
 .briefingTitle {
-  font-size: 0.98rem;
+  font-size: 1.05rem;
   font-weight: 700;
   color: #0c1524;
   margin: 0;
@@ -283,9 +283,9 @@
 }
 
 .briefingBody {
-  font-size: 0.76rem;
+  font-size: 0.82rem;
   line-height: 1.7;
-  color: #4a5568;
+  color: #374151;
 }
 
 /* ── Decision Workspace ─────────────────────────────────── */
@@ -299,11 +299,11 @@
 }
 
 .decisionLabel {
-  font-size: 0.62rem;
+  font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6b7a8d;
+  letter-spacing: 0.06em;
+  color: #4a5c6e;
 }
 
 .decisionTiles {
@@ -339,31 +339,31 @@
 }
 
 .tileLabel {
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: #2563eb;
   margin-bottom: 3px;
 }
 
 .tileTitle {
-  font-size: 0.78rem;
+  font-size: 0.84rem;
   font-weight: 600;
   color: #0c1524;
   margin-bottom: 3px;
 }
 
 .tileDesc {
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   line-height: 1.55;
-  color: #5a6577;
+  color: #475569;
   margin: 0;
 }
 
 .tileCost {
   margin-top: 6px;
-  font-size: 0.65rem;
+  font-size: 0.74rem;
   font-weight: 700;
   color: #dc2626;
   font-variant-numeric: tabular-nums;
@@ -415,17 +415,17 @@
 }
 
 .pillarLabel {
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: #7c3aed;
   margin-bottom: 3px;
 }
 
 .pillarSelect {
   width: 100%;
-  font-size: 0.68rem;
+  font-size: 0.76rem;
   padding: 4px 6px;
   border: 1px solid #d1d5db;
   border-radius: 4px;
@@ -450,11 +450,11 @@
 }
 
 .feedTitle {
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6b7a8d;
+  letter-spacing: 0.06em;
+  color: #4a5c6e;
   margin-bottom: 6px;
   display: flex;
   align-items: center;
@@ -469,8 +469,8 @@
   background: #f7f8fc;
   border-radius: 4px;
   border-left: 3px solid #d1d5db;
-  font-size: 0.67rem;
-  color: #4a5568;
+  font-size: 0.76rem;
+  color: #374151;
   line-height: 1.5;
   transition: background 0.15s ease;
 }
@@ -545,7 +545,7 @@
   border: none;
   border-radius: 4px;
   font-family: 'Inter', sans-serif;
-  font-size: 0.64rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -586,7 +586,7 @@
   border: none;
   border-radius: 4px;
   font-family: 'Inter', sans-serif;
-  font-size: 0.64rem;
+  font-size: 0.74rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -638,7 +638,7 @@
 
 .resultsBadge {
   display: inline-block;
-  font-size: 0.6rem;
+  font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
@@ -684,16 +684,16 @@
 }
 
 .resultCardLabel {
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #6b7a8d;
+  letter-spacing: 0.05em;
+  color: #4a5c6e;
   margin-bottom: 2px;
 }
 
 .resultCardValue {
-  font-size: 0.95rem;
+  font-size: 1.0rem;
   font-weight: 800;
   color: #0c1524;
   font-variant-numeric: tabular-nums;
@@ -709,16 +709,16 @@
 }
 
 .resultsEventsTitle {
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   color: #92400e;
   margin-bottom: 6px;
 }
 
 .resultsEventItem {
-  font-size: 0.7rem;
+  font-size: 0.78rem;
   color: #78350f;
   line-height: 1.6;
   padding: 2px 0;
@@ -799,18 +799,18 @@
 }
 
 .resourcesLabel {
-  font-size: 0.6rem;
+  font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6b7a8d;
+  letter-spacing: 0.06em;
+  color: #4a5c6e;
   display: flex;
   align-items: center;
   gap: 5px;
 }
 
 .resourcesBadge {
-  font-size: 0.55rem;
+  font-size: 0.65rem;
   font-weight: 700;
   background: #1b2a4a;
   color: #fff;
@@ -826,11 +826,11 @@
 }
 
 .mailboxTitle {
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #6b7a8d;
+  letter-spacing: 0.06em;
+  color: #4a5c6e;
   margin-bottom: 6px;
   display: flex;
   align-items: center;
@@ -840,7 +840,7 @@
 }
 
 .mailboxBadge {
-  font-size: 0.52rem;
+  font-size: 0.62rem;
   font-weight: 700;
   background: #dc2626;
   color: #fff;
@@ -876,8 +876,8 @@
 }
 
 .gaugeLabel {
-  font-size: 0.56rem;
-  color: #8b95a5;
+  font-size: 0.68rem;
+  color: #6b7a8d;
   margin-top: 2px;
   font-weight: 500;
   text-transform: uppercase;
@@ -920,14 +920,14 @@
 .carbonLabels {
   display: flex;
   justify-content: space-between;
-  font-size: 0.56rem;
-  color: #8b95a5;
+  font-size: 0.68rem;
+  color: #6b7a8d;
   font-variant-numeric: tabular-nums;
 }
 
 /* ── Projected Overlay ──────────────────────────────────── */
 .projectedDelta {
-  font-size: 0.58rem;
+  font-size: 0.7rem;
   font-weight: 600;
   padding: 2px 6px;
   border-radius: 3px;
@@ -996,7 +996,7 @@
 }
 
 .breakdownTitle {
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   font-weight: 800;
   text-transform: uppercase;
   color: #3b82f6;
@@ -1005,9 +1005,9 @@
 
 .breakdownContent p {
   margin: 0;
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   line-height: 1.6;
-  color: #4a5568;
+  color: #374151;
 }
 
 .breakdownContent strong {

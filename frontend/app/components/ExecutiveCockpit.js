@@ -111,10 +111,28 @@ export default function ExecutiveCockpit({
       reputation: h.global_state?.group_reputation || 50,
       treasury: h.global_state?.corporate_treasury || 0,
     }));
-    // Add current round
-    arr.push({ round: roundNumber, year: BASE_YEAR + roundNumber, ebitda, tco2e, reputation, treasury });
+    // Add current round only if not already in history
+    const roundsInHistory = new Set(arr.map(d => d.round));
+    if (!roundsInHistory.has(roundNumber)) {
+      arr.push({ round: roundNumber, year: BASE_YEAR + roundNumber, ebitda, tco2e, reputation, treasury });
+    }
+    // When commitResults are available (results overlay showing), append
+    // the post-commit state as the next data point so trends show the change
+    if (commitResults?.globalState) {
+      const nextRound = commitResults.newRoundNumber || roundNumber + 1;
+      if (!roundsInHistory.has(nextRound)) {
+        arr.push({
+          round: nextRound,
+          year: BASE_YEAR + nextRound,
+          ebitda: commitResults.globalState.historical_ebitda || 0,
+          tco2e: commitResults.globalState.tco2e_emissions || 0,
+          reputation: commitResults.globalState.group_reputation || 50,
+          treasury: commitResults.globalState.corporate_treasury || 0,
+        });
+      }
+    }
     return arr;
-  }, [history, roundNumber, ebitda, tco2e, reputation, treasury]);
+  }, [history, roundNumber, ebitda, tco2e, reputation, treasury, commitResults]);
 
   // Projected costs from staged decision
   const [projectedCost, setProjectedCost] = useState(0);
@@ -597,7 +615,7 @@ export default function ExecutiveCockpit({
               exit={{ y: -20, opacity: 0 }}
               transition={{ duration: 0.35, ease: 'easeOut' }}
             >
-              <div className={styles.resultsBadge}>Round {roundNumber - 1} Results</div>
+              <div className={styles.resultsBadge}>Round {roundNumber} Results</div>
               <h2 className={styles.resultsTitle}>📊 Turn Committed Successfully</h2>
               <p className={styles.resultsSubtitle}>Review your round outcomes before advancing to Round {commitResults.newRoundNumber}.</p>
 
@@ -635,15 +653,25 @@ export default function ExecutiveCockpit({
                     { key: 'ebitda', label: 'EBITDA Trend', color: '#16a34a', fmt: (v) => fmtCurrency(v) },
                     { key: 'reputation', label: 'Reputation Trend', color: '#f59e0b', fmt: (v) => v?.toFixed(0) },
                     { key: 'tco2e', label: 'CO₂ Emissions Trend', color: '#ef4444', fmt: (v) => `${(v || 0).toLocaleString()} t` },
-                  ].map(({ key, label, color, fmt }) => (
+                  ].map(({ key, label, color, fmt }) => {
+                    // Compute Y-axis domain: start from 0 for reputation, otherwise use padded min/max
+                    const values = historyData.map(d => d[key] || 0);
+                    const minVal = Math.min(...values);
+                    const maxVal = Math.max(...values);
+                    const padding = (maxVal - minVal) * 0.15 || maxVal * 0.1 || 1;
+                    const yDomain = key === 'reputation'
+                      ? [0, 100]
+                      : [Math.max(0, minVal - padding), maxVal + padding];
+
+                    return (
                     <div key={key} style={{
                       background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
                       padding: '0.5rem 0.6rem 0.3rem',
                     }}>
-                      <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>
                         {label}
                       </div>
-                      <ResponsiveContainer width="100%" height={64}>
+                      <ResponsiveContainer width="100%" height={72}>
                         <AreaChart data={historyData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
                           <defs>
                             <linearGradient id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
@@ -651,18 +679,18 @@ export default function ExecutiveCockpit({
                               <stop offset="95%" stopColor={color} stopOpacity={0.05} />
                             </linearGradient>
                           </defs>
-                          <XAxis dataKey="round" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                          <YAxis hide />
+                          <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                          <YAxis hide domain={yDomain} />
                           <Tooltip
-                            contentStyle={{ fontSize: '0.68rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                            contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
                             formatter={(v) => [fmt(v), label.replace(' Trend', '')]}
-                            labelFormatter={(r) => `Round ${r}`}
+                            labelFormatter={(year) => `Year ${year}`}
                           />
                           <Area type="monotone" dataKey={key} stroke={color} strokeWidth={2} fill={`url(#grad-${key})`} dot={{ r: 3, fill: color, strokeWidth: 0 }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
-                  ))}
+                  );})}
                 </div>
               )}
 

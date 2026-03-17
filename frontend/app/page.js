@@ -13,6 +13,8 @@ import CFOOverrideModal from './components/CFOOverrideModal';
 const DoubleMaterialityMatrix = dynamic(() => import('./components/DoubleMaterialityMatrix'), { ssr: false });
 const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false });
 import ResourceSidebar from './components/ResourceSidebar';
+import RoundBriefing from './components/RoundBriefing';
+import CrisisAlerts from './components/CrisisAlerts';
 import useSimulation from './hooks/useSimulation';
 
 // ── Seed data (mirrors backend baseline) ──────────────────────
@@ -395,6 +397,14 @@ export default function CockpitPage() {
     setMailboxMessages(prev => prev.map(m => m.id === id ? { ...m, read: true } : m));
   }, []);
 
+  // Crisis alert message injection callback
+  const handleCrisisInject = useCallback((msg) => {
+    setMailboxMessages(prev => {
+      if (prev.some(m => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
   if (sim.gameOver) {
     if (gameOverPhase === 'scorecard') {
       return (
@@ -518,30 +528,12 @@ export default function CockpitPage() {
         </div>
       )}
 
-      {/* Desktop Intro */}
+      {/* Desktop Intro → Round Briefing */}
       {sim.sessionId && showDesktop && (
-        <div style={{
-          position: 'fixed', inset: 0,
-          backgroundImage: 'url(/desktop-bg.JPG)', backgroundSize: 'cover', backgroundPosition: 'center',
-          zIndex: 10000, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', padding: '2rem',
-          fontFamily: "'Inter', sans-serif",
-        }}>
-          <div style={{
-            background: 'rgba(27,42,74,0.96)',
-            border: '1px solid rgba(241,245,249,0.12)', borderRadius: 6, padding: '1rem 1.6rem',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '1rem',
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem' }}>
-              <span style={{ fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.12em', textTransform: 'uppercase', color: '#94a3b8' }}>Round {roundNumber} of 10</span>
-              <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#f1f5f9' }}>{ROUND_TITLES[roundNumber]}</span>
-            </div>
-            <button onClick={handleProceedFromDesktop} style={{
-              background: '#3b82f6', color: '#fff', border: 'none',
-              borderRadius: 4, padding: '8px 18px', fontSize: '0.72rem', fontWeight: 700, cursor: 'pointer',
-              letterSpacing: '0.04em', textTransform: 'uppercase',
-            }}>Enter Cockpit →</button>
-          </div>
-        </div>
+        <RoundBriefing
+          roundNumber={roundNumber}
+          onProceed={handleProceedFromDesktop}
+        />
       )}
 
       {/* ═══ NEW EXECUTIVE COCKPIT ═══ */}
@@ -575,6 +567,31 @@ export default function CockpitPage() {
         onAllocationsChange={setAllocations}
         onResourcesOpen={() => { setResourceSidebarOpen(true); setHasNewResources(false); }}
       />
+
+      {/* ═══ CRISIS ALERTS (auto-trigger + manual inject) ═══ */}
+      {sim.sessionId && (
+        <CrisisAlerts
+          globalState={globalState}
+          roundNumber={roundNumber}
+          onInjectMessage={handleCrisisInject}
+        />
+      )}
+
+      {/* ── Auto-Advance Notification ── */}
+      {sim.autoAdvanceDetected && (
+        <div style={{
+          position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
+          background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',
+          borderRadius: 10, padding: '12px 24px', zIndex: 20000,
+          fontFamily: "'Inter', sans-serif", fontSize: '0.85rem', fontWeight: 700,
+          boxShadow: '0 8px 24px rgba(245,158,11,0.35)',
+          display: 'flex', alignItems: 'center', gap: '0.6rem',
+          animation: 'slideDown 0.3s ease-out',
+        }}>
+          <span style={{ fontSize: '1.2rem' }}>⏰</span>
+          Time expired — your turn was auto-committed with default choices. Now on Round {roundNumber}.
+        </div>
+      )}
 
       {/* ── Block Alert Modal ── */}
       {blockAlert && (

@@ -85,7 +85,7 @@ function DroppableContainer({ id, className, children, label, extraText }) {
             className={`${className} ${isOver ? styles.isOver : ''}`}
         >
             {label && id !== 'bank' && <div className={styles.quadrantHeader}>{label}</div>}
-            {label && id === 'bank' && <div style={{ fontWeight: 'bold', color: 'white', marginBottom: '8px' }}>{label}</div>}
+            {label && id === 'bank' && <div style={{ fontWeight: 'bold', color: '#0f172a', marginBottom: '8px' }}>{label}</div>}
             {extraText && <div className={styles.bgText}>{extraText}</div>}
             {children}
         </div>
@@ -337,8 +337,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         <span className={styles.consultantBadge}>🔍 Consultant Retained</span>
                     )}
                     <div style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)' }}>Q1 Budget Limit</span>
-                        <span style={{ fontWeight: 700, color: isOverBudget ? 'var(--accent-red, #ef4444)' : 'var(--gauge-green, #10b981)' }}>
+                        <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Q1 Budget Limit</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: isOverBudget ? '#ef4444' : '#4ade80' }}>
                             ${(totalQ1Cost / 1_000_000).toFixed(1)}M / ${(csfPool / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
@@ -351,7 +351,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         {isSubmitting ? 'Submitting...' : 'Submit Matrix to CFO'}
                     </button>
                     {onClose && (
-                        <button className={styles.submitBtn} onClick={onClose} style={{ background: 'var(--bg-elevated)', color: 'var(--text-primary)', border: '1px solid var(--border-subtle)' }}>
+                        <button className={styles.submitBtn} onClick={onClose} style={{ background: 'rgba(255,255,255,0.12)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.2)', boxShadow: 'none' }}>
                             Close
                         </button>
                     )}
@@ -470,10 +470,13 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
             {/* Cheat Sheet (Persistent) */}
             {showCheatSheet && (
                 <div className={styles.cheatSheetPanel}>
-                    <h4>McBain & Partners Cheat Sheet</h4>
+                    <h4>📋 McBain & Partners Cheat Sheet</h4>
                     <p><strong>Outside-In (Financial Materiality):</strong> How sustainability issues affect the company\'s cash flows, development, performance, and position.</p>
                     <p><strong>Inside-Out (Impact Materiality):</strong> How the company\'s operations affect people or the environment.</p>
-                    <button onClick={() => setShowCheatSheet(false)} className={styles.closeTabBtn}>Dismiss</button>
+                    <p style={{ fontSize: '0.82rem', color: '#64748b', borderTop: '1px solid #e2e8f0', paddingTop: '0.65rem', marginBottom: '0.5rem' }}>
+                        <strong style={{ color: '#475569' }}>Quadrant 1 (Top-Right):</strong> Issues that are <em>both</em> financially material <em>and</em> have high societal impact — these require CFO-approved capital allocation.
+                    </p>
+                    <button onClick={() => setShowCheatSheet(false)} className={styles.closeTabBtn}>✕ Dismiss</button>
                 </div>
             )}
 

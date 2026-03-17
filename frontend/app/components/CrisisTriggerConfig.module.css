@@ -1,0 +1,307 @@
+/* ═══════════════════════════════════════════════════
+   CrisisTriggerConfig — God Mode Config Panel
+   ═══════════════════════════════════════════════════ */
+
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.topHeader {
+  margin-bottom: 1.5rem;
+}
+
+.topHeader h2 {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 0.3rem;
+}
+
+.topHeader p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Trigger Card ──────────────────────────── */
+
+.triggerCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg, 12px);
+  padding: 1.5rem;
+  margin-bottom: 1.2rem;
+  position: relative;
+  transition: border-color 0.2s;
+}
+
+.triggerCard:hover {
+  border-color: var(--border-accent, rgba(59, 130, 246, 0.3));
+}
+
+.cardHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 1rem;
+}
+
+.cardIcon {
+  font-size: 1.8rem;
+}
+
+.cardTitleWrap {
+  flex: 1;
+}
+
+.cardTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.cardSubtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Toggle Switch ─────────────────────────── */
+
+.toggleWrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.toggleLabel {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.toggleOn  { color: #22c55e; }
+.toggleOff { color: #94a3b8; }
+
+.toggle {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  background: #334155;
+  border-radius: 100px;
+  cursor: pointer;
+  transition: background 0.2s;
+  border: none;
+  padding: 0;
+}
+
+.toggle.active {
+  background: #22c55e;
+}
+
+.toggleDot {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.toggle.active .toggleDot {
+  transform: translateX(20px);
+}
+
+/* ── Form Grid ─────────────────────────────── */
+
+.formGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.formGroupFull {
+  grid-column: 1 / -1;
+}
+
+.formLabel {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.formInput {
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-body);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-family: var(--font-mono, monospace);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.formInput:focus {
+  border-color: #3b82f6;
+}
+
+.formSelect {
+  padding: 0.55rem 0.7rem;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-body);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
+}
+
+.formTextarea {
+  padding: 0.6rem 0.8rem;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-body);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  resize: vertical;
+  min-height: 90px;
+  outline: none;
+  font-family: inherit;
+}
+
+.formTextarea:focus {
+  border-color: #3b82f6;
+}
+
+/* ── Delivery Selector ─────────────────────── */
+
+.deliveryRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.deliveryBtn {
+  flex: 1;
+  padding: 0.5rem 0.6rem;
+  border-radius: var(--radius-md, 6px);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-body);
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: center;
+}
+
+.deliveryBtn.active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+}
+
+/* ── Manual Inject Button ──────────────────── */
+
+.injectRow {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.injectBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md, 6px);
+  border: none;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.injectActivist {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+}
+
+.injectLiquidity {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+}
+
+.injectBtn:hover {
+  transform: translateY(-1px);
+}
+
+.injectBtn:active {
+  transform: translateY(0);
+}
+
+/* ── Save Status ───────────────────────────── */
+
+.saveBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+.saveBtn {
+  padding: 0.6rem 1.5rem;
+  border-radius: var(--radius-md, 6px);
+  border: none;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.3);
+  transition: all 0.15s;
+}
+
+.saveBtn:hover {
+  transform: translateY(-1px);
+}
+
+.savedToast {
+  font-size: 0.75rem;
+  color: #22c55e;
+  font-weight: 600;
+  animation: fadeOut 2s ease-out forwards;
+}
+
+@keyframes fadeOut {
+  0%, 70% { opacity: 1; }
+  100%    { opacity: 0; }
+}
+
+/* ── Responsive ────────────────────────────── */
+
+@media (max-width: 640px) {
+  .formGrid {
+    grid-template-columns: 1fr;
+  }
+}

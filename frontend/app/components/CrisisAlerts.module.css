@@ -1,0 +1,236 @@
+/* ═══════════════════════════════════════════════════
+   CrisisAlerts — Full-screen crisis overlay
+   Red flash = Activist Threat, Amber = Liquidity Panic
+   ═══════════════════════════════════════════════════ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  animation: flashIn 0.4s ease-out;
+  padding: 2rem;
+}
+
+.overlayActivist {
+  background: radial-gradient(ellipse at 40% 30%, rgba(127, 29, 29, 0.96) 0%, rgba(30, 10, 10, 0.98) 70%);
+  backdrop-filter: blur(10px);
+}
+
+.overlayLiquidity {
+  background: radial-gradient(ellipse at 40% 30%, rgba(120, 53, 15, 0.96) 0%, rgba(30, 15, 5, 0.98) 70%);
+  backdrop-filter: blur(10px);
+}
+
+@keyframes flashIn {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  35%  { opacity: 0.6; }
+  50%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+.card {
+  width: 100%;
+  max-width: 600px;
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(40px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Alert Header ──────────────────────────── */
+
+.alertHeader {
+  text-align: center;
+  margin-bottom: 1.4rem;
+}
+
+.alertIcon {
+  font-size: 3rem;
+  display: block;
+  margin-bottom: 0.5rem;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+.alertBadge {
+  display: inline-block;
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  border-radius: 100px;
+  padding: 0.3rem 1rem;
+  margin-bottom: 0.6rem;
+}
+
+.badgeActivist {
+  color: #fca5a5;
+  background: rgba(252, 165, 165, 0.12);
+  border: 1px solid rgba(252, 165, 165, 0.25);
+}
+
+.badgeLiquidity {
+  color: #fcd34d;
+  background: rgba(252, 211, 77, 0.12);
+  border: 1px solid rgba(252, 211, 77, 0.25);
+}
+
+.alertTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  letter-spacing: -0.02em;
+}
+
+.titleActivist { color: #fca5a5; }
+.titleLiquidity { color: #fcd34d; }
+
+/* ── Alert Body ────────────────────────────── */
+
+.alertBody {
+  border-radius: 12px;
+  padding: 1.5rem 1.8rem;
+  margin-bottom: 1.2rem;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+}
+
+.bodyActivist {
+  background: rgba(127, 29, 29, 0.5);
+  border: 1px solid rgba(252, 165, 165, 0.15);
+}
+
+.bodyLiquidity {
+  background: rgba(120, 53, 15, 0.5);
+  border: 1px solid rgba(252, 211, 77, 0.15);
+}
+
+.alertText {
+  font-size: 0.88rem;
+  line-height: 1.75;
+  color: #e2e8f0;
+  margin: 0;
+  white-space: pre-line;
+}
+
+.alertText strong {
+  color: #fff;
+}
+
+/* ── Metric Ribbon ─────────────────────────── */
+
+.metricRibbon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ribbonActivist {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fca5a5;
+}
+
+.ribbonLiquidity {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  color: #fcd34d;
+}
+
+.metricValue {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+/* ── Voice Indicator ───────────────────────── */
+
+.voiceIndicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.voiceDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  animation: voicePulse 1s infinite;
+}
+
+@keyframes voicePulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.7); }
+}
+
+/* ── Actions ───────────────────────────────── */
+
+.actions {
+  text-align: center;
+}
+
+.dismissBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: none;
+  border-radius: 10px;
+  padding: 0.8rem 2.2rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dismissActivist {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+}
+
+.dismissLiquidity {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #fff;
+  box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
+}
+
+.dismissBtn:hover {
+  transform: translateY(-1px) scale(1.02);
+}
+
+.dismissBtn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* ── Responsive ────────────────────────────── */
+
+@media (max-width: 640px) {
+  .alertBody {
+    padding: 1.2rem 1rem;
+  }
+  .alertTitle {
+    font-size: 1.2rem;
+  }
+}

@@ -398,6 +398,55 @@ export default function useSimulation() {
         }
     }, [roundChanged]);
 
+    // ── Auto-advance detection (scheduled mode) ──────────────
+    // Poll dashboard every 10s to detect if the server auto-committed
+    const [autoAdvanceDetected, setAutoAdvanceDetected] = useState(false);
+
+    useEffect(() => {
+        if (!sessionId || sessionId === 'demo' || gameOver) return;
+        let cancelled = false;
+
+        const poll = async () => {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/api/simulations/${sessionId}/dashboard`
+                );
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+
+                // Server round is ahead of client round → auto-committed
+                if (data.current_round > roundNumber && !commitResults) {
+                    console.log(`[AUTO-ADVANCE] Server round ${data.current_round} > client round ${roundNumber}`);
+                    setRoundNumber(data.current_round);
+                    setGlobalState(data.global_state);
+                    setBusinessUnits(data.business_units);
+                    setHistory(data.history || []);
+                    setAutoAdvanceDetected(true);
+                    setRoundChanged(true);
+
+                    // Check for game over
+                    if (data.current_round > 10) {
+                        const flags = data.global_state?.active_event_flags || {};
+                        setFinalReport(flags.profile ? flags : {
+                            profile: 'completed',
+                            profile_title: 'Simulation Completed',
+                            profile_description: 'This simulation has been completed.',
+                        });
+                        setGameOver(true);
+                    } else {
+                        await fetchRoundConfig(data.current_round);
+                    }
+
+                    // Clear the flag after 5s so the alert auto-dismisses
+                    setTimeout(() => { if (!cancelled) setAutoAdvanceDetected(false); }, 5000);
+                }
+            } catch { /* silent */ }
+        };
+
+        const interval = setInterval(poll, 10_000);
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [sessionId, roundNumber, gameOver, commitResults, fetchRoundConfig]);
+
     return {
         // State
         sessionId,
@@ -415,6 +464,7 @@ export default function useSimulation() {
         roundLocked,
         setRoundLocked,
         commitResults,
+        autoAdvanceDetected,
 
         // Actions
         startSession,

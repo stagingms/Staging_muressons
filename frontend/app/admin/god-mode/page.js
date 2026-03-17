@@ -9,6 +9,7 @@ import RoundPacingControl from '../../components/RoundPacingControl';
 import ResourceManager from '../../components/ResourceManager';
 import DecisionParadigmConfig from '../../components/DecisionParadigmConfig';
 import FacilitatorManager from '../../components/FacilitatorManager';
+import CrisisTriggerConfig from '../../components/CrisisTriggerConfig';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -379,6 +380,7 @@ function GodModeDashboard({ authData, onLogout }) {
             items: [
                 { id: 'materiality', label: 'Materiality Matrix', component: 'MaterialityConfig' },
                 { id: 'master_interventions', label: 'Team Interventions', component: 'MasterInterventions' },
+                { id: 'crisis_triggers', label: 'Crisis Triggers', component: 'CrisisTriggerConfig' },
                 { id: 'resources', label: 'Resource Library', component: 'ResourceManager' },
             ]
         },
@@ -418,6 +420,8 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <DecisionParadigmConfig sessions={[]} apiBase={API} />;
             case 'resources':
                 return <ResourceManager />;
+            case 'crisis_triggers':
+                return <CrisisTriggerConfig />;
             case 'facilitator_roles':
                 return <FacilitatorManager />;
             case 'global_reset':

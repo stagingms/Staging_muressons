@@ -46,7 +46,7 @@
 }
 
 .crisisLabel {
-    font-size: 0.7rem;
+    font-size: 0.78rem;
     font-weight: 800;
     letter-spacing: 0.14em;
     color: var(--gauge-red);
@@ -110,7 +110,7 @@
 }
 
 .divider span {
-    font-size: 0.62rem;
+    font-size: 0.72rem;
     font-weight: 800;
     letter-spacing: 0.16em;
     color: var(--text-muted);
@@ -151,7 +151,7 @@
 
 .optLabel {
     font-family: var(--font-mono);
-    font-size: 0.72rem;
+    font-size: 0.78rem;
     font-weight: 800;
     color: var(--opt-accent, var(--accent-blue));
     background: color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 12%, transparent);
@@ -169,7 +169,7 @@
 }
 
 .optDesc {
-    font-size: 0.75rem;
+    font-size: 0.82rem;
     color: var(--text-secondary);
     line-height: 1.5;
     margin-bottom: var(--space-md);
@@ -192,7 +192,7 @@
 }
 
 .impactKey {
-    font-size: 0.62rem;
+    font-size: 0.72rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -201,7 +201,7 @@
 
 .impactVal {
     font-family: var(--font-mono);
-    font-size: 0.68rem;
+    font-size: 0.76rem;
     font-weight: 700;
 }
 
@@ -218,7 +218,7 @@
     position: absolute;
     top: 8px;
     right: 8px;
-    font-size: 0.6rem;
+    font-size: 0.68rem;
     font-weight: 800;
     color: var(--opt-accent, var(--accent-blue));
     background: color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 15%, transparent);
@@ -243,7 +243,7 @@
 }
 
 .disabledBadge {
-    font-size: 0.62rem;
+    font-size: 0.72rem;
     font-weight: 700;
     color: var(--gauge-red);
     background: rgba(239, 68, 68, 0.1);
@@ -373,7 +373,7 @@
 }
 
 .breakdownTitle {
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     font-weight: 800;
     color: var(--accent-cyan, #06b6d4);
     letter-spacing: 0.1em;

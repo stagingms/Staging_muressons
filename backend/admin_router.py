@@ -331,8 +331,117 @@ def is_round_unlocked(session_id: str, round_number: int) -> bool:
     return round_number <= pacing["unlocked_round"]
 
 
+async def _auto_commit_player(player_session_id: str, current_round: int):
+    """Auto-commit a single player session with default option_b."""
+    try:
+        import database as db
+        from engine import process_tick
+        from round_logic import pre_tick, post_tick, get_round_config
+
+        current = await db.fetch_latest_state(player_session_id)
+        if current is None:
+            return False
+
+        # Only auto-commit if player is still on the expected round
+        if current["round_number"] != current_round:
+            return False  # Already committed or ahead
+
+        current_global = {
+            "round_number": current_round,
+            **current["global_state"],
+        }
+        current_bus = current["bu_states"]
+
+        # Build default decisions: option_b, minimal investment
+        bu_ids = ["pharma", "electronics", "consumer_goods", "software"]
+        decisions_raw = [
+            {
+                "bu_id": bu_id,
+                "investment_ratio": 0,
+                "capex_allocated": 1,
+                "choice_selected": "option_b",
+                "decision_node_id": f"auto_round_{current_round}_{bu_id}",
+                "time_to_decision_seconds": 0,
+                "team_consensus": "auto_default",
+                "player_id": "",
+            }
+            for bu_id in bu_ids
+        ]
+
+        # Pre-tick
+        pre_result = pre_tick(
+            round_number=current_round,
+            current_global=current_global,
+            current_bus=current_bus,
+            decisions=decisions_raw,
+            crisis_severity=0,
+        )
+        if "validation_error" in pre_result:
+            # Skip validation errors (e.g., R2 CFO gate) — just advance
+            pass
+
+        effective_crisis = pre_result.get("crisis_severity", 0)
+
+        # Run tick engine
+        tick_result = process_tick(
+            current_global=current_global,
+            current_bus=current_bus,
+            decisions=decisions_raw,
+            dividends_paid=0,
+            crisis_severity=effective_crisis,
+            imitation_decay_rate=0.05,
+        )
+
+        new_round = tick_result["global_state"]["round_number"]
+        new_global = tick_result["global_state"]
+        new_bus = tick_result["bu_states"]
+        events = tick_result["events"]
+        events.update(pre_result.get("pre_events", {}))
+
+        # Post-tick
+        post_events = post_tick(
+            round_number=current_round,
+            global_state=new_global,
+            bu_states=new_bus,
+            decisions=decisions_raw,
+            events=events,
+            previous_flags=current_global.get("active_event_flags", {}),
+        )
+        events.update(post_events)
+        events["auto_committed"] = True
+        events["auto_committed_reason"] = "Scheduled timer expired — default option_b applied"
+        new_global["active_event_flags"] = events
+
+        # Clear saved decisions
+        new_global.pop("saved_allocations", None)
+        new_global.pop("saved_decision_choice", None)
+
+        # Persist
+        await db.insert_next_round(
+            session_id=player_session_id,
+            round_number=new_round,
+            global_state=new_global,
+            bu_states=new_bus,
+            decisions=decisions_raw,
+        )
+
+        # Push notification to player
+        await manager.push_to_session(player_session_id, {
+            "type": "auto_committed",
+            "new_round_number": new_round,
+            "message": "Time expired — your turn was auto-committed with default choices.",
+        })
+
+        print(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
+        return True
+
+    except Exception as exc:
+        print(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
+        return False
+
+
 async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
-    """Background task: unlock next round after `delay_seconds`."""
+    """Background task: auto-commit lagging players, then unlock next round after `delay_seconds`."""
     try:
         if delay_seconds > 0:
             await asyncio.sleep(delay_seconds)
@@ -341,7 +450,37 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
         if not pacing or pacing["mode"] != "timed":
             return
 
-        pacing["unlocked_round"] = pacing["unlocked_round"] + 1
+        current_unlocked = pacing["unlocked_round"]
+
+        # ── Auto-commit lagging players ──────────────────────────
+        # Find all player sub-sessions for this cohort
+        from router import _session_players
+        import database as db
+
+        player_entries = _session_players.get(session_id, [])
+        auto_committed_count = 0
+
+        for player_entry in player_entries:
+            player_sid = player_entry.get("player_session_id")
+            if not player_sid:
+                continue
+
+            # Check if this player is still on the current round
+            try:
+                latest = await db.fetch_latest_state(player_sid)
+                if latest and latest["round_number"] <= current_unlocked:
+                    # Player hasn't committed yet — auto-commit
+                    success = await _auto_commit_player(player_sid, latest["round_number"])
+                    if success:
+                        auto_committed_count += 1
+            except Exception as exc:
+                print(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
+
+        if auto_committed_count > 0:
+            print(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
+
+        # ── Now unlock next round ────────────────────────────────
+        pacing["unlocked_round"] = current_unlocked + 1
         pacing["next_unlock_at"] = None
 
         # Broadcast to players
@@ -349,12 +488,14 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
             "type": "round_unlocked",
             "unlocked_round": pacing["unlocked_round"],
             "mode": "timed",
+            "auto_committed": auto_committed_count,
         })
         await manager.broadcast_admin({
             "type": "pacing_update",
             "session_id": session_id,
             "unlocked_round": pacing["unlocked_round"],
             "mode": "timed",
+            "auto_committed": auto_committed_count,
         })
     except asyncio.CancelledError:
         pass
