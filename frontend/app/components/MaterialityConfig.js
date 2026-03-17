@@ -1,0 +1,783 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import styles from './MaterialityConfig.module.css';
+
+const API = process.env.NEXT_PUBLIC_API_URL || '';
+
+export default function MaterialityConfig({ sessionId, isFacilitator }) {
+    const [config, setConfig] = useState({ issues: [], interdependencies: [], consultant_fee_usd: 1500000 });
+    const [isSandboxed, setIsSandboxed] = useState(false);
+    const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState('economic');
+    const [showConfigurator, setShowConfigurator] = useState(false);
+
+    // Dictionary selector: 'global' or a BU ID
+    const [selectedDict, setSelectedDict] = useState('global');
+    const DICT_OPTIONS = [
+        { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐' },
+        { id: 'pharma', label: 'Pharma', icon: '💊' },
+        { id: 'electronics', label: 'Electronics', icon: '⚡' },
+        { id: 'consumer_goods', label: 'Consumer Goods', icon: '🛒' },
+        { id: 'software', label: 'Software', icon: '💻' },
+    ];
+
+    // Form state for new issue
+    const [newIssue, setNewIssue] = useState({
+        id: '', title: '', hover_description: '',
+        category: 'economic', financial_impact: 'medium', societal_impact: 'medium'
+    });
+
+    // Form state for new interdependence link
+    const [newLink, setNewLink] = useState({
+        source_issue_id: '', target_issue_id: '', severity: 3, description: ''
+    });
+
+    const [feeInput, setFeeInput] = useState('');
+
+    useEffect(() => {
+        fetchConfig();
+    }, [selectedDict]);
+
+    // Build the correct API endpoint based on selectedDict
+    const getBaseEndpoint = () => {
+        if (selectedDict === 'global') {
+            return `${API}/api/admin/materiality-config`;
+        }
+        return `${API}/api/admin/materiality-config/bu/${selectedDict}`;
+    };
+
+    const fetchConfig = async () => {
+        setLoading(true);
+        try {
+            // First, see if the session has an active sandbox override
+            let sandboxConfig = null;
+            if (sessionId) {
+                const sessionRes = await fetch(`${API}/api/simulations/${sessionId}/state`);
+                if (sessionRes.ok) {
+                    const sessionData = await sessionRes.json();
+                    // Check for BU-specific override or global override
+                    const overrideKey = selectedDict === 'global'
+                        ? 'materiality_dictionary_override'
+                        : `materiality_dictionary_override_${selectedDict}`;
+                    if (sessionData.global_state?.[overrideKey]) {
+                        sandboxConfig = sessionData.global_state[overrideKey];
+                        setIsSandboxed(true);
+                    }
+                }
+            }
+
+            // If a sandbox override exists, use it. Otherwise, fetch the God Mode config.
+            if (sandboxConfig) {
+                setConfig(sandboxConfig);
+                setFeeInput(sandboxConfig.consultant_fee_usd?.toString() || "1500000");
+            } else {
+                const res = await fetch(getBaseEndpoint());
+                if (res.ok) {
+                    const data = await res.json();
+                    setConfig(data);
+                    setFeeInput(data.consultant_fee_usd?.toString() || "1500000");
+                    setIsSandboxed(false);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch materiality config', err);
+        }
+        setLoading(false);
+    };
+
+    const handleToggleSandbox = async () => {
+        if (!sessionId) return;
+
+        if (isSandboxed) {
+            if (!confirm("Are you sure you want to disable the custom dictionary? This cohort will revert to the global God Mode defaults, and all local changes will be lost.")) return;
+            try {
+                await fetch(`${API}/api/admin/${sessionId}/materiality-dictionary`, { method: 'DELETE' });
+                setIsSandboxed(false);
+                fetchConfig(); // Reload from master
+            } catch (err) {
+                console.error(err);
+            }
+        } else {
+            if (!confirm("Enable Sandbox Mode? This will clone the current global dictionary so you can make local edits just for this cohort.")) return;
+            try {
+                // The current `config` is the master. Save it as the override.
+                await fetch(`${API}/api/admin/${sessionId}/materiality-dictionary`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config)
+                });
+                setIsSandboxed(true);
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    };
+
+    // Generic save function that routes to either the generic API or the cohort override API
+    const saveUpdatedConfig = async (updatedConfig) => {
+        try {
+            const endpoint = isSandboxed
+                ? `${API}/api/admin/${sessionId}/materiality-dictionary`
+                : getBaseEndpoint();
+
+            const res = await fetch(endpoint, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                // If we called the sandbox endpoint, the response shape is { status, message }
+                // So we just update local state directly instead of relying on echo
+                if (isSandboxed) {
+                    setConfig(updatedConfig);
+                } else {
+                    setConfig(data);
+                }
+                return true;
+            } else {
+                alert("Failed to save configuration.");
+                return false;
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Network error while saving.");
+            return false;
+        }
+    };
+
+    // Direct cost edit (Optimistic UI update)
+    const handleSaveOverrideCost = async (issueId, newCost) => {
+        const updatedIssues = config.issues.map(i => i.id === issueId ? { ...i, mitigation_cost_usd: newCost } : i);
+        const updatedConfig = { ...config, issues: updatedIssues };
+        setConfig(updatedConfig); // Optimistic wait
+        await saveUpdatedConfig(updatedConfig);
+    };
+
+    const handleUpdateFee = async () => {
+        const fee = parseInt(feeInput, 10);
+        if (isNaN(fee)) return;
+
+        const updatedConfig = { ...config, consultant_fee_usd: fee };
+        if (await saveUpdatedConfig(updatedConfig)) {
+            alert('Consultant Fee Updated!');
+        }
+    };
+
+    const handleAddIssue = async (e) => {
+        e.preventDefault();
+        const issueToSubmit = { ...newIssue, category: activeTab };
+        if (!issueToSubmit.id) {
+            issueToSubmit.id = issueToSubmit.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        }
+
+        const updatedConfig = { ...config, issues: [...config.issues, issueToSubmit] };
+        if (await saveUpdatedConfig(updatedConfig)) {
+            setNewIssue({ id: '', title: '', hover_description: '', category: activeTab, financial_impact: 'medium', societal_impact: 'medium' });
+        }
+    };
+
+    const handleDeleteIssue = async (id) => {
+        if (!confirm(`Are you sure you want to delete issue "${id}"?`)) return;
+
+        const updatedConfig = { ...config, issues: config.issues.filter(i => i.id !== id) };
+        await saveUpdatedConfig(updatedConfig);
+    };
+
+    const handleAddLink = async (e) => {
+        e.preventDefault();
+        if (!newLink.source_issue_id || !newLink.target_issue_id || newLink.source_issue_id === newLink.target_issue_id) {
+            alert('Please select two distinct issues.');
+            return;
+        }
+
+        const linkToSubmit = {
+            ...newLink,
+            id: `${newLink.source_issue_id}_to_${newLink.target_issue_id}_${Date.now()}`
+        };
+
+        try {
+            // Re-use current config and just append the link
+            const updatedConfig = { ...config, interdependencies: [...config.interdependencies, linkToSubmit] };
+            const res = await fetch(`${API}/api/admin/materiality-config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setConfig(data);
+                setNewLink({ source_issue_id: '', target_issue_id: '', severity: 3, description: '' });
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDeleteLink = async (linkId) => {
+        try {
+            const updatedConfig = { ...config, interdependencies: config.interdependencies.filter(l => l.id !== linkId) };
+            const res = await fetch(`${API}/api/admin/materiality-config`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedConfig)
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setConfig(data);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleCSVUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const text = event.target.result;
+
+            // Basic CSV parser to handle quotes
+            const parseCSVLine = (line) => {
+                let ret = [], inQuote = false, value = '';
+                for (let i = 0; i < line.length; i++) {
+                    let char = line[i];
+                    if (inQuote) {
+                        if (char === '"') {
+                            if (i + 1 < line.length && line[i + 1] === '"') { value += '"'; i++; }
+                            else { inQuote = false; }
+                        } else { value += char; }
+                    } else {
+                        if (char === '"') { inQuote = true; }
+                        else if (char === ',') { ret.push(value); value = ''; }
+                        else { value += char; }
+                    }
+                }
+                ret.push(value);
+                return ret;
+            };
+
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length < 2) return alert('CSV must have a header row and at least one data row.');
+
+            // Normalize headers
+            const normalizeHeader = (h) => {
+                const lower = h.trim().toLowerCase();
+                if (lower === 'interdependency 1') return 'interdependency_1';
+                if (lower === 'interdependency 2') return 'interdependency_2';
+                if (lower === 'other affected bu1') return 'affected_bu_1';
+                if (lower === 'other affected bu2') return 'affected_bu_2';
+                return lower;
+            };
+            const headers = parseCSVLine(lines[0]).map(normalizeHeader);
+
+            const required = ['title', 'category'];
+            if (required.some(r => !headers.includes(r))) {
+                return alert(`Missing headers. Your CSV must at least have: ${required.join(', ')}`);
+            }
+
+            const newIssues = [];
+            for (let i = 1; i < lines.length; i++) {
+                const parsed = parseCSVLine(lines[i]);
+                if (parsed.length < headers.length) continue;
+
+                const issue = {
+                    financial_impact: "medium", // Fallbacks if user omitted them in new schema
+                    societal_impact: "medium",
+                    hover_description: "Added via CSV upload"
+                };
+                headers.forEach((h, idx) => {
+                    if (parsed[idx]) issue[h] = parsed[idx].trim();
+                });
+
+                if (!issue.title) continue;
+                if (!issue.id) {
+                    issue.id = issue.title.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                }
+
+                // Parse the mitigation cost specifically
+                issue.mitigation_cost_usd = parseInt(issue.mitigation_cost_usd, 10);
+                if (isNaN(issue.mitigation_cost_usd)) issue.mitigation_cost_usd = 0;
+
+                newIssues.push(issue);
+            }
+
+            if (!confirm(`Found ${newIssues.length} issues. This will REPLACE your entire existing dictionary. Proceed?`)) return;
+
+            const updatedConfig = { ...config, issues: newIssues, interdependencies: [] };
+
+            try {
+                const res = await fetch(`${API}/api/admin/materiality-config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setConfig(data);
+                    alert(`Successfully imported and replaced dictionary with ${newIssues.length} issues!`);
+                } else {
+                    alert("Failed to save imported issues via API.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error while importing issues.");
+            }
+        };
+        reader.readAsText(file);
+        // reset input so the same file can be uploaded again if needed
+        e.target.value = '';
+    };
+
+    const handleInterdependenciesCSVUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const text = event.target.result;
+
+            const parseCSVLine = (line) => {
+                let ret = [], inQuote = false, value = '';
+                for (let i = 0; i < line.length; i++) {
+                    let char = line[i];
+                    if (inQuote) {
+                        if (char === '"') {
+                            if (i + 1 < line.length && line[i + 1] === '"') { value += '"'; i++; }
+                            else { inQuote = false; }
+                        } else { value += char; }
+                    } else {
+                        if (char === '"') { inQuote = true; }
+                        else if (char === ',') { ret.push(value); value = ''; }
+                        else { value += char; }
+                    }
+                }
+                ret.push(value);
+                return ret;
+            };
+
+            const lines = text.split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length < 2) return alert('CSV must have a header row and at least one data row.');
+
+            const headers = parseCSVLine(lines[0]).map(h => h.trim().toLowerCase());
+            const required = ['source_issue_id', 'target_issue_id', 'severity', 'description'];
+            if (required.some(r => !headers.includes(r))) {
+                return alert(`Missing headers. Your CSV must have: ${required.join(', ')}`);
+            }
+
+            const newLinks = [];
+            for (let i = 1; i < lines.length; i++) {
+                const parsed = parseCSVLine(lines[i]);
+                if (parsed.length < headers.length) continue;
+
+                const link = {};
+                headers.forEach((h, idx) => {
+                    if (parsed[idx]) link[h] = parsed[idx].trim();
+                });
+
+                if (!link.source_issue_id || !link.target_issue_id) continue;
+
+                link.severity = parseInt(link.severity, 10);
+                if (isNaN(link.severity) || link.severity < 1 || link.severity > 5) link.severity = 3;
+
+                link.id = `${link.source_issue_id}_to_${link.target_issue_id}_${Date.now()}_${i}`;
+                newLinks.push(link);
+            }
+
+            if (!confirm(`Found ${newLinks.length} interdependencies. This will REPLACE your existing links. Proceed?`)) return;
+
+            const updatedConfig = { ...config, interdependencies: newLinks };
+
+            try {
+                const res = await fetch(`${API}/api/admin/materiality-config`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updatedConfig)
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setConfig(data);
+                    alert(`Successfully imported and replaced ${newLinks.length} interdependencies!`);
+                } else {
+                    alert("Failed to save imported links via API.");
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Network error while importing links.");
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    };
+
+    if (loading) return <div>Loading configuration...</div>;
+
+    const filteredIssues = config.issues.filter(i => i.category === activeTab);
+
+    return (
+        <div className={styles.container}>
+            <div className={styles.header}>
+                <h2>⚙️ Materiality Matrix Configurator</h2>
+            </div>
+
+            {/* Dictionary Selector */}
+            <div style={{
+                display: 'flex', gap: '6px', padding: '0.75rem 0', flexWrap: 'wrap',
+                borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem'
+            }}>
+                {DICT_OPTIONS.map(opt => (
+                    <button
+                        key={opt.id}
+                        onClick={() => { setSelectedDict(opt.id); setShowConfigurator(false); }}
+                        style={{
+                            padding: '6px 14px', borderRadius: '20px', cursor: 'pointer',
+                            fontSize: '0.78rem', fontWeight: 600, border: '1.5px solid',
+                            transition: 'all 0.15s',
+                            background: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'transparent',
+                            color: selectedDict === opt.id ? '#fff' : 'var(--text-primary, #334155)',
+                            borderColor: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'var(--border-subtle, #d1d5db)',
+                        }}
+                    >
+                        {opt.icon} {opt.label}
+                    </button>
+                ))}
+            </div>
+
+            {selectedDict !== 'global' && (
+                <div style={{
+                    padding: '0.6rem 0.8rem', background: '#eff6ff', borderLeft: '4px solid #3b82f6',
+                    borderRadius: '4px', marginBottom: '1rem', fontSize: '0.82rem', color: '#1e40af'
+                }}>
+                    📌 You are editing the <strong>{DICT_OPTIONS.find(o => o.id === selectedDict)?.label}</strong> issue dictionary.
+                    This dictionary is used when the <strong>Strategic Pillars</strong> paradigm is active and this BU is randomly selected for Round 2 materiality analysis.
+                </div>
+            )}
+
+            {!showConfigurator && (
+                <div className={styles.gatePrompt}>
+                    <div className={styles.gateIcon}>
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
+                    </div>
+                    <p className={styles.gateText}>
+                        The Materiality Matrix defines the core issue dictionary, interdependencies, and consultant fees used across <strong>all cohorts</strong>. Modifying these values will affect <strong>all future simulation runs</strong>.
+                    </p>
+                    <button
+                        className={styles.gateBtn}
+                        onClick={() => setShowConfigurator(true)}
+                    >Edit Materiality Matrix</button>
+                </div>
+            )}
+
+            {showConfigurator && (<>
+
+            {/* Consultant Fee Section */}
+            <div className={styles.section}>
+                <h3>Consultant Lifeline Settings</h3>
+                <div className={styles.formGroup}>
+                    <label>Big 4 Consultant Fee (USD)</label>
+                    <input
+                        type="number"
+                        className={styles.input}
+                        value={feeInput}
+                        onChange={(e) => setFeeInput(e.target.value)}
+                        style={{ maxWidth: '300px' }}
+                    />
+                    <button className={`${styles.btnPrimary} ${styles.saveFeeBtn}`} onClick={handleUpdateFee}>
+                        Save Fee
+                    </button>
+                    <small style={{ color: 'var(--text-muted)' }}>
+                        This fee is deducted from the Corporate Treasury when the player clicks "Hire Consultant" in Round 2.
+                    </small>
+                </div>
+            </div>
+
+            {/* Issue Dictionary Section */}
+            <div className={styles.section}>
+                {sessionId ? (
+                    <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderLeft: `4px solid ${isSandboxed ? 'var(--accent-orange)' : 'var(--border-subtle)'}`, marginBottom: '1.5rem', borderRadius: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                            <h4 style={{ margin: 0, color: isSandboxed ? 'var(--accent-orange)' : 'var(--text-primary)' }}>
+                                Cohort Override Sandbox
+                            </h4>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={isSandboxed}
+                                    onChange={handleToggleSandbox}
+                                />
+                                <strong>Enable Custom Dictionary</strong>
+                            </label>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                            {isSandboxed
+                                ? `You are editing a fully custom dictionary strictly for ${sessionId}. Structure (Add/Delete/Costs) is completely editable locally.`
+                                : `Viewing the global "God Mode" dictionary. Enable the custom dictionary to make cohort-specific changes.`}
+                        </p>
+                    </div>
+                ) : isFacilitator ? (
+                    <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderLeft: '4px solid var(--accent-blue)', marginBottom: '1.5rem', borderRadius: '4px' }}>
+                        <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                            Select a session from the Leaderboard to override issue costs for a specific cohort. Global structural changes are disabled in Facilitator mode.
+                        </p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3>The Issue Dictionary</h3>
+                        {!isFacilitator && (
+                            <div>
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    id="csvUpload"
+                                    style={{ display: 'none' }}
+                                    onChange={handleCSVUpload}
+                                />
+                                <button
+                                    className={styles.btnPrimary}
+                                    style={{ background: 'var(--accent-green)', borderColor: 'var(--accent-green)' }}
+                                    onClick={() => document.getElementById('csvUpload').click()}
+                                >
+                                    <span style={{ marginRight: '8px' }}>📁</span> Override with CSV
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                <div className={styles.tabs}>
+                    {['economic', 'ecological', 'social'].map(tab => (
+                        <button
+                            key={tab}
+                            className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`}
+                            onClick={() => setActiveTab(tab)}
+                        >
+                            {tab.charAt(0).toUpperCase() + tab.slice(1)} Issues
+                        </button>
+                    ))}
+                </div>
+
+                <div className={styles.issueList}>
+                    {filteredIssues.map(issue => {
+                        return (
+                            <div key={issue.id} className={styles.issueCard}>
+                                <div className={styles.issueInfo}>
+                                    <h4>{issue.title}</h4>
+                                    <p className={styles.issueDesc}>{issue.hover_description}</p>
+                                    <div className={styles.impactBadges}>
+                                        <span className={`${styles.badge} ${styles[issue.financial_impact]}`}>
+                                            Fin: {issue.financial_impact.toUpperCase()}
+                                        </span>
+                                        <span className={`${styles.badge} ${styles[issue.societal_impact]}`}>
+                                            Impact: {issue.societal_impact.toUpperCase()}
+                                        </span>
+                                        {sessionId && isSandboxed ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-muted)' }}>Cost Override: $</span>
+                                                <input
+                                                    type="number"
+                                                    className={styles.input}
+                                                    style={{ padding: '0.2rem 0.5rem', width: '120px' }}
+                                                    value={issue.mitigation_cost_usd}
+                                                    onChange={(e) => {
+                                                        const updatedIssues = config.issues.map(i => i.id === issue.id ? { ...i, mitigation_cost_usd: parseInt(e.target.value) || 0 } : i);
+                                                        setConfig({ ...config, issues: updatedIssues });
+                                                    }}
+                                                    onBlur={(e) => handleSaveOverrideCost(issue.id, parseInt(e.target.value) || 0)}
+                                                />
+                                            </div>
+                                        ) : (
+                                            <span className={`${styles.badge}`} style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border-subtle)' }}>
+                                                Cost: ${Number(issue.mitigation_cost_usd || 0).toLocaleString()}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                {(!sessionId || isSandboxed) && (
+                                    <div className={styles.issueActions}>
+                                        <button className={styles.btnDanger} onClick={() => handleDeleteIssue(issue.id)}>Delete</button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })}
+                    {filteredIssues.length === 0 && (
+                        <p style={{ color: 'var(--text-muted)' }}>No issues found in this category.</p>
+                    )}
+                </div>
+
+                {/* Add New Issue Form (Global or Sandboxed Cohort) */}
+                {(!sessionId || isSandboxed) && (
+                    <form className={styles.addForm} onSubmit={handleAddIssue}>
+                        <h4 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--accent-blue)' }}>Add New {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Issue</h4>
+                        <div className={styles.formRow}>
+                            <div className={styles.formGroup}>
+                                <label>Internal ID (optional, auto-generated)</label>
+                                <input className={styles.input} value={newIssue.id} onChange={e => setNewIssue({ ...newIssue, id: e.target.value })} placeholder="e.g. water_scarcity" />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>Title</label>
+                                <input className={styles.input} required value={newIssue.title} onChange={e => setNewIssue({ ...newIssue, title: e.target.value })} placeholder="e.g. Water Scarcity in Deccan Plateau" />
+                            </div>
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label>Hover Description (Tooltip)</label>
+                            <input className={styles.input} required value={newIssue.hover_description} onChange={e => setNewIssue({ ...newIssue, hover_description: e.target.value })} placeholder="Short description shown on hover..." />
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.formGroup}>
+                                <label>Financial Materiality (Enterprise Value)</label>
+                                <select className={styles.select} value={newIssue.financial_impact} onChange={e => setNewIssue({ ...newIssue, financial_impact: e.target.value })}>
+                                    <option value="low">Low Impact</option>
+                                    <option value="medium">Medium Impact</option>
+                                    <option value="high">High Impact</option>
+                                </select>
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>Impact Materiality (People/Planet)</label>
+                                <select className={styles.select} value={newIssue.societal_impact} onChange={e => setNewIssue({ ...newIssue, societal_impact: e.target.value })}>
+                                    <option value="low">Low Impact</option>
+                                    <option value="medium">Medium Impact</option>
+                                    <option value="high">High Impact</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.formGroup}>
+                                <label>Stakeholders Group</label>
+                                <input className={styles.input} value={newIssue.stakeholders_group || ''} onChange={e => setNewIssue({ ...newIssue, stakeholders_group: e.target.value })} placeholder="e.g. External; Activist" />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>Stakeholders Subgroup</label>
+                                <input className={styles.input} value={newIssue.stakeholders_subgroup || ''} onChange={e => setNewIssue({ ...newIssue, stakeholders_subgroup: e.target.value })} placeholder="e.g. Patients; Digital Rights Activists" />
+                            </div>
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label>Nature of Impact</label>
+                            <input className={styles.input} value={newIssue.nature_of_impact || ''} onChange={e => setNewIssue({ ...newIssue, nature_of_impact: e.target.value })} placeholder="e.g. Identity theft risk..." />
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.formGroup}>
+                                <label>Affected BU 1</label>
+                                <select className={styles.select} value={newIssue.affected_bu_1 || ''} onChange={e => setNewIssue({ ...newIssue, affected_bu_1: e.target.value })}>
+                                    <option value="">None / Corporate</option>
+                                    <option value="pharma">Pharma</option>
+                                    <option value="electronics">Electronics</option>
+                                    <option value="consumer_goods">Consumer Goods</option>
+                                    <option value="software">Software</option>
+                                </select>
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>Affected BU 2 (Optional)</label>
+                                <select className={styles.select} value={newIssue.affected_bu_2 || ''} onChange={e => setNewIssue({ ...newIssue, affected_bu_2: e.target.value })}>
+                                    <option value="">None</option>
+                                    <option value="pharma">Pharma</option>
+                                    <option value="electronics">Electronics</option>
+                                    <option value="consumer_goods">Consumer Goods</option>
+                                    <option value="software">Software</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div className={styles.formGroup}>
+                            <label>Mitigation Cost (USD)</label>
+                            <input type="number" className={styles.input} value={newIssue.mitigation_cost_usd} onChange={e => setNewIssue({ ...newIssue, mitigation_cost_usd: parseInt(e.target.value) || 0 })} placeholder="0" />
+                        </div>
+                        <button type="submit" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }}>+ Add Issue</button>
+                    </form>
+                )}
+            </div>
+
+            {/* Interdependence Matrix Section (Global Only) */}
+            {(!sessionId || isSandboxed) && (
+                <div className={styles.section}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                            <h3>Interdependence Matrix</h3>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+                                Define how perspectives are interconnected (e.g. an Ecological impact leading to future Financial risks).
+                            </p>
+                        </div>
+                        {!isFacilitator && (
+                            <div style={{ marginTop: '1rem' }}>
+                                <input
+                                    type="file"
+                                    accept=".csv"
+                                    id="interdepsCsvUpload"
+                                    style={{ display: 'none' }}
+                                    onChange={handleInterdependenciesCSVUpload}
+                                />
+                                <button
+                                    className={styles.btnPrimary}
+                                    style={{ background: 'var(--accent-green)', borderColor: 'var(--accent-green)' }}
+                                    onClick={() => document.getElementById('interdepsCsvUpload').click()}
+                                >
+                                    <span style={{ marginRight: '8px' }}>📁</span> Override with CSV
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className={styles.issueList}>
+                        {config.interdependencies.map(link => {
+                            const source = config.issues.find(i => i.id === link.source_issue_id);
+                            const target = config.issues.find(i => i.id === link.target_issue_id);
+                            return (
+                                <div key={link.id} className={styles.issueCard}>
+                                    <div className={styles.issueInfo}>
+                                        <h4>{source?.title || link.source_issue_id} <span style={{ color: 'var(--accent-blue)' }}>➔</span> {target?.title || link.target_issue_id}</h4>
+                                        <p className={styles.issueDesc}>{link.description}</p>
+                                        <div className={styles.impactBadges}>
+                                            <span className={styles.badge} style={{ border: '1px solid var(--accent-blue)' }}>Severity: {link.severity}/5</span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.issueActions}>
+                                        <button className={styles.btnDanger} onClick={() => handleDeleteLink(link.id)}>Remove</button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {config.interdependencies.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No interdependencies mapped.</p>}
+                    </div>
+
+                    <form className={styles.addForm} onSubmit={handleAddLink}>
+                        <h4 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--accent-blue)' }}>Map New Interdependence</h4>
+                        <div className={styles.formRow}>
+                            <div className={styles.formGroup}>
+                                <label>Source Issue</label>
+                                <select className={styles.select} required value={newLink.source_issue_id} onChange={e => setNewLink({ ...newLink, source_issue_id: e.target.value })}>
+                                    <option value="">-- Select Source --</option>
+                                    {config.issues.map(i => <option key={i.id} value={i.id}>{i.title}</option>)}
+                                </select>
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>Target Issue</label>
+                                <select className={styles.select} required value={newLink.target_issue_id} onChange={e => setNewLink({ ...newLink, target_issue_id: e.target.value })}>
+                                    <option value="">-- Select Target --</option>
+                                    {config.issues.map(i => <option key={i.id} value={i.id}>{i.title}</option>)}
+                                </select>
+                            </div>
+                        </div>
+                        <div className={styles.formRow}>
+                            <div className={styles.formGroup}>
+                                <label>Link Description (How are they related?)</label>
+                                <input className={styles.input} required value={newLink.description} onChange={e => setNewLink({ ...newLink, description: e.target.value })} placeholder="e.g. Pollution leads to regulatory fines." />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>Severity (1-5)</label>
+                                <input className={styles.input} type="number" min="1" max="5" value={newLink.severity} onChange={e => setNewLink({ ...newLink, severity: parseInt(e.target.value, 10) })} />
+                            </div>
+                        </div>
+                        <button type="submit" className={styles.btnPrimary} style={{ marginTop: '0.5rem' }}>+ Link Issues</button>
+                    </form>
+                </div>
+            )}
+            </>)}
+        </div >
+    );
+}

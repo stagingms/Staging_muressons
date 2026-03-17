@@ -1,0 +1,78 @@
+{
+  "consultant_fee_usd": 1500000,
+  "issues": [
+    {
+      "id": "api_leakage",
+      "title": "API Leakage into Water Table",
+      "hover_description": "Active Pharmaceutical Ingredients contaminating groundwater near Deccan Plateau facilities",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1800000
+    },
+    {
+      "id": "drug_safety",
+      "title": "Drug Safety & Pharmacovigilance",
+      "hover_description": "Post-market adverse events and potential product liability lawsuits",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 7500000
+    },
+    {
+      "id": "clinical_trial_ethics",
+      "title": "Clinical Trial Ethics",
+      "hover_description": "Informed consent gaps in emerging market trial sites",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 3000000
+    },
+    {
+      "id": "water_scarcity_pharma",
+      "title": "Water Scarcity for Manufacturing",
+      "hover_description": "High water dependency for pharma ops; Deccan aquifer depletion",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2500000
+    },
+    {
+      "id": "generic_access",
+      "title": "Generic Drug Access Barriers",
+      "hover_description": "Patent evergreening blocking affordable medicine access",
+      "category": "social",
+      "financial_impact": "medium",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1200000
+    },
+    {
+      "id": "cold_chain_carbon",
+      "title": "Cold Chain Carbon Footprint",
+      "hover_description": "Refrigerated logistics responsible for 12% of pharma Scope 3",
+      "category": "ecological",
+      "financial_impact": "medium",
+      "societal_impact": "medium",
+      "mitigation_cost_usd": 800000
+    },
+    {
+      "id": "pharma_paper_recycling",
+      "title": "Office Paper Recycling at Labs",
+      "hover_description": "Minor environmental gesture with negligible impact",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 50000
+    },
+    {
+      "id": "pharma_earth_day",
+      "title": "Pharma Earth Day Campaign",
+      "hover_description": "Annual PR event with no material ESG impact",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 25000
+    }
+  ],
+  "interdependencies": []
+}

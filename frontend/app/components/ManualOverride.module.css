@@ -1,0 +1,174 @@
+/* ManualOverride.module.css */
+
+.panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+}
+
+.header h2 {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.noSession {
+    margin-left: auto;
+    font-size: 0.68rem;
+    color: var(--gauge-yellow);
+    font-weight: 600;
+}
+
+.overrides {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+    padding: var(--space-lg);
+}
+
+.card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    transition: all var(--transition-normal);
+}
+
+.card:hover {
+    border-color: var(--ov-color, var(--border-active));
+    box-shadow: 0 0 16px color-mix(in srgb, var(--ov-color, var(--accent-blue)) 20%, transparent);
+}
+
+.cardHeader {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-sm);
+}
+
+.ovIcon {
+    font-size: 1.5rem;
+}
+
+.ovTitle {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.dangerBadge {
+    font-size: 0.55rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+.high {
+    color: var(--gauge-yellow);
+    background: rgba(245, 158, 11, 0.12);
+}
+
+.critical {
+    color: var(--gauge-red);
+    background: rgba(239, 68, 68, 0.12);
+    animation: flash-unread 2s ease-in-out infinite;
+}
+
+.ovDesc {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    margin-bottom: var(--space-md);
+}
+
+.activateBtn {
+    width: 100%;
+    padding: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ov-color, var(--accent-blue));
+    background: color-mix(in srgb, var(--ov-color, var(--accent-blue)) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--ov-color, var(--accent-blue)) 25%, transparent);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.activateBtn:hover {
+    background: color-mix(in srgb, var(--ov-color, var(--accent-blue)) 15%, transparent);
+}
+
+.activateBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.confirmRow {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.confirmText {
+    font-size: 0.7rem;
+    color: var(--gauge-red);
+    font-weight: 700;
+    flex: 1;
+}
+
+.cancelBtn {
+    padding: 6px 12px;
+    font-size: 0.7rem;
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.executeBtn {
+    padding: 6px 14px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #fff;
+    background: var(--gauge-red);
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.executeBtn:hover {
+    box-shadow: var(--glow-red);
+}
+
+.resultBar {
+    margin-top: var(--space-sm);
+    padding: 6px 10px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    background: rgba(16, 185, 129, 0.08);
+    color: var(--gauge-green);
+}
+
+.resultBar.resultError {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--gauge-red);
+}
+
+@media (max-width: 900px) {
+    .overrides {
+        grid-template-columns: 1fr;
+    }
+}

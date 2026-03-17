@@ -1,0 +1,290 @@
+/* SwipeFile.module.css */
+
+.panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+}
+
+.header h2 {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-sm);
+    padding: var(--space-lg);
+}
+
+.preset {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: var(--space-md);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    text-align: center;
+}
+
+.preset:hover {
+    border-color: var(--preset-color, var(--border-active));
+    box-shadow: 0 0 14px color-mix(in srgb, var(--preset-color, var(--accent-blue)) 20%, transparent);
+    transform: translateY(-1px);
+}
+
+.preset:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.preset.sent {
+    border-color: var(--gauge-green);
+    background: rgba(16, 185, 129, 0.06);
+}
+
+.presetLabel {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.trigger {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--preset-color, var(--text-muted));
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.spinner {
+    font-size: 0.8rem;
+}
+
+.sentBadge {
+    position: absolute;
+    top: 4px;
+    right: 6px;
+    font-size: 0.55rem;
+    font-weight: 800;
+    color: var(--gauge-green);
+    animation: fadeInUp 0.2s ease-out;
+}
+
+/* Custom message */
+.customSection {
+    border-top: 1px solid var(--border-subtle);
+    padding: var(--space-md) var(--space-lg);
+}
+
+.customToggle {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+    transition: color var(--transition-fast);
+}
+
+.customToggle:hover {
+    color: var(--text-primary);
+}
+
+.customForm {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    margin-top: var(--space-sm);
+}
+
+.customInput {
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    outline: none;
+}
+
+.customInput:focus {
+    border-color: var(--border-active);
+}
+
+.customTextarea {
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    resize: vertical;
+    outline: none;
+    font-family: inherit;
+}
+
+.customTextarea:focus {
+    border-color: var(--border-active);
+}
+
+.customSend {
+    align-self: flex-end;
+    padding: 8px 20px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.customSend:hover {
+    box-shadow: var(--glow-blue);
+}
+
+.customSend:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── New Preset Button in Header ──────────────────────────── */
+.addPresetBtn {
+    margin-left: auto;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 5px 14px;
+    border-radius: var(--radius-full, 999px);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    background: rgba(99, 102, 241, 0.08);
+    color: var(--accent-indigo, #6366f1);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.addPresetBtn:hover {
+    background: rgba(99, 102, 241, 0.18);
+    border-color: rgba(99, 102, 241, 0.5);
+}
+
+/* ── Create Preset Form ───────────────────────────────────── */
+.createPresetForm {
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(99, 102, 241, 0.03);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.createRow {
+    display: flex;
+    gap: var(--space-sm);
+    align-items: flex-end;
+}
+
+.createField {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.createField label {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.colorPicker {
+    width: 100%;
+    height: 34px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: var(--bg-elevated);
+    cursor: pointer;
+    padding: 2px;
+}
+
+.createSaveBtn {
+    align-self: flex-end;
+    padding: 8px 24px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-indigo, #6366f1), var(--accent-purple, #8b5cf6));
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.createSaveBtn:hover {
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);
+}
+
+.createSaveBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Custom Preset Card Style ─────────────────────────────── */
+.customPresetCard {
+    border-style: dashed;
+    position: relative;
+}
+
+.deletePresetBtn {
+    position: absolute;
+    top: 3px;
+    right: 5px;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0;
+    transition: all 0.2s;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.deletePresetBtn:hover {
+    color: var(--gauge-red, #ef4444);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.preset:hover .deletePresetBtn {
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .createRow {
+        flex-wrap: wrap;
+    }
+}

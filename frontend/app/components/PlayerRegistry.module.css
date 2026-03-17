@@ -1,0 +1,378 @@
+/* PlayerRegistry.module.css */
+
+.panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+}
+
+.header h2 {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.counts {
+    margin-left: auto;
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.countWaiting,
+.countPlaying {
+    font-size: 0.62rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: var(--radius-full, 999px);
+}
+
+.countWaiting {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+}
+
+.countPlaying {
+    background: rgba(16, 185, 129, 0.12);
+    color: #10b981;
+}
+
+/* ── Register Form ──────────────────────────────────────── */
+.registerForm {
+    display: flex;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+    background: rgba(99, 102, 241, 0.02);
+}
+
+.input {
+    flex: 1;
+    padding: 8px 12px;
+    font-size: 0.78rem;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-primary);
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.input:focus {
+    border-color: var(--border-active);
+}
+
+.registerBtn {
+    padding: 8px 16px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-blue, #3b82f6), var(--accent-cyan, #06b6d4));
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.registerBtn:hover {
+    box-shadow: 0 0 14px rgba(59, 130, 246, 0.3);
+}
+
+.registerBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Player List ────────────────────────────────────────── */
+.playerList {
+    max-height: 300px;
+    overflow-y: auto;
+    padding: var(--space-sm) var(--space-lg);
+}
+
+.empty {
+    text-align: center;
+    padding: var(--space-lg);
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.75rem;
+}
+
+.playerCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-xs, 4px);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.playerCard:hover {
+    border-color: var(--border-active);
+}
+
+.playerCard.playing {
+    border-left: 3px solid #10b981;
+}
+
+.playerCard.waiting {
+    border-left: 3px solid #f59e0b;
+}
+
+.playerInfo {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    min-width: 0;
+}
+
+.playerId {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 1px 6px;
+    border-radius: 3px;
+}
+
+.playerName {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.teamTag {
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--accent-indigo, #6366f1);
+    background: rgba(99, 102, 241, 0.1);
+    padding: 1px 7px;
+    border-radius: var(--radius-full, 999px);
+}
+
+.playerActions {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    flex-shrink: 0;
+}
+
+.statusBadge {
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 3px;
+}
+
+.status_waiting {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+}
+
+.status_playing {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+}
+
+.sessionTag {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    color: var(--text-muted);
+}
+
+.assignSelect {
+    font-size: 0.68rem;
+    padding: 3px 6px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    cursor: pointer;
+    outline: none;
+}
+
+.removeBtn {
+    background: none;
+    border: none;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    opacity: 0.4;
+    transition: all 0.2s;
+    padding: 2px 5px;
+    border-radius: 3px;
+}
+
+.removeBtn:hover {
+    opacity: 1;
+    color: var(--gauge-red, #ef4444);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* ── Footer ─────────────────────────────────────────────── */
+.footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-sm) var(--space-lg);
+    border-top: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+}
+
+.totalCount {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    font-weight: 600;
+}
+
+.clearBtn {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 4px 12px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.06);
+    color: var(--gauge-red, #ef4444);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.clearBtn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+}
+
+@media (max-width: 768px) {
+    .registerForm {
+        flex-direction: column;
+    }
+
+    .playerCard {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .playerActions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
+
+.inductBtn {
+    padding: 6px 14px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-indigo, #6366f1), var(--accent-blue, #3b82f6));
+    border: none;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    margin-left: 0.75rem;
+    transition: all 0.2s;
+    box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
+}
+
+.inductBtn:hover {
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    transform: translateY(-1px);
+}
+
+/* ── Nested Table Overrides ────────────────────────────────────── */
+.sessionGroup {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    margin: var(--space-lg);
+    background: var(--bg-elevated);
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sessionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: var(--space-md) var(--space-lg);
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.sessionHeader h3 {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.sessionHeader h3 span {
+    color: var(--text-muted);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    margin-left: 8px;
+}
+
+.playerCount {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-blue, #3b82f6);
+    background: rgba(59, 130, 246, 0.1);
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+}
+
+.tableWrapper {
+    overflow-x: auto;
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.table th {
+    text-align: left;
+    padding: 10px var(--space-lg);
+    font-size: 0.65rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.table td {
+    padding: 12px var(--space-lg);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    vertical-align: middle;
+}
+
+.nameCell strong {
+    font-size: 0.85rem;
+    color: var(--text-primary);
+}
+
+.emailText {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.buBadge {
+    font-size: 0.65rem;
+    font-weight: 800;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}

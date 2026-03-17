@@ -1,0 +1,78 @@
+{
+  "consultant_fee_usd": 1500000,
+  "issues": [
+    {
+      "id": "e_waste_runoff",
+      "title": "E-Waste & Toxic Mineral Runoff",
+      "hover_description": "Future EU bans; massive ecological damage from rare earth mining",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1200000
+    },
+    {
+      "id": "conflict_minerals",
+      "title": "Conflict Mineral Sourcing",
+      "hover_description": "Cobalt and tantalum from DRC; forced labour exposure",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 4000000
+    },
+    {
+      "id": "semiconductor_volatility",
+      "title": "Semiconductor Price Volatility",
+      "hover_description": "Geopolitical risk from Taiwan/China dependency; supply shocks",
+      "category": "economic",
+      "financial_impact": "high",
+      "societal_impact": "medium",
+      "mitigation_cost_usd": 2000000
+    },
+    {
+      "id": "planned_obsolescence",
+      "title": "Planned Obsolescence",
+      "hover_description": "EU Right-to-Repair regulation non-compliance risk",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 3500000
+    },
+    {
+      "id": "factory_conditions",
+      "title": "Factory Working Conditions",
+      "hover_description": "Tier-2 supplier labour violations; Foxconn-style scandals",
+      "category": "social",
+      "financial_impact": "medium",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1500000
+    },
+    {
+      "id": "data_center_energy",
+      "title": "Data Center Energy Consumption",
+      "hover_description": "Cloud infrastructure draws massive renewable energy",
+      "category": "ecological",
+      "financial_impact": "medium",
+      "societal_impact": "medium",
+      "mitigation_cost_usd": 900000
+    },
+    {
+      "id": "elec_led_swap",
+      "title": "LED Bulb Swaps in Offices",
+      "hover_description": "Negligible impact office upgrade",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 30000
+    },
+    {
+      "id": "elec_ergonomic",
+      "title": "Ergonomic Chairs for Engineers",
+      "hover_description": "Employee comfort; no material ESG relevance",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 40000
+    }
+  ],
+  "interdependencies": []
+}

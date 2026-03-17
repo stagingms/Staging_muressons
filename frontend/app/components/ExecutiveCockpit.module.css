@@ -1,0 +1,1029 @@
+/* ═══════════════════════════════════════════════════════════
+   ExecutiveCockpit — Premium Corporate Dashboard
+   Inspired by Bloomberg/Refinitiv enterprise terminals
+   h-screen · no-scroll · 16:9 optimized
+   ═══════════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+/* ── Root Container ─────────────────────────────────────── */
+.cockpit {
+  height: 100vh;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f1f3f8;
+  color: #1a1d23;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── Global Header ──────────────────────────────────────── */
+.header {
+  height: 52px;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background: linear-gradient(180deg, #1b2a4a, #162240);
+  border-bottom: 2px solid #0d1a33;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.headerLogo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 0.82rem;
+  letter-spacing: 0.14em;
+  color: #e2e8f0;
+  text-transform: uppercase;
+}
+
+.logoMark {
+  width: 30px;
+  height: 30px;
+  border-radius: 4px;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 900;
+  font-size: 0.8rem;
+  box-shadow: 0 1px 4px rgba(37, 99, 235, 0.4);
+}
+
+.headerCenter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.72rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.headerYear {
+  font-weight: 700;
+  font-size: 0.78rem;
+  color: #f1f5f9;
+  letter-spacing: 0.02em;
+}
+
+.headerDivider {
+  width: 1px;
+  height: 16px;
+  background: rgba(148, 163, 184, 0.3);
+}
+
+.headerModule {
+  font-weight: 600;
+  color: #cbd5e1;
+  font-size: 0.72rem;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.treasuryDisplay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.25);
+  border-radius: 4px;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: #4ade80;
+  font-variant-numeric: tabular-nums;
+}
+
+.treasuryFlash {
+  animation: treasuryPulse 0.6s ease-in-out;
+}
+
+@keyframes treasuryPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); background: rgba(34, 197, 94, 0.2); }
+}
+
+/* ── Main Content ───────────────────────────────────────── */
+.mainContent {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  gap: 0;
+}
+
+/* ── Left Sidebar (KPI Dashboard) ───────────────────────── */
+.leftSidebar {
+  width: 24%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px;
+  background: #ffffff;
+  border-right: 1px solid #dce1e8;
+  overflow: hidden;
+}
+
+/* ── Center Console ─────────────────────────────────────── */
+.centerConsole {
+  width: 52%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  background: #f7f8fc;
+}
+
+.briefingArea {
+  min-height: 0;
+  padding: 14px 18px 10px;
+  overflow-y: auto;
+  border-bottom: 1px solid #dce1e8;
+  background: #ffffff;
+}
+
+.decisionArea {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 18px;
+  overflow-y: auto;
+}
+
+/* ── Right Sidebar ──────────────────────────────────────── */
+.rightSidebar {
+  width: 24%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  border-left: 1px solid #dce1e8;
+  overflow: hidden;
+}
+
+.rightResources {
+  height: 8%;
+  min-height: 0;
+  border-bottom: 1px solid #dce1e8;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background: #f9fafb;
+}
+
+.rightMailbox {
+  height: 40%;
+  min-height: 0;
+  overflow-y: auto;
+  border-bottom: 1px solid #dce1e8;
+}
+
+.rightMarket {
+  height: 40%;
+  min-height: 0;
+  overflow-y: auto;
+  border-bottom: 1px solid #dce1e8;
+}
+
+.rightCommit {
+  height: 12%;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 14px;
+  background: #f9fafb;
+}
+
+/* ── KPI Card ───────────────────────────────────────────── */
+.kpiCard {
+  flex: 1;
+  min-height: 0;
+  background: #ffffff;
+  border: 1px solid #e2e6ed;
+  border-radius: 6px;
+  padding: 8px 10px 6px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.2s ease;
+}
+
+.kpiCard:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.kpiTitle {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7a8d;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border-bottom: 1px solid #f1f3f6;
+  padding-bottom: 3px;
+}
+
+.kpiValue {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0c1524;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2px;
+}
+
+.kpiChart {
+  flex: 1;
+  min-height: 40px;
+  min-width: 40px;
+}
+
+/* ── Briefing Panel ─────────────────────────────────────── */
+.briefingHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.briefingRound {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #ffffff;
+  padding: 3px 10px;
+  background: #1b2a4a;
+  border-radius: 3px;
+}
+
+.briefingTitle {
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: #0c1524;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.briefingBody {
+  font-size: 0.76rem;
+  line-height: 1.7;
+  color: #4a5568;
+}
+
+/* ── Decision Workspace ─────────────────────────────────── */
+.decisionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 2px solid #e2e6ed;
+}
+
+.decisionLabel {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7a8d;
+}
+
+.decisionTiles {
+  display: flex;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.decisionTile {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-left: 3px solid #dce1e8;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.decisionTile:hover {
+  border-left-color: #3b82f6;
+  background: #fafbff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.08);
+}
+
+.decisionTileActive {
+  border-color: #2563eb;
+  border-left-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.15), 0 2px 8px rgba(37, 99, 235, 0.1);
+}
+
+.tileLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #2563eb;
+  margin-bottom: 3px;
+}
+
+.tileTitle {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #0c1524;
+  margin-bottom: 3px;
+}
+
+.tileDesc {
+  font-size: 0.68rem;
+  line-height: 1.55;
+  color: #5a6577;
+  margin: 0;
+}
+
+.tileCost {
+  margin-top: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #dc2626;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  background: #fef2f2;
+  border-radius: 3px;
+  display: inline-block;
+}
+
+.tileCostPositive {
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+/* ── Pillar Toggles (multi_toggles) ─────────────────────── */
+.pillarTiles {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.pillarTile {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-left: 3px solid #dce1e8;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pillarTile:hover {
+  border-left-color: #7c3aed;
+  background: #faf5ff;
+}
+
+.pillarTileActive {
+  border-color: #7c3aed;
+  border-left-color: #7c3aed;
+  background: #f5f3ff;
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.12);
+}
+
+.pillarIcon {
+  font-size: 1.1rem;
+  margin-bottom: 3px;
+}
+
+.pillarLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #7c3aed;
+  margin-bottom: 3px;
+}
+
+.pillarSelect {
+  width: 100%;
+  font-size: 0.68rem;
+  padding: 4px 6px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: #f9fafb;
+  color: #1e293b;
+  cursor: pointer;
+  font-family: 'Inter', sans-serif;
+}
+
+.pillarSelect:focus {
+  outline: none;
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.12);
+}
+
+/* ── Market Reality Feed ────────────────────────────────── */
+.feedContainer {
+  padding: 8px 12px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.feedTitle {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7a8d;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f1f3f6;
+}
+
+.feedItem {
+  padding: 6px 8px;
+  margin-bottom: 3px;
+  background: #f7f8fc;
+  border-radius: 4px;
+  border-left: 3px solid #d1d5db;
+  font-size: 0.67rem;
+  color: #4a5568;
+  line-height: 1.5;
+  transition: background 0.15s ease;
+}
+
+.feedItem:hover {
+  background: #eef0f6;
+}
+
+.feedItemAlert {
+  border-left-color: #dc2626;
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.feedItemInfo {
+  border-left-color: #2563eb;
+  background: #f0f4ff;
+}
+
+.eventPopup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+}
+
+.eventPopupIcon {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+
+.eventPopupTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 3px;
+}
+
+.eventPopupBody {
+  font-size: 0.68rem;
+  color: #b91c1c;
+  line-height: 1.5;
+}
+
+/* ── Two-Button Footer (Commit + Advance) ──────────────── */
+.twoButtonRow {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+  height: 100%;
+  max-height: 46px;
+  align-items: center;
+}
+
+.commitBtnHalf {
+  flex: 1;
+  height: 100%;
+  max-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  background: #1b2a4a;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.commitBtnHalf:hover:not(:disabled) {
+  background: #243b6a;
+  box-shadow: 0 3px 10px rgba(27, 42, 74, 0.3);
+}
+
+.commitBtnHalf:disabled {
+  background: #c8ced8;
+  color: #8b95a5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.commitBtnDone {
+  background: #15803d !important;
+  color: #ffffff !important;
+  cursor: default !important;
+}
+
+.advanceBtnHalf {
+  flex: 1;
+  height: 100%;
+  max-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 10px;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.3);
+}
+
+.advanceBtnHalf:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  box-shadow: 0 3px 10px rgba(37, 99, 235, 0.4);
+}
+
+.advanceBtnLocked {
+  background: #e2e6ed !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+  box-shadow: none !important;
+}
+
+.advanceBtnHalf:disabled {
+  cursor: not-allowed;
+}
+
+/* ── Results Overlay ───────────────────────────────────── */
+.resultsOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+}
+
+.resultsPanel {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2rem 2.5rem;
+  max-width: 520px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+  text-align: center;
+}
+
+.resultsBadge {
+  display: inline-block;
+  font-size: 0.6rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #2563eb;
+  background: #eff6ff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.resultsTitle {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: #0c1524;
+  margin: 0 0 6px;
+}
+
+.resultsSubtitle {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+
+.resultsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.resultCard {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 10px;
+  text-align: center;
+}
+
+.resultCardIcon {
+  font-size: 1.2rem;
+  margin-bottom: 4px;
+}
+
+.resultCardLabel {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6b7a8d;
+  margin-bottom: 2px;
+}
+
+.resultCardValue {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #0c1524;
+  font-variant-numeric: tabular-nums;
+}
+
+.resultsEvents {
+  text-align: left;
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+}
+
+.resultsEventsTitle {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #92400e;
+  margin-bottom: 6px;
+}
+
+.resultsEventItem {
+  font-size: 0.7rem;
+  color: #78350f;
+  line-height: 1.6;
+  padding: 2px 0;
+}
+
+.advanceBtnLarge {
+  width: 100%;
+  padding: 12px 0;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.3);
+  transition: all 0.2s ease;
+}
+
+.advanceBtnLarge:hover {
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4);
+  transform: translateY(-1px);
+}
+
+/* Keep legacy commitBtn for backward compat */
+.commitBtn {
+  width: 100%;
+  height: 100%;
+  max-height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 16px;
+  background: #1b2a4a;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.commitBtn:hover {
+  background: #243b6a;
+  box-shadow: 0 3px 10px rgba(27, 42, 74, 0.3);
+}
+
+.commitBtn:disabled {
+  background: #c8ced8;
+  color: #8b95a5;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* ── Resources Tab ──────────────────────────────────────── */
+.resourcesTab {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  cursor: pointer;
+  padding: 0 4px;
+  transition: background 0.15s ease;
+  border-radius: 3px;
+}
+
+.resourcesTab:hover {
+  background: #eef0f6;
+}
+
+.resourcesLabel {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7a8d;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.resourcesBadge {
+  font-size: 0.55rem;
+  font-weight: 700;
+  background: #1b2a4a;
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: 3px;
+}
+
+/* ── Mailbox Section ────────────────────────────────────── */
+.mailboxSection {
+  padding: 8px 12px;
+  height: 100%;
+  overflow-y: auto;
+}
+
+.mailboxTitle {
+  font-size: 0.58rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #6b7a8d;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid #f1f3f6;
+}
+
+.mailboxBadge {
+  font-size: 0.52rem;
+  font-weight: 700;
+  background: #dc2626;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  min-width: 14px;
+  text-align: center;
+}
+
+/* ── Gauge ──────────────────────────────────────────────── */
+.gauge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 0;
+}
+
+.gaugeCircle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gaugeValue {
+  position: absolute;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0c1524;
+  font-variant-numeric: tabular-nums;
+}
+
+.gaugeLabel {
+  font-size: 0.56rem;
+  color: #8b95a5;
+  margin-top: 2px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ── Carbon Progress (legacy, kept for fallback) ────────── */
+.carbonTracker {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+}
+
+.carbonBarOuter {
+  width: 100%;
+  height: 12px;
+  background: #f1f3f6;
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.carbonBarInner {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.carbonTargetLine {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: #dc2626;
+}
+
+.carbonLabels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.56rem;
+  color: #8b95a5;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Projected Overlay ──────────────────────────────────── */
+.projectedDelta {
+  font-size: 0.58rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.projectedUp {
+  color: #15803d;
+  background: #f0fdf4;
+}
+
+.projectedDown {
+  color: #dc2626;
+  background: #fef2f2;
+}
+
+/* ── Scrollbar (thin, corporate) ───────────────────────── */
+.rightMailbox::-webkit-scrollbar,
+.rightMarket::-webkit-scrollbar,
+.briefingArea::-webkit-scrollbar,
+.decisionArea::-webkit-scrollbar,
+.centerConsole::-webkit-scrollbar {
+  width: 3px;
+}
+
+.rightMailbox::-webkit-scrollbar-thumb,
+.rightMarket::-webkit-scrollbar-thumb,
+.briefingArea::-webkit-scrollbar-thumb,
+.decisionArea::-webkit-scrollbar-thumb,
+.centerConsole::-webkit-scrollbar-thumb {
+  background: #c8ced8;
+  border-radius: 2px;
+}
+
+.rightMailbox::-webkit-scrollbar-track,
+.rightMarket::-webkit-scrollbar-track,
+.briefingArea::-webkit-scrollbar-track,
+.decisionArea::-webkit-scrollbar-track,
+.centerConsole::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ── Strategic Breakdown Panel ────────────────────────────────── */
+.breakdownPanel {
+  margin-top: 1rem;
+  background: #ffffff;
+  border: 1px solid #dce1e8;
+  border-radius: 6px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.breakdownLabels {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+
+.breakdownIcon {
+  font-size: 0.9rem;
+}
+
+.breakdownTitle {
+  font-size: 0.62rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: #3b82f6;
+  letter-spacing: 0.1em;
+}
+
+.breakdownContent p {
+  margin: 0;
+  font-size: 0.72rem;
+  line-height: 1.6;
+  color: #4a5568;
+}
+
+.breakdownContent strong {
+  color: #0c1524;
+  font-weight: 700;
+}
+
+.breakdownPlaceholder {
+  color: #94a3b8 !important;
+  font-style: italic;
+}
+
+/* ── Join Overlay ──────────────────────────────────────── */
+.joinOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #f1f3f8;
+}

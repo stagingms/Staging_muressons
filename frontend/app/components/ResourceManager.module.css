@@ -1,0 +1,530 @@
+.resourceManager {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 1000px;
+}
+
+/* ── Tab Bar ─────────────────────────────────────────────── */
+.tabBar {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    padding-bottom: 0.5rem;
+}
+
+.tabBtn {
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary, #94a3b8);
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.tabBtn:hover {
+    background: rgba(99, 102, 241, 0.1);
+    color: #a5b4fc;
+}
+
+.tabBtn.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15));
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+}
+
+/* ── Upload Section ──────────────────────────────────────── */
+.uploadSection {
+    background: var(--bg-card, rgba(15, 15, 25, 0.6));
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 1.2rem;
+}
+
+.uploadSection h3 {
+    margin: 0 0 0.8rem;
+    color: var(--text-primary, #e2e8f0);
+    font-size: 1rem;
+}
+
+.uploadArea {
+    border: 2px dashed rgba(99, 102, 241, 0.3);
+    border-radius: 10px;
+    padding: 1.5rem;
+    text-align: center;
+    color: var(--text-secondary, #94a3b8);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.uploadArea:hover {
+    border-color: rgba(99, 102, 241, 0.6);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.uploadArea input[type="file"] {
+    display: none;
+}
+
+.fileInfo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+/* ── Resource Table ──────────────────────────────────────── */
+.resourceTable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.resourceTable th {
+    text-align: left;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-secondary, #64748b);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.resourceTable td {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.85rem;
+    color: var(--text-primary, #e2e8f0);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    vertical-align: middle;
+}
+
+.resourceTable tr:hover td {
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.typeBadge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+
+.typePDF {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
+.typeVideo {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+}
+
+.typeWeblink {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+}
+
+.typeMemo {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+}
+
+/* ── Add Resource Form ─────────────────────────────────────── */
+.libraryActions {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 1rem;
+}
+
+.addBtn {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.25));
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+    padding: 0.6rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.addBtn:hover {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(99, 102, 241, 0.4));
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+}
+
+.addBtnActive {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+.addBtnActive:hover {
+    background: rgba(239, 68, 68, 0.25);
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+
+.addForm {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+}
+
+.addForm h4 {
+    margin: 0 0 1.2rem;
+    color: #1e293b;
+    font-size: 1.05rem;
+    font-weight: 700;
+    border-bottom: 1px solid #e2e8f0;
+    padding-bottom: 0.6rem;
+}
+
+.formGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 768px) {
+    .formGrid { grid-template-columns: 1fr; }
+}
+
+.inputGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.fullWidth {
+    grid-column: 1 / -1;
+}
+
+.inputGroup label {
+    font-size: 0.75rem;
+    color: #475569;
+    font-weight: 700;
+}
+
+.inputGroup input,
+.inputGroup select,
+.inputGroup textarea {
+    background: #f8fafc;
+    border: 1px solid #cbd5e1;
+    color: #0f172a;
+    padding: 0.55rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.inputGroup input::placeholder,
+.inputGroup textarea::placeholder {
+    color: #94a3b8;
+}
+
+.inputGroup input:focus,
+.inputGroup select:focus,
+.inputGroup textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.submitBtn {
+    width: 100%;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    border: none;
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+}
+
+.submitBtn:hover {
+    opacity: 0.9;
+}
+
+.submitBtn:active {
+    transform: scale(0.98);
+}
+
+.hiddenBadge {
+    display: inline-block;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    margin-left: 0.4rem;
+}
+
+.deleteBtn {
+    background: none;
+    border: none;
+    color: #64748b;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 0.2rem;
+    border-radius: 4px;
+    transition: color 0.15s;
+}
+
+.deleteBtn:hover {
+    color: #ef4444;
+}
+
+/* ── Session Resource Control ────────────────────────────── */
+.sessionSelector {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    margin-bottom: 1rem;
+}
+
+.sessionSelector label {
+    font-size: 0.85rem;
+    color: var(--text-secondary, #94a3b8);
+    font-weight: 600;
+}
+
+.sessionSelector select {
+    flex: 1;
+    background: var(--bg-elevated, rgba(20, 20, 35, 0.8));
+    color: var(--text-primary, #e2e8f0);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+}
+
+.toggleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.8rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+
+.toggleRow:hover {
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.toggleInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    flex: 1;
+}
+
+.toggleTitle {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.toggleMeta {
+    font-size: 0.72rem;
+    color: var(--text-secondary, #64748b);
+}
+
+.toggleActions {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.toggleSwitch {
+    position: relative;
+    width: 40px;
+    height: 22px;
+}
+
+.toggleSwitch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 22px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.slider::before {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #fff;
+    bottom: 3px;
+    left: 3px;
+    transition: transform 0.2s;
+}
+
+.toggleSwitch input:checked+.slider {
+    background: #6366f1;
+}
+
+.toggleSwitch input:checked+.slider::before {
+    transform: translateX(18px);
+}
+
+.dropBtn {
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    color: #fff;
+    border: none;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.15s;
+}
+
+.dropBtn:hover {
+    opacity: 0.85;
+}
+
+.dropBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ── Deployment Guide ────────────────────────────────────── */
+.guideSection {
+    background: var(--bg-card, rgba(15, 15, 25, 0.6));
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 12px;
+    padding: 1.2rem;
+}
+
+.guideSection h3 {
+    margin: 0 0 0.8rem;
+    color: var(--text-primary, #e2e8f0);
+    font-size: 1rem;
+}
+
+.guideRound {
+    margin-bottom: 1rem;
+}
+
+.guideRoundHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.roundBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+.guideRoundHeader span:last-child {
+    font-size: 0.82rem;
+    color: var(--text-secondary, #94a3b8);
+    font-weight: 600;
+}
+
+.guideItem {
+    padding: 0.5rem 0.8rem;
+    padding-left: 2.5rem;
+    font-size: 0.82rem;
+    color: var(--text-primary, #e2e8f0);
+    line-height: 1.5;
+}
+
+.guideStrategy {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-style: italic;
+    margin-top: 0.15rem;
+}
+
+.hiddenGuide {
+    margin-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 1rem;
+}
+
+.hiddenGuide h4 {
+    color: #fbbf24;
+    font-size: 0.9rem;
+    margin: 0 0 0.8rem;
+}
+
+.hiddenCard {
+    background: rgba(245, 158, 11, 0.06);
+    border: 1px solid rgba(245, 158, 11, 0.15);
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+    margin-bottom: 0.6rem;
+}
+
+.hiddenCard h5 {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #fbbf24;
+}
+
+.conditionText {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin: 0.3rem 0;
+}
+
+.effectText {
+    font-size: 0.78rem;
+    color: #10b981;
+    margin: 0;
+}
+
+.statusMsg {
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+}
+
+.statusSuccess {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.statusError {
+    background: rgba(239, 68, 68, 0.1);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}

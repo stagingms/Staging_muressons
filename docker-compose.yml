@@ -1,0 +1,10 @@
+services:
+  muressons:
+    build: .
+    ports:
+      - "3000:3000"   # Frontend
+      - "8000:8000"   # Backend API
+    environment:
+      - USE_MEMORY_DB=true
+      - NODE_ENV=production
+    restart: unless-stopped

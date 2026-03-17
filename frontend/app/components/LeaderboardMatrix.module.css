@@ -1,0 +1,198 @@
+/* LeaderboardMatrix.module.css */
+
+.matrix {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 2px solid var(--border-subtle);
+    background: var(--bg-elevated);
+}
+
+.header h2 {
+    font-size: 0.95rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0;
+}
+
+.icon {
+    font-size: 1.2rem;
+}
+
+.count {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    background: var(--bg-secondary);
+    padding: 3px 12px;
+    border-radius: var(--radius-full);
+}
+
+.tableWrap {
+    overflow-x: auto;
+    background: var(--bg-primary);
+}
+
+.table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+}
+
+.table th {
+    text-align: left;
+    padding: 12px 14px;
+    font-size: 0.62rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--border-subtle);
+    white-space: nowrap;
+    background: var(--bg-elevated);
+}
+
+.row {
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    animation: fadeInUp 0.3s ease-out both;
+}
+
+.row:hover {
+    background: rgba(6, 182, 212, 0.04);
+}
+
+.selectedRow {
+    background: rgba(59, 130, 246, 0.08) !important;
+    border-left: 3px solid var(--accent-blue, #3b82f6);
+}
+
+.selectedRow td {
+    border-bottom-color: rgba(59, 130, 246, 0.2);
+}
+
+.row td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border-subtle);
+    vertical-align: middle;
+    color: var(--text-secondary);
+}
+
+.rank {
+    width: 36px;
+    text-align: center;
+}
+
+.gold {
+    color: #f59e0b;
+    font-weight: 800;
+}
+
+.silver {
+    color: #94a3b8;
+    font-weight: 800;
+}
+
+.bronze {
+    color: #d97706;
+    font-weight: 800;
+}
+
+.cohortName {
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.mono {
+    font-family: var(--font-mono);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-variant-numeric: tabular-nums;
+}
+
+.heatCol {
+    text-align: center;
+}
+
+.heatCell {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: var(--radius-sm);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-align: center;
+    min-width: 50px;
+}
+
+.riskLow {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--gauge-green);
+}
+
+.riskMed {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--gauge-yellow);
+}
+
+.riskHigh {
+    background: rgba(239, 68, 68, 0.15);
+    color: var(--gauge-red);
+}
+
+.flightRisk {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    color: var(--gauge-red);
+    animation: flash-unread 1.4s ease-in-out infinite;
+}
+
+.safe {
+    font-family: var(--font-mono);
+    color: var(--gauge-green);
+    font-weight: 600;
+}
+
+.empty {
+    text-align: center;
+    padding: var(--space-xl);
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.actionCol {
+    width: 40px;
+    text-align: center;
+}
+
+.deleteBtn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    opacity: 0.3;
+    transition: all 0.2s;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+}
+
+.deleteBtn:hover {
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.row:hover .deleteBtn {
+    opacity: 0.7;
+}

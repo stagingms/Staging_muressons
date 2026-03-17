@@ -1,0 +1,369 @@
+/* FinalReport.module.css — 2050 Annual Report */
+
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease-out;
+    overflow-y: auto;
+    padding: var(--space-lg);
+}
+
+.report {
+    width: 100%;
+    max-width: 860px;
+    background: var(--bg-primary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    animation: slideUp 0.5s cubic-bezier(0.22, 1.0, 0.36, 1.0);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* ── Hero ──────────────────────────────────────────────── */
+.hero {
+    padding: var(--space-xl) var(--space-lg);
+    position: relative;
+    overflow: hidden;
+}
+
+.hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1), transparent 60%);
+}
+
+.heroContent {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-lg);
+}
+
+.heroIcon {
+    font-size: 3.5rem;
+    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.2));
+}
+
+.year {
+    font-size: 0.6rem;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 4px;
+}
+
+.profileTitle {
+    font-size: 1.6rem;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    color: #fff;
+    margin: 0 0 6px 0;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.rankBadge {
+    font-size: 0.55rem;
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    color: #fff;
+}
+
+/* ── Profile Description ──────────────────────────────── */
+.profileDesc {
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.profileDesc p {
+    font-size: 0.82rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    font-style: italic;
+    margin: 0;
+}
+
+/* ── Metrics Row ──────────────────────────────────────── */
+.metricsRow {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-md);
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.metricCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: var(--space-md);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+}
+
+.metricLabel {
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+}
+
+.metricValue {
+    font-family: var(--font-mono);
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.metricSub {
+    font-size: 0.58rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* ── MR Breakdown ─────────────────────────────────────── */
+.breakdownSection {
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.sectionTitle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    font-size: 0.85rem;
+    font-weight: 700;
+    margin: 0 0 var(--space-md) 0;
+}
+
+.breakdownGrid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.breakdownItem {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    padding: 10px 14px;
+}
+
+.breakdownItem.positive {
+    border-left: 3px solid #10b981;
+}
+
+.breakdownItem.negative {
+    border-left: 3px solid #ef4444;
+}
+
+.breakdownHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.breakdownLabel {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.breakdownValue {
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.positive .breakdownValue {
+    color: #10b981;
+}
+
+.negative .breakdownValue {
+    color: #ef4444;
+}
+
+.breakdownDesc {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+}
+
+.breakdownBar {
+    height: 4px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 2px;
+    margin-top: 6px;
+    overflow: hidden;
+}
+
+.breakdownFill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.6s ease-out;
+}
+
+.mrTotal {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md);
+    margin-top: var(--space-sm);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+    font-size: 0.8rem;
+    font-weight: 700;
+}
+
+.mrTotalValue {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    font-weight: 900;
+}
+
+/* ── Carbon & Environment ─────────────────────────────── */
+.carbonSection {
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.carbonGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-sm);
+}
+
+.carbonCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: var(--space-sm);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-subtle);
+}
+
+.carbonLabel {
+    font-size: 0.58rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.carbonValue {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+/* ── Formula Section ──────────────────────────────────── */
+.formulaSection {
+    padding: var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.formula {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-subtle);
+    text-align: center;
+}
+
+.formulaLine {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.formulaResult {
+    font-family: var(--font-mono);
+    font-size: 1.2rem;
+    font-weight: 900;
+    padding-top: var(--space-sm);
+    border-top: 1px dashed var(--border-subtle);
+}
+
+/* ── Close ────────────────────────────────────────────── */
+.closeRow {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-lg);
+}
+
+.closeBtn {
+    padding: 12px 36px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.closeBtn:hover {
+    transform: scale(1.03);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Animations ───────────────────────────────────────── */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px) scale(0.97);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 768px) {
+    .metricsRow {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .carbonGrid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .heroIcon {
+        font-size: 2rem;
+    }
+
+    .profileTitle {
+        font-size: 1.1rem;
+    }
+}

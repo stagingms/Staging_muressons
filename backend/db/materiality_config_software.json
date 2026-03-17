@@ -1,0 +1,78 @@
+{
+  "consultant_fee_usd": 1500000,
+  "issues": [
+    {
+      "id": "ai_bias",
+      "title": "AI Algorithmic Bias & Redlining",
+      "hover_description": "Massive fines; systemic inequality from biased hiring/lending algorithms",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 5000000
+    },
+    {
+      "id": "data_privacy",
+      "title": "Data Privacy & Surveillance",
+      "hover_description": "GDPR mega-fines; user trust erosion from data harvesting",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2500000
+    },
+    {
+      "id": "cloud_energy",
+      "title": "Cloud Infrastructure Energy Draw",
+      "hover_description": "Massive data center carbon footprint; Scope 2 emissions",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 4000000
+    },
+    {
+      "id": "digital_divide",
+      "title": "Digital Divide & Accessibility",
+      "hover_description": "Product inaccessibility for disabled and low-income users",
+      "category": "social",
+      "financial_impact": "medium",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1200000
+    },
+    {
+      "id": "open_source_risk",
+      "title": "Open-Source IP Licensing Risk",
+      "hover_description": "GPL violations and liability from dependency audits",
+      "category": "economic",
+      "financial_impact": "high",
+      "societal_impact": "medium",
+      "mitigation_cost_usd": 800000
+    },
+    {
+      "id": "talent_retention",
+      "title": "Tech Talent Retention",
+      "hover_description": "Developer burnout and attrition driving OpEx inflation",
+      "category": "social",
+      "financial_impact": "medium",
+      "societal_impact": "medium",
+      "mitigation_cost_usd": 600000
+    },
+    {
+      "id": "sw_exec_travel",
+      "title": "Executive Travel Carbon Offsets",
+      "hover_description": "Minor offset purchases; no structural change",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 20000
+    },
+    {
+      "id": "sw_social_media",
+      "title": "Annual Social Media ESG Campaign",
+      "hover_description": "Marketing activity with no material impact",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 10000
+    }
+  ],
+  "interdependencies": []
+}

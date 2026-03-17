@@ -1,0 +1,517 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 8500;
+    background: rgba(0, 0, 0, 0.88);
+    backdrop-filter: blur(14px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.modal {
+    background: var(--bg-card, #1a1a2e);
+    border: 1px solid var(--border-subtle, #2a2a4a);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 1100px;
+    max-height: 92vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 80px rgba(0, 0, 0, 0.7);
+    animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Header ── */
+.header {
+    background: linear-gradient(135deg, #1e1e3f, #0f172a);
+    padding: 1.5rem 2rem;
+    text-align: center;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.badge {
+    display: inline-block;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    padding: 3px 14px;
+    border-radius: 20px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #818cf8;
+    margin-bottom: 0.8rem;
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--text-primary, #e2e8f0);
+    margin: 0 0 0.4rem;
+}
+
+.subtitle {
+    font-size: 0.8rem;
+    color: var(--text-muted, #64748b);
+    margin: 0;
+    max-width: 600px;
+    margin-inline: auto;
+    line-height: 1.5;
+}
+
+/* ── Content Area ── */
+.content {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    gap: 0;
+    min-height: 420px;
+}
+
+/* ── Bank Pane ── */
+.bankPane {
+    border-right: 1px solid var(--border-subtle, #2a2a4a);
+    padding: 1rem;
+    background: var(--bg-main, #0f172a);
+    transition: background 0.2s;
+}
+
+.bankOver {
+    background: rgba(99, 102, 241, 0.08);
+}
+
+.bankTitle {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-primary, #e2e8f0);
+    margin: 0 0 0.3rem;
+}
+
+.bankHint {
+    font-size: 0.68rem;
+    color: var(--text-muted, #64748b);
+    margin: 0 0 0.8rem;
+}
+
+.bankList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.bankEmpty {
+    text-align: center;
+    color: #10b981;
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 2rem 0;
+}
+
+/* ── Draggable Chip ── */
+.chip {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.7rem;
+    background: var(--bg-elevated, #16213e);
+    border: 1px solid var(--border-subtle, #2a2a4a);
+    border-radius: 8px;
+    cursor: grab;
+    transition: all 0.15s;
+    touch-action: none;
+}
+
+.chip:hover {
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.08);
+    transform: translateX(2px);
+}
+
+.chip:active {
+    cursor: grabbing;
+}
+
+.chipDragging {
+    opacity: 0.3;
+}
+
+.chipIcon {
+    font-size: 1.1rem;
+    flex-shrink: 0;
+}
+
+.chipName {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ── Grid Pane ── */
+.gridPane {
+    padding: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.yAxisLabel {
+    writing-mode: vertical-lr;
+    transform: rotate(180deg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.6rem;
+    color: var(--text-muted, #64748b);
+    padding: 0.5rem 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.yAxisLabel strong {
+    font-size: 0.7rem;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.matrixWrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.xAxisLabel {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.4rem 0.5rem 0;
+    font-size: 0.6rem;
+    color: var(--text-muted, #64748b);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.xAxisLabel strong {
+    font-size: 0.7rem;
+    color: var(--text-primary, #e2e8f0);
+}
+
+/* ── 2x2 Matrix ── */
+.matrix {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 4px;
+    flex: 1;
+    min-height: 340px;
+}
+
+.quadrant {
+    background: var(--bg-elevated, #16213e);
+    border: 2px dashed color-mix(in srgb, var(--q-color) 30%, transparent);
+    border-radius: 10px;
+    padding: 0.6rem;
+    position: relative;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    min-height: 160px;
+}
+
+.quadrantOver {
+    background: color-mix(in srgb, var(--q-color) 10%, transparent);
+    border-color: var(--q-color);
+    border-style: solid;
+    box-shadow: 0 0 15px color-mix(in srgb, var(--q-color) 15%, transparent);
+}
+
+.quadrantLabel {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--q-color);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 0.3rem;
+}
+
+.quadrantPower,
+.quadrantInterest {
+    font-size: 0.55rem;
+    color: var(--text-muted, #475569);
+    font-weight: 600;
+}
+
+.quadrantChips {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.4rem;
+}
+
+.chipCountBadge {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: color-mix(in srgb, var(--q-color) 20%, transparent);
+    color: var(--q-color);
+    font-size: 0.6rem;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 6px;
+}
+
+/* ── Placed Chip (in quadrant) ── */
+.placedChip {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.5rem;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.placedChip:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* ── Drag Overlay ── */
+.dragOverlay {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.8rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 8px 25px rgba(99, 102, 241, 0.5);
+    white-space: nowrap;
+    cursor: grabbing;
+}
+
+/* ── Footer ── */
+.footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-subtle, #2a2a4a);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.progress {
+    font-size: 0.75rem;
+    color: var(--text-muted, #64748b);
+    font-weight: 600;
+}
+
+.submitBtn {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    border: none;
+    padding: 0.7rem 1.5rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+    box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+}
+
+.submitBtn:hover:not(:disabled) {
+    transform: scale(1.02);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+
+.submitBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Result Modal Overlay ── */
+.resultOverlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: 16px;
+    padding: 2rem;
+}
+
+.resultCard {
+    background: var(--bg-card, #1a1a2e);
+    border-radius: 14px;
+    padding: 2rem;
+    max-width: 600px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    text-align: center;
+    animation: scaleIn 0.3s ease-out;
+}
+
+@keyframes scaleIn {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.resultPass {
+    border: 2px solid #10b981;
+}
+
+.resultFail {
+    border: 2px solid #f59e0b;
+}
+
+.resultIcon {
+    font-size: 3rem;
+    margin-bottom: 0.8rem;
+}
+
+.resultCard h2 {
+    font-size: 1.3rem;
+    color: var(--text-primary, #e2e8f0);
+    margin: 0 0 0.5rem;
+}
+
+.resultAccuracy {
+    font-size: 1.1rem;
+    color: var(--text-secondary, #94a3b8);
+    margin: 0 0 0.5rem;
+}
+
+.resultMessage {
+    font-size: 0.85rem;
+    color: var(--text-muted, #64748b);
+    line-height: 1.5;
+    margin: 0 0 1rem;
+}
+
+/* ── Corrections Grid ── */
+.corrections {
+    text-align: left;
+    margin-top: 1rem;
+}
+
+.corrections h3 {
+    font-size: 0.8rem;
+    color: var(--text-primary, #e2e8f0);
+    margin: 0 0 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.correctionGrid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.correctionItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.72rem;
+}
+
+.correct {
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.incorrect {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.correctionIcon {
+    flex-shrink: 0;
+}
+
+.correctionName {
+    flex: 1;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.correctionQuadrant {
+    font-size: 0.65rem;
+    color: var(--text-muted, #64748b);
+    white-space: nowrap;
+}
+
+.dismissBtn {
+    margin-top: 1rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: #fff;
+    border: none;
+    padding: 0.7rem 2rem;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+
+.dismissBtn:hover {
+    transform: scale(1.02);
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+    .content {
+        grid-template-columns: 1fr;
+    }
+
+    .bankPane {
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle, #2a2a4a);
+    }
+
+    .bankList {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .gridPane {
+        flex-direction: column;
+    }
+
+    .yAxisLabel {
+        writing-mode: horizontal-tb;
+        transform: none;
+        flex-direction: row;
+    }
+}

@@ -1,0 +1,78 @@
+{
+  "consultant_fee_usd": 1500000,
+  "issues": [
+    {
+      "id": "plastic_packaging",
+      "title": "End-of-Life Plastic Packaging",
+      "hover_description": "15% EPR tax imminent; ocean microplastics crisis",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 3200000
+    },
+    {
+      "id": "palm_oil_deforestation",
+      "title": "Palm Oil & Deforestation",
+      "hover_description": "Biodiversity collapse; NDPE policy violations",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2800000
+    },
+    {
+      "id": "tier3_labor",
+      "title": "Tier-3 Supply Chain Labour",
+      "hover_description": "Child labour and forced labour risks in raw material sourcing",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1500000
+    },
+    {
+      "id": "consumer_health",
+      "title": "Consumer Health & Product Safety",
+      "hover_description": "Chemical safety concerns in personal care products",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2000000
+    },
+    {
+      "id": "food_waste",
+      "title": "Food Waste in Supply Chain",
+      "hover_description": "30% spoilage rate in perishable goods distribution",
+      "category": "ecological",
+      "financial_impact": "medium",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1000000
+    },
+    {
+      "id": "water_usage_cg",
+      "title": "Water Usage in Manufacturing",
+      "hover_description": "High water intensity in FMCG production processes",
+      "category": "ecological",
+      "financial_impact": "medium",
+      "societal_impact": "medium",
+      "mitigation_cost_usd": 700000
+    },
+    {
+      "id": "cg_volunteering",
+      "title": "Generic Employee Volunteering",
+      "hover_description": "CSR activity with no measurable ESG outcome",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 35000
+    },
+    {
+      "id": "cg_straws",
+      "title": "Replacing Plastic Straws in Cafeteria",
+      "hover_description": "Symbolic gesture; negligible environmental impact",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 15000
+    }
+  ],
+  "interdependencies": []
+}

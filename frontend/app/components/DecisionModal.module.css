@@ -1,0 +1,397 @@
+/* DecisionModal.module.css */
+
+/* ── Overlay ─────────────────────────────────────────────────── */
+.overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(6px);
+    animation: fadeInUp 0.2s ease-out both;
+}
+
+/* ── Modal ────────────────────────────────────────────────────── */
+.modal {
+    width: 92%;
+    max-width: 820px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 40px rgba(59, 130, 246, 0.08);
+    animation: modalIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Header ──────────────────────────────────────────────────── */
+.modalHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-lg) var(--space-xl);
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.crisisTag {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.crisisIcon {
+    font-size: 1.5rem;
+}
+
+.crisisLabel {
+    font-size: 0.7rem;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: var(--gauge-red);
+    background: rgba(239, 68, 68, 0.1);
+    padding: 3px 10px;
+    border-radius: var(--radius-full);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.closeBtn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.closeBtn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    border-color: var(--border-active);
+}
+
+/* ── Crisis Block ────────────────────────────────────────────── */
+.crisisBlock {
+    padding: var(--space-xl);
+}
+
+.crisisTitle {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.crisisDesc {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+    max-width: 640px;
+}
+
+/* ── Divider ─────────────────────────────────────────────────── */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: var(--space-md);
+    padding: 0 var(--space-xl);
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border-subtle);
+}
+
+.divider span {
+    font-size: 0.62rem;
+    font-weight: 800;
+    letter-spacing: 0.16em;
+    color: var(--text-muted);
+}
+
+/* ── Options Grid ────────────────────────────────────────────── */
+.optionsGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-md);
+    padding: var(--space-lg) var(--space-xl);
+}
+
+.optionCard {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    text-align: left;
+    padding: var(--space-lg);
+    background: var(--bg-card);
+    border: 1.5px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.optionCard:hover {
+    border-color: var(--opt-accent, var(--accent-blue));
+    box-shadow: 0 0 20px color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 20%, transparent);
+    transform: translateY(-2px);
+}
+
+.optionCard.active {
+    border-color: var(--opt-accent, var(--accent-blue));
+    box-shadow: 0 0 24px color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 30%, transparent);
+    background: color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 6%, var(--bg-card));
+}
+
+.optLabel {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 800;
+    color: var(--opt-accent, var(--accent-blue));
+    background: color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 12%, transparent);
+    border-radius: var(--radius-sm);
+    padding: 2px 8px;
+    width: fit-content;
+    margin-bottom: var(--space-sm);
+}
+
+.optTitle {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+}
+
+.optDesc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+    margin-bottom: var(--space-md);
+    flex: 1;
+}
+
+/* ── Impact Grid ─────────────────────────────────────────────── */
+.impactGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px var(--space-sm);
+    border-top: 1px solid var(--border-subtle);
+    padding-top: var(--space-sm);
+}
+
+.impactItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.impactKey {
+    font-size: 0.62rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.impactVal {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 700;
+}
+
+.impactVal.positive {
+    color: var(--gauge-green);
+}
+
+.impactVal.negative {
+    color: var(--gauge-red);
+}
+
+/* ── Selected Badge ──────────────────────────────────────────── */
+.selectedBadge {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 0.6rem;
+    font-weight: 800;
+    color: var(--opt-accent, var(--accent-blue));
+    background: color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 15%, transparent);
+    border-radius: var(--radius-full);
+    padding: 2px 8px;
+    letter-spacing: 0.08em;
+    animation: fadeInUp 0.2s ease-out;
+}
+
+/* ── Disabled Card (R10 synergy gate) ────────────────────────── */
+.optionCard.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+    pointer-events: none;
+}
+
+.optionCard.disabled:hover {
+    transform: none;
+    box-shadow: none;
+    border-color: var(--border-subtle);
+}
+
+.disabledBadge {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--gauge-red);
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: var(--radius-sm);
+    padding: 4px 8px;
+    margin-top: var(--space-sm);
+    text-align: center;
+}
+
+/* ── Footer ──────────────────────────────────────────────────── */
+.modalFooter {
+    padding: var(--space-lg) var(--space-xl);
+    border-top: 1px solid var(--border-subtle);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.confirmBtn {
+    padding: 10px 28px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.confirmBtn:hover {
+    box-shadow: var(--glow-blue);
+    transform: translateY(-1px);
+}
+
+.confirmBtn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+}
+
+.confirmBlock {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: var(--space-sm);
+    width: 100%;
+}
+
+.confirmText {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    text-align: right;
+}
+
+.confirmActions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.cancelBtn {
+    padding: 8px 20px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.cancelBtn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+}
+
+.commitBtn {
+    padding: 8px 24px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #059669, #10b981);
+    border: none;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.commitBtn:hover {
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.35);
+    transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+    .optionsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .modal {
+        width: 96%;
+    }
+}
+
+/* ── Strategic Breakdown Panel ────────────────────────────────── */
+.breakdownPanel {
+    margin: 0 var(--space-xl) var(--space-lg);
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md) var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.breakdownLabels {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.breakdownIcon {
+    font-size: 0.9rem;
+}
+
+.breakdownTitle {
+    font-size: 0.65rem;
+    font-weight: 800;
+    color: var(--accent-cyan, #06b6d4);
+    letter-spacing: 0.1em;
+}
+
+.breakdownContent p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+}
+
+.breakdownContent strong {
+    color: var(--text-primary);
+    font-weight: 700;
+}
+
+.breakdownPlaceholder {
+    color: var(--text-muted) !important;
+    font-style: italic;
+}

@@ -1,0 +1,389 @@
+/* SessionViewer — Admin mini-cockpit views */
+
+.viewer {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+/* ── Toolbar ─────────────────────────────────── */
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--space-md) var(--space-lg);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
+}
+
+.toolbarLeft {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+.toolbarLeft h2 {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.toolbarIcon {
+    font-size: 1.1rem;
+}
+
+.toolbarActions {
+    display: flex;
+    gap: var(--space-sm);
+}
+
+.toolbarActions button {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 5px 12px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.viewAllBtn {
+    background: rgba(99, 102, 241, 0.1);
+    color: var(--accent-indigo, #6366f1);
+}
+
+.viewAllBtn:hover {
+    background: rgba(99, 102, 241, 0.2);
+}
+
+.refreshBtn {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--gauge-green, #22c55e);
+}
+
+.refreshBtn:hover {
+    background: rgba(34, 197, 94, 0.2);
+}
+
+.closeBtn {
+    background: rgba(239, 68, 68, 0.08);
+    color: var(--gauge-red, #ef4444);
+}
+
+.closeBtn:hover {
+    background: rgba(239, 68, 68, 0.15);
+}
+
+/* ── Session Selector Grid (closed mode) ───── */
+.selectorGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: var(--space-sm);
+    padding: var(--space-md);
+}
+
+.selectorCard {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.selectorCard:hover {
+    border-color: var(--accent-cyan);
+    background: rgba(6, 182, 212, 0.05);
+    transform: translateY(-1px);
+}
+
+.selectorName {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 150px;
+}
+
+.selectorRound {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    color: var(--accent-cyan);
+    font-weight: 700;
+}
+
+.emptyState {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: var(--space-lg);
+    color: var(--text-muted);
+    font-style: italic;
+    font-size: 0.75rem;
+}
+
+/* ── Card Grid ──────────────────────────────── */
+.cardGrid {
+    padding: var(--space-md);
+    display: grid;
+    gap: var(--space-md);
+}
+
+.gridSingle {
+    grid-template-columns: 1fr;
+}
+
+.gridAll {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+}
+
+/* ── Session Card ───────────────────────────── */
+.sessionCard {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-md);
+    transition: all 0.25s ease;
+    animation: fadeInUp 0.3s ease-out both;
+    position: relative;
+}
+
+.sessionCard:not(.cardExpanded) {
+    cursor: pointer;
+}
+
+.sessionCard:not(.cardExpanded):hover {
+    border-color: var(--accent-cyan);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.cardExpanded {
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 1px var(--accent-cyan), 0 8px 32px rgba(6, 182, 212, 0.1);
+}
+
+.cardCompact {
+    padding: var(--space-sm);
+}
+
+/* ── Card Header ────────────────────────────── */
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: var(--space-sm);
+}
+
+.cardTitle {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.cardCohort {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.cardRound {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--text-muted);
+}
+
+.cardStatus {
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: var(--radius-full);
+}
+
+.statusLive {
+    color: var(--gauge-green, #22c55e);
+    background: rgba(34, 197, 94, 0.1);
+}
+
+.statusComplete {
+    color: var(--accent-cyan);
+    background: rgba(6, 182, 212, 0.1);
+}
+
+/* ── Loading ────────────────────────────────── */
+.loadingOverlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    padding: var(--space-md);
+    color: var(--text-muted);
+    font-size: 0.72rem;
+}
+
+.spinner {
+    display: inline-block;
+    animation: spin 1s linear infinite;
+    font-size: 1rem;
+}
+
+@keyframes spin {
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* ── Metrics Grid ───────────────────────────── */
+.metricsGrid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-xs, 6px);
+    margin-bottom: var(--space-sm);
+}
+
+.metricCard {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+    background: var(--bg-card);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.metricIcon {
+    font-size: 0.9rem;
+}
+
+.metricLabel {
+    font-size: 0.55rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+
+.metricValue {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
+.metricGreen {
+    color: var(--gauge-green, #22c55e);
+}
+
+.metricYellow {
+    color: var(--gauge-yellow, #eab308);
+}
+
+.metricRed {
+    color: var(--gauge-red, #ef4444);
+}
+
+/* ── Business Unit Section ──────────────────── */
+.buSection {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-sm);
+    border-top: 1px solid var(--border-subtle);
+}
+
+.buSectionTitle {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: var(--space-xs, 6px);
+}
+
+.buGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: var(--space-xs, 6px);
+}
+
+.buCard {
+    padding: 6px 8px;
+    background: var(--bg-card);
+    border-radius: var(--radius-sm, 6px);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.buName {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: capitalize;
+    color: var(--accent-cyan);
+    display: block;
+    margin-bottom: 2px;
+}
+
+.buMetrics {
+    display: flex;
+    gap: var(--space-sm);
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    color: var(--text-secondary);
+}
+
+/* ── Flags Row ──────────────────────────────── */
+.flagsRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: var(--space-sm);
+}
+
+.flagTag {
+    font-size: 0.52rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 3px;
+    color: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+}
+
+.flagMore {
+    font-size: 0.55rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    padding: 2px 6px;
+}
+
+/* ── Card Footer ────────────────────────────── */
+.cardFooter {
+    margin-top: var(--space-sm);
+    padding-top: var(--space-xs, 6px);
+    border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.sessionIdCode {
+    font-family: var(--font-mono);
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+}
+
+/* ── Animations ─────────────────────────────── */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}

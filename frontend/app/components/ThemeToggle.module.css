@@ -1,0 +1,82 @@
+/* ThemeToggle — Animated dark/light mode switch */
+
+.toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-full);
+    border: 1px solid var(--toggle-border);
+    background: var(--toggle-bg);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--shadow-lg);
+    transition: all var(--transition-normal);
+}
+
+.toggle:hover {
+    transform: scale(1.1);
+    background: var(--toggle-hover);
+    border-color: var(--accent-blue);
+    box-shadow: var(--glow-blue);
+}
+
+.toggle:active {
+    transform: scale(0.95);
+}
+
+/* ── Icons ─────────────────────────────────────────────── */
+.iconWrapper {
+    position: relative;
+    width: 22px;
+    height: 22px;
+}
+
+.icon {
+    position: absolute;
+    inset: 0;
+    width: 22px;
+    height: 22px;
+    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sun {
+    color: #f59e0b;
+    opacity: 0;
+    transform: rotate(-90deg) scale(0.5);
+}
+
+.moon {
+    color: #a78bfa;
+    opacity: 0;
+    transform: rotate(90deg) scale(0.5);
+}
+
+.sun.active {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+.moon.active {
+    opacity: 1;
+    transform: rotate(0deg) scale(1);
+}
+
+/* ── Pulse ring on hover ──────────────────────────────── */
+.toggle::after {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--accent-blue);
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+}
+
+.toggle:hover::after {
+    opacity: 0.3;
+}

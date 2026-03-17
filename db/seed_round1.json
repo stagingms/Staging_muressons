@@ -1,0 +1,116 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "simulation_name": "Muressons Global Command",
+    "total_rounds": 10,
+    "description": "Baseline seed state for Round 1 of a 10-round corporate sustainability simulation."
+  },
+
+  "round": 1,
+
+  "global_state": {
+    "corporate_treasury_usd": 50000000,
+    "group_reputation_score": 50.0,
+    "group_synergy_multiplier": 1.0,
+    "cost_of_capital_rate": 0.05,
+    "active_event_flags": {}
+  },
+
+  "business_units": [
+    {
+      "bu_id": "pharma",
+      "name": "Muressons Pharma",
+      "description": "Global pharmaceuticals division — high-margin, R&D-intensive with significant water dependency and regulatory exposure.",
+      "revenue_base": 18000000,
+      "opex_base": 11500000,
+      "water_dependency": 82.0,
+      "carbon_intensity": 45.0,
+      "social_license_score": 55.0,
+      "reputation_score": 52.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 15.0,
+      "risk_factors": {
+        "regulatory_compliance": "high",
+        "patent_cliff_exposure": "medium",
+        "supply_chain_fragility": "medium",
+        "community_health_impact": "high",
+        "water_scarcity_risk": "high",
+        "biodiversity_dependency": "medium"
+      }
+    },
+    {
+      "bu_id": "electronics",
+      "name": "Muressons Electronics",
+      "description": "Consumer and industrial electronics division — high revenue, heavy rare-earth mineral dependency and e-waste footprint.",
+      "revenue_base": 16500000,
+      "opex_base": 10800000,
+      "water_dependency": 58.0,
+      "carbon_intensity": 72.0,
+      "social_license_score": 48.0,
+      "reputation_score": 50.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 20.0,
+      "risk_factors": {
+        "regulatory_compliance": "medium",
+        "rare_earth_dependency": "high",
+        "e_waste_liability": "high",
+        "supply_chain_fragility": "high",
+        "labour_rights_exposure": "high",
+        "carbon_transition_risk": "medium"
+      }
+    },
+    {
+      "bu_id": "consumer_goods",
+      "name": "Muressons Consumer Goods",
+      "description": "Branded consumer products division — moderate margins, high brand-reputation sensitivity and packaging/waste footprint.",
+      "revenue_base": 10500000,
+      "opex_base": 7800000,
+      "water_dependency": 65.0,
+      "carbon_intensity": 38.0,
+      "social_license_score": 52.0,
+      "reputation_score": 53.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 10.0,
+      "risk_factors": {
+        "regulatory_compliance": "medium",
+        "brand_boycott_risk": "high",
+        "packaging_waste": "high",
+        "palm_oil_dependency": "medium",
+        "deforestation_exposure": "medium",
+        "consumer_sentiment_volatility": "high"
+      }
+    },
+    {
+      "bu_id": "software",
+      "name": "Muressons Software",
+      "description": "Enterprise and cloud software division — asset-light, low physical footprint but significant data-centre energy consumption.",
+      "revenue_base": 8500000,
+      "opex_base": 4200000,
+      "water_dependency": 12.0,
+      "carbon_intensity": 28.0,
+      "social_license_score": 60.0,
+      "reputation_score": 58.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 8.0,
+      "risk_factors": {
+        "regulatory_compliance": "low",
+        "data_privacy_risk": "high",
+        "ai_ethics_exposure": "medium",
+        "talent_retention": "high",
+        "data_centre_energy": "medium",
+        "digital_divide_impact": "low"
+      }
+    }
+  ],
+
+  "computed_summary": {
+    "total_group_revenue": 53500000,
+    "total_group_opex": 34300000,
+    "group_gross_margin_pct": 35.89,
+    "average_social_license": 53.75,
+    "average_reputation_score": 53.25,
+    "average_carbon_intensity": 45.75,
+    "average_water_dependency": 54.25,
+    "bu_count": 4
+  }
+}
