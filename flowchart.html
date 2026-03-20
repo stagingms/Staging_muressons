@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Muressons Global Command — Simulation Flowcharts</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #ffffff;
+    color: #1e293b;
+    padding: 2rem;
+  }
+  h1 {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #1e293b;
+  }
+  .subtitle {
+    text-align: center;
+    color: #64748b;
+    margin-bottom: 2rem;
+    font-size: 0.95rem;
+  }
+  .chart-section {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+  }
+  .chart-section h2 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+    color: #334155;
+  }
+  .download-btn {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.5rem;
+    background: linear-gradient(135deg, #4f46e5, #3b82f6);
+    color: #fff;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .download-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99,102,241,0.4);
+  }
+  .download-all-wrap {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .download-all {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #fff;
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 10px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .download-all:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(16,185,129,0.4);
+  }
+  .mermaid svg { max-width: 100%; height: auto; }
+</style>
+</head>
+<body>
+
+<h1>🏛️ Muressons Global Command</h1>
+<p class="subtitle">Complete Simulation Flowcharts — Click any button to download as PNG</p>
+
+<div class="download-all-wrap">
+  <button class="download-all" onclick="downloadAll()">⬇ Download All Charts as PNG</button>
+</div>
+
+<!-- Chart 1 -->
+<div class="chart-section" id="section-1">
+  <h2>1. Rounds 0–6: Decision Flow</h2>
+  <button class="download-btn" onclick="downloadChart('chart1','Rounds_0-6_Flow')">⬇ Download PNG</button>
+  <div class="mermaid" id="chart1">
+flowchart TD
+    subgraph R0["🎓 ROUND 0 — Onboarding"]
+        A0["Player Opens /"] --> A1["Join Cohort"]
+        A1 --> A3["Session Created — Treasury $50M — Rep 50 — Synergy 1.0"]
+    end
+    subgraph R1["📋 ROUND 1 — Foundations 2025"]
+        R1_MINI["🎮 Stakeholder Matrix — 80pct threshold — Blocks commit"]
+        R1_DEC{"Decision"}
+        R1A["A: Surface Scan — $0 — Rep −2 — ⚠ blindspot"]
+        R1B["B: Deep Audit — −$3M — Rep +5 — protected"]
+        R1C["C: Phased — −$1.5M — Rep +2 — ⚠ blindspot"]
+        R1_MINI --> R1_DEC --> R1A & R1B & R1C
+    end
+    subgraph R2["📊 ROUND 2 — Double Materiality 2027"]
+        R2_MINI["🎮 CSRD Assessment — CFO Gate"]
+        R2_DEC{"Decision"}
+        R2A["A: Full Alignment — Rep +5 — Gov −5"]
+        R2B["B: Exceptions — Rep +2 — Gov −2"]
+        R2C["C: Ignore — Rep −5 — Gov +10"]
+        R2_MINI --> R2_DEC --> R2A & R2B & R2C
+    end
+    subgraph R3["🏭 ROUND 3 — Scope 3 2029"]
+        R3_DEC{"Decision"}
+        R3A["A: Rapid Switch — −$4M — Carbon −15"]
+        R3B["B: Green Bond — −$2M — NCD −15"]
+        R3C["C: Offset — −$1M — NCD +5"]
+        R3_DEC --> R3A & R3B & R3C
+    end
+    subgraph R4["🔥 ROUND 4 — Contagion 2031"]
+        R4_CHECK{"blindspot active?"}
+        R4_40["Severity: 40"] 
+        R4_80["⚠ Severity: 80 DOUBLED"]
+        R4_DEC{"Decision"}
+        R4A["A: Transparency — −$6M — Rep +10"]
+        R4B["B: PR — −$2M — Rep +2"]
+        R4C["C: Deny — $0 — Rep −15"]
+        R4_CHECK -->|No| R4_40 --> R4_DEC
+        R4_CHECK -->|Yes| R4_80 --> R4_DEC
+        R4_DEC --> R4A & R4B & R4C
+    end
+    subgraph R5["🌪️ ROUND 5 — Climate 2033"]
+        R5_DEC{"Decision"}
+        R5A["A: Hard Eng — Resilience 0.85"]
+        R5B["B: NBS — Resilience 0.60"]
+        R5C["C: Insurance — Resilience 0 — ⚠ flag"]
+        R5_ROLL{"🎲 Roll vs 0.75"}
+        R5_HIT["Cyclone Hits — $12M × 1−resilience"]
+        R5_MISS["Cyclone Misses"]
+        R5_DEC --> R5A & R5B & R5C --> R5_ROLL
+        R5_ROLL -->|Hit| R5_HIT
+        R5_ROLL -->|Miss| R5_MISS
+    end
+    subgraph R6["🤖 ROUND 6 — AI Bias 2035"]
+        R6_DEC{"Decision"}
+        R6A["A: Monetise — Rev +$5M — Rep −20"]
+        R6B["B: Ethical Overhaul — −$8M — SLO +15 — 🏆 truth flag"]
+        R6C["C: Quiet Patch — −$1M — Gov +10"]
+        R6_DEC --> R6A & R6B & R6C
+    end
+    A3 --> R1_MINI
+    R1A & R1B & R1C --> R2_MINI
+    R2A & R2B & R2C --> R3_DEC
+    R3A & R3B & R3C --> R4_CHECK
+    R4A & R4B & R4C --> R5_DEC
+    R5_HIT & R5_MISS --> R6_DEC
+  </div>
+</div>
+
+<!-- Chart 2 -->
+<div class="chart-section" id="section-2">
+  <h2>2. Rounds 7–10 and Terminal Valuation</h2>
+  <button class="download-btn" onclick="downloadChart('chart2','Rounds_7-10_Terminal')">⬇ Download PNG</button>
+  <div class="mermaid" id="chart2">
+flowchart TD
+    subgraph R7["♻️ ROUND 7 — Circularity 2037"]
+        R7_DEC{"Decision"}
+        R7A["A: Circular Redesign — −$10M — NCD −12"]
+        R7B["B: EPR — −$5M — NCD −6"]
+        R7C["C: Waste-to-Energy — −$7M — Synergy +0.35 — 🏆 synergy_unlock"]
+        R7_DEC --> R7A & R7B & R7C
+    end
+    subgraph R8["🌊 ROUND 8 — Blue Stress 2039"]
+        R8_DEC{"Decision"}
+        R8A["A: Water Efficiency All — −$12M"]
+        R8B["B: Prioritise Electronics — −$4M — Pharma/CG SLO −25 — ⚠ flag"]
+        R8C["C: Desalination — −$30M — NCD −30"]
+        R8_DEC --> R8A & R8B & R8C
+    end
+    subgraph R9["✊ ROUND 9 — Just Transition 2042"]
+        R9_DEC{"Decision"}
+        R9A["A: Immediate Closure — +$5M — SLO −20"]
+        R9B["B: Managed Transition — −$12M — SLO +10"]
+        R9C["C: Community Fund — −$20M — SLO +18"]
+        R9_STRIKE{"A + SLO < 50?"}
+        R9_ROLL{"🎲 75pct Strike"}
+        R9_HIT["🚨 STRIKE — All Revenue $0"]
+        R9_SAFE["No Strike"]
+        R9_DEC --> R9A & R9B & R9C
+        R9A --> R9_STRIKE
+        R9_STRIKE -->|Yes| R9_ROLL
+        R9_STRIKE -->|No| R9_SAFE
+        R9_ROLL -->|Hit| R9_HIT
+        R9_ROLL -->|Miss| R9_SAFE
+        R9B & R9C --> R9_SAFE
+    end
+    subgraph R10["🏛️ ROUND 10 — Grand Finale 2050"]
+        R10_GATE{"Synergy > 80?"}
+        R10A["A: Resist and Integrate — −$5M — 🔒 Gated"]
+        R10B["B: Spin-off — +$10M — Remove weakest BU"]
+        R10C["C: Divest — +$25M — Synergy reset to 1.0"]
+        R10_GATE -->|"Yes + flag"| R10A
+        R10_GATE -->|No| R10B
+        R10_GATE --> R10C
+    end
+    subgraph TV["📊 TERMINAL VALUATION"]
+        TV1["EBITDA 2050 = Sum of Rev−OPEX minus Carbon×$250"]
+        TV2["M_R = 1.0 + 0.30 synergy + 0.20 resilience + 0.15 truth − 0.40 instability"]
+        TV3["Terminal Value = EBITDA × 12 × M_R"]
+        TV4{"Archetype"}
+        TV_T["🏆 Regenerative Titan — MR ≥ 1.8"]
+        TV_S["🛡️ Safe Haven — MR 1.2–1.8"]
+        TV_F["⚠️ Fragile Giant — MR 0.8–1.2"]
+        TV_D["💀 Stranded Relic — MR < 0.8"]
+        TV1 --> TV2 --> TV3 --> TV4
+        TV4 --> TV_T & TV_S & TV_F & TV_D
+    end
+    R7A & R7B & R7C --> R8_DEC
+    R8A & R8B & R8C --> R9_DEC
+    R9_HIT & R9_SAFE --> R10_GATE
+    R10A & R10B & R10C --> TV1
+  </div>
+</div>
+
+<!-- Chart 3 -->
+<div class="chart-section" id="section-3">
+  <h2>3. Flag Dependency Web (Cross-Round Consequences)</h2>
+  <button class="download-btn" onclick="downloadChart('chart3','Flag_Dependencies')">⬇ Download PNG</button>
+  <div class="mermaid" id="chart3">
+flowchart LR
+    subgraph EARLY["Early Rounds"]
+        R1AC["R1 Option A or C — blindspot"]
+    end
+    subgraph MID["Mid Rounds"]
+        R5CO["R5 Option C — insurance_only"]
+        R6BO["R6 Option B — ethical_ai_overhaul"]
+    end
+    subgraph LATE["Late Rounds"]
+        R7CO["R7 Option C — synergy_unlock"]
+        R8BO["R8 Option B — water_priority"]
+    end
+    subgraph FIN["Round 10 Terminal Value"]
+        R4X["R4 Crisis DOUBLED 40 to 80"]
+        MR_SYN["+0.30 Synergy"]
+        MR_RES["+0.20 Resilience"]
+        MR_TRUTH["+0.15 Truth"]
+        R10A_GATE["Option A Gated"]
+    end
+    R1AC -->|doubles| R4X
+    R5CO -->|blocks| MR_RES
+    R8BO -->|blocks| MR_RES
+    R6BO -->|unlocks| MR_TRUTH
+    R7CO -->|boosts| MR_SYN
+    R7CO -->|enables| R10A_GATE
+  </div>
+</div>
+
+<!-- Chart 4 -->
+<div class="chart-section" id="section-4">
+  <h2>4. Per-Round Engine Pipeline</h2>
+  <button class="download-btn" onclick="downloadChart('chart4','Engine_Pipeline')">⬇ Download PNG</button>
+  <div class="mermaid" id="chart4">
+flowchart LR
+    COMMIT["Player Commits"] --> PRE["pre_tick — Validate — Override crisis"]
+    PRE --> E1["1 CSF — Treasury"]
+    E1 --> E2["2 Contagion — Group Rep"]
+    E2 --> E3["3 Synergy — OPEX Reduction"]
+    E3 --> E4["4 NCD Interest — Debt Compounds"]
+    E4 --> E5["5 VRIO Decay — Synergy Erosion"]
+    E5 --> E6["6 Brain-Drain — SW OPEX Penalty"]
+    E6 --> E7["7 Strike Probability"]
+    E7 --> E8["8 Entropy — Natural Decay"]
+    E8 --> POST["post_tick — Round-specific mutations"]
+    POST --> DB["INSERT immutable state"]
+    DB --> RESP["Next-round state returned"]
+  </div>
+</div>
+
+<!-- Chart 5 -->
+<div class="chart-section" id="section-5">
+  <h2>5. Facilitator God Mode Flow</h2>
+  <button class="download-btn" onclick="downloadChart('chart5','God_Mode_Flow')">⬇ Download PNG</button>
+  <div class="mermaid" id="chart5">
+flowchart TD
+    FAC["Facilitator opens /admin"] --> DASH["Dashboard — All cohorts and players"]
+    DASH --> WS["WebSocket connection"]
+    subgraph OVR["Manual Overrides"]
+        O1["Force Carbon Tax"]
+        O2["Cash Bailout"]
+        O3["Force Strike"]
+        O4["Trigger Crisis"]
+        O5["Edit Decision Matrix"]
+    end
+    subgraph MSG["Executive Mailbox"]
+        M1["Activist Threat"]
+        M2["Media Scandal"]
+        M3["Whistleblower"]
+        M4["Black Swan"]
+        M5["CEO Panic"]
+    end
+    subgraph AUTO["Auto-Triggers"]
+        C1["Treasury low — CEO Panic"]
+        C2["Rep low — Activist Threat"]
+    end
+    WS --> OVR
+    WS --> MSG
+    WS --> AUTO
+    OVR -->|Mutates| DB["Database"]
+    MSG -->|WebSocket push| PLAYER["Player Cockpit"]
+    AUTO -->|auto-inject| MSG
+  </div>
+</div>
+
+<script>
+mermaid.initialize({
+  startOnLoad: true,
+  theme: 'default',
+  themeVariables: {
+    primaryColor: '#dbeafe',
+    primaryTextColor: '#1e293b',
+    primaryBorderColor: '#6366f1',
+    lineColor: '#64748b',
+    secondaryColor: '#f1f5f9',
+    tertiaryColor: '#ffffff',
+    fontSize: '14px'
+  },
+  flowchart: { curve: 'basis', padding: 20 }
+});
+
+async function downloadChart(id, filename) {
+  const el = document.getElementById(id);
+  const svg = el.querySelector('svg');
+  if (!svg) { alert('Chart not rendered yet. Please wait.'); return; }
+
+  const clone = svg.cloneNode(true);
+  clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  // Embed background
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('width', '100%');
+  bg.setAttribute('height', '100%');
+  bg.setAttribute('fill', '#ffffff');
+  clone.insertBefore(bg, clone.firstChild);
+
+  const svgData = new XMLSerializer().serializeToString(clone);
+  const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(svgBlob);
+
+  const img = new Image();
+  img.onload = () => {
+    const scale = 2;
+    const canvas = document.createElement('canvas');
+    canvas.width = img.width * scale;
+    canvas.height = img.height * scale;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(blob => {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename + '.png';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }, 'image/png');
+    URL.revokeObjectURL(url);
+  };
+  img.src = url;
+}
+
+async function downloadAll() {
+  const charts = [
+    ['chart1', 'Muressons_Rounds_0-6_Flow'],
+    ['chart2', 'Muressons_Rounds_7-10_Terminal'],
+    ['chart3', 'Muressons_Flag_Dependencies'],
+    ['chart4', 'Muressons_Engine_Pipeline'],
+    ['chart5', 'Muressons_God_Mode_Flow'],
+  ];
+  for (const [id, name] of charts) {
+    downloadChart(id, name);
+    await new Promise(r => setTimeout(r, 800));
+  }
+}
+</script>
+</body>
+</html>

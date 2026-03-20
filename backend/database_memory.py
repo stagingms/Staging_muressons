@@ -1,22 +1,30 @@
 """
 Muressons Global Command — In-Memory Database Service
 Drop-in replacement for database.py when PostgreSQL is unavailable.
-Stores all state in Python dicts; data resets on server restart.
+Stores all state in Python dicts with automatic JSON file persistence.
+Data survives server restarts via snapshot file.
 """
 
 from __future__ import annotations
 import copy
 import json
 import uuid
+import pathlib
+import threading
 from datetime import datetime, timezone
 from typing import Any, Optional
+
+
+# ── Persistence Config ──────────────────────────────────────────
+
+_SNAPSHOT_PATH = pathlib.Path(__file__).resolve().parent.parent / "db" / "memory_snapshot.json"
+_save_lock = threading.Lock()
 
 
 # ── Seed Data ───────────────────────────────────────────────────
 
 def _load_seed() -> dict:
     """Load the Round 1 seed JSON (relative to the backend directory)."""
-    import pathlib
     seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / "seed_round1.json"
     with open(seed_path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -28,6 +36,78 @@ _sessions: dict[str, dict] = {}
 _global_states: dict[str, list[dict]] = {}      # session_id → [round_states]
 _bu_states: dict[str, dict[int, list[dict]]] = {} # session_id → {round_num → [bu_dicts]}
 _decision_log: list[dict] = []
+
+
+# ── Persistence Helpers ─────────────────────────────────────────
+
+def _datetime_serializer(obj):
+    """JSON serializer for datetime objects."""
+    if isinstance(obj, datetime):
+        return {"__datetime__": obj.isoformat()}
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
+def _datetime_deserializer(obj):
+    """JSON object hook to restore datetime objects."""
+    if "__datetime__" in obj:
+        return datetime.fromisoformat(obj["__datetime__"])
+    return obj
+
+
+def _persist():
+    """Save all in-memory stores to disk as a JSON snapshot."""
+    with _save_lock:
+        try:
+            # Convert _bu_states keys (int) to str for JSON
+            bu_serializable = {}
+            for sid, rounds in _bu_states.items():
+                bu_serializable[sid] = {str(rn): bus for rn, bus in rounds.items()}
+
+            snapshot = {
+                "sessions": _sessions,
+                "global_states": _global_states,
+                "bu_states": bu_serializable,
+                "decision_log": _decision_log,
+            }
+            _SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
+            tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
+            with open(tmp_path, "w", encoding="utf-8") as f:
+                json.dump(snapshot, f, default=_datetime_serializer, ensure_ascii=False)
+            tmp_path.replace(_SNAPSHOT_PATH)  # atomic rename
+        except Exception as e:
+            print(f"[persistence] Failed to save snapshot: {e}")
+
+
+def _load_from_disk():
+    """Restore in-memory stores from the JSON snapshot on disk."""
+    global _sessions, _global_states, _bu_states, _decision_log
+    if not _SNAPSHOT_PATH.exists():
+        return
+
+    try:
+        with open(_SNAPSHOT_PATH, "r", encoding="utf-8") as f:
+            raw = f.read()
+
+        snapshot = json.loads(raw, object_hook=_datetime_deserializer)
+
+        _sessions = snapshot.get("sessions", {})
+        _global_states = snapshot.get("global_states", {})
+        _decision_log = snapshot.get("decision_log", [])
+
+        # Convert _bu_states keys back from str to int
+        raw_bu = snapshot.get("bu_states", {})
+        _bu_states.clear()
+        for sid, rounds in raw_bu.items():
+            _bu_states[sid] = {int(rn): bus for rn, bus in rounds.items()}
+
+        session_count = len([s for s in _sessions.values() if not s.get("parent_cohort_id")])
+        print(f"[persistence] Restored {session_count} cohort(s) from snapshot.")
+    except Exception as e:
+        print(f"[persistence] Failed to load snapshot: {e}")
+
+
+# ── Auto-load on import ────────────────────────────────────────
+_load_from_disk()
 
 
 # ── Pool stubs (no-ops for compatibility) ───────────────────────
@@ -112,6 +192,7 @@ async def create_session(
 
     _global_states[session_id] = [global_state]
     _bu_states[session_id] = {1: copy.deepcopy(bus)}
+    _persist()
 
     return {
         "session_id": session_id,
@@ -178,6 +259,7 @@ async def set_session_public(session_id: str, is_public: bool) -> bool:
     session = _sessions.get(session_id)
     if not session: return False
     session["is_public"] = is_public
+    _persist()
     return True
 
 async def generate_player_id(session_id: str) -> Optional[str]:
@@ -194,6 +276,7 @@ async def generate_player_id(session_id: str) -> Optional[str]:
             break
             
     allowed.append(pid)
+    _persist()
     return pid
 
 
@@ -330,6 +413,7 @@ async def insert_next_round(
             "team_consensus": dec.get("team_consensus", "majority"),
         })
 
+    _persist()
     return global_state_id
 
 
@@ -438,6 +522,7 @@ async def update_latest_global_state(
     rn = latest["round_number"]
     if session_id in _bu_states:
         _bu_states[session_id][rn] = copy.deepcopy(bu_states)
+    _persist()
 
 
 # ── Reset / Delete Operations ─────────────────────────────────
@@ -451,6 +536,7 @@ async def delete_session(session_id: str) -> bool:
     # Remove decisions for this session
     global _decision_log
     _decision_log = [d for d in _decision_log if d.get("session_id") != session_id]
+    _persist()
     return found
 
 
@@ -462,6 +548,7 @@ async def delete_all_sessions() -> int:
     _bu_states.clear()
     global _decision_log
     _decision_log = []
+    _persist()
     return count
 
 
@@ -474,6 +561,7 @@ async def save_decade_plan(session_id: str, boardroom_choice: str, decade_plan: 
         return False
     sess["boardroom_choice"] = boardroom_choice
     sess["decade_forward_plan"] = decade_plan
+    _persist()
     return True
 
 
