@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   CSRD Double Materiality Matrix — Professional UI
-   Clean, corporate design with excellent legibility
+   CSRD Double Materiality Matrix — Dark Command Center Theme
+   With light mode override at bottom
    ═══════════════════════════════════════════════════════════ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -11,12 +11,12 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: #f0f2f7;
+    background: var(--csrd-bg, #0a0e1a);
     z-index: 1000;
     display: flex;
     flex-direction: column;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: #1e293b;
+    color: var(--csrd-text, #e2e8f0);
     -webkit-font-smoothing: antialiased;
 }
 
@@ -26,9 +26,9 @@
     justify-content: space-between;
     align-items: center;
     padding: 0.75rem 1.5rem;
-    background: linear-gradient(180deg, #1b2a4a, #162240);
-    border-bottom: 2px solid #0d1a33;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+    background: var(--csrd-header-bg, linear-gradient(180deg, #0f1524, #0a0e1a));
+    border-bottom: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
     z-index: 100;
 }
 
@@ -51,28 +51,28 @@
 
 /* ── Submit / Action Buttons ─────────────────────────────── */
 .submitBtn {
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
-    color: white;
+    background: linear-gradient(135deg, #00e5c3, #0dd9b0);
+    color: #0a0e1a;
     border: none;
     padding: 0.55rem 1.25rem;
     border-radius: 6px;
-    font-weight: 700;
+    font-weight: 800;
     font-size: 0.82rem;
     cursor: pointer;
     transition: all 0.2s ease;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.35);
-    letter-spacing: 0.01em;
+    box-shadow: 0 2px 12px rgba(0, 229, 195, 0.25);
+    letter-spacing: 0.04em;
     font-family: 'Inter', sans-serif;
+    text-transform: uppercase;
 }
 
 .submitBtn:hover {
-    background: linear-gradient(135deg, #1d4ed8, #2563eb);
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45);
+    box-shadow: 0 4px 20px rgba(0, 229, 195, 0.35);
     transform: translateY(-1px);
 }
 
 .submitBtn:disabled {
-    opacity: 0.45;
+    opacity: 0.35;
     cursor: not-allowed;
     transform: none;
     box-shadow: none;
@@ -90,20 +90,19 @@
     width: 28%;
     min-width: 280px;
     max-width: 340px;
-    background: #ffffff;
-    border-right: 1px solid #e2e8f0;
+    background: var(--csrd-pane-bg, #0c1020);
+    border-right: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.06));
     display: flex;
     flex-direction: column;
-    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.04);
 }
 
 .bankHeader {
     padding: 0.85rem 1.1rem;
-    border-bottom: 1px solid #e2e8f0;
+    border-bottom: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.06));
     font-size: 0.88rem;
     font-weight: 700;
-    color: #0f172a;
-    background: #f8fafc;
+    color: var(--csrd-text, #e2e8f0);
+    background: var(--csrd-bank-header-bg, rgba(14, 20, 36, 0.6));
     letter-spacing: -0.01em;
 }
 
@@ -121,7 +120,7 @@
 }
 
 .bankScroll::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: rgba(0, 229, 195, 0.15);
     border-radius: 2px;
 }
 
@@ -132,7 +131,7 @@
     flex-direction: column;
     padding: 1.25rem 1.5rem;
     position: relative;
-    background: #f0f2f7;
+    background: var(--csrd-bg, #0a0e1a);
 }
 
 .axesContainer {
@@ -150,7 +149,7 @@
     transform: rotate(180deg);
     text-align: center;
     font-weight: 700;
-    color: #475569;
+    color: var(--csrd-axis, #64748b);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -164,7 +163,7 @@
     grid-column: 2;
     text-align: center;
     font-weight: 700;
-    color: #475569;
+    color: var(--csrd-axis, #64748b);
     letter-spacing: 0.06em;
     text-transform: uppercase;
     font-size: 0.72rem;
@@ -177,12 +176,12 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    background: #ffffff;
-    border: 2px solid #334155;
+    background: var(--csrd-grid-bg, #0f1524);
+    border: 1px solid var(--csrd-grid-border, rgba(0, 229, 195, 0.15));
     border-radius: 8px;
     overflow: hidden;
     position: relative;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* ── Quadrants ───────────────────────────────────────────── */
@@ -197,10 +196,11 @@
     transition: background 0.2s ease;
     z-index: 10;
     background: transparent;
+    border: 1px solid rgba(0, 229, 195, 0.04);
 }
 
 .quadrant:hover {
-    background: rgba(0, 0, 0, 0.015);
+    background: rgba(0, 229, 195, 0.02);
 }
 
 .quadrant.isOver {
@@ -212,7 +212,7 @@
 }
 
 .quadrant1.isOver {
-    background: rgba(16, 185, 129, 0.12);
+    background: rgba(0, 229, 195, 0.1);
 }
 
 .bgText {
@@ -222,7 +222,7 @@
     transform: translate(-50%, -50%);
     font-size: 1.1rem;
     font-weight: 800;
-    color: rgba(0, 0, 0, 0.12);
+    color: rgba(0, 229, 195, 0.06);
     text-align: center;
     pointer-events: none;
     width: 80%;
@@ -243,37 +243,37 @@
 
 /* ── Issue Chips ─────────────────────────────────────────── */
 .chip {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--csrd-chip-bg, rgba(14, 20, 36, 0.8));
+    border: 1px solid var(--csrd-chip-border, rgba(0, 229, 195, 0.1));
     border-radius: 8px;
     padding: 0.5rem 0.75rem;
     font-size: 0.8rem;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--csrd-text, #e2e8f0);
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     cursor: grab;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
     transition: all 0.15s ease;
     user-select: none;
     position: relative;
-    border-left: 3px solid #3b82f6;
+    border-left: 3px solid #00e5c3;
 }
 
 .chip:hover {
-    border-color: #93c5fd;
-    border-left-color: #2563eb;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    border-color: rgba(0, 229, 195, 0.25);
+    border-left-color: #00e5c3;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
     transform: translateY(-1px);
-    background: #f8fafc;
+    background: var(--csrd-chip-hover, rgba(0, 229, 195, 0.04));
 }
 
 .chip:active {
     cursor: grabbing;
     transform: translateY(0);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .chipLeft {
@@ -296,8 +296,8 @@
 
 .chipDragging {
     opacity: 0.5;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
-    border-color: #3b82f6;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+    border-color: #00e5c3;
 }
 
 .chipTitle {
@@ -307,7 +307,7 @@
 }
 
 .infoIcon {
-    color: #94a3b8;
+    color: #64748b;
     font-size: 0.85rem;
     cursor: help;
     display: flex;
@@ -318,7 +318,7 @@
 }
 
 .infoIcon:hover {
-    color: #3b82f6;
+    color: #00e5c3;
 }
 
 /* ── Tooltip ─────────────────────────────────────────────── */
@@ -331,7 +331,7 @@
     visibility: hidden;
     width: max-content;
     max-width: 220px;
-    background: #1e293b;
+    background: #0f1524;
     color: #f1f5f9;
     text-align: left;
     border-radius: 6px;
@@ -346,8 +346,8 @@
     font-size: 0.75rem;
     font-weight: 400;
     line-height: 1.5;
-    border: 1px solid #475569;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    border: 1px solid rgba(0, 229, 195, 0.15);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
     pointer-events: none;
 }
 
@@ -359,7 +359,7 @@
     margin-left: -5px;
     border-width: 5px;
     border-style: solid;
-    border-color: #475569 transparent transparent transparent;
+    border-color: rgba(0, 229, 195, 0.15) transparent transparent transparent;
 }
 
 .tooltip:hover .tooltipText {
@@ -371,7 +371,7 @@
 .consultantBtn {
     background: transparent;
     color: #e2e8f0;
-    border: 1px solid rgba(255, 255, 255, 0.25);
+    border: 1px solid rgba(0, 229, 195, 0.2);
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-weight: 600;
@@ -382,21 +382,21 @@
 }
 
 .consultantBtn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(255, 255, 255, 0.4);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    background: rgba(0, 229, 195, 0.06);
+    border-color: rgba(0, 229, 195, 0.35);
+    box-shadow: 0 0 12px rgba(0, 229, 195, 0.08);
 }
 
 .consultantBadge {
     display: inline-flex;
     align-items: center;
-    background: rgba(16, 185, 129, 0.15);
+    background: rgba(0, 229, 195, 0.1);
     color: #4ade80;
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-size: 0.8rem;
     font-weight: 700;
-    border: 1px solid rgba(16, 185, 129, 0.35);
+    border: 1px solid rgba(0, 229, 195, 0.2);
     letter-spacing: 0.01em;
 }
 
@@ -404,8 +404,8 @@
 .modalOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.7);
-    backdrop-filter: blur(6px);
+    background: rgba(10, 14, 26, 0.85);
+    backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -413,16 +413,16 @@
 }
 
 .modalContent {
-    background: #ffffff;
+    background: var(--csrd-modal-bg, #0f1524);
     padding: 2rem 2.5rem;
     border-radius: 12px;
     max-width: 480px;
     width: 90%;
     text-align: center;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.2);
-    border: 1px solid #e2e8f0;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.15));
     animation: slideUp 0.3s ease-out;
-    color: #1e293b;
+    color: var(--csrd-text, #e2e8f0);
 }
 
 .modalContent h3 {
@@ -430,11 +430,11 @@
     margin-bottom: 0.75rem;
     font-size: 1.35rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--csrd-heading, #f1f5f9);
 }
 
 .modalContent p {
-    color: #475569;
+    color: var(--csrd-muted, #94a3b8);
     font-size: 0.9rem;
     line-height: 1.6;
 }
@@ -453,9 +453,9 @@
 }
 
 .cancelBtn {
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+    background: var(--csrd-cancel-bg, rgba(14, 20, 36, 0.6));
+    color: var(--csrd-muted, #94a3b8);
+    border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     padding: 0.55rem 1.25rem;
     border-radius: 6px;
     font-weight: 600;
@@ -466,51 +466,51 @@
 }
 
 .cancelBtn:hover {
-    background: #e2e8f0;
-    color: #1e293b;
+    background: var(--csrd-cancel-hover, rgba(0, 229, 195, 0.06));
+    color: var(--csrd-text, #e2e8f0);
 }
 
-/* ── Cheat Sheet Panel — Legible, Light Design ───────────── */
+/* ── Cheat Sheet Panel ───────────────────────────────────── */
 .cheatSheetPanel {
     position: fixed;
     bottom: 1.5rem;
     right: 1.5rem;
     width: 380px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
+    background: var(--csrd-modal-bg, #0f1524);
+    border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.15));
     border-radius: 12px;
     padding: 1.5rem 1.75rem;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
     z-index: 9999;
     animation: slideUp 0.4s ease-out;
 }
 
 .cheatSheetPanel h4 {
     margin: 0 0 1rem 0;
-    color: #1e293b;
+    color: var(--csrd-heading, #f1f5f9);
     font-size: 1.05rem;
     font-weight: 800;
     padding-bottom: 0.65rem;
-    border-bottom: 2px solid #3b82f6;
+    border-bottom: 2px solid #00e5c3;
     letter-spacing: -0.01em;
 }
 
 .cheatSheetPanel p {
     font-size: 0.88rem;
-    color: #334155;
+    color: var(--csrd-muted, #94a3b8);
     line-height: 1.7;
     margin-bottom: 0.85rem;
 }
 
 .cheatSheetPanel p strong {
-    color: #0f172a;
+    color: var(--csrd-heading, #f1f5f9);
     font-weight: 700;
 }
 
 .closeTabBtn {
-    background: #f1f5f9;
-    color: #475569;
-    border: 1px solid #e2e8f0;
+    background: var(--csrd-cancel-bg, rgba(14, 20, 36, 0.6));
+    color: var(--csrd-muted, #94a3b8);
+    border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
@@ -522,44 +522,44 @@
 }
 
 .closeTabBtn:hover {
-    background: #e2e8f0;
-    color: #1e293b;
+    background: rgba(0, 229, 195, 0.06);
+    color: var(--csrd-text, #e2e8f0);
 }
 
 /* ── Error / Success Modals ──────────────────────────────── */
 .errorModal {
-    border-color: #fca5a5;
+    border-color: rgba(239, 68, 68, 0.3);
     border-left: 4px solid #ef4444;
 }
 
 .errorModal h3 {
-    color: #dc2626;
+    color: #f87171;
 }
 
 .errorText {
-    color: #475569;
+    color: var(--csrd-muted, #94a3b8);
     font-weight: 500;
     margin-bottom: 1.5rem;
     line-height: 1.6;
 }
 
 .successModal {
-    border-color: #86efac;
-    border-left: 4px solid #22c55e;
+    border-color: rgba(0, 229, 195, 0.3);
+    border-left: 4px solid #00e5c3;
 }
 
 .successModal h3 {
-    color: #16a34a;
+    color: #4ade80;
 }
 
 .budgetBox {
-    background: #f0fdf4;
-    border: 1px solid #86efac;
+    background: rgba(0, 229, 195, 0.08);
+    border: 1px solid rgba(0, 229, 195, 0.2);
     border-radius: 8px;
     padding: 1.25rem;
     font-size: 1.6rem;
     font-weight: 800;
-    color: #16a34a;
+    color: #00e5c3;
     margin: 1.25rem 0;
     font-variant-numeric: tabular-nums;
     text-align: center;
@@ -571,7 +571,7 @@
 }
 
 .quadrant::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
+    background: rgba(0, 229, 195, 0.12);
     border-radius: 2px;
 }
 
@@ -590,4 +590,84 @@
 @keyframes fadeIn {
     from { opacity: 0; }
     to { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   LIGHT MODE OVERRIDES
+   ═══════════════════════════════════════════════════════════ */
+:global([data-theme="light"]) .overlay {
+    --csrd-bg: #f0f2f7;
+    --csrd-text: #1e293b;
+    --csrd-heading: #0f172a;
+    --csrd-muted: #475569;
+    --csrd-axis: #475569;
+    --csrd-border: #e2e8f0;
+    --csrd-header-bg: linear-gradient(180deg, #1b2a4a, #162240);
+    --csrd-pane-bg: #ffffff;
+    --csrd-bank-header-bg: #f8fafc;
+    --csrd-grid-bg: #ffffff;
+    --csrd-grid-border: #334155;
+    --csrd-chip-bg: #ffffff;
+    --csrd-chip-border: #e2e8f0;
+    --csrd-chip-hover: #f8fafc;
+    --csrd-modal-bg: #ffffff;
+    --csrd-cancel-bg: #f1f5f9;
+    --csrd-cancel-hover: #e2e8f0;
+}
+
+:global([data-theme="light"]) .bgText {
+    color: rgba(0, 0, 0, 0.08);
+}
+
+:global([data-theme="light"]) .chip {
+    border-left-color: #3b82f6;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+:global([data-theme="light"]) .chip:hover {
+    border-left-color: #2563eb;
+    background: #f8fafc;
+}
+
+:global([data-theme="light"]) .submitBtn {
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+:global([data-theme="light"]) .quadrant:hover {
+    background: rgba(0, 0, 0, 0.015);
+}
+
+:global([data-theme="light"]) .quadrant.isOver {
+    background: rgba(59, 130, 246, 0.08);
+}
+
+:global([data-theme="light"]) .quadrant1.isOver {
+    background: rgba(16, 185, 129, 0.12);
+}
+
+:global([data-theme="light"]) .infoIcon:hover {
+    color: #3b82f6;
+}
+
+:global([data-theme="light"]) .bankScroll::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+}
+
+:global([data-theme="light"]) .quadrant::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+}
+
+:global([data-theme="light"]) .errorModal h3 { color: #dc2626; }
+:global([data-theme="light"]) .successModal h3 { color: #16a34a; }
+
+:global([data-theme="light"]) .budgetBox {
+    background: #f0fdf4;
+    border-color: #86efac;
+    color: #16a34a;
+}
+
+:global([data-theme="light"]) .cheatSheetPanel h4 {
+    border-bottom-color: #3b82f6;
 }

@@ -301,9 +301,17 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "synergy_multiplier": float(grs["synergy_multiplier"]),
             "cost_of_capital": float(grs["cost_of_capital"]),
             "active_event_flags": grs.get("active_event_flags") or {},
+            "bonus_score": grs.get("bonus_score", 0),
             "historical_ebitda": float(grs.get("historical_ebitda", 0)),
             "tco2e_emissions": int(grs.get("tco2e_emissions", 0)),
             "vrio_capabilities": grs.get("vrio_capabilities") or {},
+            "stakeholder_map_completed": grs.get("stakeholder_map_completed", False),
+            "stakeholder_map_accuracy": grs.get("stakeholder_map_accuracy", 0),
+            "learning_bonuses_awarded": grs.get("learning_bonuses_awarded", {}),
+            "saved_allocations": grs.get("saved_allocations"),
+            "saved_decision_choice": grs.get("saved_decision_choice"),
+            "materiality_budget_allocated": grs.get("materiality_budget_allocated"),
+            "materiality_bu_id": grs.get("materiality_bu_id"),
         },
         "bu_states": [
             {
@@ -340,6 +348,7 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                 "synergy_multiplier": float(grs["synergy_multiplier"]),
                 "cost_of_capital": float(grs["cost_of_capital"]),
                 "active_event_flags": grs.get("active_event_flags") or {},
+                "bonus_score": grs.get("bonus_score", 0),
                 "historical_ebitda": float(grs.get("historical_ebitda", 0)),
                 "tco2e_emissions": int(grs.get("tco2e_emissions", 0)),
                 "vrio_capabilities": grs.get("vrio_capabilities") or {},
@@ -387,9 +396,17 @@ async def insert_next_round(
         "synergy_multiplier": global_state.get("synergy_multiplier", 1.0),
         "cost_of_capital": global_state.get("cost_of_capital", 0.05),
         "active_event_flags": global_state.get("active_event_flags", {}),
+        "bonus_score": global_state.get("bonus_score", 0),
         "historical_ebitda": global_state.get("historical_ebitda", 0),
         "tco2e_emissions": global_state.get("tco2e_emissions", 0),
         "vrio_capabilities": global_state.get("vrio_capabilities", {}),
+        "stakeholder_map_completed": global_state.get("stakeholder_map_completed", False),
+        "stakeholder_map_accuracy": global_state.get("stakeholder_map_accuracy", 0),
+        "learning_bonuses_awarded": global_state.get("learning_bonuses_awarded", {}),
+        "saved_allocations": global_state.get("saved_allocations"),
+        "saved_decision_choice": global_state.get("saved_decision_choice"),
+        "materiality_budget_allocated": global_state.get("materiality_budget_allocated"),
+        "materiality_bu_id": global_state.get("materiality_bu_id"),
     }
 
     if session_id not in _global_states:
@@ -518,6 +535,18 @@ async def update_latest_global_state(
     latest["synergy_multiplier"] = global_state.get("synergy_multiplier", 1.0)
     latest["cost_of_capital"] = global_state.get("cost_of_capital", 0.05)
     latest["active_event_flags"] = global_state.get("active_event_flags", {})
+    # Persist bonus/learning fields that were previously being dropped
+    latest["bonus_score"] = global_state.get("bonus_score", latest.get("bonus_score", 0))
+    latest["historical_ebitda"] = global_state.get("historical_ebitda", latest.get("historical_ebitda", 0))
+    latest["tco2e_emissions"] = global_state.get("tco2e_emissions", latest.get("tco2e_emissions", 0))
+    latest["vrio_capabilities"] = global_state.get("vrio_capabilities", latest.get("vrio_capabilities", {}))
+    latest["stakeholder_map_completed"] = global_state.get("stakeholder_map_completed", latest.get("stakeholder_map_completed", False))
+    latest["stakeholder_map_accuracy"] = global_state.get("stakeholder_map_accuracy", latest.get("stakeholder_map_accuracy", 0))
+    latest["learning_bonuses_awarded"] = global_state.get("learning_bonuses_awarded", latest.get("learning_bonuses_awarded", {}))
+    latest["saved_allocations"] = global_state.get("saved_allocations")
+    latest["saved_decision_choice"] = global_state.get("saved_decision_choice")
+    latest["materiality_budget_allocated"] = global_state.get("materiality_budget_allocated")
+    latest["materiality_bu_id"] = global_state.get("materiality_bu_id")
 
     rn = latest["round_number"]
     if session_id in _bu_states:
@@ -573,5 +602,123 @@ async def get_decade_plan(session_id: str) -> Optional[dict]:
     return {
         "boardroom_choice": sess.get("boardroom_choice"),
         "decade_forward_plan": sess.get("decade_forward_plan"),
+    }
+
+
+# ── Practice Mode Reset ──────────────────────────────────────
+
+async def reset_session_to_round1(session_id: str) -> bool:
+    """
+    Reset a session (and all its child player sessions) back to Round 1 seed state.
+    Preserves session metadata (cohort name, facilitator, players, etc.).
+    Used by practice mode after Round 2.
+    """
+    global _decision_log
+    sess = _sessions.get(session_id)
+    if not sess:
+        return False
+
+    seed = _load_seed()
+    gs = seed["global_state"]
+    bus = seed["business_units"]
+
+    # Rebuild baseline metrics from seed
+    n = len(bus) or 1
+    baseline_ebitda = round(sum(b["revenue_base"] - b["opex_base"] for b in bus), 2)
+    baseline_tco2e = round(sum(b.get("carbon_intensity", 0) * b["revenue_base"] / 1_000_000 for b in bus))
+    avg_sl = sum(b.get("social_license_score", 50) for b in bus) / n
+    avg_ci = sum(b.get("carbon_intensity", 50) for b in bus) / n
+    avg_gr = sum(b.get("governance_risk_score", 20) for b in bus) / n
+    baseline_vrio = {
+        "value": round(max(0, min(100, avg_sl)), 1),
+        "rarity": round(max(0, min(100, 100 - avg_ci)), 1),
+        "imitability": round(max(0, min(100, gs["group_synergy_multiplier"] * 100)), 1),
+        "organization": round(max(0, min(100, 100 - avg_gr)), 1),
+    }
+
+    # Get loan interest rate from existing state if available
+    old_states = _global_states.get(session_id, [])
+    loan_rate = 0.12
+    if old_states:
+        loan_rate = old_states[0].get("active_event_flags", {}).get("loan_interest_rate", 0.12)
+
+    new_state_id = str(uuid.uuid4())
+    global_state = {
+        "state_id": new_state_id,
+        "session_id": session_id,
+        "round_number": 1,
+        "corporate_treasury": gs["corporate_treasury_usd"],
+        "group_reputation": gs["group_reputation_score"],
+        "synergy_multiplier": gs["group_synergy_multiplier"],
+        "cost_of_capital": gs["cost_of_capital_rate"],
+        "active_event_flags": {
+            **gs.get("active_event_flags", {}),
+            "loan_interest_rate": loan_rate,
+        },
+        "bonus_score": 0,
+        "historical_ebitda": baseline_ebitda,
+        "tco2e_emissions": baseline_tco2e,
+        "vrio_capabilities": baseline_vrio,
+    }
+
+    # Reset this session's state
+    _global_states[session_id] = [global_state]
+    _bu_states[session_id] = {1: copy.deepcopy(bus)}
+
+    # Remove decision log entries for this session
+    _decision_log = [d for d in _decision_log if d.get("session_id") != session_id]
+
+    # Also reset all child player sessions
+    child_ids = [
+        sid for sid, s in _sessions.items()
+        if s.get("parent_cohort_id") == session_id
+    ]
+    for child_id in child_ids:
+        child_state_id = str(uuid.uuid4())
+        child_global = {**global_state, "state_id": child_state_id, "session_id": child_id}
+        _global_states[child_id] = [child_global]
+        _bu_states[child_id] = {1: copy.deepcopy(bus)}
+        _decision_log = [d for d in _decision_log if d.get("session_id") != child_id]
+
+    _persist()
+    return True
+
+
+# ── Undo / Rollback Operations ────────────────────────────────
+
+async def undo_latest_round(session_id: str) -> dict:
+    """
+    Delete the latest round's global state, BU states, and audit log
+    entries for a session. Returns structured result.
+    """
+    global _decision_log
+    rounds = _global_states.get(session_id, [])
+    if not rounds:
+        return {"success": False, "reason": "Session has no round data"}
+
+    latest = rounds[-1]
+    deleted_round = latest["round_number"]
+
+    if deleted_round <= 1:
+        return {"success": False, "reason": "Cannot undo Round 1 (initial state)"}
+
+    # Remove the latest global state entry
+    rounds.pop()
+
+    # Remove BU states for that round
+    if session_id in _bu_states:
+        _bu_states[session_id].pop(deleted_round, None)
+
+    # Remove decision log entries for that round
+    _decision_log = [
+        d for d in _decision_log
+        if not (d.get("session_id") == session_id and d.get("round_number") == deleted_round)
+    ]
+
+    _persist()
+    return {
+        "success": True,
+        "deleted_round": deleted_round,
+        "new_current_round": deleted_round - 1,
     }
 

@@ -12,6 +12,19 @@ import MaterialityConfig from '../../components/MaterialityConfig';
 import InterventionConfig from '../../components/InterventionConfig';
 import AuditTrail from '../../components/AuditTrail';
 import DebriefReport from '../../components/DebriefReport';
+import PlatformAnalytics from '../../components/PlatformAnalytics';
+
+// ── New Capsim-inspired components ──
+import DashboardHome from '../../components/DashboardHome';
+import UndoRound from '../../components/UndoRound';
+import FacilitatorNotes from '../../components/FacilitatorNotes';
+import TeamImpersonation from '../../components/TeamImpersonation';
+import ReportsExport from '../../components/ReportsExport';
+import RoundTimeline from '../../components/RoundTimeline';
+import StudentBonuses from '../../components/StudentBonuses';
+import SimulationManager from '../../components/SimulationManager';
+import PeerEvaluation from '../../components/PeerEvaluation';
+import BulkMessaging from '../../components/BulkMessaging';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:8000'}`;
@@ -269,10 +282,13 @@ function FacilitatorDashboard({ authData, onLogout }) {
     const [showChangePw, setShowChangePw] = useState(false);
 
     // New state for Sidebar UI
-    const [activeTab, setActiveTab] = useState('leaderboard');
+    const [activeTab, setActiveTab] = useState('dashboard_home');
     const [openCategories, setOpenCategories] = useState({
+        overview: true,
         monitoring: true,
         interventions: true,
+        reports: true,
+        collaboration: true,
         system: true
     });
 
@@ -397,40 +413,58 @@ function FacilitatorDashboard({ authData, onLogout }) {
 
     const SIDEBAR_CONFIG = [
         {
-            category: 'Monitoring & Sessions',
-            icon: '📊',
-            id: 'monitoring',
+            category: 'Command Center',
+            icon: '🎯',
+            id: 'command',
             items: [
-                { id: 'leaderboard', label: 'Leaderboard', component: 'LeaderboardMatrix' },
-                { id: 'registry', label: 'Player Registry', component: 'PlayerRegistry' },
-                { id: 'audit_trail', label: 'Decision Audit Trail', component: 'AuditTrail' },
-                { id: 'debrief', label: 'Round Debrief', component: 'DebriefReport' },
-                { id: 'session_viewer', label: 'Session Viewer', component: 'SessionViewer' },
+                { id: 'dashboard_home', label: 'Dashboard Home', component: 'DashboardHome' },
+                { id: 'timeline', label: 'Round Timeline', component: 'RoundTimeline' },
+                { id: 'sim_manager', label: 'Simulation Manager', component: 'SimulationManager' },
             ]
         },
         {
-            category: 'Team Interventions',
+            category: 'Players & Teams',
+            icon: '👥',
+            id: 'players',
+            items: [
+                { id: 'registry', label: 'Player Registry', component: 'PlayerRegistry' },
+                { id: 'leaderboard', label: 'Leaderboard', component: 'LeaderboardMatrix' },
+                { id: 'session_viewer', label: 'Session Viewer', component: 'SessionViewer' },
+                { id: 'impersonate', label: 'Team Impersonation', component: 'TeamImpersonation' },
+                { id: 'bonuses', label: 'Student Bonuses', component: 'StudentBonuses' },
+                { id: 'peer_eval', label: 'Peer Evaluations', component: 'PeerEvaluation' },
+            ]
+        },
+        {
+            category: 'Actions & Interventions',
             icon: '⚡',
-            id: 'interventions',
+            id: 'actions',
             items: [
                 { id: 'intervention_config', label: 'Intervention Config', component: 'InterventionConfig' },
                 { id: 'manual_override', label: 'Manual Overrides', component: 'ManualOverride' },
                 { id: 'swipe_file', label: 'Swipe File / Inbox', component: 'SwipeFile' },
+                { id: 'broadcast', label: 'Bulk Messaging', component: 'BulkMessaging' },
+                { id: 'undo_round', label: 'Undo Round', component: 'UndoRound' },
             ]
         },
         {
-            category: 'Simulation Config',
+            category: 'Analytics & Reports',
+            icon: '📊',
+            id: 'analytics',
+            items: [
+                { id: 'platform_analytics', label: 'Platform Analytics', component: 'PlatformAnalytics' },
+                { id: 'audit_trail', label: 'Decision Audit Trail', component: 'AuditTrail' },
+                { id: 'debrief', label: 'Round Debrief', component: 'DebriefReport' },
+                { id: 'reports', label: 'Export Reports', component: 'ReportsExport' },
+                { id: 'notes', label: 'Facilitator Notes', component: 'FacilitatorNotes' },
+            ]
+        },
+        {
+            category: 'Settings & System',
             icon: '⚙️',
-            id: 'config',
+            id: 'settings',
             items: [
                 { id: 'materiality', label: 'Materiality Matrix', component: 'MaterialityConfig' },
-            ]
-        },
-        {
-            category: 'System Operations',
-            icon: '🛠️',
-            id: 'system',
-            items: [
                 { id: 'activity_log', label: 'Activity Logs & Resets', component: 'ActivityLog' },
             ]
         }
@@ -438,8 +472,24 @@ function FacilitatorDashboard({ authData, onLogout }) {
 
     const renderActiveComponent = () => {
         switch (activeTab) {
+            // ── Overview tabs ──
+            case 'dashboard_home':
+                return <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} />;
+            case 'timeline':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <RoundTimeline sessionId={selectedSession} leaderboard={leaderboard} />
+
+                        {/* Quiz Controls for Facilitator */}
+                        <QuizControlPanel sessions={leaderboard.filter(s => !s.player_id).map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }))} />
+                    </div>
+                );
+            case 'sim_manager':
+                return <SimulationManager leaderboard={leaderboard} onSessionCreated={fetchLeaderboard} />;
+
+            // ── Monitoring tabs ──
             case 'leaderboard':
-                return <LeaderboardMatrix leaderboard={leaderboard} selectedSession={selectedSession} onSelectSession={setSelectedSession} onDeleteSession={handleResetSession} onSessionCreated={fetchLeaderboard} />;
+                return <LeaderboardMatrix leaderboard={leaderboard} selectedSession={selectedSession} onSelectSession={setSelectedSession} onDeleteSession={handleResetSession} />;
             case 'registry':
                 return <PlayerRegistry leaderboard={leaderboard} />;
             case 'session_viewer':
@@ -448,6 +498,12 @@ function FacilitatorDashboard({ authData, onLogout }) {
                 return <AuditTrail sessionId={selectedSession} />;
             case 'debrief':
                 return <DebriefReport sessionId={selectedSession} />;
+            case 'impersonate':
+                return <TeamImpersonation leaderboard={leaderboard} selectedSession={selectedSession} />;
+            case 'undo_round':
+                return <UndoRound sessionId={selectedSession} />;
+
+            // ── Interventions tabs ──
             case 'intervention_config':
                 return <InterventionConfig sessionId={selectedSession} />;
             case 'manual_override':
@@ -458,8 +514,26 @@ function FacilitatorDashboard({ authData, onLogout }) {
                 );
             case 'swipe_file':
                 return <SwipeFile sessionId={selectedSession} onMessageSent={handleMessageSent} />;
+            case 'broadcast':
+                return <BulkMessaging leaderboard={leaderboard} />;
+
+            // ── Reports & Analytics tabs ──
+            case 'reports':
+                return <ReportsExport leaderboard={leaderboard} />;
+            case 'notes':
+                return <FacilitatorNotes sessionId={selectedSession} />;
+
+            // ── Collaboration tabs ──
+            case 'bonuses':
+                return <StudentBonuses sessionId={selectedSession} />;
+            case 'peer_eval':
+                return <PeerEvaluation sessionId={selectedSession} />;
+
+            // ── Config & System tabs ──
             case 'materiality':
                 return <MaterialityConfig sessionId={selectedSession} isFacilitator={true} />;
+            case 'platform_analytics':
+                return <PlatformAnalytics visibility={null} />;
             case 'activity_log':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -494,6 +568,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                         </section>
                     </div>
                 );
+
             default:
                 return null;
         }
@@ -513,7 +588,15 @@ function FacilitatorDashboard({ authData, onLogout }) {
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
                     <h1>🎓 Facilitator</h1>
-                    <div className={styles.godBadge}>{clockTime || '--:--:--'}</div>
+                    <div className={styles.godBadge} style={{
+                        background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                        boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                        fontSize: '0.8rem',
+                        letterSpacing: '0.08em',
+                        fontFamily: 'var(--font-mono)',
+                    }}>
+                        🕐 {clockTime || '--:--:--'}
+                    </div>
                     {authData && (
                         <div style={{
                             display: 'flex',
@@ -536,7 +619,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                     style={{
                                         background: 'none',
                                         border: '1px solid rgba(59, 130, 246, 0.3)',
-                                        color: '#3b82f6',
+                                        color: '#60a5fa',
                                         fontSize: '0.65rem',
                                         fontWeight: 700,
                                         padding: '3px 8px',
@@ -570,33 +653,31 @@ function FacilitatorDashboard({ authData, onLogout }) {
                     )}
                 </div>
 
+
                 <nav className={styles.sidebarNav}>
                     {SIDEBAR_CONFIG.map((group) => (
                         <div key={group.id} className={styles.navCategory}>
-                            <button
-                                className={styles.categoryHeader}
-                                onClick={() => toggleCategory(group.id)}
-                            >
+                            <div className={styles.categoryHeader}>
                                 <span>{group.icon} {group.category}</span>
-                                <span>{openCategories[group.id] ? '▼' : '▶'}</span>
-                            </button>
+                                <span className={styles.categoryArrow}>▶</span>
+                            </div>
 
-                            {openCategories[group.id] && (
-                                <div className={styles.categoryItems}>
-                                    {group.items.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
-                                            onClick={() => setActiveTab(item.id)}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                            <div className={styles.categoryItems}>
+                                {group.items.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
+                                        onClick={() => setActiveTab(item.id)}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     ))}
                 </nav>
+
+
             </aside>
 
             {/* ── Main Workspace ── */}
@@ -615,6 +696,158 @@ function FacilitatorDashboard({ authData, onLogout }) {
                 </div>
             </main>
         </div>
+    );
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+ *  QUIZ CONTROL PANEL — Difficulty + Per-Cohort Enable/Disable
+ * ═════════════════════════════════════════════════════════════════ */
+
+function QuizControlPanel({ sessions = [] }) {
+    const [quizDifficulty, setQuizDifficulty] = useState('medium');
+    const [quizEnabledMap, setQuizEnabledMap] = useState({});
+    const [status, setStatus] = useState(null);
+
+    // Fetch current difficulty
+    useEffect(() => {
+        fetch(`${API}/api/admin/quiz-difficulty`).then(r => r.json()).then(d => setQuizDifficulty(d.difficulty || 'medium')).catch(() => {});
+    }, []);
+
+    // Fetch per-cohort quiz enabled states
+    useEffect(() => {
+        if (sessions.length === 0) return;
+        const fetchAll = async () => {
+            const map = {};
+            for (const s of sessions) {
+                try {
+                    const res = await fetch(`${API}/api/admin/quiz-enabled/${s.session_id}`);
+                    if (res.ok) { const d = await res.json(); map[s.session_id] = d.quiz_enabled; }
+                } catch { map[s.session_id] = true; }
+            }
+            setQuizEnabledMap(map);
+        };
+        fetchAll();
+    }, [sessions]);
+
+    const updateDifficulty = async (level) => {
+        try {
+            const res = await fetch(`${API}/api/admin/quiz-difficulty`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ difficulty: level }),
+            });
+            if (res.ok) {
+                setQuizDifficulty(level);
+                setStatus(`✅ Quiz difficulty set to ${level.charAt(0).toUpperCase() + level.slice(1)}`);
+                setTimeout(() => setStatus(null), 3000);
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    const toggleQuiz = async (sessionId, enabled) => {
+        try {
+            const res = await fetch(`${API}/api/admin/quiz-enabled/${sessionId}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ quiz_enabled: enabled }),
+            });
+            if (res.ok) {
+                setQuizEnabledMap(prev => ({ ...prev, [sessionId]: enabled }));
+                setStatus(`✅ Quiz ${enabled ? 'enabled' : 'disabled'} for cohort`);
+                setTimeout(() => setStatus(null), 3000);
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    return (
+        <section style={{
+            background: 'var(--bg-card, #fff)', border: '1px solid var(--border-subtle, #e2e8f0)',
+            borderRadius: 'var(--radius-lg, 16px)', padding: '1.5rem 2rem',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🧩</span>
+                <div>
+                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                        Quiz Settings
+                    </h2>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Control quiz difficulty and availability for each cohort. Players get 10 random questions per attempt (max 2 attempts).
+                    </p>
+                </div>
+            </div>
+
+            {status && (
+                <div style={{
+                    padding: '8px 14px', borderRadius: 10, marginBottom: 12,
+                    background: '#f0fdf4', border: '1px solid #86efac',
+                    fontSize: '0.8rem', color: '#166534', fontWeight: 600,
+                }}>{status}</div>
+            )}
+
+            <div style={{
+                background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', borderRadius: 14,
+                padding: '16px 20px', border: '1px solid #c7d2fe',
+            }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
+                    {/* Difficulty Toggle */}
+                    <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', marginBottom: 6 }}>
+                            Difficulty Level
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                            {['easy', 'medium', 'hard'].map(level => (
+                                <button
+                                    key={level}
+                                    onClick={() => updateDifficulty(level)}
+                                    style={{
+                                        padding: '6px 16px', borderRadius: 8, border: 'none',
+                                        background: quizDifficulty === level
+                                            ? (level === 'easy' ? '#22c55e' : level === 'medium' ? '#eab308' : '#ef4444')
+                                            : '#e2e8f0',
+                                        color: quizDifficulty === level ? '#fff' : '#64748b',
+                                        fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                    }}
+                                >
+                                    {level === 'easy' ? '🟢' : level === 'medium' ? '🟡' : '🔴'} {level.charAt(0).toUpperCase() + level.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Per-Cohort Toggle */}
+                    <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', marginBottom: 6 }}>
+                            🎯 Quiz Availability by Cohort
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                            {sessions.length === 0 ? (
+                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No active cohorts — create one from the Leaderboard</span>
+                            ) : sessions.map(s => {
+                                const enabled = quizEnabledMap[s.session_id] !== false;
+                                return (
+                                    <button
+                                        key={s.session_id}
+                                        onClick={() => toggleQuiz(s.session_id, !enabled)}
+                                        style={{
+                                            padding: '5px 12px', borderRadius: 8,
+                                            border: `1px solid ${enabled ? '#86efac' : '#fca5a5'}`,
+                                            background: enabled ? '#f0fdf4' : '#fef2f2',
+                                            color: enabled ? '#166534' : '#991b1b',
+                                            fontWeight: 600, fontSize: '0.72rem', cursor: 'pointer',
+                                            transition: 'all 0.2s',
+                                        }}
+                                        title={`${enabled ? 'Disable' : 'Enable'} quiz for ${s.cohort_name}`}
+                                    >
+                                        {enabled ? '✅' : '❌'} {s.cohort_name}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
     );
 }
 

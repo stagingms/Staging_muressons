@@ -623,3 +623,204 @@
         break-inside: avoid;
     }
 }
+
+/* ── TBL-BSC 4×3 Grid ─────────────────────────────────────── */
+.tblSection {
+    padding: 2rem;
+}
+
+.tblGrid {
+    display: grid;
+    grid-template-columns: 160px 1fr 1fr 1fr;
+    gap: 1px;
+    background: var(--border-subtle, #2a2a4a);
+    border: 1px solid var(--border-subtle, #2a2a4a);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.tblCorner {
+    background: var(--bg-elevated, #16213e);
+    padding: 0.8rem;
+}
+
+.tblColHeader {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08));
+    padding: 0.8rem 0.6rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #818cf8;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.tblRowHeader {
+    background: var(--bg-elevated, #16213e);
+    padding: 0.8rem 1rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary, #e2e8f0);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-left: 3px solid var(--border-subtle, #2a2a4a);
+}
+
+.tblCell {
+    background: var(--bg-card, #1a1a2e);
+    padding: 0.8rem 0.7rem;
+    text-align: center;
+    transition: background 0.2s;
+}
+
+.tblCell:hover {
+    background: rgba(99, 102, 241, 0.06);
+}
+
+.tblCellLabel {
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted, #64748b);
+    margin-bottom: 0.35rem;
+}
+
+.tblCellValue {
+    font-size: 0.88rem;
+    font-weight: 800;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.tblCellGood .tblCellValue {
+    color: #10b981;
+}
+
+.tblCellBad .tblCellValue {
+    color: #ef4444;
+}
+
+.tblCellWarn .tblCellValue {
+    color: #f59e0b;
+}
+
+.tblCellNeutral .tblCellValue {
+    color: var(--text-primary, #e2e8f0);
+}
+
+/* ── Board Memo ────────────────────────────────────────────── */
+.boardMemo {
+    margin-top: 1.5rem;
+    padding: 1.5rem;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(139, 92, 246, 0.04));
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
+}
+
+.boardMemoTitle {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #818cf8;
+    margin: 0 0 0.8rem;
+}
+
+.boardMemoSentence {
+    font-size: 0.84rem;
+    line-height: 1.7;
+    color: var(--text-primary, #e2e8f0);
+    margin: 0 0 0.6rem;
+    padding-left: 1rem;
+    border-left: 2px solid rgba(99, 102, 241, 0.3);
+}
+
+.boardMemoSentence:last-child {
+    margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+    .tblGrid {
+        grid-template-columns: 120px 1fr 1fr 1fr;
+    }
+
+    .tblRowHeader {
+        font-size: 0.68rem;
+    }
+
+    .tblCellValue {
+        font-size: 0.78rem;
+    }
+}
+
+/* ── Stock Chart Section ──────────────────────────────────── */
+.stockSection {
+    padding: 2rem;
+}
+
+.stockChartContainer {
+    background: var(--bg-elevated, #16213e);
+    border: 1px solid var(--border-subtle, #2a2a4a);
+    border-radius: 12px;
+    padding: 1rem;
+    min-height: 420px;
+}
+
+/* ── Leaderboard Section ──────────────────────────────────── */
+.leaderboardSection {
+    padding: 2rem;
+}
+
+.mono {
+    font-variant-numeric: tabular-nums;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.8rem;
+}
+
+/* ── Final Report Section ─────────────────────────────────── */
+.reportSection {
+    padding: 2rem;
+}
+
+.reportKpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border-subtle, #2a2a4a);
+    border: 1px solid var(--border-subtle, #2a2a4a);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.5rem;
+}
+
+.reportKpiCard {
+    background: var(--bg-elevated, #16213e);
+    padding: 1.2rem;
+    text-align: center;
+}
+
+.reportKpiLabel {
+    display: block;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--text-muted, #64748b);
+    margin-bottom: 0.4rem;
+}
+
+.reportKpiValue {
+    display: block;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text-primary, #e2e8f0);
+}
+
+@media (max-width: 768px) {
+    .reportKpis {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .stockChartContainer {
+        min-height: 300px;
+    }
+}
+

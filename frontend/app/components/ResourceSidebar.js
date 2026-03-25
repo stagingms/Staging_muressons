@@ -2,11 +2,14 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import styles from './ResourceSidebar.module.css';
+import InlinePodcastPlayer from './InlinePodcastPlayer';
+import InlineQuizEngine from './InlineQuizEngine';
+import InlineReviewViewer from './InlineReviewViewer';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
-const TYPE_ICONS = { PDF: '📄', Video: '🎬', Weblink: '🔗', Memo: '📝' };
-const TYPE_CLASS = { PDF: styles.typePDF, Video: styles.typeVideo, Weblink: styles.typeWeblink, Memo: styles.typeMemo };
+const TYPE_ICONS = { PDF: '📄', Video: '🎬', Weblink: '🔗', Memo: '📝', NotebookLM: '🧠' };
+const TYPE_CLASS = { PDF: styles.typePDF, Video: styles.typeVideo, Weblink: styles.typeWeblink, Memo: styles.typeMemo, NotebookLM: styles.typeNotebookLM };
 
 function ResourceCard({ resource, isNew }) {
     const href = resource.url || '#';
@@ -48,10 +51,69 @@ function ResourceCard({ resource, isNew }) {
     );
 }
 
+function LearningHubCard({ notebook, onOpenPodcast, onOpenQuiz, onOpenReview, quizEnabled }) {
+    const types = notebook.content_types || [];
+    const ACTION_STYLES = {
+        podcast: { bg: 'linear-gradient(135deg, #7c3aed, #6d28d9)', icon: '🎧', label: 'Listen' },
+        quiz: { bg: 'linear-gradient(135deg, #4f46e5, #4338ca)', icon: '🧩', label: 'Quiz' },
+        review: { bg: 'linear-gradient(135deg, #059669, #047857)', icon: '📝', label: 'Review' },
+    };
+
+    const CANONICAL_ORDER = ['podcast', 'review', 'quiz'];
+
+    return (
+        <div className={styles.nbHubCard}>
+            <div className={styles.nbHubHeader}>
+                <div className={styles.nbHubIcon}>📚</div>
+                <div className={styles.nbHubInfo}>
+                    <h4 className={styles.nbHubTitle}>{notebook.title}</h4>
+                    <span className={styles.nbHubMeta}>R{notebook.target_round} · {notebook.category}</span>
+                </div>
+            </div>
+            {notebook.description && <p className={styles.nbHubDesc}>{notebook.description}</p>}
+            <div className={styles.nbHubFooter}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {CANONICAL_ORDER.filter(ct => types.includes(ct)).map(ct => {
+                        const style = ACTION_STYLES[ct];
+                        if (!style) return null;
+                        if (ct === 'quiz' && !quizEnabled) return null;
+                        const handler = ct === 'podcast' ? onOpenPodcast
+                            : ct === 'quiz' ? onOpenQuiz
+                            : onOpenReview;
+                        return (
+                            <button
+                                key={ct}
+                                onClick={() => handler(notebook)}
+                                style={{
+                                    background: style.bg, border: 'none', borderRadius: 8,
+                                    padding: '6px 14px', color: '#fff', fontSize: '0.75rem',
+                                    fontWeight: 600, cursor: 'pointer', display: 'flex',
+                                    alignItems: 'center', gap: 4,
+                                    transition: 'transform 0.15s, box-shadow 0.15s',
+                                }}
+                                onMouseOver={e => { e.target.style.transform = 'scale(1.05)'; e.target.style.boxShadow = '0 4px 12px rgba(0,0,0,0.2)'; }}
+                                onMouseOut={e => { e.target.style.transform = 'scale(1)'; e.target.style.boxShadow = 'none'; }}
+                            >
+                                {style.icon} {style.label}
+                            </button>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
 export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClose }) {
-    const [resources, setResources] = useState({ new_this_round: [], archive: [] });
+    const [resources, setResources] = useState({ new_this_round: [], archive: [], notebooklm_notebooks: [] });
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // ── Inline content modal state ───────────────────────────
+    const [podcastNb, setPodcastNb] = useState(null);
+    const [quizNb, setQuizNb] = useState(null);
+    const [reviewNb, setReviewNb] = useState(null);
 
     // ── Fetch resources ─────────────────────────────────────
     const fetchResources = useCallback(async () => {
@@ -86,6 +148,11 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
     const filteredArchive = useMemo(() => (resources.archive || []).filter(filterFn), [resources.archive, filterFn]);
 
     const hasNew = (resources.new_this_round || []).length > 0;
+    const notebooks = resources.notebooklm_notebooks || [];
+    const quizEnabled = resources.quiz_enabled !== false;
+    const [quizQuestions, setQuizQuestions] = useState([]);
+    const [quizDifficulty, setQuizDifficulty] = useState('medium');
+    const [quizLoading, setQuizLoading] = useState(false);
 
     if (!isOpen) return null;
 
@@ -112,11 +179,49 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
 
                     {loading && <p className={styles.empty}>Loading resources...</p>}
 
-                    {!loading && filteredNew.length === 0 && filteredArchive.length === 0 && (
+                    {!loading && notebooks.length === 0 && filteredNew.length === 0 && filteredArchive.length === 0 && (
                         <div className={styles.empty}>
                             {search ? 'No resources match your search.' : 'No resources have been unlocked yet. Your facilitator will release them as the simulation progresses.'}
                         </div>
                     )}
+
+                    {/* Learning Hub (was NotebookLM Hub) */}
+                    {notebooks.length > 0 && (
+                        <div className={styles.nbHubSection}>
+                            <div className={styles.sectionHeader}>
+                                📚 Learning Hub
+                                <span className={styles.newCount}>{notebooks.length}</span>
+                            </div>
+                            {notebooks.map(nb => (
+                                <LearningHubCard
+                                    key={nb.id}
+                                    notebook={nb}
+                                    quizEnabled={quizEnabled}
+                                    onOpenPodcast={(nb) => setPodcastNb(nb)}
+                                    onOpenQuiz={async (nb) => {
+                                        setQuizLoading(true);
+                                        setQuizNb(nb);
+                                        try {
+                                            const res = await fetch(`${API_BASE}/api/simulations/quiz/${nb.id}`);
+                                            if (res.ok) {
+                                                const data = await res.json();
+                                                setQuizQuestions(data.questions || []);
+                                                setQuizDifficulty(data.difficulty || 'medium');
+                                            } else {
+                                                setQuizQuestions(nb.quiz_questions || []);
+                                            }
+                                        } catch {
+                                            setQuizQuestions(nb.quiz_questions || []);
+                                        }
+                                        setQuizLoading(false);
+                                    }}
+                                    onOpenReview={(nb) => setReviewNb(nb)}
+                                />
+                            ))}
+                        </div>
+                    )}
+
+                    {notebooks.length > 0 && (filteredNew.length > 0 || filteredArchive.length > 0) && <hr className={styles.divider} />}
 
                     {/* New This Round */}
                     {filteredNew.length > 0 && (
@@ -140,6 +245,36 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
                     )}
                 </div>
             </div>
+
+            {/* ═══ Inline Podcast Player ═══ */}
+            <InlinePodcastPlayer
+                isOpen={!!podcastNb}
+                onClose={() => setPodcastNb(null)}
+                title={podcastNb?.title || ''}
+                transcript={podcastNb?.podcast_transcript || []}
+                sessionId={sessionId}
+                notebookId={podcastNb?.id || ''}
+            />
+
+            {/* ═══ Inline Quiz Engine ═══ */}
+            <InlineQuizEngine
+                isOpen={!!quizNb}
+                onClose={() => { setQuizNb(null); setQuizQuestions([]); }}
+                title={quizNb?.title || ''}
+                questions={quizQuestions}
+                difficulty={quizDifficulty}
+                loading={quizLoading}
+                sessionId={sessionId}
+                notebookId={quizNb?.id || ''}
+            />
+
+            {/* ═══ Inline Review Viewer ═══ */}
+            <InlineReviewViewer
+                isOpen={!!reviewNb}
+                onClose={() => setReviewNb(null)}
+                title={reviewNb?.title || ''}
+                content={reviewNb?.review_content || ''}
+            />
         </>
     );
 }

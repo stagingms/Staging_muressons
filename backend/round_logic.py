@@ -643,6 +643,31 @@ def _post_r10_grand_finale(
     extra["avg_social_license"] = round(avg_sl, 2)
     extra["r10_choice"] = choice
 
+    # Additional KPIs for the TBL-BSC 4×3 Grid
+    extra["total_revenue"] = total_revenue
+    extra["total_opex"] = total_opex
+    extra["instability_discount_applied"] = bool(extra.get("mr_instability_discount"))
+    # R&D allocation: sum capex_allocated across all BU decisions ÷ total_revenue
+    total_capex = sum(d.get("capex_allocated", 0) for d in decs) if decs else 0
+    extra["rd_allocation_pct"] = round(total_capex / max(total_revenue, 1) * 100, 2)
+    # Climate resilience factor
+    extra["climate_resilience_factor"] = round(gs.get("climate_resilience", 0.5), 2)
+    # Talent penalty from software BU
+    sw_bu = next((b for b in bus if b["bu_id"] == "software"), None)
+    extra["talent_penalty"] = round(sw_bu.get("talent_penalty", 0), 2) if sw_bu else 0
+    extra["group_reputation"] = round(gs.get("group_reputation", 0), 2)
+    extra["synergy_multiplier_raw"] = round(gs.get("synergy_multiplier", 1.0), 4)
+    extra["vrio_advantage"] = round(gs.get("vrio_advantage", 0), 4)
+    extra["green_cost_of_debt_pct"] = round(
+        sum(b.get("natural_capital_debt", 0) for b in bus) * 0.05, 2
+    )
+    # Just Transition pass/fail
+    extra["just_transition_passed"] = (
+        "just_transition_fund" in all_flags
+        or "worker_retraining" in all_flags
+        or choice in ("option_a", "option_c")
+    )
+
     # Persist into global state flags for frontend/API access
     gs["active_event_flags"]["terminal_value"] = terminal_value
     gs["active_event_flags"]["regenerative_multiple"] = mr

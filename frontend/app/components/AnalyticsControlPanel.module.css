@@ -1,0 +1,115 @@
+/* AnalyticsControlPanel — God Mode visibility toggles */
+
+.container {
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-subtle, #e2e8f0);
+    border-radius: var(--radius-lg, 16px);
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+}
+.icon { font-size: 1.5rem; }
+.title { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--text-primary); }
+.subtitle { margin: 0.1rem 0 0; font-size: 0.75rem; color: var(--text-muted); }
+.savingBadge,
+.savedBadge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+}
+.savingBadge { background: rgba(245, 158, 11, 0.15); color: #f59e0b; }
+.savedBadge { background: rgba(16, 185, 129, 0.15); color: #10b981; }
+
+.rolesGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+.roleColumn {
+    padding: 1.25rem;
+}
+.roleColumn + .roleColumn { border-left: 1px solid var(--border-subtle, #e2e8f0); }
+
+.roleHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+}
+.roleHeader span { font-size: 1.3rem; }
+.roleHeader h3 {
+    margin: 0;
+    font-size: 0.9rem;
+    font-weight: 800;
+    color: var(--text-primary);
+}
+
+.toggleRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+}
+.toggleRow:last-child { border-bottom: none; }
+
+.toggleInfo { display: flex; align-items: center; gap: 10px; }
+.toggleIcon { font-size: 1.1rem; }
+.toggleLabel { font-size: 0.8rem; font-weight: 700; color: var(--text-primary); }
+.toggleDesc { font-size: 0.65rem; color: var(--text-muted); }
+
+.toggleBtn {
+    width: 44px;
+    height: 24px;
+    border-radius: 12px;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.3s;
+    flex-shrink: 0;
+}
+.toggleOn { background: #10b981; }
+.toggleOff { background: #d1d5db; }
+
+.toggleKnob {
+    position: absolute;
+    top: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    transition: left 0.3s;
+}
+.toggleOn .toggleKnob { left: 22px; }
+.toggleOff .toggleKnob { left: 2px; }
+
+.footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-elevated, #f8fafc);
+}
+.footer p {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+}
+
+.loading {
+    padding: 3rem;
+    text-align: center;
+    color: var(--text-muted);
+}

@@ -36,3 +36,9 @@ test_upload.js
 
 # Data files (generated at runtime)
 backend/data/materiality_bu_*.json
+
+# Local DB/state
+backend/*.db
+db/*.json
+!db/seed_round1.json
+

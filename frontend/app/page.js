@@ -17,6 +17,18 @@ import RoundBriefing from './components/RoundBriefing';
 import CrisisAlerts from './components/CrisisAlerts';
 import useSimulation from './hooks/useSimulation';
 
+// ── New Improvement Components ──────────────────────────────────
+import RoundChecklist from './components/RoundChecklist';
+import GlossaryPanel from './components/GlossaryPanel';
+import OnboardingWalkthrough from './components/OnboardingWalkthrough';
+import MarketTicker from './components/MarketTicker';
+import CountdownTimer from './components/CountdownTimer';
+import AchievementBadges from './components/AchievementBadges';
+import AIAdvisor from './components/AIAdvisor';
+import PeerComparison from './components/PeerComparison';
+import PlayerAnalytics from './components/PlayerAnalytics';
+import soundManager from './utils/soundManager';
+
 // ── Seed data (mirrors backend baseline) ──────────────────────
 const SEED_GLOBAL = {
   corporate_treasury: 50_000_000,
@@ -117,6 +129,15 @@ export default function CockpitPage() {
   // Resource sidebar state
   const [resourceSidebarOpen, setResourceSidebarOpen] = useState(false);
   const [hasNewResources, setHasNewResources] = useState(false);
+
+  // ── New Improvement States ──────────────────────────────────
+  const [glossaryOpen, setGlossaryOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
+  const [aiAdvisorOpen, setAiAdvisorOpen] = useState(false);
+  const [peerComparisonOpen, setPeerComparisonOpen] = useState(false);
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(true);
 
   // Decision paradigm state
   const [decisionParadigm, setDecisionParadigm] = useState('legacy_abc');
@@ -248,11 +269,13 @@ export default function CockpitPage() {
         imitation_decay_rate: 0.05,
         decisions,
       });
+      soundManager.commit();
       setAllocations({});
       setDecisionChoice(null);
       setShowOverrideModal(false);
       setPendingDecisions(null);
     } catch (err) {
+      soundManager.error();
       console.error('Commit failed:', err);
       if (err.message && err.message.includes('CFO Override')) {
         setCfoErrorMsg(err.message);
@@ -300,7 +323,7 @@ export default function CockpitPage() {
 
   // When re-joining a completed session, skip to done phase
   useEffect(() => {
-    if (sim.gameOver && sim.roundNumber > 10 && !boardroomDone) {
+    if (sim.gameOver && sim.roundNumber >= 10 && !boardroomDone) {
       setBoardroomDone(true);
       setGameOverPhase('done');
     }
@@ -321,7 +344,7 @@ export default function CockpitPage() {
   const hasDecision = decisionParadigm === 'multi_toggles'
     ? Object.keys(pillarSelections).length > 0
     : !!decisionChoice;
-  const isCommitBlocked = (roundNumber === 2 && !hasSubmittedMatrix) || (roundNumber === 1 && !hasCompletedStakeholderMap) || !hasDecision;
+  const isCommitBlocked = (roundNumber === 2 && !hasSubmittedMatrix) || (roundNumber === 1 && !hasCompletedStakeholderMap) || !hasDecision || Object.keys(allocations).length === 0;
 
   // Mailbox messages for the new cockpit (local crisis + facilitator messages)
   // Messages ACCUMULATE across rounds so previous rounds are available in accordion
@@ -342,15 +365,22 @@ export default function CockpitPage() {
     10: '📢 Activist Ultimatum: Major activist fund demands structural change.',
   }), []);
 
-  // Append crisis briefing once per round (accumulate, never reset)
+  // Append crisis briefing for current + all previous rounds (accumulate, never reset)
   useEffect(() => {
-    if (addedRoundsRef.current.has(roundNumber)) return;
-    addedRoundsRef.current.add(roundNumber);
-    const crisisText = CRISES[roundNumber];
-    const newMsgs = [
-      { id: `briefing-r${roundNumber}`, round: roundNumber, type: 'narrative', title: 'Board Briefing', body: `Round ${roundNumber}: ${crisisText || 'Review the module mandate and make your decisions.'}`, read: false },
-    ];
-    setMailboxMessages(prev => [...prev, ...newMsgs]);
+    const newMsgs = [];
+    for (let r = 1; r <= roundNumber; r++) {
+      if (addedRoundsRef.current.has(r)) continue;
+      addedRoundsRef.current.add(r);
+      const crisisText = CRISES[r];
+      newMsgs.push({
+        id: `briefing-r${r}`, round: r, type: 'narrative', title: 'Board Briefing',
+        body: `Round ${r}: ${crisisText || 'Review the module mandate and make your decisions.'}`,
+        read: r < roundNumber, // Mark previous rounds as read
+      });
+    }
+    if (newMsgs.length > 0) {
+      setMailboxMessages(prev => [...prev, ...newMsgs]);
+    }
   }, [roundNumber, CRISES]);
 
   // Append engine event messages (talent penalties etc.) for current round
@@ -403,6 +433,23 @@ export default function CockpitPage() {
       if (prev.some(m => m.id === msg.id)) return prev;
       return [...prev, msg];
     });
+  }, []);
+
+  // ── Keyboard Shortcuts (Improvement #1.3) ──────────────────
+  useEffect(() => {
+    const handler = (e) => {
+      // Don't capture when typing in inputs
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+      switch (e.key) {
+        case '?': setGlossaryOpen(prev => !prev); break;
+        case 'r': case 'R': if (!e.ctrlKey) { setResourceSidebarOpen(prev => !prev); setHasNewResources(false); } break;
+        case 'a': case 'A': if (!e.ctrlKey) setAiAdvisorOpen(prev => !prev); break;
+        case 'Escape': setGlossaryOpen(false); setAchievementsOpen(false); setPeerComparisonOpen(false); break;
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
   }, []);
 
   if (sim.gameOver) {
@@ -484,18 +531,20 @@ export default function CockpitPage() {
 
   const attemptCommitTurn = () => {
     if (roundNumber === 1 && !hasCompletedStakeholderMap) {
-      setBlockAlert("You must complete the Stakeholder Power/Interest Grid before advancing to Round 2. Click the ⚖️ Stakeholder Map button to begin.");
+      setBlockAlert("You must complete the Stakeholder Power/Interest Grid before advancing. Click the ⚖️ Stakeholder Map button to begin.");
     } else if (roundNumber === 2 && !hasSubmittedMatrix) {
-      setBlockAlert("You must complete and submit the CSRD Materiality Assessment before advancing to Round 3.");
+      setBlockAlert("You must complete and submit the CSRD Materiality Assessment before advancing.");
     } else if (!hasDecision) {
       setBlockAlert(decisionParadigm === 'multi_toggles'
         ? "You must select at least one strategic pillar action before committing your turn."
-        : "You must select a strategic option from the Decision Tab before committing your turn.");
+        : "You must select a strategic option from the Decision section before committing your turn.");
+    } else if (Object.keys(allocations).length === 0) {
+      setBlockAlert("You must allocate capital to at least one business unit before committing your turn.");
     } else {
-      // Show review modal instead of committing directly
       setShowReviewModal(true);
     }
   };
+
 
   // ── Main Cockpit ──────────────────────────────────────────
   if (!isHydrated) {
@@ -566,6 +615,8 @@ export default function CockpitPage() {
         allocations={allocations}
         onAllocationsChange={setAllocations}
         onResourcesOpen={() => { setResourceSidebarOpen(true); setHasNewResources(false); }}
+        hasAllocated={Object.keys(allocations).length > 0}
+        hasReadBriefing={!showDesktop}
       />
 
       {/* ═══ CRISIS ALERTS (auto-trigger + manual inject) ═══ */}
@@ -780,12 +831,109 @@ export default function CockpitPage() {
 
       {sim.error && (
         <div style={{
-          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+          position: 'fixed', bottom: 40, left: '50%', transform: 'translateX(-50%)',
           background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 4,
           padding: '6px 18px', fontSize: '0.75rem', color: '#991b1b', zIndex: 9000,
           fontFamily: "'Inter', sans-serif", fontWeight: 500,
         }}>⚠️ {sim.error}</div>
       )}
+
+      {/* ═══ IMPROVEMENT: Round Checklist (1.1) ═══ */}
+      {sim.sessionId && !showDesktop && !sim.gameOver && (
+        <RoundChecklist
+          roundNumber={roundNumber}
+          hasReadBriefing={!showDesktop}
+          hasCompletedStakeholderMap={hasCompletedStakeholderMap}
+          hasSubmittedMatrix={hasSubmittedMatrix}
+          hasDecision={hasDecision}
+          hasAllocated={Object.keys(allocations).length > 0}
+          hasCommitted={!!sim.commitResults}
+        />
+      )}
+
+      {/* ═══ IMPROVEMENT: Onboarding Walkthrough (1.4) ═══ */}
+      {sim.sessionId && showOnboarding && !showDesktop && !sim.gameOver && (
+        <OnboardingWalkthrough onComplete={() => setShowOnboarding(false)} />
+      )}
+
+      {/* ═══ IMPROVEMENT: Action Toolbar (Glossary, Achievements, AI, Peer, Sound) ═══ */}
+      {sim.sessionId && !showDesktop && !sim.gameOver && (
+        <div style={{
+          position: 'fixed', bottom: 82, left: 'calc(12% - 105px)', zIndex: 8500,
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5,
+          fontFamily: 'Inter, sans-serif',
+          width: 210,
+        }}>
+          {[
+            { icon: '📊', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
+            { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
+            { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
+            { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
+            { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
+            { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound' : 'Muted', shortcut: null, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
+          ].map(btn => (
+            <button
+              key={btn.label}
+              onClick={btn.onClick}
+              title={btn.shortcut ? `${btn.label} (${btn.shortcut})` : btn.label}
+              style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                padding: '8px 6px', borderRadius: 10,
+                background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
+                transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s',
+                color: '#e2e8f0',
+              }}
+              onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.background = 'rgba(15,23,42,0.95)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)'; }}
+              onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(15,23,42,0.85)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.2)'; }}
+            >
+              <span style={{ fontSize: '1rem' }}>{btn.icon}</span>
+              <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.02em' }}>{btn.label}</span>
+              {btn.shortcut && <span style={{ fontSize: '0.5rem', opacity: 0.5, background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: 3 }}>{btn.shortcut}</span>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* ═══ IMPROVEMENT: Market Ticker (4.3) ═══ */}
+      {sim.sessionId && !sim.gameOver && (
+        <MarketTicker roundNumber={roundNumber} />
+      )}
+
+      {/* ═══ IMPROVEMENT: Glossary Panel (1.2) ═══ */}
+      <GlossaryPanel isOpen={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
+
+      {/* ═══ IMPROVEMENT: Achievement Badges (5.1) ═══ */}
+      <AchievementBadges
+        globalState={globalState}
+        roundNumber={roundNumber}
+        isOpen={achievementsOpen}
+        onClose={() => setAchievementsOpen(false)}
+      />
+
+      {/* ═══ IMPROVEMENT: AI Advisor (4.1) ═══ */}
+      <AIAdvisor
+        roundNumber={roundNumber}
+        globalState={globalState}
+        roundConfig={sim.roundConfig}
+        isOpen={aiAdvisorOpen}
+        onClose={() => setAiAdvisorOpen(false)}
+      />
+
+      {/* ═══ IMPROVEMENT: Peer Comparison (5.2) ═══ */}
+      <PeerComparison
+        sessionId={sim.sessionId}
+        isOpen={peerComparisonOpen}
+        onClose={() => setPeerComparisonOpen(false)}
+      />
+
+      {/* ═══ IMPROVEMENT: Player Analytics ═══ */}
+      <PlayerAnalytics
+        sessionId={sim.sessionId}
+        isOpen={analyticsOpen}
+        onClose={() => setAnalyticsOpen(false)}
+      />
     </>
   );
 }

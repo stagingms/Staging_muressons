@@ -1,0 +1,16 @@
+.container { max-width: 900px; }
+.header { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem; }
+.icon { font-size: 2.5rem; }
+.header h2 { margin: 0; font-size: 1.4rem; font-weight: 800; }
+.subtitle { margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--text-muted); }
+.toolbar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.search { flex: 1; padding: 0.6rem 1rem; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; outline: none; }
+.count { font-size: 0.78rem; color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.list { display: flex; flex-direction: column; gap: 0.5rem; }
+.entry { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 10px; padding: 0.8rem 1.2rem; }
+.entryHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+.entryAction { font-weight: 700; font-size: 0.88rem; color: var(--text-primary); text-transform: capitalize; }
+.entryId { font-size: 0.7rem; color: var(--text-muted); font-family: var(--font-mono); }
+.entryMeta { display: flex; gap: 1.5rem; font-size: 0.75rem; color: var(--text-secondary); }
+.details { margin: 0.5rem 0 0; padding: 0.5rem 0.8rem; background: var(--bg-body); border-radius: 6px; font-size: 0.72rem; color: var(--text-secondary); font-family: var(--font-mono); overflow-x: auto; white-space: pre-wrap; border: 1px solid var(--border-subtle); }
+.empty { padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.9rem; }

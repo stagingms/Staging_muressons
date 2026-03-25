@@ -27,6 +27,7 @@ export default function useSimulation() {
     const [error, setError] = useState(null);
     const [roundLocked, setRoundLocked] = useState(false);
     const [commitResults, setCommitResults] = useState(null); // Holds results after commit, before advance
+    const [practiceReset, setPracticeReset] = useState(false); // True when practice round reset occurs
 
     // Track round to auto-open crisis modal
     const prevRoundRef = useRef(1);
@@ -119,9 +120,9 @@ export default function useSimulation() {
                 setBusinessUnits(data.business_units);
                 setHistory(data.history || []);
 
-                // Detect completed session: round > 10 means game is over
-                if (data.current_round > 10) {
-                    const flags = data.global_state?.active_event_flags || {};
+                // Detect completed session: round > 10 OR round == 10 with final report
+                const flags = data.global_state?.active_event_flags || {};
+                if (data.current_round > 10 || (data.current_round === 10 && flags.profile)) {
                     // Final report is stored in active_event_flags after R10 commit
                     if (flags.profile) {
                         setFinalReport(flags);
@@ -304,6 +305,22 @@ export default function useSimulation() {
                 // Update events for the results overlay
                 setEvents(data.events || {});
 
+                // Check for practice mode reset
+                if (data.events?.practice_reset) {
+                    // Practice round completed — session was reset to Round 1
+                    setRoundNumber(1);
+                    setGlobalState(data.global_state);
+                    setBusinessUnits(data.business_units);
+                    setCommitResults(null);
+                    setHistory([]);
+                    setPracticeReset(true);
+                    setRoundChanged(true);
+                    await fetchRoundConfig(1);
+                    // Auto-dismiss after 5s
+                    setTimeout(() => setPracticeReset(false), 5000);
+                    return data;
+                }
+
                 // Check for game over (R10 produces final report in events)
                 if (data.events?.profile || data.new_round_number > 10) {
                     setGameOver(true);
@@ -425,8 +442,8 @@ export default function useSimulation() {
                     setRoundChanged(true);
 
                     // Check for game over
-                    if (data.current_round > 10) {
-                        const flags = data.global_state?.active_event_flags || {};
+                    const flags = data.global_state?.active_event_flags || {};
+                    if (data.current_round > 10 || (data.current_round === 10 && flags.profile)) {
                         setFinalReport(flags.profile ? flags : {
                             profile: 'completed',
                             profile_title: 'Simulation Completed',
@@ -465,6 +482,7 @@ export default function useSimulation() {
         setRoundLocked,
         commitResults,
         autoAdvanceDetected,
+        practiceReset,
 
         // Actions
         startSession,

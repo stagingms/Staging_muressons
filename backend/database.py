@@ -507,3 +507,69 @@ async def update_latest_global_state(
                     json.dumps(bu.get("risk_factors", {})),
                 )
 
+
+# ── Undo / Rollback Operations ────────────────────────────────
+
+async def undo_latest_round(session_id: str) -> dict:
+    """
+    Delete the latest round's global state, BU states, and audit log
+    entries for a session. Temporarily disables immutability triggers.
+    Returns {"success": True, "deleted_round": N, "new_current_round": N-1}
+    or {"success": False, "reason": "..."}.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        # Find the latest round
+        latest = await conn.fetchrow(
+            """
+            SELECT state_id, round_number
+            FROM global_round_states
+            WHERE session_id = $1
+            ORDER BY round_number DESC
+            LIMIT 1
+            """,
+            uuid.UUID(session_id),
+        )
+        if latest is None:
+            return {"success": False, "reason": "Session has no round data"}
+
+        if latest["round_number"] <= 1:
+            return {"success": False, "reason": "Cannot undo Round 1 (initial state)"}
+
+        deleted_round = latest["round_number"]
+        state_id = latest["state_id"]
+
+        async with conn.transaction():
+            # Temporarily disable immutability triggers
+            await conn.execute("ALTER TABLE decision_audit_log DISABLE TRIGGER trg_immutable_decision_audit_log")
+            await conn.execute("ALTER TABLE bu_round_states DISABLE TRIGGER trg_immutable_bu_round_states")
+            await conn.execute("ALTER TABLE global_round_states DISABLE TRIGGER trg_immutable_global_round_states")
+
+            try:
+                # Delete audit log entries for this round
+                await conn.execute(
+                    "DELETE FROM decision_audit_log WHERE session_id = $1 AND round_number = $2",
+                    uuid.UUID(session_id), deleted_round,
+                )
+                # Delete BU states (cascades from global state via FK, but explicit is safer)
+                await conn.execute(
+                    "DELETE FROM bu_round_states WHERE global_state_id = $1",
+                    state_id,
+                )
+                # Delete global round state
+                await conn.execute(
+                    "DELETE FROM global_round_states WHERE state_id = $1",
+                    state_id,
+                )
+            finally:
+                # Re-enable immutability triggers
+                await conn.execute("ALTER TABLE global_round_states ENABLE TRIGGER trg_immutable_global_round_states")
+                await conn.execute("ALTER TABLE bu_round_states ENABLE TRIGGER trg_immutable_bu_round_states")
+                await conn.execute("ALTER TABLE decision_audit_log ENABLE TRIGGER trg_immutable_decision_audit_log")
+
+    return {
+        "success": True,
+        "deleted_round": deleted_round,
+        "new_current_round": deleted_round - 1,
+    }
+

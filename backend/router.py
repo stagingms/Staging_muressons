@@ -14,7 +14,7 @@ from engine import process_tick
 from round_logic import pre_tick, post_tick
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
-from admin_router import set_session_interventions, SessionInterventionsRequest, check_hidden_resource_triggers, auto_inject_scheduled_interventions
+from admin_router import set_session_interventions, SessionInterventionsRequest, check_hidden_resource_triggers, auto_inject_scheduled_interventions, check_and_increment_cohort_count, is_practice_mode
 from models import (
     BUStateOut,
     CommitTurnRequest,
@@ -310,6 +310,13 @@ async def start_simulation(body: StartSessionRequest):
             )
 
         # 2. No session found, create a new one
+        # 2a. Check facilitator cohort limit
+        if not check_and_increment_cohort_count(body.facilitator_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Facilitator '{body.facilitator_id}' has reached the maximum cohort limit.",
+            )
+
         result = await db.create_session(
             body.cohort_name, 
             body.facilitator_id, 
@@ -330,6 +337,8 @@ async def start_simulation(body: StartSessionRequest):
             status_code=status.HTTP_409_CONFLICT,
             detail=str(ve),
         )
+    except HTTPException:
+        raise  # Re-raise 403 (cohort limit) etc. as-is
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -532,6 +541,10 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     )
 
     new_round = tick_result["global_state"]["round_number"]
+    # ── CAP: After Round 10, do NOT advance to Round 11 ──
+    if current_round == 10:
+        new_round = 10
+        tick_result["global_state"]["round_number"] = 10
     new_global = tick_result["global_state"]
     new_bus = tick_result["bu_states"]
     events = tick_result["events"]
@@ -739,13 +752,24 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
 
     # ── Persist ──────────────────────────────────────────────
     try:
-        await db.insert_next_round(
-            session_id=session_id,
-            round_number=new_round,
-            global_state=new_global,
-            bu_states=new_bus,
-            decisions=decisions_raw,
-        )
+        if current_round == 10:
+            # R10: Update existing state in-place (don't insert new round 11)
+            await db.update_latest_global_state(
+                session_id=session_id,
+                global_state=new_global,
+                bu_states=new_bus,
+            )
+            # Still log R10 decisions to the audit trail
+            for dec in decisions_raw:
+                pass  # decisions are logged inline by insert_next_round; for R10 update we skip
+        else:
+            await db.insert_next_round(
+                session_id=session_id,
+                round_number=new_round,
+                global_state=new_global,
+                bu_states=new_bus,
+                decisions=decisions_raw,
+            )
     except Exception as exc:
         # Unique constraint → duplicate round
         if "uq_session_round" in str(exc):
@@ -771,6 +795,37 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             ]
     except Exception as exc:
         print(f"[WARN] Auto-inject scheduled interventions failed: {exc}")
+
+    # ── PRACTICE MODE: Reset after Round 2 ────────────────────
+    # Check if this session or its parent is in practice mode
+    practice_session_id = session_id
+    if session_info and session_info.get("parent_cohort_id"):
+        practice_session_id = session_info["parent_cohort_id"]
+
+    if is_practice_mode(practice_session_id) and current_round >= 2:
+        # Reset the cohort session and all child sessions back to Round 1
+        await db.reset_session_to_round1(practice_session_id)
+        # Disable practice mode after reset
+        from admin_router import _practice_mode
+        _practice_mode.pop(practice_session_id, None)
+
+        # Notify all players of the practice reset
+        from admin_router import manager as ws_manager
+        await ws_manager.push_to_session(practice_session_id, {
+            "type": "practice_reset",
+            "message": "Practice round completed! Session has been reset to Round 1.",
+        })
+
+        # Return a special response with practice_reset event
+        reset_state = await db.fetch_latest_state(session_id)
+        reset_events = {"practice_reset": True, "practice_message": "Practice complete — session reset to Round 1."}
+        return CommitTurnResponse(
+            session_id=session_id,
+            new_round_number=1,
+            global_state=GlobalStateOut(**(reset_state["global_state"] if reset_state else new_global)),
+            business_units=[_bu_out(bu) for bu in (reset_state["bu_states"] if reset_state else new_bus)],
+            events=reset_events,
+        )
 
     return CommitTurnResponse(
         session_id=session_id,
@@ -1157,8 +1212,195 @@ async def change_password(body: ChangePasswordRequest):
 
 
 # ─────────────────────────────────────────────────────────────────
+# POST /api/simulations/{session_id}/learning-bonus  — Award points
+# ─────────────────────────────────────────────────────────────────
+
+class LearningBonusRequest(BaseModel):
+    activity_type: str  # "podcast_complete" | "quiz_complete"
+    notebook_id: str
+    score_percent: int = 0  # Only for quiz_complete
+
+@router.post(
+    "/{session_id}/learning-bonus",
+    summary="Award bonus points for completing podcast or quiz",
+)
+async def award_learning_bonus(session_id: str, body: LearningBonusRequest):
+    """
+    Awards bonus points:
+    - podcast_complete: 1000 pts (one-time only)
+    - quiz_complete: 60-80% = 1500, 80-90% = 2000, 90-100% = 3000
+      Retakes allowed — only the *incremental* improvement is awarded.
+    Tracks attempt count so frontend can reveal answers after attempt 2.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    gs = latest["global_state"]
+    bu_states = latest["bu_states"]
+
+    awarded_key = "learning_bonuses_awarded"
+    awarded = gs.get(awarded_key, {})
+    claim_key = f"{body.activity_type}_{body.notebook_id}"
+
+    def _quiz_points(pct: int) -> int:
+        if pct >= 90: return 3000
+        if pct >= 80: return 2000
+        if pct >= 60: return 1500
+        return 0
+
+    # ── Podcast: one-time 1000 pts ─────────────────────────────
+    if body.activity_type == "podcast_complete":
+        if claim_key in awarded:
+            return {
+                "status": "already_claimed",
+                "points_awarded": 0,
+                "bonus_score": gs.get("bonus_score", 0),
+                "message": "Podcast bonus already claimed.",
+                "attempt": awarded[claim_key].get("attempt", 1),
+            }
+        points = 1000
+        gs["bonus_score"] = gs.get("bonus_score", 0) + points
+        awarded[claim_key] = {"points": points, "attempt": 1}
+        gs[awarded_key] = awarded
+        await db.update_latest_global_state(session_id, gs, bu_states)
+        return {
+            "status": "success",
+            "points_awarded": points,
+            "bonus_score": gs["bonus_score"],
+            "message": f"+{points} bonus points!",
+            "attempt": 1,
+        }
+
+    # ── Quiz: max 2 attempts, higher score kept ────────────────
+    new_points = _quiz_points(body.score_percent)
+    prev = awarded.get(claim_key, {})
+    prev_points = prev.get("points", 0)
+    prev_attempt = prev.get("attempt", 0)
+    current_attempt = prev_attempt + 1
+
+    MAX_QUIZ_ATTEMPTS = 2
+
+    if prev_attempt >= MAX_QUIZ_ATTEMPTS:
+        return {
+            "status": "max_attempts_reached",
+            "points_awarded": 0,
+            "total_earned": prev_points,
+            "bonus_score": gs.get("bonus_score", 0),
+            "message": f"Maximum {MAX_QUIZ_ATTEMPTS} attempts reached. Your best score: {prev.get('best_score_percent', 0)}% ({prev_points} pts).",
+            "attempt": prev_attempt,
+            "max_attempts": MAX_QUIZ_ATTEMPTS,
+            "show_answers": True,
+        }
+
+    incremental = max(0, new_points - prev_points)
+
+    if incremental > 0:
+        gs["bonus_score"] = gs.get("bonus_score", 0) + incremental
+
+    awarded[claim_key] = {
+        "points": max(new_points, prev_points),
+        "score_percent": body.score_percent,
+        "attempt": current_attempt,
+        "best_score_percent": max(body.score_percent, prev.get("best_score_percent", 0)),
+    }
+    gs[awarded_key] = awarded
+    await db.update_latest_global_state(session_id, gs, bu_states)
+
+    attempts_remaining = MAX_QUIZ_ATTEMPTS - current_attempt
+
+    if incremental > 0:
+        msg = f"+{incremental} bonus points! (improved from {prev_points} → {max(new_points, prev_points)})"
+    elif new_points > 0:
+        msg = f"Score: {body.score_percent}% — already at best tier ({prev_points} pts)."
+    else:
+        msg = "Score below 60% — no bonus this time."
+
+    if attempts_remaining > 0:
+        msg += f" {attempts_remaining} retake{'s' if attempts_remaining > 1 else ''} remaining."
+    else:
+        msg += " No more retakes available."
+
+    return {
+        "status": "success",
+        "points_awarded": incremental,
+        "total_earned": max(new_points, prev_points),
+        "bonus_score": gs.get("bonus_score", 0),
+        "message": msg,
+        "attempt": current_attempt,
+        "max_attempts": MAX_QUIZ_ATTEMPTS,
+        "attempts_remaining": attempts_remaining,
+        "show_answers": current_attempt >= MAX_QUIZ_ATTEMPTS,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/quiz/{notebook_id}  — Generate random quiz
+# ─────────────────────────────────────────────────────────────────
+
+import random as _random
+
+@router.get(
+    "/quiz/{notebook_id}",
+    summary="Get 10 random quiz questions for a notebook, filtered by difficulty",
+)
+async def get_quiz_questions(notebook_id: str):
+    """
+    Returns 10 randomly selected questions from the notebook's question bank.
+    Questions are filtered by the facilitator's current difficulty setting.
+    Falls back to all difficulties if not enough at the target level.
+    Question and option order are shuffled for each request.
+    """
+    from admin_router import _notebooklm_notebooks, _quiz_difficulty
+
+    nb = next((n for n in _notebooklm_notebooks if n["id"] == notebook_id), None)
+    if not nb:
+        raise HTTPException(status_code=404, detail=f"Notebook {notebook_id} not found.")
+
+    all_questions = nb.get("quiz_questions", [])
+    if not all_questions:
+        raise HTTPException(status_code=404, detail="No quiz questions available for this notebook.")
+
+    # Filter by difficulty
+    filtered = [q for q in all_questions if q.get("difficulty") == _quiz_difficulty]
+
+    # Fallback: if fewer than 10 at target difficulty, supplement from other levels
+    if len(filtered) < 10:
+        remaining = [q for q in all_questions if q not in filtered]
+        _random.shuffle(remaining)
+        filtered.extend(remaining[:10 - len(filtered)])
+
+    # Select 10 random questions
+    _random.shuffle(filtered)
+    selected = filtered[:10]
+
+    # Shuffle option order for each question (adjusting correct index)
+    result = []
+    for q in selected:
+        options = list(q["options"])
+        correct_text = options[q["correct"]]
+        _random.shuffle(options)
+        new_correct = options.index(correct_text)
+        result.append({
+            "question": q["question"],
+            "options": options,
+            "correct": new_correct,
+            "explanation": q["explanation"],
+            "difficulty": q.get("difficulty", "medium"),
+        })
+
+    return {
+        "notebook_id": notebook_id,
+        "difficulty": _quiz_difficulty,
+        "question_count": len(result),
+        "questions": result,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
 # GET /api/simulations/{session_id}/resources  — Player-facing
 # ─────────────────────────────────────────────────────────────────
+
 
 @router.get(
     "/{session_id}/resources",
@@ -1171,7 +1413,7 @@ async def get_player_resources(session_id: str):
     2. Explicitly unlocked resources (facilitator-unlocked or hidden resources unlocked by triggers)
     Splits them into 'new_this_round' and 'archive'.
     """
-    from admin_router import _resource_library, _session_resource_state
+    from admin_router import _resource_library, _session_resource_state, _notebooklm_notebooks, _quiz_enabled
 
     # Get current round
     latest = await db.fetch_latest_state(session_id)
@@ -1180,6 +1422,11 @@ async def get_player_resources(session_id: str):
     # Also check parent cohort for unlocked resources
     session_info = await db.get_session_info(session_id)
     parent_id = session_info.get("parent_cohort_id") if session_info else None
+
+    # Quiz enabled check — check session and parent cohort
+    quiz_enabled = _quiz_enabled.get(session_id, True)
+    if parent_id:
+        quiz_enabled = _quiz_enabled.get(parent_id, quiz_enabled)
 
     unlocked = _session_resource_state.get(session_id, [])
     if parent_id:
@@ -1230,9 +1477,106 @@ async def get_player_resources(session_id: str):
             else:
                 archive.append(enriched)
 
+    # Filter NotebookLM notebooks available for current round
+    notebooklm_available = [
+        nb for nb in _notebooklm_notebooks
+        if nb.get("target_round", 1) <= current_round
+    ]
+
     return {
         "current_round": current_round,
         "new_this_round": new_this_round,
         "archive": archive,
         "total_unlocked": len(new_this_round) + len(archive),
+        "notebooklm_notebooks": notebooklm_available,
+        "quiz_enabled": quiz_enabled,
     }
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/peer-leaderboard
+# ─────────────────────────────────────────────────────────────────
+
+TEAM_NAMES = [
+    "Team Alpha", "Team Bravo", "Team Charlie", "Team Delta",
+    "Team Echo", "Team Foxtrot", "Team Golf", "Team Hotel",
+    "Team India", "Team Juliet", "Team Kilo", "Team Lima",
+]
+
+@router.get(
+    "/{session_id}/peer-leaderboard",
+    summary="Get anonymized peer leaderboard for a player session",
+)
+async def get_peer_leaderboard(session_id: str):
+    """
+    Returns an anonymized leaderboard of all players in the same cohort.
+    The requesting player is highlighted with isYou=True.
+    For solo/demo sessions, returns empty list.
+    """
+    # Get session info to find parent cohort
+    session_info = await db.get_session_info(session_id)
+    if not session_info:
+        return {"leaderboard": [], "message": "Session not found"}
+
+    parent_id = session_info.get("parent_cohort_id")
+    if not parent_id:
+        # Solo session — no peers
+        return {"leaderboard": [], "message": "Solo session — no peers to compare"}
+
+    # Find all sibling sessions (same parent)
+    try:
+        from database_memory import _sessions, _global_states
+    except ImportError:
+        return {"leaderboard": [], "message": "Peer comparison unavailable"}
+
+    siblings = []
+    for sid, sess in _sessions.items():
+        if sess.get("parent_cohort_id") == parent_id:
+            latest_states = _global_states.get(sid, [])
+            if latest_states:
+                gs = latest_states[-1]
+                siblings.append({
+                    "session_id": sid,
+                    "player_id": sess.get("player_id", ""),
+                    "treasury": float(gs.get("corporate_treasury", 0)),
+                    "reputation": float(gs.get("group_reputation", 50)),
+                    "carbon": int(gs.get("tco2e_emissions", 0)),
+                    "bonus_score": gs.get("bonus_score", 0),
+                    "round_number": gs.get("round_number", 1),
+                    "synergy": float(gs.get("synergy_multiplier", 1.0)),
+                })
+
+    # Sort by treasury descending
+    siblings.sort(key=lambda x: x["treasury"], reverse=True)
+
+    # Anonymize and mark current player
+    leaderboard = []
+    for i, s in enumerate(siblings):
+        team_name = TEAM_NAMES[i] if i < len(TEAM_NAMES) else f"Team {i + 1}"
+        is_you = s["session_id"] == session_id
+
+        # Determine trend based on round number
+        trend = "→"
+        if s["round_number"] > 1:
+            prev_states = _global_states.get(s["session_id"], [])
+            if len(prev_states) >= 2:
+                prev_treasury = float(prev_states[-2].get("corporate_treasury", 0))
+                if s["treasury"] > prev_treasury:
+                    trend = "↑"
+                elif s["treasury"] < prev_treasury:
+                    trend = "↓"
+
+        entry = {
+            "rank": i + 1,
+            "name": "Your Team" if is_you else team_name,
+            "treasury": s["treasury"],
+            "reputation": s["reputation"],
+            "co2": s["carbon"],
+            "bonus_score": s["bonus_score"],
+            "trend": trend,
+            "isYou": is_you,
+        }
+        leaderboard.append(entry)
+
+    return {"leaderboard": leaderboard}
+

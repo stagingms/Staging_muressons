@@ -1,27 +1,32 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import styles from './JoinCohortModal.module.css';
 import ChangePasswordModal from './ChangePasswordModal';
 
 export default function JoinCohortModal({ sim }) {
     const [joining, setJoining] = useState(false);
     const [error, setError] = useState(null);
-
     const [playerId, setPlayerId] = useState('');
     const [password, setPassword] = useState('');
     const [showChangePassword, setShowChangePassword] = useState(false);
+    const [currentTime, setCurrentTime] = useState('');
+
+    useEffect(() => {
+        const tick = () => setCurrentTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        tick();
+        const iv = setInterval(tick, 1000);
+        return () => clearInterval(iv);
+    }, []);
 
     const handleLogin = async (e) => {
         e.preventDefault();
         if (!playerId.trim()) {
-            setError('Please enter your Player ID.');
+            setError('IDENTIFIER REQUIRED — Enter your assigned Player ID.');
             return;
         }
-
         setError(null);
         setJoining(true);
         try {
             await sim.playerLogin(playerId.trim(), password.trim());
-            // Modal unmounts automatically when sim.sessionId is populated
         } catch (err) {
             setError(err.message);
             setJoining(false);
@@ -41,84 +46,131 @@ export default function JoinCohortModal({ sim }) {
 
     return (
         <div className={styles.overlay}>
+            {/* Scan-line overlay */}
+            <div className={styles.scanlines} />
+
+            {/* Floating particles */}
+            <div className={styles.particles}>
+                {Array.from({ length: 6 }).map((_, i) => (
+                    <div key={i} className={styles.particle} style={{ '--delay': `${i * 1.5}s`, '--x': `${15 + i * 14}%`, '--y': `${20 + (i % 3) * 25}%` }} />
+                ))}
+            </div>
+
+            {/* Main card */}
             <div className={styles.card}>
-                {/* Header */}
-                <div className={styles.header}>
-                    <div className={styles.icon}>🎮</div>
-                    <h1 className={styles.title}>Player Login</h1>
-                    <p className={styles.subtitle}>
-                        Enter your credentials to join the Muressons Simulation.
-                    </p>
+                {/* Logo */}
+                <div className={styles.logoSection}>
+                    <div className={styles.shieldIcon}>
+                        <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
+                            <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="rgba(0,229,195,0.15)" stroke="#00e5c3" strokeWidth="1.5"/>
+                            <path d="M10 12l2 2 4-4" stroke="#00e5c3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                    </div>
+                    <div className={styles.brandName}>
+                        MURESSONS <span className={styles.brandAccent}>GLOBAL</span>
+                    </div>
+                    <div className={styles.brandSubtitle}>SOVEREIGN INTELLIGENCE SYSTEMS</div>
                 </div>
 
-                {/* Login Form */}
-                <form onSubmit={handleLogin} className={styles.form}>
-                    <div className={styles.field}>
-                        <label className={styles.label}>Player ID</label>
-                        <input
-                            type="text"
-                            value={playerId}
-                            onChange={(e) => setPlayerId(e.target.value.toUpperCase())}
-                            placeholder="e.g. MUR-001"
-                            disabled={joining}
-                            className={styles.input}
-                            autoComplete="off"
-                        />
-                    </div>
+                {/* Form Section */}
+                <div className={styles.formSection}>
+                    <h2 className={styles.title}>Command Access</h2>
+                    <p className={styles.subtitle}>Enter credentials for secure terminal link.</p>
 
-                    <div className={styles.field}>
-                        <label className={styles.label}>Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="Enter password"
-                            disabled={joining}
-                            className={styles.input}
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setShowChangePassword(true)}
-                            className={styles.changePasswordLink}
-                        >
-                            Change Password
-                        </button>
-                    </div>
-
-                    {error && (
-                        <div className={styles.errorBox}>
-                            {error}
+                    <form onSubmit={handleLogin} className={styles.form}>
+                        <div className={styles.field}>
+                            <label className={styles.label}>EXECUTIVE IDENTIFIER</label>
+                            <input
+                                type="text"
+                                value={playerId}
+                                onChange={(e) => setPlayerId(e.target.value.toUpperCase())}
+                                placeholder="MUR-001"
+                                disabled={joining}
+                                className={styles.input}
+                                autoComplete="off"
+                                spellCheck="false"
+                            />
                         </div>
-                    )}
+
+                        <div className={styles.field}>
+                            <label className={styles.label}>CLEARANCE CIPHER</label>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                placeholder="••••••••"
+                                disabled={joining}
+                                className={styles.input}
+                            />
+                        </div>
+
+                        <div className={styles.optionsRow}>
+                            <label className={styles.rememberLabel}>
+                                <input type="checkbox" className={styles.checkbox} />
+                                <span>REMEMBER STATION</span>
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setShowChangePassword(true)}
+                                className={styles.lostCipher}
+                            >
+                                LOST CIPHER?
+                            </button>
+                        </div>
+
+                        {error && (
+                            <div className={styles.errorBox}>
+                                <span className={styles.errorIcon}>⚠</span> {error}
+                            </div>
+                        )}
+
+                        <button
+                            type="submit"
+                            disabled={joining || !playerId.trim()}
+                            className={styles.submitBtn}
+                        >
+                            {joining ? '⟳ AUTHENTICATING...' : 'ESTABLISH LINK'}
+                        </button>
+                    </form>
 
                     <button
-                        type="submit"
-                        disabled={joining || !playerId.trim()}
-                        className={styles.submitBtn}
+                        type="button"
+                        onClick={handleSoloSession}
+                        disabled={joining}
+                        className={styles.soloBtn}
                     >
-                        {joining ? '⏳ Authenticating...' : '🔐 Sign In'}
+                        {joining ? '⟳ INITIALIZING...' : 'START SOLO SESSION'}
                     </button>
-                </form>
-
-                {/* Solo Session */}
-                <div className={styles.divider}>
-                    <span>or</span>
                 </div>
 
-                <button
-                    type="button"
-                    onClick={handleSoloSession}
-                    disabled={joining}
-                    className={styles.soloBtn}
-                >
-                    {joining ? '⏳ Starting...' : '🚀 Start Solo Session'}
-                </button>
-
-                <ChangePasswordModal
-                    isOpen={showChangePassword}
-                    onClose={() => setShowChangePassword(false)}
-                />
+                {/* Footer status */}
+                <div className={styles.footerStatus}>
+                    <span className={styles.statusDot} data-status="green" />
+                    <span>ENCRYPTED</span>
+                    <span className={styles.statusSep}>•</span>
+                    <span className={styles.statusDot} data-status="amber" />
+                    <span>V4.12.0</span>
+                </div>
             </div>
+
+            {/* Bottom bar */}
+            <div className={styles.bottomBar}>
+                <span className={styles.bottomHash}>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i}>{Math.random().toString(36).slice(2, 7).toUpperCase()} </span>
+                    ))}
+                </span>
+                <span className={styles.bottomRight}>
+                    <span className={styles.bottomLabel}>LOCAL OPS</span>
+                    <span className={styles.bottomTime}>{currentTime}</span>
+                    <span className={styles.themeIcon}>☾</span>
+                </span>
+            </div>
+
+            <ChangePasswordModal
+                isOpen={showChangePassword}
+                onClose={() => setShowChangePassword(false)}
+            />
         </div>
     );
 }

@@ -1,0 +1,148 @@
+/* ═══════════════════════════════════════════════════════════
+   StockPerformanceChart — Light-theme stock terminal card
+   Clean white background, corporate blue line, gradient fill
+   ═══════════════════════════════════════════════════════════ */
+
+.container {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  border: 1px solid rgba(0, 229, 195, 0.06);
+  border-radius: 8px;
+  padding: 6px 8px 0px;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
+  overflow: hidden;
+  max-height: 300px; /* Constrain the overall card size */
+}
+
+.container:hover {
+  border-color: rgba(0, 229, 195, 0.2);
+  box-shadow: 0 0 20px rgba(0, 229, 195, 0.06);
+  transform: translateY(-1px);
+}
+
+/* ── Header Row ── */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(0, 229, 195, 0.04);
+}
+
+.title {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.priceDisplay {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.currentPrice {
+  font-size: 1rem;
+  font-weight: 800;
+  color: #0f172a;
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+}
+
+.priceDelta {
+  font-size: 0.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.deltaUp {
+  color: #22c55e;
+}
+
+.deltaDown {
+  color: #ef4444;
+}
+
+/* ── Range Selector Buttons ── */
+.rangeBar {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 3px;
+}
+
+.rangeBtn {
+  flex: 1;
+  padding: 2px 0;
+  border: 1px solid rgba(0, 229, 195, 0.08);
+  border-radius: 4px;
+  background: rgba(241, 245, 249, 0.8);
+  color: #475569;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: 'Inter', sans-serif;
+  text-align: center;
+}
+
+.rangeBtn:hover {
+  background: rgba(241, 245, 249, 1);
+  border-color: rgba(37, 99, 235, 0.2);
+  color: #334155;
+}
+
+.rangeBtnActive {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.3);
+  color: #60a5fa;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.1);
+}
+
+/* ── Chart Area ── */
+.chartArea {
+  flex: 1 1 auto;
+  min-height: 140px;
+  max-height: 200px;
+  min-width: 40px;
+}
+
+/* ── Recharts Tooltip Override ── */
+.tooltipContainer {
+  background: #0f1524 !important;
+  border: 1px solid rgba(37, 99, 235, 0.25) !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+  font-family: 'Inter', sans-serif;
+}
+
+.tooltipLabel {
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 3px;
+}
+
+.tooltipPrice {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #60a5fa;
+  font-family: 'JetBrains Mono', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+

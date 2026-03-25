@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
@@ -7,8 +8,29 @@ import styles from './ExecutiveCockpit.module.css';
 import KPIDashboard from './KPIDashboard';
 import MarketRealityFeed from './MarketRealityFeed';
 import InvestmentMatrix from './InvestmentMatrix';
+import CountdownTimer from './CountdownTimer';
 import { DETAILED_DESCRIPTIONS } from '../utils/detailedDescriptions';
-import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
+import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
+
+// AI Board Member Personas (Improvement #4.2)
+const BOARD_PERSONAS = {
+  financial: { name: 'Sarah Chen, CFO', avatar: '👩‍💼', color: '#6366f1' },
+  sustainability: { name: 'Dr. Kwame Asante, CSO', avatar: '🧑‍🔬', color: '#16a34a' },
+  legal: { name: 'Marcus Wong, General Counsel', avatar: '👨‍⚖️', color: '#f59e0b' },
+  crisis: { name: 'Elena Vasquez, CRO', avatar: '🧑‍💻', color: '#ef4444' },
+  default: { name: 'Board of Directors', avatar: '🏛️', color: '#64748b' },
+};
+
+function getPersona(msg) {
+  const t = (msg.type || '').toLowerCase();
+  const title = (msg.title || '').toLowerCase();
+  if (t === 'crisis' || title.includes('crisis') || title.includes('alert')) return BOARD_PERSONAS.crisis;
+  if (t === 'facilitator') return BOARD_PERSONAS.sustainability;
+  if (title.includes('financial') || title.includes('treasury') || title.includes('ebitda')) return BOARD_PERSONAS.financial;
+  if (title.includes('legal') || title.includes('regulation') || title.includes('compliance')) return BOARD_PERSONAS.legal;
+  return BOARD_PERSONAS.default;
+}
 
 /**
  * ExecutiveCockpit — Premium enterprise dashboard layout.
@@ -94,7 +116,22 @@ export default function ExecutiveCockpit({
   allocations,
   onAllocationsChange,
   onResourcesOpen,
+  hasAllocated,
+  hasReadBriefing,
 }) {
+  // Sequential gating: determine if round prerequisite is met
+  const hasSecondStage = roundNumber === 1 || roundNumber === 2;
+  const secondStageDone = roundNumber === 1 ? hasCompletedStakeholderMap
+    : roundNumber === 2 ? hasSubmittedMatrix
+    : true; // R3-R10: no special prerequisite
+  const roundPrerequisiteMet = hasSecondStage ? secondStageDone : true;
+  // For strategic decision gating: briefing must be read, and second stage (if any) must be done
+  const canAccessStrategy = hasReadBriefing && roundPrerequisiteMet;
+  const hasDecision = decisionParadigm === 'multi_toggles'
+    ? Object.keys(pillarSelections || {}).length > 0
+    : !!decisionChoice;
+  // For capital allocation gating: strategic decision must be made
+  const canAccessAllocation = canAccessStrategy && hasDecision;
   const treasury = globalState?.corporate_treasury || 0;
   const reputation = globalState?.group_reputation || 50;
   const ebitda = globalState?.historical_ebitda || 0;
@@ -137,8 +174,25 @@ export default function ExecutiveCockpit({
   // Projected costs from staged decision
   const [projectedCost, setProjectedCost] = useState(0);
 
+  // Stage-warning toast when player tries to skip a stage
+  const [stageWarning, setStageWarning] = useState(null);
+  const showStageWarning = useCallback((msg) => {
+    setStageWarning(msg);
+    setTimeout(() => setStageWarning(null), 4000);
+  }, []);
+
   // Strategic Breakdown Hover State
   const [hoveredOpt, setHoveredOpt] = useState(null);
+
+  // Theme detection for inline styles
+  const [isDark, setIsDark] = useState(true);
+  useEffect(() => {
+    const check = () => setIsDark(document.documentElement.getAttribute('data-theme') !== 'light');
+    check();
+    const observer = new MutationObserver(check);
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, []);
 
   // Treasury animation
   const [treasuryFlash, setTreasuryFlash] = useState(false);
@@ -225,12 +279,43 @@ export default function ExecutiveCockpit({
   }, [crisisInfo, events, roundNumber]);
 
   // Active event popup (traps/penalties)
-  const activeAlert = events?.cfo_override_used ? {
-    icon: '⚠️', title: 'CFO Override Penalty', body: 'Group reputation reduced by 5 points for bypassing materiality gate.'
-  } : null;
+  const [blackSwanAlert, setBlackSwanAlert] = useState(null);
+
+  // Detect custom black swan events from active_event_flags
+  useEffect(() => {
+    const flags = globalState?.active_event_flags || events || {};
+    const swans = flags.custom_black_swans;
+    if (Array.isArray(swans) && swans.length > 0) {
+      const latest = swans[swans.length - 1];
+      // Only show if not already dismissed (stored by title)
+      const dismissedKey = `bs_dismissed_${latest.title}`;
+      if (!sessionStorage.getItem(dismissedKey)) {
+        setBlackSwanAlert(latest);
+        // Auto-dismiss after 15 seconds
+        const timer = setTimeout(() => {
+          setBlackSwanAlert(null);
+          sessionStorage.setItem(dismissedKey, '1');
+        }, 15000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [globalState, events]);
+
+  const activeAlert = blackSwanAlert
+    ? {
+        icon: '🦢',
+        title: blackSwanAlert.title,
+        body: blackSwanAlert.narrative,
+        isBlackSwan: true,
+      }
+    : events?.cfo_override_used
+      ? { icon: '⚠️', title: 'CFO Override Penalty', body: 'Group reputation reduced by 5 points for bypassing materiality gate.' }
+      : null;
+
+  const kpiFlashActive = !!blackSwanAlert;
 
   return (
-    <div className={styles.cockpit} data-theme="light">
+    <div className={styles.cockpit}>
       {/* ═══ GLOBAL HEADER ═══ */}
       <header className={styles.header}>
         <div className={styles.headerLogo}>
@@ -241,9 +326,10 @@ export default function ExecutiveCockpit({
         <div className={styles.headerCenter}>
           <span className={styles.headerYear}>Year {BASE_YEAR + roundNumber}</span>
           <span className={styles.headerDivider} />
-          <span className={styles.headerModule}>Module {roundNumber}</span>
+          <span className={styles.headerModule}>Turn {roundNumber}</span>
           <span className={styles.headerDivider} />
           <span>{ROUND_TITLES[roundNumber] || ''}</span>
+          <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
         </div>
 
         <div className={styles.headerRight}>
@@ -253,11 +339,11 @@ export default function ExecutiveCockpit({
             </span>
           )}
           <motion.div
-            className={`${styles.treasuryDisplay} ${treasuryFlash ? styles.treasuryFlash : ''}`}
+            className={`${styles.treasuryDisplay} ${treasuryFlash ? styles.treasuryFlash : ''} ${kpiFlashActive ? styles.kpiFlash : ''}`}
             animate={treasuryFlash ? { scale: [1, 1.05, 1] } : {}}
             transition={{ duration: 0.4 }}
           >
-            <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>USD</span>
+            <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>USD</span>
             {fmtCurrency(treasury)}
           </motion.div>
         </div>
@@ -267,7 +353,7 @@ export default function ExecutiveCockpit({
       <div className={styles.mainContent}>
 
         {/* ── LEFT: KPI Dashboard ─── */}
-        <aside className={styles.leftSidebar}>
+        <aside className={`${styles.leftSidebar} ${kpiFlashActive ? styles.kpiFlash : ''}`}>
           <KPIDashboard
             historyData={historyData}
             ebitda={ebitda}
@@ -275,7 +361,30 @@ export default function ExecutiveCockpit({
             vrio={vrio}
             reputation={reputation}
             projectedCost={projectedCost}
+            globalState={globalState}
+            businessUnits={businessUnits}
+            roundNumber={roundNumber}
+            events={events}
           />
+          {/* Resources Panel (2×2 grid) — moved below KPI charts */}
+          <div className={styles.resourcesPanel}>
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>💰 Treasury</div>
+              <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
+            </div>
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>🌍 Reputation</div>
+              <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
+            </div>
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>🏭 Carbon</div>
+              <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>t</span></div>
+            </div>
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>📈 EBITDA</div>
+              <div className={styles.resourceValue}>{fmtCurrency(ebitda)}</div>
+            </div>
+          </div>
         </aside>
 
         {/* ── CENTER: Briefing + Decisions ─── */}
@@ -298,17 +407,18 @@ export default function ExecutiveCockpit({
                 onClick={onOpenStakeholderMap}
                 style={{
                   marginTop: 10, width: '100%', padding: '10px 16px',
-                  background: '#1b2a4a', color: '#fff',
-                  border: 'none', borderRadius: 4, fontWeight: 700, fontSize: '0.72rem',
-                  cursor: 'pointer', letterSpacing: '0.06em', textTransform: 'uppercase',
+                  background: 'linear-gradient(135deg, #00e5c3, #0dd9b0)', color: '#0a0e1a',
+                  border: 'none', borderRadius: 6, fontWeight: 800, fontSize: '0.72rem',
+                  cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
                   fontFamily: 'Inter, sans-serif',
+                  boxShadow: '0 4px 16px rgba(0,229,195,0.2)',
                 }}
               >
                 ⚖️ Complete Stakeholder Map (Required)
               </button>
             )}
             {roundNumber === 1 && hasCompletedStakeholderMap && (
-              <div style={{ marginTop: 8, fontSize: '0.72rem', color: '#16a34a', fontWeight: 600 }}>
+              <div style={{ marginTop: 8, fontSize: '0.72rem', color: '#4ade80', fontWeight: 600 }}>
                 ✅ Stakeholder Map Complete{stakeholderAccuracy != null ? ` — ${stakeholderAccuracy.toFixed(0)}% accuracy` : ''}
               </div>
             )}
@@ -317,33 +427,68 @@ export default function ExecutiveCockpit({
                 onClick={onOpenCSRD}
                 style={{
                   marginTop: 10, width: '100%', padding: '10px 16px',
-                  background: '#b91c1c', color: '#fff',
-                  border: 'none', borderRadius: 4, fontWeight: 700, fontSize: '0.72rem',
-                  cursor: 'pointer', letterSpacing: '0.06em', textTransform: 'uppercase',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: '#fff',
+                  border: 'none', borderRadius: 6, fontWeight: 800, fontSize: '0.72rem',
+                  cursor: 'pointer', letterSpacing: '0.08em', textTransform: 'uppercase',
                   fontFamily: 'Inter, sans-serif',
+                  boxShadow: '0 4px 16px rgba(239,68,68,0.2)',
                 }}
               >
                 🚨 Complete CSRD Assessment (Required)
               </button>
             )}
             {roundNumber === 2 && hasSubmittedMatrix && (
-              <div style={{ marginTop: 8, fontSize: '0.68rem', color: '#15803d', fontWeight: 600, letterSpacing: '0.02em' }}>✅ CSRD Assessment Submitted</div>
+              <div style={{ marginTop: 8, fontSize: '0.68rem', color: '#4ade80', fontWeight: 600, letterSpacing: '0.02em' }}>✅ CSRD Assessment Submitted</div>
             )}
           </div>
 
           {/* Resource Allocation Matrix */}
-          <div className={styles.decisionArea} style={{ borderBottom: '1px solid #e5e7eb', paddingBottom: 8 }}>
+          <div className={styles.decisionArea} style={{ borderBottom: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0', paddingBottom: 8, position: 'relative' }}>
+            {/* Click-intercept: requires Strategic Decision to be made */}
+            {!canAccessAllocation && (
+              <div
+                onClick={() => {
+                  if (!hasReadBriefing) {
+                    showStageWarning('Read the Briefing first before proceeding.');
+                  } else if (hasSecondStage && !secondStageDone) {
+                    showStageWarning(roundNumber === 1 ? 'Complete the Stakeholder Map first.' : 'Complete the CSRD Assessment first.');
+                  } else if (!hasDecision) {
+                    showStageWarning('Make your Strategic Decision before setting Capital Allocation.');
+                  }
+                }}
+                style={{
+                  position: 'absolute', inset: 0, zIndex: 5,
+                  cursor: 'not-allowed', borderRadius: 8,
+                }}
+              />
+            )}
             <InvestmentMatrix
               csfPool={csfPool}
               globalState={globalState}
               businessUnits={businessUnits}
               allocations={allocations}
-              onAllocationsChange={onAllocationsChange}
+              onAllocationsChange={canAccessAllocation ? onAllocationsChange : () => {}}
             />
           </div>
 
           {/* Decision Workspace */}
-          <div className={styles.decisionArea}>
+          <div className={styles.decisionArea} style={{ position: 'relative' }}>
+            {/* Click-intercept: requires Briefing read + Second Stage (R1/R2) done */}
+            {!canAccessStrategy && (
+              <div
+                onClick={() => {
+                  if (!hasReadBriefing) {
+                    showStageWarning('Read the Briefing first before making your Strategic Decision.');
+                  } else if (hasSecondStage && !secondStageDone) {
+                    showStageWarning(roundNumber === 1 ? 'Complete the Stakeholder Map before making your Strategic Decision.' : 'Complete the CSRD Assessment before making your Strategic Decision.');
+                  }
+                }}
+                style={{
+                  position: 'absolute', inset: 0, zIndex: 5,
+                  cursor: 'not-allowed', borderRadius: 8,
+                }}
+              />
+            )}
             <div className={styles.decisionHeader}>
               <span className={styles.decisionLabel}>
                 {decisionParadigm === 'multi_toggles' ? '🎛️ Strategic Pillars' : '📋 Strategic Options'}
@@ -395,6 +540,16 @@ export default function ExecutiveCockpit({
                   const opt = options[optId];
                   if (!opt) return null;
                   const isActive = decisionChoice === optId;
+                  const optMeta = {
+                    option_a: { icon: '⚡', label: 'OPTION A' },
+                    option_b: { icon: '⚖️', label: 'OPTION B' },
+                    option_c: { icon: '🛡️', label: 'OPTION C' },
+                  }[optId];
+                  const costVal = opt.impacts?.treasury || opt.cost_impact || 0;
+                  const maxCost = Math.max(
+                    ...['option_a','option_b','option_c'].map(k => Math.abs(options[k]?.impacts?.treasury || options[k]?.cost_impact || 1))
+                  );
+                  const costBarPct = Math.min(100, (Math.abs(costVal) / maxCost) * 100);
                   return (
                     <div
                       key={optId}
@@ -406,16 +561,66 @@ export default function ExecutiveCockpit({
                       })}
                       onMouseLeave={() => setHoveredOpt(null)}
                     >
-                      <div className={styles.tileLabel}>
-                        {optId === 'option_a' ? 'Option A' : optId === 'option_b' ? 'Option B' : 'Option C'}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: '1rem' }}>{optMeta.icon}</span>
+                        <span className={styles.tileLabel} style={{ margin: 0 }}>
+                          {optMeta.label}
+                        </span>
                       </div>
                       <div className={styles.tileTitle}>{opt.title}</div>
                       <p className={styles.tileDesc}>{opt.description}</p>
-                      {(opt.impacts?.treasury || opt.cost_impact) ? (
-                        <div className={`${styles.tileCost} ${(opt.impacts?.treasury || opt.cost_impact) < 0 ? styles.tileCostPositive : ''}`}>
-                          {fmtCurrency(opt.impacts?.treasury || opt.cost_impact)}
+                      {costVal ? (
+                        <div style={{ marginTop: 6 }}>
+                          <div style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            marginBottom: 3,
+                          }}>
+                            <span style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 600 }}>💰 Cost</span>
+                            <span style={{
+                              fontSize: '0.72rem', fontWeight: 800,
+                              color: costVal < 0 ? '#16a34a' : '#ef4444',
+                            }}>
+                              {fmtCurrency(costVal)}
+                            </span>
+                          </div>
+                          <div style={{
+                            height: 4, background: '#e2e8f0', borderRadius: 2,
+                            overflow: 'hidden',
+                          }}>
+                            <div style={{
+                              width: `${costBarPct}%`, height: '100%',
+                              background: '#6366f1', borderRadius: 2,
+                              transition: 'width 0.3s ease',
+                            }} />
+                          </div>
                         </div>
                       ) : null}
+                      {/* Impact Preview when selected */}
+                      {isActive && opt.impacts && (
+                        <div style={{
+                          marginTop: 6, padding: '4px 6px', background: '#f8fafc',
+                          borderRadius: 4, fontSize: '0.58rem', lineHeight: 1.6,
+                        }}>
+                          {opt.impacts.treasury && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.treasury < 0 ? '#16a34a' : '#ef4444' }}>
+                              <span>💰 Treasury</span>
+                              <span style={{ fontWeight: 700 }}>{fmtCurrency(treasury)} → {fmtCurrency(treasury + (opt.impacts.treasury || 0))} {opt.impacts.treasury < 0 ? '▼' : '▲'}</span>
+                            </div>
+                          )}
+                          {opt.impacts.reputation !== undefined && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.reputation > 0 ? '#16a34a' : '#ef4444' }}>
+                              <span>🌍 Reputation</span>
+                              <span style={{ fontWeight: 700 }}>{reputation} → {reputation + (opt.impacts.reputation || 0)} {opt.impacts.reputation > 0 ? '▲' : '▼'}</span>
+                            </div>
+                          )}
+                          {opt.impacts.carbon !== undefined && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.carbon < 0 ? '#16a34a' : '#ef4444' }}>
+                              <span>🏭 Carbon</span>
+                              <span style={{ fontWeight: 700 }}>{opt.impacts.carbon > 0 ? '+' : ''}{opt.impacts.carbon}t</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -448,14 +653,10 @@ export default function ExecutiveCockpit({
 
         {/* ── RIGHT SIDEBAR ─── */}
         <aside className={styles.rightSidebar}>
-          {/* Resources Tab (10%) */}
-          <div className={styles.rightResources}>
-            <div className={styles.resourcesTab} onClick={onResourcesOpen} style={{ cursor: 'pointer' }}>
-              <span className={styles.resourcesLabel}>
-                📎 Resources
-              </span>
-              <span style={{ fontSize: '0.6rem', color: '#94a3b8' }}>▶</span>
-            </div>
+          {/* Resources link */}
+          <div className={styles.rightResources} style={{ padding: '4px 14px', cursor: 'pointer' }} onClick={onResourcesOpen}>
+            <span className={styles.resourcesLabel}>📎 Resources</span>
+            <span style={{ fontSize: '0.6rem', color: '#475569' }}>▶</span>
           </div>
 
           {/* Executive Mailbox (40%) */}
@@ -472,8 +673,13 @@ export default function ExecutiveCockpit({
                   onClick={() => { onMarkRead?.(msg.id); setExpandedMessage(msg); }}
                   style={{ cursor: 'pointer', opacity: msg.read ? 0.6 : 1 }}
                 >
+                  {/* Improvement #4.2: AI Personas */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                    <span style={{ fontSize: '0.7rem' }}>{getPersona(msg).avatar}</span>
+                    <span style={{ fontSize: '0.55rem', fontWeight: 600, color: getPersona(msg).color }}>{getPersona(msg).name}</span>
+                  </div>
                   <strong style={{ fontSize: '0.68rem', color: '#0f172a' }}>{msg.title}</strong>
-                  <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#64748b' }}>{msg.body?.substring(0, 120)}...</p>
+                  <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#334155' }}>{msg.body?.substring(0, 120)}...</p>
                 </div>
               ))}
               {currentMessages.length === 0 && (
@@ -506,28 +712,34 @@ export default function ExecutiveCockpit({
             <MarketRealityFeed items={marketEvents} activeAlert={activeAlert} />
           </div>
 
-          {/* Commit / Advance Footer (two buttons) */}
+          {/* Commit Footer */}
           <div className={styles.rightCommit}>
-            <div className={styles.twoButtonRow}>
-              <motion.button
-                className={`${styles.commitBtnHalf} ${commitResults ? styles.commitBtnDone : ''}`}
-                disabled={isCommitBlocked || !!commitResults}
-                onClick={onCommit}
-                whileHover={{ scale: (isCommitBlocked || commitResults) ? 1 : 1.02 }}
-                whileTap={{ scale: (isCommitBlocked || commitResults) ? 1 : 0.98 }}
+            {stageWarning && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                style={{
+                  padding: '8px 14px', marginBottom: 6, borderRadius: 8,
+                  background: isDark ? 'rgba(239,68,68,0.12)' : '#fef2f2',
+                  border: isDark ? '1px solid rgba(239,68,68,0.25)' : '1px solid #fecaca',
+                  fontSize: '0.7rem', fontWeight: 600,
+                  color: isDark ? '#fca5a5' : '#dc2626',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
               >
-                {commitResults ? '✅ Committed' : '▶ Commit'}
-              </motion.button>
-              <motion.button
-                className={`${styles.advanceBtnHalf} ${!commitResults ? styles.advanceBtnLocked : ''}`}
-                disabled={!commitResults}
-                onClick={onAdvance}
-                whileHover={{ scale: commitResults ? 1.02 : 1 }}
-                whileTap={{ scale: commitResults ? 0.98 : 1 }}
-              >
-                {commitResults ? '⏩ Advance' : '🔒 Advance'}
-              </motion.button>
-            </div>
+                🔒 {stageWarning}
+              </motion.div>
+            )}
+            <motion.button
+              className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
+              disabled={!!commitResults}
+              onClick={onCommit}
+              whileHover={{ scale: commitResults ? 1 : 1.02 }}
+              whileTap={{ scale: commitResults ? 1 : 0.98 }}
+            >
+              {commitResults ? '✅ Committed' : '▶ Commit'}
+            </motion.button>
           </div>
         </aside>
 
@@ -675,9 +887,16 @@ export default function ExecutiveCockpit({
                         <AreaChart data={historyData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
                           <defs>
                             <linearGradient id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                              <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+                              <stop offset="5%" stopColor={color} stopOpacity={0.35} />
+                              <stop offset="95%" stopColor={color} stopOpacity={0.02} />
                             </linearGradient>
+                            <filter id={`glow-${key}`}>
+                              <feGaussianBlur stdDeviation="2" result="coloredBlur" />
+                              <feMerge>
+                                <feMergeNode in="coloredBlur" />
+                                <feMergeNode in="SourceGraphic" />
+                              </feMerge>
+                            </filter>
                           </defs>
                           <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                           <YAxis hide domain={yDomain} />
@@ -686,13 +905,77 @@ export default function ExecutiveCockpit({
                             formatter={(v) => [fmt(v), label.replace(' Trend', '')]}
                             labelFormatter={(year) => `Year ${year}`}
                           />
-                          <Area type="monotone" dataKey={key} stroke={color} strokeWidth={2} fill={`url(#grad-${key})`} dot={{ r: 3, fill: color, strokeWidth: 0 }} />
+                          <Area type="monotone" dataKey={key} stroke={color} strokeWidth={2.5} fill={`url(#grad-${key})`} filter={`url(#glow-${key})`} dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5, fill: color, stroke: '#fff', strokeWidth: 2 }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
                   );})}
                 </div>
               )}
+
+              {/* Stock Price Trend */}
+              {historyData.length > 1 && (() => {
+                const avgNCD = businessUnits.length > 0
+                  ? businessUnits.reduce((s, bu) => s + (bu.natural_capital_debt || 0), 0) / businessUnits.length
+                  : 0;
+                const stockData = [
+                  { year: 'IPO', price: IPO_PRICE },
+                  ...historyData.map(h => ({
+                    year: h.year,
+                    price: calculateRoundStockPrice({
+                      ebitda: h.ebitda,
+                      synergy_multiplier: globalState?.synergy_multiplier || 1.0,
+                      natural_capital_debt: avgNCD,
+                      group_reputation: h.reputation,
+                    }),
+                  })),
+                ];
+                const prices = stockData.map(d => d.price);
+                const minP = Math.min(...prices);
+                const maxP = Math.max(...prices);
+                const pad = (maxP - minP) * 0.15 || 5;
+                const latestPrice = prices[prices.length - 1];
+                const pctChg = ((latestPrice - IPO_PRICE) / IPO_PRICE * 100);
+
+                return (
+                  <div style={{
+                    background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
+                    padding: '0.5rem 0.6rem 0.3rem', marginBottom: '1rem',
+                  }}>
+                    <div style={{
+                      display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+                      fontSize: '0.68rem', fontWeight: 700, color: '#6b7280',
+                      textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem',
+                    }}>
+                      <span>📈 Stock Price</span>
+                      <span style={{
+                        color: pctChg >= 0 ? '#16a34a' : '#ef4444', fontFamily: 'JetBrains Mono, monospace',
+                      }}>
+                        ${latestPrice.toFixed(2)} ({pctChg >= 0 ? '+' : ''}{pctChg.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={72}>
+                      <AreaChart data={stockData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
+                        <defs>
+                          <linearGradient id="grad-stock-res" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.35} />
+                            <stop offset="95%" stopColor="#7c3aed" stopOpacity={0.02} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                        <YAxis hide domain={[Math.max(0, minP - pad), maxP + pad]} />
+                        <Tooltip
+                          contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
+                          formatter={(v) => [`$${v.toFixed(2)}`, 'Stock Price']}
+                          labelFormatter={(year) => year === 'IPO' ? 'IPO' : `Year ${year}`}
+                        />
+                        <ReferenceLine y={IPO_PRICE} stroke="#94a3b8" strokeDasharray="3 3" />
+                        <Area type="monotone" dataKey="price" stroke="#7c3aed" strokeWidth={2.5} fill="url(#grad-stock-res)" dot={{ r: 3, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#7c3aed', stroke: '#fff', strokeWidth: 2 }} />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                );
+              })()}
 
               {/* Events summary */}
               {commitResults.events && Object.keys(commitResults.events).length > 0 && (
@@ -737,65 +1020,77 @@ export default function ExecutiveCockpit({
 /* ── Sub-component: Archive Accordion for previous rounds ── */
 function ArchiveAccordion({ round, items, onMarkRead, onExpand }) {
   const [open, setOpen] = useState(false);
+  const handleToggle = (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setOpen(prev => !prev);
+  };
   return (
     <div style={{
-      marginTop: 4,
+      marginTop: 6,
       borderTop: '1px solid #eef0f6',
     }}>
       <button
-        onClick={() => setOpen(!open)}
+        onClick={handleToggle}
+        type="button"
         style={{
           width: '100%',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '5px 8px',
-          background: open ? '#f0f4ff' : '#f7f8fc',
-          border: 'none',
-          borderRadius: 3,
+          padding: '8px 10px',
+          background: open ? '#eef4ff' : '#f7f8fc',
+          border: open ? '1px solid #c7d2fe' : '1px solid transparent',
+          borderRadius: 5,
           cursor: 'pointer',
-          fontSize: '0.6rem',
+          fontSize: '0.65rem',
           fontWeight: 700,
-          color: '#6b7a8d',
+          color: open ? '#3b5998' : '#6b7a8d',
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
           fontFamily: 'Inter, sans-serif',
-          transition: 'background 0.15s',
+          transition: 'all 0.15s',
         }}
       >
         <span>{open ? '▾' : '▸'} Round {round}</span>
         <span style={{
-          fontSize: '0.52rem',
-          background: '#e2e8f0',
-          color: '#475569',
-          padding: '1px 5px',
-          borderRadius: 3,
+          fontSize: '0.55rem',
+          background: open ? '#c7d2fe' : '#e2e8f0',
+          color: open ? '#3b5998' : '#475569',
+          padding: '2px 6px',
+          borderRadius: 4,
           fontWeight: 700,
         }}>{items.length}</span>
       </button>
-      {open && items.map(msg => (
-        <div
-          key={msg.id}
-          onClick={() => { onMarkRead?.(msg.id); onExpand?.(msg); }}
-          style={{
-            padding: '4px 8px 4px 16px',
-            fontSize: '0.63rem',
-            color: '#64748b',
-            lineHeight: 1.5,
-            borderLeft: '2px solid #d1d5db',
-            marginLeft: 8,
-            marginBottom: 2,
-            cursor: 'pointer',
-            opacity: msg.read ? 0.5 : 0.8,
-            transition: 'opacity 0.15s',
-          }}
-        >
-          <strong style={{ fontSize: '0.63rem', color: '#334155' }}>{msg.title}</strong>
-          <p style={{ margin: '1px 0 0', fontSize: '0.6rem', color: '#94a3b8' }}>
-            {msg.body?.substring(0, 80)}...
-          </p>
+      {open && (
+        <div style={{ padding: '4px 0' }}>
+          {items.map(msg => (
+            <div
+              key={msg.id}
+              onClick={(e) => { e.stopPropagation(); onMarkRead?.(msg.id); onExpand?.(msg); }}
+              style={{
+                padding: '6px 10px 6px 18px',
+                fontSize: '0.65rem',
+                color: '#334155',
+                lineHeight: 1.5,
+                borderLeft: '2px solid #c7d2fe',
+                marginLeft: 10,
+                marginBottom: 3,
+                cursor: 'pointer',
+                opacity: msg.read ? 0.7 : 1,
+                borderRadius: '0 4px 4px 0',
+                background: '#fafbff',
+                transition: 'all 0.15s',
+              }}
+            >
+              <strong style={{ fontSize: '0.65rem', color: '#334155' }}>{msg.title}</strong>
+              <p style={{ margin: '2px 0 0', fontSize: '0.6rem', color: '#475569' }}>
+                {msg.body?.substring(0, 80)}...
+              </p>
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }

@@ -1,0 +1,23 @@
+.container { display: flex; flex-direction: column; gap: 1.25rem; }
+.header { display: flex; align-items: flex-start; gap: 1rem; }
+.createBtn { background: linear-gradient(135deg, #3b82f6, #06b6d4); color: #fff; border: none; padding: 0.55rem 1.2rem; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; white-space: nowrap; transition: all 0.2s; box-shadow: 0 4px 16px rgba(59,130,246,0.25); align-self: center; }
+.createBtn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.35); }
+.icon { font-size: 2rem; }
+.title { font-size: 1.2rem; font-weight: 800; margin: 0; color: var(--text-primary); }
+.subtitle { font-size: 0.82rem; color: var(--text-muted); margin: 0.2rem 0 0 0; }
+.groupGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 1rem; }
+.groupCard { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
+.groupHeader { display: flex; justify-content: space-between; align-items: center; padding: 0.85rem 1rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); }
+.groupFac { font-size: 0.88rem; font-weight: 700; color: var(--text-primary); }
+.groupCount { font-size: 0.68rem; color: var(--text-muted); background: var(--bg-secondary); padding: 2px 8px; border-radius: var(--radius-full); }
+.groupStats { display: flex; gap: 1rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-subtle); }
+.groupStats > div { flex: 1; }
+.statLabel { display: block; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
+.statVal { font-size: 0.9rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); }
+.sessionList { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
+.sessionItem { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-md); font-size: 0.78rem; }
+.sessionItem:hover { background: rgba(59,130,246,0.04); }
+.sessionName { flex: 1; font-weight: 600; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sessionRound { font-size: 0.68rem; font-weight: 700; color: #3b82f6; background: rgba(59,130,246,0.1); padding: 2px 6px; border-radius: var(--radius-full); font-family: var(--font-mono); }
+.sessionTreasury { font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); min-width: 60px; text-align: right; }
+.empty { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.85rem; }

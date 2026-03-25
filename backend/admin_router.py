@@ -26,15 +26,58 @@ admin_router = APIRouter(prefix="/api/admin", tags=["Admin — God Mode"])
 # ── In-memory message store for facilitator messages ────────────
 _session_messages: dict[str, list[dict]] = {}  # session_id → [message dicts]
 
-# ── In-memory facilitator registry ──────────────────────────────
-_facilitator_registry: list[dict] = [
-    {
-        "facilitator_id": "Jose",
-        "name": "Jose",
-        "password": "123",
-        "created_at": "2026-01-01T00:00:00+00:00",
-    },
-]
+# ── God Mode global settings ────────────────────────────────────
+_god_mode_settings: dict = {
+    "allow_facilitator_cohort_creation": True,
+    "system_frozen": False,
+    "freeze_message": "",
+    "freeze_started_at": None,
+}
+
+# ── God Mode audit log ──────────────────────────────────────────
+_god_mode_audit_log: list[dict] = []
+
+# ── Crisis trigger history ──────────────────────────────────────
+_crisis_trigger_history: list[dict] = []
+
+# ── In-memory facilitator registry (with JSON persistence) ──────
+_FAC_REGISTRY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "db", "facilitator_registry.json")
+
+_DEFAULT_FACILITATOR = {
+    "facilitator_id": "Jose",
+    "name": "Jose",
+    "password": "123",
+    "created_at": "2026-01-01T00:00:00+00:00",
+    "max_cohorts": 5,
+    "cohorts_created": 0,
+    "is_admin": True,
+}
+
+def _load_facilitator_registry() -> list[dict]:
+    """Load facilitator registry from disk. Falls back to default if not found."""
+    try:
+        if os.path.exists(_FAC_REGISTRY_PATH):
+            with open(_FAC_REGISTRY_PATH, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            if data:
+                print(f"[persistence] Restored {len(data)} facilitator(s) from registry.")
+                return data
+    except Exception as e:
+        print(f"[persistence] Failed to load facilitator registry: {e}")
+    return [{**_DEFAULT_FACILITATOR}]
+
+def _persist_facilitators():
+    """Save current facilitator registry to disk."""
+    try:
+        os.makedirs(os.path.dirname(_FAC_REGISTRY_PATH), exist_ok=True)
+        tmp_path = _FAC_REGISTRY_PATH + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(_facilitator_registry, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, _FAC_REGISTRY_PATH)
+    except Exception as e:
+        print(f"[persistence] Failed to save facilitator registry: {e}")
+
+_facilitator_registry: list[dict] = _load_facilitator_registry()
 _next_facilitator_id: int = 1
 
 
@@ -43,8 +86,13 @@ class FacilitatorCreateRequest(BaseModel):
 
 
 @admin_router.get("/facilitators", summary="List all facilitators")
-async def list_facilitators():
-    return {"facilitators": _facilitator_registry}
+async def list_facilitators(unmask: bool = False):
+    """List facilitators. Passwords are masked unless ?unmask=true."""
+    result = []
+    for f in _facilitator_registry:
+        entry = {**f, "password": f["password"] if unmask else "••••••"}
+        result.append(entry)
+    return {"facilitators": result}
 
 
 @admin_router.post("/facilitators", summary="Create a new facilitator")
@@ -55,9 +103,13 @@ async def create_facilitator(req: FacilitatorCreateRequest):
         "name": req.name,
         "password": "123",
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "max_cohorts": 5,
+        "cohorts_created": 0,
+        "is_admin": False,
     }
     _next_facilitator_id += 1
     _facilitator_registry.append(fac)
+    _persist_facilitators()
     return fac
 
 
@@ -68,6 +120,7 @@ async def delete_facilitator(fac_id: str):
     _facilitator_registry = [f for f in _facilitator_registry if f["facilitator_id"] != fac_id]
     if len(_facilitator_registry) == before:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
+    _persist_facilitators()
     return {"status": "deleted", "facilitator_id": fac_id}
 
 
@@ -87,6 +140,7 @@ async def facilitator_login(body: dict = Body(...)):
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         _facilitator_registry.append(fac)
+        _persist_facilitators()
     if not fac or (password != "321" and fac["password"] != password):
         raise HTTPException(403, "Invalid facilitator ID or password")
     return {"status": "success", "facilitator_id": fac["facilitator_id"], "name": fac["name"]}
@@ -107,7 +161,75 @@ async def facilitator_change_password(body: dict = Body(...)):
     if fac["password"] != old_password and old_password != "321":
         raise HTTPException(403, "Current password is incorrect")
     fac["password"] = new_password
+    _persist_facilitators()
     return {"status": "success", "message": "Password updated successfully"}
+
+
+@admin_router.put("/facilitators/{fac_id}/cohort-limit", summary="Update facilitator cohort limit")
+async def update_cohort_limit(fac_id: str, body: dict = Body(...)):
+    max_cohorts = body.get("max_cohorts")
+    if max_cohorts is None or not isinstance(max_cohorts, int) or max_cohorts < 0:
+        raise HTTPException(400, "max_cohorts must be a non-negative integer")
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, f"Facilitator {fac_id} not found")
+    fac["max_cohorts"] = max_cohorts
+    _persist_facilitators()
+    return fac
+
+
+def check_and_increment_cohort_count(facilitator_id: str) -> bool:
+    """Check if facilitator can create another cohort. If yes, increment and return True."""
+    if not facilitator_id:
+        return True  # No facilitator specified — no limit enforced
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
+    if not fac:
+        return True  # Unknown facilitator — allow (auto-created via master password)
+    max_c = fac.get("max_cohorts", 5)
+    created = fac.get("cohorts_created", 0)
+    if created >= max_c:
+        return False
+    fac["cohorts_created"] = created + 1
+    _persist_facilitators()
+    return True
+
+
+# ═════════════════════════════════════════════════════════════════
+#  PRACTICE MODE — Dry-run up to Round 2, then reset
+# ═════════════════════════════════════════════════════════════════
+
+# In-memory practice mode flags: {session_id: True}
+_practice_mode: dict[str, bool] = {}
+
+
+@admin_router.post("/sessions/{session_id}/practice-mode", summary="Enable practice mode for a cohort")
+async def enable_practice_mode(session_id: str):
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+    _practice_mode[session_id] = True
+    # Broadcast to players
+    await manager.push_to_session(session_id, {
+        "type": "practice_mode_changed",
+        "practice_mode": True,
+    })
+    return {"status": "enabled", "session_id": session_id, "practice_mode": True}
+
+
+@admin_router.delete("/sessions/{session_id}/practice-mode", summary="Disable practice mode for a cohort")
+async def disable_practice_mode(session_id: str):
+    _practice_mode.pop(session_id, None)
+    return {"status": "disabled", "session_id": session_id, "practice_mode": False}
+
+
+@admin_router.get("/sessions/{session_id}/practice-mode", summary="Get practice mode status")
+async def get_practice_mode(session_id: str):
+    return {"practice_mode": _practice_mode.get(session_id, False)}
+
+
+def is_practice_mode(session_id: str) -> bool:
+    """Check if a session (or its parent cohort) is in practice mode."""
+    return _practice_mode.get(session_id, False)
 
 
 
@@ -165,6 +287,30 @@ class ConnectionManager:
                 dead.append(ws)
         for ws in dead:
             self.admin_connections.remove(ws)
+
+    async def broadcast(self, message: dict):
+        """Broadcast to ALL connected clients (players + admins)."""
+        payload = json.dumps(message)
+        # Send to all player sessions
+        for session_id, conns in list(self.active_connections.items()):
+            dead = []
+            for ws in conns:
+                try:
+                    await ws.send_text(payload)
+                except Exception:
+                    dead.append(ws)
+            for ws in dead:
+                conns.remove(ws)
+        # Send to all admin connections
+        dead = []
+        for ws in self.admin_connections:
+            try:
+                await ws.send_text(payload)
+            except Exception:
+                dead.append(ws)
+        for ws in dead:
+            self.admin_connections.remove(ws)
+
 manager = ConnectionManager()
 # ═════════════════════════════════════════════════════════════════
 #  PYDANTIC MODELS
@@ -1214,6 +1360,7 @@ async def get_leaderboard():
             "total_cash": gs.get("corporate_treasury", 0),
             "group_synergy": synergy,
             "group_reputation": gs.get("group_reputation", 50),
+            "bonus_score": gs.get("bonus_score", 0),
             "avg_natural_capital_debt": round(avg_ncd, 2),
             "avg_social_license": round(avg_sl, 2),
             "talent_flight_risk": talent_penalty > 1.25,
@@ -1277,7 +1424,7 @@ async def apply_override(session_id: str, body: OverrideRequest):
     _session_messages[session_id].append(override_msg)
 
     # Also store under all player sub-sessions if this is a cohort session
-    all_sessions = await db.list_sessions()
+    all_sessions = await db.fetch_all_sessions()
     for s in all_sessions:
         if s.get("parent_session_id") == session_id:
             child_id = s["session_id"]
@@ -1301,6 +1448,164 @@ async def apply_override(session_id: str, body: OverrideRequest):
 
     return {"status": "applied", "result": result}
 
+
+# ═════════════════════════════════════════════════════════════════
+#  CUSTOM BLACK SWAN INJECTOR
+# ═════════════════════════════════════════════════════════════════
+
+class CustomBlackSwanRequest(BaseModel):
+    title: str
+    narrative: str
+    target_scope: str = "Global"          # "Global" | "pharma" | "electronics" | "consumer_goods" | "software"
+    financial_impact: float = 0           # Treasury delta (negative = deduction)
+    reputation_impact: float = 0          # Reputation delta
+    social_license_impact: float = 0      # Social License delta
+    natural_debt_impact: float = 0        # Natural Capital Debt delta
+
+# In-memory history of injected custom events
+_custom_black_swan_log: list[dict] = []
+
+
+@admin_router.post(
+    "/{session_id}/inject-custom-event",
+    summary="Inject a custom Black Swan event into a player session",
+    status_code=status.HTTP_200_OK,
+)
+async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest):
+    """
+    Immediately mutates the session's game state with the specified deltas,
+    injects a mailbox message, and pushes a WebSocket alert to the player.
+    """
+    current = await db.fetch_latest_state(session_id)
+    if current is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found.",
+        )
+
+    gs = current["global_state"]
+    bus = current["bu_states"]
+    valid_bus = {"pharma", "electronics", "consumer_goods", "software"}
+    is_global = body.target_scope.lower() == "global" or body.target_scope not in valid_bus
+
+    # ── Apply financial impact (always global) ──
+    if body.financial_impact != 0:
+        gs["corporate_treasury"] = round(
+            gs.get("corporate_treasury", 0) + body.financial_impact, 2
+        )
+
+    # ── Apply reputation impact (always global) ──
+    if body.reputation_impact != 0:
+        gs["group_reputation"] = max(0, min(100, round(
+            gs.get("group_reputation", 50) + body.reputation_impact, 2
+        )))
+
+    # ── Apply social license impact ──
+    if body.social_license_impact != 0:
+        for bu in bus:
+            if is_global or bu["bu_id"] == body.target_scope:
+                bu["social_license_score"] = max(0, min(100, round(
+                    bu.get("social_license_score", 50) + body.social_license_impact, 2
+                )))
+
+    # ── Apply natural capital debt impact ──
+    if body.natural_debt_impact != 0:
+        for bu in bus:
+            if is_global or bu["bu_id"] == body.target_scope:
+                bu["natural_capital_debt"] = max(0, round(
+                    bu.get("natural_capital_debt", 0) + body.natural_debt_impact, 2
+                ))
+
+    # ── Append to active_event_flags ──
+    event_record = {
+        "type": "custom_black_swan",
+        "title": body.title,
+        "narrative": body.narrative,
+        "target_scope": body.target_scope,
+        "financial_impact": body.financial_impact,
+        "reputation_impact": body.reputation_impact,
+        "social_license_impact": body.social_license_impact,
+        "natural_debt_impact": body.natural_debt_impact,
+        "injected_at": datetime.now(timezone.utc).isoformat(),
+    }
+    gs.setdefault("active_event_flags", {})
+    if not isinstance(gs["active_event_flags"], dict):
+        gs["active_event_flags"] = {}
+    # Store as a list under custom_black_swans key
+    existing_swans = gs["active_event_flags"].get("custom_black_swans", [])
+    existing_swans.append(event_record)
+    gs["active_event_flags"]["custom_black_swans"] = existing_swans
+
+    # ── Persist mutated state ──
+    await db.update_latest_global_state(session_id, gs, bus)
+
+    # ── Inject mailbox message ──
+    message = {
+        "id": f"black_swan_{datetime.now(timezone.utc).timestamp():.0f}",
+        "round": current["round_number"],
+        "type": "crisis",
+        "title": f"🦢 {body.title}",
+        "body": body.narrative,
+        "read": False,
+        "source": "god_mode",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if session_id not in _session_messages:
+        _session_messages[session_id] = []
+    _session_messages[session_id].append(message)
+
+    # Propagate to child sessions
+    all_sessions = await db.fetch_all_sessions()
+    for s in all_sessions:
+        if s.get("parent_session_id") == session_id:
+            child_id = s["session_id"]
+            if child_id not in _session_messages:
+                _session_messages[child_id] = []
+            _session_messages[child_id].append(message)
+
+    # ── WebSocket push ──
+    ws_payload = {
+        "type": "custom_black_swan",
+        "event": event_record,
+        "message": message,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await manager.push_to_session(session_id, ws_payload)
+    # Also push to child sessions
+    for s in all_sessions:
+        if s.get("parent_session_id") == session_id:
+            await manager.push_to_session(s["session_id"], ws_payload)
+
+    # ── Notify admin dashboard ──
+    await manager.broadcast_admin({
+        "type": "black_swan_injected",
+        "session_id": session_id,
+        "event": event_record,
+    })
+
+    # ── Audit log ──
+    _god_mode_audit_log.append({
+        "action": "custom_black_swan_injected",
+        "session_id": session_id,
+        "details": event_record,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+    # ── Persist to in-memory log ──
+    _custom_black_swan_log.append({
+        "session_id": session_id,
+        **event_record,
+    })
+
+    return {"status": "injected", "event": event_record, "message": message}
+
+
+@admin_router.get(
+    "/custom-black-swan-log",
+    summary="Get history of all injected custom Black Swan events",
+)
+async def get_custom_black_swan_log():
+    return {"events": _custom_black_swan_log}
 
 @admin_router.post(
     "/{session_id}/inject-message",
@@ -1351,7 +1656,7 @@ async def inject_message(session_id: str, body: MessageInjectRequest):
     _session_messages[session_id].append(message)
 
     # Also propagate to player sub-sessions so individual player polling picks it up
-    all_sessions = await db.list_sessions()
+    all_sessions = await db.fetch_all_sessions()
     for s in all_sessions:
         if s.get("parent_session_id") == session_id:
             child_id = s["session_id"]
@@ -1962,7 +2267,7 @@ class ResourceEffect(BaseModel):
 class ResourceItem(BaseModel):
     id: str
     title: str
-    type: str  # "PDF" | "Video" | "Weblink" | "Memo"
+    type: str  # "PDF" | "Video" | "Weblink" | "Memo" | "NotebookLM"
     url: str = ""
     tags: list[str] = []
     category: str = "General"  # "Ecological" | "Social" | "Economic" | "General"
@@ -2473,8 +2778,152 @@ async def lock_session_resource(session_id: str, body: dict = Body(...)):
 
 
 # ═════════════════════════════════════════════════════════════════
+#  NOTEBOOKLM INTEGRATION — Linked Notebooks for Learners
+# ═════════════════════════════════════════════════════════════════
+
+class NotebookLMItem(BaseModel):
+    id: str
+    title: str
+    share_url: str = ""
+    description: str = ""
+    content_types: list[str] = ["review"]  # "podcast" | "review" | "quiz"
+    target_round: int = 1  # Round this notebook becomes available
+    category: str = "General"  # "General" | "Ecological" | "Social" | "Economic"
+    podcast_transcript: list[dict] = []  # [{speaker, text}, ...]
+    review_content: str = ""  # Markdown-style review content
+    quiz_questions: list[dict] = []  # [{question, options, correct, explanation}, ...]
+
+# In-memory store for linked NotebookLM notebooks
+from quiz_banks import (
+    NLM_001_REVIEW, NLM_001_QUESTIONS,
+    NLM_002_REVIEW, NLM_002_QUESTIONS,
+    NLM_003_REVIEW, NLM_003_QUESTIONS,
+)
+
+_notebooklm_notebooks: list[dict] = [
+    {
+        "id": "NLM_001",
+        "title": "ESG Fundamentals Deep Dive",
+        "share_url": "",
+        "description": "Interactive review of ESG concepts, CSRD requirements, and double materiality. Includes an AI-generated podcast overview.",
+        "content_types": ["podcast", "review", "quiz"],
+        "target_round": 1,
+        "category": "General",
+        "podcast_transcript": [
+            {"speaker": "Dr. Priya Sharma", "text": "Welcome to the ESG Fundamentals podcast. Today we're breaking down what every executive needs to know about Environmental, Social, and Governance factors."},
+            {"speaker": "Prof. James Walker", "text": "Great to be here, Priya. Let's start with the basics. ESG isn't just a compliance checkbox — it's become a core driver of corporate value creation."},
+            {"speaker": "Dr. Priya Sharma", "text": "Exactly. The E stands for Environmental — think carbon emissions, water usage, waste management, and biodiversity impact. Companies like Muressons with mining and manufacturing operations face significant environmental scrutiny."},
+            {"speaker": "Prof. James Walker", "text": "The S covers Social factors — labour practices, community relations, diversity, supply chain ethics. For a conglomerate operating across regions like Gobi and Deccan, this is critical."},
+            {"speaker": "Dr. Priya Sharma", "text": "And G — Governance — covers board composition, executive pay, transparency, and anti-corruption measures. Strong governance is the foundation that makes E and S credible."},
+            {"speaker": "Prof. James Walker", "text": "Now, let's talk about Double Materiality. Under the EU's CSRD directive, companies must report on two dimensions: how sustainability issues affect the company financially, AND how the company impacts society and the environment."},
+            {"speaker": "Dr. Priya Sharma", "text": "This is a paradigm shift. Traditional financial materiality only asked 'does this risk affect our bottom line?' Double materiality also asks 'does our business affect the planet and people?'"},
+            {"speaker": "Prof. James Walker", "text": "For Muressons, this means mapping every business unit — Pharma, Electronics, Consumer Goods, Software — against both dimensions. The ESG audit in Round 1 is your first step."},
+            {"speaker": "Dr. Priya Sharma", "text": "Key takeaway: ESG integration isn't optional anymore. Investors, regulators, and consumers are all demanding it. The companies that lead on ESG will have a competitive advantage in the 2030s."},
+            {"speaker": "Prof. James Walker", "text": "Absolutely. And remember — the depth of your initial audit determines what risks you catch early versus what surprises you later. Choose wisely."},
+        ],
+        "review_content": NLM_001_REVIEW,
+        "quiz_questions": NLM_001_QUESTIONS,
+    },
+    {
+        "id": "NLM_002",
+        "title": "Carbon Markets & Climate Risk",
+        "share_url": "",
+        "description": "Deep dive into carbon pricing mechanisms, EU ETS, emission scopes, and corporate climate strategy.",
+        "content_types": ["quiz", "review"],
+        "target_round": 3,
+        "category": "Ecological",
+        "podcast_transcript": [],
+        "review_content": NLM_002_REVIEW,
+        "quiz_questions": NLM_002_QUESTIONS,
+    },
+    {
+        "id": "NLM_003",
+        "title": "Supply Chain Ethics & Labour Rights",
+        "share_url": "",
+        "description": "Explore the Gobi region conflict, modern slavery legislation, and due diligence frameworks through AI-guided review.",
+        "content_types": ["podcast", "review", "quiz"],
+        "target_round": 5,
+        "category": "Social",
+        "podcast_transcript": [
+            {"speaker": "Dr. Priya Sharma", "text": "Today we're tackling one of the most challenging aspects of ESG — supply chain ethics and labour rights. This is deeply relevant to Muressons' operations in the Gobi region."},
+            {"speaker": "Prof. James Walker", "text": "Absolutely. The Gobi region represents a classic ethical dilemma in global supply chains. Rich mineral resources, but significant human rights concerns."},
+            {"speaker": "Dr. Priya Sharma", "text": "Let's frame the issue. Modern slavery affects an estimated 50 million people globally. Forced labour generates $150 billion in illegal profits annually. And it's not just in developing countries — it exists in every sector."},
+            {"speaker": "Prof. James Walker", "text": "For mining operations like those in the Gobi region, the risks include: forced labour in artisanal mining, child labour, dangerous working conditions, and community displacement."},
+            {"speaker": "Dr. Priya Sharma", "text": "Several key pieces of legislation now require companies to act. The UK Modern Slavery Act, the French Duty of Vigilance Law, and the proposed EU Corporate Sustainability Due Diligence Directive."},
+            {"speaker": "Prof. James Walker", "text": "The EU CSDDD is particularly important. It requires companies to identify, prevent, and mitigate adverse human rights and environmental impacts throughout their value chains."},
+            {"speaker": "Dr. Priya Sharma", "text": "So what should Muressons do? First, conduct thorough supply chain mapping. Know every tier of your suppliers. Second, implement robust due diligence processes. Third, establish grievance mechanisms for workers."},
+            {"speaker": "Prof. James Walker", "text": "And critically, don't just cut and run from problematic suppliers. Responsible disengagement means working with suppliers to improve, not abandoning workers to worse conditions."},
+            {"speaker": "Dr. Priya Sharma", "text": "The business case is clear too. Companies with strong supply chain ethics see fewer disruptions, better brand reputation, and increasingly, better access to capital."},
+            {"speaker": "Prof. James Walker", "text": "Bottom line: in the Muressons simulation, your choices about the Gobi region and Tier-3 mine workers aren't just ethical decisions — they're strategic ones that affect your reputation score, regulatory risk, and long-term viability."},
+        ],
+        "review_content": NLM_003_REVIEW,
+        "quiz_questions": NLM_003_QUESTIONS,
+    },
+]
+
+
+@admin_router.get("/resources/notebooklm", summary="Get all linked NotebookLM notebooks")
+async def get_notebooklm_notebooks():
+    return {"notebooks": _notebooklm_notebooks}
+
+
+@admin_router.post("/resources/notebooklm", summary="Add or update a NotebookLM notebook link")
+async def upsert_notebooklm_notebook(item: NotebookLMItem):
+    global _notebooklm_notebooks
+    _notebooklm_notebooks = [n for n in _notebooklm_notebooks if n["id"] != item.id]
+    _notebooklm_notebooks.append(item.dict())
+    return item
+
+
+@admin_router.delete("/resources/notebooklm/{notebook_id}", summary="Remove a NotebookLM notebook link")
+async def delete_notebooklm_notebook(notebook_id: str):
+    global _notebooklm_notebooks
+    _notebooklm_notebooks = [n for n in _notebooklm_notebooks if n["id"] != notebook_id]
+    return {"status": "deleted", "notebook_id": notebook_id}
+
+
+# ── Quiz Difficulty Setting ─────────────────────────────────────
+
+_quiz_difficulty: str = "medium"  # "easy" | "medium" | "hard"
+
+
+@admin_router.get("/quiz-difficulty", summary="Get current quiz difficulty level")
+async def get_quiz_difficulty():
+    return {"difficulty": _quiz_difficulty}
+
+
+@admin_router.put("/quiz-difficulty", summary="Set quiz difficulty level")
+async def set_quiz_difficulty(body: dict = Body(...)):
+    global _quiz_difficulty
+    level = body.get("difficulty", "medium").lower()
+    if level not in ("easy", "medium", "hard"):
+        raise HTTPException(400, "Difficulty must be 'easy', 'medium', or 'hard'")
+    _quiz_difficulty = level
+    return {"status": "updated", "difficulty": _quiz_difficulty}
+
+
+# ── Per-Cohort Quiz Enabled State ────────────────────────────────
+
+_quiz_enabled: dict[str, bool] = {}  # session_id → enabled (default True)
+
+
+@admin_router.get("/quiz-enabled/{session_id}", summary="Check if quiz is enabled for a cohort")
+async def get_quiz_enabled(session_id: str):
+    enabled = _quiz_enabled.get(session_id, True)  # Default: enabled
+    return {"session_id": session_id, "quiz_enabled": enabled}
+
+
+@admin_router.put("/quiz-enabled/{session_id}", summary="Enable or disable quiz for a cohort")
+async def set_quiz_enabled(session_id: str, body: dict = Body(...)):
+    enabled = body.get("quiz_enabled", True)
+    _quiz_enabled[session_id] = bool(enabled)
+    return {"status": "updated", "session_id": session_id, "quiz_enabled": _quiz_enabled[session_id]}
+
+
+# ═════════════════════════════════════════════════════════════════
 #  MASTER INTERVENTIONS DATABASE (God Mode)
 # ═════════════════════════════════════════════════════════════════
+
 
 _master_overrides: list[dict] = [
     {
@@ -2660,3 +3109,1026 @@ async def session_websocket(websocket: WebSocket, session_id: str):
             # Can be used for player pings / heartbeat
     except WebSocketDisconnect:
         manager.disconnect_player(websocket, session_id)
+
+
+# ═════════════════════════════════════════════════════════════════
+#  UNDO ROUND / ROLLBACK
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.post(
+    "/{session_id}/undo-round",
+    summary="Undo the latest round for a session (rollback)",
+)
+async def undo_round(session_id: str):
+    """
+    Deletes the latest round's state and audit log, reverting the session
+    to the previous round. Cannot undo Round 1.
+    """
+    result = await db.undo_latest_round(session_id)
+    if not result["success"]:
+        raise HTTPException(status_code=400, detail=result["reason"])
+
+    # Broadcast to players
+    await manager.push_to_session(session_id, {
+        "type": "round_undone",
+        "deleted_round": result["deleted_round"],
+        "new_current_round": result["new_current_round"],
+    })
+    await manager.broadcast_admin({
+        "type": "round_undone",
+        "session_id": session_id,
+        "deleted_round": result["deleted_round"],
+        "new_current_round": result["new_current_round"],
+    })
+
+    return result
+
+
+# ═════════════════════════════════════════════════════════════════
+#  FACILITATOR NOTES / COMMENTS
+# ═════════════════════════════════════════════════════════════════
+
+_facilitator_notes: dict[str, list[dict]] = {}  # session_id → notes
+_next_note_id: int = 1
+
+
+class FacilitatorNoteRequest(BaseModel):
+    text: str
+    round_number: Optional[int] = None
+    visible_to_players: bool = False
+
+
+@admin_router.get(
+    "/{session_id}/notes",
+    summary="List facilitator notes for a session",
+)
+async def list_notes(session_id: str):
+    return {"notes": _facilitator_notes.get(session_id, [])}
+
+
+@admin_router.post(
+    "/{session_id}/notes",
+    summary="Add a facilitator note",
+)
+async def add_note(session_id: str, req: FacilitatorNoteRequest):
+    global _next_note_id
+    note = {
+        "note_id": f"NOTE-{_next_note_id:04d}",
+        "text": req.text,
+        "round_number": req.round_number,
+        "visible_to_players": req.visible_to_players,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _next_note_id += 1
+    _facilitator_notes.setdefault(session_id, []).append(note)
+
+    # If visible to players, push via WebSocket
+    if req.visible_to_players:
+        await manager.push_to_session(session_id, {
+            "type": "facilitator_note",
+            "note": note,
+        })
+
+    return note
+
+
+@admin_router.delete(
+    "/{session_id}/notes/{note_id}",
+    summary="Delete a facilitator note",
+)
+async def delete_note(session_id: str, note_id: str):
+    notes = _facilitator_notes.get(session_id, [])
+    before = len(notes)
+    _facilitator_notes[session_id] = [n for n in notes if n["note_id"] != note_id]
+    if len(_facilitator_notes[session_id]) == before:
+        raise HTTPException(404, f"Note {note_id} not found")
+    return {"status": "deleted", "note_id": note_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  STUDENT BONUSES / AWARDS
+# ═════════════════════════════════════════════════════════════════
+
+_student_bonuses: dict[str, list[dict]] = {}  # session_id → bonus records
+_next_bonus_id: int = 1
+
+BADGE_PRESETS = {
+    "mvp": {"icon": "🏆", "label": "MVP"},
+    "sustainability": {"icon": "🌍", "label": "Sustainability Champion"},
+    "innovation": {"icon": "💡", "label": "Innovation Award"},
+    "collaboration": {"icon": "🤝", "label": "Best Collaboration"},
+    "strategy": {"icon": "🎯", "label": "Strategic Thinker"},
+    "resilience": {"icon": "🛡️", "label": "Resilience Award"},
+}
+
+
+class StudentBonusRequest(BaseModel):
+    player_name: str
+    points: int = 10
+    reason: str = ""
+    badge: Optional[str] = None  # badge key from BADGE_PRESETS
+
+
+@admin_router.get(
+    "/{session_id}/bonuses",
+    summary="List bonuses for a session",
+)
+async def list_bonuses(session_id: str):
+    return {
+        "bonuses": _student_bonuses.get(session_id, []),
+        "badge_presets": BADGE_PRESETS,
+    }
+
+
+@admin_router.post(
+    "/{session_id}/bonuses",
+    summary="Award a bonus to a player",
+)
+async def award_bonus(session_id: str, req: StudentBonusRequest):
+    global _next_bonus_id
+    badge_info = BADGE_PRESETS.get(req.badge) if req.badge else None
+    bonus = {
+        "bonus_id": f"BONUS-{_next_bonus_id:04d}",
+        "player_name": req.player_name,
+        "points": req.points,
+        "reason": req.reason,
+        "badge": badge_info,
+        "badge_key": req.badge,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _next_bonus_id += 1
+    _student_bonuses.setdefault(session_id, []).append(bonus)
+
+    # Notify players
+    await manager.push_to_session(session_id, {
+        "type": "bonus_awarded",
+        "bonus": bonus,
+    })
+
+    return bonus
+
+
+@admin_router.delete(
+    "/{session_id}/bonuses/{bonus_id}",
+    summary="Revoke a bonus",
+)
+async def revoke_bonus(session_id: str, bonus_id: str):
+    bonuses = _student_bonuses.get(session_id, [])
+    before = len(bonuses)
+    _student_bonuses[session_id] = [b for b in bonuses if b["bonus_id"] != bonus_id]
+    if len(_student_bonuses[session_id]) == before:
+        raise HTTPException(404, f"Bonus {bonus_id} not found")
+    return {"status": "revoked", "bonus_id": bonus_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  PEER EVALUATIONS
+# ═════════════════════════════════════════════════════════════════
+
+_peer_evaluations: dict[str, list[dict]] = {}  # session_id → evaluations
+_next_eval_id: int = 1
+
+
+class PeerEvaluationRequest(BaseModel):
+    evaluator_name: str
+    target_name: str
+    contribution: int = 3      # 1–5 scale
+    communication: int = 3     # 1–5 scale
+    leadership: int = 3        # 1–5 scale
+    comment: str = ""
+
+
+@admin_router.get(
+    "/{session_id}/peer-evaluations",
+    summary="List peer evaluations for a session",
+)
+async def list_peer_evaluations(session_id: str):
+    evals = _peer_evaluations.get(session_id, [])
+
+    # Compute averages per target
+    from collections import defaultdict
+    totals = defaultdict(lambda: {"contribution": [], "communication": [], "leadership": [], "count": 0})
+    for e in evals:
+        t = totals[e["target_name"]]
+        t["contribution"].append(e["contribution"])
+        t["communication"].append(e["communication"])
+        t["leadership"].append(e["leadership"])
+        t["count"] += 1
+
+    averages = {}
+    for name, data in totals.items():
+        averages[name] = {
+            "contribution_avg": round(sum(data["contribution"]) / len(data["contribution"]), 1) if data["contribution"] else 0,
+            "communication_avg": round(sum(data["communication"]) / len(data["communication"]), 1) if data["communication"] else 0,
+            "leadership_avg": round(sum(data["leadership"]) / len(data["leadership"]), 1) if data["leadership"] else 0,
+            "total_reviews": data["count"],
+        }
+
+    return {"evaluations": evals, "averages": averages}
+
+
+@admin_router.post(
+    "/{session_id}/peer-evaluations",
+    summary="Submit a peer evaluation",
+)
+async def submit_peer_evaluation(session_id: str, req: PeerEvaluationRequest):
+    global _next_eval_id
+    # Validate scores 1-5
+    for field in ["contribution", "communication", "leadership"]:
+        val = getattr(req, field)
+        if val < 1 or val > 5:
+            raise HTTPException(400, f"{field} must be between 1 and 5")
+
+    evaluation = {
+        "eval_id": f"EVAL-{_next_eval_id:04d}",
+        "evaluator_name": req.evaluator_name,
+        "target_name": req.target_name,
+        "contribution": req.contribution,
+        "communication": req.communication,
+        "leadership": req.leadership,
+        "comment": req.comment,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _next_eval_id += 1
+    _peer_evaluations.setdefault(session_id, []).append(evaluation)
+    return evaluation
+
+
+@admin_router.delete(
+    "/{session_id}/peer-evaluations/{eval_id}",
+    summary="Delete a peer evaluation",
+)
+async def delete_peer_evaluation(session_id: str, eval_id: str):
+    evals = _peer_evaluations.get(session_id, [])
+    before = len(evals)
+    _peer_evaluations[session_id] = [e for e in evals if e["eval_id"] != eval_id]
+    if len(_peer_evaluations[session_id]) == before:
+        raise HTTPException(404, f"Evaluation {eval_id} not found")
+    return {"status": "deleted", "eval_id": eval_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  BULK MESSAGING / BROADCAST
+# ═════════════════════════════════════════════════════════════════
+
+_broadcast_history: list[dict] = []
+_next_broadcast_id: int = 1
+_scheduled_broadcasts: dict[int, dict] = {}  # round_number → broadcast to send
+
+
+class BroadcastRequest(BaseModel):
+    title: str
+    body: str
+    target_sessions: list[str] = []  # Empty = all sessions
+    scheduled_round: Optional[int] = None  # None = send immediately
+
+
+@admin_router.post(
+    "/broadcast",
+    summary="Broadcast a message to all or selected sessions",
+)
+async def broadcast_message(req: BroadcastRequest):
+    global _next_broadcast_id
+
+    broadcast = {
+        "broadcast_id": f"BC-{_next_broadcast_id:04d}",
+        "title": req.title,
+        "body": req.body,
+        "target_sessions": req.target_sessions,
+        "scheduled_round": req.scheduled_round,
+        "sent_at": datetime.now(timezone.utc).isoformat(),
+        "delivered_to": [],
+    }
+    _next_broadcast_id += 1
+
+    if req.scheduled_round:
+        # Schedule for later
+        _scheduled_broadcasts[req.scheduled_round] = broadcast
+        broadcast["status"] = "scheduled"
+        _broadcast_history.append(broadcast)
+        return broadcast
+
+    # Send immediately
+    all_sessions = await db.fetch_all_sessions()
+    targets = req.target_sessions if req.target_sessions else [s["session_id"] for s in all_sessions]
+
+    message_payload = {
+        "type": "broadcast_message",
+        "broadcast_id": broadcast["broadcast_id"],
+        "title": req.title,
+        "body": req.body,
+    }
+
+    for sid in targets:
+        await manager.push_to_session(sid, message_payload)
+        broadcast["delivered_to"].append(sid)
+
+    broadcast["status"] = "sent"
+    _broadcast_history.append(broadcast)
+    return broadcast
+
+
+@admin_router.get(
+    "/broadcast/history",
+    summary="Get broadcast history",
+)
+async def get_broadcast_history():
+    return {"broadcasts": _broadcast_history}
+
+
+def get_scheduled_broadcasts_for_round(round_number: int) -> Optional[dict]:
+    """Called by round processing to check if a broadcast should be sent."""
+    return _scheduled_broadcasts.pop(round_number, None)
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — Global Settings  (#1, #6, #7)
+# ═════════════════════════════════════════════════════════════════
+
+def _audit(action: str, actor: str = "god_mode", details: dict = None):
+    """Append an entry to the god mode audit log."""
+    _god_mode_audit_log.append({
+        "id": f"AUD-{len(_god_mode_audit_log)+1:04d}",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "actor": actor,
+        "action": action,
+        "details": details or {},
+    })
+
+
+@admin_router.get("/god/settings", summary="Get god mode global settings")
+async def get_god_settings():
+    return _god_mode_settings
+
+
+@admin_router.put("/god/settings", summary="Update god mode global settings")
+async def update_god_settings(body: dict = Body(...)):
+    changed = {}
+    for key in ("allow_facilitator_cohort_creation",):
+        if key in body:
+            old = _god_mode_settings.get(key)
+            _god_mode_settings[key] = body[key]
+            changed[key] = {"old": old, "new": body[key]}
+    _audit("settings_updated", details=changed)
+    return _god_mode_settings
+
+
+# ── Emergency Freeze (#7) ───────────────────────────────────────
+
+@admin_router.post("/god/freeze", summary="Freeze all simulations")
+async def freeze_system(body: dict = Body(...)):
+    msg = body.get("message", "System maintenance in progress.")
+    _god_mode_settings["system_frozen"] = True
+    _god_mode_settings["freeze_message"] = msg
+    _god_mode_settings["freeze_started_at"] = datetime.now(timezone.utc).isoformat()
+    _audit("system_frozen", details={"message": msg})
+    # Broadcast to all connected WS clients
+    await manager.broadcast({
+        "type": "system_freeze",
+        "frozen": True,
+        "message": msg,
+    })
+    return {"status": "frozen", "message": msg}
+
+
+@admin_router.post("/god/unfreeze", summary="Unfreeze all simulations")
+async def unfreeze_system():
+    _god_mode_settings["system_frozen"] = False
+    _god_mode_settings["freeze_message"] = ""
+    _god_mode_settings["freeze_started_at"] = None
+    _audit("system_unfrozen")
+    await manager.broadcast({
+        "type": "system_freeze",
+        "frozen": False,
+        "message": "",
+    })
+    return {"status": "unfrozen"}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — Audit Log (#4)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/god/audit-log", summary="Get god mode audit log")
+async def get_audit_log():
+    return {"entries": list(reversed(_god_mode_audit_log))}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — System Status / Overview (#5)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/god/system-status", summary="System-wide status overview")
+async def get_system_status():
+    """Aggregate stats across all sessions for the God Mode overview."""
+    all_sessions = db._sessions if hasattr(db, '_sessions') else {}
+    total_cohorts = 0
+    total_players = 0
+    round_distribution = {}
+    total_treasury = 0.0
+    total_reputation = 0.0
+    session_count_with_state = 0
+
+    for sid, sess in all_sessions.items():
+        if sess.get("player_id"):
+            total_players += 1
+        else:
+            total_cohorts += 1
+        gs = sess.get("global_state")
+        if gs:
+            r = gs.get("current_round", 1)
+            round_distribution[f"R{r}"] = round_distribution.get(f"R{r}", 0) + 1
+            total_treasury += gs.get("treasury_balance", 0)
+            total_reputation += gs.get("reputation_score", 0)
+            session_count_with_state += 1
+
+    return {
+        "total_facilitators": len(_facilitator_registry),
+        "total_cohorts": total_cohorts,
+        "total_players": total_players,
+        "round_distribution": round_distribution,
+        "avg_treasury": round(total_treasury / max(session_count_with_state, 1), 2),
+        "avg_reputation": round(total_reputation / max(session_count_with_state, 1), 2),
+        "system_frozen": _god_mode_settings["system_frozen"],
+        "recent_audit": list(reversed(_god_mode_audit_log))[:10],
+        "active_ws_connections": sum(len(v) for v in manager.active_connections.values()) if hasattr(manager, 'active_connections') else 0,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — RBAC / Admin toggle (#6)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.put("/facilitators/{fac_id}/admin", summary="Toggle admin flag")
+async def toggle_facilitator_admin(fac_id: str, body: dict = Body(...)):
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, "Facilitator not found")
+    is_admin = body.get("is_admin", False)
+    fac["is_admin"] = is_admin
+    _audit("admin_toggled", details={"facilitator_id": fac_id, "is_admin": is_admin})
+    return {"status": "ok", "facilitator_id": fac_id, "is_admin": is_admin}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — Universal Broadcast (#8)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.post("/god/universal-broadcast", summary="Broadcast to ALL connected clients")
+async def universal_broadcast(body: dict = Body(...)):
+    title = body.get("title", "System Announcement")
+    message = body.get("message", "")
+    priority = body.get("priority", "info")  # info, warning, critical
+    payload = {
+        "type": "universal_broadcast",
+        "title": title,
+        "message": message,
+        "priority": priority,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await manager.broadcast(payload)
+    _audit("universal_broadcast", details={"title": title, "priority": priority})
+    return {"status": "sent", "payload": payload}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — Batch Facilitator Create (#9)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.post("/facilitators/batch", summary="Batch create facilitators")
+async def batch_create_facilitators(body: dict = Body(...)):
+    global _next_facilitator_id
+    names = body.get("names", [])
+    if not names:
+        raise HTTPException(400, "Provide a list of names")
+    created = []
+    for name in names:
+        fac = {
+            "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
+            "name": name.strip(),
+            "password": "123",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "max_cohorts": 5,
+            "cohorts_created": 0,
+            "is_admin": False,
+        }
+        _next_facilitator_id += 1
+        _facilitator_registry.append(fac)
+        created.append(fac)
+    _audit("batch_facilitators_created", details={"count": len(created)})
+    _persist_facilitators()
+    return {"created": created, "total_facilitators": len(_facilitator_registry)}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — System Export & Backup (#10)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/god/export", summary="Export full system state as JSON")
+async def export_system():
+    all_sessions = db._sessions if hasattr(db, '_sessions') else {}
+    export_data = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "facilitators": _facilitator_registry,
+        "sessions": {sid: {
+            "cohort_name": s.get("cohort_name", ""),
+            "current_round": s.get("global_state", {}).get("current_round", 1),
+            "treasury": s.get("global_state", {}).get("treasury_balance", 0),
+            "reputation": s.get("global_state", {}).get("reputation_score", 0),
+            "player_id": s.get("player_id"),
+            "parent_cohort_id": s.get("parent_cohort_id"),
+        } for sid, s in all_sessions.items()},
+        "god_mode_settings": _god_mode_settings,
+        "audit_log": _god_mode_audit_log,
+        "total_sessions": len(all_sessions),
+    }
+    _audit("system_export")
+    return export_data
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — Crisis Trigger History (#13)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/god/crisis-history", summary="Get crisis trigger fire history")
+async def get_crisis_history():
+    return {"history": list(reversed(_crisis_trigger_history))}
+
+
+@admin_router.post("/god/crisis-fire", summary="Fire a crisis with history tracking")
+async def fire_crisis_with_history(body: dict = Body(...)):
+    crisis_type = body.get("type", "unknown")
+    target = body.get("target", "global")
+    entry = {
+        "id": f"CRS-{len(_crisis_trigger_history)+1:04d}",
+        "type": crisis_type,
+        "target": target,
+        "fired_at": datetime.now(timezone.utc).isoformat(),
+        "fired_by": "god_mode",
+    }
+    _crisis_trigger_history.append(entry)
+    _audit("crisis_fired", details=entry)
+    return entry
+
+
+# ═════════════════════════════════════════════════════════════════
+#  GOD MODE — Platform Analytics (#15)
+# ═════════════════════════════════════════════════════════════════
+
+# ═════════════════════════════════════════════════════════════════
+#  ANALYTICS VISIBILITY — God Mode controls what facilitators/players see
+# ═════════════════════════════════════════════════════════════════
+
+_analytics_visibility: dict = {
+    "facilitator": {
+        "decision_heatmap": True,
+        "time_to_decision": True,
+        "cohort_comparison": True,
+        "convergence_analysis": True,
+        "learning_outcomes": True,
+        "risk_exposure": True,
+    },
+    "player": {
+        "peer_benchmarking": True,
+        "decision_impact": True,
+        "what_if_simulator": False,
+    }
+}
+
+
+@admin_router.get("/god/analytics-visibility", summary="Get analytics visibility settings")
+async def get_analytics_visibility():
+    return _analytics_visibility
+
+
+@admin_router.put("/god/analytics-visibility", summary="Update analytics visibility settings")
+async def set_analytics_visibility(body: dict = Body(...)):
+    for role in ("facilitator", "player"):
+        if role in body:
+            for key, val in body[role].items():
+                if key in _analytics_visibility.get(role, {}):
+                    _analytics_visibility[role][key] = bool(val)
+    return _analytics_visibility
+
+
+# ═════════════════════════════════════════════════════════════════
+#  PLATFORM-WIDE ANALYTICS (God Mode + Facilitator)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/god/analytics", summary="Platform-wide analytics")
+async def get_platform_analytics():
+    """
+    Compute all analytics from _global_states, _bu_states, _decision_log.
+    Returns decision heatmap, time-to-decision, cohort trajectories,
+    convergence, learning outcomes, and risk exposure.
+    """
+    import math
+    from collections import defaultdict
+
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    bu_states = getattr(db, '_bu_states', {})
+    decision_log = getattr(db, '_decision_log', [])
+
+    # ── Summary counts ────────────────────────────────────────
+    cohort_sessions = {sid: s for sid, s in all_sessions.items() if not s.get("parent_cohort_id")}
+    player_sessions = {sid: s for sid, s in all_sessions.items() if s.get("parent_cohort_id")}
+
+    # ── 1. Decision Heatmap: choice distribution per round ────
+    decision_heatmap = defaultdict(lambda: defaultdict(int))
+    for d in decision_log:
+        rn = d.get("round_number", 0)
+        choice = d.get("choice_selected", "")
+        if choice:
+            decision_heatmap[f"R{rn}"][choice] += 1
+
+    # ── 2. Time-to-Decision: per round timing stats ───────────
+    time_by_round = defaultdict(list)
+    for d in decision_log:
+        rn = d.get("round_number", 0)
+        ttd = d.get("time_to_decision_seconds", 0)
+        if ttd > 0:
+            time_by_round[f"R{rn}"].append(ttd)
+
+    time_to_decision = {}
+    for rkey, times in sorted(time_by_round.items()):
+        st = sorted(times)
+        n = len(st)
+        median = st[n // 2] if n % 2 == 1 else round((st[n // 2 - 1] + st[n // 2]) / 2, 1)
+        time_to_decision[rkey] = {
+            "avg_seconds": round(sum(st) / n, 1),
+            "median_seconds": median,
+            "min": st[0],
+            "max": st[-1],
+            "count": n,
+        }
+
+    # ── 3. Cohort Trajectories: KPI over rounds per cohort ────
+    cohort_trajectories = {}
+    for sid, sess in cohort_sessions.items():
+        cname = sess.get("cohort_name", sid[:12])
+        rounds = global_states.get(sid, [])
+        trajectory = []
+        for grs in rounds:
+            rn = grs.get("round_number", 1)
+            bus = bu_states.get(sid, {}).get(rn, [])
+            avg_sl = sum(b.get("social_license_score", 50) for b in bus) / max(len(bus), 1)
+            trajectory.append({
+                "round": rn,
+                "treasury": round(float(grs.get("corporate_treasury", 0)) / 1_000_000, 2),
+                "reputation": round(float(grs.get("group_reputation", 50)), 1),
+                "synergy": round(float(grs.get("synergy_multiplier", 1.0)), 3),
+                "ebitda": round(float(grs.get("historical_ebitda", 0)) / 1_000_000, 2),
+            })
+        cohort_trajectories[cname] = trajectory
+
+    # ── 4. Convergence Analysis ───────────────────────────────
+    # Measure strategy similarity: CapEx StdDev and choice entropy per round
+    capex_by_round = defaultdict(list)
+    choices_by_round = defaultdict(list)
+    for d in decision_log:
+        rn = d.get("round_number", 0)
+        capex_by_round[f"R{rn}"].append(d.get("capex_allocated", 0))
+        ch = d.get("choice_selected", "")
+        if ch:
+            choices_by_round[f"R{rn}"].append(ch)
+
+    capex_std_by_round = {}
+    for rkey, vals in sorted(capex_by_round.items()):
+        if len(vals) > 1:
+            mean = sum(vals) / len(vals)
+            variance = sum((v - mean) ** 2 for v in vals) / len(vals)
+            capex_std_by_round[rkey] = round(math.sqrt(variance), 0)
+        else:
+            capex_std_by_round[rkey] = 0
+
+    choice_entropy_by_round = {}
+    for rkey, choices in sorted(choices_by_round.items()):
+        n = len(choices)
+        if n == 0:
+            choice_entropy_by_round[rkey] = 0
+            continue
+        freq = defaultdict(int)
+        for c in choices:
+            freq[c] += 1
+        entropy = 0
+        for count in freq.values():
+            p = count / n
+            if p > 0:
+                entropy -= p * math.log2(p)
+        choice_entropy_by_round[rkey] = round(entropy, 3)
+
+    # Convergence index: 0 = everyone same, 1 = maximum diversity
+    all_entropies = list(choice_entropy_by_round.values())
+    max_entropy = math.log2(3) if all_entropies else 1  # 3 choices max
+    convergence_index = round(
+        1 - (sum(all_entropies) / max(len(all_entropies), 1) / max_entropy), 3
+    ) if all_entropies else 0.5
+
+    # ── 5. Learning Outcomes ──────────────────────────────────
+    total_bonuses = 0
+    bonuses_breakdown = defaultdict(int)
+    for sid, rounds in global_states.items():
+        if not rounds:
+            continue
+        latest = rounds[-1]
+        lb = latest.get("learning_bonuses_awarded", {})
+        if isinstance(lb, dict):
+            for category, val in lb.items():
+                if isinstance(val, (int, float)):
+                    total_bonuses += val
+                    bonuses_breakdown[category] += 1
+
+    # Student bonus awards
+    badges_awarded = defaultdict(int)
+    total_student_bonuses = 0
+    for sid_bonuses in _student_bonuses.values():
+        for b in sid_bonuses:
+            total_student_bonuses += 1
+            bk = b.get("badge_key", "")
+            if bk:
+                badges_awarded[bk] += 1
+
+    # ── 6. Risk Exposure: per cohort risk trends ──────────────
+    risk_exposure = {}
+    for sid, sess in cohort_sessions.items():
+        cname = sess.get("cohort_name", sid[:12])
+        rounds_data = global_states.get(sid, [])
+        risk_trend = []
+        for grs in rounds_data:
+            rn = grs.get("round_number", 1)
+            bus = bu_states.get(sid, {}).get(rn, [])
+            if not bus:
+                continue
+            n = len(bus)
+            avg_carbon = round(sum(b.get("carbon_intensity", 0) for b in bus) / n, 2)
+            avg_ncd = round(sum(b.get("natural_capital_debt", 0) for b in bus) / n, 2)
+            avg_sl = round(sum(b.get("social_license_score", 50) for b in bus) / n, 2)
+            avg_gov = round(sum(b.get("governance_risk_score", 0) for b in bus) / n, 2)
+            risk_trend.append({
+                "round": rn,
+                "avg_carbon_intensity": avg_carbon,
+                "avg_natural_capital_debt": avg_ncd,
+                "avg_social_license": avg_sl,
+                "avg_governance_risk": avg_gov,
+            })
+        risk_exposure[cname] = risk_trend
+
+    return {
+        "total_cohorts": len(cohort_sessions),
+        "total_players": len(player_sessions),
+        "total_facilitators": len(_facilitator_registry),
+        "total_decisions": len(decision_log),
+        "decision_heatmap": {k: dict(v) for k, v in sorted(decision_heatmap.items())},
+        "time_to_decision": dict(sorted(time_to_decision.items())),
+        "cohort_trajectories": cohort_trajectories,
+        "convergence": {
+            "capex_std_by_round": capex_std_by_round,
+            "choice_entropy_by_round": choice_entropy_by_round,
+            "convergence_index": convergence_index,
+        },
+        "learning_outcomes": {
+            "learning_bonuses_total": total_bonuses,
+            "bonuses_by_category": dict(bonuses_breakdown),
+            "badges_awarded": dict(badges_awarded),
+            "student_bonus_count": total_student_bonuses,
+        },
+        "risk_exposure": risk_exposure,
+        "visibility": _analytics_visibility,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  PLAYER-SCOPED ANALYTICS
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/analytics/player/{session_id}", summary="Player-scoped analytics")
+async def get_player_analytics(session_id: str):
+    """
+    Compute peer benchmarking, decision impact attribution, and
+    what-if counterfactual analysis for a specific player session.
+    """
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    bu_states = getattr(db, '_bu_states', {})
+    decision_log = getattr(db, '_decision_log', [])
+
+    sess = all_sessions.get(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+
+    player_rounds = global_states.get(session_id, [])
+    if not player_rounds:
+        raise HTTPException(404, "No round data for this session")
+
+    latest = player_rounds[-1]
+    player_treasury = float(latest.get("corporate_treasury", 0))
+    player_reputation = float(latest.get("group_reputation", 50))
+    player_synergy = float(latest.get("synergy_multiplier", 1.0))
+
+    # ── 1. Peer Benchmarking ──────────────────────────────────
+    # Compute percentiles across all sessions at the same round
+    player_round = latest.get("round_number", 1)
+    all_treasuries = []
+    all_reputations = []
+    all_synergies = []
+
+    for sid, rounds in global_states.items():
+        if not rounds:
+            continue
+        # Find the state at the same round number
+        for grs in rounds:
+            if grs.get("round_number") == player_round:
+                all_treasuries.append(float(grs.get("corporate_treasury", 0)))
+                all_reputations.append(float(grs.get("group_reputation", 50)))
+                all_synergies.append(float(grs.get("synergy_multiplier", 1.0)))
+                break
+
+    def percentile(value, population):
+        if not population:
+            return 50
+        below = sum(1 for v in population if v < value)
+        return round(below / len(population) * 100, 1)
+
+    cohort_avg_treasury = round(sum(all_treasuries) / max(len(all_treasuries), 1), 2)
+    cohort_avg_reputation = round(sum(all_reputations) / max(len(all_reputations), 1), 1)
+
+    peer_benchmarking = {
+        "treasury_percentile": percentile(player_treasury, all_treasuries),
+        "reputation_percentile": percentile(player_reputation, all_reputations),
+        "synergy_percentile": percentile(player_synergy, all_synergies),
+        "player_count": len(all_treasuries),
+        "cohort_avg": {
+            "treasury": cohort_avg_treasury,
+            "reputation": cohort_avg_reputation,
+        },
+        "player": {
+            "treasury": round(player_treasury, 2),
+            "reputation": round(player_reputation, 1),
+            "synergy": round(player_synergy, 3),
+        },
+    }
+
+    # ── 2. Decision Impact Attribution ────────────────────────
+    # For each round, show the KPI deltas caused by the player's choice
+    decision_impact = []
+    player_decisions = [
+        d for d in decision_log if d.get("session_id") == session_id
+    ]
+    # Group by round
+    from collections import defaultdict
+    dec_by_round = defaultdict(list)
+    for d in player_decisions:
+        dec_by_round[d.get("round_number", 0)].append(d)
+
+    for i in range(1, len(player_rounds)):
+        prev = player_rounds[i - 1]
+        curr = player_rounds[i]
+        rn = prev.get("round_number", i)
+        treasury_delta = float(curr.get("corporate_treasury", 0)) - float(prev.get("corporate_treasury", 0))
+        reputation_delta = float(curr.get("group_reputation", 50)) - float(prev.get("group_reputation", 50))
+        synergy_delta = float(curr.get("synergy_multiplier", 1.0)) - float(prev.get("synergy_multiplier", 1.0))
+
+        round_decs = dec_by_round.get(rn, []) or dec_by_round.get(curr.get("round_number", 0), [])
+        choice = round_decs[0].get("choice_selected", "—") if round_decs else "—"
+        total_capex = sum(d.get("capex_allocated", 0) for d in round_decs)
+
+        # Generate narrative
+        parts = []
+        if treasury_delta > 0:
+            parts.append(f"Treasury grew by ${abs(treasury_delta/1_000_000):.1f}M")
+        elif treasury_delta < 0:
+            parts.append(f"Treasury fell by ${abs(treasury_delta/1_000_000):.1f}M")
+        if reputation_delta > 0:
+            parts.append(f"reputation rose {reputation_delta:.1f} pts")
+        elif reputation_delta < 0:
+            parts.append(f"reputation dropped {abs(reputation_delta):.1f} pts")
+
+        decision_impact.append({
+            "round": rn,
+            "choice": choice,
+            "total_capex": round(total_capex, 0),
+            "treasury_delta": round(treasury_delta, 2),
+            "reputation_delta": round(reputation_delta, 2),
+            "synergy_delta": round(synergy_delta, 4),
+            "narrative": " — ".join(parts) if parts else "Minimal change this round",
+        })
+
+    # ── 3. What-If Simulator ──────────────────────────────────
+    # Simple counterfactual: show what the average player chose at each
+    # round and compare KPI trajectory
+    what_if = []
+    # Gather avg choice per round across all sessions
+    from collections import Counter
+    choices_per_round = defaultdict(list)
+    for d in decision_log:
+        ch = d.get("choice_selected", "")
+        if ch:
+            choices_per_round[d.get("round_number", 0)].append(ch)
+
+    for impact in decision_impact:
+        rn = impact["round"]
+        player_choice = impact["choice"]
+        round_choices = choices_per_round.get(rn, [])
+        if not round_choices:
+            continue
+        counter = Counter(round_choices)
+        most_popular = counter.most_common(1)[0][0] if counter else player_choice
+
+        if most_popular != player_choice:
+            # Find avg KPI delta for sessions that chose the popular option
+            pop_deltas_t = []
+            pop_deltas_r = []
+            for sid, rounds in global_states.items():
+                if sid == session_id:
+                    continue
+                sid_decs = [d for d in decision_log if d.get("session_id") == sid and d.get("round_number") == rn]
+                sid_choice = sid_decs[0].get("choice_selected", "") if sid_decs else ""
+                if sid_choice == most_popular and len(rounds) > rn:
+                    for idx in range(len(rounds) - 1):
+                        if rounds[idx].get("round_number") == rn:
+                            dt = float(rounds[idx + 1].get("corporate_treasury", 0)) - float(rounds[idx].get("corporate_treasury", 0))
+                            dr = float(rounds[idx + 1].get("group_reputation", 50)) - float(rounds[idx].get("group_reputation", 50))
+                            pop_deltas_t.append(dt)
+                            pop_deltas_r.append(dr)
+                            break
+
+            if pop_deltas_t:
+                avg_t = sum(pop_deltas_t) / len(pop_deltas_t)
+                avg_r = sum(pop_deltas_r) / len(pop_deltas_r)
+                what_if.append({
+                    "round": rn,
+                    "actual_choice": player_choice,
+                    "alternative": most_popular,
+                    "alternative_popularity": f"{counter[most_popular]}/{len(round_choices)}",
+                    "projected_treasury_diff": round(avg_t - impact["treasury_delta"], 2),
+                    "projected_reputation_diff": round(avg_r - impact["reputation_delta"], 2),
+                })
+
+    return {
+        "peer_benchmarking": peer_benchmarking,
+        "decision_impact": decision_impact,
+        "what_if": what_if,
+        "visibility": _analytics_visibility.get("player", {}),
+    }
+
+
+# ══════════════════════════════════════════════════════════════
+# ── Glossary CRUD ─────────────────────────────────────────────
+# ══════════════════════════════════════════════════════════════
+
+_glossary_terms: list = [
+    {"id": "ebitda", "term": "EBITDA", "definition": "Earnings Before Interest, Taxes, Depreciation, and Amortization — measures operational profitability.", "tags": ["finance", "profitability", "earnings"], "weblink": ""},
+    {"id": "csf_pool", "term": "CSF Pool", "definition": "Capital Sustainability Fund — 20% of corporate treasury available for ESG investment allocation.", "tags": ["finance", "investment", "treasury", "esg"], "weblink": ""},
+    {"id": "vrio", "term": "VRIO Radar", "definition": "Strategic resource analysis: Value, Rarity, Imitability, Organization — measures competitive advantage.", "tags": ["strategy", "competitive advantage", "resources"], "weblink": ""},
+    {"id": "ncd", "term": "Natural Capital Debt", "definition": "Accumulated environmental liability from unsustainable resource extraction or pollution.", "tags": ["environment", "liability", "sustainability", "esg"], "weblink": ""},
+    {"id": "social_license", "term": "Social License Score", "definition": "Community and stakeholder approval level for business operations (0-100 scale).", "tags": ["social", "stakeholder", "reputation", "esg"], "weblink": ""},
+    {"id": "synergy", "term": "Synergy Multiplier", "definition": "Cross-BU collaboration bonus applied to combined strategic outcomes.", "tags": ["strategy", "collaboration", "business unit"], "weblink": ""},
+    {"id": "cost_of_capital", "term": "Cost of Capital", "definition": "Rate of return required by investors — affects treasury deductions each round.", "tags": ["finance", "treasury", "investors"], "weblink": ""},
+    {"id": "governance_risk", "term": "Governance Risk", "definition": "Risk from poor corporate governance — regulatory fines, board conflicts, compliance failures.", "tags": ["governance", "risk", "compliance", "esg"], "weblink": ""},
+    {"id": "carbon_intensity", "term": "Carbon Intensity", "definition": "CO₂ emissions per unit of revenue — lower is better for ESG compliance.", "tags": ["environment", "emissions", "carbon", "esg"], "weblink": ""},
+    {"id": "water_dependency", "term": "Water Dependency", "definition": "Business unit reliance on water resources — higher means greater exposure to water stress crises.", "tags": ["environment", "resources", "risk"], "weblink": ""},
+    {"id": "double_materiality", "term": "Double Materiality", "definition": "EU CSRD requirement: assess both impact OF the company on environment AND impact of environment ON the company.", "tags": ["governance", "csrd", "regulation", "esg"], "weblink": ""},
+    {"id": "scope3", "term": "Scope 3 Emissions", "definition": "Indirect emissions from supply chain, transportation, and product lifecycle — hardest to measure and control.", "tags": ["environment", "emissions", "supply chain", "carbon"], "weblink": ""},
+    {"id": "stakeholder_map", "term": "Stakeholder Map", "definition": "Mendelow's Matrix classifying stakeholders by Power (influence) and Interest (engagement level).", "tags": ["strategy", "stakeholder", "governance"], "weblink": ""},
+    {"id": "treasury", "term": "Treasury", "definition": "Corporate cash reserves — main financial health indicator. Depleted by investments, crises, and operating costs.", "tags": ["finance", "cash", "investment"], "weblink": ""},
+    {"id": "reputation", "term": "Reputation Score", "definition": "Public perception of the company (0-100) — influences customer loyalty, talent retention, and regulatory leniency.", "tags": ["social", "reputation", "brand"], "weblink": ""},
+    {"id": "brand_equity", "term": "Brand Equity", "definition": "Intangible asset value from brand recognition and loyalty — built through reputation and stakeholder trust.", "tags": ["social", "reputation", "brand", "strategy"], "weblink": ""},
+    {"id": "strategic_pillars", "term": "Strategic Pillars", "definition": "Decision paradigm where players choose specific actions across multiple ESG categories (Energy, Operations, Supply Chain, Offsetting).", "tags": ["strategy", "decisions", "esg"], "weblink": ""},
+    {"id": "cfo_override", "term": "CFO Override", "definition": "Emergency mechanism to bypass materiality gate — incurs a reputation penalty.", "tags": ["governance", "finance", "risk"], "weblink": ""},
+    {"id": "round_pacing", "term": "Round Pacing", "definition": "Facilitator-controlled timing mode: Self-paced (players advance freely), Timed (automatic countdown), or Manual (facilitator unlocks).", "tags": ["system", "facilitator", "timing"], "weblink": ""},
+    {"id": "bu", "term": "Business Unit (BU)", "definition": "One of four Muressons divisions: Pharma, Electronics, Consumer Goods, Software — each with unique risk profiles.", "tags": ["strategy", "organization", "business unit"], "weblink": ""},
+    {"id": "esg", "term": "ESG", "definition": "Environmental, Social, and Governance — three pillars for measuring corporate sustainability and ethical impact.", "tags": ["esg", "sustainability", "environment", "social", "governance"], "weblink": ""},
+]
+
+
+class GlossaryItem(BaseModel):
+    id: str = ""
+    term: str
+    definition: str
+    tags: list = []
+    weblink: str = ""
+
+
+@admin_router.get("/glossary", summary="Get all glossary terms")
+async def get_glossary():
+    return {"terms": _glossary_terms}
+
+
+@admin_router.post("/glossary", summary="Add or update a glossary term")
+async def upsert_glossary_term(item: GlossaryItem):
+    global _glossary_terms
+    # Auto-generate ID if empty
+    term_id = item.id or item.term.lower().replace(" ", "_").replace("(", "").replace(")", "")
+    entry = item.dict()
+    entry["id"] = term_id
+    _glossary_terms = [t for t in _glossary_terms if t["id"] != term_id]
+    _glossary_terms.append(entry)
+    return entry
+
+
+@admin_router.delete("/glossary/{term_id}", summary="Delete a glossary term")
+async def delete_glossary_term(term_id: str):
+    global _glossary_terms
+    _glossary_terms = [t for t in _glossary_terms if t["id"] != term_id]
+    return {"status": "deleted", "term_id": term_id}

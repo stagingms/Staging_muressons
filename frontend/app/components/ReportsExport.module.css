@@ -1,0 +1,23 @@
+.container { display: flex; flex-direction: column; gap: 1.25rem; }
+.header { display: flex; align-items: flex-start; gap: 1rem; }
+.icon { font-size: 2rem; }
+.title { font-size: 1.2rem; font-weight: 800; margin: 0; color: var(--text-primary); }
+.subtitle { font-size: 0.82rem; color: var(--text-muted); margin: 0.2rem 0 0 0; }
+.exportRow { display: flex; align-items: center; gap: 0.75rem; }
+.exportBtn { background: linear-gradient(135deg, #22c55e, #06b6d4); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.6rem 1.25rem; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.exportBtn:hover { transform: translateY(-1px); }
+.exportBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.recordCount { font-size: 0.72rem; color: var(--text-muted); margin-left: auto; }
+.statsGrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; }
+.statCard { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.85rem 1rem; text-align: center; }
+.statLabel { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; margin-bottom: 0.3rem; }
+.statValue { font-size: 1rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); }
+.tableWrap { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.table th { text-align: left; padding: 0.65rem 0.85rem; background: var(--bg-elevated); font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); border-bottom: 1px solid var(--border-subtle); }
+.table td { padding: 0.55rem 0.85rem; border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); }
+.table tr:hover { background: rgba(59,130,246,0.03); }
+.cohortName { font-weight: 600; color: var(--text-primary); }
+.roundBadge { display: inline-block; background: rgba(59,130,246,0.1); color: #3b82f6; font-weight: 700; font-size: 0.68rem; padding: 2px 6px; border-radius: var(--radius-full); font-family: var(--font-mono); }
+.facId { font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-muted); }
+.empty { text-align: center; padding: 3rem; color: var(--text-muted); font-size: 0.85rem; }

@@ -1,23 +1,29 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   LineChart, Line, AreaChart, Area, ComposedChart, XAxis, YAxis, Tooltip, ResponsiveContainer,
   RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   ReferenceLine,
 } from 'recharts';
+import StockPerformanceChart from './StockPerformanceChart';
 import styles from './ExecutiveCockpit.module.css';
 
 /**
- * KPIDashboard — 4 vertically stacked KPI cards with Recharts.
+ * KPIDashboard — Tabbed KPI panel with Financial / ESG toggle.
  *
- * 1. EBITDA Line Graph (with round-over-round delta)
- * 2. Carbon Tracker (area chart with Net Zero target)
- * 3. VRIO Radar Chart
- * 4. Stakeholder Trust Gauge
+ * Financial tab: Stock Performance + EBITDA line
+ * ESG tab: Carbon Tracker + VRIO Radar + Stakeholder Trust
+ *
+ * Bottom: Compact KPI summary strip (Treasury, Reputation, Carbon, EBITDA)
  */
 
-const NET_ZERO_TARGET = 500; // tCO2e target line
+const NET_ZERO_TARGET = 500;
+
+const TAB_CONFIG = [
+  { id: 'financial', label: '💰 Financial', icon: '📈' },
+  { id: 'esg', label: '🌱 ESG', icon: '🌍' },
+];
 
 export default function KPIDashboard({
   historyData = [],
@@ -26,7 +32,13 @@ export default function KPIDashboard({
   vrio = {},
   reputation = 50,
   projectedCost = 0,
+  globalState,
+  businessUnits = [],
+  roundNumber = 1,
+  events,
 }) {
+  const [activeTab, setActiveTab] = useState('financial');
+
   // VRIO radar data
   const vrioData = useMemo(() => [
     { axis: 'Avg. Social License', value: vrio.value || 0 },
@@ -45,141 +57,219 @@ export default function KPIDashboard({
 
   // Trust gauge
   const trustColor = reputation >= 60 ? '#22c55e' : reputation >= 40 ? '#f59e0b' : '#ef4444';
-  const circumference = 2 * Math.PI * 38;
-  const dashOffset = circumference - (reputation / 100) * circumference;
 
   const fmtM = (v) => `$${(v / 1_000_000).toFixed(1)}M`;
 
   return (
     <>
-      {/* 1. EBITDA Line Graph */}
-      <div className={styles.kpiCard}>
-        <div className={styles.kpiTitle}>
-          📈 Financial Performance (EBITDA)
-          {projectedCost !== 0 && (
-            <span className={`${styles.projectedDelta} ${projectedCost > 0 ? styles.projectedDown : styles.projectedUp}`}>
-              {projectedCost > 0 ? '↓' : '↑'} {fmtM(Math.abs(projectedCost))}
-            </span>
-          )}
-        </div>
-        <div className={styles.kpiValue}>
-          {fmtM(ebitda)}
-          {ebitdaDelta != null && (
-            <span style={{
-              marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
-              color: ebitdaDelta >= 0 ? '#22c55e' : '#ef4444',
-            }}>
-              {ebitdaDelta >= 0 ? '▲' : '▼'} {fmtM(Math.abs(ebitdaDelta))}
-            </span>
-          )}
-        </div>
-        <div className={styles.kpiChart}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={historyData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-              <YAxis hide domain={['auto', 'auto']} />
-              <Tooltip
-                labelFormatter={(v) => `Year ${v}`}
-                formatter={(v) => [fmtM(v), 'EBITDA']}
-                contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e5e7eb' }}
-              />
-              <Line type="monotone" dataKey="ebitda" stroke="#2563eb" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
+      {/* ── Tab Toggle ── */}
+      <div style={{
+        display: 'flex', gap: 0, marginBottom: 6,
+        background: '#f1f5f9', borderRadius: 8, padding: 2,
+      }}>
+        {TAB_CONFIG.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            style={{
+              flex: 1, padding: '6px 4px',
+              borderRadius: 6, border: 'none',
+              background: activeTab === tab.id
+                ? '#fff'
+                : 'transparent',
+              color: activeTab === tab.id ? '#1e293b' : '#94a3b8',
+              fontSize: '0.68rem', fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: activeTab === tab.id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              transition: 'all 0.2s',
+              letterSpacing: '0.01em',
+            }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── FINANCIAL TAB ── */}
+      {activeTab === 'financial' && (
+        <>
+          {/* Stock Performance */}
+          <StockPerformanceChart
+            historyData={historyData}
+            globalState={globalState}
+            businessUnits={businessUnits}
+            roundNumber={roundNumber}
+            events={events}
+            projectedCost={projectedCost}
+          />
+
+          {/* EBITDA Line Graph */}
+          <div className={styles.kpiCard}>
+            <div className={styles.kpiTitle}>
+              💰 Group EBITDA
               {projectedCost !== 0 && (
-                <ReferenceLine y={ebitda - projectedCost} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Proj.', fontSize: 8, fill: '#94a3b8' }} />
+                <span className={`${styles.projectedDelta} ${projectedCost > 0 ? styles.projectedDown : styles.projectedUp}`}>
+                  {projectedCost > 0 ? '↓' : '↑'} {fmtM(Math.abs(projectedCost))}
+                </span>
               )}
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* 2. Carbon Tracker — Cumulative Area Chart + Per-Year Line */}
-      <div className={styles.kpiCard}>
-        <div className={styles.kpiTitle}>🏭 Environmental Impact (Cumulative tCO₂e)</div>
-        <div className={styles.kpiValue}>
-          {(() => {
-            const cumTotal = historyData.reduce((s, h) => s + (h.tco2e || 0), 0);
-            return cumTotal.toLocaleString();
-          })()} t
-          {historyData.length >= 2 && (() => {
-            const curr = historyData[historyData.length - 1]?.tco2e || 0;
-            const prev = historyData[historyData.length - 2]?.tco2e || 0;
-            const delta = curr - prev;
-            return delta !== 0 ? (
-              <span style={{
-                marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
-                color: delta <= 0 ? '#22c55e' : '#ef4444',
-              }}>
-                {delta <= 0 ? '▼' : '▲'} {Math.abs(delta).toLocaleString()} t/yr
-              </span>
-            ) : null;
-          })()}
-        </div>
-        <div className={styles.kpiChart}>
-          <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={(() => {
-              let cumulative = 0;
-              return historyData.map(h => {
-                cumulative += (h.tco2e || 0);
-                return { ...h, cumulativeTco2e: cumulative, yearlyTco2e: h.tco2e || 0 };
-              });
-            })()} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
-              <YAxis yAxisId="left" hide domain={[0, 'auto']} />
-              <YAxis yAxisId="right" hide domain={[0, 'auto']} orientation="right" />
-              <Tooltip
-                labelFormatter={(v) => `Year ${v}`}
-                formatter={(v, name) => [
-                  `${v.toLocaleString()} t`,
-                  name === 'cumulativeTco2e' ? 'Cumulative tCO₂e' : 'Per-Year tCO₂e'
-                ]}
-                contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid #e5e7eb' }}
-              />
-              <Area yAxisId="left" type="monotone" dataKey="cumulativeTco2e" stroke="#f59e0b" fill="#fef3c7" strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-              <Line yAxisId="right" type="monotone" dataKey="yearlyTco2e" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2, fill: '#3b82f6' }} strokeDasharray="4 3" />
-            </ComposedChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* 3. VRIO Radar Chart */}
-      <div className={styles.kpiCard}>
-        <div className={styles.kpiTitle}>🎯 Strategic Resilience (VRIO)</div>
-        <div className={styles.kpiChart}>
-          <ResponsiveContainer width="100%" height="100%">
-            <RadarChart data={vrioData} cx="50%" cy="50%">
-              <PolarGrid stroke="#e5e7eb" />
-              <PolarAngleAxis dataKey="axis" tick={{ fontSize: 9, fill: '#64748b' }} />
-              <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
-              <Radar dataKey="value" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.15} strokeWidth={2} />
-            </RadarChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* 4. Stakeholder Trust Gauge */}
-      <div className={styles.kpiCard}>
-        <div className={styles.kpiTitle}>🤝 Stakeholder Trust</div>
-        <div className={styles.gauge}>
-          <div className={styles.gaugeCircle}>
-            <svg width="80" height="80" viewBox="0 0 80 80">
-              <circle cx="40" cy="40" r="38" fill="none" stroke="#f1f5f9" strokeWidth="6" />
-              <circle
-                cx="40" cy="40" r="38"
-                fill="none"
-                stroke={trustColor}
-                strokeWidth="6"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={dashOffset}
-                transform="rotate(-90 40 40)"
-                style={{ transition: 'stroke-dashoffset 0.5s ease' }}
-              />
-            </svg>
-            <span className={styles.gaugeValue}>{Math.round(reputation)}</span>
+            </div>
+            <div className={styles.kpiValue}>
+              {fmtM(ebitda)}
+              {ebitdaDelta != null && (
+                <span style={{
+                  marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
+                  color: ebitdaDelta >= 0 ? '#22c55e' : '#ef4444',
+                }}>
+                  {ebitdaDelta >= 0 ? '▲' : '▼'} {fmtM(Math.abs(ebitdaDelta))}
+                </span>
+              )}
+            </div>
+            <div className={styles.kpiChart}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={historyData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                  <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                  <YAxis 
+                    domain={['auto', 'auto']} 
+                    tick={{ fontSize: 9, fill: '#94a3b8' }} 
+                    tickLine={false} 
+                    axisLine={false}
+                    tickFormatter={(v) => `$${(v / 1_000_000).toFixed(0)}M`}
+                    width={40}
+                  />
+                  <Tooltip
+                    labelFormatter={(v) => `Year ${v}`}
+                    formatter={(v) => [fmtM(v), 'EBITDA']}
+                    contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid rgba(0,229,195,0.15)', background: '#0f1524', color: '#e2e8f0' }}
+                  />
+                  <Line type="monotone" dataKey="ebitda" stroke="#00e5c3" strokeWidth={2} dot={{ r: 3, fill: '#00e5c3' }} activeDot={{ r: 5 }} />
+                  {projectedCost !== 0 && (
+                    <ReferenceLine y={ebitda - projectedCost} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Proj.', fontSize: 8, fill: '#94a3b8' }} />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <span className={styles.gaugeLabel}>Brand Equity Score</span>
-        </div>
-      </div>
+        </>
+      )}
+
+      {/* ── ESG TAB ── */}
+      {activeTab === 'esg' && (
+        <>
+          {/* Carbon Tracker */}
+          <div className={styles.kpiCard}>
+            <div className={styles.kpiTitle}>🏭 Environmental Impact (Cumulative tCO₂e)</div>
+            <div className={styles.kpiValue}>
+              {(() => {
+                const cumTotal = historyData.reduce((s, h) => s + (h.tco2e || 0), 0);
+                return cumTotal.toLocaleString();
+              })()} t
+              {historyData.length >= 2 && (() => {
+                const curr = historyData[historyData.length - 1]?.tco2e || 0;
+                const prev = historyData[historyData.length - 2]?.tco2e || 0;
+                const delta = curr - prev;
+                return delta !== 0 ? (
+                  <span style={{
+                    marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
+                    color: delta <= 0 ? '#22c55e' : '#ef4444',
+                  }}>
+                    {delta <= 0 ? '▼' : '▲'} {Math.abs(delta).toLocaleString()} t/yr
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <div className={styles.kpiChart}>
+              <ResponsiveContainer width="100%" height="100%">
+                <ComposedChart data={(() => {
+                  let cumulative = 0;
+                  return historyData.map(h => {
+                    cumulative += (h.tco2e || 0);
+                    return { ...h, cumulativeTco2e: cumulative, yearlyTco2e: h.tco2e || 0 };
+                  });
+                })()} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                  <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                  <YAxis yAxisId="left" hide domain={[0, 'auto']} />
+                  <YAxis yAxisId="right" hide domain={[0, 'auto']} orientation="right" />
+                  <Tooltip
+                    labelFormatter={(v) => `Year ${v}`}
+                    formatter={(v, name) => [
+                      `${v.toLocaleString()} t`,
+                      name === 'cumulativeTco2e' ? 'Cumulative tCO₂e' : 'Per-Year tCO₂e'
+                    ]}
+                    contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid rgba(0,229,195,0.15)', background: '#0f1524', color: '#e2e8f0' }}
+                  />
+                  <Area yAxisId="left" type="monotone" dataKey="cumulativeTco2e" stroke="#f59e0b" fill="rgba(245,158,11,0.1)" strokeWidth={2} dot={{ r: 3, fill: '#f59e0b' }} activeDot={{ r: 5 }} />
+                  <Line yAxisId="right" type="monotone" dataKey="yearlyTco2e" stroke="#3b82f6" strokeWidth={2} dot={{ r: 2, fill: '#3b82f6' }} strokeDasharray="4 3" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* VRIO Radar Chart */}
+          <div className={styles.kpiCard}>
+            <div className={styles.kpiTitle}>🎯 Strategic Resilience Score</div>
+            <div className={styles.kpiChart}>
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={vrioData} cx="50%" cy="50%">
+                  <PolarGrid stroke="rgba(0,229,195,0.12)" />
+                  <PolarAngleAxis dataKey="axis" tick={{ fontSize: 9, fill: '#64748b' }} />
+                  <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
+                  <Radar dataKey="value" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.15} strokeWidth={2} />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Stakeholder Trust Gauge */}
+          <div className={styles.kpiCard}>
+            <div className={styles.kpiTitle}>🤝 Stakeholder Trust</div>
+            <div className={styles.gauge}>
+              <div className={styles.gaugeCircle}>
+                <svg width="100" height="100" viewBox="0 0 100 100">
+                  <defs>
+                    <linearGradient id="trustGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stopColor={reputation >= 80 ? '#15803d' : reputation >= 60 ? '#3b82f6' : reputation >= 40 ? '#f59e0b' : '#ef4444'} />
+                      <stop offset="100%" stopColor={reputation >= 80 ? '#166534' : reputation >= 60 ? '#2563eb' : reputation >= 40 ? '#d97706' : '#dc2626'} />
+                    </linearGradient>
+                    <filter id="trustGlow">
+                      <feGaussianBlur stdDeviation="3" result="blur" />
+                      <feMerge>
+                        <feMergeNode in="blur" />
+                        <feMergeNode in="SourceGraphic" />
+                      </feMerge>
+                    </filter>
+                  </defs>
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" strokeWidth="7" />
+                  <circle
+                    cx="50" cy="50" r="42"
+                    fill="none"
+                    stroke="url(#trustGrad)"
+                    strokeWidth="7"
+                    strokeLinecap="round"
+                    strokeDasharray={2 * Math.PI * 42}
+                    strokeDashoffset={2 * Math.PI * 42 - (reputation / 100) * 2 * Math.PI * 42}
+                    transform="rotate(-90 50 50)"
+                    filter="url(#trustGlow)"
+                    style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                  />
+                  {[25, 50, 75].map(v => {
+                    const angle = (v / 100) * 360 - 90;
+                    const rad = (angle * Math.PI) / 180;
+                    const x1 = 50 + 36 * Math.cos(rad);
+                    const y1 = 50 + 36 * Math.sin(rad);
+                    const x2 = 50 + 38 * Math.cos(rad);
+                    const y2 = 50 + 38 * Math.sin(rad);
+                    return <line key={v} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth="1.5" />;
+                  })}
+                </svg>
+                <span className={styles.gaugeValue} style={{ color: '#0f172a' }}>{Math.round(reputation)}</span>
+              </div>
+              <span className={styles.gaugeLabel} style={{ color: reputation >= 80 ? '#166534' : reputation >= 60 ? '#2563eb' : reputation >= 40 ? '#d97706' : '#dc2626' }}>
+                {reputation >= 80 ? 'Excellent' : reputation >= 60 ? 'Strong' : reputation >= 40 ? 'Moderate' : reputation >= 20 ? 'Low' : 'Critical'}
+              </span>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 }

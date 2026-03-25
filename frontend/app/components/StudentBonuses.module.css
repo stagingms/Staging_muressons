@@ -1,0 +1,31 @@
+.container { display: flex; flex-direction: column; gap: 1.25rem; }
+.header { display: flex; align-items: flex-start; gap: 1rem; }
+.icon { font-size: 2rem; }
+.title { font-size: 1.2rem; font-weight: 800; margin: 0; color: var(--text-primary); }
+.subtitle { font-size: 0.82rem; color: var(--text-muted); margin: 0.2rem 0 0 0; }
+.form { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+.formGrid { display: grid; grid-template-columns: 1fr 80px 1fr; gap: 0.5rem; }
+.input { padding: 0.55rem 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; font-family: inherit; outline: none; }
+.input:focus { border-color: #3b82f6; }
+.inputSmall { padding: 0.55rem 0.5rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; text-align: center; outline: none; }
+.badgeRow { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.badgeBtn { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 4px 10px; font-size: 0.72rem; cursor: pointer; transition: all 0.15s; color: var(--text-secondary); font-family: inherit; }
+.badgeBtn:hover { border-color: #3b82f6; }
+.badgeActive { background: rgba(59,130,246,0.12); border-color: #3b82f6; color: #3b82f6; font-weight: 700; }
+.awardBtn { background: linear-gradient(135deg, #f59e0b, #22c55e); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.awardBtn:hover { transform: translateY(-1px); }
+.awardBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.summary { font-size: 0.78rem; color: var(--text-muted); }
+.summary strong { color: var(--text-primary); }
+.bonusList { display: flex; flex-direction: column; gap: 0.5rem; }
+.bonusCard { display: flex; align-items: center; gap: 0.75rem; background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.75rem 1rem; position: relative; }
+.bonusIcon { font-size: 1.5rem; }
+.bonusInfo { flex: 1; }
+.bonusInfo strong { font-size: 0.85rem; color: var(--text-primary); margin-right: 0.5rem; }
+.bonusPoints { font-size: 0.72rem; font-weight: 700; color: #22c55e; background: rgba(34,197,94,0.1); padding: 2px 6px; border-radius: var(--radius-full); }
+.bonusBadge { font-size: 0.65rem; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: var(--radius-full); margin-left: 0.3rem; }
+.bonusReason { font-size: 0.78rem; color: var(--text-muted); margin: 0.2rem 0 0; }
+.bonusTime { font-size: 0.62rem; color: var(--text-muted); font-family: var(--font-mono); }
+.revokeBtn { background: none; border: none; font-size: 0.8rem; cursor: pointer; opacity: 0.3; transition: opacity 0.2s; }
+.revokeBtn:hover { opacity: 1; }
+.empty { text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.85rem; }

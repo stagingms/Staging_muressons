@@ -9,7 +9,7 @@ export default function AdminGateway() {
     return (
         <div className={styles.gatewayContainer}>
             <header className={styles.header}>
-                <div className={styles.brand}>Muressons Global Command</div>
+                <div className={styles.brand}>Global Command</div>
                 <h1 className={styles.title}>System Access Portal</h1>
             </header>
 

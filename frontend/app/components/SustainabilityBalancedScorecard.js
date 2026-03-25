@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import {
     LineChart, Line, AreaChart, Area, ComposedChart,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import styles from './SustainabilityBalancedScorecard.module.css';
+import StockPerformanceChart from './StockPerformanceChart';
 
 // ═══════════════════════════════════════════════════════════════
 //  DYNAMIC DIAGNOSTIC FEEDBACK
@@ -127,6 +128,65 @@ function generateCriticalAnalysis(kpis, d, bus) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  BOARD MEMO GENERATOR (Task 4 — Dynamic Diagnostic Feedback)
+// ═══════════════════════════════════════════════════════════════
+
+function generateBoardMemo(kpis, d) {
+    const sentences = [];
+    const sy = kpis.synergy;
+    const slo = kpis.avgSL;
+    const ebitda = kpis.ebitda;
+    const pTalent = kpis.pTalent;
+    const rep = kpis.groupRep;
+    const carbon = kpis.carbonTonnage;
+
+    // Rule 1: Decoupled growth
+    if (sy > 1.2 && slo > 75) {
+        sentences.push(
+            "You have successfully decoupled financial growth from ecological extraction while maintaining strong labor equity."
+        );
+    }
+    // Rule 2: Toxic culture
+    if (ebitda > 10_000_000 && pTalent > 1.0) {
+        sentences.push(
+            "Your profits are high, but a toxic culture is driving severe talent flight, threatening future software viability."
+        );
+    }
+    // Rule 3: Carbon liability
+    if (carbon > 200 && ebitda > 0) {
+        sentences.push(
+            "Despite positive operating margins, the carbon tonnage exposes the group to material regulatory risk under 2050 carbon border adjustments."
+        );
+    }
+    // Rule 4: SLO collapse
+    if (slo < 50) {
+        sentences.push(
+            "Social License has collapsed below viability thresholds — communities have withdrawn consent, making continued operations legally and ethically untenable."
+        );
+    }
+    // Rule 5: Reputation resilience
+    if (rep >= 80 && sy >= 1.0) {
+        sentences.push(
+            "Strong reputation combined with operational synergy positions the group as a preferred partner for green supply chain alliances."
+        );
+    }
+    // Rule 6: Financial distress
+    if (ebitda <= 0) {
+        sentences.push(
+            "The group is in financial distress — operating losses after carbon tax indicate the business model is fundamentally unviable without radical restructuring."
+        );
+    }
+    // Fallback if nothing triggered
+    if (sentences.length === 0) {
+        sentences.push(
+            "Performance is mixed. The Board should conduct a deeper review of each business unit's sustainability trajectory before committing to a long-term strategy."
+        );
+    }
+
+    return sentences.slice(0, 3);
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 
@@ -169,8 +229,9 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     console.log('[SCORECARD] profile:', d.profile, '| ebitda_2050:', d.ebitda_2050, '| terminal_value:', d.terminal_value);
     console.log('[SCORECARD] bus:', bus.length, '| globalState keys:', Object.keys(globalState));
     console.log('[SCORECARD] history:', history.length, 'rounds');
-    const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'analysis' | 'rounds'
+    const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'analysis' | 'trends' | 'tbl_matrix' | 'rounds' | 'stock' | 'leaderboard' | 'report'
     const printRef = useRef(null);
+    const [leaderboard, setLeaderboard] = useState([]);
 
     // Compute derived KPIs
     const kpis = useMemo(() => {
@@ -215,6 +276,22 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     const mrItems = Object.entries(mrBreakdown)
         .filter(([, val]) => val !== 0)
         .map(([key, val]) => ({ key, value: val }));
+
+    // Fetch leaderboard
+    const API = process.env.NEXT_PUBLIC_API_URL || '';
+    const fetchLeaderboard = useCallback(async () => {
+        try {
+            const res = await fetch(`${API}/api/admin/leaderboard`);
+            if (res.ok) {
+                const data = await res.json();
+                setLeaderboard(data.leaderboard || []);
+            }
+        } catch { /* ignore in solo */ }
+    }, [API]);
+
+    useEffect(() => {
+        fetchLeaderboard();
+    }, [fetchLeaderboard]);
 
     const PERSPECTIVES = [
         {
@@ -616,10 +693,34 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         📉 Trends
                     </button>
                     <button
+                        className={`${styles.tab} ${activeTab === 'tbl_matrix' ? styles.tabActive : ''}`}
+                        onClick={() => setActiveTab('tbl_matrix')}
+                    >
+                        🧮 TBL Matrix
+                    </button>
+                    <button
                         className={`${styles.tab} ${activeTab === 'rounds' ? styles.tabActive : ''}`}
                         onClick={() => setActiveTab('rounds')}
                     >
                         📈 Round Review
+                    </button>
+                    <button
+                        className={`${styles.tab} ${activeTab === 'stock' ? styles.tabActive : ''}`}
+                        onClick={() => setActiveTab('stock')}
+                    >
+                        📉 Stock Price
+                    </button>
+                    <button
+                        className={`${styles.tab} ${activeTab === 'leaderboard' ? styles.tabActive : ''}`}
+                        onClick={() => setActiveTab('leaderboard')}
+                    >
+                        🏆 Leaderboard
+                    </button>
+                    <button
+                        className={`${styles.tab} ${activeTab === 'report' ? styles.tabActive : ''}`}
+                        onClick={() => setActiveTab('report')}
+                    >
+                        📋 Final Report
                     </button>
                     <button className={styles.downloadBtn} onClick={handleDownload}>
                         📥 Download Report
@@ -900,6 +1001,97 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     );
                 })()}
 
+                {/* ──────── TAB: TBL Matrix ──────── */}
+                {activeTab === 'tbl_matrix' && (() => {
+                    const fmtCurr = (v) => `$${(v / 1_000_000).toFixed(2)}M`;
+                    const memo = generateBoardMemo(kpis, d);
+
+                    const TBL_GRID = [
+                        {
+                            perspective: 'Financial',
+                            icon: '💰',
+                            color: '#3b82f6',
+                            cells: [
+                                { col: 'Profit', label: 'Adjusted EBITDA', value: fmtCurr(kpis.ebitda), health: kpis.ebitda > 10_000_000 ? 'good' : kpis.ebitda > 0 ? 'warn' : 'bad' },
+                                { col: 'People', label: 'Instability Discount', value: d.instability_discount_applied ? '⚠️ Applied (−0.4)' : '✅ Not Applied', health: d.instability_discount_applied ? 'bad' : 'good' },
+                                { col: 'Planet', label: 'Green Cost of Debt', value: `${(d.green_cost_of_debt_pct || kpis.greenDebt * 100).toFixed(2)}%`, health: (d.green_cost_of_debt_pct || 0) < 5 ? 'good' : 'warn' },
+                            ],
+                        },
+                        {
+                            perspective: 'Stakeholder',
+                            icon: '🤝',
+                            color: '#10b981',
+                            cells: [
+                                { col: 'Profit', label: 'VRIO Advantage', value: kpis.vrioActive ? '🟢 Active' : '🔴 Decayed', health: kpis.vrioActive ? 'good' : 'bad' },
+                                { col: 'People', label: 'Social License (SLO)', value: `${kpis.avgSL.toFixed(1)} / 100`, health: kpis.avgSL >= 75 ? 'good' : kpis.avgSL >= 50 ? 'warn' : 'bad' },
+                                { col: 'Planet', label: 'Group Reputation', value: `${kpis.groupRep.toFixed(1)} / 100`, health: kpis.groupRep >= 65 ? 'good' : kpis.groupRep >= 45 ? 'warn' : 'bad' },
+                            ],
+                        },
+                        {
+                            perspective: 'Internal Process',
+                            icon: '⚙️',
+                            color: '#f59e0b',
+                            cells: [
+                                { col: 'Profit', label: 'Final Group OPEX', value: fmtCurr(d.total_opex || 0), health: 'neutral' },
+                                { col: 'People', label: 'Just Transition', value: (d.just_transition_passed || kpis.justTransitionPassed) ? '✅ Pass' : '❌ Fail', health: (d.just_transition_passed || kpis.justTransitionPassed) ? 'good' : 'bad' },
+                                { col: 'Planet', label: 'Synergy (S_y) & Carbon', value: `${kpis.synergy.toFixed(2)}× · ${kpis.carbonTonnage.toFixed(0)}t`, health: kpis.synergy > 1.1 && kpis.carbonTonnage < 150 ? 'good' : 'warn' },
+                            ],
+                        },
+                        {
+                            perspective: 'Learning & Growth',
+                            icon: '🎓',
+                            color: '#8b5cf6',
+                            cells: [
+                                { col: 'Profit', label: 'R&D Allocation', value: `${(d.rd_allocation_pct || 0).toFixed(1)}%`, health: (d.rd_allocation_pct || 0) > 5 ? 'good' : 'warn' },
+                                { col: 'People', label: 'Talent Retention (P_Talent)', value: kpis.pTalent > 0 ? kpis.pTalent.toFixed(2) : 'Stable', health: kpis.pTalent <= 0.5 ? 'good' : kpis.pTalent <= 1.0 ? 'warn' : 'bad' },
+                                { col: 'Planet', label: 'Climate Resilience Factor', value: `${(d.climate_resilience_factor ?? 0.5).toFixed(2)}`, health: (d.climate_resilience_factor ?? 0.5) >= 0.7 ? 'good' : (d.climate_resilience_factor ?? 0.5) >= 0.4 ? 'warn' : 'bad' },
+                            ],
+                        },
+                    ];
+
+                    return (
+                        <section className={styles.tblSection}>
+                            <h2 className={styles.sectionTitle}>🧮 Integrated TBL × Balanced Scorecard Matrix</h2>
+                            <p style={{ color: '#94a3b8', fontSize: '0.82rem', marginBottom: '1.25rem' }}>
+                                Kaplan & Norton Perspectives (rows) × Triple Bottom Line (columns)
+                            </p>
+
+                            {/* Grid Header */}
+                            <div className={styles.tblGrid}>
+                                <div className={styles.tblCorner}></div>
+                                <div className={styles.tblColHeader}>💰 Profit</div>
+                                <div className={styles.tblColHeader}>👥 People</div>
+                                <div className={styles.tblColHeader}>🌍 Planet</div>
+
+                                {TBL_GRID.map((row) => (
+                                    <React.Fragment key={row.perspective}>
+                                        <div className={styles.tblRowHeader} style={{ borderLeftColor: row.color }}>
+                                            <span>{row.icon}</span> {row.perspective}
+                                        </div>
+                                        {row.cells.map((cell, ci) => (
+                                            <div
+                                                key={`${row.perspective}-${ci}`}
+                                                className={`${styles.tblCell} ${styles[`tblCell${cell.health === 'good' ? 'Good' : cell.health === 'bad' ? 'Bad' : cell.health === 'warn' ? 'Warn' : 'Neutral'}`]}`}
+                                            >
+                                                <div className={styles.tblCellLabel}>{cell.label}</div>
+                                                <div className={styles.tblCellValue}>{cell.value}</div>
+                                            </div>
+                                        ))}
+                                    </React.Fragment>
+                                ))}
+                            </div>
+
+                            {/* Board Memo */}
+                            <div className={styles.boardMemo}>
+                                <h3 className={styles.boardMemoTitle}>📋 Board Memo — Diagnostic Synthesis</h3>
+                                {memo.map((sentence, i) => (
+                                    <p key={i} className={styles.boardMemoSentence}>{sentence}</p>
+                                ))}
+                            </div>
+                        </section>
+                    );
+                })()}
+
                 {/* ──────── TAB: Round Review ──────── */}
                 {activeTab === 'rounds' && (
                     <section className={styles.roundsSection}>
@@ -959,6 +1151,202 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         )}
                     </section>
                 )}
+
+                {/* ──────── TAB: Stock Price ──────── */}
+                {activeTab === 'stock' && (
+                    <section className={styles.stockSection}>
+                        <h2 className={styles.sectionTitle}>📉 Muressons Stock Performance (2027–2036)</h2>
+                        <p style={{ color: '#94a3b8', fontSize: '0.82rem', marginBottom: '1.25rem', textAlign: 'center' }}>
+                            Stochastic micro-engine with 20 daily interpolated points per round
+                        </p>
+                        <div className={styles.stockChartContainer}>
+                            <StockPerformanceChart
+                                historyData={history}
+                                globalState={globalState}
+                                businessUnits={bus}
+                                roundNumber={10}
+                                events={globalState.active_event_flags || {}}
+                            />
+                        </div>
+                    </section>
+                )}
+
+                {/* ──────── TAB: Leaderboard ──────── */}
+                {activeTab === 'leaderboard' && (
+                    <section className={styles.leaderboardSection}>
+                        <h2 className={styles.sectionTitle}>🏆 Final Leaderboard</h2>
+                        {leaderboard.length > 0 ? (
+                            <div className={styles.roundTableWrap}>
+                                <table className={styles.roundTable}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ textAlign: 'center', width: '50px' }}>#</th>
+                                            <th style={{ textAlign: 'left' }}>Cohort</th>
+                                            <th style={{ textAlign: 'left' }}>Player</th>
+                                            <th>Round</th>
+                                            <th>Terminal Value</th>
+                                            <th>Treasury</th>
+                                            <th>Synergy</th>
+                                            <th>Reputation</th>
+                                            <th>Bonus</th>
+                                            <th>Social License</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {leaderboard.map((sess, i) => {
+                                            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
+                                            return (
+                                                <tr key={sess.session_id} className={i % 2 === 0 ? styles.evenRow : ''}>
+                                                    <td style={{ textAlign: 'center', fontSize: i < 3 ? '1.2rem' : '0.8rem' }}>{medal}</td>
+                                                    <td style={{ textAlign: 'left', fontWeight: 600 }}>{sess.cohort_name}</td>
+                                                    <td style={{ textAlign: 'left' }} className={styles.mono}>{sess.player_id || '–'}</td>
+                                                    <td className={styles.mono}>{sess.round_number}/10</td>
+                                                    <td className={styles.mono} style={{ color: '#10b981', fontWeight: 700 }}>
+                                                        ${(sess.terminal_value / 1_000_000).toFixed(1)}M
+                                                    </td>
+                                                    <td className={styles.mono}>${(sess.total_cash / 1_000_000).toFixed(1)}M</td>
+                                                    <td className={styles.mono}>{sess.group_synergy.toFixed(2)}×</td>
+                                                    <td className={styles.mono} style={{ color: sess.group_reputation >= 65 ? '#10b981' : sess.group_reputation >= 45 ? '#f59e0b' : '#ef4444' }}>
+                                                        {sess.group_reputation.toFixed(0)}
+                                                    </td>
+                                                    <td className={styles.mono} style={{ color: sess.bonus_score > 0 ? '#059669' : '#94a3b8' }}>
+                                                        {sess.bonus_score > 0 ? `🏅 ${sess.bonus_score}` : '–'}
+                                                    </td>
+                                                    <td className={styles.mono} style={{ color: sess.avg_social_license >= 75 ? '#10b981' : sess.avg_social_license >= 50 ? '#f59e0b' : '#ef4444' }}>
+                                                        {sess.avg_social_license.toFixed(1)}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        ) : (
+                            <div className={styles.noRoundData}>
+                                <p>📭 No leaderboard data available.</p>
+                                <p>In solo mode, the leaderboard requires other players to compare against.</p>
+                            </div>
+                        )}
+                    </section>
+                )}
+
+                {/* ──────── TAB: Final Report ──────── */}
+                {activeTab === 'report' && (() => {
+                    const fmtM = (v) => `$${(v / 1_000_000).toFixed(2)}M`;
+                    const memo = generateBoardMemo(kpis, d);
+                    return (
+                        <section className={styles.reportSection}>
+                            <h2 className={styles.sectionTitle}>📋 Muressons Global Command — Final Report 2050</h2>
+
+                            {/* Top KPIs */}
+                            <div className={styles.reportKpis}>
+                                <div className={styles.reportKpiCard}>
+                                    <span className={styles.reportKpiLabel}>🏆 Terminal Value</span>
+                                    <span className={styles.reportKpiValue}>{fmtM(d.terminal_value || 0)}</span>
+                                </div>
+                                <div className={styles.reportKpiCard}>
+                                    <span className={styles.reportKpiLabel}>🔄 Regenerative Multiple</span>
+                                    <span className={styles.reportKpiValue}>{(d.regenerative_multiple || 0).toFixed(2)}×</span>
+                                </div>
+                                <div className={styles.reportKpiCard}>
+                                    <span className={styles.reportKpiLabel}>📈 Adjusted EBITDA</span>
+                                    <span className={styles.reportKpiValue}>{fmtM(kpis.ebitda)}</span>
+                                </div>
+                                <div className={styles.reportKpiCard}>
+                                    <span className={styles.reportKpiLabel}>🌐 Market Headline</span>
+                                    <span className={styles.reportKpiValue} style={{ fontSize: '0.9rem' }}>{d.profile_title || '—'}</span>
+                                </div>
+                            </div>
+
+                            {/* BU Breakdown */}
+                            <h3 style={{ color: '#818cf8', fontSize: '0.85rem', fontWeight: 700, margin: '1.5rem 0 0.8rem' }}>
+                                🏢 Business Unit Performance (Final State)
+                            </h3>
+                            <div className={styles.roundTableWrap}>
+                                <table className={styles.roundTable}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ textAlign: 'left' }}>Business Unit</th>
+                                            <th>Revenue</th>
+                                            <th>OPEX</th>
+                                            <th>Margin</th>
+                                            <th>Carbon Intensity</th>
+                                            <th>Social License</th>
+                                            <th>NCD</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {bus.map((b, i) => (
+                                            <tr key={b.bu_id || i} className={i % 2 === 0 ? styles.evenRow : ''}>
+                                                <td style={{ textAlign: 'left', fontWeight: 700, color: '#818cf8' }}>
+                                                    {(b.bu_id || '').replace(/_/g, ' ').toUpperCase()}
+                                                </td>
+                                                <td className={styles.mono}>{fmtM(b.revenue_base || 0)}</td>
+                                                <td className={styles.mono}>{fmtM(b.opex_base || 0)}</td>
+                                                <td className={styles.mono} style={{ color: (b.revenue_base || 0) - (b.opex_base || 0) > 0 ? '#10b981' : '#ef4444' }}>
+                                                    {fmtM((b.revenue_base || 0) - (b.opex_base || 0))}
+                                                </td>
+                                                <td className={styles.mono}>{(b.carbon_intensity || 0).toFixed(1)}</td>
+                                                <td className={styles.mono} style={{ color: (b.social_license_score || 0) >= 75 ? '#10b981' : '#f59e0b' }}>
+                                                    {(b.social_license_score || 0).toFixed(1)}
+                                                </td>
+                                                <td className={styles.mono}>{(b.natural_capital_debt || 0).toFixed(1)}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* M_R Breakdown */}
+                            {mrItems.length > 0 && (
+                                <>
+                                    <h3 style={{ color: '#818cf8', fontSize: '0.85rem', fontWeight: 700, margin: '1.5rem 0 0.8rem' }}>
+                                        🧬 M<sub>R</sub> Regenerative Multiple Breakdown
+                                    </h3>
+                                    <div className={styles.roundTableWrap}>
+                                        <table className={styles.roundTable}>
+                                            <thead>
+                                                <tr>
+                                                    <th style={{ textAlign: 'left' }}>Component</th>
+                                                    <th>Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {mrItems.map((item, i) => (
+                                                    <tr key={item.key} className={i % 2 === 0 ? styles.evenRow : ''}>
+                                                        <td style={{ textAlign: 'left' }}>{item.key.replace(/_/g, ' ')}</td>
+                                                        <td className={styles.mono} style={{ color: item.value >= 0 ? '#10b981' : '#ef4444' }}>
+                                                            {item.value > 0 ? '+' : ''}{item.value.toFixed(2)}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                                <tr className={styles.evenRow} style={{ borderTop: '2px solid #6366f1' }}>
+                                                    <td style={{ textAlign: 'left', fontWeight: 700 }}>Total M<sub>R</sub></td>
+                                                    <td className={styles.mono} style={{ fontWeight: 700 }}>{(d.regenerative_multiple || 0).toFixed(2)}×</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Board Memo */}
+                            <div className={styles.boardMemo}>
+                                <h3 className={styles.boardMemoTitle}>📋 Board Memo — Executive Synthesis</h3>
+                                {memo.map((sentence, i) => (
+                                    <p key={i} className={styles.boardMemoSentence}>{sentence}</p>
+                                ))}
+                            </div>
+
+                            {/* Download Button */}
+                            <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>
+                                <button className={styles.downloadBtn} onClick={handleDownload} style={{ marginLeft: 0, padding: '0.8rem 2rem', fontSize: '0.9rem' }}>
+                                    📥 Download Full Report (HTML)
+                                </button>
+                            </div>
+                        </section>
+                    );
+                })()}
 
                 {/* ── Footer ── */}
                 <div className={styles.closeRow}>

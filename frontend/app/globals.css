@@ -282,3 +282,143 @@ body::before {
 .animate-slide-right {
   animation: slideInRight 0.35s ease-out both;
 }
+
+/* ── New Improvement Animations ──────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tickerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translate(-50%, -20px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
+
+/* ── Mobile Responsive (Improvement #4.6) ────────────────────── */
+@media (max-width: 768px) {
+  /* Make cockpit columns stack vertically on mobile */
+  .cockpit .mainContent {
+    flex-direction: column !important;
+  }
+
+  .cockpit .leftSidebar,
+  .cockpit .rightSidebar {
+    width: 100% !important;
+    min-width: unset !important;
+    max-width: unset !important;
+  }
+
+  .cockpit .centerConsole {
+    width: 100% !important;
+  }
+
+  /* Stack decision tiles vertically */
+  .decisionTiles {
+    flex-direction: column !important;
+  }
+
+  /* Full-width modals */
+  .resultsPanel {
+    max-width: 95vw !important;
+    padding: 1rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .cockpit .header {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .cockpit .headerCenter {
+    font-size: 0.65rem !important;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   UI QUICK WINS — Enhanced Animations & Utilities
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Animated Gradient Border ─────────────────────────────── */
+@property --border-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes borderRotate {
+  to { --border-angle: 360deg; }
+}
+
+/* ── Skeleton Loading States ──────────────────────────────── */
+@keyframes shimmerSweep {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-elevated) 25%,
+    color-mix(in srgb, var(--text-muted) 12%, transparent) 37%,
+    var(--bg-elevated) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmerSweep 1.8s ease-in-out infinite;
+  border-radius: var(--radius-md);
+}
+
+.skeleton-text {
+  height: 0.85em;
+  width: 60%;
+  margin-bottom: 0.4em;
+}
+
+.skeleton-value {
+  height: 1.4em;
+  width: 40%;
+  margin-bottom: 0.4em;
+}
+
+.skeleton-chart {
+  height: 80px;
+  width: 100%;
+}
+
+.skeleton-card {
+  height: 100px;
+  width: 100%;
+}
+
+/* ── Page Section Fade-In (staggered) ───────────────────── */
+@keyframes sectionFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-1 { animation: sectionFadeIn 0.5s ease-out 0.05s both; }
+.stagger-2 { animation: sectionFadeIn 0.5s ease-out 0.15s both; }
+.stagger-3 { animation: sectionFadeIn 0.5s ease-out 0.25s both; }
+.stagger-4 { animation: sectionFadeIn 0.5s ease-out 0.35s both; }
+
+/* ── Universal Shimmer Sweep (for buttons) ──────────────── */
+@keyframes shimmerBtn {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}

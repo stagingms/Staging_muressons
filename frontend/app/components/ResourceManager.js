@@ -5,8 +5,10 @@ import styles from './ResourceManager.module.css';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
-const TYPE_ICONS = { PDF: '📄', Video: '🎬', Weblink: '🔗', Memo: '📝' };
-const TYPE_CLASS = { PDF: styles.typePDF, Video: styles.typeVideo, Weblink: styles.typeWeblink, Memo: styles.typeMemo };
+const TYPE_ICONS = { PDF: '📄', Video: '🎬', Weblink: '🔗', Memo: '📝', NotebookLM: '🧠' };
+const TYPE_CLASS = { PDF: styles.typePDF, Video: styles.typeVideo, Weblink: styles.typeWeblink, Memo: styles.typeMemo, NotebookLM: styles.typeNotebookLM };
+
+const CONTENT_TYPE_LABELS = { podcast: '🎧 Podcast', review: '📝 Review', quiz: '🧩 Quiz' };
 
 export default function ResourceManager() {
     const [activeTab, setActiveTab] = useState('library');
@@ -23,6 +25,14 @@ export default function ResourceManager() {
         id: '', title: '', type: 'PDF', url: '', category: 'General', 
         facilitator_default_round: 1, visibility: 'Standard', tags: '', facilitator_strategy: ''
     });
+
+    // NotebookLM State
+    const [notebooks, setNotebooks] = useState([]);
+    const [showNbForm, setShowNbForm] = useState(false);
+    const [nbForm, setNbForm] = useState({
+        id: '', title: '', share_url: '', description: '', content_types: ['review'], target_round: 1, category: 'General'
+    });
+
 
     // ── Fetch master library ────────────────────────────────
     const fetchLibrary = useCallback(async () => {
@@ -57,11 +67,21 @@ export default function ResourceManager() {
         } catch (e) { console.error('Failed to fetch guide', e); }
     }, []);
 
+    // ── Fetch NotebookLM notebooks ────────────────────────────
+    const fetchNotebooks = useCallback(async () => {
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/resources/notebooklm`);
+            if (res.ok) { const d = await res.json(); setNotebooks(d.notebooks || []); }
+        } catch (e) { console.error('Failed to fetch notebooks', e); }
+    }, []);
+
     useEffect(() => {
         fetchLibrary();
         fetchSessions();
         fetchGuide();
-    }, [fetchLibrary, fetchSessions, fetchGuide]);
+        fetchNotebooks();
+    }, [fetchLibrary, fetchSessions, fetchGuide, fetchNotebooks]);
+
 
     useEffect(() => {
         if (selectedSession) fetchSessionResources(selectedSession);
@@ -259,9 +279,10 @@ export default function ResourceManager() {
                             <label>Type</label>
                             <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
                                 <option value="PDF">📄 PDF</option>
-                                <option value="Video">🎬 Video</option>
+                                 <option value="Video">🎬 Video</option>
                                 <option value="Weblink">🔗 Weblink</option>
                                 <option value="Memo">📝 Memo</option>
+                                <option value="NotebookLM">🧠 NotebookLM</option>
                             </select>
                         </div>
                         <div className={styles.inputGroup}>
@@ -471,6 +492,164 @@ export default function ResourceManager() {
         );
     };
 
+    // ── NotebookLM CRUD ──────────────────────────────────────
+    const handleNbSubmit = async (e) => {
+        e.preventDefault();
+        try {
+            const res = await fetch(`${API_BASE}/api/admin/resources/notebooklm`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(nbForm),
+            });
+            if (res.ok) {
+                setStatus({ type: 'success', msg: `✅ Notebook "${nbForm.title}" saved.` });
+                fetchNotebooks();
+                setShowNbForm(false);
+                setNbForm({ id: '', title: '', share_url: '', description: '', content_types: ['review'], target_round: 1, category: 'General' });
+            } else {
+                setStatus({ type: 'error', msg: '❌ Failed to save notebook.' });
+            }
+        } catch (err) {
+            setStatus({ type: 'error', msg: `❌ Network error: ${err.message}` });
+        }
+    };
+
+    const handleNbDelete = async (id) => {
+        if (!confirm('Delete this notebook link?')) return;
+        try {
+            await fetch(`${API_BASE}/api/admin/resources/notebooklm/${id}`, { method: 'DELETE' });
+            fetchNotebooks();
+        } catch (e) { console.error(e); }
+    };
+
+    const toggleNbContentType = (type) => {
+        setNbForm(prev => {
+            const has = prev.content_types.includes(type);
+            return {
+                ...prev,
+                content_types: has
+                    ? prev.content_types.filter(t => t !== type)
+                    : [...prev.content_types, type],
+            };
+        });
+    };
+
+    // ── Render: NotebookLM Tab ───────────────────────────────
+    const renderNotebookLM = () => (
+        <>
+            <div className={styles.nbHeader}>
+                <div>
+                    <h3 className={styles.nbHeading}>🧠 NotebookLM Integration</h3>
+                    <p className={styles.nbSubtext}>
+                        Link your Google NotebookLM notebooks so learners can access AI-powered podcasts, reviews, and quizzes.
+                        Each notebook is tied to a specific round.
+                    </p>
+                </div>
+                <button
+                    className={`${styles.addBtn} ${showNbForm ? styles.addBtnActive : ''}`}
+                    onClick={() => setShowNbForm(!showNbForm)}
+                >
+                    {showNbForm ? '⨯ Cancel' : '➕ Link Notebook'}
+                </button>
+            </div>
+
+            {status && (
+                <div className={`${styles.statusMsg} ${status.type === 'success' ? styles.statusSuccess : styles.statusError}`}>
+                    {status.msg}
+                </div>
+            )}
+
+            {/* Add Notebook Form */}
+            {showNbForm && (
+                <form onSubmit={handleNbSubmit} className={styles.addForm}>
+                    <h4>Link a NotebookLM Notebook</h4>
+                    <div className={styles.formGrid}>
+                        <div className={styles.inputGroup}>
+                            <label>Notebook ID *</label>
+                            <input required placeholder="e.g. NLM_004" value={nbForm.id} onChange={e => setNbForm({...nbForm, id: e.target.value})} />
+                        </div>
+                        <div className={styles.inputGroup}>
+                            <label>Title *</label>
+                            <input required placeholder="ESG Fundamentals Deep Dive" value={nbForm.title} onChange={e => setNbForm({...nbForm, title: e.target.value})} />
+                        </div>
+                        <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
+                            <label>NotebookLM Share URL *</label>
+                            <input required placeholder="https://notebooklm.google.com/notebook/..." value={nbForm.share_url} onChange={e => setNbForm({...nbForm, share_url: e.target.value})} />
+                        </div>
+                        <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
+                            <label>Description</label>
+                            <textarea placeholder="What will learners find in this notebook?" value={nbForm.description} onChange={e => setNbForm({...nbForm, description: e.target.value})} rows="2" />
+                        </div>
+                        <div className={styles.inputGroup}>
+                            <label>Target Round</label>
+                            <input type="number" min="1" max="10" required value={nbForm.target_round} onChange={e => setNbForm({...nbForm, target_round: parseInt(e.target.value, 10) || 1})} />
+                        </div>
+                        <div className={styles.inputGroup}>
+                            <label>Category</label>
+                            <select value={nbForm.category} onChange={e => setNbForm({...nbForm, category: e.target.value})}>
+                                <option value="General">General</option>
+                                <option value="Ecological">Ecological</option>
+                                <option value="Social">Social</option>
+                                <option value="Economic">Economic</option>
+                            </select>
+                        </div>
+                        <div className={`${styles.inputGroup} ${styles.fullWidth}`}>
+                            <label>Content Types Available</label>
+                            <div className={styles.nbContentTypePicker}>
+                                {['podcast', 'review', 'quiz'].map(ct => (
+                                    <button
+                                        key={ct}
+                                        type="button"
+                                        className={`${styles.nbCtBtn} ${nbForm.content_types.includes(ct) ? styles.nbCtBtnActive : ''}`}
+                                        onClick={() => toggleNbContentType(ct)}
+                                    >
+                                        {CONTENT_TYPE_LABELS[ct]}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" className={styles.submitBtn}>Save Notebook</button>
+                </form>
+            )}
+
+            {/* Notebooks List */}
+            {notebooks.length === 0 && !showNbForm && (
+                <p style={{ textAlign: 'center', color: '#64748b', padding: '2rem' }}>
+                    No NotebookLM notebooks linked yet. Click "Link Notebook" to get started.
+                </p>
+            )}
+
+            <div className={styles.nbGrid}>
+                {notebooks.map(nb => (
+                    <div key={nb.id} className={styles.nbCard}>
+                        <div className={styles.nbCardHeader}>
+                            <div className={styles.nbCardIcon}>🧠</div>
+                            <div className={styles.nbCardInfo}>
+                                <h4 className={styles.nbCardTitle}>{nb.title}</h4>
+                                <span className={styles.nbCardMeta}>Round {nb.target_round} · {nb.category}</span>
+                            </div>
+                            <button className={styles.deleteBtn} onClick={() => handleNbDelete(nb.id)} title="Remove notebook">🗑️</button>
+                        </div>
+                        {nb.description && <p className={styles.nbCardDesc}>{nb.description}</p>}
+                        <div className={styles.nbCardFooter}>
+                            <div className={styles.nbContentTags}>
+                                {(nb.content_types || []).map(ct => (
+                                    <span key={ct} className={`${styles.nbContentTag} ${styles[`nbCt_${ct}`] || ''}`}>
+                                        {CONTENT_TYPE_LABELS[ct] || ct}
+                                    </span>
+                                ))}
+                            </div>
+                            <a href={nb.share_url} target="_blank" rel="noopener noreferrer" className={styles.nbOpenLink}>
+                                Open in NotebookLM →
+                            </a>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
+    );
+
     return (
         <div className={styles.resourceManager}>
             <div className={styles.tabBar}>
@@ -486,11 +665,16 @@ export default function ResourceManager() {
                     onClick={() => setActiveTab('guide')}>
                     📋 Deployment Guide
                 </button>
+                <button className={`${styles.tabBtn} ${activeTab === 'notebooklm' ? styles.active : ''}`}
+                    onClick={() => setActiveTab('notebooklm')}>
+                    🧠 NotebookLM
+                </button>
             </div>
 
             {activeTab === 'library' && renderLibrary()}
             {activeTab === 'sessions' && renderSessionControl()}
             {activeTab === 'guide' && renderGuide()}
+            {activeTab === 'notebooklm' && renderNotebookLM()}
         </div>
     );
 }

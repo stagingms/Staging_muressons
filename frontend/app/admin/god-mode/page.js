@@ -10,6 +10,15 @@ import ResourceManager from '../../components/ResourceManager';
 import DecisionParadigmConfig from '../../components/DecisionParadigmConfig';
 import FacilitatorManager from '../../components/FacilitatorManager';
 import CrisisTriggerConfig from '../../components/CrisisTriggerConfig';
+import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
+import GodModeStatus from '../../components/GodModeStatus';
+import GodModeAuditLog from '../../components/GodModeAuditLog';
+import GlobalSettings from '../../components/GlobalSettings';
+import UniversalBroadcast from '../../components/UniversalBroadcast';
+import SystemExport from '../../components/SystemExport';
+import PlatformAnalytics from '../../components/PlatformAnalytics';
+import AnalyticsControlPanel from '../../components/AnalyticsControlPanel';
+import GlossaryManager from '../../components/GlossaryManager';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -350,11 +359,14 @@ export default function GodModePage() {
  * ═════════════════════════════════════════════════════════════════ */
 
 function GodModeDashboard({ authData, onLogout }) {
-    const [activeTab, setActiveTab] = useState('round_pacing');
+    const [activeTab, setActiveTab] = useState('system_status');
     const [showChangePw, setShowChangePw] = useState(false);
     const [openCategories, setOpenCategories] = useState({
+        overview: true,
         config: true,
         master: true,
+        comms: false,
+        analytics: false,
         danger: false,
     });
 
@@ -364,32 +376,47 @@ function GodModeDashboard({ authData, onLogout }) {
 
     const SIDEBAR_CONFIG = [
         {
-            category: 'Simulation Config',
+            category: 'System & Monitoring',
+            icon: '🎯',
+            id: 'system',
+            items: [
+                { id: 'system_status', label: 'System Status' },
+                { id: 'audit_log', label: 'Activity Log' },
+                { id: 'facilitator_roles', label: 'Facilitator Roles' },
+            ]
+        },
+        {
+            category: 'Simulation Engine',
             icon: '⚙️',
-            id: 'config',
+            id: 'engine',
             items: [
-                { id: 'round_pacing', label: 'Round Pacing', component: 'RoundPacingControl' },
-                { id: 'decision_paradigm', label: 'Decision Paradigm', component: 'DecisionParadigmConfig' },
-                { id: 'facilitator_roles', label: 'Facilitator Roles', component: 'FacilitatorManager' },
+                { id: 'global_settings', label: 'Global Settings' },
+                { id: 'round_pacing', label: 'Round Pacing' },
+                { id: 'decision_paradigm', label: 'Decision Paradigm' },
+                { id: 'materiality', label: 'Materiality Matrix' },
+                { id: 'master_interventions', label: 'Team Interventions' },
+                { id: 'crisis_triggers', label: 'Crisis Triggers' },
+                { id: 'black_swan', label: 'Black Swan Injector' },
+                { id: 'resources', label: 'Resource Library' },
+                { id: 'glossary_editor', label: 'Glossary Editor' },
             ]
         },
         {
-            category: 'Master Data Hub',
-            icon: '🌐',
-            id: 'master',
+            category: 'Analytics & Comms',
+            icon: '📊',
+            id: 'analytics',
             items: [
-                { id: 'materiality', label: 'Materiality Matrix', component: 'MaterialityConfig' },
-                { id: 'master_interventions', label: 'Team Interventions', component: 'MasterInterventions' },
-                { id: 'crisis_triggers', label: 'Crisis Triggers', component: 'CrisisTriggerConfig' },
-                { id: 'resources', label: 'Resource Library', component: 'ResourceManager' },
+                { id: 'platform_analytics', label: 'Platform Analytics' },
+                { id: 'analytics_controls', label: 'Visibility Controls' },
+                { id: 'universal_broadcast', label: 'Universal Broadcast' },
             ]
         },
         {
-            category: 'Danger Zone',
-            icon: '☢️',
-            id: 'danger',
+            category: 'Administration',
+            icon: '🛡️',
+            id: 'admin',
             items: [
-                { id: 'global_reset', label: 'Global Reset', component: 'GlobalReset' },
+                { id: 'system_export', label: 'Backup & Export' },
             ]
         }
     ];
@@ -410,6 +437,12 @@ function GodModeDashboard({ authData, onLogout }) {
 
     const renderActiveComponent = () => {
         switch (activeTab) {
+            case 'system_status':
+                return <GodModeStatus />;
+            case 'audit_log':
+                return <GodModeAuditLog />;
+            case 'global_settings':
+                return <GlobalSettings />;
             case 'materiality':
                 return <MaterialityConfig />;
             case 'master_interventions':
@@ -420,41 +453,22 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <DecisionParadigmConfig sessions={[]} apiBase={API} />;
             case 'resources':
                 return <ResourceManager />;
+            case 'glossary_editor':
+                return <GlossaryManager />;
             case 'crisis_triggers':
                 return <CrisisTriggerConfig />;
+            case 'black_swan':
+                return <CustomBlackSwanBuilder />;
             case 'facilitator_roles':
                 return <FacilitatorManager />;
-            case 'global_reset':
-                return (
-                    <section style={{
-                        background: 'var(--bg-card)',
-                        border: '2px solid #ef4444',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '2rem',
-                        maxWidth: '600px',
-                    }}>
-                        <h2 style={{ color: '#ef4444', marginBottom: '0.5rem' }}>☢️ Global Reset (Danger Zone)</h2>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                            Permanently wipe <strong>all</strong> simulation data across all cohorts and player sessions. This action cannot be undone.
-                        </p>
-                        <button
-                            onClick={handleResetAll}
-                            style={{
-                                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                                color: '#fff',
-                                border: 'none',
-                                borderRadius: '8px',
-                                padding: '0.8rem 2rem',
-                                fontSize: '1rem',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                boxShadow: '0 4px 16px rgba(239, 68, 68, 0.4)',
-                            }}
-                        >
-                            ☢️ Factory Nuke All Sessions
-                        </button>
-                    </section>
-                );
+            case 'universal_broadcast':
+                return <UniversalBroadcast />;
+            case 'platform_analytics':
+                return <PlatformAnalytics />;
+            case 'analytics_controls':
+                return <AnalyticsControlPanel />;
+            case 'system_export':
+                return <SystemExport />;
             default:
                 return (
                     <div className={styles.placeholder}>
@@ -478,7 +492,7 @@ function GodModeDashboard({ authData, onLogout }) {
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
                     <h1>👑 God Mode</h1>
-                    <div className={styles.godBadge}>Muressons Global Command</div>
+                    <div className={styles.godBadge}>Global Command</div>
                     {authData && (
                         <div style={{
                             display: 'flex',
@@ -538,27 +552,22 @@ function GodModeDashboard({ authData, onLogout }) {
                 <nav className={styles.sidebarNav}>
                     {SIDEBAR_CONFIG.map((group) => (
                         <div key={group.id} className={styles.navCategory}>
-                            <button
-                                className={styles.categoryHeader}
-                                onClick={() => toggleCategory(group.id)}
-                            >
+                            <div className={styles.categoryHeader}>
                                 <span>{group.icon} {group.category}</span>
-                                <span>{openCategories[group.id] ? '▼' : '▶'}</span>
-                            </button>
+                                <span className={styles.categoryArrow}>▶</span>
+                            </div>
 
-                            {openCategories[group.id] && (
-                                <div className={styles.categoryItems}>
-                                    {group.items.map((item) => (
-                                        <button
-                                            key={item.id}
-                                            className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
-                                            onClick={() => setActiveTab(item.id)}
-                                        >
-                                            {item.label}
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
+                            <div className={styles.categoryItems}>
+                                {group.items.map((item) => (
+                                    <button
+                                        key={item.id}
+                                        className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
+                                        onClick={() => setActiveTab(item.id)}
+                                    >
+                                        {item.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     ))}
                 </nav>
