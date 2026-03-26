@@ -20,6 +20,8 @@ import SystemExport from '../../components/SystemExport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
 import AnalyticsControlPanel from '../../components/AnalyticsControlPanel';
 import GlossaryManager from '../../components/GlossaryManager';
+import SimulationSwitchboard from '../../components/SimulationSwitchboard';
+import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -409,6 +411,8 @@ function GodModeDashboard({ authData, onLogout }) {
             id: 'engine',
             items: [
                 { id: 'global_settings', label: 'Global Settings' },
+                { id: 'sim_switchboard', label: '⚡ Sim Switchboard' },
+                { id: 'scorecard_evaluator', label: '📊 Scorecard Evaluator' },
                 { id: 'round_pacing', label: 'Round Pacing' },
                 { id: 'decision_paradigm', label: 'Decision Paradigm' },
                 { id: 'materiality', label: 'Materiality Matrix' },
@@ -461,6 +465,10 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <GodModeAuditLog />;
             case 'global_settings':
                 return <GlobalSettings />;
+            case 'sim_switchboard':
+                return <SimulationSwitchboard />;
+            case 'scorecard_evaluator':
+                return <div style={{padding:'1.5rem'}}><BalancedScorecardEvaluator /></div>;
             case 'materiality':
                 return <MaterialityConfig />;
             case 'master_interventions':

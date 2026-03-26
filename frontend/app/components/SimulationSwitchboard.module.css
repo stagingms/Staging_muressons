@@ -1,0 +1,461 @@
+/* ═══════════════════════════════════════════════════════════════
+   SimulationSwitchboard.module.css
+   God-Mode hacker / terminal aesthetic
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Keyframes ──────────────────────────────────────────────── */
+@keyframes glitch {
+    0%   { transform: translate(0); clip-path: inset(0 0 100% 0); }
+    10%  { transform: translate(-4px, 2px); clip-path: inset(10% 0 80% 0); }
+    20%  { transform: translate(4px, -2px); clip-path: inset(40% 0 50% 0); }
+    30%  { transform: translate(-3px, 3px); clip-path: inset(70% 0 20% 0); }
+    40%  { transform: translate(2px, -1px); clip-path: inset(20% 0 60% 0); }
+    50%  { transform: translate(0); clip-path: inset(0 0 0 0); }
+    100% { transform: translate(0); clip-path: inset(0 0 0 0); }
+}
+
+@keyframes shake {
+    0%,100% { transform: translate(0,0) rotate(0deg); }
+    10%      { transform: translate(-3px, 2px) rotate(-0.3deg); }
+    20%      { transform: translate(3px, -2px) rotate(0.3deg); }
+    30%      { transform: translate(-4px, 1px) rotate(-0.2deg); }
+    40%      { transform: translate(4px, -1px) rotate(0.2deg); }
+    50%      { transform: translate(-2px, 3px) rotate(-0.1deg); }
+    60%      { transform: translate(2px, -3px) rotate(0.1deg); }
+    70%      { transform: translate(-1px, 2px); }
+    80%      { transform: translate(1px, -1px); }
+    90%      { transform: translate(-1px, 0px); }
+}
+
+@keyframes scanline {
+    0%   { transform: translateY(-100%); }
+    100% { transform: translateY(100vh); }
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+}
+
+@keyframes flicker {
+    0%,100% { opacity: 1; }
+    92%     { opacity: 1; }
+    93%     { opacity: 0.4; }
+    94%     { opacity: 1; }
+    96%     { opacity: 0.7; }
+    98%     { opacity: 1; }
+}
+
+@keyframes neonPulse {
+    0%,100% { text-shadow: 0 0 6px #00ff88, 0 0 14px #00ff88; }
+    50%     { text-shadow: 0 0 12px #00ff88, 0 0 28px #00ff88, 0 0 44px #00ff88; }
+}
+
+@keyframes drawLine {
+    from { stroke-dashoffset: 800; }
+    to   { stroke-dashoffset: 0; }
+}
+
+@keyframes fadeInBranch {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Root panel ──────────────────────────────────────────────── */
+.root {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    min-height: 100%;
+    background: #000;
+    font-family: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+    color: #00ff88;
+    position: relative;
+    overflow: hidden;
+}
+
+/* scanline overlay */
+.root::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: rgba(0,255,136,0.07);
+    animation: scanline 6s linear infinite;
+    pointer-events: none;
+    z-index: 9999;
+}
+
+.root.shaking {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* ── Left panel ──────────────────────────────────────────────── */
+.leftPanel {
+    border-right: 1px solid rgba(0,255,136,0.2);
+    padding: 1.5rem 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    background: #050d05;
+    animation: flicker 8s infinite;
+}
+
+/* ── Section headers ─────────────────────────────────────────── */
+.sectionLabel {
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #00ff88;
+    opacity: 0.5;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.sectionLabel::before {
+    content: '//';
+    color: #00ff88;
+    opacity: 0.4;
+}
+
+/* ── Master switch ───────────────────────────────────────────── */
+.masterBlock {
+    padding: 1.25rem;
+    border: 1px solid rgba(0,255,136,0.3);
+    border-radius: 4px;
+    background: rgba(0,255,136,0.04);
+    position: relative;
+}
+
+.masterLabel {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #00ff88;
+    opacity: 0.7;
+    margin-bottom: 1rem;
+}
+
+.masterBtn {
+    width: 100%;
+    padding: 1.25rem 0.5rem;
+    border: 2px solid rgba(0,255,136,0.4);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #00ff88;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.masterBtn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, transparent, rgba(0,255,136,0.06), transparent);
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+}
+.masterBtn:hover::before { transform: translateX(100%); }
+.masterBtn:hover {
+    border-color: #00ff88;
+    box-shadow: 0 0 16px rgba(0,255,136,0.25);
+    color: #fff;
+}
+
+.masterBtnOff {
+    width: 100%;
+    padding: 1.25rem 0.5rem;
+    border: 2px solid rgba(100,100,100,0.4);
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #888;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+.masterBtnOff:hover {
+    border-color: #00ff88;
+    color: #00ff88;
+    box-shadow: 0 0 12px rgba(0,255,136,0.15);
+}
+
+.masterBtnOn {
+    width: 100%;
+    padding: 1.25rem 0.5rem;
+    border: 2px solid #00ff88;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #00ff88;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0,255,136,0.4), inset 0 0 12px rgba(0,255,136,0.08);
+    animation: neonPulse 2s ease-in-out infinite;
+}
+
+/* indicator light */
+.indicator {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.6rem;
+    vertical-align: middle;
+    transition: all 0.3s;
+}
+.indicatorOff {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.6rem;
+    vertical-align: middle;
+    transition: all 0.3s;
+    background: #333;
+    box-shadow: none;
+}
+.indicatorOn {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.6rem;
+    vertical-align: middle;
+    transition: all 0.3s;
+    background: #00ff88;
+    box-shadow: 0 0 6px #00ff88, 0 0 12px #00ff88;
+    animation: blink 1s ease-in-out infinite;
+}
+
+/* ── Status chip ─────────────────────────────────────────────── */
+.statusChip {
+    margin-top: 0.75rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+    padding: 0.3rem 0;
+    border-top: 1px solid rgba(0,255,136,0.15);
+    color: #00ff88;
+    opacity: 0.6;
+}
+.statusChipOn {
+    margin-top: 0.75rem;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-align: center;
+    padding: 0.3rem 0;
+    border-top: 1px solid rgba(0,255,136,0.15);
+    color: #ff4444;
+    opacity: 1;
+    animation: blink 0.8s ease-in-out infinite;
+}
+
+/* ── Sliders section ─────────────────────────────────────────── */
+.slidersBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s;
+}
+.slidersHidden {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s;
+    max-height: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.slidersVisible {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    overflow: hidden;
+    transition: max-height 0.4s ease, opacity 0.3s;
+    max-height: 600px;
+    opacity: 1;
+}
+
+.sliderRow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.sliderMeta {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.sliderName {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #00ff88;
+    opacity: 0.7;
+}
+
+.sliderVal {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #00ff88;
+    text-shadow: 0 0 8px rgba(0,255,136,0.5);
+    min-width: 2.5rem;
+    text-align: right;
+}
+
+.sliderUnit {
+    font-size: 0.6rem;
+    color: #00ff88;
+    opacity: 0.5;
+    margin-left: 2px;
+}
+
+input[type='range'].terminalSlider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 3px;
+    background: rgba(0,255,136,0.15);
+    border-radius: 0;
+    outline: none;
+    cursor: pointer;
+}
+input[type='range'].terminalSlider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    background: #00ff88;
+    border-radius: 0;
+    box-shadow: 0 0 8px rgba(0,255,136,0.8);
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+input[type='range'].terminalSlider::-webkit-slider-thumb:hover {
+    transform: scale(1.3);
+}
+input[type='range'].terminalSlider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    background: #00ff88;
+    border-radius: 0;
+    border: none;
+    box-shadow: 0 0 8px rgba(0,255,136,0.8);
+    cursor: pointer;
+}
+
+.sliderTrackFill {
+    height: 2px;
+    background: linear-gradient(90deg, #00ff88, rgba(0,255,136,0.3));
+    margin-top: -18px;
+    pointer-events: none;
+}
+
+/* ── Right panel ─────────────────────────────────────────────── */
+.rightPanel {
+    display: flex;
+    flex-direction: column;
+    padding: 1.5rem;
+    gap: 1.25rem;
+    background: #020802;
+}
+
+.rightHeader {
+    font-size: 0.6rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: #00ff88;
+    opacity: 0.45;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.rightHeader::before { content: '//'; opacity: 0.4; }
+
+.timelineCard {
+    flex: 1;
+    border: 1px solid rgba(0,255,136,0.18);
+    border-radius: 3px;
+    background: rgba(0,255,136,0.02);
+    overflow: hidden;
+    position: relative;
+}
+
+.timelineSvg {
+    width: 100%;
+    height: 100%;
+    min-height: 320px;
+}
+
+/* ── Terminal readout ────────────────────────────────────────── */
+.terminal {
+    border: 1px solid rgba(0,255,136,0.2);
+    background: #000;
+    border-radius: 3px;
+    padding: 1rem 1.2rem;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    min-height: 90px;
+    position: relative;
+    overflow: hidden;
+}
+
+.terminal::before {
+    content: 'SYSTEM_OUTPUT v2.4.1 > ';
+    font-size: 0.58rem;
+    color: #00ff88;
+    opacity: 0.35;
+    display: block;
+    margin-bottom: 0.3rem;
+    letter-spacing: 0.08em;
+}
+
+.terminalText {
+    color: #00ff88;
+    opacity: 0.85;
+}
+
+.terminalWarning {
+    color: #ff4444;
+    animation: blink 1.4s ease-in-out infinite;
+    font-weight: 700;
+}
+
+.terminalHighlight {
+    color: #00e5ff;
+    font-weight: 700;
+}
+
+.cursor {
+    display: inline-block;
+    width: 8px;
+    height: 1em;
+    background: #00ff88;
+    vertical-align: text-bottom;
+    margin-left: 2px;
+    animation: blink 0.8s step-end infinite;
+}

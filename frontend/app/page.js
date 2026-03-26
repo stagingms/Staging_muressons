@@ -30,6 +30,16 @@ import PeerComparison from './components/PeerComparison';
 import PlayerAnalytics from './components/PlayerAnalytics';
 import soundManager from './utils/soundManager';
 
+// ── Advanced Climate Engine modules (lazy-loaded) ─────────────
+const GreenFundBidding = dynamic(() => import('./components/GreenFundBidding'), { ssr: false });
+const RegulatoryShockModule = dynamic(() => import('./components/RegulatoryShockModule'), { ssr: false });
+const VCMPortfolioBuilder = dynamic(() => import('./components/VCMPortfolioBuilder'), { ssr: false });
+const Scope3ProcurementOptimizer = dynamic(() => import('./components/Scope3ProcurementOptimizer'), { ssr: false });
+const InsettingROICalculator = dynamic(() => import('./components/InsettingROICalculator'), { ssr: false });
+const PolicyWarRoom = dynamic(() => import('./components/PolicyWarRoom'), { ssr: false });
+const ESGRefinancingSimulator = dynamic(() => import('./components/ESGRefinancingSimulator'), { ssr: false });
+const CircularStrategyDashboard = dynamic(() => import('./components/CircularStrategyDashboard'), { ssr: false });
+
 // ── Seed data (mirrors backend baseline) ──────────────────────
 const SEED_GLOBAL = {
   corporate_treasury: 50_000_000,
@@ -335,6 +345,16 @@ export default function CockpitPage() {
   //   game ends → scorecard shown → player clicks Proceed → boardroom → player submits → done
   // boardroomDone prevents re-entering the boardroom when reviewing the scorecard after completion.
 
+  // ── Advanced Climate Engine — completed module tracking ───────
+  // Key: round number → boolean (module shown and completed for this round)
+  const [completedModules, setCompletedModules] = useState({});
+  const markModuleDone = useCallback((round) => {
+    setCompletedModules(prev => ({ ...prev, [round]: true }));
+  }, []);
+
+  // Detect when the simulation mode is advanced climate
+  const isAdvancedClimate = globalState?.simulation_mode === 'advanced_climate';
+
   // ── Auto-clear lock after 30s to let user retry ─────────────
   useEffect(() => {
     if (!sim.roundLocked) return;
@@ -457,6 +477,28 @@ export default function CockpitPage() {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, []);
+
+  // ── Advanced Climate Engine: round-gated module overlays ─────
+  if (isAdvancedClimate && !sim.gameOver) {
+    const round = sim.roundNumber;
+    const sid = sim.sessionId;
+    if (round === 3 && !completedModules[3])
+      return <GreenFundBidding sessionId={sid} onComplete={() => markModuleDone(3)} />;
+    if (round === 4 && !completedModules[4])
+      return <RegulatoryShockModule sessionId={sid} onComplete={() => markModuleDone(4)} />;
+    if (round === 5 && !completedModules[5])
+      return <VCMPortfolioBuilder sessionId={sid} onComplete={() => markModuleDone(5)} />;
+    if (round === 6 && !completedModules[6])
+      return <Scope3ProcurementOptimizer sessionId={sid} onComplete={() => markModuleDone(6)} />;
+    if (round === 7 && !completedModules[7])
+      return <InsettingROICalculator sessionId={sid} onComplete={() => markModuleDone(7)} />;
+    if (round === 8 && !completedModules[8])
+      return <PolicyWarRoom sessionId={sid} onComplete={() => markModuleDone(8)} />;
+    if (round === 9 && !completedModules[9])
+      return <ESGRefinancingSimulator sessionId={sid} onComplete={() => markModuleDone(9)} />;
+    if (round === 10 && !completedModules[10])
+      return <CircularStrategyDashboard sessionId={sid} onComplete={() => markModuleDone(10)} />;
+  }
 
   if (sim.gameOver) {
     if (gameOverPhase === 'scorecard') {
