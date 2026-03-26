@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
 import styles from '../page.module.css';
 
 import MaterialityConfig from '../../components/MaterialityConfig';
@@ -198,6 +199,23 @@ function GodModeLoginGate({ onLogin }) {
                         {loading ? '⏳ Authenticating...' : '👑 Enter God Mode'}
                     </button>
                 </form>
+                <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+                    <Link href="/admin" style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        opacity: 0.7,
+                        transition: 'opacity 0.15s',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = 1}
+                    onMouseLeave={e => e.currentTarget.style.opacity = 0.7}
+                    >
+                        ← Back to Admin Portal
+                    </Link>
+                </div>
             </div>
         </div>
     );

@@ -25,6 +25,8 @@ import StudentBonuses from '../../components/StudentBonuses';
 import SimulationManager from '../../components/SimulationManager';
 import PeerEvaluation from '../../components/PeerEvaluation';
 import BulkMessaging from '../../components/BulkMessaging';
+import UsernamePromptModal from '../../components/UsernamePromptModal';
+import RoundPacingControl from '../../components/RoundPacingControl';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:8000'}`;
@@ -236,6 +238,19 @@ function FacilitatorLoginGate({ onLogin }) {
                         {loading ? '⏳ Authenticating...' : '🔐 Sign In'}
                     </button>
                 </form>
+                <div style={{ textAlign: 'center', marginTop: '1.25rem' }}>
+                    <a href="/admin" style={{
+                        fontSize: '0.8rem',
+                        color: 'var(--text-muted)',
+                        textDecoration: 'none',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.3rem',
+                        opacity: 0.7,
+                    }}>
+                        ← Back to Admin Portal
+                    </a>
+                </div>
             </div>
         </div>
     );
@@ -368,16 +383,22 @@ function FacilitatorDashboard({ authData, onLogout }) {
     );
 
     /* ── Reset handlers ──────────────────────────────────────── */
-    const handleResetSession = useCallback(async (sid, cohortName) => {
+    const handleResetSession = useCallback(async (sid, cohortName, hard = false) => {
         const name = cohortName || leaderboard.find(s => s.session_id === sid)?.cohort_name || sid.slice(0, 12);
         const isPlayer = name.includes('Player');
         const prompt = isPlayer
-            ? `⚠️ Remove "${name}"?\n\nThis will permanently delete this player's session and all their round data.`
-            : `⚠️ Delete cohort "${name}" and ALL its players?\n\nThis will permanently remove the cohort and every player session under it. This action cannot be undone.`;
+            ? `⚠️ Remove "${name}"?\n\nThis will permanently remove this player's session and all their round data.`
+            : `⚠️ Delete cohort "${name}" and ALL its players?\n\nThis will remove the cohort and every player session under it.`;
         if (!confirm(prompt)) return;
-        if (!confirm(`Are you absolutely sure you want to delete "${name}"?\n\nClick OK to confirm deletion.`)) return;
+        if (hard) {
+            if (!confirm(`🧨 HARD DELETE: Are you absolutely sure you want to completely wipe "${name}" today without the 7-day grace period?\n\nClick OK to confirm HARD DELETION.`)) return;
+        } else {
+            if (!confirm(`Are you absolutely sure you want to delete "${name}"?\n\nClick OK to confirm.`)) return;
+        }
+        
         try {
-            const res = await fetch(`${API}/api/admin/${sid}/reset`, { method: 'DELETE' });
+            const endpoint = `${API}/api/admin/${sid}/reset${hard ? '?hard=true' : ''}`;
+            const res = await fetch(endpoint, { method: 'DELETE' });
             if (res.ok) {
                 const data = await res.json();
                 const msg = data.players_removed > 0
@@ -441,6 +462,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
             id: 'actions',
             items: [
                 { id: 'intervention_config', label: 'Intervention Config', component: 'InterventionConfig' },
+                { id: 'round_pacing', label: 'Round Pacing', component: 'RoundPacingControl' },
                 { id: 'manual_override', label: 'Manual Overrides', component: 'ManualOverride' },
                 { id: 'swipe_file', label: 'Swipe File / Inbox', component: 'SwipeFile' },
                 { id: 'broadcast', label: 'Bulk Messaging', component: 'BulkMessaging' },
@@ -471,6 +493,11 @@ function FacilitatorDashboard({ authData, onLogout }) {
     ];
 
     const renderActiveComponent = () => {
+        // Only top-level cohort sessions (no player sub-sessions) owned by this facilitator
+        const ownCohorts = leaderboard.filter(
+            s => !s.player_id && (!s.facilitator_id || s.facilitator_id === authData.facilitator_id)
+        );
+
         switch (activeTab) {
             // ── Overview tabs ──
             case 'dashboard_home':
@@ -507,6 +534,8 @@ function FacilitatorDashboard({ authData, onLogout }) {
             // ── Interventions tabs ──
             case 'intervention_config':
                 return <InterventionConfig sessionId={selectedSession} />;
+            case 'round_pacing':
+                return <RoundPacingControl sessions={ownCohorts} />;
             case 'manual_override':
                 return (
                     <div className={styles.controlsRow}>
@@ -545,9 +574,21 @@ function FacilitatorDashboard({ authData, onLogout }) {
                             </div>
                             <div className={styles.resetBody}>
                                 {selectedSession ? (
-                                    <button className={styles.resetSessionBtn} onClick={() => handleResetSession(selectedSession)}>
-                                        🗑️ Delete Selected Team ({selectedSession.slice(0, 12)}…)
-                                    </button>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                        <button className={styles.resetSessionBtn} onClick={() => handleResetSession(selectedSession, null, false)}>
+                                            🗑️ Soft Delete Selected Team ({selectedSession.slice(0, 12)}…)
+                                        </button>
+                                        {authData?.facilitator_id === 'admin' && (
+                                            <button 
+                                                className={styles.resetSessionBtn} 
+                                                onClick={() => handleResetSession(selectedSession, null, true)}
+                                                style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: '#ef4444' }}
+                                                title="God Mode Only: Bypasses 7-day retention."
+                                            >
+                                                🧨 Hard Delete Team (Immediately Wipe)
+                                            </button>
+                                        )}
+                                    </div>
                                 ) : (
                                     <div style={{ color: 'var(--text-muted)' }}>Select a session in the Leaderboard to delete it individually.</div>
                                 )}
@@ -577,6 +618,21 @@ function FacilitatorDashboard({ authData, onLogout }) {
 
     return (
         <div className={styles.dashboard} data-theme="light">
+            {/* Choose Username Overlay */}
+            {!authData.username && (
+                <div style={{ position: 'fixed', inset: 0, zIndex: 16000 }}>
+                    <UsernamePromptModal 
+                        userId={authData.facilitator_id}
+                        role="facilitator"
+                        onComplete={(newUsername) => {
+                            const updated = { ...authData, username: newUsername };
+                            sessionStorage.setItem('facilitator_auth', JSON.stringify(updated));
+                            window.location.reload(); 
+                        }}
+                    />
+                </div>
+            )}
+            
             {/* ── Change Password Modal ── */}
             {showChangePw && (
                 <FacilitatorChangePasswordModal
@@ -612,7 +668,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                 color: 'var(--text-muted)',
                                 fontWeight: 600,
                             }}>
-                                👤 {authData.name} ({authData.facilitator_id})
+                                👤 {authData.username ? authData.username.toUpperCase() : authData.name} ({authData.facilitator_id})
                             </span>
                             <div style={{ display: 'flex', gap: '4px' }}>
                                 <button

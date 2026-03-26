@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import styles from './DashboardHome.module.css';
+import { formatSessionId } from '../utils/sessionUtils';
 
 export default function DashboardHome({ leaderboard = [], onNavigate }) {
     const stats = useMemo(() => {
@@ -153,7 +154,7 @@ export default function DashboardHome({ leaderboard = [], onNavigate }) {
                                 const isLowCash = treasury < stats.avgTreasury * 0.5;
                                 return (
                                     <tr key={s.session_id}>
-                                        <td className={styles.cohortName}>{s.cohort_name || s.session_id?.slice(0, 12)}</td>
+                                         <td className={styles.cohortName}>{s.cohort_name || formatSessionId(s)}</td>
                                         <td><span className={styles.roundBadge}>R{round}</span></td>
                                         <td>{formatCurrency(treasury)}</td>
                                         <td>

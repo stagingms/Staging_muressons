@@ -127,7 +127,7 @@ export default function InductPlayerModal({ isOpen, onClose, sessions, onInduct 
                                     <option value="" disabled>Select an active session...</option>
                                     {sessions.map(s => (
                                         <option key={s.session_id} value={s.session_id}>
-                                            {s.cohort_name} ({s.session_id.slice(0, 8)})
+                                            {s.cohort_name} ({s.short_code || s.session_id.slice(0, 8)})
                                         </option>
                                     ))}
                                 </select>

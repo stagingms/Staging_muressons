@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './PlayerRegistry.module.css';
+import { getShortCode } from '../utils/sessionUtils';
 
 const ADJECTIVES = ["blue", "swift", "brave", "quiet", "lucky", "bold", "calm", "proud", "wild", "smart"];
 const NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "hawk", "owl"];
@@ -231,7 +232,7 @@ export default function PlayerRegistry({ leaderboard }) {
                             <div key={session.session_id} className={styles.sessionGroup}>
                                 <div className={styles.sessionHeader}>
                                     <div>
-                                        <h3>{session.cohort_name} <span>({session.session_id.slice(0, 8)})</span></h3>
+                                        <h3>{session.cohort_name} <span>({session.short_code || session.session_id.slice(0, 8)})</span></h3>
                                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', alignItems: 'center' }}>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                                                 <input
@@ -446,7 +447,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                 <tr key={p.player_id}>
                                                     <td><strong>{p.name || '—'}</strong></td>
                                                     <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{p.player_id}</td>
-                                                    <td style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{sid.slice(0, 8)}</td>
+                                                    <td style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{getShortCode(sid, sessions)}</td>
                                                     <td>
                                                         <button
                                                             onClick={() => handleDeletePlayer(p.player_id)}

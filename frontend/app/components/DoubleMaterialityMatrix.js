@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     DndContext,
     useDraggable,
@@ -15,6 +15,9 @@ import {
 import styles from './DoubleMaterialityMatrix.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
+
+/* Counter for custom factors */
+let _customFactorCounter = 0;
 
 /**
  * Draggable Issue Chip component
@@ -93,7 +96,7 @@ function DroppableContainer({ id, className, children, label, extraText }) {
 }
 
 /**
- * Custom SVG Cartesian plane for precise 3-zone visual layout
+ * Custom SVG Cartesian plane — no axis numbers, descriptive HIGH/LOW labels
  */
 const CartesianBackground = () => {
     const ticks = [];
@@ -110,37 +113,32 @@ const CartesianBackground = () => {
                 zIndex: 0, pointerEvents: 'none', borderRadius: '0.375rem'
             }}
         >
-            {/* Base Layer - Medium Risk (Yellow) */}
-            <rect width="140" height="140" fill="#fdf0d5" />
+            {/* Base Layer - Medium Risk (Warm amber) */}
+            <rect width="140" height="140" fill="#fef3c7" />
 
-            {/* Low Risk Zone (Green) */}
-            <path d="M 0,140 L 60,140 L 60,95 Q 60,80 45,80 L 0,80 Z" fill="#daebe4" />
+            {/* Low Priority Zone (Soft green) - bottom-left */}
+            <path d="M 0,140 L 60,140 L 60,95 Q 60,80 45,80 L 0,80 Z" fill="#d1fae5" />
 
-            {/* High Risk Zone (Red) */}
-            <path d="M 0,0 L 140,0 L 140,140 L 100,140 L 100,55 Q 100,40 85,40 L 0,40 Z" fill="#fcdada" />
+            {/* High Risk Zone (Vibrant red-pink) - top-right dominant */}
+            <path d="M 0,0 L 140,0 L 140,140 L 100,140 L 100,55 Q 100,40 85,40 L 0,40 Z" fill="#fecaca" />
 
-            {/* Grid lines */}
-            {ticks.map((pos) => {
-                const val = pos - 70;
-                return (
-                    <g key={pos}>
-                        <line x1="0" y1={pos} x2="140" y2={pos} stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-                        <line x1={pos} y1="0" x2={pos} y2="140" stroke="rgba(255,255,255,0.7)" strokeWidth="0.3" />
-                        {/* X-axis labels */}
-                        {pos !== 70 && pos % 20 === 0 && (
-                            <text x={pos} y="137" fontSize="2.8" fontWeight="600" fill="rgba(0,0,0,0.6)" textAnchor="middle">{val}</text>
-                        )}
-                        {/* Y-axis labels */}
-                        {pos !== 70 && pos % 20 === 0 && (
-                            <text x="3" y={pos + 1} fontSize="2.8" fontWeight="600" fill="rgba(0,0,0,0.6)" textAnchor="start">{-val}</text>
-                        )}
-                    </g>
-                );
-            })}
+            {/* Grid lines — subtle */}
+            {ticks.map((pos) => (
+                <g key={pos}>
+                    <line x1="0" y1={pos} x2="140" y2={pos} stroke="rgba(255,255,255,0.55)" strokeWidth="0.25" />
+                    <line x1={pos} y1="0" x2={pos} y2="140" stroke="rgba(255,255,255,0.55)" strokeWidth="0.25" />
+                </g>
+            ))}
 
             {/* Major Axes */}
-            <line x1="0" y1="70" x2="140" y2="70" stroke="rgba(0,0,0,0.4)" strokeWidth="0.6" />
-            <line x1="70" y1="0" x2="70" y2="140" stroke="rgba(0,0,0,0.4)" strokeWidth="0.6" />
+            <line x1="0" y1="70" x2="140" y2="70" stroke="rgba(0,0,0,0.35)" strokeWidth="0.5" />
+            <line x1="70" y1="0" x2="70" y2="140" stroke="rgba(0,0,0,0.35)" strokeWidth="0.5" />
+
+            {/* Axis endpoint labels — descriptive HIGH / LOW */}
+            <text x="135" y="73" fontSize="3.2" fontWeight="800" fill="rgba(0,0,0,0.35)" textAnchor="end" letterSpacing="0.15">HIGH →</text>
+            <text x="5" y="73" fontSize="3.2" fontWeight="800" fill="rgba(0,0,0,0.35)" textAnchor="start" letterSpacing="0.15">← LOW</text>
+            <text x="70" y="5" fontSize="3.2" fontWeight="800" fill="rgba(0,0,0,0.35)" textAnchor="middle" letterSpacing="0.15">HIGH ↑</text>
+            <text x="70" y="139" fontSize="3.2" fontWeight="800" fill="rgba(0,0,0,0.35)" textAnchor="middle" letterSpacing="0.15">↓ LOW</text>
         </svg>
     );
 };
@@ -148,13 +146,19 @@ const CartesianBackground = () => {
 /**
  * Main Double Materiality Matrix Component
  */
-export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = Infinity, initialQ1 = [], globalState = {}, buId = null, buLabel = null }) {
+export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = Infinity, initialQ1 = [], globalState = {}, buId = null, buLabel = null, sessionId = null, onOpenAdvisor = null }) {
     const [issues, setIssues] = useState([]);
     const [consultantFee, setConsultantFee] = useState(1500000);
     const [loading, setLoading] = useState(true);
 
     const [activeId, setActiveId] = useState(null);
     const [consultantUsed, setConsultantUsed] = useState(false);
+    const [consultantAllowed, setConsultantAllowed] = useState(true);
+
+    // Custom factor form
+    const [showAddFactor, setShowAddFactor] = useState(false);
+    const [customTitle, setCustomTitle] = useState('');
+    const [customCategory, setCustomCategory] = useState('ecological');
 
     // Modal states
     const [showConsultantConfirm, setShowConsultantConfirm] = useState(false);
@@ -200,6 +204,43 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
         };
         fetchConfig();
     }, [buId]);
+
+    // Fetch consultant allowed status from facilitator
+    useEffect(() => {
+        if (!sessionId) return;
+        const checkConsultant = async () => {
+            try {
+                // Try session first, then parent cohort
+                const res = await fetch(`${API}/api/admin/consultant-allowed/${sessionId}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setConsultantAllowed(data.consultant_allowed);
+                }
+            } catch { /* default to true */ }
+        };
+        checkConsultant();
+    }, [sessionId]);
+
+    // Add custom factor handler
+    const handleAddCustomFactor = useCallback(() => {
+        if (!customTitle.trim()) return;
+        _customFactorCounter++;
+        const newId = `custom_factor_${_customFactorCounter}_${Date.now()}`;
+        const newIssue = {
+            id: newId,
+            title: customTitle.trim(),
+            category: customCategory,
+            hover_description: `Custom factor added by player: ${customTitle.trim()}`,
+            financial_impact: 'medium',
+            societal_impact: 'medium',
+            mitigation_cost_usd: 0,
+            is_custom: true,
+        };
+        setIssues(prev => [...prev, newIssue]);
+        setContainers(prev => ({ ...prev, bank: [...prev.bank, newId] }));
+        setCustomTitle('');
+        setShowAddFactor(false);
+    }, [customTitle, customCategory]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -307,7 +348,9 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
         }
     };
 
-    const allPlaced = containers.bank.length === 0;
+    const placedCount = containers.q1.length + containers.q2.length + containers.q3.length + containers.q4.length;
+    const MIN_PLACED = 10;
+    const hasEnoughPlaced = placedCount >= MIN_PLACED;
 
     const totalQ1Cost = containers.q1.reduce((sum, id) => {
         const issue = getIssue(id);
@@ -325,7 +368,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     <span>📊</span> {buLabel ? `${buLabel} — ` : ''}CSRD Double Materiality Matrix
                 </h2>
                 <div className={styles.headerActions}>
-                    {!consultantUsed && (
+                    {/* Consultant: only if facilitator allows AND not already used */}
+                    {!consultantUsed && consultantAllowed && (
                         <button
                             className={styles.consultantBtn}
                             onClick={() => setShowConsultantConfirm(true)}
@@ -333,22 +377,37 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             💼 Hire External ESG Consultant (McBain & Partners)
                         </button>
                     )}
+                    {/* If facilitator disabled consultant, show Advisor prompt */}
+                    {!consultantUsed && !consultantAllowed && (
+                        <button
+                            className={styles.advisorPromptBtn}
+                            onClick={() => { if (onOpenAdvisor) { onOpenAdvisor(); } }}
+                        >
+                            🧠 Need Help? Ask the AI Advisor
+                        </button>
+                    )}
                     {consultantUsed && (
                         <span className={styles.consultantBadge}>🔍 Consultant Retained</span>
                     )}
-                    <div style={{ padding: '0 1rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
-                        <span style={{ fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Q1 Budget Limit</span>
-                        <span style={{ fontWeight: 700, fontSize: '0.95rem', color: isOverBudget ? '#ef4444' : '#4ade80' }}>
+                    <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Placed</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: hasEnoughPlaced ? '#4ade80' : '#f59e0b' }}>
+                            {placedCount} / {MIN_PLACED}+
+                        </span>
+                    </div>
+                    <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Q1 Budget</span>
+                        <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isOverBudget ? '#ef4444' : '#4ade80' }}>
                             ${(totalQ1Cost / 1_000_000).toFixed(1)}M / ${(csfPool / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
                     <button
                         className={styles.submitBtn}
-                        disabled={isSubmitting || isOverBudget}
+                        disabled={isSubmitting || isOverBudget || !hasEnoughPlaced}
                         onClick={() => handleSubmit(false)}
-                        title={isOverBudget ? "Your Quadrant 1 CapEx exceeds the total CSF pool balance." : ""}
+                        title={!hasEnoughPlaced ? `Place at least ${MIN_PLACED} issues into quadrants before submitting.` : isOverBudget ? "Your Quadrant 1 CapEx exceeds the total CSF pool balance." : ""}
                     >
-                        {isSubmitting ? 'Submitting...' : 'Submit Matrix to CFO'}
+                        {isSubmitting ? 'Submitting...' : !hasEnoughPlaced ? `Place ${MIN_PLACED - placedCount} More Issues` : 'Submit Matrix to CFO'}
                     </button>
                     {onClose && (
                         <button className={styles.submitBtn} onClick={onClose} style={{ background: 'rgba(255,255,255,0.12)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.2)', boxShadow: 'none' }}>
@@ -376,6 +435,40 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                 return <IssueChip key={id} issue={{ ...issue, mitigation_cost_usd: cost }} isDragging={activeId === id} />;
                             })}
                         </DroppableContainer>
+
+                        {/* Add Custom Factor */}
+                        <div className={styles.addFactorSection}>
+                            {!showAddFactor ? (
+                                <button className={styles.addFactorBtn} onClick={() => setShowAddFactor(true)}>
+                                    + Add Custom Factor
+                                </button>
+                            ) : (
+                                <div className={styles.addFactorForm}>
+                                    <input
+                                        className={styles.addFactorInput}
+                                        type="text"
+                                        placeholder="e.g. Renewable Energy Transition"
+                                        value={customTitle}
+                                        onChange={(e) => setCustomTitle(e.target.value)}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') handleAddCustomFactor(); }}
+                                        autoFocus
+                                    />
+                                    <div className={styles.addFactorRow}>
+                                        <select
+                                            className={styles.addFactorSelect}
+                                            value={customCategory}
+                                            onChange={(e) => setCustomCategory(e.target.value)}
+                                        >
+                                            <option value="ecological">🌱 Ecological</option>
+                                            <option value="social">👥 Social</option>
+                                            <option value="economic">💰 Economic</option>
+                                        </select>
+                                        <button className={styles.addFactorConfirm} onClick={handleAddCustomFactor} disabled={!customTitle.trim()}>Add</button>
+                                        <button className={styles.addFactorCancel} onClick={() => { setShowAddFactor(false); setCustomTitle(''); }}>✕</button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
 
                     {/* Right Pane: The Grid */}
@@ -386,8 +479,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             <div className={styles.matrixGrid}>
                                 <CartesianBackground />
 
-                                {/* Top Left: Low Fin / High Impact */}
-                                <DroppableContainer id="q2" className={styles.quadrant}>
+                                {/* Top Left: Low Fin / High Impact — Monitor & Engage */}
+                                <DroppableContainer id="q2" className={styles.quadrant} extraText="Monitor & Engage">
                                     {containers.q2.map(id => {
                                         const issue = getIssue(id);
                                         if (!issue) return null;
@@ -396,12 +489,12 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                     })}
                                 </DroppableContainer>
 
-                                {/* Top Right: High Fin / High Impact (THE TARGET) */}
+                                {/* Top Right: High Fin / High Impact (THE TARGET) — Prioritise */}
                                 <DroppableContainer
                                     id="q1"
                                     className={`${styles.quadrant} ${styles.quadrant1}`}
                                     label="Quadrant 1"
-                                    extraText="CFO Approved Capital Allocation Zone"
+                                    extraText="CFO Approved — Prioritise"
                                 >
                                     {containers.q1.map(id => {
                                         const issue = getIssue(id);
@@ -411,8 +504,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                     })}
                                 </DroppableContainer>
 
-                                {/* Bottom Left: Low Fin / Low Impact */}
-                                <DroppableContainer id="q4" className={styles.quadrant}>
+                                {/* Bottom Left: Low Fin / Low Impact — Low Priority */}
+                                <DroppableContainer id="q4" className={styles.quadrant} extraText="Low Priority">
                                     {containers.q4.map(id => {
                                         const issue = getIssue(id);
                                         if (!issue) return null;
@@ -421,8 +514,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                     })}
                                 </DroppableContainer>
 
-                                {/* Bottom Right: High Fin / Low Impact */}
-                                <DroppableContainer id="q3" className={styles.quadrant}>
+                                {/* Bottom Right: High Fin / Low Impact — Watch & Manage */}
+                                <DroppableContainer id="q3" className={styles.quadrant} extraText="Watch & Manage">
                                     {containers.q3.map(id => {
                                         const issue = getIssue(id);
                                         if (!issue) return null;

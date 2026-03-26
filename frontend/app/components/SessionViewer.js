@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './SessionViewer.module.css';
 import { Abbr } from './Glossary';
+import { formatSessionId, getShortCode } from '../utils/sessionUtils';
+
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -114,8 +116,8 @@ export default function SessionViewer({ leaderboard }) {
                             className={styles.selectorCard}
                             onClick={() => openSingle(s.session_id)}
                         >
-                            <span className={styles.selectorName}>
-                                {s.cohort_name || s.session_id.slice(0, 8)}
+                                <span className={styles.selectorName}>
+                                {s.cohort_name || formatSessionId(s)}
                             </span>
                             <span className={styles.selectorRound}>
                                 R{s.round_number}/10
@@ -157,7 +159,7 @@ function SessionCard({ sessionId, data, leaderboardEntry, isSelected, onSelect, 
     const gs = data?.global_state || {};
     const bus = data?.business_units || [];
     const round = data?.current_round || leaderboardEntry?.round_number || '?';
-    const cohort = leaderboardEntry?.cohort_name || sessionId.slice(0, 12);
+    const cohort = leaderboardEntry?.cohort_name || formatSessionId(leaderboardEntry) || sessionId.slice(0, 12);
 
     const treasury = gs.corporate_treasury || leaderboardEntry?.total_cash || 0;
     const reputation = gs.group_reputation || leaderboardEntry?.group_reputation || 0;
@@ -274,7 +276,7 @@ function SessionCard({ sessionId, data, leaderboardEntry, isSelected, onSelect, 
 
             {/* Session ID footer */}
             <div className={styles.cardFooter}>
-                <code className={styles.sessionIdCode}>{sessionId.slice(0, 16)}…</code>
+                <code className={styles.sessionIdCode}>{leaderboardEntry?.short_code || sessionId.slice(0, 8)}</code>
             </div>
         </div>
     );

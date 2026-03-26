@@ -51,6 +51,7 @@ _DEFAULT_FACILITATOR = {
     "max_cohorts": 5,
     "cohorts_created": 0,
     "is_admin": True,
+    "enabled": True,
 }
 
 def _load_facilitator_registry() -> list[dict]:
@@ -90,6 +91,7 @@ async def list_facilitators(unmask: bool = False):
     """List facilitators. Passwords are masked unless ?unmask=true."""
     result = []
     for f in _facilitator_registry:
+        if f.get("deleted_at"): continue
         entry = {**f, "password": f["password"] if unmask else "••••••"}
         result.append(entry)
     return {"facilitators": result}
@@ -106,6 +108,7 @@ async def create_facilitator(req: FacilitatorCreateRequest):
         "max_cohorts": 5,
         "cohorts_created": 0,
         "is_admin": False,
+        "enabled": True,
     }
     _next_facilitator_id += 1
     _facilitator_registry.append(fac)
@@ -114,12 +117,19 @@ async def create_facilitator(req: FacilitatorCreateRequest):
 
 
 @admin_router.delete("/facilitators/{fac_id}", summary="Delete a facilitator")
-async def delete_facilitator(fac_id: str):
+async def delete_facilitator(fac_id: str, hard: bool = False):
     global _facilitator_registry
-    before = len(_facilitator_registry)
-    _facilitator_registry = [f for f in _facilitator_registry if f["facilitator_id"] != fac_id]
-    if len(_facilitator_registry) == before:
-        raise HTTPException(404, f"Facilitator {fac_id} not found")
+    if hard:
+        before = len(_facilitator_registry)
+        _facilitator_registry = [f for f in _facilitator_registry if f["facilitator_id"] != fac_id]
+        if len(_facilitator_registry) == before:
+            raise HTTPException(404, f"Facilitator {fac_id} not found")
+    else:
+        fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+        if not fac:
+            raise HTTPException(404, f"Facilitator {fac_id} not found")
+        fac["deleted_at"] = datetime.now(timezone.utc).isoformat()
+        
     _persist_facilitators()
     return {"status": "deleted", "facilitator_id": fac_id}
 
@@ -143,7 +153,7 @@ async def facilitator_login(body: dict = Body(...)):
         _persist_facilitators()
     if not fac or (password != "321" and fac["password"] != password):
         raise HTTPException(403, "Invalid facilitator ID or password")
-    return {"status": "success", "facilitator_id": fac["facilitator_id"], "name": fac["name"]}
+    return {"status": "success", "facilitator_id": fac["facilitator_id"], "name": fac["name"], "username": fac.get("username", "")}
 
 
 @admin_router.post("/facilitators/change-password", summary="Change facilitator password")
@@ -178,13 +188,34 @@ async def update_cohort_limit(fac_id: str, body: dict = Body(...)):
     return fac
 
 
+@admin_router.put("/facilitators/{fac_id}/enabled", summary="Enable or disable a facilitator")
+async def toggle_facilitator_enabled(fac_id: str, body: dict = Body(...)):
+    enabled = body.get("enabled")
+    if enabled is None or not isinstance(enabled, bool):
+        raise HTTPException(400, "'enabled' must be a boolean")
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, f"Facilitator {fac_id} not found")
+    fac["enabled"] = enabled
+    _persist_facilitators()
+    return fac
+
+
 def check_and_increment_cohort_count(facilitator_id: str) -> bool:
     """Check if facilitator can create another cohort. If yes, increment and return True."""
     if not facilitator_id:
         return True  # No facilitator specified — no limit enforced
+    # Global toggle: if disabled, only admin facilitators may create
+    if not _god_mode_settings.get("allow_facilitator_cohort_creation", True):
+        fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
+        if not fac or not fac.get("is_admin"):
+            return False
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
     if not fac:
         return True  # Unknown facilitator — allow (auto-created via master password)
+    # Per-facilitator enabled check
+    if not fac.get("enabled", True):
+        return False
     max_c = fac.get("max_cohorts", 5)
     created = fac.get("cohorts_created", 0)
     if created >= max_c:
@@ -450,7 +481,8 @@ async def update_decision_config(req: OverridesUpdateRequest):
 class RoundPacingRequest(BaseModel):
     mode: str = "free"              # "free" | "manual" | "timed"
     interval_seconds: int = 300     # Used when mode = "timed" (0 = immediate)
-    scheduled_at: str | None = None # ISO datetime for scheduled unlock
+    scheduled_at: str | None = None # ISO datetime for single scheduled unlock
+    schedule: list[str | None] = [] # ISO datetimes for each round (index 0 = round 1)
 
 # Per-session pacing config: {session_id: {mode, unlocked_round, interval_seconds, timer_task}}
 _round_pacing: dict[str, dict] = {}
@@ -464,9 +496,15 @@ def _get_pacing(session_id: str) -> dict:
             "unlocked_round": 999,   # free = all rounds unlocked
             "interval_seconds": 300,
             "next_unlock_at": None,
-            "_timer_task": None,
+            "schedule": [],           # list of ISO datetimes, one per round
+            "_timer_tasks": [],       # list of asyncio Tasks (one per scheduled round)
+            "_timer_task": None,      # legacy single-shot task
         }
-    return _round_pacing[session_id]
+    p = _round_pacing[session_id]
+    # Back-fill new fields for old in-memory entries
+    p.setdefault("schedule", [])
+    p.setdefault("_timer_tasks", [])
+    return p
 
 
 def is_round_unlocked(session_id: str, round_number: int) -> bool:
@@ -647,6 +685,39 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
         pass
 
 
+async def _multi_round_unlock_task(session_id: str, round_number: int, delay_seconds: float):
+    """Background task: unlock a specific round at a scheduled time."""
+    try:
+        if delay_seconds > 0:
+            await asyncio.sleep(delay_seconds)
+
+        pacing = _round_pacing.get(session_id)
+        if not pacing or pacing["mode"] != "timed":
+            return
+
+        # Only advance if we haven't already passed this round
+        if pacing["unlocked_round"] >= round_number:
+            return
+
+        pacing["unlocked_round"] = round_number
+
+        # Broadcast unlock to players and admin
+        await manager.push_to_session(session_id, {
+            "type": "round_unlocked",
+            "unlocked_round": round_number,
+            "mode": "timed",
+        })
+        await manager.broadcast_admin({
+            "type": "pacing_update",
+            "session_id": session_id,
+            "unlocked_round": round_number,
+            "mode": "timed",
+        })
+        print(f"[SCHEDULED] Round {round_number} unlocked for session {session_id[:8]}…")
+    except asyncio.CancelledError:
+        pass
+
+
 @admin_router.get("/sessions/{session_id}/pacing", summary="Get round pacing config")
 async def get_pacing(session_id: str):
     pacing = _get_pacing(session_id)
@@ -655,6 +726,7 @@ async def get_pacing(session_id: str):
         "unlocked_round": pacing["unlocked_round"],
         "interval_seconds": pacing["interval_seconds"],
         "next_unlock_at": pacing.get("next_unlock_at"),
+        "schedule": pacing.get("schedule", []),
     }
 
 
@@ -662,10 +734,16 @@ async def get_pacing(session_id: str):
 async def set_pacing(session_id: str, body: RoundPacingRequest):
     pacing = _get_pacing(session_id)
 
-    # Cancel existing timer if any
+    # Cancel existing single-shot timer if any
     if pacing.get("_timer_task") and not pacing["_timer_task"].done():
         pacing["_timer_task"].cancel()
         pacing["_timer_task"] = None
+
+    # Cancel all multi-round timer tasks
+    for task in pacing.get("_timer_tasks", []):
+        if task and not task.done():
+            task.cancel()
+    pacing["_timer_tasks"] = []
 
     pacing["mode"] = body.mode
     pacing["interval_seconds"] = body.interval_seconds
@@ -673,26 +751,52 @@ async def set_pacing(session_id: str, body: RoundPacingRequest):
     if body.mode == "free":
         pacing["unlocked_round"] = 999
         pacing["next_unlock_at"] = None
+        pacing["schedule"] = []
     elif body.mode == "manual":
-        # Keep current unlocked_round (at least 1)
         pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
         pacing["next_unlock_at"] = None
+        pacing["schedule"] = []
     elif body.mode == "timed":
         pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
 
-        if body.interval_seconds == 0:
-            # Immediate unlock — no timer needed
+        # ── Multi-round schedule (new feature) ──────────────────
+        if body.schedule:
+            pacing["schedule"] = list(body.schedule)
+            now = datetime.now(timezone.utc)
+            for round_idx, scheduled_iso in enumerate(body.schedule):
+                if not scheduled_iso:
+                    continue
+                round_number = round_idx + 1
+                try:
+                    target = datetime.fromisoformat(scheduled_iso.replace("Z", "+00:00"))
+                    if target.tzinfo is None:
+                        target = target.replace(tzinfo=timezone.utc)
+                    delay = max(0.0, (target - now).total_seconds())
+                    task = asyncio.create_task(
+                        _multi_round_unlock_task(session_id, round_number, delay)
+                    )
+                    pacing["_timer_tasks"].append(task)
+                except Exception as exc:
+                    print(f"[PACING] Could not schedule round {round_number}: {exc}")
+            # Set next_unlock_at to the first future datetime in the schedule
+            first_future = next(
+                (s for s in body.schedule if s), None
+            )
+            pacing["next_unlock_at"] = first_future
+
+        # ── Single-shot (legacy) ────────────────────────────────
+        elif body.interval_seconds == 0:
             pacing["unlocked_round"] += 1
             pacing["next_unlock_at"] = None
+            pacing["schedule"] = []
         else:
-            # Schedule unlock after delay
+            from datetime import timedelta
             if body.scheduled_at:
                 pacing["next_unlock_at"] = body.scheduled_at
             else:
-                from datetime import timedelta
                 unlock_time = datetime.now(timezone.utc) + timedelta(seconds=body.interval_seconds)
                 pacing["next_unlock_at"] = unlock_time.isoformat()
-
+            pacing["schedule"] = []
             pacing["_timer_task"] = asyncio.create_task(
                 _scheduled_unlock_task(session_id, body.interval_seconds)
             )
@@ -703,6 +807,7 @@ async def set_pacing(session_id: str, body: RoundPacingRequest):
         "mode": pacing["mode"],
         "unlocked_round": pacing["unlocked_round"],
         "interval_seconds": pacing["interval_seconds"],
+        "schedule": pacing.get("schedule", []),
     })
 
     return {
@@ -710,6 +815,7 @@ async def set_pacing(session_id: str, body: RoundPacingRequest):
         "unlocked_round": pacing["unlocked_round"],
         "interval_seconds": pacing["interval_seconds"],
         "next_unlock_at": pacing.get("next_unlock_at"),
+        "schedule": pacing.get("schedule", []),
     }
 
 
@@ -850,7 +956,8 @@ async def list_players():
             for p in sess.get("registered_players", []):
                 if not any(r["player_id"] == p["player_id"] for r in _player_registry):
                     _player_registry.append(p)
-    return {"players": _player_registry}
+    active_players = [p for p in _player_registry if not p.get("deleted_at")]
+    return {"players": active_players}
 
 
 @admin_router.put("/{session_id}/public-status", summary="Toggle session public visibility")
@@ -1031,16 +1138,30 @@ async def clear_all_players():
 
 
 @admin_router.delete("/sessions/{session_id}", summary="Delete a session/cohort")
-async def delete_session(session_id: str):
+async def delete_session(session_id: str, hard: bool = False):
     """Remove a session and all associated players from the registry."""
     global _player_registry
-    deleted = await db.delete_session(session_id)
+    deleted = await db.delete_session(session_id, hard=hard)
     if not deleted:
         raise HTTPException(404, "Session not found")
-    # Remove associated players
-    before = len(_player_registry)
-    _player_registry = [p for p in _player_registry if p.get("session_id") != session_id]
-    removed_players = before - len(_player_registry)
+        
+    children = await db.get_child_sessions(session_id)
+    for child in children:
+        await db.delete_session(child["session_id"], hard=hard)
+        
+    # Remove associated players if hard delete, otherwise soft delete them
+    if hard:
+        before = len(_player_registry)
+        _player_registry = [p for p in _player_registry if p.get("session_id") != session_id]
+        removed_players = before - len(_player_registry)
+    else:
+        now_str = datetime.now(timezone.utc).isoformat()
+        removed_players = 0
+        for p in _player_registry:
+            if p.get("session_id") == session_id and not p.get("deleted_at"):
+                p["deleted_at"] = now_str
+                removed_players += 1
+                
     await manager.broadcast_admin({"type": "session_deleted", "session_id": session_id})
     return {"status": "deleted", "session_id": session_id, "players_removed": removed_players}
 
@@ -2920,6 +3041,24 @@ async def set_quiz_enabled(session_id: str, body: dict = Body(...)):
     return {"status": "updated", "session_id": session_id, "quiz_enabled": _quiz_enabled[session_id]}
 
 
+# ── Per-Cohort Consultant Allowed State ──────────────────────────
+
+_consultant_allowed: dict[str, bool] = {}  # session_id → allowed (default True)
+
+
+@admin_router.get("/consultant-allowed/{session_id}", summary="Check if ESG consultant is allowed for a cohort")
+async def get_consultant_allowed(session_id: str):
+    allowed = _consultant_allowed.get(session_id, True)  # Default: allowed
+    return {"session_id": session_id, "consultant_allowed": allowed}
+
+
+@admin_router.put("/consultant-allowed/{session_id}", summary="Enable or disable ESG consultant for a cohort")
+async def set_consultant_allowed(session_id: str, body: dict = Body(...)):
+    allowed = body.get("consultant_allowed", True)
+    _consultant_allowed[session_id] = bool(allowed)
+    return {"status": "updated", "session_id": session_id, "consultant_allowed": _consultant_allowed[session_id]}
+
+
 # ═════════════════════════════════════════════════════════════════
 #  MASTER INTERVENTIONS DATABASE (God Mode)
 # ═════════════════════════════════════════════════════════════════
@@ -3006,6 +3145,7 @@ async def upsert_master_override(body: dict = Body(...)):
     else:
         _master_overrides.append(body)
     return {"status": "saved", "override": body}
+
 
 
 @admin_router.post(
@@ -3117,46 +3257,72 @@ async def session_websocket(websocket: WebSocket, session_id: str):
 
 @admin_router.post(
     "/{session_id}/undo-round",
-    summary="Undo the latest round for a session (rollback)",
+    summary="Undo round(s) — optionally roll back to a specific target round",
 )
-async def undo_round(session_id: str, cohort_wide: bool = False):
+async def undo_round(session_id: str, cohort_wide: bool = False, target_round: int = None):
     """
-    Deletes the latest round's state and audit log, reverting the session
-    to the previous round. Cannot undo Round 1. Allows recursive undo for cohorts.
+    Deletes round state(s) reverting the session back.
+
+    - No target_round → reverts exactly one round (previous behaviour).
+    - target_round=N  → keeps undoing until current_round == N (multi-round rollback).
     """
     targets = [session_id]
     if cohort_wide:
         all_sessions = await db.fetch_all_sessions()
         children = [s["session_id"] for s in all_sessions if s.get("parent_cohort_id") == session_id]
         targets.extend(children)
-        
+
     last_res = None
+
     for tgt in set(targets):
-        result = await db.undo_latest_round(tgt)
-        if not result.get("success"):
-            if tgt == session_id:
-                raise HTTPException(status_code=400, detail=result.get("reason", "Undo failed"))
+        rounds_data = _global_states.get(tgt, [])
+        if not rounds_data:
             continue
-            
-        last_res = result
-        
-        # Broadcast to players
-        await manager.push_to_session(tgt, {
-            "type": "round_undone",
-            "deleted_round": result["deleted_round"],
-            "new_current_round": result["new_current_round"],
-        })
-        await manager.broadcast_admin({
-            "type": "round_undone",
-            "session_id": tgt,
-            "deleted_round": result["deleted_round"],
-            "new_current_round": result["new_current_round"],
-        })
+        current = rounds_data[-1]["round_number"]
+        stop_at = max(1, target_round) if target_round is not None else current - 1
+
+        if stop_at >= current:
+            if tgt == session_id:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Target round {stop_at} must be less than current round {current}."
+                )
+            continue
+
+        # Loop: undo one round at a time until we reach stop_at
+        while True:
+            rounds_data = _global_states.get(tgt, [])
+            if not rounds_data:
+                break
+            current = rounds_data[-1]["round_number"]
+            if current <= stop_at:
+                break
+
+            result = await db.undo_latest_round(tgt)
+            if not result.get("success"):
+                if tgt == session_id:
+                    raise HTTPException(status_code=400, detail=result.get("reason", "Undo failed"))
+                break
+
+            last_res = result
+
+            await manager.push_to_session(tgt, {
+                "type": "round_undone",
+                "deleted_round": result["deleted_round"],
+                "new_current_round": result["new_current_round"],
+            })
+            await manager.broadcast_admin({
+                "type": "round_undone",
+                "session_id": tgt,
+                "deleted_round": result["deleted_round"],
+                "new_current_round": result["new_current_round"],
+            })
 
     if not last_res:
-        raise HTTPException(status_code=400, detail="Undo failed")
-        
+        raise HTTPException(status_code=400, detail="Undo failed — nothing to roll back")
+
     return last_res
+
 
 
 # ═════════════════════════════════════════════════════════════════

@@ -97,7 +97,17 @@ export default function StockPerformanceChart({
     // val is the 'day' from the dataKey
     const point = filteredData.find(d => d.day === val);
     if (!point) return '';
+    if (point.round === 0) return 'IPO';
     return point.label || '';
+  }, [filteredData]);
+
+  // Build custom ticks: only the day indices that carry a year label
+  const xTicks = useMemo(() => {
+    const ticks = [];
+    for (const d of filteredData) {
+      if (d.round === 0 || d.label) ticks.push(d.day);
+    }
+    return ticks;
   }, [filteredData]);
 
   return (
@@ -149,7 +159,7 @@ export default function StockPerformanceChart({
               tickLine={false}
               axisLine={false}
               tickFormatter={fmtXAxis}
-              interval="preserveStartEnd"
+              ticks={xTicks}
             />
 
             <YAxis

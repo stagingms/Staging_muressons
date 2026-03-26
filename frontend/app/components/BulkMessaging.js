@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import styles from './BulkMessaging.module.css';
+import { formatSessionId } from '../utils/sessionUtils';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
+
 
 export default function BulkMessaging({ leaderboard = [] }) {
     const [title, setTitle] = useState('');
@@ -84,7 +86,7 @@ export default function BulkMessaging({ leaderboard = [] }) {
                                 className={`${styles.chip} ${selectedSessions.includes(s.session_id) ? styles.chipActive : ''}`}
                                 onClick={() => toggleSession(s.session_id)}
                             >
-                                {s.cohort_name || s.session_id?.slice(0, 10)}
+                                {s.cohort_name || formatSessionId(s)}
                             </button>
                         ))}
                     </div>

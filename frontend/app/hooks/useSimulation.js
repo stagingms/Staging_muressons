@@ -15,6 +15,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
  */
 export default function useSimulation() {
     const [sessionId, setSessionId] = useState(null);
+    const [username, setUsernameState] = useState('');
     const [roundNumber, setRoundNumber] = useState(1);
     const [globalState, setGlobalState] = useState(null);
     const [businessUnits, setBusinessUnits] = useState([]);
@@ -32,6 +33,21 @@ export default function useSimulation() {
     // Track round to auto-open crisis modal
     const prevRoundRef = useRef(1);
     const [roundChanged, setRoundChanged] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const savedUsername = localStorage.getItem('muressons_username');
+            if (savedUsername) setUsernameState(savedUsername);
+        }
+    }, []);
+
+    const setUsername = useCallback((val) => {
+        setUsernameState(val);
+        if (typeof window !== 'undefined') {
+            if (val) localStorage.setItem('muressons_username', val);
+            else localStorage.removeItem('muressons_username');
+        }
+    }, []);
 
     // ── Fetch round config ───────────────────────────────────
     const fetchRoundConfig = useCallback(async (roundNum) => {
@@ -222,6 +238,9 @@ export default function useSimulation() {
             const loginData = await res.json();
             const playerSessionId = loginData.session_id;
             setSessionId(playerSessionId);
+            if (loginData.username) {
+                setUsername(loginData.username);
+            }
             if (typeof window !== 'undefined') {
                 localStorage.setItem('muressons_session_id', playerSessionId);
             }
@@ -487,6 +506,7 @@ export default function useSimulation() {
     return {
         // State
         sessionId,
+        username,
         roundNumber,
         globalState,
         businessUnits,
@@ -505,6 +525,7 @@ export default function useSimulation() {
         practiceReset,
 
         // Actions
+        setUsername,
         startSession,
         joinSession,
         playerLogin,

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import styles from './RoundTimeline.module.css';
+import { formatSessionId } from '../utils/sessionUtils';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -54,7 +55,7 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
                     <div className={styles.overviewGrid}>
                         {leaderboard.slice(0, 10).map(s => (
                             <div key={s.session_id} className={styles.overviewCard}>
-                                <span className={styles.overviewName}>{s.cohort_name || s.session_id?.slice(0, 12)}</span>
+                                <span className={styles.overviewName}>{s.cohort_name || formatSessionId(s)}</span>
                                 <div className={styles.miniTimeline}>
                                     {rounds.map(r => (
                                         <div key={r} className={`${styles.miniDot} ${r < (s.round_number || 1) ? styles.miniComplete : r === (s.round_number || 1) ? styles.miniActive : styles.miniLocked}`} />

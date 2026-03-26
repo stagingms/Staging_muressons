@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import styles from './ReportsExport.module.css';
+import { formatSessionId } from '../utils/sessionUtils';
 
 export default function ReportsExport({ leaderboard = [] }) {
     const [exportFormat, setExportFormat] = useState('csv');
@@ -9,7 +10,8 @@ export default function ReportsExport({ leaderboard = [] }) {
     const formatCurrency = (val) => val >= 1e6 ? `$${(val / 1e6).toFixed(1)}M` : `$${val?.toFixed(0) || '0'}`;
 
     const reportData = useMemo(() => leaderboard.map(s => ({
-        cohort: s.cohort_name || s.session_id?.slice(0, 16),
+        cohort: s.cohort_name || formatSessionId(s),
+        short_code: s.short_code || s.session_id?.slice(0, 8),
         session_id: s.session_id,
         round: s.round_number || 1,
         treasury: s.total_cash || s.corporate_treasury || 0,

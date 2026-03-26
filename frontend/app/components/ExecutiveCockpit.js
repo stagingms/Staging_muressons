@@ -321,6 +321,11 @@ export default function ExecutiveCockpit({
         <div className={styles.headerLogo}>
           <span className={styles.logoMark}>M</span>
           MURESSONS
+          {sim?.username && (
+             <span style={{ marginLeft: 16, fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>
+               WELCOME {sim.username.toUpperCase()}
+             </span>
+          )}
         </div>
 
         <div className={styles.headerCenter}>

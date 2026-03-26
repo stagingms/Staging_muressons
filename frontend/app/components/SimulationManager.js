@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import styles from './SimulationManager.module.css';
 import CreateCohortModal from './CreateCohortModal';
+import { formatSessionId } from '../utils/sessionUtils';
 
 export default function SimulationManager({ leaderboard = [], onSessionCreated }) {
     const [createOpen, setCreateOpen] = useState(false);
@@ -63,7 +64,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated }
                             <div className={styles.sessionList}>
                                 {g.sessions.map(s => (
                                     <div key={s.session_id} className={styles.sessionItem}>
-                                        <span className={styles.sessionName}>{s.cohort_name || s.session_id?.slice(0, 14)}</span>
+                                        <span className={styles.sessionName}>{s.cohort_name || formatSessionId(s)}</span>
                                         <span className={styles.sessionRound}>R{s.round_number || 1}</span>
                                         <span className={styles.sessionTreasury}>{formatCurrency(s.total_cash || s.corporate_treasury || 0)}</span>
                                     </div>

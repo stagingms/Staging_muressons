@@ -100,11 +100,38 @@ def _load_from_disk():
         for sid, rounds in raw_bu.items():
             _bu_states[sid] = {int(rn): bus for rn, bus in rounds.items()}
 
+        _cleanup_expired_records()
+
         session_count = len([s for s in _sessions.values() if not s.get("parent_cohort_id")])
         print(f"[persistence] Restored {session_count} cohort(s) from snapshot.")
     except Exception as e:
         print(f"[persistence] Failed to load snapshot: {e}")
 
+from datetime import timedelta
+def _cleanup_expired_records():
+    """Hard delete records that were soft-deleted more than 7 days ago."""
+    global _sessions, _global_states, _bu_states, _decision_log
+    now = datetime.now(timezone.utc)
+    expired_sids = []
+    
+    for sid, sess in list(_sessions.items()):
+        deleted_at_str = sess.get("deleted_at")
+        if deleted_at_str:
+            try:
+                deleted_at = datetime.fromisoformat(deleted_at_str)
+                if now - deleted_at > timedelta(days=7):
+                    expired_sids.append(sid)
+            except Exception:
+                pass
+                
+    for sid in expired_sids:
+        _sessions.pop(sid, None)
+        _global_states.pop(sid, None)
+        _bu_states.pop(sid, None)
+        
+    if expired_sids:
+        _decision_log = [d for d in _decision_log if d.get("session_id") not in expired_sids]
+        print(f"[persistence] Hard deleted {len(expired_sids)} expired sessions.")
 
 # ── Auto-load on import ────────────────────────────────────────
 _load_from_disk()
@@ -117,6 +144,22 @@ async def get_pool():
 
 async def close_pool():
     pass
+
+
+# ── Session Short Code Generator ───────────────────────────────
+
+import random as _random
+import string as _string
+
+def _generate_short_code() -> str:
+    """Generate a unique human-friendly session identifier like SIM-A3K7."""
+    existing_codes = {s.get("short_code") for s in _sessions.values()}
+    for _ in range(1000):
+        code = "SIM-" + "".join(_random.choices(_string.ascii_uppercase + _string.digits, k=4))
+        if code not in existing_codes:
+            return code
+    # Fallback: extend to 6 chars
+    return "SIM-" + "".join(_random.choices(_string.ascii_uppercase + _string.digits, k=6))
 
 
 # ── Session Operations ──────────────────────────────────────────
@@ -146,8 +189,12 @@ async def create_session(
 
     gs = seed["global_state"]
 
+    # Generate a friendly short code for top-level cohort sessions
+    short_code = _generate_short_code() if not parent_cohort_id else None
+
     _sessions[session_id] = {
         "session_id": session_id,
+        "short_code": short_code,
         "cohort_name": cohort_name,
         "facilitator_id": facilitator_id,
         "start_time": datetime.now(timezone.utc),
@@ -481,9 +528,15 @@ async def get_child_sessions(session_id: str) -> list[dict]:
 
 async def fetch_all_sessions() -> list[dict]:
     """Return only top-level cohort sessions for the admin leaderboard (excludes per-player sub-sessions)."""
+    # Back-fill short codes for sessions that predate this feature
+    for s in _sessions.values():
+        if not s.get("short_code") and not s.get("parent_cohort_id"):
+            s["short_code"] = _generate_short_code()
+
     return [
         {
             "session_id": s["session_id"],
+            "short_code": s.get("short_code"),
             "cohort_name": s["cohort_name"],
             "facilitator_id": s["facilitator_id"],
             "start_time": s["start_time"].isoformat() if s.get("start_time") else None,
@@ -492,12 +545,13 @@ async def fetch_all_sessions() -> list[dict]:
             "player_id": s.get("player_id"),
             "parent_cohort_id": s.get("parent_cohort_id"),
             "registered_players": s.get("registered_players", []),
+            "deleted_at": s.get("deleted_at"),
         }
         for s in sorted(
             _sessions.values(),
             key=lambda x: x.get("start_time", datetime.min.replace(tzinfo=timezone.utc)),
             reverse=True,
-        )
+        ) if not s.get("deleted_at")
     ]
 
 
@@ -555,27 +609,40 @@ async def update_latest_global_state(
 
 # ── Reset / Delete Operations ─────────────────────────────────
 
-async def delete_session(session_id: str) -> bool:
+async def delete_session(session_id: str, hard: bool = False) -> bool:
     """Delete a single session and all its state. Returns True if found."""
     found = session_id in _sessions
-    _sessions.pop(session_id, None)
-    _global_states.pop(session_id, None)
-    _bu_states.pop(session_id, None)
-    # Remove decisions for this session
-    global _decision_log
-    _decision_log = [d for d in _decision_log if d.get("session_id") != session_id]
+    if not found:
+        return False
+        
+    if hard:
+        _sessions.pop(session_id, None)
+        _global_states.pop(session_id, None)
+        _bu_states.pop(session_id, None)
+        global _decision_log
+        _decision_log = [d for d in _decision_log if d.get("session_id") != session_id]
+    else:
+        _sessions[session_id]["deleted_at"] = datetime.now(timezone.utc).isoformat()
+        
     _persist()
-    return found
+    return True
 
 
-async def delete_all_sessions() -> int:
+async def delete_all_sessions(hard: bool = False) -> int:
     """Delete ALL sessions. Returns the count of sessions deleted."""
     count = len(_sessions)
-    _sessions.clear()
-    _global_states.clear()
-    _bu_states.clear()
-    global _decision_log
-    _decision_log = []
+    if hard:
+        _sessions.clear()
+        _global_states.clear()
+        _bu_states.clear()
+        global _decision_log
+        _decision_log = []
+    else:
+        now_str = datetime.now(timezone.utc).isoformat()
+        for sess in _sessions.values():
+            if not sess.get("deleted_at"):
+                sess["deleted_at"] = now_str
+                
     _persist()
     return count
 

@@ -551,6 +551,7 @@
 
 .trendChart {
     padding: 0.6rem 0.4rem 0.4rem;
+    min-height: 100px;
 }
 
 /* ── Responsive ────────────────────────────────────────────── */

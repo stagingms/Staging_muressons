@@ -277,21 +277,6 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
         .filter(([, val]) => val !== 0)
         .map(([key, val]) => ({ key, value: val }));
 
-    // Fetch leaderboard
-    const API = process.env.NEXT_PUBLIC_API_URL || '';
-    const fetchLeaderboard = useCallback(async () => {
-        try {
-            const res = await fetch(`${API}/api/admin/leaderboard`);
-            if (res.ok) {
-                const data = await res.json();
-                setLeaderboard(data.leaderboard || []);
-            }
-        } catch { /* ignore in solo */ }
-    }, [API]);
-
-    useEffect(() => {
-        fetchLeaderboard();
-    }, [fetchLeaderboard]);
 
     const PERSPECTIVES = [
         {
@@ -704,18 +689,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     >
                         📈 Round Review
                     </button>
-                    <button
-                        className={`${styles.tab} ${activeTab === 'stock' ? styles.tabActive : ''}`}
-                        onClick={() => setActiveTab('stock')}
-                    >
-                        📉 Stock Price
-                    </button>
-                    <button
-                        className={`${styles.tab} ${activeTab === 'leaderboard' ? styles.tabActive : ''}`}
-                        onClick={() => setActiveTab('leaderboard')}
-                    >
-                        🏆 Leaderboard
-                    </button>
+
                     <button
                         className={`${styles.tab} ${activeTab === 'report' ? styles.tabActive : ''}`}
                         onClick={() => setActiveTab('report')}
@@ -992,6 +966,22 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
                             </div>
 
+                            <div className={styles.trendCard} style={{ gridColumn: '1 / -1', marginTop: '1rem' }}>
+                                <div className={styles.trendHeader}>
+                                    <span className={styles.trendIcon}>📉</span>
+                                    <h3>Muressons Stock Performance (2027–2036)</h3>
+                                </div>
+                                <div className={styles.trendChart}>
+                                    <StockPerformanceChart
+                                        historyData={history}
+                                        globalState={globalState}
+                                        businessUnits={bus}
+                                        roundNumber={10}
+                                        events={globalState.active_event_flags || {}}
+                                    />
+                                </div>
+                            </div>
+
                             {history.length === 0 && (
                                 <div className={styles.noRoundData}>
                                     <p>📭 Trend data is not available. Round history was not recorded for this session.</p>
@@ -1152,83 +1142,6 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     </section>
                 )}
 
-                {/* ──────── TAB: Stock Price ──────── */}
-                {activeTab === 'stock' && (
-                    <section className={styles.stockSection}>
-                        <h2 className={styles.sectionTitle}>📉 Muressons Stock Performance (2027–2036)</h2>
-                        <p style={{ color: '#94a3b8', fontSize: '0.82rem', marginBottom: '1.25rem', textAlign: 'center' }}>
-                            Stochastic micro-engine with 20 daily interpolated points per round
-                        </p>
-                        <div className={styles.stockChartContainer}>
-                            <StockPerformanceChart
-                                historyData={history}
-                                globalState={globalState}
-                                businessUnits={bus}
-                                roundNumber={10}
-                                events={globalState.active_event_flags || {}}
-                            />
-                        </div>
-                    </section>
-                )}
-
-                {/* ──────── TAB: Leaderboard ──────── */}
-                {activeTab === 'leaderboard' && (
-                    <section className={styles.leaderboardSection}>
-                        <h2 className={styles.sectionTitle}>🏆 Final Leaderboard</h2>
-                        {leaderboard.length > 0 ? (
-                            <div className={styles.roundTableWrap}>
-                                <table className={styles.roundTable}>
-                                    <thead>
-                                        <tr>
-                                            <th style={{ textAlign: 'center', width: '50px' }}>#</th>
-                                            <th style={{ textAlign: 'left' }}>Cohort</th>
-                                            <th style={{ textAlign: 'left' }}>Player</th>
-                                            <th>Round</th>
-                                            <th>Terminal Value</th>
-                                            <th>Treasury</th>
-                                            <th>Synergy</th>
-                                            <th>Reputation</th>
-                                            <th>Bonus</th>
-                                            <th>Social License</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {leaderboard.map((sess, i) => {
-                                            const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
-                                            return (
-                                                <tr key={sess.session_id} className={i % 2 === 0 ? styles.evenRow : ''}>
-                                                    <td style={{ textAlign: 'center', fontSize: i < 3 ? '1.2rem' : '0.8rem' }}>{medal}</td>
-                                                    <td style={{ textAlign: 'left', fontWeight: 600 }}>{sess.cohort_name}</td>
-                                                    <td style={{ textAlign: 'left' }} className={styles.mono}>{sess.player_id || '–'}</td>
-                                                    <td className={styles.mono}>{sess.round_number}/10</td>
-                                                    <td className={styles.mono} style={{ color: '#10b981', fontWeight: 700 }}>
-                                                        ${(sess.terminal_value / 1_000_000).toFixed(1)}M
-                                                    </td>
-                                                    <td className={styles.mono}>${(sess.total_cash / 1_000_000).toFixed(1)}M</td>
-                                                    <td className={styles.mono}>{sess.group_synergy.toFixed(2)}×</td>
-                                                    <td className={styles.mono} style={{ color: sess.group_reputation >= 65 ? '#10b981' : sess.group_reputation >= 45 ? '#f59e0b' : '#ef4444' }}>
-                                                        {sess.group_reputation.toFixed(0)}
-                                                    </td>
-                                                    <td className={styles.mono} style={{ color: sess.bonus_score > 0 ? '#059669' : '#94a3b8' }}>
-                                                        {sess.bonus_score > 0 ? `🏅 ${sess.bonus_score}` : '–'}
-                                                    </td>
-                                                    <td className={styles.mono} style={{ color: sess.avg_social_license >= 75 ? '#10b981' : sess.avg_social_license >= 50 ? '#f59e0b' : '#ef4444' }}>
-                                                        {sess.avg_social_license.toFixed(1)}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-                        ) : (
-                            <div className={styles.noRoundData}>
-                                <p>📭 No leaderboard data available.</p>
-                                <p>In solo mode, the leaderboard requires other players to compare against.</p>
-                            </div>
-                        )}
-                    </section>
-                )}
 
                 {/* ──────── TAB: Final Report ──────── */}
                 {activeTab === 'report' && (() => {

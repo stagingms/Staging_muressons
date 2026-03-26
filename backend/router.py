@@ -83,6 +83,80 @@ async def get_active_sessions():
             })
     return {"sessions": available}
 
+class SetUsernameRequest(BaseModel):
+    user_id: str
+    role: str
+    username: str
+
+@router.post("/set-username", summary="Set unique username")
+async def set_username(req: SetUsernameRequest):
+    from admin_router import _player_registry, _facilitator_registry, _persist_facilitators
+    import database_memory
+    
+    username_lower = req.username.strip().lower()
+    if not username_lower:
+        raise HTTPException(status_code=400, detail="Username cannot be empty")
+
+    for p in _player_registry:
+        if p.get("username", "").strip().lower() == username_lower and p["player_id"] != req.user_id:
+            raise HTTPException(status_code=400, detail="Username already taken.")
+    for f in _facilitator_registry:
+        if f.get("username", "").strip().lower() == username_lower and f["facilitator_id"] != req.user_id:
+            raise HTTPException(status_code=400, detail="Username already taken.")
+
+    if req.role == "player":
+        import database as db
+        player = next((p for p in _player_registry if p["player_id"] == req.user_id), None)
+        
+        target_session_id = None
+        if not player:
+            # Try direct session ID (frontend sends sessionId when localStorage lacks playerId)
+            sess = db._sessions.get(req.user_id)
+            if sess:
+                # Auto-bridge Solo Sessions (which lack player_id) by treating the session UUID as the player context
+                assigned_pid = sess.get("player_id") or f"solo-{req.user_id[:8]}"
+                player = {"player_id": assigned_pid, "session_id": req.user_id}
+                target_session_id = req.user_id
+            
+            # Fallback to searching by player string ID explicitly
+            if not player:
+                for sid, s in db._sessions.items():
+                    if s.get("player_id") == req.user_id:
+                        player = {"player_id": req.user_id, "session_id": s.get("parent_cohort_id")}
+                        target_session_id = sid
+                        break
+                    
+        if not player:
+            raise HTTPException(status_code=404, detail="Player not found.")
+            
+        player["username"] = req.username.strip()
+        
+        session_id = player.get("session_id") or target_session_id
+        if session_id:
+            cohort = await db.get_session_info(session_id)
+            if cohort:
+                for p_rec in cohort.get("registered_players", []):
+                    if p_rec["player_id"] == req.user_id:
+                        p_rec["username"] = req.username.strip()
+                database_memory._persist()
+                
+            # Update all active sessions for this player
+            for sid, sess in database_memory._sessions.items():
+                if sess.get("player_id") == req.user_id:
+                    sess["player_name"] = req.username.strip()
+                    sess["cohort_name"] = f"Player ({req.username.strip()})"
+            database_memory._persist()
+    elif req.role == "facilitator":
+        fac = next((f for f in _facilitator_registry if f["facilitator_id"] == req.user_id), None)
+        if not fac:
+            raise HTTPException(status_code=404, detail="Facilitator not found.")
+        fac["username"] = req.username.strip()
+        _persist_facilitators()
+    else:
+        raise HTTPException(status_code=400, detail="Invalid role.")
+        
+    return {"status": "success", "username": req.username.strip()}
+
 class JoinSessionRequest(BaseModel):
     player_id: str
     password: str = ""  # Password from player induction
@@ -106,6 +180,14 @@ async def player_login(req: PlayerLoginRequest):
         (p for p in _player_registry if p["player_id"] == req.player_id),
         None
     )
+    
+    if not player_record:
+        import database as db
+        for sid, sess in db._sessions.items():
+            if sess.get("player_id") == req.player_id:
+                player_record = {"player_id": req.player_id, "session_id": sess.get("parent_cohort_id")}
+                break
+
     if not player_record:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -152,6 +234,7 @@ async def player_login(req: PlayerLoginRequest):
         "cohort_session_id": cohort_session_id,
         "cohort_name": player_record.get("cohort_name", ""),
         "player_name": player_record.get("name", ""),
+        "username": player_record.get("username", ""),
         "current_round": current_round,
     }
 
@@ -1091,6 +1174,44 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
 
     allocated_budget = int(total_budget * m_acc)
 
+    # ── Full-Quadrant Accuracy Bonus ──────────────────────────────
+    # Compute how many of ALL placed issues are in their correct quadrant.
+    # Award 1000 bonus_score if accuracy >= 80%.
+    def _correct_quadrant(issue):
+        h_fin = issue["financial_impact"] == "high"
+        h_imp = issue["societal_impact"] == "high"
+        if h_fin and h_imp: return "q1"
+        if not h_fin and h_imp: return "q2"
+        if h_fin and not h_imp: return "q3"
+        return "q4"
+
+    issue_lookup = {i["id"]: i for i in all_issues}
+    total_placed = 0
+    correct_placed = 0
+    for qname in ("q1", "q2", "q3", "q4"):
+        submission_attr = {
+            "q1": "quadrant_1_top_right",
+            "q2": "quadrant_2_top_left",
+            "q3": "quadrant_3_bottom_right",
+            "q4": "quadrant_4_bottom_left",
+        }[qname]
+        placed_ids = getattr(body.matrix_submission, submission_attr, [])
+        for iid in placed_ids:
+            issue = issue_lookup.get(iid)
+            if not issue:
+                continue  # custom factor — skip accuracy check
+            total_placed += 1
+            if _correct_quadrant(issue) == qname:
+                correct_placed += 1
+
+    full_accuracy = (correct_placed / total_placed) if total_placed > 0 else 0
+    accuracy_bonus = 0
+    if full_accuracy >= 0.80:
+        accuracy_bonus = 1000
+        global_state["bonus_score"] = global_state.get("bonus_score", 0) + accuracy_bonus
+
+    global_state["materiality_full_accuracy"] = round(full_accuracy * 100, 1)
+
     # Add allocation to treasury
     global_state["corporate_treasury"] += allocated_budget
     global_state["materiality_budget_allocated"] = list(q1_submission) # Save the funded issues directly
@@ -1105,7 +1226,7 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
     return MaterialitySubmissionResponse(
         allocated_budget=allocated_budget,
         corporate_treasury=global_state["corporate_treasury"],
-        message="Materiality Matrix accepted. Funding allocated based on accuracy."
+        message=f"Materiality Matrix accepted. Accuracy: {round(full_accuracy*100)}%.{' +1000 bonus points!' if accuracy_bonus else ''} Funding allocated based on Q1 accuracy."
     )
 
 
@@ -1538,6 +1659,7 @@ async def get_peer_leaderboard(session_id: str):
                 siblings.append({
                     "session_id": sid,
                     "player_id": sess.get("player_id", ""),
+                    "player_name": sess.get("player_name", ""),
                     "treasury": float(gs.get("corporate_treasury", 0)),
                     "reputation": float(gs.get("group_reputation", 50)),
                     "carbon": int(gs.get("tco2e_emissions", 0)),
@@ -1568,7 +1690,7 @@ async def get_peer_leaderboard(session_id: str):
 
         entry = {
             "rank": i + 1,
-            "name": "Your Team" if is_you else team_name,
+            "name": s.get("player_name") or ("Your Team" if is_you else team_name),
             "treasury": s["treasury"],
             "reputation": s["reputation"],
             "co2": s["carbon"],

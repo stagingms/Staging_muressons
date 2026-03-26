@@ -12,6 +12,7 @@ import StakeholderMapModal from './components/StakeholderMapModal';
 import CFOOverrideModal from './components/CFOOverrideModal';
 const DoubleMaterialityMatrix = dynamic(() => import('./components/DoubleMaterialityMatrix'), { ssr: false });
 const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false });
+const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false });
 import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
 import CrisisAlerts from './components/CrisisAlerts';
@@ -330,13 +331,9 @@ export default function CockpitPage() {
   const [gameOverPhase, setGameOverPhase] = useState('scorecard'); // 'scorecard' | 'boardroom' | 'done'
   const [boardroomDone, setBoardroomDone] = useState(false);
 
-  // When re-joining a completed session, skip to done phase
-  useEffect(() => {
-    if (sim.gameOver && sim.roundNumber >= 10 && !boardroomDone) {
-      setBoardroomDone(true);
-      setGameOverPhase('done');
-    }
-  }, [sim.gameOver, sim.roundNumber, boardroomDone]);
+  // Note: no effect that auto-skips phases — the flow is:
+  //   game ends → scorecard shown → player clicks Proceed → boardroom → player submits → done
+  // boardroomDone prevents re-entering the boardroom when reviewing the scorecard after completion.
 
   // ── Auto-clear lock after 30s to let user retry ─────────────
   useEffect(() => {
@@ -564,6 +561,17 @@ export default function CockpitPage() {
     <>
       {/* Join/Login overlay */}
       {!sim.sessionId && <div className={styles.joinOverlay}><JoinCohortModal sim={sim} /></div>}
+
+      {/* Choose Username Overlay */}
+      {sim.sessionId && !sim.username && sim.sessionId !== 'demo' && (
+        <div style={{ position: 'relative', zIndex: 16000 }}>
+          <UsernamePromptModal 
+            userId={sim.playerId || (typeof window !== 'undefined' ? localStorage.getItem('muressons_playerId') : null) || sim.sessionId}
+            role="player"
+            onComplete={sim.setUsername}
+          />
+        </div>
+      )}
 
       {/* Round Locked overlay */}
       {sim.roundLocked && (
@@ -800,6 +808,8 @@ export default function CockpitPage() {
           initialQ1={globalState?.materiality_budget_allocated || []}
           buId={decisionParadigm === 'multi_toggles' ? r2BuSelection?.selected_bu : null}
           buLabel={decisionParadigm === 'multi_toggles' ? r2BuSelection?.bu_label : null}
+          sessionId={sim.sessionId}
+          onOpenAdvisor={() => setAiAdvisorOpen(true)}
           onClose={() => setIsMatrixOpen(false)}
           onSubmit={async (payload) => {
             try {

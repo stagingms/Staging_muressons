@@ -1,38 +1,97 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import styles from './RoundPacingControl.module.css';
 
-/**
- * RoundPacingControl — God Mode panel for controlling round progression.
- * Modes:
- *   Free — no gating, players advance freely
- *   Manual — facilitator unlocks each round
- *   Timed — schedule unlock at a specific date/time, or immediately
- */
-export default function RoundPacingControl() {
+const TOTAL_ROUNDS = 10;
+
+const MODES = [
+    {
+        id: 'free',
+        label: '🔓 Free Play',
+        desc: 'All rounds unlocked immediately',
+    },
+    {
+        id: 'manual',
+        label: '✋ Manual',
+        desc: 'Facilitator unlocks each round',
+    },
+    {
+        id: 'timed',
+        label: '📅 Scheduled',
+        desc: 'Pre-schedule unlocks for all rounds',
+    },
+];
+
+/** Format a per-round date for display */
+function fmtScheduledTime(iso) {
+    if (!iso) return null;
+    try {
+        const d = new Date(iso);
+        return d.toLocaleString(undefined, {
+            month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit',
+        });
+    } catch {
+        return null;
+    }
+}
+
+/** Convert ISO to local datetime-local value */
+function isoToLocal(iso) {
+    if (!iso) return '';
+    const d = new Date(iso);
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Convert datetime-local value to UTC ISO string */
+function localToIso(local) {
+    if (!local) return null;
+    return new Date(local).toISOString();
+}
+
+export default function RoundPacingControl({ sessions: propSessions } = {}) {
     const API = process.env.NEXT_PUBLIC_API_URL || '';
+    const [sessions, setSessions] = useState(propSessions || []);
     const [sessionId, setSessionId] = useState('');
-    const [sessions, setSessions] = useState([]);
     const [pacing, setPacing] = useState(null);
     const [mode, setMode] = useState('free');
-    const [scheduledDatetime, setScheduledDatetime] = useState('');
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
+    const [statusOk, setStatusOk] = useState(true);
 
-    // Fetch sessions list
+    // 10-element array of ISO strings (null = unscheduled)
+    const [schedule, setSchedule] = useState(Array(TOTAL_ROUNDS).fill(null));
+
+    // Sync propSessions if provided (facilitator mode — already filtered)
     useEffect(() => {
+        if (propSessions) {
+            setSessions(propSessions);
+            if (propSessions.length > 0 && !sessionId) {
+                const first = propSessions[0];
+                const id = first?.session_id || first?.id || first;
+                setSessionId(typeof id === 'string' ? id : String(id));
+            }
+        }
+    }, [propSessions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Fetch sessions list — only in God Mode (no propSessions)
+    useEffect(() => {
+        if (propSessions) return; // skip: caller provides sessions
         fetch(`${API}/api/admin/sessions`)
             .then(r => r.ok ? r.json() : [])
             .then(d => {
                 const list = Array.isArray(d) ? d : (d?.sessions || []);
                 setSessions(list);
                 if (list.length > 0 && !sessionId) {
-                    const id = list[0]?.session_id || list[0]?.id || list[0];
+                    const first = list[0];
+                    const id = first?.session_id || first?.id || first;
                     setSessionId(typeof id === 'string' ? id : String(id));
                 }
             })
             .catch(() => { });
-    }, [API]);
+    }, [API]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch current pacing when session changes
     const fetchPacing = useCallback(async () => {
@@ -43,340 +102,263 @@ export default function RoundPacingControl() {
                 const data = await res.json();
                 setPacing(data);
                 setMode(data.mode);
+                if (Array.isArray(data.schedule) && data.schedule.length > 0) {
+                    // Pad/trim to TOTAL_ROUNDS
+                    const arr = [...data.schedule];
+                    while (arr.length < TOTAL_ROUNDS) arr.push(null);
+                    setSchedule(arr.slice(0, TOTAL_ROUNDS));
+                } else {
+                    setSchedule(Array(TOTAL_ROUNDS).fill(null));
+                }
             }
         } catch { /* offline */ }
     }, [API, sessionId]);
 
     useEffect(() => { fetchPacing(); }, [fetchPacing]);
 
-    // Refresh pacing every 10s to show countdown updates
-    useEffect(() => {
-        if (!sessionId) return;
-        const timer = setInterval(fetchPacing, 10000);
-        return () => clearInterval(timer);
-    }, [sessionId, fetchPacing]);
+    const flash = (msg, ok = true) => {
+        setStatus(msg);
+        setStatusOk(ok);
+        setTimeout(() => setStatus(''), 4000);
+    };
 
-    const handleSetMode = async () => {
+    const applyPacing = async () => {
         if (!sessionId) return;
         setLoading(true);
-        setStatus('');
         try {
-            let interval_seconds = 0;
-            let scheduled_at = null;
-
-            if (mode === 'timed' && scheduledDatetime) {
-                const target = new Date(scheduledDatetime);
-                const now = new Date();
-                interval_seconds = Math.max(0, Math.floor((target - now) / 1000));
-                scheduled_at = target.toISOString();
+            const body = { mode };
+            if (mode === 'timed') {
+                body.schedule = schedule;
+                body.interval_seconds = 0;
             }
-
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode, interval_seconds, scheduled_at }),
+                body: JSON.stringify(body),
             });
             if (res.ok) {
                 const data = await res.json();
                 setPacing(data);
-                if (mode === 'timed' && interval_seconds === 0) {
-                    setStatus(`✅ Next round unlocked immediately! (Round ${data.unlocked_round})`);
-                } else if (mode === 'timed' && scheduledDatetime) {
-                    setStatus(`✅ Round ${data.unlocked_round + 1} scheduled to unlock at ${new Date(scheduledDatetime).toLocaleString()}`);
-                } else {
-                    setStatus(`✅ Mode set to "${data.mode}". Unlocked up to Round ${data.unlocked_round >= 999 ? '∞' : data.unlocked_round}.`);
-                }
+                flash('✅ Pacing updated');
             } else {
-                setStatus('❌ Failed to set pacing mode.');
+                flash('❌ Failed to update pacing', false);
             }
-        } catch { setStatus('❌ Network error.'); }
-        setLoading(false);
+        } catch {
+            flash('❌ Connection error', false);
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleUnlock = async () => {
+    const unlockNext = async () => {
         if (!sessionId) return;
         setLoading(true);
-        setStatus('');
         try {
-            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing/unlock`, {
+            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/unlock-next`, {
                 method: 'POST',
             });
             if (res.ok) {
                 const data = await res.json();
                 setPacing(prev => ({ ...prev, unlocked_round: data.unlocked_round }));
-                setStatus(`🔓 Round ${data.unlocked_round} unlocked!`);
+                flash(`✅ Round ${data.unlocked_round} unlocked`);
             } else {
-                setStatus('❌ Failed to unlock round.');
+                flash('❌ Unlock failed', false);
             }
-        } catch { setStatus('❌ Network error.'); }
-        setLoading(false);
-    };
-
-    const handleImmediateUnlock = async () => {
-        if (!sessionId) return;
-        setLoading(true);
-        setStatus('');
-        try {
-            // Set timed mode with 0 seconds = immediate
-            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ mode: 'timed', interval_seconds: 0 }),
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setPacing(data);
-                setStatus(`⚡ Round ${data.unlocked_round} unlocked immediately!`);
-            }
-        } catch { setStatus('❌ Network error.'); }
-        setLoading(false);
-    };
-
-    const MODES = [
-        { id: 'free', label: '🟢 Free Play', desc: 'No gating — players advance freely' },
-        { id: 'manual', label: '🔒 Manual', desc: 'Facilitator unlocks each round' },
-        { id: 'timed', label: '📅 Scheduled', desc: 'Unlock at a specific date and time' },
-    ];
-
-    // Calculate time remaining for scheduled unlock
-    const getTimeRemaining = () => {
-        if (!pacing?.next_unlock_at) return null;
-        const target = new Date(pacing.next_unlock_at);
-        const now = new Date();
-        const diff = target - now;
-        if (diff <= 0) return 'Unlocking now…';
-        const mins = Math.floor(diff / 60000);
-        const secs = Math.floor((diff % 60000) / 1000);
-        if (mins > 60) {
-            const hrs = Math.floor(mins / 60);
-            return `${hrs}h ${mins % 60}m`;
+        } catch {
+            flash('❌ Connection error', false);
+        } finally {
+            setLoading(false);
         }
-        return `${mins}m ${secs}s`;
     };
+
+    const clearSchedule = () => setSchedule(Array(TOTAL_ROUNDS).fill(null));
+
+    const setRoundTime = (roundIdx, localVal) => {
+        setSchedule(prev => {
+            const next = [...prev];
+            next[roundIdx] = localToIso(localVal);
+            return next;
+        });
+    };
+
+    const clearRound = (roundIdx) => {
+        setSchedule(prev => {
+            const next = [...prev];
+            next[roundIdx] = null;
+            return next;
+        });
+    };
+
+    // Derive display label for session in dropdown
+    const sessionLabel = (s) => {
+        const name = s.cohort_name || '(unnamed)';
+        const code = s.short_code || s.session_id?.slice(0, 8);
+        return `${name} · ${code}`;
+    };
+
+    const currentRound = pacing?.unlocked_round === 999 ? '∞' : (pacing?.unlocked_round ?? '—');
+    const scheduledCount = schedule.filter(Boolean).length;
+    const now = new Date();
 
     return (
-        <section style={{
-            background: '#ffffff',
-            borderRadius: '16px',
-            padding: '2rem',
-            maxWidth: '700px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-        }}>
-            <h2 style={{
-                margin: '0 0 0.5rem 0',
-                fontSize: '1.4rem',
-                background: 'linear-gradient(90deg, #6366f1, #a855f7)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-            }}>⏱️ Round Pacing Control</h2>
-            <p style={{ color: '#475569', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-                Control when players can advance to the next round.
-            </p>
+        <div className={styles.panel}>
+            <h2 className={styles.title}>Round Pacing Control</h2>
+            <p className={styles.subtitle}>Set the pace for round progression — per session.</p>
 
             {/* Session selector */}
-            <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ color: '#334155', fontSize: '0.85rem', display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>
-                    Target Session
-                </label>
+            <div className={styles.fieldGroup}>
+                <label className={styles.label}>Session</label>
                 <select
+                    className={styles.select}
                     value={sessionId}
                     onChange={e => setSessionId(e.target.value)}
-                    style={{
-                        width: '100%',
-                        padding: '0.6rem 1rem',
-                        background: '#f8fafc',
-                        color: '#1e293b',
-                        border: '1px solid #cbd5e1',
-                        borderRadius: '8px',
-                        fontSize: '0.9rem',
-                    }}
                 >
-                    {sessions.length === 0 && <option value="">No sessions found</option>}
+                    {sessions.length === 0 && (
+                        <option value="">No sessions</option>
+                    )}
                     {sessions.map(s => {
-                        const id = s?.session_id || s?.id || s;
-                        const name = s?.team_name || s?.name || id;
-                        return <option key={id} value={id}>{name} ({String(id).slice(0, 8)}…)</option>;
+                        const id = s.session_id || s.id;
+                        return (
+                            <option key={id} value={id}>
+                                {sessionLabel(s)}
+                            </option>
+                        );
                     })}
                 </select>
             </div>
 
             {/* Current status */}
             {pacing && (
-                <div style={{
-                    background: '#f0f4ff',
-                    border: '1px solid #c7d2fe',
-                    borderRadius: '10px',
-                    padding: '1rem 1.2rem',
-                    marginBottom: '1.5rem',
-                    display: 'flex',
-                    gap: '1.5rem',
-                    flexWrap: 'wrap',
-                }}>
-                    <div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Mode</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>
-                            {pacing.mode === 'free' ? '🟢 Free' : pacing.mode === 'manual' ? '🔒 Manual' : '📅 Scheduled'}
+                <div className={styles.statusBox}>
+                    <div className={styles.statusItem}>
+                        <div className={styles.statusKey}>Mode</div>
+                        <div className={styles.statusVal}>
+                            {pacing.mode === 'free' ? '🔓 Free Play' :
+                                pacing.mode === 'manual' ? '✋ Manual' : '📅 Scheduled'}
                         </div>
                     </div>
-                    <div>
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Unlocked Up To</div>
-                        <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#1e293b' }}>
-                            Round {pacing.unlocked_round >= 999 ? '∞' : pacing.unlocked_round}
-                        </div>
+                    <div className={styles.statusItem}>
+                        <div className={styles.statusKey}>Unlocked up to</div>
+                        <div className={styles.statusVal}>Round {currentRound}</div>
                     </div>
-                    {pacing.mode === 'timed' && pacing.next_unlock_at && (
-                        <div>
-                            <div style={{ fontSize: '0.75rem', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>Next Unlock</div>
-                            <div style={{ fontSize: '1.1rem', fontWeight: 700, color: '#d97706' }}>
-                                {getTimeRemaining()}
+                    {pacing.next_unlock_at && (
+                        <div className={styles.statusItem}>
+                            <div className={styles.statusKey}>Next unlock</div>
+                            <div className={styles.statusValWarning}>
+                                {fmtScheduledTime(pacing.next_unlock_at) || pacing.next_unlock_at}
                             </div>
                         </div>
                     )}
                 </div>
             )}
 
-            {/* Mode selector */}
-            <div style={{ marginBottom: '1.2rem' }}>
-                <label style={{ color: '#334155', fontSize: '0.85rem', display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-                    Pacing Mode
-                </label>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {MODES.map(m => (
-                        <button
-                            key={m.id}
-                            onClick={() => setMode(m.id)}
-                            style={{
-                                padding: '0.6rem 1.2rem',
-                                borderRadius: '8px',
-                                border: mode === m.id ? '2px solid #6366f1' : '1px solid #d1d5db',
-                                background: mode === m.id ? 'rgba(99, 102, 241, 0.08)' : '#ffffff',
-                                color: mode === m.id ? '#4338ca' : '#475569',
-                                cursor: 'pointer',
-                                fontSize: '0.85rem',
-                                fontWeight: mode === m.id ? 700 : 500,
-                                transition: 'all 0.2s',
-                                fontFamily: 'inherit',
-                            }}
-                        >
-                            {m.label}
-                            <div style={{ fontSize: '0.7rem', color: mode === m.id ? '#6366f1' : '#94a3b8', marginTop: '0.2rem' }}>{m.desc}</div>
-                        </button>
-                    ))}
-                </div>
+            {/* Mode selector — always 3 columns, never wraps */}
+            <div className={styles.modeRow}>
+                {MODES.map(m => (
+                    <button
+                        key={m.id}
+                        className={`${styles.modeBtn} ${mode === m.id ? styles.modeBtnActive : ''}`}
+                        onClick={() => setMode(m.id)}
+                    >
+                        <span className={styles.modeBtnLabel}>{m.label}</span>
+                        <span className={styles.modeBtnDesc}>{m.desc}</span>
+                    </button>
+                ))}
             </div>
 
-            {/* Scheduled date/time picker */}
+            {/* Scheduled mode: 10-round grid */}
             {mode === 'timed' && (
-                <div style={{ marginBottom: '1.2rem' }}>
-                    <label style={{ color: '#334155', fontSize: '0.85rem', display: 'block', marginBottom: '0.4rem', fontWeight: 600 }}>
-                        📅 Schedule Unlock At
-                    </label>
-                    <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                        <input
-                            type="datetime-local"
-                            value={scheduledDatetime}
-                            onChange={e => setScheduledDatetime(e.target.value)}
-                            style={{
-                                padding: '0.6rem 1rem',
-                                background: '#f8fafc',
-                                color: '#1e293b',
-                                border: '1px solid #cbd5e1',
-                                borderRadius: '8px',
-                                fontSize: '0.9rem',
-                                flex: 1,
-                                minWidth: '200px',
-                            }}
-                        />
-                        <span style={{ color: '#475569', fontSize: '0.8rem', fontWeight: 500 }}>or</span>
-                        <button
-                            onClick={handleImmediateUnlock}
-                            disabled={loading}
-                            style={{
-                                padding: '0.6rem 1.2rem',
-                                borderRadius: '8px',
-                                border: 'none',
-                                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                                color: '#fff',
-                                fontSize: '0.85rem',
-                                fontWeight: 700,
-                                cursor: loading ? 'wait' : 'pointer',
-                                whiteSpace: 'nowrap',
-                                fontFamily: 'inherit',
-                            }}
-                        >
-                            ⚡ Immediate
-                        </button>
+                <>
+                    <div className={styles.scheduleGrid}>
+                        <div className={styles.scheduleHeader}>
+                            <span className={styles.scheduleHeaderLabel}>Round</span>
+                            <span className={styles.scheduleHeaderLabel}>Unlock Date &amp; Time</span>
+                            <span />
+                        </div>
+                        {Array.from({ length: TOTAL_ROUNDS }, (_, i) => {
+                            const roundNum = i + 1;
+                            const iso = schedule[i];
+                            const isPast = iso && new Date(iso) < now;
+                            const isActive = pacing?.unlocked_round === roundNum;
+                            const isScheduled = Boolean(iso) && !isPast;
+                            const dotClass =
+                                isPast ? styles.scheduleDotPast :
+                                    isActive ? styles.scheduleDotActive :
+                                        isScheduled ? styles.scheduleDotScheduled :
+                                            styles.scheduleDot;
+
+                            return (
+                                <div
+                                    key={roundNum}
+                                    className={`${styles.scheduleRow} ${isPast ? styles.scheduleRowPast : ''}`}
+                                >
+                                    <span className={styles.scheduleRoundLabel}>
+                                        <span className={dotClass} />
+                                        R{roundNum}
+                                    </span>
+                                    <input
+                                        type="datetime-local"
+                                        className={styles.scheduleDateInput}
+                                        value={isoToLocal(iso)}
+                                        onChange={e => setRoundTime(i, e.target.value)}
+                                        disabled={isPast}
+                                    />
+                                    <button
+                                        className={styles.scheduleClearBtn}
+                                        onClick={() => clearRound(i)}
+                                        title="Clear"
+                                        disabled={!iso}
+                                    >
+                                        ✕
+                                    </button>
+                                </div>
+                            );
+                        })}
+                        {scheduledCount > 0 && (
+                            <div className={styles.scheduleNote}>
+                                {scheduledCount} of {TOTAL_ROUNDS} rounds scheduled
+                            </div>
+                        )}
                     </div>
-                    <p style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '0.4rem' }}>
-                        Leave blank and click "⚡ Immediate" to unlock now, or pick a future date/time.
-                    </p>
-                </div>
+                </>
             )}
 
-            {/* Action buttons */}
-            <div style={{ display: 'flex', gap: '0.8rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
+            {/* Actions */}
+            <div className={styles.actions}>
                 <button
-                    onClick={handleSetMode}
+                    className={styles.btnPrimary}
+                    onClick={applyPacing}
                     disabled={loading || !sessionId}
-                    style={{
-                        padding: '0.7rem 1.8rem',
-                        borderRadius: '8px',
-                        border: 'none',
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                        color: '#fff',
-                        fontSize: '0.95rem',
-                        fontWeight: 700,
-                        cursor: loading ? 'wait' : 'pointer',
-                        opacity: loading || !sessionId ? 0.5 : 1,
-                        boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)',
-                        fontFamily: 'inherit',
-                    }}
                 >
-                    {loading ? '⏳ Saving…' : '💾 Apply Mode'}
+                    {loading ? '⏳ Saving…' : '💾 Apply Pacing'}
                 </button>
 
-                {(pacing?.mode === 'manual' || mode === 'manual') && (
+                {mode === 'manual' && (
                     <button
-                        onClick={handleUnlock}
+                        className={styles.btnSuccess}
+                        onClick={unlockNext}
                         disabled={loading || !sessionId}
-                        style={{
-                            padding: '0.7rem 1.8rem',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'linear-gradient(135deg, #10b981, #059669)',
-                            color: '#fff',
-                            fontSize: '0.95rem',
-                            fontWeight: 700,
-                            cursor: loading ? 'wait' : 'pointer',
-                            opacity: loading || !sessionId ? 0.5 : 1,
-                            boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
-                            fontFamily: 'inherit',
-                        }}
                     >
-                        🔓 Unlock Next Round
+                        ⏭ Unlock Next Round
+                    </button>
+                )}
+
+                {mode === 'timed' && scheduledCount > 0 && (
+                    <button
+                        className={styles.btnWarning}
+                        onClick={clearSchedule}
+                        disabled={loading}
+                    >
+                        ✕ Clear All
                     </button>
                 )}
             </div>
 
-            {/* Status message */}
             {status && (
-                <div style={{
-                    marginTop: '1rem',
-                    padding: '0.8rem 1rem',
-                    borderRadius: '8px',
-                    background: status.startsWith('✅') || status.startsWith('🔓') || status.startsWith('⚡')
-                        ? '#f0fdf4' : '#fef2f2',
-                    border: status.startsWith('✅') || status.startsWith('🔓') || status.startsWith('⚡')
-                        ? '1px solid #bbf7d0' : '1px solid #fecaca',
-                    color: status.startsWith('✅') || status.startsWith('🔓') || status.startsWith('⚡')
-                        ? '#166534' : '#991b1b',
-                    fontSize: '0.9rem',
-                    fontWeight: 500,
-                }}>
+                <div className={`${styles.statusMsg} ${statusOk ? styles.statusMsgOk : styles.statusMsgErr}`}>
                     {status}
                 </div>
             )}
-        </section>
+        </div>
     );
 }

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import styles from './TeamImpersonation.module.css';
+import { formatSessionId } from '../utils/sessionUtils';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -47,7 +48,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
                     <option value="">— Select a session —</option>
                     {leaderboard.map(s => (
                         <option key={s.session_id} value={s.session_id}>
-                            {s.cohort_name || s.session_id?.slice(0, 16)} (R{s.round_number || 1})
+                            {s.cohort_name || formatSessionId(s)} (R{s.round_number || 1})
                         </option>
                     ))}
                 </select>
@@ -62,7 +63,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
                 <div className={styles.impersonationView}>
                     <div className={styles.viewHeader}>
                         <span className={styles.viewBadge}>👁️ IMPERSONATION VIEW</span>
-                        <span className={styles.viewSession}>{dashData.session_id?.slice(0, 12)}... — Round {dashData.current_round}</span>
+                        <span className={styles.viewSession}>{leaderboard.find(s => s.session_id === dashData.session_id)?.short_code || dashData.session_id?.slice(0, 8)} — Round {dashData.current_round}</span>
                     </div>
 
                     {/* ── Global State ── */}

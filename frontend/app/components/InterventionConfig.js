@@ -164,7 +164,7 @@ export default function InterventionConfig({ sessionId }) {
                     <h2>Intervention Config</h2>
                 </div>
                 <div className={styles.sessionTag}>
-                    Session: {sessionId.slice(0, 12)}…
+                    Session: {sessionId}
                 </div>
             </div>
 
