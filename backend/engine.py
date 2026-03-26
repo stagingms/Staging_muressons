@@ -314,6 +314,14 @@ def process_tick(
         "historical_ebitda": historical_ebitda,
         "tco2e_emissions": tco2e_emissions,
         "vrio_capabilities": vrio_capabilities,
+        "bonus_score": current_global.get("bonus_score", 0),
+        "learning_bonuses_awarded": current_global.get("learning_bonuses_awarded", {}),
+        "stakeholder_map_completed": current_global.get("stakeholder_map_completed", False),
+        "stakeholder_map_accuracy": current_global.get("stakeholder_map_accuracy", 0),
+        "saved_allocations": current_global.get("saved_allocations"),
+        "saved_decision_choice": current_global.get("saved_decision_choice"),
+        "materiality_budget_allocated": current_global.get("materiality_budget_allocated"),
+        "materiality_bu_id": current_global.get("materiality_bu_id"),
     }
 
     return {

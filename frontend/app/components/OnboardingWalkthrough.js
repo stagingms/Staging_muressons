@@ -20,14 +20,20 @@ const STEPS = [
     position: 'left',
   },
   {
-    title: 'Decision Workspace (Center)',
-    body: 'Read the round briefing, complete any required assessments, then choose your strategic response. Each option has different costs and consequences.',
+    title: 'Stage 1: Briefing & Gates',
+    body: 'Start each round by carefully reading the crisis briefing. You must complete any required gateway assessments (like the Stakeholder Map) before you can unlock your strategic options.',
+    icon: '📋',
+    position: 'center',
+  },
+  {
+    title: 'Stage 2: Decision Workspace',
+    body: 'Once gates are passed, choose your strategic response. Each option has different costs and consequences.',
     icon: '🎯',
     position: 'center',
   },
   {
     title: 'Capital Allocation',
-    body: 'Allocate 20% of your treasury (CSF Pool) across the 4 business units using the investment sliders. Balance short-term costs against long-term resilience.',
+    body: 'Allocate your treasury (CSF Pool) across the 4 business units using the investment sliders. Balance short-term costs against long-term resilience.',
     icon: '💰',
     position: 'center',
   },
@@ -38,6 +44,12 @@ const STEPS = [
     position: 'right',
   },
   {
+    title: 'Player Guides & Actions',
+    body: 'Use these quick-access tools to view the Leaderboard, check Achievements, consult the AI Board Advisor, or open the Glossary. You can also toggle the soundtrack here.',
+    icon: '🧭',
+    position: 'center',
+  },
+  {
     title: 'Commit & Advance',
     body: 'When ready, hit Commit to lock in your decisions. Review the round results, then click Advance to proceed to the next crisis. Good luck, CSO!',
     icon: '✅',
@@ -45,28 +57,36 @@ const STEPS = [
   },
 ];
 
-export default function OnboardingWalkthrough({ onComplete }) {
+export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [promptOpen, setPromptOpen] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
 
-  // Check if user has seen onboarding before
+  // Ask for tour every time round 1 starts
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const seen = localStorage.getItem('muressons_onboarding_done');
-      if (seen === 'true') setVisible(false);
+    if (roundNumber === 1 && visible) {
+      setPromptOpen(true);
+    } else {
+      setVisible(false);
+      setPromptOpen(false);
     }
-  }, []);
+  }, [roundNumber]);
 
   if (!visible) return null;
 
-  const step = STEPS[currentStep];
+  const handleStartTour = () => {
+    setPromptOpen(false);
+    setTourActive(true);
+    setCurrentStep(0);
+  };
+
+  const step = STEPS[currentStep] || STEPS[0];
   const isLast = currentStep === STEPS.length - 1;
 
   const handleNext = () => {
     if (isLast) {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('muressons_onboarding_done', 'true');
-      }
+      setTourActive(false);
       setVisible(false);
       onComplete?.();
     } else {
@@ -75,97 +95,220 @@ export default function OnboardingWalkthrough({ onComplete }) {
   };
 
   const handleSkip = () => {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('muressons_onboarding_done', 'true');
-    }
+    setPromptOpen(false);
+    setTourActive(false);
     setVisible(false);
     onComplete?.();
   };
 
   // Position styles based on step
-  const getPositionStyle = () => {
+  const getCardStyle = () => {
     switch (step.position) {
-      case 'left': return { left: '2%', top: '50%', transform: 'translateY(-50%)' };
-      case 'right': return { right: '2%', top: '50%', transform: 'translateY(-50%)' };
-      default: return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
+      case 'left': return { left: '26%', top: '50%', transform: 'translateY(-50%)' }; // Shifted right so it doesn't overlap left panel
+      case 'right': return { right: '26%', top: '50%', transform: 'translateY(-50%)' }; // Shifted left to not overlap right panel
+      default: 
+        if (currentStep === 2) return { left: '50%', bottom: '15%', transform: 'translateX(-50%)' }; // Briefing at top, card at bottom
+        if (currentStep === 3) return { left: '50%', top: '15%', transform: 'translateX(-50%)' }; // Strategic Options at bottom, card at top
+        if (currentStep === 4) return { left: '50%', bottom: '15%', transform: 'translateX(-50%)' }; // Investment Matrix in middle, card at bottom
+        if (currentStep === 6) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }; // Player guides card in middle
+        if (currentStep === 7) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }; // Back to center
+        return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
     }
   };
 
+  const [spot, setSpot] = useState({ x: '0', y: '0', w: '0', h: '0' });
+
+  useEffect(() => {
+    if (!tourActive) return;
+
+    const updateSpot = () => {
+      const HPx = window.innerHeight - 52;
+      let newSpot = { x: '0', y: '0', w: '0', h: '0' };
+      
+      switch(currentStep) {
+        case 0: break;
+        case 1: newSpot = { x: '0', y: '52px', w: '24%', h: `${HPx}px` }; break;
+        case 2: 
+          const bTarget = document.getElementById('tour-briefing-target');
+          if (bTarget) {
+            const rect = bTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          }
+          break; // Stage 1: Briefing (Top)
+        case 3: 
+          const sTarget = document.getElementById('tour-strategic-target');
+          if (sTarget) {
+            const rect = sTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          }
+          break; // Stage 2: Strategic Options (Bottom half)
+        case 4: 
+          const cTarget = document.getElementById('tour-capital-target');
+          if (cTarget) {
+            const rect = cTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          }
+          break; // Capital Allocation (Middle)
+        case 5: newSpot = { x: '76%', y: '52px', w: '24%', h: `${HPx * 0.88}px` }; break;
+        case 6:
+          const guides = document.getElementById('tour-player-guides-target');
+          if (guides) {
+            const rect = guides.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 12}px`, y: `${rect.top - 12}px`, w: `${rect.width + 24}px`, h: `${rect.height + 24}px` };
+          }
+          break;
+        case 7:
+          // Instead of guessing flex percentages, grab the actual button from the DOM
+          const btn = document.querySelector('button[class*="commitBtn"]');
+          if (btn) {
+            const rect = btn.getBoundingClientRect();
+            newSpot = { 
+              x: `${rect.left - 12}px`, 
+              y: `${rect.top - 12}px`, 
+              w: `${rect.width + 24}px`, 
+              h: `${rect.height + 24}px` 
+            };
+          } else {
+            // Fallback
+            newSpot = { x: '76%', y: `calc(100vh - 12vh)`, w: '24%', h: `12vh` };
+          }
+          break;
+      }
+      setSpot(newSpot);
+    };
+
+    updateSpot();
+    // Re-check after a tiny delay in case layout shifts
+    setTimeout(updateSpot, 50);
+    window.addEventListener('resize', updateSpot);
+    return () => window.removeEventListener('resize', updateSpot);
+  }, [currentStep, tourActive]);
+
   return (
-    <div style={{
-      position: 'fixed', inset: 0, zIndex: 20000,
-      background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(6px)',
-      fontFamily: 'Inter, sans-serif',
-    }}>
-      {/* Spotlight hint arrows */}
-      {step.position === 'left' && (
+    <>
+      {/* ── Prompt Dialog ── */}
+      {promptOpen && (
         <div style={{
-          position: 'absolute', left: '25%', top: '15%', bottom: '15%', width: 2,
-          background: 'linear-gradient(180deg, transparent, rgba(99,102,241,0.4), transparent)',
-          borderRadius: 2,
-        }} />
-      )}
-      {step.position === 'right' && (
-        <div style={{
-          position: 'absolute', right: '25%', top: '15%', bottom: '15%', width: 2,
-          background: 'linear-gradient(180deg, transparent, rgba(99,102,241,0.4), transparent)',
-          borderRadius: 2,
-        }} />
-      )}
-
-      {/* Step Card */}
-      <div style={{
-        position: 'absolute',
-        ...getPositionStyle(),
-        background: '#fff', borderRadius: 16, padding: '1.8rem 2rem',
-        maxWidth: 420, width: '90%',
-        boxShadow: '0 30px 80px rgba(0,0,0,0.3)',
-        animation: 'fadeSlideUp 0.3s ease-out',
-      }}>
-        {/* Progress dots */}
-        <div style={{
-          display: 'flex', gap: 6, marginBottom: '1rem', justifyContent: 'center',
+          position: 'fixed', inset: 0, zIndex: 20000,
+          background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontFamily: 'Inter, sans-serif',
         }}>
-          {STEPS.map((_, i) => (
-            <div key={i} style={{
-              width: i === currentStep ? 20 : 6, height: 6, borderRadius: 3,
-              background: i === currentStep ? '#6366f1' : i < currentStep ? '#a5b4fc' : '#e2e8f0',
-              transition: 'all 0.3s',
-            }} />
-          ))}
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: '2rem', maxWidth: 400, width: '90%',
+            textAlign: 'center', boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
+            animation: 'fadeSlideUp 0.3s ease-out'
+          }}>
+            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
+            <h2 style={{ margin: '0 0 0.5rem', color: '#0f172a', fontWeight: 800 }}>Welcome to Module 1</h2>
+            <p style={{ color: '#64748b', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
+              You have just entered the Executive Cockpit. Would you like a quick interactive tour to familiarize yourself with the controls?
+            </p>
+            <div style={{ display: 'flex', gap: '0.8rem' }}>
+              <button
+                onClick={handleSkip}
+                style={{
+                  flex: 1, padding: '10px 0', border: '1px solid #cbd5e1', background: '#f8fafc',
+                  color: '#475569', borderRadius: 8, fontWeight: 700, cursor: 'pointer'
+                }}
+              >Skip Tour</button>
+              <button
+                onClick={handleStartTour}
+                style={{
+                  flex: 1, padding: '10px 0', border: 'none', background: '#6366f1',
+                  color: '#fff', borderRadius: 8, fontWeight: 700, cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(99,102,241,0.3)'
+                }}
+              >Yes, Start Tour</button>
+            </div>
+          </div>
         </div>
+      )}
 
-        <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: '0.6rem' }}>{step.icon}</div>
-        <h2 style={{
-          margin: '0 0 0.5rem', fontSize: '1.1rem', fontWeight: 800,
-          color: '#0f172a', textAlign: 'center',
-        }}>{step.title}</h2>
-        <p style={{
-          margin: '0 0 1.2rem', fontSize: '0.82rem', color: '#64748b',
-          lineHeight: 1.7, textAlign: 'center',
-        }}>{step.body}</p>
+      {/* ── Active Tour Overlay ── */}
+      {tourActive && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, fontFamily: 'Inter, sans-serif' }}>
+          
+          {/* SVG Spotlight Mask background */}
+          <svg style={{ position: 'absolute', inset: 0, width: '100vw', height: '100vh', pointerEvents: 'none' }}>
+            <defs>
+              <mask id="spotlight-mask">
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                <rect x={spot.x} y={spot.y} width={spot.w} height={spot.h} fill="black" rx="8" />
+              </mask>
+            </defs>
+            <rect 
+              x="0" y="0" width="100%" height="100%" 
+              fill="rgba(15,23,42,0.85)" 
+              mask="url(#spotlight-mask)" 
+              style={{ backdropFilter: 'blur(6px)' }}
+            />
+            {/* Outline box around the cutout */}
+            {spot.w !== '0' && (
+              <rect x={spot.x} y={spot.y} width={spot.w} height={spot.h} fill="none" stroke="#6366f1" strokeWidth="3" strokeDasharray="6 4" rx="8" />
+            )}
+          </svg>
 
-        <div style={{ display: 'flex', gap: '0.6rem' }}>
-          <button
-            onClick={handleSkip}
-            style={{
-              flex: 1, padding: '9px 0', background: '#f1f5f9', color: '#64748b',
-              border: '1px solid #e2e8f0', borderRadius: 8, fontWeight: 600,
-              cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif',
-            }}
-          >Skip Tour</button>
-          <button
-            onClick={handleNext}
-            style={{
-              flex: 2, padding: '9px 0',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700,
-              cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif',
-              boxShadow: '0 4px 14px rgba(99,102,241,0.3)',
-            }}
-          >{isLast ? '🚀 Start Playing' : `Next (${currentStep + 1}/${STEPS.length})`}</button>
+          {/* Invisible click blocker over the cutout to prevent interaction during tour */}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1 }} />
+
+          {/* Step Card */}
+          <div style={{
+            position: 'absolute',
+            ...getCardStyle(),
+            zIndex: 2,
+            background: '#fff', borderRadius: 16, padding: '1.8rem 2rem',
+            maxWidth: 420, width: '90%',
+            boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
+            transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+            minHeight: 220, display: 'flex', flexDirection: 'column'
+          }}>
+            {/* Progress dots */}
+            <div style={{
+              display: 'flex', gap: 6, marginBottom: '1rem', justifyContent: 'center',
+            }}>
+              {STEPS.map((_, i) => (
+                <div key={i} style={{
+                  width: i === currentStep ? 20 : 6, height: 6, borderRadius: 3,
+                  background: i === currentStep ? '#6366f1' : i < currentStep ? '#a5b4fc' : '#e2e8f0',
+                  transition: 'all 0.3s',
+                }} />
+              ))}
+            </div>
+
+            <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: '0.6rem' }}>{step.icon}</div>
+            <h2 style={{
+              margin: '0 0 0.5rem', fontSize: '1.1rem', fontWeight: 800,
+              color: '#0f172a', textAlign: 'center',
+            }}>{step.title}</h2>
+            <p style={{
+              margin: '0 0 1.2rem', fontSize: '0.82rem', color: '#64748b',
+              lineHeight: 1.7, textAlign: 'center', flex: 1,
+            }}>{step.body}</p>
+
+            <div style={{ display: 'flex', gap: '0.6rem', marginTop: 'auto' }}>
+              <button
+                onClick={handleSkip}
+                style={{
+                  flex: 1, padding: '9px 0', background: '#f1f5f9', color: '#64748b',
+                  border: '1px solid #e2e8f0', borderRadius: 8, fontWeight: 600,
+                  cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif',
+                }}
+              >End Tour</button>
+              <button
+                onClick={handleNext}
+                style={{
+                  flex: 2, padding: '9px 0',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700,
+                  cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif',
+                  boxShadow: '0 4px 14px rgba(99,102,241,0.3)',
+                }}
+              >{isLast ? '🚀 Start Playing' : `Next (${currentStep + 1}/${STEPS.length})`}</button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

@@ -1426,7 +1426,7 @@ async def apply_override(session_id: str, body: OverrideRequest):
     # Also store under all player sub-sessions if this is a cohort session
     all_sessions = await db.fetch_all_sessions()
     for s in all_sessions:
-        if s.get("parent_session_id") == session_id:
+        if s.get("parent_cohort_id") == session_id:
             child_id = s["session_id"]
             if child_id not in _session_messages:
                 _session_messages[child_id] = []
@@ -1557,7 +1557,7 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest):
     # Propagate to child sessions
     all_sessions = await db.fetch_all_sessions()
     for s in all_sessions:
-        if s.get("parent_session_id") == session_id:
+        if s.get("parent_cohort_id") == session_id:
             child_id = s["session_id"]
             if child_id not in _session_messages:
                 _session_messages[child_id] = []
@@ -1573,7 +1573,7 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest):
     await manager.push_to_session(session_id, ws_payload)
     # Also push to child sessions
     for s in all_sessions:
-        if s.get("parent_session_id") == session_id:
+        if s.get("parent_cohort_id") == session_id:
             await manager.push_to_session(s["session_id"], ws_payload)
 
     # ── Notify admin dashboard ──
@@ -1658,7 +1658,7 @@ async def inject_message(session_id: str, body: MessageInjectRequest):
     # Also propagate to player sub-sessions so individual player polling picks it up
     all_sessions = await db.fetch_all_sessions()
     for s in all_sessions:
-        if s.get("parent_session_id") == session_id:
+        if s.get("parent_cohort_id") == session_id:
             child_id = s["session_id"]
             if child_id not in _session_messages:
                 _session_messages[child_id] = []
@@ -3119,29 +3119,44 @@ async def session_websocket(websocket: WebSocket, session_id: str):
     "/{session_id}/undo-round",
     summary="Undo the latest round for a session (rollback)",
 )
-async def undo_round(session_id: str):
+async def undo_round(session_id: str, cohort_wide: bool = False):
     """
     Deletes the latest round's state and audit log, reverting the session
-    to the previous round. Cannot undo Round 1.
+    to the previous round. Cannot undo Round 1. Allows recursive undo for cohorts.
     """
-    result = await db.undo_latest_round(session_id)
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result["reason"])
+    targets = [session_id]
+    if cohort_wide:
+        all_sessions = await db.fetch_all_sessions()
+        children = [s["session_id"] for s in all_sessions if s.get("parent_cohort_id") == session_id]
+        targets.extend(children)
+        
+    last_res = None
+    for tgt in set(targets):
+        result = await db.undo_latest_round(tgt)
+        if not result.get("success"):
+            if tgt == session_id:
+                raise HTTPException(status_code=400, detail=result.get("reason", "Undo failed"))
+            continue
+            
+        last_res = result
+        
+        # Broadcast to players
+        await manager.push_to_session(tgt, {
+            "type": "round_undone",
+            "deleted_round": result["deleted_round"],
+            "new_current_round": result["new_current_round"],
+        })
+        await manager.broadcast_admin({
+            "type": "round_undone",
+            "session_id": tgt,
+            "deleted_round": result["deleted_round"],
+            "new_current_round": result["new_current_round"],
+        })
 
-    # Broadcast to players
-    await manager.push_to_session(session_id, {
-        "type": "round_undone",
-        "deleted_round": result["deleted_round"],
-        "new_current_round": result["new_current_round"],
-    })
-    await manager.broadcast_admin({
-        "type": "round_undone",
-        "session_id": session_id,
-        "deleted_round": result["deleted_round"],
-        "new_current_round": result["new_current_round"],
-    })
-
-    return result
+    if not last_res:
+        raise HTTPException(status_code=400, detail="Undo failed")
+        
+    return last_res
 
 
 # ═════════════════════════════════════════════════════════════════

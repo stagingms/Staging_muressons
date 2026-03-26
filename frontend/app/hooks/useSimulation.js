@@ -67,9 +67,13 @@ export default function useSimulation() {
                     }),
                 });
                 if (!res.ok) throw new Error(`Start failed: ${res.status}`);
-                const data = await res.json();
+                const rawData = await res.json();
+                const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
 
                 setSessionId(data.session_id);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('muressons_session_id', data.session_id);
+                }
                 setRoundNumber(data.round_number);
                 setGlobalState(data.global_state);
                 setBusinessUnits(data.business_units);
@@ -184,6 +188,9 @@ export default function useSimulation() {
             // Use the player's own session_id (independent game state)
             const playerSessionId = joinData.session_id;
             setSessionId(playerSessionId);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('muressons_session_id', playerSessionId);
+            }
             const dashData = await fetchDashboard(playerSessionId);
             // If game is already over (round > 10), don't fetch round config
             if (dashData?.current_round && dashData.current_round <= 10) {
@@ -215,6 +222,9 @@ export default function useSimulation() {
             const loginData = await res.json();
             const playerSessionId = loginData.session_id;
             setSessionId(playerSessionId);
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('muressons_session_id', playerSessionId);
+            }
             const dashData = await fetchDashboard(playerSessionId);
             if (dashData?.current_round && dashData.current_round <= 10) {
                 await fetchRoundConfig(dashData.current_round);
@@ -464,6 +474,16 @@ export default function useSimulation() {
         return () => { cancelled = true; clearInterval(interval); };
     }, [sessionId, roundNumber, gameOver, commitResults, fetchRoundConfig]);
 
+    // ── Resume Session from Storage ───────────────────────────
+    const resumeSession = useCallback(async (sid) => {
+        setSessionId(sid);
+        const data = await fetchDashboard(sid);
+        if (data?.current_round && data.current_round <= 10) {
+            await fetchRoundConfig(data.current_round);
+        }
+        return data;
+    }, [fetchDashboard, fetchRoundConfig]);
+
     return {
         // State
         sessionId,
@@ -494,5 +514,6 @@ export default function useSimulation() {
         advanceToNextRound,
         saveDecisions,
         fetchRoundConfig,
+        resumeSession,
     };
 }

@@ -498,7 +498,6 @@ async def fetch_all_sessions() -> list[dict]:
             key=lambda x: x.get("start_time", datetime.min.replace(tzinfo=timezone.utc)),
             reverse=True,
         )
-        if not s.get("parent_cohort_id")  # Only top-level cohorts
     ]
 
 

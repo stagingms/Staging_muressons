@@ -5,8 +5,8 @@ import styles from './DashboardHome.module.css';
 
 export default function DashboardHome({ leaderboard = [], onNavigate }) {
     const stats = useMemo(() => {
-        const cohorts = leaderboard.filter(s => !s.cohort_name?.includes('Player'));
-        const players = leaderboard.filter(s => s.cohort_name?.includes('Player'));
+        const cohorts = leaderboard.filter(s => !s.player_id);
+        const players = leaderboard.filter(s => !!s.player_id);
         const allSessions = leaderboard;
 
         const avgTreasury = allSessions.length

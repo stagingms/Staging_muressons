@@ -390,7 +390,7 @@ export default function ExecutiveCockpit({
         {/* ── CENTER: Briefing + Decisions ─── */}
         <main className={styles.centerConsole}>
           {/* Briefing Panel */}
-          <div className={styles.briefingArea}>
+          <div className={styles.briefingArea} id="tour-briefing-target">
             <div className={styles.briefingHeader}>
               <span className={styles.briefingRound}>Round {roundNumber}</span>
               <h2 className={styles.briefingTitle}>{ROUND_TITLES[roundNumber] || `Module ${roundNumber}`}</h2>
@@ -444,6 +444,7 @@ export default function ExecutiveCockpit({
 
           {/* Resource Allocation Matrix */}
           <div className={styles.decisionArea} style={{ borderBottom: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0', paddingBottom: 8, position: 'relative' }}>
+            <div id="tour-capital-target">
             {/* Click-intercept: requires Strategic Decision to be made */}
             {!canAccessAllocation && (
               <div
@@ -469,10 +470,12 @@ export default function ExecutiveCockpit({
               allocations={allocations}
               onAllocationsChange={canAccessAllocation ? onAllocationsChange : () => {}}
             />
+            </div>
           </div>
 
           {/* Decision Workspace */}
           <div className={styles.decisionArea} style={{ position: 'relative' }}>
+            <div id="tour-strategic-target">
             {/* Click-intercept: requires Briefing read + Second Stage (R1/R2) done */}
             {!canAccessStrategy && (
               <div
@@ -646,6 +649,7 @@ export default function ExecutiveCockpit({
                   </p>
                 )}
               </div>
+            </div>
             </div>
 
           </div>
@@ -828,29 +832,29 @@ export default function ExecutiveCockpit({
               transition={{ duration: 0.35, ease: 'easeOut' }}
             >
               <div className={styles.resultsBadge}>Round {roundNumber} Results</div>
-              <h2 className={styles.resultsTitle}>📊 Turn Committed Successfully</h2>
-              <p className={styles.resultsSubtitle}>Review your round outcomes before advancing to Round {commitResults.newRoundNumber}.</p>
+              <h2 className={styles.resultsTitle} style={{ color: '#f8fafc' }}>📊 Turn Committed Successfully</h2>
+              <p className={styles.resultsSubtitle} style={{ color: '#cbd5e1' }}>Review your round outcomes before advancing to Round {commitResults.newRoundNumber}.</p>
 
               <div className={styles.resultsGrid}>
                 <div className={styles.resultCard}>
                   <div className={styles.resultCardIcon}>💰</div>
-                  <div className={styles.resultCardLabel}>Treasury</div>
-                  <div className={styles.resultCardValue}>{fmtCurrency(commitResults.globalState?.corporate_treasury || 0)}</div>
+                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>Treasury</div>
+                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{fmtCurrency(commitResults.globalState?.corporate_treasury || 0)}</div>
                 </div>
                 <div className={styles.resultCard}>
                   <div className={styles.resultCardIcon}>📈</div>
-                  <div className={styles.resultCardLabel}>EBITDA</div>
-                  <div className={styles.resultCardValue}>{fmtCurrency(commitResults.globalState?.historical_ebitda || 0)}</div>
+                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>EBITDA</div>
+                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{fmtCurrency(commitResults.globalState?.historical_ebitda || 0)}</div>
                 </div>
                 <div className={styles.resultCard}>
                   <div className={styles.resultCardIcon}>🌍</div>
-                  <div className={styles.resultCardLabel}>Reputation</div>
-                  <div className={styles.resultCardValue}>{commitResults.globalState?.group_reputation?.toFixed(0) || '—'}</div>
+                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>Reputation</div>
+                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{commitResults.globalState?.group_reputation?.toFixed(0) || '—'}</div>
                 </div>
                 <div className={styles.resultCard}>
                   <div className={styles.resultCardIcon}>🏭</div>
-                  <div className={styles.resultCardLabel}>CO₂ Emissions</div>
-                  <div className={styles.resultCardValue}>{(commitResults.globalState?.tco2e_emissions || 0).toLocaleString()} t</div>
+                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>CO₂ Emissions</div>
+                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{(commitResults.globalState?.tco2e_emissions || 0).toLocaleString()} t</div>
                 </div>
               </div>
 
@@ -980,18 +984,18 @@ export default function ExecutiveCockpit({
               {/* Events summary */}
               {commitResults.events && Object.keys(commitResults.events).length > 0 && (
                 <div className={styles.resultsEvents}>
-                  <div className={styles.resultsEventsTitle}>⚡ Key Events</div>
+                  <div className={styles.resultsEventsTitle} style={{ color: '#f8fafc' }}>⚡ Key Events</div>
                   {commitResults.events.talent_penalty_applied > 1 && (
-                    <div className={styles.resultsEventItem}>🧠 Brain-Drain: Software OPEX inflated by {((commitResults.events.talent_penalty_applied - 1) * 100).toFixed(1)}%</div>
+                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>🧠 Brain-Drain: Software OPEX inflated by {((commitResults.events.talent_penalty_applied - 1) * 100).toFixed(1)}%</div>
                   )}
                   {commitResults.events.loan_interest_payment > 0 && (
-                    <div className={styles.resultsEventItem}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
+                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
                   )}
                   {commitResults.events.auto_injected_messages?.length > 0 && (
-                    <div className={styles.resultsEventItem}>📬 {commitResults.events.auto_injected_messages.length} new swipe file(s) delivered</div>
+                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>📬 {commitResults.events.auto_injected_messages.length} new swipe file(s) delivered</div>
                   )}
                   {commitResults.events.strike_probabilities && (
-                    <div className={styles.resultsEventItem}>
+                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>
                       ⚠️ Strike risk: {Object.entries(commitResults.events.strike_probabilities)
                         .filter(([, p]) => p > 0.1)
                         .map(([bu, p]) => `${bu} ${(p * 100).toFixed(0)}%`)

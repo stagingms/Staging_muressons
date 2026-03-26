@@ -94,9 +94,18 @@ export default function CockpitPage() {
       const params = new URLSearchParams(window.location.search);
       const sessionParam = params.get('session');
       if (sessionParam && !sim.sessionId) {
+        sim.setSessionId && sim.setSessionId(sessionParam); // Fallback for raw setSessionId if exists
         sim.fetchDashboard(sessionParam).then(() => {
           sim.fetchRoundConfig && sim.fetchRoundConfig(sim.roundNumber || 1);
         }).catch(() => {});
+      } else if (!sim.sessionId) {
+        const cachedId = localStorage.getItem('muressons_session_id');
+        if (cachedId) {
+          sim.resumeSession(cachedId).catch(() => {
+            console.error('Failed to resume session');
+            localStorage.removeItem('muressons_session_id');
+          });
+        }
       }
     }
   }, []);
@@ -338,7 +347,7 @@ export default function CockpitPage() {
     return () => clearTimeout(timer);
   }, [sim.roundLocked]);
 
-  const hasSubmittedMatrix = globalState && globalState.materiality_budget_allocated !== undefined;
+  const hasSubmittedMatrix = globalState && globalState.materiality_budget_allocated != null;
   const hasCompletedStakeholderMap = globalState?.stakeholder_map_completed === true || stakeholderDone;
   // In multi_toggles mode, at least one pillar must be selected
   const hasDecision = decisionParadigm === 'multi_toggles'
@@ -853,12 +862,12 @@ export default function CockpitPage() {
 
       {/* ═══ IMPROVEMENT: Onboarding Walkthrough (1.4) ═══ */}
       {sim.sessionId && showOnboarding && !showDesktop && !sim.gameOver && (
-        <OnboardingWalkthrough onComplete={() => setShowOnboarding(false)} />
+        <OnboardingWalkthrough roundNumber={roundNumber} onComplete={() => setShowOnboarding(false)} />
       )}
 
       {/* ═══ IMPROVEMENT: Action Toolbar (Glossary, Achievements, AI, Peer, Sound) ═══ */}
       {sim.sessionId && !showDesktop && !sim.gameOver && (
-        <div style={{
+        <div id="tour-player-guides-target" style={{
           position: 'fixed', bottom: 82, left: 'calc(12% - 105px)', zIndex: 8500,
           display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5,
           fontFamily: 'Inter, sans-serif',

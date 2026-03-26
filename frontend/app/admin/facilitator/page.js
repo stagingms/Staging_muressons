@@ -501,7 +501,8 @@ function FacilitatorDashboard({ authData, onLogout }) {
             case 'impersonate':
                 return <TeamImpersonation leaderboard={leaderboard} selectedSession={selectedSession} />;
             case 'undo_round':
-                return <UndoRound sessionId={selectedSession} />;
+                const fullSession = leaderboard.find(s => s.session_id === selectedSession);
+                return <UndoRound session={fullSession} />;
 
             // ── Interventions tabs ──
             case 'intervention_config':

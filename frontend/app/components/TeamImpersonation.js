@@ -120,7 +120,7 @@ export default function TeamImpersonation({ leaderboard = [], selectedSession })
                                 {Object.entries(dashData.global_state.active_event_flags).map(([key, val]) => (
                                     <div key={key} className={styles.flagChip}>
                                         <span className={styles.flagKey}>{key}</span>
-                                        <span className={styles.flagVal}>{typeof val === 'boolean' ? (val ? '✅' : '❌') : String(val).slice(0, 30)}</span>
+                                        <span className={styles.flagVal}>{typeof val === 'boolean' ? (val ? '✅' : '❌') : typeof val === 'object' && val !== null ? JSON.stringify(val).slice(0, 100) : String(val).slice(0, 50)}</span>
                                     </div>
                                 ))}
                             </div>

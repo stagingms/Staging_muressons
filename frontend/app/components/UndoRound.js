@@ -5,7 +5,9 @@ import styles from './UndoRound.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-export default function UndoRound({ sessionId }) {
+export default function UndoRound({ session }) {
+    const sessionId = session?.session_id;
+    const isPlayer = !!session?.player_id;
     const [currentRound, setCurrentRound] = useState(null);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
@@ -24,16 +26,21 @@ export default function UndoRound({ sessionId }) {
 
     useEffect(() => { fetchRound(); }, [fetchRound]);
 
-    const handleUndo = async () => {
+    const handleUndo = async (cohortWide = false) => {
         if (!sessionId) return;
-        if (!confirm(`⚠️ Undo Round ${currentRound}?\n\nThis will delete all decisions and state for Round ${currentRound} and revert the session to Round ${currentRound - 1}.\n\nThis action cannot be undone.`)) return;
+        
+        const promptMsg = cohortWide
+            ? `⚠️ Undo Round ${currentRound} FOR ENTIRE COHORT?\n\nThis will roll back the template AND ALL connected player sessions to Round ${currentRound - 1}.`
+            : `⚠️ Undo Round ${currentRound}?\n\nThis will delete all decisions and state for Round ${currentRound} and revert the session to Round ${currentRound - 1}.\n\nThis action cannot be undone.`;
+
+        if (!confirm(promptMsg)) return;
         if (!confirm(`Are you absolutely sure? Click OK to confirm rollback to Round ${currentRound - 1}.`)) return;
 
         setLoading(true);
         setError(null);
         setResult(null);
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/undo-round`, { method: 'POST' });
+            const res = await fetch(`${API}/api/admin/${sessionId}/undo-round?cohort_wide=${cohortWide}`, { method: 'POST' });
             const data = await res.json();
             if (res.ok) {
                 setResult(data);
@@ -95,13 +102,26 @@ export default function UndoRound({ sessionId }) {
                     ℹ️ Cannot undo Round 1 — this is the initial seed state.
                 </div>
             ) : (
-                <button
-                    className={styles.undoBtn}
-                    onClick={handleUndo}
-                    disabled={loading || !currentRound}
-                >
-                    {loading ? '⏳ Rolling back...' : `⏪ Undo Round ${currentRound || '?'}`}
-                </button>
+                <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem' }}>
+                    <button
+                        className={styles.undoBtn}
+                        onClick={() => handleUndo(false)}
+                        disabled={loading || !currentRound}
+                        style={{ flex: 1 }}
+                    >
+                        {loading ? '⏳ Rolling back...' : `⏪ Undo Round ${currentRound || '?'}`}
+                    </button>
+                    {!isPlayer && (
+                        <button
+                            className={styles.undoBtn}
+                            onClick={() => handleUndo(true)}
+                            disabled={loading || !currentRound}
+                            style={{ flex: 1, background: '#ef4444', borderColor: '#b91c1c' }}
+                        >
+                            {loading ? '⏳ Rolling cohort...' : `⏪ Undo For Entire Cohort`}
+                        </button>
+                    )}
+                </div>
             )}
 
             {result && (
