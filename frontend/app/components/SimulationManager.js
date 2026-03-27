@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import styles from './SimulationManager.module.css';
 import CreateCohortModal from './CreateCohortModal';
 import { formatSessionId } from '../utils/sessionUtils';
