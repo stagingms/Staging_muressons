@@ -478,27 +478,7 @@ export default function CockpitPage() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // ── Advanced Climate Engine: round-gated module overlays ─────
-  if (isAdvancedClimate && !sim.gameOver) {
-    const round = sim.roundNumber;
-    const sid = sim.sessionId;
-    if (round === 3 && !completedModules[3])
-      return <GreenFundBidding sessionId={sid} onComplete={() => markModuleDone(3)} />;
-    if (round === 4 && !completedModules[4])
-      return <RegulatoryShockModule sessionId={sid} onComplete={() => markModuleDone(4)} />;
-    if (round === 5 && !completedModules[5])
-      return <VCMPortfolioBuilder sessionId={sid} onComplete={() => markModuleDone(5)} />;
-    if (round === 6 && !completedModules[6])
-      return <Scope3ProcurementOptimizer sessionId={sid} onComplete={() => markModuleDone(6)} />;
-    if (round === 7 && !completedModules[7])
-      return <InsettingROICalculator sessionId={sid} onComplete={() => markModuleDone(7)} />;
-    if (round === 8 && !completedModules[8])
-      return <PolicyWarRoom sessionId={sid} onComplete={() => markModuleDone(8)} />;
-    if (round === 9 && !completedModules[9])
-      return <ESGRefinancingSimulator sessionId={sid} onComplete={() => markModuleDone(9)} />;
-    if (round === 10 && !completedModules[10])
-      return <CircularStrategyDashboard sessionId={sid} onComplete={() => markModuleDone(10)} />;
-  }
+
 
   if (sim.gameOver) {
     if (gameOverPhase === 'scorecard') {
@@ -635,6 +615,21 @@ export default function CockpitPage() {
           }}>Dismiss</button>
         </div>
       )}
+
+      {/* ═══ ADVANCED CLIMATE ENGINE: Module Overlays (fixed, z=21000) ═══ */}
+      {isAdvancedClimate && !sim.gameOver && sim.sessionId && (() => {
+        const round = sim.roundNumber;
+        const sid = sim.sessionId;
+        if (round === 3 && !completedModules[3]) return <GreenFundBidding sessionId={sid} onComplete={() => markModuleDone(3)} />;
+        if (round === 4 && !completedModules[4]) return <RegulatoryShockModule sessionId={sid} onComplete={() => markModuleDone(4)} />;
+        if (round === 5 && !completedModules[5]) return <VCMPortfolioBuilder sessionId={sid} onComplete={() => markModuleDone(5)} />;
+        if (round === 6 && !completedModules[6]) return <Scope3ProcurementOptimizer sessionId={sid} onComplete={() => markModuleDone(6)} />;
+        if (round === 7 && !completedModules[7]) return <InsettingROICalculator sessionId={sid} onComplete={() => markModuleDone(7)} />;
+        if (round === 8 && !completedModules[8]) return <PolicyWarRoom sessionId={sid} onComplete={() => markModuleDone(8)} />;
+        if (round === 9 && !completedModules[9]) return <ESGRefinancingSimulator sessionId={sid} onComplete={() => markModuleDone(9)} />;
+        if (round === 10 && !completedModules[10]) return <CircularStrategyDashboard sessionId={sid} onComplete={() => markModuleDone(10)} />;
+        return null;
+      })()}
 
       {/* Desktop Intro → Round Briefing */}
       {sim.sessionId && showDesktop && (
