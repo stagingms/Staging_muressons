@@ -6,6 +6,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import { buildFullStockData, IPO_PRICE } from './stockValuationEngine';
+import { roundToQuarter, roundRangeLabel } from '../utils/roundToQuarter';
 import styles from './StockPerformanceChart.module.css';
 
 /**
@@ -24,12 +25,10 @@ import styles from './StockPerformanceChart.module.css';
  *  - projectedCost:  projected treasury delta (for header display)
  */
 
-const START_YEAR = 2027;
-
 const RANGE_FILTERS = [
-  { label: '2027–29', minRound: 1, maxRound: 3 },
-  { label: '2030–32', minRound: 4, maxRound: 6 },
-  { label: '2033–36', minRound: 7, maxRound: 10 },
+  { label: 'Y1: Q1–Q4', minRound: 1, maxRound: 4 },
+  { label: 'Y2: Q1–Q4', minRound: 5, maxRound: 8 },
+  { label: 'Y3: Q1–Q2', minRound: 9, maxRound: 10 },
   { label: 'ALL', minRound: 0, maxRound: 10 },
 ];
 
@@ -39,7 +38,7 @@ function StockTooltip({ active, payload }) {
   const data = payload[0].payload;
   const roundLabel = data.round === 0
     ? 'IPO'
-    : `${START_YEAR + data.round - 1}`;
+    : roundToQuarter(data.round).label;
   return (
     <div className={styles.tooltipContainer}>
       <div className={styles.tooltipLabel}>{roundLabel}</div>

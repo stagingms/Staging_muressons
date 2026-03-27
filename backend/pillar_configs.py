@@ -1065,7 +1065,7 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
     },
 
     10: {
-        "title": "2050 Corporate Destiny",
+        "title": "Year 3 Corporate Destiny",
         "description": "Activist investors demand restructuring. Choose your final trajectory.",
         "areas": {
             "energy": {
@@ -1081,7 +1081,7 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                     "low_carbon": {
                         "title": "Low-Carbon Pathway",
-                        "description": "Commit to 80% carbon reduction by 2050.",
+                        "description": "Commit to 80% carbon reduction by Year 3.",
                         "cost": -3_000_000,
                         "impacts": {"carbon_intensity_delta": -10, "reputation": +3},
                         "flags_set": ["low_carbon_path"],

@@ -12,12 +12,83 @@ from pathlib import Path
 # We store the config in the backend directory
 CONFIG_DIR = Path(__file__).resolve().parent / "db"
 CONFIG_FILE = CONFIG_DIR / "materiality_config.json"
+BU_REGISTRY_FILE = CONFIG_DIR / "bu_registry.json"
 
-# BU-specific config files
-BU_IDS = ["pharma", "electronics", "consumer_goods", "software"]
+# ── Dynamic BU registry ──────────────────────────────────────────
+# These are the default BU IDs; god-mode can add more via the registry.
+_DEFAULT_BU_IDS = ["pharma", "electronics", "consumer_goods", "software"]
+
+_DEFAULT_BU_META = [
+    {"id": "pharma", "label": "Pharma", "icon": "\U0001f48a"},
+    {"id": "electronics", "label": "Electronics", "icon": "\u26a1"},
+    {"id": "consumer_goods", "label": "Consumer Goods", "icon": "\U0001f6d2"},
+    {"id": "software", "label": "Software", "icon": "\U0001f4bb"},
+]
+
+def _load_bu_registry() -> list[dict]:
+    """Load the BU registry from disk. Falls back to defaults if not found."""
+    try:
+        if BU_REGISTRY_FILE.exists():
+            with open(BU_REGISTRY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+    except Exception:
+        pass
+    return [dict(m) for m in _DEFAULT_BU_META]
+
+def _save_bu_registry(registry: list[dict]) -> None:
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = BU_REGISTRY_FILE.with_suffix(".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(registry, f, indent=2)
+    os.replace(tmp, BU_REGISTRY_FILE)
+
+# In-memory registry cache
+_bu_registry: list[dict] = _load_bu_registry()
+
+def get_bu_registry() -> list[dict]:
+    """Returns the full BU registry list."""
+    return list(_bu_registry)
+
+def get_bu_ids() -> list[str]:
+    """Returns just the BU ID strings."""
+    return [b["id"] for b in _bu_registry]
+
+def register_bu(bu_id: str, label: str, icon: str = "\U0001f3e2") -> dict:
+    """Register a new custom BU. Idempotent (updates if key already exists)."""
+    global _bu_registry, _cached_bu_configs, BU_CONFIG_FILES
+    # Normalise: lowercase slug
+    bu_id = bu_id.strip().lower().replace(" ", "_")
+    existing = next((b for b in _bu_registry if b["id"] == bu_id), None)
+    entry = {"id": bu_id, "label": label.strip(), "icon": icon, "is_custom": True}
+    if existing:
+        idx = _bu_registry.index(existing)
+        _bu_registry[idx] = entry
+    else:
+        _bu_registry.append(entry)
+    BU_CONFIG_FILES[bu_id] = CONFIG_DIR / f"materiality_config_{bu_id}.json"
+    if bu_id not in _cached_bu_configs:
+        _cached_bu_configs[bu_id] = None
+    _save_bu_registry(_bu_registry)
+    return entry
+
+def unregister_bu(bu_id: str) -> bool:
+    """Remove a custom BU from the registry. Cannot remove the 4 defaults."""
+    global _bu_registry
+    if bu_id in _DEFAULT_BU_IDS:
+        raise ValueError(f"Cannot remove default BU '{bu_id}'.")
+    before = len(_bu_registry)
+    _bu_registry = [b for b in _bu_registry if b["id"] != bu_id]
+    if len(_bu_registry) == before:
+        return False
+    _save_bu_registry(_bu_registry)
+    return True
+
+# Legacy alias used in older code
+BU_IDS = get_bu_ids()
+# BU-specific config files (built dynamically from registry)
 BU_CONFIG_FILES = {
-    bu_id: CONFIG_DIR / f"materiality_config_{bu_id}.json"
-    for bu_id in BU_IDS
+    b["id"]: CONFIG_DIR / f"materiality_config_{b['id']}.json"
+    for b in _bu_registry
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -213,12 +284,17 @@ def update_current_config(new_config: dict) -> None:
 # BU-SPECIFIC CONFIG FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
 
-_cached_bu_configs: dict[str, dict | None] = {bu: None for bu in BU_IDS}
+_cached_bu_configs: dict[str, dict | None] = {b["id"]: None for b in _bu_registry}
 
 def load_bu_config(bu_id: str) -> dict:
     """Reads the BU-specific JSON config. Creates default if it doesn't exist."""
-    if bu_id not in BU_IDS:
-        raise ValueError(f"Unknown BU: {bu_id}. Valid: {BU_IDS}")
+    current_ids = get_bu_ids()
+    if bu_id not in current_ids:
+        raise ValueError(f"Unknown BU: {bu_id}. Valid: {current_ids}")
+
+    # Ensure file mapping exists for dynamically added BUs
+    if bu_id not in BU_CONFIG_FILES:
+        BU_CONFIG_FILES[bu_id] = CONFIG_DIR / f"materiality_config_{bu_id}.json"
 
     filepath = BU_CONFIG_FILES[bu_id]
     if not filepath.exists():
@@ -235,8 +311,9 @@ def load_bu_config(bu_id: str) -> dict:
 
 def save_bu_config(bu_id: str, config_dict: dict) -> None:
     """Writes BU-specific JSON config atomically."""
-    if bu_id not in BU_IDS:
-        raise ValueError(f"Unknown BU: {bu_id}. Valid: {BU_IDS}")
+    current_ids = get_bu_ids()
+    if bu_id not in current_ids:
+        raise ValueError(f"Unknown BU: {bu_id}. Valid: {current_ids}")
     
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     filepath = BU_CONFIG_FILES[bu_id]

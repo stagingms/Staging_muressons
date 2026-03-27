@@ -150,7 +150,7 @@ All other indirect emissions: upstream (purchased goods, transportation, busines
 ### Corporate Climate Strategy Framework
 
 1. **Measure**: Establish a comprehensive GHG inventory across Scopes 1, 2, and 3. Use the GHG Protocol Corporate Standard. Engage suppliers for Scope 3 data.
-2. **Set Targets**: Near-term (5-10 year) and long-term (2050) targets validated by SBTi. Net-zero commitments must include residual emissions plans.
+2. **Set Targets**: Near-term (5-10 year) and long-term (Year 3) targets validated by SBTi. Net-zero commitments must include residual emissions plans.
 3. **Reduce**: Energy efficiency improvements, renewable energy procurement (PPAs, RECs), process electrification, fuel switching, supply chain decarbonization programs.
 4. **Report**: TCFD-aligned climate disclosure covering Governance, Strategy, Risk Management, and Metrics/Targets. Scenario analysis (1.5°C, 2°C, 4°C) is essential.
 5. **Offset (last resort)**: Verified carbon credits (Gold Standard, Verra VCS) only for residual emissions. Not a substitute for reduction. Nature-based and technology-based removal credits.

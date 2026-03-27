@@ -219,14 +219,22 @@ async def create_session(
         "organization": round(max(0, min(100, 100 - avg_gr)), 1),
     }
 
+    from admin_router import _god_mode_settings
+    treasury = _god_mode_settings.get("corporate_treasury_start", gs["corporate_treasury_usd"])
+    reputation = _god_mode_settings.get("group_reputation_start", gs["group_reputation_score"])
+    synergy = _god_mode_settings.get("synergy_multiplier_start", gs["group_synergy_multiplier"])
+    coc = _god_mode_settings.get("cost_of_capital_start", gs["cost_of_capital_rate"])
+    loan_interest_rate = _god_mode_settings.get("loan_interest_rate_start", loan_interest_rate)
+    green_fund = _god_mode_settings.get("green_transition_fund_start", 0.0)
+
     global_state = {
         "state_id": global_state_id,
         "session_id": session_id,
         "round_number": 1,
-        "corporate_treasury": gs["corporate_treasury_usd"],
-        "group_reputation": gs["group_reputation_score"],
-        "synergy_multiplier": gs["group_synergy_multiplier"],
-        "cost_of_capital": gs["cost_of_capital_rate"],
+        "corporate_treasury": treasury,
+        "group_reputation": reputation,
+        "synergy_multiplier": synergy,
+        "cost_of_capital": coc,
         "active_event_flags": {
             **gs.get("active_event_flags", {}),
             "loan_interest_rate": loan_interest_rate
@@ -235,6 +243,9 @@ async def create_session(
         "historical_ebitda": baseline_ebitda,
         "tco2e_emissions": baseline_tco2e,
         "vrio_capabilities": baseline_vrio,
+        "green_transition_fund": green_fund,
+        "tipping_point_active": False,
+        "pending_capex_projects": [],
     }
 
     _global_states[session_id] = [global_state]
@@ -256,6 +267,9 @@ async def create_session(
             "historical_ebitda": baseline_ebitda,
             "tco2e_emissions": baseline_tco2e,
             "vrio_capabilities": baseline_vrio,
+            "green_transition_fund": 0.0,
+            "tipping_point_active": False,
+            "pending_capex_projects": [],
         },
         "business_units": seed["business_units"],
     }
@@ -291,8 +305,8 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
 
 
 async def get_active_public_sessions() -> list[dict]:
-    """Return all top-level sessions (exclude per-player sub-sessions)."""
-    active = [s for s in _sessions.values() if not s.get("parent_cohort_id")]
+    """Return all top-level sessions (exclude per-player sub-sessions) that are not deleted."""
+    active = [s for s in _sessions.values() if not s.get("parent_cohort_id") and not s.get("deleted_at")]
     # Sort by start_time descending
     active.sort(key=lambda x: x.get("start_time", datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
     return active
@@ -359,6 +373,9 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "saved_decision_choice": grs.get("saved_decision_choice"),
             "materiality_budget_allocated": grs.get("materiality_budget_allocated"),
             "materiality_bu_id": grs.get("materiality_bu_id"),
+            "green_transition_fund": float(grs.get("green_transition_fund", 0.0)),
+            "tipping_point_active": grs.get("tipping_point_active", False),
+            "pending_capex_projects": grs.get("pending_capex_projects", []),
         },
         "bu_states": [
             {
@@ -399,6 +416,9 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                 "historical_ebitda": float(grs.get("historical_ebitda", 0)),
                 "tco2e_emissions": int(grs.get("tco2e_emissions", 0)),
                 "vrio_capabilities": grs.get("vrio_capabilities") or {},
+                "green_transition_fund": float(grs.get("green_transition_fund", 0.0)),
+                "tipping_point_active": grs.get("tipping_point_active", False),
+                "pending_capex_projects": grs.get("pending_capex_projects", []),
             },
             "business_units": [
                 {
@@ -454,6 +474,9 @@ async def insert_next_round(
         "saved_decision_choice": global_state.get("saved_decision_choice"),
         "materiality_budget_allocated": global_state.get("materiality_budget_allocated"),
         "materiality_bu_id": global_state.get("materiality_bu_id"),
+        "green_transition_fund": global_state.get("green_transition_fund", 0.0),
+        "tipping_point_active": global_state.get("tipping_point_active", False),
+        "pending_capex_projects": global_state.get("pending_capex_projects", []),
     }
 
     if session_id not in _global_states:
@@ -600,6 +623,9 @@ async def update_latest_global_state(
     latest["saved_decision_choice"] = global_state.get("saved_decision_choice")
     latest["materiality_budget_allocated"] = global_state.get("materiality_budget_allocated")
     latest["materiality_bu_id"] = global_state.get("materiality_bu_id")
+    latest["green_transition_fund"] = global_state.get("green_transition_fund", latest.get("green_transition_fund", 0.0))
+    latest["tipping_point_active"] = global_state.get("tipping_point_active", latest.get("tipping_point_active", False))
+    latest["pending_capex_projects"] = global_state.get("pending_capex_projects", latest.get("pending_capex_projects", []))
 
     rn = latest["round_number"]
     if session_id in _bu_states:
@@ -725,6 +751,9 @@ async def reset_session_to_round1(session_id: str) -> bool:
         "historical_ebitda": baseline_ebitda,
         "tco2e_emissions": baseline_tco2e,
         "vrio_capabilities": baseline_vrio,
+        "green_transition_fund": 0.0,
+        "tipping_point_active": False,
+        "pending_capex_projects": [],
     }
 
     # Reset this session's state

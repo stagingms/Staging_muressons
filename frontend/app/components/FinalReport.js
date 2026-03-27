@@ -43,8 +43,8 @@ const MR_LABELS = {
 };
 
 /**
- * FinalReport — The 2050 Annual Report.
- * Displays Terminal Value, EBITDA_2050, Regenerative Multiple breakdown,
+ * FinalReport — The Year 3 Annual Report.
+ * Displays Terminal Value, Terminal_EBITDA, Regenerative Multiple breakdown,
  * profile archetype, and the Activist Ultimatum decision.
  *
  * Props:
@@ -54,7 +54,7 @@ const MR_LABELS = {
 export default function FinalReport({ data = null, onClose }) {
     // Seed data for standalone rendering when no live data
     const d = data || {
-        ebitda_2050: 14_250_000,
+        terminal_ebitda: 14_250_000,
         carbon_tonnage_group: 183,
         carbon_cost: 45_750,
         carbon_tax_per_ton: 250,
@@ -103,7 +103,7 @@ export default function FinalReport({ data = null, onClose }) {
                     <div className={styles.heroContent}>
                         <span className={styles.heroIcon}>{theme.icon}</span>
                         <div>
-                            <div className={styles.year}>MURESSONS GLOBAL — 2050 ANNUAL REPORT</div>
+                            <div className={styles.year}>MURESSONS GLOBAL — YEAR 3 ANNUAL REPORT</div>
                             <h1 className={styles.profileTitle}>{d.profile_title}</h1>
                             <span className={styles.rankBadge} style={{ background: 'rgba(0,0,0,0.3)' }}>
                                 {theme.rank}
@@ -129,9 +129,9 @@ export default function FinalReport({ data = null, onClose }) {
                         </span>
                     </div>
                     <div className={styles.metricCard}>
-                        <span className={styles.metricLabel}><Abbr term="EBITDA">EBITDA 2050</Abbr></span>
+                        <span className={styles.metricLabel}><Abbr term="EBITDA">Terminal EBITDA</Abbr></span>
                         <span className={styles.metricValue}>
-                            ${(d.ebitda_2050 / 1_000_000).toFixed(2)}M
+                            ${(d.terminal_ebitda / 1_000_000).toFixed(2)}M
                         </span>
                         <span className={styles.metricSub}>
                             After ${(d.carbon_cost / 1_000).toFixed(0)}K carbon tax
@@ -237,10 +237,10 @@ export default function FinalReport({ data = null, onClose }) {
                     </h2>
                     <div className={styles.formula}>
                         <div className={styles.formulaLine}>
-                            V<sub>T</sub> = EBITDA<sub>2050</sub> × Exit Multiple × M<sub>R</sub>
+                            V<sub>T</sub> = EBITDA<sub>Year 3</sub> × Exit Multiple × M<sub>R</sub>
                         </div>
                         <div className={styles.formulaLine}>
-                            V<sub>T</sub> = ${(d.ebitda_2050 / 1_000_000).toFixed(2)}M × {d.exit_multiple}×
+                            V<sub>T</sub> = ${(d.terminal_ebitda / 1_000_000).toFixed(2)}M × {d.exit_multiple}×
                             {' '} × {d.regenerative_multiple.toFixed(2)}
                         </div>
                         <div className={styles.formulaResult} style={{ color: theme.tagColor }}>

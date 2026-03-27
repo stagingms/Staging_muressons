@@ -9,13 +9,22 @@ const PROFILES = {
     stranded_relic: { icon: '💀', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', title: 'Stranded Relic' },
 };
 
+const FALLBACK_THEME = { icon: '🏅', gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)', title: 'Strategic Leader' };
+
 /**
  * GameOverSummary — Final screen after Boardroom Showdown.
  * Simulation is definitively over. Player can download report or review scorecard.
  */
 export default function GameOverSummary({ data, businessUnits, globalState, history, onReviewScorecard }) {
     const d = data || {};
-    const theme = PROFILES[d.profile] || PROFILES.fragile_giant;
+    // Dynamic theme: prefer backend-provided icon/gradient (supports custom archetypes),
+    // else fall back to PROFILES dict, else universal fallback.
+    const baseTheme = PROFILES[d.profile] || FALLBACK_THEME;
+    const theme = {
+        icon: d.profile_icon || baseTheme.icon,
+        gradient: d.profile_gradient || baseTheme.gradient,
+        title: baseTheme.title,
+    };
 
     const handleDownload = () => {
         // Open the scorecard which has the full report download capability
@@ -79,7 +88,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 {/* Footer */}
                 <div className={styles.footer}>
                     <p>Muressons Global Command — Sustainability Strategy Simulation</p>
-                    <p>© 2050 Board of Directors Meeting</p>
+                    <p>© Year 3 Board of Directors Meeting</p>
                 </div>
             </div>
         </div>

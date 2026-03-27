@@ -5,12 +5,25 @@ import styles from './SimulationManager.module.css';
 import CreateCohortModal from './CreateCohortModal';
 import { formatSessionId } from '../utils/sessionUtils';
 
-export default function SimulationManager({ leaderboard = [], onSessionCreated }) {
+const API = process.env.NEXT_PUBLIC_API_URL || '';
+
+export default function SimulationManager({ leaderboard = [], onSessionCreated, hideCreate = false, fetchInternal = false }) {
     const [createOpen, setCreateOpen] = useState(false);
+    const [internalData, setInternalData] = useState([]);
+
+    useEffect(() => {
+        if (!fetchInternal) return;
+        fetch(`${API}/api/admin/leaderboard`)
+            .then(r => r.json())
+            .then(d => setInternalData(d.leaderboard || []))
+            .catch(() => {});
+    }, [fetchInternal]);
+
+    const displayData = fetchInternal ? internalData : leaderboard;
 
     const grouped = useMemo(() => {
         const groups = {};
-        leaderboard.forEach(s => {
+        displayData.forEach(s => {
             const fac = s.facilitator_id || 'Unknown';
             if (!groups[fac]) groups[fac] = { facilitator: fac, sessions: [], totalTreasury: 0, avgRound: 0 };
             groups[fac].sessions.push(s);
@@ -21,10 +34,13 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated }
             g.totalTreasury = g.totalTreasury;
         });
         return Object.values(groups);
-    }, [leaderboard]);
+    }, [displayData]);
 
     const handleCreated = (newSession) => {
         setCreateOpen(false);
+        if (fetchInternal) {
+            setInternalData(prev => [...prev, newSession]);
+        }
         onSessionCreated?.(newSession);
     };
 
@@ -38,7 +54,9 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated }
                     <h2 className={styles.title}>Simulation Manager</h2>
                     <p className={styles.subtitle}>Manage and compare multiple simulation instances grouped by facilitator.</p>
                 </div>
-                <button className={styles.createBtn} onClick={() => setCreateOpen(true)}>+ Set Up Cohort</button>
+                {!hideCreate && (
+                    <button className={styles.createBtn} onClick={() => setCreateOpen(true)}>+ Set Up Cohort</button>
+                )}
             </div>
 
             <CreateCohortModal

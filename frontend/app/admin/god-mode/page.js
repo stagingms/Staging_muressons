@@ -20,8 +20,10 @@ import SystemExport from '../../components/SystemExport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
 import AnalyticsControlPanel from '../../components/AnalyticsControlPanel';
 import GlossaryManager from '../../components/GlossaryManager';
-import SimulationSwitchboard from '../../components/SimulationSwitchboard';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
+import ArchetypeEditor from '../../components/ArchetypeEditor';
+import MasterVariableEditor from '../../components/MasterVariableEditor';
+import SimulationManager from '../../components/SimulationManager';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -52,6 +54,10 @@ function GodModeLoginGate({ onLogin }) {
             });
             if (res.ok) {
                 const data = await res.json();
+                if (!data.is_admin) {
+                    setError('Unauthorized: God Mode requires Super Administrator privileges.');
+                    return;
+                }
                 sessionStorage.setItem('godmode_auth', JSON.stringify(data));
                 onLogin(data);
             } else {
@@ -402,7 +408,7 @@ function GodModeDashboard({ authData, onLogout }) {
             items: [
                 { id: 'system_status', label: 'System Status' },
                 { id: 'audit_log', label: 'Activity Log' },
-                { id: 'facilitator_roles', label: 'Facilitator Roles' },
+                { id: 'facilitator_roles', label: 'Facilitator Manager' },
             ]
         },
         {
@@ -411,10 +417,11 @@ function GodModeDashboard({ authData, onLogout }) {
             id: 'engine',
             items: [
                 { id: 'global_settings', label: 'Global Settings' },
-                { id: 'sim_switchboard', label: '⚡ Sim Switchboard' },
+                { id: 'master_variables', label: '🎛️ Master Variables' },
                 { id: 'scorecard_evaluator', label: '📊 Scorecard Evaluator' },
                 { id: 'round_pacing', label: 'Round Pacing' },
                 { id: 'decision_paradigm', label: 'Decision Paradigm' },
+                { id: 'archetypes', label: '🏆 Profile Archetypes' },
                 { id: 'materiality', label: 'Materiality Matrix' },
                 { id: 'master_interventions', label: 'Team Interventions' },
                 { id: 'crisis_triggers', label: 'Crisis Triggers' },
@@ -438,6 +445,7 @@ function GodModeDashboard({ authData, onLogout }) {
             icon: '🛡️',
             id: 'admin',
             items: [
+                { id: 'cohort_manager', label: 'Cohort Manager' },
                 { id: 'system_export', label: 'Backup & Export' },
             ]
         }
@@ -465,8 +473,8 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <GodModeAuditLog />;
             case 'global_settings':
                 return <GlobalSettings />;
-            case 'sim_switchboard':
-                return <SimulationSwitchboard />;
+            case 'master_variables':
+                return <MasterVariableEditor />;
             case 'scorecard_evaluator':
                 return <div style={{padding:'1.5rem'}}><BalancedScorecardEvaluator /></div>;
             case 'materiality':
@@ -493,8 +501,12 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <PlatformAnalytics />;
             case 'analytics_controls':
                 return <AnalyticsControlPanel />;
+            case 'archetypes':
+                return <ArchetypeEditor />;
             case 'system_export':
                 return <SystemExport />;
+            case 'cohort_manager':
+                return <SimulationManager leaderboard={[]} />;
             default:
                 return (
                     <div className={styles.placeholder}>

@@ -253,7 +253,7 @@ export const DETAILED_DESCRIPTIONS = {
     "10": {
       "energy": {
         "option_1": "Achieve the holy grail. Spend whatever it takes to secure verified, ironclad Net-Zero certification across all scopes, permanently bulletproofing the firm against future systemic carbon taxation.",
-        "option_2": "Complete an 80% carbon reduction pathway. It is highly respectable but falls just short of true Net-Zero, leaving a small, permanent taxation vulnerability in the 2050 ledger.",
+        "option_2": "Complete an 80% carbon reduction pathway. It is highly respectable but falls just short of true Net-Zero, leaving a small, permanent taxation vulnerability in the Year 3 ledger.",
         "option_3": "Abandon the pretense. Accept that the BUs will simply run on cheap fossil fuels forever and absorb the massive, permanent Carbon Tax penalties sliced off the top of the terminal valuation."
       },
       "operations": {
@@ -264,12 +264,12 @@ export const DETAILED_DESCRIPTIONS = {
       "supply_chain": {
         "option_1": "Achieve terminal evolution. The entire global supply web is now fundamentally regenerative, actively sinking carbon and purifying water baseline ecosystems simply by operating.",
         "option_2": "Lock in a highly diversified, climate-hardened global logistical network that can withstand the extreme weather volatility of the 2040s.",
-        "option_3": "Squeeze the final margins. Strip the supply chain down to its bare-metal, cheapest possible iteration, ruthlessly maximizing immediate cash flow for the 2050 exit multiple."
+        "option_3": "Squeeze the final margins. Strip the supply chain down to its bare-metal, cheapest possible iteration, ruthlessly maximizing immediate cash flow for the Year 3 exit multiple."
       },
       "offsetting": {
         "option_1": "Permanently surrender $15 million in capital to found an irrevocable, perpetual sustainability trust that acts as a towering beacon of corporate responsibility for the next century.",
         "option_2": "Re-incorporate the firm structurally. Rewrite the corporate charter to legally bind future boards to a strict stakeholder-first governance covenant.",
-        "option_3": "Burn the ESG roadmap. Divert every available dollar of free cash flow in 2050 exclusively into massive stock buybacks and special dividends. Pure, unadulterated shareholder supremacy."
+        "option_3": "Burn the ESG roadmap. Divert every available dollar of free cash flow in Year 3 exclusively into massive stock buybacks and special dividends. Pure, unadulterated shareholder supremacy."
       }
     }
   }

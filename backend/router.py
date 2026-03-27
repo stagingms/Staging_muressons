@@ -288,6 +288,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
                 "player_count": len(players),
             }
 
+    print(f"[DEBUG] session_id={session_id}, len_players={len(players)}, players={players}")
     if len(players) >= 5:
         raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 5 players.")
 
@@ -621,6 +622,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         dividends_paid=body.dividends_paid,
         crisis_severity=effective_crisis,
         imitation_decay_rate=body.imitation_decay_rate,
+        decision_paradigm=paradigm,
     )
 
     new_round = tick_result["global_state"]["round_number"]
@@ -741,7 +743,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000
             for bu in new_bus
         )
-        carbon_tax_per_ton = 250  # EU ETS projected 2050
+        carbon_tax_per_ton = 250  # EU ETS projected Year 3
         carbon_cost = round(carbon_tonnage * carbon_tax_per_ton, 2)
 
         # Regenerative Multiple breakdown
@@ -798,7 +800,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         r10_choice = decisions_raw[0].get("choice_selected", "option_b") if decisions_raw else "option_b"
 
         # Inject final report into events
-        events["ebitda_2050"] = round(ebitda, 2)
+        events["terminal_ebitda"] = round(ebitda, 2)
         events["carbon_tonnage_group"] = round(carbon_tonnage, 1)
         events["carbon_cost"] = carbon_cost
         events["carbon_tax_per_ton"] = carbon_tax_per_ton
@@ -1050,7 +1052,7 @@ async def get_session_paradigm(session_id: str):
 # ─────────────────────────────────────────────────────────────────
 
 class UpdateParadigmRequest(BaseModel):
-    decision_paradigm: str  # 'legacy_abc' or 'multi_toggles'
+    decision_paradigm: str  # 'legacy_abc', 'multi_toggles', or 'advanced_climate'
 
 @router.put(
     "/{session_id}/paradigm",
@@ -1058,8 +1060,8 @@ class UpdateParadigmRequest(BaseModel):
 )
 async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest):
     """Set the decision paradigm for a session. Propagates to child player sessions."""
-    if body.decision_paradigm not in ("legacy_abc", "multi_toggles"):
-        raise HTTPException(status_code=400, detail="Invalid paradigm. Must be 'legacy_abc' or 'multi_toggles'.")
+    if body.decision_paradigm not in ("legacy_abc", "multi_toggles", "advanced_climate"):
+        raise HTTPException(status_code=400, detail="Invalid paradigm. Must be 'legacy_abc', 'multi_toggles', or 'advanced_climate'.")
 
     session_info = await db.get_session_info(session_id)
     if not session_info:

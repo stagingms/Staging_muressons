@@ -21,6 +21,7 @@ import FacilitatorNotes from '../../components/FacilitatorNotes';
 import TeamImpersonation from '../../components/TeamImpersonation';
 import ReportsExport from '../../components/ReportsExport';
 import RoundTimeline from '../../components/RoundTimeline';
+import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 import StudentBonuses from '../../components/StudentBonuses';
 import SimulationManager from '../../components/SimulationManager';
 import PeerEvaluation from '../../components/PeerEvaluation';
@@ -322,11 +323,11 @@ function FacilitatorDashboard({ authData, onLogout }) {
     useEffect(() => {
         let ws;
         try {
-            ws = new WebSocket(`${WS_URL}/api/admin/ws/admin`);
+            ws = new WebSocket(`${WS_URL}/api/admin/ws/admin?facilitator_id=${authData.facilitator_id}`);
             ws.onmessage = (evt) => {
                 const data = JSON.parse(evt.data);
-                if (data.type === 'sessions_refresh') {
-                    setLeaderboard(data.sessions || []);
+                if (data.type === 'sessions_refresh' || data.type === 'sessions_refresh_trigger') {
+                    fetchLeaderboard();
                 } else {
                     addLog(data);
                 }
@@ -350,7 +351,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
     /* ── Fetch leaderboard on mount ─────────────────────────── */
     const fetchLeaderboard = useCallback(async () => {
         try {
-            const res = await fetch(`${API}/api/admin/leaderboard`);
+            const res = await fetch(`${API}/api/admin/leaderboard?facilitator_id=${authData.facilitator_id}`);
             if (res.ok) {
                 const data = await res.json();
                 if (data.leaderboard?.length) setLeaderboard(data.leaderboard);
@@ -367,7 +368,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
     const handleOverride = useCallback(
         (result) => {
             addLog({ type: 'override', ...result });
-            fetch(`${API}/api/admin/leaderboard`)
+            fetch(`${API}/api/admin/leaderboard?facilitator_id=${authData.facilitator_id}`)
                 .then((r) => r.json())
                 .then((d) => d.leaderboard?.length && setLeaderboard(d.leaderboard))
                 .catch(() => { });
@@ -474,9 +475,10 @@ function FacilitatorDashboard({ authData, onLogout }) {
             icon: '📊',
             id: 'analytics',
             items: [
-                { id: 'platform_analytics', label: 'Platform Analytics', component: 'PlatformAnalytics' },
+                { id: 'platform_analytics', label: 'Cohort Analytics', component: 'PlatformAnalytics' },
                 { id: 'audit_trail', label: 'Decision Audit Trail', component: 'AuditTrail' },
                 { id: 'debrief', label: 'Round Debrief', component: 'DebriefReport' },
+                { id: 'scorecard_evaluator', label: 'Scorecard Sandbox', component: 'BalancedScorecardEvaluator' },
                 { id: 'reports', label: 'Export Reports', component: 'ReportsExport' },
                 { id: 'notes', label: 'Facilitator Notes', component: 'FacilitatorNotes' },
             ]
@@ -512,7 +514,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                     </div>
                 );
             case 'sim_manager':
-                return <SimulationManager leaderboard={leaderboard} onSessionCreated={fetchLeaderboard} />;
+                return <SimulationManager leaderboard={leaderboard} onSessionCreated={(s) => setLeaderboard(prev => [...prev, s])} hideCreate={true} />;
 
             // ── Monitoring tabs ──
             case 'leaderboard':
@@ -550,6 +552,16 @@ function FacilitatorDashboard({ authData, onLogout }) {
             // ── Reports & Analytics tabs ──
             case 'reports':
                 return <ReportsExport leaderboard={leaderboard} />;
+            case 'scorecard_evaluator':
+                return (
+                    <div style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                        <h2 style={{ marginBottom: '1rem', color: 'var(--text-primary)', fontSize: '1.4rem' }}>🧮 Scorecard Sandbox (Teaching Tool)</h2>
+                        <p style={{ color: 'var(--text-muted)', marginBottom: '2rem', fontSize: '0.9rem', maxWidth: '600px' }}>
+                            Interactive whiteboard to demonstrate the mathematical weighting of the Triple Bottom Line framework. Modifying these sliders does not impact live session data.
+                        </p>
+                        <BalancedScorecardEvaluator />
+                    </div>
+                );
             case 'notes':
                 return <FacilitatorNotes sessionId={selectedSession} />;
 
@@ -573,25 +585,52 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                 <h2>Session Management</h2>
                             </div>
                             <div className={styles.resetBody}>
-                                {selectedSession ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                                        <button className={styles.resetSessionBtn} onClick={() => handleResetSession(selectedSession, null, false)}>
-                                            🗑️ Soft Delete Selected Team ({selectedSession.slice(0, 12)}…)
-                                        </button>
-                                        {authData?.facilitator_id === 'admin' && (
-                                            <button 
-                                                className={styles.resetSessionBtn} 
-                                                onClick={() => handleResetSession(selectedSession, null, true)}
-                                                style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: '#ef4444' }}
-                                                title="God Mode Only: Bypasses 7-day retention."
-                                            >
-                                                🧨 Hard Delete Team (Immediately Wipe)
-                                            </button>
-                                        )}
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                        Select a session from the dropdown to permanently delete it. Note: Soft deletion allows data recovery within 7 days.
                                     </div>
-                                ) : (
-                                    <div style={{ color: 'var(--text-muted)' }}>Select a session in the Leaderboard to delete it individually.</div>
-                                )}
+                                    <select 
+                                        value={selectedSession || ''} 
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setSelectedSession(val ? val : null);
+                                        }}
+                                        style={{ 
+                                            padding: '0.6rem', borderRadius: '8px', 
+                                            border: '1px solid var(--border-subtle)', 
+                                            background: 'var(--bg-body)', color: 'var(--text-primary)',
+                                            fontSize: '0.9rem', outline: 'none'
+                                        }}
+                                    >
+                                        <option value="">-- Select a Session to Delete --</option>
+                                        {Array.from(new Set(leaderboard.map(s => s.session_id))).map(sid => {
+                                            const ses = leaderboard.find(s => s.session_id === sid);
+                                            return (
+                                                <option key={sid} value={sid}>
+                                                    {ses.cohort_name || sid.slice(0, 8)} (R{ses.round_number || 1})
+                                                </option>
+                                            );
+                                        })}
+                                    </select>
+
+                                    {selectedSession && (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                            <button className={styles.resetSessionBtn} onClick={() => handleResetSession(selectedSession, null, false)}>
+                                                🗑️ Soft Delete Selected Team ({selectedSession.slice(0, 12)}…)
+                                            </button>
+                                            {authData?.facilitator_id === 'admin' && (
+                                                <button 
+                                                    className={styles.resetSessionBtn} 
+                                                    onClick={() => handleResetSession(selectedSession, null, true)}
+                                                    style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444', borderColor: '#ef4444' }}
+                                                    title="God Mode Only: Bypasses 7-day retention."
+                                                >
+                                                    🧨 Hard Delete Team (Immediately Wipe)
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
 
                             </div>
                         </section>

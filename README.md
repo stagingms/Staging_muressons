@@ -78,7 +78,7 @@ The host IP is displayed when you run `start.bat`.
 2. **Players** join using their Player ID + password
 3. **Each Round** — Review the crisis, select a strategy, allocate investments, review & commit
 4. **10 Rounds** — Navigate ESG challenges across Pharma, Electronics, Consumer Goods, and Software
-5. **Final Report** — See your 2050 Terminal Valuation and corporate archetype
+5. **Final Report** — See your Year 3 Terminal Valuation and corporate archetype
 
 ### Decision Paradigms
 

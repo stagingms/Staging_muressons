@@ -37,7 +37,64 @@ _god_mode_settings: dict = {
     "global_carbon_fee": 40,
     "market_hostility_index": 5,
     "scope_3_threshold": 2.5,
+    # Custom profile archetypes (empty = use hardcoded defaults in round_logic.py)
+    "custom_archetypes": [],
 }
+
+# Default archetypes mirroring round_logic.py — shown as read-only reference in God Mode UI
+DEFAULT_ARCHETYPES = [
+    {
+        "key": "regenerative_titan",
+        "title": "The Regenerative Titan",
+        "description": (
+            "A truly regenerative enterprise. Muressons has rebuilt natural capital, "
+            "earned deep social trust, and delivered superior financial returns. "
+            "This is the gold standard of Year 3."
+        ),
+        "mr_threshold": 1.8,
+        "icon": "🌱",
+        "gradient": "linear-gradient(135deg, #10b981, #059669)",
+        "is_default": True,
+    },
+    {
+        "key": "derisked_safe_haven",
+        "title": "The De-risked Safe-Haven",
+        "description": (
+            "A resilient corporation that avoided the worst tail risks. "
+            "Investors value the predictability, but innovation is stalling. "
+            "Solid, but not transformational."
+        ),
+        "mr_threshold": 1.2,
+        "icon": "🏦",
+        "gradient": "linear-gradient(135deg, #3b82f6, #1d4ed8)",
+        "is_default": True,
+    },
+    {
+        "key": "fragile_giant",
+        "title": "The Fragile Giant",
+        "description": (
+            "Big but brittle. The cracks in social license and natural capital are visible. "
+            "One more shock could trigger a cascade of write-downs and stakeholder defections."
+        ),
+        "mr_threshold": 0.8,
+        "icon": "⚠️",
+        "gradient": "linear-gradient(135deg, #f59e0b, #d97706)",
+        "is_default": True,
+    },
+    {
+        "key": "stranded_relic",
+        "title": "The Stranded Relic",
+        "description": (
+            "A cautionary tale. Stranded assets, depleted social capital, "
+            "and a brand synonymous with extraction. The Year 3 market has moved on. "
+            "Terminal decline is imminent."
+        ),
+        "mr_threshold": 0.0,
+        "icon": "💀",
+        "gradient": "linear-gradient(135deg, #ef4444, #b91c1c)",
+        "is_default": True,
+    },
+]
 
 
 # ── God Mode audit log ──────────────────────────────────────────
@@ -104,6 +161,13 @@ async def get_global_settings():
         "scope_3_threshold": _god_mode_settings.get("scope_3_threshold", 2.5),
         "allow_facilitator_cohort_creation": _god_mode_settings.get("allow_facilitator_cohort_creation", True),
         "system_frozen": _god_mode_settings.get("system_frozen", False),
+        "corporate_treasury_start": _god_mode_settings.get("corporate_treasury_start", 25_000_000.0),
+        "group_reputation_start": _god_mode_settings.get("group_reputation_start", 50.0),
+        "synergy_multiplier_start": _god_mode_settings.get("synergy_multiplier_start", 1.0),
+        "cost_of_capital_start": _god_mode_settings.get("cost_of_capital_start", 0.05),
+        "loan_interest_rate_start": _god_mode_settings.get("loan_interest_rate_start", 0.12),
+        "imitation_decay_rate_start": _god_mode_settings.get("imitation_decay_rate_start", 0.05),
+        "green_transition_fund_start": _god_mode_settings.get("green_transition_fund_start", 0.0),
     }
 
 
@@ -113,12 +177,100 @@ async def patch_global_settings(body: dict = Body(...)):
     Accepts: simulation_mode, global_carbon_fee, market_hostility_index, scope_3_threshold"""
     allowed = ("simulation_mode", "global_carbon_fee", "market_hostility_index",
                "scope_3_threshold", "allow_facilitator_cohort_creation",
-               "system_frozen", "freeze_message")
+               "system_frozen", "freeze_message",
+               "corporate_treasury_start", "group_reputation_start",
+               "synergy_multiplier_start", "cost_of_capital_start",
+               "loan_interest_rate_start", "imitation_decay_rate_start",
+               "green_transition_fund_start")
     for key in allowed:
         if key in body:
             _god_mode_settings[key] = body[key]
     print(f"[god-mode] Global settings updated: {_god_mode_settings}")
     return {"status": "ok", "settings": _god_mode_settings}
+
+
+# ── Archetype CRUD ───────────────────────────────────────────────
+
+@admin_router.get("/archetypes", summary="Get all profile archetypes (defaults + custom)")
+async def get_archetypes():
+    """Returns defaults (read-only) merged with any custom archetypes.
+    Custom archetypes overlay defaults if they share the same key."""
+    custom = _god_mode_settings.get("custom_archetypes", [])
+    # Build a unified list: customs take precedence over defaults
+    custom_keys = {a["key"] for a in custom}
+    all_archetypes = [a for a in DEFAULT_ARCHETYPES if a["key"] not in custom_keys] + custom
+    # Sort descending by threshold so UI renders in logical order
+    all_archetypes.sort(key=lambda a: a.get("mr_threshold", 0), reverse=True)
+    return {
+        "archetypes": all_archetypes,
+        "defaults": DEFAULT_ARCHETYPES,
+        "custom": custom,
+        "using_custom": len(custom) > 0,
+    }
+
+
+@admin_router.post("/archetypes", summary="Add a new custom archetype")
+async def add_archetype(body: dict = Body(...)):
+    key = (body.get("key") or "").strip().replace(" ", "_")
+    if not key:
+        raise HTTPException(400, "'key' is required")
+    title = body.get("title", "").strip()
+    if not title:
+        raise HTTPException(400, "'title' is required")
+    mr_threshold = body.get("mr_threshold")
+    if mr_threshold is None:
+        raise HTTPException(400, "'mr_threshold' is required")
+    archetype = {
+        "key": key,
+        "title": title,
+        "description": body.get("description", ""),
+        "mr_threshold": float(mr_threshold),
+        "icon": body.get("icon", "🏅"),
+        "gradient": body.get("gradient", "linear-gradient(135deg, #6366f1, #8b5cf6)"),
+        "is_default": False,
+    }
+    customs = _god_mode_settings.setdefault("custom_archetypes", [])
+    # Replace if key already exists
+    existing_idx = next((i for i, a in enumerate(customs) if a["key"] == key), None)
+    if existing_idx is not None:
+        customs[existing_idx] = archetype
+    else:
+        customs.append(archetype)
+    print(f"[god-mode] Archetype added/updated: {key}")
+    return {"status": "ok", "archetype": archetype}
+
+
+@admin_router.put("/archetypes/{key}", summary="Update an existing custom archetype")
+async def update_archetype(key: str, body: dict = Body(...)):
+    customs = _god_mode_settings.get("custom_archetypes", [])
+    idx = next((i for i, a in enumerate(customs) if a["key"] == key), None)
+    if idx is None:
+        # Allow editing defaults by promoting them to custom
+        default = next((d for d in DEFAULT_ARCHETYPES if d["key"] == key), None)
+        if not default:
+            raise HTTPException(404, f"Archetype '{key}' not found")
+        archetype = {**default, "is_default": False}
+        customs.append(archetype)
+        idx = len(customs) - 1
+        _god_mode_settings["custom_archetypes"] = customs
+    # Apply updates
+    for field in ("title", "description", "mr_threshold", "icon", "gradient"):
+        if field in body:
+            customs[idx][field] = body[field]
+    customs[idx]["is_default"] = False
+    print(f"[god-mode] Archetype updated: {key}")
+    return {"status": "ok", "archetype": customs[idx]}
+
+
+@admin_router.delete("/archetypes/{key}", summary="Delete a custom archetype")
+async def delete_archetype(key: str):
+    customs = _god_mode_settings.get("custom_archetypes", [])
+    before = len(customs)
+    _god_mode_settings["custom_archetypes"] = [a for a in customs if a["key"] != key]
+    if len(_god_mode_settings["custom_archetypes"]) == before:
+        raise HTTPException(404, f"Custom archetype '{key}' not found (defaults cannot be deleted, only overridden)")
+    print(f"[god-mode] Archetype deleted: {key}")
+    return {"status": "deleted", "key": key}
 
 
 @admin_router.get("/facilitators", summary="List all facilitators")
@@ -188,7 +340,14 @@ async def facilitator_login(body: dict = Body(...)):
         _persist_facilitators()
     if not fac or (password != "321" and fac["password"] != password):
         raise HTTPException(403, "Invalid facilitator ID or password")
-    return {"status": "success", "facilitator_id": fac["facilitator_id"], "name": fac["name"], "username": fac.get("username", "")}
+    
+    return {
+        "status": "success", 
+        "facilitator_id": fac["facilitator_id"], 
+        "name": fac["name"], 
+        "username": fac.get("username", ""),
+        "is_admin": fac.get("is_admin", False)
+    }
 
 
 @admin_router.post("/facilitators/change-password", summary="Change facilitator password")
@@ -601,6 +760,9 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
 
         effective_crisis = pre_result.get("crisis_severity", 0)
 
+        session_info = await db.get_session_info(session_id)
+        paradigm = (session_info or {}).get("decision_paradigm", "legacy_abc")
+
         # Run tick engine
         tick_result = process_tick(
             current_global=current_global,
@@ -609,6 +771,7 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
             dividends_paid=0,
             crisis_severity=effective_crisis,
             imitation_decay_rate=0.05,
+            decision_paradigm=paradigm,
         )
 
         new_round = tick_result["global_state"]["round_number"]
@@ -1351,7 +1514,7 @@ OVERRIDE_HANDLERS: dict[str, Any] = {}
 
 
 def _apply_carbon_tax_override(global_state: dict, params: dict) -> dict[str, Any]:
-    """Toggle 2050 Carbon Tax from $250/ton to $400/ton."""
+    """Toggle Year 3 Carbon Tax from $250/ton to $400/ton."""
     new_rate = params.get("new_rate", 400)
     flags = global_state.get("active_event_flags", {})
     flags["carbon_tax_per_ton"] = new_rate
@@ -1445,6 +1608,7 @@ async def generate_player_id(session_id: str):
     }
     
     # Register in player registry for password validation
+    global _player_registry
     _player_registry.append(player_entry.copy())
     
     # Also persist in the session metadata so it survives page refreshes
@@ -1461,7 +1625,7 @@ async def generate_player_id(session_id: str):
     "/leaderboard",
     summary="Get leaderboard data for all active sessions",
 )
-async def get_leaderboard():
+async def get_leaderboard(facilitator_id: Optional[str] = None):
     """
     Returns computed leaderboard metrics for each player session:
     terminal value projection, total cash, synergy, risk heatmap,
@@ -1479,6 +1643,9 @@ async def get_leaderboard():
         # Skip cohort template sessions (those without a player_id)
         # unless they have no parent (legacy solo sessions)
         player_id = sess.get("player_id")
+
+        if facilitator_id and sess.get("facilitator_id") != facilitator_id:
+            continue
 
         gs = latest["global_state"]
         bus = latest["bu_states"]
@@ -1509,6 +1676,7 @@ async def get_leaderboard():
 
         leaderboard.append({
             "session_id": sid,
+            "short_code": sess.get("short_code"),
             "cohort_name": sess.get("cohort_name", "Unknown"),
             "player_id": player_id,
             "round_number": latest["round_number"],
@@ -2019,17 +2187,47 @@ async def update_consultant_fee(fee_usd: int = Body(..., embed=True)):
 
 
 # ═════════════════════════════════════════════════════════════════
-#  BU-SPECIFIC MATERIALITY CONFIGURATOR (Strategic Pillars)
+#  BU REGISTRY — God-mode configurable BU categories
 # ═════════════════════════════════════════════════════════════════
 
-VALID_BU_IDS = ["pharma", "electronics", "consumer_goods", "software"]
-BU_LABELS = {
-    "pharma": "Muressons Pharma",
-    "electronics": "Muressons Electronics",
-    "consumer_goods": "Muressons Consumer Goods",
-    "software": "Muressons Software",
-}
+@admin_router.get("/bu-categories", summary="List all BU categories (defaults + custom)")
+async def list_bu_categories():
+    """Returns all registered BU categories including any god-mode additions."""
+    registry = mat_db.get_bu_registry()
+    return {"categories": registry, "total": len(registry)}
 
+
+@admin_router.post("/bu-categories", summary="Add a new custom BU category")
+async def add_bu_category(body: dict = Body(...)):
+    """Register a new BU category and initialise an empty materiality config for it."""
+    bu_id = (body.get("id") or body.get("bu_id") or "").strip().lower().replace(" ", "_")
+    label = (body.get("label") or "").strip()
+    icon = body.get("icon", "\U0001f3e2")
+    if not bu_id:
+        raise HTTPException(400, "'id' (or 'bu_id') is required")
+    if not label:
+        raise HTTPException(400, "'label' is required")
+    entry = mat_db.register_bu(bu_id, label, icon)
+    print(f"[god-mode] BU category registered: {bu_id} ({label})")
+    return {"status": "ok", "category": entry}
+
+
+@admin_router.delete("/bu-categories/{bu_id}", summary="Remove a custom BU category")
+async def delete_bu_category(bu_id: str):
+    """Remove a custom BU category. The 4 default BUs cannot be removed."""
+    try:
+        removed = mat_db.unregister_bu(bu_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    if not removed:
+        raise HTTPException(404, f"Custom BU category '{bu_id}' not found")
+    print(f"[god-mode] BU category removed: {bu_id}")
+    return {"status": "deleted", "bu_id": bu_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  BU-SPECIFIC MATERIALITY CONFIGURATOR (Strategic Pillars)
+# ═════════════════════════════════════════════════════════════════
 
 @admin_router.get(
     "/materiality-config/bu/{bu_id}",
@@ -2037,8 +2235,9 @@ BU_LABELS = {
 )
 async def get_bu_materiality_config(bu_id: str):
     """Returns the materiality issues dictionary for a specific Business Unit."""
-    if bu_id not in VALID_BU_IDS:
-        raise HTTPException(status_code=400, detail=f"Invalid BU ID: {bu_id}. Valid: {VALID_BU_IDS}")
+    valid = mat_db.get_bu_ids()
+    if bu_id not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid BU ID: {bu_id}. Valid: {valid}")
     return mat_db.get_bu_config(bu_id)
 
 
@@ -2048,8 +2247,9 @@ async def get_bu_materiality_config(bu_id: str):
 )
 async def update_bu_materiality_config(bu_id: str, config: MaterialityConfig):
     """Overwrites the entire BU-specific materiality dictionary."""
-    if bu_id not in VALID_BU_IDS:
-        raise HTTPException(status_code=400, detail=f"Invalid BU ID: {bu_id}. Valid: {VALID_BU_IDS}")
+    valid = mat_db.get_bu_ids()
+    if bu_id not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid BU ID: {bu_id}. Valid: {valid}")
     mat_db.update_bu_config(bu_id, config.model_dump())
     return mat_db.get_bu_config(bu_id)
 
@@ -2069,10 +2269,18 @@ async def get_r2_bu_selection(session_id: str):
 
     if selected_bu is None:
         # Auto-select if not yet chosen
+        import random
+        VALID_BU_IDS = ["pharma", "electronics", "consumer_goods", "software"]
         selected_bu = random.choice(VALID_BU_IDS)
         global_state["r2_selected_bu"] = selected_bu
         await db.update_latest_global_state(session_id, global_state, current["bu_states"])
 
+    BU_LABELS = {
+        "pharma": "Muressons Pharma",
+        "electronics": "Muressons Electronics",
+        "consumer_goods": "Muressons Consumer Goods",
+        "software": "Muressons Software"
+    }
     return {
         "selected_bu": selected_bu,
         "bu_label": BU_LABELS.get(selected_bu, selected_bu),
@@ -3104,7 +3312,7 @@ _master_overrides: list[dict] = [
         "id": "carbon_tax",
         "icon": "🌍",
         "title": "Global Macro Shift",
-        "description": "Toggle 2050 Carbon Tax from $250/ton → $400/ton mid-game.",
+        "description": "Toggle Year 3 Carbon Tax from $250/ton → $400/ton mid-game.",
         "color": "#3b82f6",
         "dangerLevel": "HIGH",
         "params": {"new_rate": 400},
@@ -3256,7 +3464,7 @@ async def upload_intervention_media(file: UploadFile = File(...)):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.websocket("/ws/admin")
-async def admin_websocket(websocket: WebSocket):
+async def admin_websocket(websocket: WebSocket, facilitator_id: str = None):
     """WebSocket for admin dashboard real-time updates."""
     await manager.connect_admin(websocket)
     try:
@@ -3264,11 +3472,17 @@ async def admin_websocket(websocket: WebSocket):
             data = await websocket.receive_text()
             # Admin can request a leaderboard refresh
             if data == "refresh":
-                sessions = await db.fetch_all_sessions()
-                await websocket.send_text(json.dumps({
-                    "type": "sessions_refresh",
-                    "sessions": sessions,
-                }))
+                if facilitator_id:
+                    # Instruct facilitator frontend to fetch securely scoped leaderboard
+                    await websocket.send_text(json.dumps({
+                        "type": "sessions_refresh_trigger",
+                    }))
+                else:
+                    sessions = await db.fetch_all_sessions()
+                    await websocket.send_text(json.dumps({
+                        "type": "sessions_refresh",
+                        "sessions": sessions,
+                    }))
     except WebSocketDisconnect:
         manager.disconnect_admin(websocket)
 

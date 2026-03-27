@@ -94,7 +94,6 @@ export default function LeaderboardMatrix({
                             <th className={styles.heatCol}><Abbr term="SL">Social License</Abbr></th>
                             <th>Talent Risk</th>
                             <th>Practice</th>
-                            <th className={styles.actionCol}></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -174,27 +173,12 @@ export default function LeaderboardMatrix({
                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
                                         )}
                                     </td>
-                                    <td className={styles.actionCol}>
-                                        <button
-                                            className={styles.deleteBtn}
-                                            title={sess.player_id ? `Remove player ${sess.player_id}` : "Delete this session"}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                const label = sess.player_id
-                                                    ? `${sess.cohort_name} — Player ${sess.player_id}`
-                                                    : sess.cohort_name;
-                                                onDeleteSession?.(sess.session_id, label);
-                                            }}
-                                        >
-                                            🗑️
-                                        </button>
-                                    </td>
                                 </tr>
                             );
                         })}
                         {leaderboard.length === 0 && (
                             <tr>
-                                <td colSpan={14} className={styles.empty}>
+                                <td colSpan={13} className={styles.empty}>
                                     No active sessions. Start a simulation to see the leaderboard.
                                 </td>
                             </tr>

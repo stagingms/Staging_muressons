@@ -146,6 +146,12 @@ export default function CockpitPage() {
   const [stakeholderDone, setStakeholderDone] = useState(false);
   const [showStakeholderMap, setShowStakeholderMap] = useState(false);
 
+  // Reset transient minigame states when impersonating different cohorts in the same tab
+  useEffect(() => {
+    setStakeholderDone(false);
+    setShowStakeholderMap(false);
+  }, [sim.sessionId]);
+
   // Resource sidebar state
   const [resourceSidebarOpen, setResourceSidebarOpen] = useState(false);
   const [hasNewResources, setHasNewResources] = useState(false);
@@ -527,6 +533,7 @@ export default function CockpitPage() {
           history={sim.history}
           onProceed={!boardroomDone ? () => setGameOverPhase('boardroom') : undefined}
           onClose={() => setGameOverPhase('done')}
+          onLogout={sim.logout}
         />
       );
     }
@@ -561,25 +568,46 @@ export default function CockpitPage() {
         <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '1rem', marginBottom: '2rem' }}>
           Thank you for participating in the Muressons Global Command simulation.
         </p>
-        <button
-          onClick={() => setGameOverPhase('scorecard')}
-          style={{
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-            color: '#fff',
-            border: 'none',
-            padding: '0.8rem 2.5rem',
-            borderRadius: '10px',
-            fontSize: '1rem',
-            fontWeight: 700,
-            cursor: 'pointer',
-            boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)',
-            transition: 'transform 0.15s, box-shadow 0.15s',
-          }}
-          onMouseOver={(e) => { e.target.style.transform = 'scale(1.03)'; }}
-          onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
-        >
-          📊 Review Final Scorecard
-        </button>
+        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            onClick={() => setGameOverPhase('scorecard')}
+            style={{
+              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              color: '#fff',
+              border: 'none',
+              padding: '0.8rem 2.5rem',
+              borderRadius: '10px',
+              fontSize: '1rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)',
+              transition: 'transform 0.15s, box-shadow 0.15s',
+            }}
+            onMouseOver={(e) => { e.target.style.transform = 'scale(1.03)'; }}
+            onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
+          >
+            📊 Review Final Scorecard
+          </button>
+          
+          <button
+            onClick={() => sim.logout()}
+            style={{
+              background: 'transparent',
+              color: '#94a3b8',
+              border: '1px solid #475569',
+              padding: '0.8rem 2.5rem',
+              borderRadius: '10px',
+              fontSize: '1rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseOver={(e) => { e.target.style.color = '#fff'; e.target.style.borderColor = '#94a3b8'; }}
+            onMouseOut={(e) => { e.target.style.color = '#94a3b8'; e.target.style.borderColor = '#475569'; }}
+          >
+            👋 Logout & Exit
+          </button>
+        </div>
       </div>
     );
   }
@@ -708,6 +736,7 @@ export default function CockpitPage() {
         onResourcesOpen={() => { setResourceSidebarOpen(true); setHasNewResources(false); }}
         hasAllocated={Object.keys(allocations).length > 0}
         hasReadBriefing={!showDesktop}
+        onLogout={sim.logout}
       />
 
       {/* ═══ CRISIS ALERTS (auto-trigger + manual inject) ═══ */}
@@ -958,12 +987,13 @@ export default function CockpitPage() {
           width: 210,
         }}>
           {[
-            { icon: '📊', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
+            { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
             { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
             { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
             { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
             { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
             { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound' : 'Muted', shortcut: null, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
+            { icon: '👋', label: 'Log Out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
           ].map(btn => (
             <button
               key={btn.label}

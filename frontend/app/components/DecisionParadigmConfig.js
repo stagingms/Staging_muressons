@@ -11,12 +11,43 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
   const [message, setMessage] = useState('');
   const [sessions, setSessions] = useState(propSessions || []);
 
+  // Climate Engine parameters (only relevant when advanced_climate is chosen)
+  const [carbonFee, setCarbonFee] = useState(40);
+  const [hostility, setHostility] = useState(5);
+  const [scope3, setScope3] = useState(2.5);
+  const [climateApplying, setClimateApplying] = useState(false);
+  const [climateMsg, setClimateMsg] = useState('');
+
   // -- Matrix Editor State --
   const [matrixData, setMatrixData] = useState(null);
   const [matrixLoading, setMatrixLoading] = useState(true);
-  const [activeEditorTab, setActiveEditorTab] = useState('legacy_abc'); // legacy_abc | multi_toggles
+  const [activeEditorTab, setActiveEditorTab] = useState('legacy_abc'); // legacy_abc | multi_toggles | climate_engine
   const [localEdits, setLocalEdits] = useState({});
   const [showEditor, setShowEditor] = useState(false);
+
+  // Advanced Climate Engine local overrides
+  const [climateOverrides, setClimateOverrides] = useState({
+    global_carbon_fee: 40,
+    market_hostility_index: 5,
+    scope_3_threshold: 2.5,
+    r5_base_damage: 12000000,
+    r5_stochastic_threshold: 0.75,
+    r10_carbon_tax_per_ton: 250,
+    r10_exit_multiple: 12.0,
+    mr_synergy_bonus: 0.30,
+    mr_resilience_bonus: 0.20,
+    mr_truth_premium: 0.15,
+    mr_instability_discount: -0.40,
+    profile_regenerative_titan: 1.8,
+    profile_derisked_safe_haven: 1.2,
+    profile_fragile_giant: 0.8,
+    loan_interest_rate: 0.12,
+    cost_of_capital: 0.05,
+    synergy_gate_threshold: 80,
+    strike_probability: 0.75,
+  });
+  const [climateOverrideSaving, setClimateOverrideSaving] = useState(false);
+  const [climateOverrideMsg, setClimateOverrideMsg] = useState('');
 
   // Auto-fetch sessions from admin API
   useEffect(() => {
@@ -61,6 +92,12 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       });
   };
 
+  const PARADIGM_LABELS = {
+    legacy_abc: 'Narrative Crises (A/B/C)',
+    multi_toggles: 'Strategic Pillars (4-Area)',
+    advanced_climate: 'Advanced Climate Engine',
+  };
+
   const handleToggle = async (paradigm) => {
     if (!selectedSession) {
       setMessage('⚠️ Select a session first.');
@@ -70,7 +107,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       setMessage('🔒 Paradigm is locked for this cohort and cannot be changed.');
       return;
     }
-    const label = paradigm === 'legacy_abc' ? 'Narrative Crises (A/B/C)' : 'Strategic Pillars (4-Area)';
+    const label = PARADIGM_LABELS[paradigm] || paradigm;
     if (!confirm(`⚠️ Permanent Change\n\nYou are about to lock the decision framework to "${label}" for this cohort.\n\nThis cannot be undone — the paradigm will be locked for the entire simulation.\n\nProceed?`)) return;
     setSaving(true);
     setMessage('');
@@ -83,7 +120,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       if (res.ok) {
         setCurrentParadigm(paradigm);
         setLocked(true);
-        setMessage(`✅ Paradigm locked to "${paradigm === 'legacy_abc' ? 'Narrative Crises' : 'Strategic Pillars'}" — this cannot be changed.`);
+        setMessage(`✅ Paradigm locked to "${label}" — this cannot be changed.`);
       } else {
         const err = await res.json();
         setMessage(`❌ ${err.detail || 'Failed to update'}`);
@@ -157,8 +194,11 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
   const getResolvedValue = (paradigm, roundStr, optionKey, areaKey, fieldName) => {
     const pathKey = [paradigm, roundStr, areaKey || 'none', optionKey, fieldName].join('|');
     if (localEdits[pathKey] !== undefined) return localEdits[pathKey];
-    
-    // Drill into merged config
+    return getServerDefault(paradigm, roundStr, optionKey, areaKey, fieldName);
+  };
+
+  // Returns the raw backend value, ignoring any local edits
+  const getServerDefault = (paradigm, roundStr, optionKey, areaKey, fieldName) => {
     if (!matrixData) return '';
     try {
       let target = null;
@@ -167,12 +207,8 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       } else {
         target = matrixData.merged_pillars[roundStr]?.areas?.[areaKey]?.options?.[optionKey];
       }
-      
       const impactFields = ['treasury', 'revenue_delta', 'carbon_intensity_delta', 'reputation', 'resilience_factor', 'natural_capital_debt_delta', 'social_license_delta', 'social_license_score'];
-      
-      if (impactFields.includes(fieldName)) {
-        return target?.impacts?.[fieldName] ?? '';
-      }
+      if (impactFields.includes(fieldName)) return target?.impacts?.[fieldName] ?? '';
       return target?.[fieldName] ?? '';
     } catch {
       return '';
@@ -184,6 +220,30 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
     return localEdits[pathKey] !== undefined;
   };
 
+
+  // Apply Climate Engine Parameters globally (not per-session, like the old Switchboard)
+  const handleApplyClimateParams = async () => {
+    setClimateApplying(true);
+    setClimateMsg('');
+    try {
+      const res = await fetch(`${API}/api/admin/global-settings`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          simulation_mode: 'advanced_climate',
+          global_carbon_fee: carbonFee,
+          market_hostility_index: hostility,
+          scope_3_threshold: scope3,
+        }),
+      });
+      setClimateMsg(res.ok ? '✅ Climate parameters applied to engine.' : `⚠️ Backend returned ${res.status} — saved locally.`);
+    } catch {
+      setClimateMsg('⚠️ Backend offline — parameters saved in UI state only.');
+    } finally {
+      setClimateApplying(false);
+      setTimeout(() => setClimateMsg(''), 4000);
+    }
+  };
 
   const PARADIGMS = [
     {
@@ -216,6 +276,22 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       description: 'Independent decisions across Energy, Operations, Supply Chain, and Offsetting.',
       features: ['Four strategic dimensions', 'Live cost aggregation', 'Granular control per area'],
       color: '#8b5cf6',
+    },
+    {
+      key: 'advanced_climate',
+      icon: (
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <circle cx="14" cy="14" r="10" stroke="currentColor" strokeWidth="2" opacity="0.6"/>
+          <path d="M14 6 C14 6, 8 11, 8 16 C8 19.3 10.7 22 14 22 C17.3 22 20 19.3 20 16 C20 11 14 6 14 6Z"
+            fill="currentColor" opacity="0.8"/>
+          <path d="M11 15 L13 13 L15 16 L17 12" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        </svg>
+      ),
+      title: 'Advanced Climate Engine',
+      subtitle: 'Physics-Based Scenario',
+      description: 'Rounds 1 & 2 are identical to other paradigms. From Round 3, hard carbon taxation, regulatory hostility, and Scope 3 volatility engage — branching the simulation into an advanced physics track.',
+      features: ['Rounds 1–2 shared with all paradigms', 'Configurable carbon fee ($/tonne)', 'Regulatory & NGO Hostility Index', 'Scope 3 threshold from Round 3'],
+      color: '#10b981',
     },
   ];
 
@@ -338,6 +414,72 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
         })}
       </div>
 
+      {/* ── Advanced Climate Engine Parameters (visible when that paradigm is active) ── */}
+      {currentParadigm === 'advanced_climate' && (
+        <div className={styles.climatePanel}>
+          <div className={styles.climatePanelHeader}>
+            <span className={styles.climatePanelIcon}>⚡</span>
+            <div>
+              <h4 className={styles.climatePanelTitle}>Climate Engine Parameters</h4>
+              <p className={styles.climatePanelSub}>Configure the physics parameters for the Advanced Climate Engine. These apply globally to all cohorts using this path.</p>
+            </div>
+          </div>
+
+          <div className={styles.climateSliders}>
+            {/* Carbon Fee */}
+            <div className={styles.sliderBlock}>
+              <div className={styles.sliderMeta}>
+                <span className={styles.sliderLabel}>Internal Carbon Fee</span>
+                <span className={styles.sliderValue}><strong>${carbonFee}</strong> <span className={styles.sliderUnit}>/tonne</span></span>
+              </div>
+              <input type="range" className={styles.slider} min={20} max={150} step={1}
+                value={carbonFee} onChange={(e) => setCarbonFee(Number(e.target.value))} />
+              <div className={styles.sliderRange}><span>$20</span><span>$150</span></div>
+            </div>
+
+            {/* Hostility */}
+            <div className={styles.sliderBlock}>
+              <div className={styles.sliderMeta}>
+                <span className={styles.sliderLabel}>Reg &amp; NGO Hostility</span>
+                <span className={styles.sliderValue}><strong>{hostility}</strong> <span className={styles.sliderUnit}>/10</span></span>
+              </div>
+              <input type="range" className={styles.slider} min={1} max={10} step={1}
+                value={hostility} onChange={(e) => setHostility(Number(e.target.value))} />
+              <div className={styles.sliderRange}><span>Low</span><span>Critical</span></div>
+            </div>
+
+            {/* Scope 3 */}
+            <div className={styles.sliderBlock}>
+              <div className={styles.sliderMeta}>
+                <span className={styles.sliderLabel}>Scope 3 Client Threshold</span>
+                <span className={styles.sliderValue}><strong>{scope3.toFixed(1)}</strong> <span className={styles.sliderUnit}>kg CO₂e/unit</span></span>
+              </div>
+              <input type="range" className={styles.slider} min={1.0} max={5.0} step={0.1}
+                value={scope3} onChange={(e) => setScope3(Number(e.target.value))} />
+              <div className={styles.sliderRange}><span>1.0</span><span>5.0</span></div>
+            </div>
+          </div>
+
+          {climateMsg && (
+            <div className={`${styles.message} ${climateMsg.startsWith('✅') ? styles.messageSuccess : styles.messageWarn}`}>
+              {climateMsg}
+            </div>
+          )}
+
+          <button
+            className={styles.climateApplyBtn}
+            onClick={handleApplyClimateParams}
+            disabled={climateApplying}
+          >
+            {climateApplying ? (
+              <><span className={styles.spinner} /> Applying…</>
+            ) : (
+              <>⚡ Apply Parameters to Live Engine</>
+            )}
+          </button>
+        </div>
+      )}
+
       {saving && (
         <div className={styles.saving}>
           <span className={styles.spinner} />
@@ -389,6 +531,13 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
           >
             Strategic Pillars Editor
           </button>
+          <button 
+            className={`${styles.editorTab} ${activeEditorTab === 'climate_engine' ? styles.editorTabActive : ''}`}
+            onClick={() => setActiveEditorTab('climate_engine')}
+            style={{ '--editorTabAccent': '#10b981' }}
+          >
+            ⚡ Climate Engine Editor
+          </button>
         </div>
 
         {matrixLoading && <div style={{ padding: '2rem', textAlign: 'center' }}>Loading Game Matrices...</div>}
@@ -399,13 +548,20 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
               <thead>
                 <tr>
                   <th>Round</th>
-                  <th>Option Key</th>
+                  <th>Option</th>
                   <th>Cost (Treasury)</th>
-                  <th>EBITDA (Revenue Delta)</th>
-                  <th>Carbon Emission</th>
-                  <th>Reputation</th>
+                  <th>EBITDA (Revenue Δ)</th>
+                  <th>Carbon Δ</th>
+                  <th>Reputation Δ</th>
                   <th>Resilience</th>
                   <th>Actions</th>
+                </tr>
+                <tr className={styles.defaultHeaderRow}>
+                  <th colSpan={2} />
+                  {['Cost','EBITDA','Carbon','Reputation','Resilience'].map(f => (
+                    <th key={f} className={styles.defaultHeaderCell}>Default → Override</th>
+                  ))}
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -422,51 +578,21 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
                         <span className={styles.optionTitle}>{options[optKey].title || optKey}</span>
                         <span className={styles.optionId}>{optKey}</span>
                       </td>
-                      
-                      {/* Cost */}
-                      <td>
-                        <input type="number" 
-                          className={`${styles.inputField} ${isFieldModified('legacy_abc', roundStr, optKey, null, 'treasury') ? styles.modified : ''}`}
-                          value={getResolvedValue('legacy_abc', roundStr, optKey, null, 'treasury')}
-                          onChange={(e) => handleEditChange('legacy_abc', roundStr, optKey, null, 'treasury', e.target.value)}
-                        />
-                      </td>
-                      
-                      {/* EBITDA */}
-                      <td>
-                        <input type="number" 
-                          className={`${styles.inputField} ${isFieldModified('legacy_abc', roundStr, optKey, null, 'revenue_delta') ? styles.modified : ''}`}
-                          value={getResolvedValue('legacy_abc', roundStr, optKey, null, 'revenue_delta')}
-                          onChange={(e) => handleEditChange('legacy_abc', roundStr, optKey, null, 'revenue_delta', e.target.value)}
-                        />
-                      </td>
 
-                      {/* Carbon Emission */}
-                      <td>
-                        <input type="number" 
-                          className={`${styles.inputField} ${isFieldModified('legacy_abc', roundStr, optKey, null, 'carbon_intensity_delta') ? styles.modified : ''}`}
-                          value={getResolvedValue('legacy_abc', roundStr, optKey, null, 'carbon_intensity_delta')}
-                          onChange={(e) => handleEditChange('legacy_abc', roundStr, optKey, null, 'carbon_intensity_delta', e.target.value)}
-                        />
-                      </td>
-
-                      {/* Reputation */}
-                      <td>
-                        <input type="number" 
-                          className={`${styles.inputField} ${isFieldModified('legacy_abc', roundStr, optKey, null, 'reputation') ? styles.modified : ''}`}
-                          value={getResolvedValue('legacy_abc', roundStr, optKey, null, 'reputation')}
-                          onChange={(e) => handleEditChange('legacy_abc', roundStr, optKey, null, 'reputation', e.target.value)}
-                        />
-                      </td>
-
-                      {/* Resilience */}
-                      <td>
-                        <input type="number" 
-                          className={`${styles.inputField} ${isFieldModified('legacy_abc', roundStr, optKey, null, 'resilience_factor') ? styles.modified : ''}`}
-                          value={getResolvedValue('legacy_abc', roundStr, optKey, null, 'resilience_factor')}
-                          onChange={(e) => handleEditChange('legacy_abc', roundStr, optKey, null, 'resilience_factor', e.target.value)}
-                        />
-                      </td>
+                      {[['treasury','legacy_abc'],['revenue_delta','legacy_abc'],['carbon_intensity_delta','legacy_abc'],['reputation','legacy_abc'],['resilience_factor','legacy_abc']].map(([field]) => {
+                        const serverVal = getServerDefault('legacy_abc', roundStr, optKey, null, field);
+                        const modified = isFieldModified('legacy_abc', roundStr, optKey, null, field);
+                        return (
+                          <td key={field}>
+                            <div className={styles.defaultValueLabel}>{serverVal !== '' ? serverVal : '—'}</div>
+                            <input type="number"
+                              className={`${styles.inputField} ${modified ? styles.modified : ''}`}
+                              value={getResolvedValue('legacy_abc', roundStr, optKey, null, field)}
+                              onChange={(e) => handleEditChange('legacy_abc', roundStr, optKey, null, field, e.target.value)}
+                            />
+                          </td>
+                        );
+                      })}
 
                       <td className={styles.actionCell}>
                         <button 
@@ -494,30 +620,37 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
                 <tr>
                   <th>Round</th>
                   <th>Area</th>
-                  <th>Option Key</th>
+                  <th>Option</th>
                   <th>Cost (Treasury)</th>
                   <th>EBITDA</th>
-                  <th>Carbon Emission</th>
-                  <th>Reputation</th>
+                  <th>Carbon Δ</th>
+                  <th>Reputation Δ</th>
                   <th>Resilience</th>
                   <th>Actions</th>
+                </tr>
+                <tr className={styles.defaultHeaderRow}>
+                  <th colSpan={3} />
+                  {['Cost','EBITDA','Carbon','Reputation','Resilience'].map(f => (
+                    <th key={f} className={styles.defaultHeaderCell}>Default → Override</th>
+                  ))}
+                  <th />
                 </tr>
               </thead>
               <tbody>
                 {Object.keys(matrixData.merged_pillars).map(roundStr => {
                   const areasDict = matrixData.merged_pillars[roundStr].areas || {};
-                  
+
                   return Object.keys(areasDict).map((areaKey, areaIdx) => {
                     const options = areasDict[areaKey].options || {};
                     return Object.keys(options).map((optKey, optIdx) => (
                       <tr key={`${roundStr}-${areaKey}-${optKey}`}>
                         {areaIdx === 0 && optIdx === 0 && (
-                           <td 
-                             rowSpan={Object.values(areasDict).reduce((acc, a) => acc + Object.keys(a.options || {}).length, 0)} 
-                             className={styles.roundCell}
-                           >
-                             Round {roundStr}
-                           </td>
+                          <td
+                            rowSpan={Object.values(areasDict).reduce((acc, a) => acc + Object.keys(a.options || {}).length, 0)}
+                            className={styles.roundCell}
+                          >
+                            Round {roundStr}
+                          </td>
                         )}
                         {optIdx === 0 && (
                           <td rowSpan={Object.keys(options).length} style={{ fontWeight: '500', color: '#64748b' }}>
@@ -530,50 +663,20 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
                           <span className={styles.optionId}>{optKey}</span>
                         </td>
 
-                        {/* Cost */}
-                        <td>
-                          <input type="number" 
-                            className={`${styles.inputField} ${isFieldModified('multi_toggles', roundStr, optKey, areaKey, 'cost') ? styles.modified : ''}`}
-                            value={getResolvedValue('multi_toggles', roundStr, optKey, areaKey, 'cost')}
-                            onChange={(e) => handleEditChange('multi_toggles', roundStr, optKey, areaKey, 'cost', e.target.value)}
-                          />
-                        </td>
-                        
-                         {/* EBITDA */}
-                        <td>
-                          <input type="number" 
-                            className={`${styles.inputField} ${isFieldModified('multi_toggles', roundStr, optKey, areaKey, 'revenue_delta') ? styles.modified : ''}`}
-                            value={getResolvedValue('multi_toggles', roundStr, optKey, areaKey, 'revenue_delta')}
-                            onChange={(e) => handleEditChange('multi_toggles', roundStr, optKey, areaKey, 'revenue_delta', e.target.value)}
-                          />
-                        </td>
-
-                        {/* Carbon */}
-                        <td>
-                          <input type="number" 
-                            className={`${styles.inputField} ${isFieldModified('multi_toggles', roundStr, optKey, areaKey, 'carbon_intensity_delta') ? styles.modified : ''}`}
-                            value={getResolvedValue('multi_toggles', roundStr, optKey, areaKey, 'carbon_intensity_delta')}
-                            onChange={(e) => handleEditChange('multi_toggles', roundStr, optKey, areaKey, 'carbon_intensity_delta', e.target.value)}
-                          />
-                        </td>
-
-                        {/* Reputation */}
-                        <td>
-                          <input type="number" 
-                            className={`${styles.inputField} ${isFieldModified('multi_toggles', roundStr, optKey, areaKey, 'reputation') ? styles.modified : ''}`}
-                            value={getResolvedValue('multi_toggles', roundStr, optKey, areaKey, 'reputation')}
-                            onChange={(e) => handleEditChange('multi_toggles', roundStr, optKey, areaKey, 'reputation', e.target.value)}
-                          />
-                        </td>
-
-                        {/* Resilience */}
-                        <td>
-                          <input type="number" 
-                            className={`${styles.inputField} ${isFieldModified('multi_toggles', roundStr, optKey, areaKey, 'resilience_factor') ? styles.modified : ''}`}
-                            value={getResolvedValue('multi_toggles', roundStr, optKey, areaKey, 'resilience_factor')}
-                            onChange={(e) => handleEditChange('multi_toggles', roundStr, optKey, areaKey, 'resilience_factor', e.target.value)}
-                          />
-                        </td>
+                        {[['cost','multi_toggles'],['revenue_delta','multi_toggles'],['carbon_intensity_delta','multi_toggles'],['reputation','multi_toggles'],['resilience_factor','multi_toggles']].map(([field]) => {
+                          const serverVal = getServerDefault('multi_toggles', roundStr, optKey, areaKey, field);
+                          const modified = isFieldModified('multi_toggles', roundStr, optKey, areaKey, field);
+                          return (
+                            <td key={field}>
+                              <div className={styles.defaultValueLabel}>{serverVal !== '' ? serverVal : '—'}</div>
+                              <input type="number"
+                                className={`${styles.inputField} ${modified ? styles.modified : ''}`}
+                                value={getResolvedValue('multi_toggles', roundStr, optKey, areaKey, field)}
+                                onChange={(e) => handleEditChange('multi_toggles', roundStr, optKey, areaKey, field, e.target.value)}
+                              />
+                            </td>
+                          );
+                        })}
 
                         <td className={styles.actionCell}>
                           <button 
@@ -602,6 +705,159 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
         {!matrixLoading && matrixData && !matrixData.merged_pillars && activeEditorTab === 'multi_toggles' && (
           <div className={styles.message}>⚠️ Strategic Pillars data is unavailable. The backend may need to be restarted.</div>
         )}
+
+        {/* ─── Advanced Climate Engine Editor ─── */}
+        {activeEditorTab === 'climate_engine' && (() => {
+          const groups = [
+            {
+              label: '🌡️ Global Physics Parameters',
+              desc: 'Applied from Round 3 via /api/admin/global-settings',
+              rows: [
+                { key: 'global_carbon_fee', label: 'Internal Carbon Fee', unit: '$/tonne', min: 20, max: 150, step: 1, default: 40, hint: 'Per-tonne carbon price applied to all BU decisions from R3' },
+                { key: 'market_hostility_index', label: 'Reg & NGO Hostility Index', unit: '/10', min: 1, max: 10, step: 1, default: 5, hint: 'Modulates reputational penalty on high-carbon choices' },
+                { key: 'scope_3_threshold', label: 'Scope 3 Client Threshold', unit: 'kg CO₂e/unit', min: 1.0, max: 5.0, step: 0.1, default: 2.5, hint: 'Supply chain clients above this intensity trigger disruption events' },
+              ],
+            },
+            {
+              label: '🌪️ R5 — Stochastic Climate Event',
+              desc: 'Controls the cyclone / flood probability event at Round 5',
+              rows: [
+                { key: 'r5_base_damage', label: 'Base Physical Damage', unit: '$', min: 0, max: 50000000, step: 1000000, default: 12000000, hint: 'Treasury loss when stochastic roll < threshold. Mitigated by resilience_factor.' },
+                { key: 'r5_stochastic_threshold', label: 'Event Strike Probability', unit: 'roll < threshold', min: 0.1, max: 1.0, step: 0.05, default: 0.75, hint: 'Probability (0–1) that the physical climate event actually strikes' },
+              ],
+            },
+            {
+              label: '🏁 R10 — Grand Finale Terminal EBITDA',
+              desc: 'Terminal valuation engine parameters',
+              rows: [
+                { key: 'r10_carbon_tax_per_ton', label: 'Carbon Tax per Tonne (Year 3)', unit: '$/tonne', min: 50, max: 1000, step: 10, default: 250, hint: 'Terminal_EBITDA = Σ(Rev−OPEX) − (CarbonTonnage × this rate)' },
+                { key: 'r10_exit_multiple', label: 'Exit Multiple', unit: '×', min: 5, max: 25, step: 0.5, default: 12.0, hint: 'Terminal Value = Terminal_EBITDA × Exit Multiple × M_R' },
+              ],
+            },
+            {
+              label: '♻️ Regenerative Multiple (M_R) Bonuses',
+              desc: 'Adjustments to the M_R multiplier based on strategic choices',
+              rows: [
+                { key: 'mr_synergy_bonus', label: 'R7 Synergy Achieved (Circular)', unit: '+', min: 0, max: 1, step: 0.05, default: 0.30, hint: '+bonus if synergy_unlock or waste_to_energy flag is set from R7' },
+                { key: 'mr_resilience_bonus', label: 'Survived R5/R8 Without Bailout', unit: '+', min: 0, max: 1, step: 0.05, default: 0.20, hint: '+bonus if no insurance_only or electronics_water_priority flags' },
+                { key: 'mr_truth_premium', label: 'R6 Truth Premium (Ethical AI)', unit: '+', min: 0, max: 1, step: 0.05, default: 0.15, hint: '+bonus if ethical_ai_overhaul flag is set from R6' },
+                { key: 'mr_instability_discount', label: 'Instability Discount (SLO < 75)', unit: '−', min: -1, max: 0, step: 0.05, default: -0.40, hint: 'Penalty deducted if avg Social License < 75 at R10' },
+              ],
+            },
+            {
+              label: '📊 Profile Archetype Thresholds',
+              desc: 'M_R score boundaries for the four Year 3 outcome profiles',
+              rows: [
+                { key: 'profile_regenerative_titan', label: 'Regenerative Titan (M_R ≥)', unit: '', min: 1.0, max: 3.0, step: 0.05, default: 1.8, hint: 'Players at or above this M_R score earn "The Regenerative Titan"' },
+                { key: 'profile_derisked_safe_haven', label: 'De-risked Safe-Haven (M_R ≥)', unit: '', min: 0.5, max: 2.0, step: 0.05, default: 1.2, hint: 'Players between this and the Titan threshold' },
+                { key: 'profile_fragile_giant', label: 'Fragile Giant (M_R ≥)', unit: '', min: 0.0, max: 1.5, step: 0.05, default: 0.8, hint: 'Players between this and the Safe-Haven threshold' },
+              ],
+            },
+            {
+              label: '⚙️ Engine Constants',
+              desc: 'Core simulation mechanics constants applied each round',
+              rows: [
+                { key: 'loan_interest_rate', label: 'Short-Term Loan Interest Rate', unit: '%', min: 0.01, max: 0.5, step: 0.01, default: 0.12, hint: 'Applied when CAPEX exceeds 20% of starting treasury' },
+                { key: 'cost_of_capital', label: 'Base Cost of Capital', unit: '%', min: 0.01, max: 0.2, step: 0.005, default: 0.05, hint: 'Base rate for Natural Capital Cost of Debt calculation per BU' },
+                { key: 'synergy_gate_threshold', label: 'R10 Synergy Gate (Option A)', unit: 'Synergy Score', min: 50, max: 100, step: 5, default: 80, hint: 'Minimum synergy score required to choose "Resist & Integrate" in R10' },
+                { key: 'strike_probability', label: 'R9 Strike Probability', unit: 'roll < threshold', min: 0.1, max: 1.0, step: 0.05, default: 0.75, hint: 'Probability of worker strike when avg Social License < 50' },
+              ],
+            },
+          ];
+
+          const handleSaveClimateParam = async (key, value) => {
+            setClimateOverrideSaving(true);
+            setClimateOverrideMsg('');
+            try {
+              const res = await fetch(`${API}/api/admin/global-settings`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [key]: value }),
+              });
+              setClimateOverrideMsg(res.ok ? `✅ ${key} saved.` : `⚠️ Backend returned ${res.status} — saved locally.`);
+            } catch {
+              setClimateOverrideMsg('⚠️ Backend offline — changes stored in UI state only.');
+            } finally {
+              setClimateOverrideSaving(false);
+              setTimeout(() => setClimateOverrideMsg(''), 3500);
+            }
+          };
+
+          return (
+            <div>
+              {climateOverrideMsg && (
+                <div className={`${styles.message} ${climateOverrideMsg.startsWith('✅') ? styles.messageSuccess : styles.messageWarn}`} style={{ marginBottom: '0.75rem' }}>
+                  {climateOverrideMsg}
+                </div>
+              )}
+              {groups.map((group) => (
+                <div key={group.label} style={{ marginBottom: '1.5rem' }}>
+                  <div style={{ marginBottom: '0.5rem' }}>
+                    <div style={{ fontSize: '0.84rem', fontWeight: 700, color: '#065f46', marginBottom: '0.1rem' }}>{group.label}</div>
+                    <div style={{ fontSize: '0.7rem', color: '#6b7280' }}>{group.desc}</div>
+                  </div>
+                  <div className={styles.tableWrapper}>
+                    <table className={styles.matrixTable}>
+                      <thead>
+                        <tr>
+                          <th>Parameter</th>
+                          <th style={{ textAlign: 'center' }}>Default</th>
+                          <th style={{ textAlign: 'center' }}>Override Value</th>
+                          <th>Notes</th>
+                          <th style={{ textAlign: 'center' }}>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {group.rows.map((row) => {
+                          const current = climateOverrides[row.key];
+                          const isDirty = current !== row.default;
+                          return (
+                            <tr key={row.key}>
+                              <td>
+                                <div style={{ fontWeight: 600, fontSize: '0.78rem', color: '#1e293b' }}>{row.label}</div>
+                                <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontFamily: 'monospace' }}>{row.key}</div>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>
+                                  {row.default}{row.unit}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <input
+                                  type="number"
+                                  className={`${styles.inputField} ${isDirty ? styles.modified : ''}`}
+                                  value={current}
+                                  min={row.min}
+                                  max={row.max}
+                                  step={row.step}
+                                  onChange={(e) => {
+                                    const v = parseFloat(e.target.value);
+                                    if (!isNaN(v)) setClimateOverrides(prev => ({ ...prev, [row.key]: v }));
+                                  }}
+                                  style={{ width: 110 }}
+                                />
+                                {row.unit && <span style={{ marginLeft: 4, fontSize: '0.66rem', color: '#94a3b8' }}>{row.unit}</span>}
+                              </td>
+                              <td style={{ fontSize: '0.7rem', color: '#64748b', lineHeight: 1.4, maxWidth: 260 }}>{row.hint}</td>
+                              <td className={styles.actionCell}>
+                                <button
+                                  className={styles.saveBtn}
+                                  disabled={!isDirty || climateOverrideSaving}
+                                  onClick={() => handleSaveClimateParam(row.key, current)}
+                                  style={isDirty ? { background: 'linear-gradient(135deg, #10b981, #059669)' } : {}}
+                                >Save</button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
 
         {!matrixLoading && !matrixData && (
           <div className={styles.message}>❌ Failed to load decision configurations. Check that the backend is running.</div>

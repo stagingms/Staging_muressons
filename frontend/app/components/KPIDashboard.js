@@ -7,6 +7,7 @@ import {
   ReferenceLine,
 } from 'recharts';
 import StockPerformanceChart from './StockPerformanceChart';
+import { roundToQuarter } from '../utils/roundToQuarter';
 import styles from './ExecutiveCockpit.module.css';
 
 /**
@@ -127,7 +128,7 @@ export default function KPIDashboard({
             <div className={styles.kpiChart}>
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={historyData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                  <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="round" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(v) => roundToQuarter(v).shortLabel} />
                   <YAxis 
                     domain={['auto', 'auto']} 
                     tick={{ fontSize: 9, fill: '#94a3b8' }} 
@@ -137,7 +138,7 @@ export default function KPIDashboard({
                     width={40}
                   />
                   <Tooltip
-                    labelFormatter={(v) => `Year ${v}`}
+                    labelFormatter={(v) => roundToQuarter(v).label}
                     formatter={(v) => [fmtM(v), 'EBITDA']}
                     contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid rgba(0,229,195,0.15)', background: '#0f1524', color: '#e2e8f0' }}
                   />
@@ -186,11 +187,11 @@ export default function KPIDashboard({
                     return { ...h, cumulativeTco2e: cumulative, yearlyTco2e: h.tco2e || 0 };
                   });
                 })()} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-                  <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} />
+                  <XAxis dataKey="round" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(v) => roundToQuarter(v).shortLabel} />
                   <YAxis yAxisId="left" hide domain={[0, 'auto']} />
                   <YAxis yAxisId="right" hide domain={[0, 'auto']} orientation="right" />
                   <Tooltip
-                    labelFormatter={(v) => `Year ${v}`}
+                    labelFormatter={(v) => roundToQuarter(v).label}
                     formatter={(v, name) => [
                       `${v.toLocaleString()} t`,
                       name === 'cumulativeTco2e' ? 'Cumulative tCO₂e' : 'Per-Year tCO₂e'

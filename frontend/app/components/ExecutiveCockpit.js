@@ -12,6 +12,7 @@ import CountdownTimer from './CountdownTimer';
 import { DETAILED_DESCRIPTIONS } from '../utils/detailedDescriptions';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
+import { roundToQuarter } from '../utils/roundToQuarter';
 
 // AI Board Member Personas (Improvement #4.2)
 const BOARD_PERSONAS = {
@@ -87,6 +88,9 @@ const AREA_ICONS = { energy: '⚡', operations: '🏭', supply_chain: '🔗', of
 // Simulation starts at the current calendar year
 const BASE_YEAR = new Date().getFullYear();
 
+// Pre-compute quarter label for a given round using the shared utility
+const getRoundLabel = (round) => roundToQuarter(round, BASE_YEAR).label;
+
 export default function ExecutiveCockpit({
   sim,
   globalState,
@@ -118,6 +122,7 @@ export default function ExecutiveCockpit({
   onResourcesOpen,
   hasAllocated,
   hasReadBriefing,
+  onLogout,
 }) {
   // Sequential gating: determine if round prerequisite is met
   const hasSecondStage = roundNumber === 1 || roundNumber === 2;
@@ -127,6 +132,14 @@ export default function ExecutiveCockpit({
   const roundPrerequisiteMet = hasSecondStage ? secondStageDone : true;
   // For strategic decision gating: briefing must be read, and second stage (if any) must be done
   const canAccessStrategy = hasReadBriefing && roundPrerequisiteMet;
+
+  // Logout confirmation (2-click to prevent accidents)
+  const [logoutConfirm, setLogoutConfirm] = useState(false);
+  useEffect(() => {
+    if (!logoutConfirm) return;
+    const t = setTimeout(() => setLogoutConfirm(false), 3500);
+    return () => clearTimeout(t);
+  }, [logoutConfirm]);
   const hasDecision = decisionParadigm === 'multi_toggles'
     ? Object.keys(pillarSelections || {}).length > 0
     : !!decisionChoice;
@@ -137,12 +150,18 @@ export default function ExecutiveCockpit({
   const ebitda = globalState?.historical_ebitda || 0;
   const tco2e = globalState?.tco2e_emissions || 0;
   const vrio = globalState?.vrio_capabilities || { value: 50, rarity: 50, imitability: 100, organization: 80 };
+  
+  // Advanced Climate Engine Extracted State
+  const greenFund = globalState?.green_transition_fund || 0;
+  const costOfCapital = globalState?.cost_of_capital || 0.05;
+  const tippingPointActive = globalState?.tipping_point_active || false;
+  const pendingProjects = globalState?.pending_capex_projects || [];
 
   // Build history data for charts
   const historyData = useMemo(() => {
     const arr = (history || []).map(h => ({
       round: h.round_number,
-      year: BASE_YEAR + h.round_number,
+      year: roundToQuarter(h.round_number, BASE_YEAR).year,
       ebitda: h.global_state?.historical_ebitda || 0,
       tco2e: h.global_state?.tco2e_emissions || 0,
       reputation: h.global_state?.group_reputation || 50,
@@ -151,7 +170,7 @@ export default function ExecutiveCockpit({
     // Add current round only if not already in history
     const roundsInHistory = new Set(arr.map(d => d.round));
     if (!roundsInHistory.has(roundNumber)) {
-      arr.push({ round: roundNumber, year: BASE_YEAR + roundNumber, ebitda, tco2e, reputation, treasury });
+      arr.push({ round: roundNumber, year: roundToQuarter(roundNumber, BASE_YEAR).year, ebitda, tco2e, reputation, treasury });
     }
     // When commitResults are available (results overlay showing), append
     // the post-commit state as the next data point so trends show the change
@@ -160,7 +179,7 @@ export default function ExecutiveCockpit({
       if (!roundsInHistory.has(nextRound)) {
         arr.push({
           round: nextRound,
-          year: BASE_YEAR + nextRound,
+          year: roundToQuarter(nextRound, BASE_YEAR).year,
           ebitda: commitResults.globalState.historical_ebitda || 0,
           tco2e: commitResults.globalState.tco2e_emissions || 0,
           reputation: commitResults.globalState.group_reputation || 50,
@@ -329,11 +348,25 @@ export default function ExecutiveCockpit({
         </div>
 
         <div className={styles.headerCenter}>
-          <span className={styles.headerYear}>Year {BASE_YEAR + roundNumber}</span>
+          <span className={styles.headerYear}>{getRoundLabel(roundNumber)}</span>
           <span className={styles.headerDivider} />
           <span className={styles.headerModule}>Turn {roundNumber}</span>
           <span className={styles.headerDivider} />
           <span>{ROUND_TITLES[roundNumber] || ''}</span>
+          {tippingPointActive && (
+            <motion.span
+              animate={{ opacity: [1, 0.5, 1] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
+              style={{
+                marginLeft: 12, padding: '2px 8px', borderRadius: 4,
+                backgroundColor: 'rgba(239,68,68,0.2)', color: '#fca5a5',
+                fontSize: '0.65rem', fontWeight: 700, border: '1px solid rgba(239,68,68,0.4)',
+                letterSpacing: '0.05em'
+              }}
+            >
+              ⚠️ CLIMATE TIPPING POINT
+            </motion.span>
+          )}
           <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
         </div>
 
@@ -347,10 +380,68 @@ export default function ExecutiveCockpit({
             className={`${styles.treasuryDisplay} ${treasuryFlash ? styles.treasuryFlash : ''} ${kpiFlashActive ? styles.kpiFlash : ''}`}
             animate={treasuryFlash ? { scale: [1, 1.05, 1] } : {}}
             transition={{ duration: 0.4 }}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}
           >
-            <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>USD</span>
-            {fmtCurrency(treasury)}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+              <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>USD</span>
+              {fmtCurrency(treasury)}
+            </div>
+            {greenFund > 0 && (
+              <div style={{
+                fontSize: '0.55rem', color: '#4ade80', fontWeight: 600,
+                display: 'flex', alignItems: 'center', gap: 3
+              }}>
+                <span style={{ fontSize: '0.65rem' }}>🌱</span> Fund: {fmtCurrency(greenFund)}
+              </div>
+            )}
+            <div style={{ fontSize: '0.5rem', color: '#94a3b8', letterSpacing: '0.02em', marginTop: -2 }}>
+              CoC: {(costOfCapital * 100).toFixed(1)}%
+            </div>
           </motion.div>
+
+          {/* Logout Button */}
+          {onLogout && (
+            <button
+              onClick={() => {
+                if (logoutConfirm) {
+                  onLogout();
+                } else {
+                  setLogoutConfirm(true);
+                }
+              }}
+              title={logoutConfirm ? 'Click again to confirm logout' : 'Log out — your progress is auto-saved'}
+              style={{
+                marginLeft: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem',
+                padding: logoutConfirm ? '0.35rem 0.85rem' : '0.35rem 0.65rem',
+                borderRadius: '8px',
+                border: logoutConfirm
+                  ? '1px solid rgba(251,113,133,0.7)'
+                  : '1px solid rgba(255,255,255,0.12)',
+                background: logoutConfirm
+                  ? 'rgba(239,68,68,0.18)'
+                  : 'rgba(255,255,255,0.06)',
+                color: logoutConfirm ? '#fca5a5' : '#94a3b8',
+                fontSize: '0.7rem',
+                fontWeight: 600,
+                letterSpacing: '0.04em',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                whiteSpace: 'nowrap',
+                backdropFilter: 'blur(4px)',
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              {logoutConfirm ? 'Confirm Logout?' : 'Log out'}
+            </button>
+          )}
         </div>
       </header>
 
@@ -376,6 +467,10 @@ export default function ExecutiveCockpit({
             <div className={styles.resourceCard}>
               <div className={styles.resourceLabel}>💰 Treasury</div>
               <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
+            </div>
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>🌱 Green Fund</div>
+              <div className={styles.resourceValue} style={{ color: '#4ade80' }}>{fmtCurrency(greenFund)}</div>
             </div>
             <div className={styles.resourceCard}>
               <div className={styles.resourceLabel}>🌍 Reputation</div>
@@ -444,6 +539,28 @@ export default function ExecutiveCockpit({
             )}
             {roundNumber === 2 && hasSubmittedMatrix && (
               <div style={{ marginTop: 8, fontSize: '0.68rem', color: '#4ade80', fontWeight: 600, letterSpacing: '0.02em' }}>✅ CSRD Assessment Submitted</div>
+            )}
+            
+            {/* Active Infrastructure Projects (CapEx Delay) */}
+            {pendingProjects.length > 0 && (
+              <div style={{
+                marginTop: 16, padding: '12px 14px', borderRadius: 8,
+                background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)',
+              }}>
+                <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#38bdf8', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>🏗️</span> Active Infrastructure Projects
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {pendingProjects.map((proj, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15,23,42,0.4)', padding: '6px 10px', borderRadius: 6 }}>
+                      <span style={{ fontSize: '0.75rem', color: '#e2e8f0', fontWeight: 500 }}>{proj.description || 'Strategic Project'}</span>
+                      <span style={{ fontSize: '0.65rem', color: '#94a3b8', background: '#1e293b', padding: '2px 6px', borderRadius: 4 }}>
+                        ⏳ {proj.rounds_remaining} Turn{proj.rounds_remaining > 1 ? 's' : ''} Left
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
 
@@ -709,7 +826,7 @@ export default function ExecutiveCockpit({
                   const r = Number(rk);
                   const items = archivedRounds[r];
                   return (
-                    <ArchiveAccordion key={r} round={r} items={items} onMarkRead={onMarkRead} onExpand={setExpandedMessage} />
+                    <ArchiveAccordion key={r} round={r} roundLabel={getRoundLabel(r)} items={items} onMarkRead={onMarkRead} onExpand={setExpandedMessage} />
                   );
                 });
               })()}
@@ -1027,7 +1144,7 @@ export default function ExecutiveCockpit({
 }
 
 /* ── Sub-component: Archive Accordion for previous rounds ── */
-function ArchiveAccordion({ round, items, onMarkRead, onExpand }) {
+function ArchiveAccordion({ round, roundLabel, items, onMarkRead, onExpand }) {
   const [open, setOpen] = useState(false);
   const handleToggle = (e) => {
     e.stopPropagation();
@@ -1061,7 +1178,7 @@ function ArchiveAccordion({ round, items, onMarkRead, onExpand }) {
           transition: 'all 0.15s',
         }}
       >
-        <span>{open ? '▾' : '▸'} Round {round}</span>
+        <span>{open ? '▾' : '▸'} {roundLabel || `Round ${round}`}</span>
         <span style={{
           fontSize: '0.55rem',
           background: open ? '#c7d2fe' : '#e2e8f0',

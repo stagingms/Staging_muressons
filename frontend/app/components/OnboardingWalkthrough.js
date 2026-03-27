@@ -62,6 +62,8 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
   const [visible, setVisible] = useState(true);
   const [promptOpen, setPromptOpen] = useState(false);
   const [tourActive, setTourActive] = useState(false);
+  // Must be declared here (before any early return) to satisfy Rules of Hooks
+  const [spot, setSpot] = useState({ x: '0', y: '0', w: '0', h: '0' });
 
   // Ask for tour every time round 1 starts
   useEffect(() => {
@@ -72,6 +74,70 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
       setPromptOpen(false);
     }
   }, [roundNumber]);
+
+  // Must be above early return — spotlight positioning effect (Rules of Hooks)
+  useEffect(() => {
+    if (!tourActive) return;
+
+    const updateSpot = () => {
+      const HPx = window.innerHeight - 52;
+      let newSpot = { x: '0', y: '0', w: '0', h: '0' };
+      
+      switch(currentStep) {
+        case 0: break;
+        case 1: newSpot = { x: '0', y: '52px', w: '24%', h: `${HPx}px` }; break;
+        case 2: 
+          const bTarget = document.getElementById('tour-briefing-target');
+          if (bTarget) {
+            const rect = bTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          }
+          break;
+        case 3: 
+          const sTarget = document.getElementById('tour-strategic-target');
+          if (sTarget) {
+            const rect = sTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          }
+          break;
+        case 4: 
+          const cTarget = document.getElementById('tour-capital-target');
+          if (cTarget) {
+            const rect = cTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          }
+          break;
+        case 5: newSpot = { x: '76%', y: '52px', w: '24%', h: `${HPx * 0.88}px` }; break;
+        case 6:
+          const guides = document.getElementById('tour-player-guides-target');
+          if (guides) {
+            const rect = guides.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 12}px`, y: `${rect.top - 12}px`, w: `${rect.width + 24}px`, h: `${rect.height + 24}px` };
+          }
+          break;
+        case 7:
+          const btn = document.querySelector('button[class*="commitBtn"]');
+          if (btn) {
+            const rect = btn.getBoundingClientRect();
+            newSpot = { 
+              x: `${rect.left - 12}px`, 
+              y: `${rect.top - 12}px`, 
+              w: `${rect.width + 24}px`, 
+              h: `${rect.height + 24}px` 
+            };
+          } else {
+            newSpot = { x: '76%', y: `calc(100vh - 12vh)`, w: '24%', h: `12vh` };
+          }
+          break;
+      }
+      setSpot(newSpot);
+    };
+
+    updateSpot();
+    setTimeout(updateSpot, 50);
+    window.addEventListener('resize', updateSpot);
+    return () => window.removeEventListener('resize', updateSpot);
+  }, [currentStep, tourActive]);
 
   if (!visible) return null;
 
@@ -116,73 +182,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
     }
   };
 
-  const [spot, setSpot] = useState({ x: '0', y: '0', w: '0', h: '0' });
 
-  useEffect(() => {
-    if (!tourActive) return;
-
-    const updateSpot = () => {
-      const HPx = window.innerHeight - 52;
-      let newSpot = { x: '0', y: '0', w: '0', h: '0' };
-      
-      switch(currentStep) {
-        case 0: break;
-        case 1: newSpot = { x: '0', y: '52px', w: '24%', h: `${HPx}px` }; break;
-        case 2: 
-          const bTarget = document.getElementById('tour-briefing-target');
-          if (bTarget) {
-            const rect = bTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          }
-          break; // Stage 1: Briefing (Top)
-        case 3: 
-          const sTarget = document.getElementById('tour-strategic-target');
-          if (sTarget) {
-            const rect = sTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          }
-          break; // Stage 2: Strategic Options (Bottom half)
-        case 4: 
-          const cTarget = document.getElementById('tour-capital-target');
-          if (cTarget) {
-            const rect = cTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          }
-          break; // Capital Allocation (Middle)
-        case 5: newSpot = { x: '76%', y: '52px', w: '24%', h: `${HPx * 0.88}px` }; break;
-        case 6:
-          const guides = document.getElementById('tour-player-guides-target');
-          if (guides) {
-            const rect = guides.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 12}px`, y: `${rect.top - 12}px`, w: `${rect.width + 24}px`, h: `${rect.height + 24}px` };
-          }
-          break;
-        case 7:
-          // Instead of guessing flex percentages, grab the actual button from the DOM
-          const btn = document.querySelector('button[class*="commitBtn"]');
-          if (btn) {
-            const rect = btn.getBoundingClientRect();
-            newSpot = { 
-              x: `${rect.left - 12}px`, 
-              y: `${rect.top - 12}px`, 
-              w: `${rect.width + 24}px`, 
-              h: `${rect.height + 24}px` 
-            };
-          } else {
-            // Fallback
-            newSpot = { x: '76%', y: `calc(100vh - 12vh)`, w: '24%', h: `12vh` };
-          }
-          break;
-      }
-      setSpot(newSpot);
-    };
-
-    updateSpot();
-    // Re-check after a tiny delay in case layout shifts
-    setTimeout(updateSpot, 50);
-    window.addEventListener('resize', updateSpot);
-    return () => window.removeEventListener('resize', updateSpot);
-  }, [currentStep, tourActive]);
 
   return (
     <>

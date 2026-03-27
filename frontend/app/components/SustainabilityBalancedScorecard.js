@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import styles from './SustainabilityBalancedScorecard.module.css';
 import StockPerformanceChart from './StockPerformanceChart';
+import { roundToQuarter } from '../utils/roundToQuarter';
 
 // ═══════════════════════════════════════════════════════════════
 //  DYNAMIC DIAGNOSTIC FEEDBACK
@@ -103,7 +104,7 @@ function generateCriticalAnalysis(kpis, d, bus) {
         missed.push("Allocating CSF to OPEX Circularity and collaborative R&D across BUs would have unlocked cross-divisional symbiosis.");
     }
 
-    if (kpis.carbonTonnage < 150) strengths.push("Carbon footprint reduced to manageable levels, minimising the 2050 carbon tax liability.");
+    if (kpis.carbonTonnage < 150) strengths.push("Carbon footprint reduced to manageable levels, minimising the Year 3 carbon tax liability.");
     else weaknesses.push("Carbon tonnage remained dangerously high, resulting in a heavy tax burden that eroded terminal value.");
 
     // Learning
@@ -155,7 +156,7 @@ function generateBoardMemo(kpis, d) {
     // Rule 3: Carbon liability
     if (carbon > 200 && ebitda > 0) {
         sentences.push(
-            "Despite positive operating margins, the carbon tonnage exposes the group to material regulatory risk under 2050 carbon border adjustments."
+            "Despite positive operating margins, the carbon tonnage exposes the group to material regulatory risk under Year 3 carbon border adjustments."
         );
     }
     // Rule 4: SLO collapse
@@ -219,14 +220,14 @@ const PERSPECTIVE_COLORS = {
  *  - history: array of round snapshots for review
  *  - onProceed: () => void — proceed to Boardroom Showdown
  */
-export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose }) {
+export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose, onLogout }) {
     const d = data || {};
     const bus = businessUnits;
     const theme = PROFILES[d.profile] || PROFILES.fragile_giant;
 
     // Debug: log what data the scorecard receives
     console.log('[SCORECARD] data:', d);
-    console.log('[SCORECARD] profile:', d.profile, '| ebitda_2050:', d.ebitda_2050, '| terminal_value:', d.terminal_value);
+    console.log('[SCORECARD] profile:', d.profile, '| terminal_ebitda:', d.terminal_ebitda, '| terminal_value:', d.terminal_value);
     console.log('[SCORECARD] bus:', bus.length, '| globalState keys:', Object.keys(globalState));
     console.log('[SCORECARD] history:', history.length, 'rounds');
     const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'analysis' | 'trends' | 'tbl_matrix' | 'rounds' | 'stock' | 'leaderboard' | 'report'
@@ -256,7 +257,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
         const vrioActive = (globalState.vrio_advantage || 0) > 0.3;
 
         return {
-            ebitda: d.ebitda_2050 || 0,
+            ebitda: d.terminal_ebitda || 0,
             greenDebt: greenDebtRate,
             groupRep,
             avgSL,
@@ -284,7 +285,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
             title: 'Financial Perspective',
             metrics: [
                 {
-                    label: 'Adjusted EBITDA (2050)',
+                    label: 'Adjusted EBITDA (Year 3)',
                     value: `$${(kpis.ebitda / 1_000_000).toFixed(2)}M`,
                     note: `After $${(d.carbon_tax_per_ton || 250)}/ton carbon tax`,
                     diagnostic: diagnoseEBITDA(kpis.ebitda),
@@ -433,7 +434,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 const gs = snap.global_state || snap || {};
                 const buArr = snap.business_units || snap.bu_states || [];
                 const roundNum = snap.round || snap.round_number || i + 1;
-                const year = 2040 + roundNum;
+                const quarterLabel = roundToQuarter(roundNum).label;
                 const avgCI = buArr.length > 0
                     ? buArr.reduce((s, b) => s + (b.carbon_intensity || 0), 0) / buArr.length
                     : 0;
@@ -443,7 +444,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 const ebitda = gs.historical_ebitda || 0;
                 const rep = gs.group_reputation || 0;
                 return `<tr>
-                    <td>R${roundNum} (${year})</td>
+                    <td>R${roundNum} (${quarterLabel})</td>
                     <td>${avgCI.toFixed(1)}</td>
                     <td>${tco2e.toFixed(0)}</td>
                     <td>${fmt(ebitda)}</td>
@@ -496,7 +497,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muressons Global Command — Sustainability Report 2050</title>
+    <title>Muressons Global Command — Sustainability Report (Year 3)</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; padding: 0; }
@@ -550,7 +551,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     <div class="report">
         <!-- Header -->
         <div class="header">
-            <div class="badge">MURESSONS GLOBAL — SUSTAINABILITY BALANCED SCORECARD 2050</div>
+            <div class="badge">MURESSONS GLOBAL — SUSTAINABILITY BALANCED SCORECARD (YEAR 3)</div>
             <h1>${theme.icon} ${d.profile_title || 'Final Assessment'}</h1>
             <p>${d.profile_description || ''}</p>
         </div>
@@ -866,7 +867,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                             const ebitda = gs.historical_ebitda || 0;
                             const rep = gs.group_reputation || 0;
 
-                            return { round: year, year, avgCI, tco2e, ebitda, rep };
+                            return { round: roundNum, label: roundToQuarter(roundNum).label, avgCI, tco2e, ebitda, rep };
                         });
 
                     // Cumulative carbon
@@ -894,7 +895,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         <ResponsiveContainer width="100%" height={200}>
                                             <LineChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-                                                <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
                                                 <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => [`${v.toFixed(1)} tCO₂e/$M`, 'Carbon Intensity']} />
                                                 <Line type="monotone" dataKey="avgCI" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
@@ -913,7 +914,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         <ResponsiveContainer width="100%" height={200}>
                                             <ComposedChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-                                                <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#94a3b8' }} />
                                                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#94a3b8' }} />
                                                 <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => [
@@ -936,7 +937,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         <ResponsiveContainer width="100%" height={200}>
                                             <AreaChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-                                                <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => `$${(v / 1_000_000).toFixed(0)}M`} />
                                                 <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => [fmtM(v), 'EBITDA']} />
                                                 <Area type="monotone" dataKey="ebitda" stroke="#10b981" fill="rgba(16,185,129,0.12)" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
@@ -955,7 +956,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         <ResponsiveContainer width="100%" height={200}>
                                             <LineChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
-                                                <XAxis dataKey="round" tick={{ fontSize: 10, fill: '#94a3b8' }} />
+                                                <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
                                                 <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => [`${v.toFixed(1)} / 100`, 'Reputation']} />
                                                 <Line type="monotone" dataKey="rep" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 4, fill: '#8b5cf6' }} activeDot={{ r: 6 }} />
@@ -1115,9 +1116,10 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                                 return s + (ci * rev / 1_000_000);
                                             }, 0);
                                             const roundNum = snap.round || snap.round_number || i + 1;
+                                            const qLabel = roundToQuarter(roundNum).label;
                                             return (
                                                 <tr key={i} className={i % 2 === 0 ? styles.evenRow : ''}>
-                                                    <td className={styles.roundNum}>R{roundNum}</td>
+                                                    <td className={styles.roundNum}>R{roundNum}<br/><span style={{ fontSize: '0.7em', opacity: 0.7 }}>{qLabel}</span></td>
                                                     <td>${(cash / 1_000_000).toFixed(2)}</td>
                                                     <td style={{ color: rep >= 65 ? '#10b981' : rep >= 45 ? '#f59e0b' : '#ef4444' }}>
                                                         {rep.toFixed(1)}
@@ -1149,7 +1151,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     const memo = generateBoardMemo(kpis, d);
                     return (
                         <section className={styles.reportSection}>
-                            <h2 className={styles.sectionTitle}>📋 Muressons Global Command — Final Report 2050</h2>
+                            <h2 className={styles.sectionTitle}>📋 Muressons Global Command — Final Report (Year 3)</h2>
 
                             {/* Top KPIs */}
                             <div className={styles.reportKpis}>
@@ -1262,10 +1264,15 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 })()}
 
                 {/* ── Footer ── */}
-                <div className={styles.closeRow}>
+                <div className={styles.closeRow} style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                     <button className={styles.closeBtn} onClick={proceedAction} style={{ background: theme.gradient }}>
                         {onProceed ? '⚖️ Proceed to Boardroom Showdown →' : 'Close Balanced Scorecard'}
                     </button>
+                    {onLogout && !onProceed && (
+                        <button className={styles.closeBtn} onClick={onLogout} style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                            👋 Logout & Exit
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

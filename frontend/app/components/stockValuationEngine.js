@@ -1,3 +1,5 @@
+import { roundToQuarter } from '../utils/roundToQuarter';
+
 /**
  * stockValuationEngine.js
  *
@@ -184,7 +186,7 @@ export function buildFullStockData(historyData, globalState, businessUnits, curr
         roundDay: d + 1,
         round: roundNum,
         price: dailyData[d].price,
-        label: d === dailyData.length - 1 ? `${2027 + roundNum - 1}` : '',
+        label: d === dailyData.length - 1 ? roundToQuarter(roundNum).label : '',
       });
     }
 

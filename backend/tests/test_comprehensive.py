@@ -608,7 +608,7 @@ class TestR10Valuation:
 
         extra = post_tick(10, gs, bus, decs, {}, {"synergy_unlock": True})
 
-        ebitda = extra["ebitda_2050"]
+        ebitda = extra["terminal_ebitda"]
         mr = extra["regenerative_multiple"]
         tv = extra["terminal_value"]
         exit_mult = extra["exit_multiple"]

@@ -115,7 +115,7 @@ export default function FacilitatorManager() {
             <div className={styles.header}>
                 <span className={styles.icon}>🎓</span>
                 <div>
-                    <h2 className={styles.title}>Facilitator Roles</h2>
+                    <h2 className={styles.title}>Facilitator Manager</h2>
                     <p className={styles.subtitle}>
                         Create and manage facilitator accounts. Each facilitator can create cohorts up to their assigned limit.
                     </p>

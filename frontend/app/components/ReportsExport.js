@@ -32,14 +32,6 @@ export default function ReportsExport({ leaderboard = [] }) {
         a.click(); URL.revokeObjectURL(url);
     };
 
-    const handleExportJSON = () => {
-        const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = `muressons_report_${new Date().toISOString().slice(0, 10)}.json`;
-        a.click(); URL.revokeObjectURL(url);
-    };
-
     const stats = useMemo(() => {
         if (!reportData.length) return null;
         const treasuries = reportData.map(d => d.treasury);
@@ -69,9 +61,7 @@ export default function ReportsExport({ leaderboard = [] }) {
                 <button className={styles.exportBtn} onClick={handleExportCSV} disabled={!reportData.length}>
                     📄 Export CSV
                 </button>
-                <button className={styles.exportBtn} onClick={handleExportJSON} disabled={!reportData.length}>
-                    📋 Export JSON
-                </button>
+
                 <span className={styles.recordCount}>{reportData.length} session{reportData.length !== 1 ? 's' : ''}</span>
             </div>
 

@@ -14,18 +14,7 @@ export default function AdminGateway() {
             </header>
 
             <main className={styles.cardsGrid}>
-                {/* ── God Mode Card ── */}
-                <Link href="/admin/god-mode" className={`${styles.roleCard} ${styles.godMode}`}>
-                    <div className={styles.icon}>👑</div>
-                    <h2 className={styles.roleTitle}>God Mode</h2>
-                    <p className={styles.roleDesc}>
-                        Universal simulation architecture. Configure defaults, design the Double Materiality Matrix, and edit global event parameters that apply to all future runs.
-                    </p>
-                    <div className={styles.enterBtn}>
-                        Access Global Settings
-                        <span className={styles.arrow}>→</span>
-                    </div>
-                </Link>
+
 
                 {/* ── Facilitator Card ── */}
                 <Link href="/admin/facilitator" className={`${styles.roleCard} ${styles.facilitator}`}>

@@ -12,15 +12,92 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     const [activeTab, setActiveTab] = useState('economic');
     const [showConfigurator, setShowConfigurator] = useState(false);
 
-    // Dictionary selector: 'global' or a BU ID
+    // Dictionary selector: loaded dynamically from backend
     const [selectedDict, setSelectedDict] = useState('global');
-    const DICT_OPTIONS = [
-        { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐' },
-        { id: 'pharma', label: 'Pharma', icon: '💊' },
-        { id: 'electronics', label: 'Electronics', icon: '⚡' },
-        { id: 'consumer_goods', label: 'Consumer Goods', icon: '🛒' },
-        { id: 'software', label: 'Software', icon: '💻' },
-    ];
+    const [dictOptions, setDictOptions] = useState([
+        { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐', is_custom: false },
+        { id: 'pharma', label: 'Pharma', icon: '💊', is_custom: false },
+        { id: 'electronics', label: 'Electronics', icon: '⚡', is_custom: false },
+        { id: 'consumer_goods', label: 'Consumer Goods', icon: '🛒', is_custom: false },
+        { id: 'software', label: 'Software', icon: '💻', is_custom: false },
+    ]);
+    const [showAddCategory, setShowAddCategory] = useState(false);
+    const [newCategory, setNewCategory] = useState({ id: '', label: '', icon: '🏢' });
+    const [categoryMsg, setCategoryMsg] = useState('');
+
+    // Load BU categories dynamically from backend
+    useEffect(() => {
+        fetch(`${API}/api/admin/bu-categories`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (data?.categories) {
+                    const buOpts = data.categories.map(c => ({
+                        id: c.id, label: c.label, icon: c.icon, is_custom: c.is_custom || false,
+                    }));
+                    setDictOptions([
+                        { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐', is_custom: false },
+                        ...buOpts,
+                    ]);
+                }
+            })
+            .catch(() => {});
+    }, []);
+
+    const handleAddCategory = async () => {
+        const id = newCategory.id.trim().toLowerCase().replace(/\s+/g, '_');
+        if (!id || !newCategory.label.trim()) {
+            setCategoryMsg('⚠️ ID and Label are required.');
+            return;
+        }
+        try {
+            const res = await fetch(`${API}/api/admin/bu-categories`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id, label: newCategory.label.trim(), icon: newCategory.icon || '🏢' }),
+            });
+            if (!res.ok) {
+                const e = await res.json().catch(() => ({}));
+                setCategoryMsg(`⚠️ ${e.detail || 'Failed to add category'}`);
+                return;
+            }
+            setNewCategory({ id: '', label: '', icon: '🏢' });
+            setShowAddCategory(false);
+            setCategoryMsg('');
+            // Reload categories
+            const data = await fetch(`${API}/api/admin/bu-categories`).then(r => r.json());
+            if (data?.categories) {
+                setDictOptions([
+                    { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐', is_custom: false },
+                    ...data.categories.map(c => ({ id: c.id, label: c.label, icon: c.icon, is_custom: c.is_custom || false })),
+                ]);
+                setSelectedDict(id);
+            }
+        } catch {
+            setCategoryMsg('⚠️ Network error adding category.');
+        }
+    };
+
+    const handleDeleteCategory = async (catId) => {
+        if (!confirm(`Remove custom category "${catId}"? Its materiality config will be preserved on disk.`)) return;
+        try {
+            const res = await fetch(`${API}/api/admin/bu-categories/${catId}`, { method: 'DELETE' });
+            if (!res.ok) {
+                const e = await res.json().catch(() => ({}));
+                alert(e.detail || 'Failed to remove category.');
+                return;
+            }
+            const data = await fetch(`${API}/api/admin/bu-categories`).then(r => r.json());
+            if (data?.categories) {
+                setDictOptions([
+                    { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐', is_custom: false },
+                    ...data.categories.map(c => ({ id: c.id, label: c.label, icon: c.icon, is_custom: c.is_custom || false })),
+                ]);
+            }
+            if (selectedDict === catId) setSelectedDict('global');
+        } catch {
+            alert('Network error removing category.');
+        }
+    };
 
     // Form state for new issue
     const [newIssue, setNewIssue] = useState({
@@ -114,10 +191,10 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
         }
     };
 
-    // Generic save function that routes to either the generic API or the cohort override API
     const saveUpdatedConfig = async (updatedConfig) => {
         try {
-            const endpoint = isSandboxed
+            const isCohortScoped = isSandboxed || (isFacilitator && sessionId);
+            const endpoint = isCohortScoped
                 ? `${API}/api/admin/${sessionId}/materiality-dictionary`
                 : getBaseEndpoint();
 
@@ -129,10 +206,9 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
 
             if (res.ok) {
                 const data = await res.json();
-                // If we called the sandbox endpoint, the response shape is { status, message }
-                // So we just update local state directly instead of relying on echo
-                if (isSandboxed) {
+                if (isCohortScoped) {
                     setConfig(updatedConfig);
+                    if (!isSandboxed) setIsSandboxed(true);
                 } else {
                     setConfig(data);
                 }
@@ -425,26 +501,104 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
             </div>
 
             {/* Dictionary Selector */}
-            <div style={{
-                display: 'flex', gap: '6px', padding: '0.75rem 0', flexWrap: 'wrap',
-                borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem'
-            }}>
-                {DICT_OPTIONS.map(opt => (
+            <div style={{ borderBottom: '1px solid var(--border-subtle)', marginBottom: '1rem' }}>
+                <div style={{ display: 'flex', gap: '6px', padding: '0.75rem 0', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {dictOptions.map(opt => (
+                        <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                            <button
+                                onClick={() => { setSelectedDict(opt.id); setShowConfigurator(false); }}
+                                style={{
+                                    padding: '6px 14px', borderRadius: opt.is_custom ? '20px 0 0 20px' : '20px', cursor: 'pointer',
+                                    fontSize: '0.78rem', fontWeight: 600, 
+                                    borderWidth: '1.5px', borderStyle: 'solid',
+                                    transition: 'all 0.15s',
+                                    background: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'transparent',
+                                    color: selectedDict === opt.id ? '#fff' : 'var(--text-primary, #334155)',
+                                    borderColor: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'var(--border-subtle, #d1d5db)',
+                                    borderRightWidth: opt.is_custom ? '0' : '1.5px',
+                                }}
+                            >
+                                {opt.icon} {opt.label}
+                            </button>
+                            {opt.is_custom && !isFacilitator && (
+                                <button
+                                    onClick={() => handleDeleteCategory(opt.id)}
+                                    title={`Remove "${opt.label}" category`}
+                                    style={{
+                                        padding: '6px 8px', borderRadius: '0 20px 20px 0', cursor: 'pointer',
+                                        fontSize: '0.7rem', fontWeight: 700, 
+                                        borderWidth: '1.5px', borderStyle: 'solid', borderLeftWidth: '0',
+                                        transition: 'all 0.15s',
+                                        background: selectedDict === opt.id ? '#dc2626' : 'transparent',
+                                        color: selectedDict === opt.id ? '#fff' : '#ef4444',
+                                        borderColor: selectedDict === opt.id ? '#dc2626' : 'var(--border-subtle, #d1d5db)',
+                                    }}
+                                >✕</button>
+                            )}
+                        </div>
+                    ))}
+
+                    {/* Add Category Button */}
                     <button
-                        key={opt.id}
-                        onClick={() => { setSelectedDict(opt.id); setShowConfigurator(false); }}
+                        onClick={() => { setShowAddCategory(!showAddCategory); setCategoryMsg(''); }}
                         style={{
-                            padding: '6px 14px', borderRadius: '20px', cursor: 'pointer',
-                            fontSize: '0.78rem', fontWeight: 600, border: '1.5px solid',
-                            transition: 'all 0.15s',
-                            background: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'transparent',
-                            color: selectedDict === opt.id ? '#fff' : 'var(--text-primary, #334155)',
-                            borderColor: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'var(--border-subtle, #d1d5db)',
+                            padding: '6px 12px', borderRadius: '20px', cursor: 'pointer',
+                            fontSize: '0.75rem', fontWeight: 700, border: '1.5px dashed',
+                            background: showAddCategory ? 'rgba(16,185,129,0.1)' : 'transparent',
+                            color: '#10b981', borderColor: '#10b981', transition: 'all 0.15s',
                         }}
                     >
-                        {opt.icon} {opt.label}
+                        {showAddCategory ? '✕ Cancel' : '+ Add Category'}
                     </button>
-                ))}
+                </div>
+
+                {/* Inline Add-Category Form */}
+                {showAddCategory && (
+                    <div style={{
+                        background: 'linear-gradient(135deg, #f0fdf4, #ecfdf5)', border: '1px solid #bbf7d0',
+                        borderRadius: 10, padding: '0.9rem 1rem', marginBottom: '0.75rem',
+                        display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end',
+                    }}>
+                        <div>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ICON</div>
+                            <input
+                                value={newCategory.icon}
+                                onChange={e => setNewCategory(c => ({ ...c, icon: e.target.value }))}
+                                placeholder="🏢"
+                                style={{ width: 44, padding: '0.35rem', borderRadius: 6, border: '1px solid #a7f3d0', fontSize: '1rem', textAlign: 'center' }}
+                            />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 120 }}>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>LABEL</div>
+                            <input
+                                value={newCategory.label}
+                                onChange={e => setNewCategory(c => ({ ...c, label: e.target.value }))}
+                                placeholder="e.g. Renewables"
+                                style={{ width: '100%', padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid #a7f3d0', fontSize: '0.8rem' }}
+                            />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 120 }}>
+                            <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ID (slug)</div>
+                            <input
+                                value={newCategory.id}
+                                onChange={e => setNewCategory(c => ({ ...c, id: e.target.value.replace(/\s+/g, '_').toLowerCase() }))}
+                                placeholder="e.g. renewables"
+                                style={{ width: '100%', padding: '0.35rem 0.5rem', borderRadius: 6, border: '1px solid #a7f3d0', fontSize: '0.8rem', fontFamily: 'monospace' }}
+                            />
+                        </div>
+                        <button
+                            onClick={handleAddCategory}
+                            style={{
+                                background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff',
+                                border: 'none', padding: '0.4rem 1rem', borderRadius: 8,
+                                fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                            }}
+                        >✓ Add</button>
+                        {categoryMsg && (
+                            <div style={{ width: '100%', fontSize: '0.72rem', color: '#b45309', fontWeight: 600 }}>{categoryMsg}</div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {selectedDict !== 'global' && (
@@ -452,7 +606,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                     padding: '0.6rem 0.8rem', background: '#eff6ff', borderLeft: '4px solid #3b82f6',
                     borderRadius: '4px', marginBottom: '1rem', fontSize: '0.82rem', color: '#1e40af'
                 }}>
-                    📌 You are editing the <strong>{DICT_OPTIONS.find(o => o.id === selectedDict)?.label}</strong> issue dictionary.
+                    📌 You are editing the <strong>{dictOptions.find(o => o.id === selectedDict)?.label}</strong> issue dictionary.
                     This dictionary is used when the <strong>Strategic Pillars</strong> paradigm is active and this BU is randomly selected for Round 2 materiality analysis.
                 </div>
             )}
@@ -466,12 +620,24 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                         </svg>
                     </div>
                     <p className={styles.gateText}>
-                        The Materiality Matrix defines the core issue dictionary, interdependencies, and consultant fees used across <strong>all cohorts</strong>. Modifying these values will affect <strong>all future simulation runs</strong>.
+                        {isFacilitator ? (
+                            sessionId ? (
+                                <>The Materiality Matrix defines the specific issue dictionary, interdependencies, and consultant fees for <strong>Cohort {sessionId.slice(0,8)}</strong>. Modifying these values will automatically fork the global settings and <strong>only affect this active cohort</strong>.</>
+                            ) : (
+                                <>Please <strong>select a session</strong> from the Leaderboard or Dashboard before attempting to modify its isolated Materiality parameters.</>
+                            )
+                        ) : (
+                            <>The Materiality Matrix defines the core issue dictionary, interdependencies, and consultant fees used across <strong>all cohorts</strong>. Modifying these values will affect <strong>all future simulation runs</strong>.</>
+                        )}
                     </p>
                     <button
                         className={styles.gateBtn}
                         onClick={() => setShowConfigurator(true)}
-                    >Edit Materiality Matrix</button>
+                        disabled={isFacilitator && !sessionId}
+                        style={{ opacity: (isFacilitator && !sessionId) ? 0.5 : 1 }}
+                    >
+                        {(isFacilitator && !sessionId) ? 'Select a Session First' : 'Edit Materiality Matrix'}
+                    </button>
                 </div>
             )}
 
@@ -524,7 +690,10 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 ) : isFacilitator ? (
                     <div style={{ padding: '1rem', background: 'var(--bg-elevated)', borderLeft: '4px solid var(--accent-blue)', marginBottom: '1.5rem', borderRadius: '4px' }}>
                         <p style={{ margin: 0, fontSize: '0.9rem', color: 'var(--text-muted)' }}>
-                            Select a session from the Leaderboard to override issue costs for a specific cohort. Global structural changes are disabled in Facilitator mode.
+                            {sessionId 
+                                ? `You are editing an isolated configuration fork for the selected cohort (${sessionId.slice(0,8)}). Global defaults will NOT be altered.`
+                                : `Select a session from the Leaderboard to override issue parameters for a specific cohort.`
+                            }
                         </p>
                     </div>
                 ) : (
@@ -599,7 +768,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                         )}
                                     </div>
                                 </div>
-                                {(!sessionId || isSandboxed) && (
+                                {(!isFacilitator || isSandboxed) && (
                                     <div className={styles.issueActions}>
                                         <button className={styles.btnDanger} onClick={() => handleDeleteIssue(issue.id)}>Delete</button>
                                     </div>
@@ -613,7 +782,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 </div>
 
                 {/* Add New Issue Form (Global or Sandboxed Cohort) */}
-                {(!sessionId || isSandboxed) && (
+                {(!isFacilitator || isSandboxed) && (
                     <form className={styles.addForm} onSubmit={handleAddIssue}>
                         <h4 style={{ marginTop: 0, marginBottom: '1rem', color: 'var(--accent-blue)' }}>Add New {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Issue</h4>
                         <div className={styles.formRow}>
@@ -667,20 +836,18 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                 <label>Affected BU 1</label>
                                 <select className={styles.select} value={newIssue.affected_bu_1 || ''} onChange={e => setNewIssue({ ...newIssue, affected_bu_1: e.target.value })}>
                                     <option value="">None / Corporate</option>
-                                    <option value="pharma">Pharma</option>
-                                    <option value="electronics">Electronics</option>
-                                    <option value="consumer_goods">Consumer Goods</option>
-                                    <option value="software">Software</option>
+                                    {dictOptions.filter(o => o.id !== 'global').map(o => (
+                                        <option key={o.id} value={o.id}>{o.label}</option>
+                                    ))}
                                 </select>
                             </div>
                             <div className={styles.formGroup}>
                                 <label>Affected BU 2 (Optional)</label>
                                 <select className={styles.select} value={newIssue.affected_bu_2 || ''} onChange={e => setNewIssue({ ...newIssue, affected_bu_2: e.target.value })}>
                                     <option value="">None</option>
-                                    <option value="pharma">Pharma</option>
-                                    <option value="electronics">Electronics</option>
-                                    <option value="consumer_goods">Consumer Goods</option>
-                                    <option value="software">Software</option>
+                                    {dictOptions.filter(o => o.id !== 'global').map(o => (
+                                        <option key={o.id} value={o.id}>{o.label}</option>
+                                    ))}
                                 </select>
                             </div>
                         </div>

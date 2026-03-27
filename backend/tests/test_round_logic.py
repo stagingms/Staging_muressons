@@ -216,21 +216,21 @@ class TestPostTick:
             assert bu["natural_capital_debt"] == 5  # 20 - 15
 
     def test_r5_stochastic_event_with_hard_engineering(self):
-        """R5 with roll < 0.75 should apply damage mitigated by RF=0.85."""
+        """R5 with roll < 0.75 should apply full damage because R5 resilience is delayed."""
         random.seed(42)  # seed for reproducible roll
         gs = make_global(round_number=6, treasury=50_000_000)
         gs["active_event_flags"] = {}
         bus = make_bus()
-        decs = make_decisions("option_a")  # RF=0.85
+        decs = make_decisions("option_a")  # Creates pending resilience
 
         extra = post_tick(5, gs, bus, decs, {}, {})
         assert "stochastic_roll" in extra
-        # If the event struck, damage = 12M * (1 - 0.85) = 1.8M
+        # The cyclone hits before the infrastructure is built (Delayed CapEx)
         if extra.get("climate_event_struck"):
-            assert extra["actual_damage"] == 1_800_000
+            assert extra["actual_damage"] == 12_000_000.0
 
     def test_r5_hard_engineering_adds_ncd(self):
-        """R5 Option A should add +10 Natural Capital Debt."""
+        """R5 Option A should queue a pending project for +10 Natural Capital Debt."""
         random.seed(100)
         gs = make_global(round_number=6, treasury=50_000_000)
         gs["active_event_flags"] = {}
@@ -238,8 +238,14 @@ class TestPostTick:
         decs = make_decisions("option_a")
 
         post_tick(5, gs, bus, decs, {}, {})
+        # Impacts shouldn't apply immediately
         for bu in bus:
-            assert bu["natural_capital_debt"] == 10
+            assert bu["natural_capital_debt"] == 0
+        
+        # Determine it queued successfully
+        assert "pending_capex_projects" in gs
+        has_ncd = any(p["type"] == "ncd_drop" for p in gs["pending_capex_projects"])
+        assert has_ncd is True
 
     def test_r6_option_a_revenue_boost_rep_drop(self):
         """R6 Option A: +$5M software revenue, -20 reputation."""
@@ -291,7 +297,7 @@ class TestPostTick:
         assert cg["social_license_score"] == 27  # 52 - 25
 
     def test_r8_option_c_desalination_cost_and_ncd(self):
-        """R8 Option C: -$30M treasury, -30 NCD."""
+        """R8 Option C: -$30M treasury, queues Delayed-Yield CapEx for NCD reduction."""
         gs = make_global(round_number=9, treasury=50_000_000)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -301,8 +307,14 @@ class TestPostTick:
 
         post_tick(8, gs, bus, decs, {}, {})
         assert gs["corporate_treasury"] == 20_000_000  # 50M - 30M
+        
+        # NCD shouldn't drop immediately due to Delayed-Yield CapEx queue
         for bu in bus:
-            assert bu["natural_capital_debt"] == 10  # 40 - 30
+            assert bu["natural_capital_debt"] == 40
+            
+        assert "pending_capex_projects" in gs
+        has_water = any(p["type"] == "ncd_drop" for p in gs["pending_capex_projects"])
+        assert has_water is True
 
     def test_r9_option_a_strike_with_low_sl(self):
         """R9 Option A with low social licence should potentially trigger strike."""
@@ -335,7 +347,7 @@ class TestPostTick:
         assert extra["regulatory_friction"] == round(1.0 / 20, 4)
 
     def test_r10_ebitda_and_terminal_value(self):
-        """R10: verify EBITDA_2050 = Σ(Rev-OPEX) - CarbonTonnage×$250."""
+        """R10: verify Terminal_EBITDA = Σ(Rev-OPEX) - CarbonTonnage×$250."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -343,7 +355,7 @@ class TestPostTick:
 
         extra = post_tick(10, gs, bus, decs, {}, {})
 
-        assert "ebitda_2050" in extra
+        assert "terminal_ebitda" in extra
         assert "terminal_value" in extra
         assert "regenerative_multiple" in extra
         assert "profile" in extra
@@ -355,7 +367,7 @@ class TestPostTick:
         carbon_tonnage = sum(b.get("carbon_intensity", 0) for b in bus)
         # Note: spinoff zeros the weakest BU, so we need to check after mutation
         assert extra["carbon_tax_per_ton"] == 250
-        assert extra["ebitda_2050"] is not None
+        assert extra["terminal_ebitda"] is not None
 
     def test_r10_regenerative_multiple_all_bonuses(self):
         """R10: MR base=1.0, +0.3 synergy, +0.2 resilience, +0.15 truth = 1.65."""

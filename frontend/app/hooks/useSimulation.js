@@ -152,7 +152,7 @@ export default function useSimulation() {
                             profile: 'completed',
                             profile_title: 'Simulation Completed',
                             profile_description: 'This simulation has been completed.',
-                            ebitda_2050: data.global_state?.historical_ebitda || 0,
+                            terminal_ebitda: data.global_state?.historical_ebitda || 0,
                             terminal_value: 0,
                             regenerative_multiple: 1.0,
                             mr_breakdown: {},
@@ -271,7 +271,7 @@ export default function useSimulation() {
                         setGameOver(true);
                         // Build synthetic final report from seed data
                         setFinalReport({
-                            ebitda_2050: 14_250_000,
+                            terminal_ebitda: 14_250_000,
                             carbon_tonnage_group: 183,
                             carbon_cost: 45_750,
                             carbon_tax_per_ton: 250,
@@ -503,6 +503,31 @@ export default function useSimulation() {
         return data;
     }, [fetchDashboard, fetchRoundConfig]);
 
+    // ── Logout — clears local session, game state persists on server ──
+    const logout = useCallback(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('muressons_session_id');
+            localStorage.removeItem('muressons_username');
+            localStorage.removeItem('muressons_playerId');
+        }
+        // Reset all state to initial values
+        setSessionId(null);
+        setUsernameState('');
+        setRoundNumber(1);
+        setGlobalState(null);
+        setBusinessUnits([]);
+        setHistory([]);
+        setEvents({});
+        setRoundConfig(null);
+        setGameOver(false);
+        setFinalReport(null);
+        setLoading(false);
+        setError(null);
+        setRoundLocked(false);
+        setCommitResults(null);
+        setPracticeReset(false);
+    }, []);
+
     return {
         // State
         sessionId,
@@ -536,5 +561,6 @@ export default function useSimulation() {
         saveDecisions,
         fetchRoundConfig,
         resumeSession,
+        logout,
     };
 }

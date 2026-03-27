@@ -113,7 +113,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete }) {
                 <header className={styles.header}>
                     <div className={styles.headerBadge}>ROUND 10 • GRAND FINALE</div>
                     <h1 className={styles.title}>⚖️ The Boardroom Showdown</h1>
-                    <p className={styles.subtitle}>Muressons Global Command — Board of Directors Meeting, 2050</p>
+                    <p className={styles.subtitle}>Muressons Global Command — Board of Directors Meeting, Year 3</p>
                 </header>
 
                 {/* ── Phase 1: Briefing ── */}

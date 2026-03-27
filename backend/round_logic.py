@@ -259,13 +259,16 @@ def _post_r5_climate(
     extra["stochastic_roll"] = roll
     extra["stochastic_threshold"] = threshold
 
+    # Check for active resilience factor stored by completed pending projects
+    active_resilience_factor = events.get("active_resilience_factor", 0.0)
+
     if roll < threshold:
         # Event strikes — apply damage mitigated by resilience
-        actual_damage = round(base_damage * (1 - resilience_factor), 2)
+        actual_damage = round(base_damage * (1 - active_resilience_factor), 2)
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - actual_damage, 2)
         extra["climate_event_struck"] = True
         extra["base_damage"] = base_damage
-        extra["resilience_factor"] = resilience_factor
+        extra["resilience_factor"] = active_resilience_factor
         extra["actual_damage"] = actual_damage
     else:
         extra["climate_event_struck"] = False
@@ -275,11 +278,31 @@ def _post_r5_climate(
     if "treasury" in impacts:
         gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
 
-    # Natural capital debt from hard engineering
+    # Advanced Climate Engine: Delay CapEx yields for Hard Engineering projects
     ncd_delta = impacts.get("natural_capital_debt_delta", 0)
-    if ncd_delta != 0:
-        for bu in bus:
-            bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+    
+    if resilience_factor > 0 or ncd_delta != 0:
+        if "pending_capex_projects" not in gs:
+            gs["pending_capex_projects"] = []
+            
+        if resilience_factor > 0:
+            gs["pending_capex_projects"].append({
+                "type": "resilience_boost",
+                "amount": resilience_factor,
+                "rounds_remaining": 2,
+                "description": "Building Coastal Resilience Infrastructure"
+            })
+            extra["resilience_project_started"] = True
+            
+        if ncd_delta != 0:
+            gs["pending_capex_projects"].append({
+                "type": "ncd_drop",
+                "amount": ncd_delta,
+                "bu_target": "all",
+                "rounds_remaining": 2,
+                "description": "Hard Engineering Impact Adjustments"
+            })
+            extra["ncd_project_started"] = True
 
     extra["r5_choice"] = choice
 
@@ -340,7 +363,15 @@ def _post_r7_circularity(
     impacts = opt.get("impacts", {})
 
     if "treasury" in impacts:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
+        cost = abs(impacts["treasury"])
+        fund = gs.get("green_transition_fund", 0.0)
+        if fund >= cost:
+            gs["green_transition_fund"] -= cost
+            extra["green_fund_used"] = cost
+        else:
+            gs["green_transition_fund"] = 0.0
+            gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
+            extra["green_fund_used"] = fund
 
     ncd_delta = impacts.get("natural_capital_debt_delta", 0)
     if ncd_delta != 0:
@@ -371,7 +402,15 @@ def _post_r8_blue_stress(
     impacts = opt.get("impacts", {})
 
     if "treasury" in impacts:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
+        cost = abs(impacts["treasury"])
+        fund = gs.get("green_transition_fund", 0.0)
+        if fund >= cost:
+            gs["green_transition_fund"] -= cost
+            extra["green_fund_used"] = cost
+        else:
+            gs["green_transition_fund"] = 0.0
+            gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
+            extra["green_fund_used"] = fund
 
     # Option B: severe social licence drop on specific BUs
     if impacts.get("social_license_severe_drop"):
@@ -382,11 +421,19 @@ def _post_r8_blue_stress(
                 bu["social_license_score"] = max(0, round(bu["social_license_score"] + drop_amt, 2))
         extra["social_license_severe_drop_applied"] = targets
 
-    # Option C: NCD reduction
+    # Option C: NCD reduction (Desalination Plant - Delayed CapEx)
     ncd_delta = impacts.get("natural_capital_debt_delta", 0)
     if ncd_delta != 0:
-        for bu in bus:
-            bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+        if "pending_capex_projects" not in gs:
+            gs["pending_capex_projects"] = []
+        gs["pending_capex_projects"].append({
+            "type": "ncd_drop",
+            "amount": ncd_delta,
+            "bu_target": "all",
+            "rounds_remaining": 2,
+            "description": "Water Infrastructure Mega-Project"
+        })
+        extra["water_project_started"] = True
 
     # Water dependency reduction
     wd_delta = impacts.get("water_dependency_delta", 0)
@@ -413,9 +460,20 @@ def _post_r9_just_transition(
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
-    # Treasury
+    # Treasury (allow positive impacts to go straight to treasury)
     if "treasury" in impacts:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
+        if impacts["treasury"] < 0:
+            cost = abs(impacts["treasury"])
+            fund = gs.get("green_transition_fund", 0.0)
+            if fund >= cost:
+                gs["green_transition_fund"] -= cost
+                extra["green_fund_used"] = cost
+            else:
+                gs["green_transition_fund"] = 0.0
+                gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
+                extra["green_fund_used"] = fund
+        else:
+            gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
 
     # Reputation & Social License deltas
     rep_delta = impacts.get("reputation_delta", 0)
@@ -472,7 +530,7 @@ def _post_r9_just_transition(
     extra["r9_choice"] = choice
 
 
-# ── R10: Grand Finale — EBITDA 2050, MR, Terminal Valuation ────
+# ── R10: Grand Finale — Terminal EBITDA, MR, Terminal Valuation ────
 def _post_r10_grand_finale(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
@@ -528,7 +586,7 @@ def _post_r10_grand_finale(
         extra["synergy_wiped"] = True
 
     # ═══════════════════════════════════════════════════════════
-    #  EBITDA_2050 = Σ(Revenue_i − OPEX_i) − (Carbon_Tonnage × $250/ton)
+    #  Terminal_EBITDA = Σ(Revenue_i − OPEX_i) − (Carbon_Tonnage × $250/ton)
     # ═══════════════════════════════════════════════════════════
     total_revenue = sum(bu["revenue_base"] for bu in bus)
     total_opex = sum(bu["opex_base"] for bu in bus)
@@ -537,7 +595,7 @@ def _post_r10_grand_finale(
     carbon_tonnage_group = sum(bu.get("carbon_intensity", 0) for bu in bus)
     carbon_cost = round(carbon_tonnage_group * carbon_tax_per_ton, 2)
 
-    ebitda_2050 = round(
+    terminal_ebitda = round(
         (total_revenue - total_opex) - carbon_cost,
         2,
     )
@@ -579,49 +637,77 @@ def _post_r10_grand_finale(
     mr = round(mr, 4)
 
     # ═══════════════════════════════════════════════════════════
-    #  TERMINAL VALUE  =  EBITDA_2050  ×  Exit Multiple  ×  M_R
+    #  TERMINAL VALUE  =  Terminal_EBITDA  ×  Exit Multiple  ×  M_R
     # ═══════════════════════════════════════════════════════════
-    terminal_value = round(ebitda_2050 * exit_multiple * mr, 2)
+    terminal_value = round(terminal_ebitda * exit_multiple * mr, 2)
 
-    # ═══════════════════════════════════════════════════════════
-    #  2050 PROFILE ARCHETYPE
-    # ═══════════════════════════════════════════════════════════
-    thresholds = special.get("profile_thresholds", {})
-    if mr >= thresholds.get("regenerative_titan", 1.8):
-        profile = "regenerative_titan"
-        profile_title = "The Regenerative Titan"
-        profile_desc = (
-            "A truly regenerative enterprise. Muressons has rebuilt "
-            "natural capital, earned deep social trust, and delivered "
-            "superior financial returns. This is the gold standard of 2050."
-        )
-    elif mr >= thresholds.get("derisked_safe_haven", 1.2):
-        profile = "derisked_safe_haven"
-        profile_title = "The De-risked Safe-Haven"
-        profile_desc = (
-            "A resilient corporation that avoided the worst tail risks. "
-            "Investors value the predictability, but innovation is stalling. "
-            "Solid, but not transformational."
-        )
-    elif mr >= thresholds.get("fragile_giant", 0.8):
-        profile = "fragile_giant"
-        profile_title = "The Fragile Giant"
-        profile_desc = (
-            "Big but brittle. The cracks in social license and natural "
-            "capital are visible. One more shock could trigger a cascade "
-            "of write-downs and stakeholder defections."
-        )
+    # ===================================================
+    #  Year 3 PROFILE ARCHETYPE
+    #  Custom archetypes from god-mode take priority
+    # ===================================================
+    try:
+        from admin_router import _god_mode_settings
+        custom_archetypes = _god_mode_settings.get("custom_archetypes", [])
+    except ImportError:
+        custom_archetypes = []
+
+    profile_icon = None
+    profile_gradient = None
+
+    if custom_archetypes:
+        sorted_customs = sorted(custom_archetypes, key=lambda a: a.get("mr_threshold", 0), reverse=True)
+        matched = next((a for a in sorted_customs if mr >= a.get("mr_threshold", 0)), None)
+        if not matched:
+            matched = sorted_customs[-1]
+        profile = matched["key"]
+        profile_title = matched["title"]
+        profile_desc = matched.get("description", "")
+        profile_icon = matched.get("icon", "\U0001f3c5")
+        profile_gradient = matched.get("gradient", "linear-gradient(135deg, #6366f1, #8b5cf6)")
     else:
-        profile = "stranded_relic"
-        profile_title = "The Stranded Relic"
-        profile_desc = (
-            "A cautionary tale. Stranded assets, depleted social capital, "
-            "and a brand synonymous with extraction. The 2050 market has "
-            "moved on. Terminal decline is imminent."
-        )
-
+        thresholds = special.get("profile_thresholds", {})
+        if mr >= thresholds.get("regenerative_titan", 1.8):
+            profile = "regenerative_titan"
+            profile_title = "The Regenerative Titan"
+            profile_desc = (
+                "A truly regenerative enterprise. Muressons has rebuilt "
+                "natural capital, earned deep social trust, and delivered "
+                "superior financial returns. This is the gold standard of Year 3."
+            )
+            profile_icon = "\U0001f331"
+            profile_gradient = "linear-gradient(135deg, #10b981, #059669)"
+        elif mr >= thresholds.get("derisked_safe_haven", 1.2):
+            profile = "derisked_safe_haven"
+            profile_title = "The De-risked Safe-Haven"
+            profile_desc = (
+                "A resilient corporation that avoided the worst tail risks. "
+                "Investors value the predictability, but innovation is stalling. "
+                "Solid, but not transformational."
+            )
+            profile_icon = "\U0001f3e6"
+            profile_gradient = "linear-gradient(135deg, #3b82f6, #1d4ed8)"
+        elif mr >= thresholds.get("fragile_giant", 0.8):
+            profile = "fragile_giant"
+            profile_title = "The Fragile Giant"
+            profile_desc = (
+                "Big but brittle. The cracks in social license and natural "
+                "capital are visible. One more shock could trigger a cascade "
+                "of write-downs and stakeholder defections."
+            )
+            profile_icon = "\u26a0\ufe0f"
+            profile_gradient = "linear-gradient(135deg, #f59e0b, #d97706)"
+        else:
+            profile = "stranded_relic"
+            profile_title = "The Stranded Relic"
+            profile_desc = (
+                "A cautionary tale. Stranded assets, depleted social capital, "
+                "and a brand synonymous with extraction. The Year 3 market has "
+                "moved on. Terminal decline is imminent."
+            )
+            profile_icon = "\U0001f480"
+            profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
     # Populate Extra & Global State
-    extra["ebitda_2050"] = ebitda_2050
+    extra["terminal_ebitda"] = terminal_ebitda
     extra["carbon_tonnage_group"] = carbon_tonnage_group
     extra["carbon_cost"] = carbon_cost
     extra["carbon_tax_per_ton"] = carbon_tax_per_ton
@@ -639,6 +725,8 @@ def _post_r10_grand_finale(
     extra["profile"] = profile
     extra["profile_title"] = profile_title
     extra["profile_description"] = profile_desc
+    extra["profile_icon"] = profile_icon
+    extra["profile_gradient"] = profile_gradient
     extra["synergy_score"] = round(synergy_score, 2)
     extra["avg_social_license"] = round(avg_sl, 2)
     extra["r10_choice"] = choice
@@ -671,7 +759,7 @@ def _post_r10_grand_finale(
     # Persist into global state flags for frontend/API access
     gs["active_event_flags"]["terminal_value"] = terminal_value
     gs["active_event_flags"]["regenerative_multiple"] = mr
-    gs["active_event_flags"]["ebitda_2050"] = ebitda_2050
+    gs["active_event_flags"]["terminal_ebitda"] = terminal_ebitda
     gs["active_event_flags"]["profile"] = profile
     gs["active_event_flags"]["profile_title"] = profile_title
 

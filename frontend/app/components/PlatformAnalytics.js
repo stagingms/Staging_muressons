@@ -5,12 +5,12 @@ import styles from './PlatformAnalytics.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const TABS = [
-    { id: 'heatmap', label: '📊 Decision Heatmap', key: 'decision_heatmap' },
-    { id: 'timing', label: '⏱ Time-to-Decision', key: 'time_to_decision' },
-    { id: 'cohorts', label: '📈 Cohort Comparison', key: 'cohort_comparison' },
-    { id: 'convergence', label: '🔄 Convergence', key: 'convergence_analysis' },
-    { id: 'learning', label: '🎯 Learning Outcomes', key: 'learning_outcomes' },
-    { id: 'risk', label: '📉 Risk Exposure', key: 'risk_exposure' },
+    { id: 'heatmap', label: '📊 Decision Heatmap', key: 'decision_heatmap', title: 'Top strategic choices selected round-by-round across all teams.' },
+    { id: 'timing', label: '⏱ Time-to-Decision', key: 'time_to_decision', title: 'Analytics on how fast or slow cohorts lock in their choices.' },
+    { id: 'cohorts', label: '📈 Cohort Comparison', key: 'cohort_comparison', title: 'Core performance trajectory mapping showing Terminal Value and abstract scores.' },
+    { id: 'convergence', label: '🔄 Convergence', key: 'convergence_analysis', title: 'Choice entropy and CapEx variance to measure if teams are thinking alike.' },
+    { id: 'learning', label: '🎯 Learning Outcomes', key: 'learning_outcomes', title: 'Gamification tracking, quiz success, and manual facilitator bonuses.' },
+    { id: 'risk', label: '📉 Risk Exposure', key: 'risk_exposure', title: 'Multi-axis tracking of non-financial risks like Natural Capital Debt and Social License.' },
 ];
 
 const CHOICE_COLORS = {
@@ -47,7 +47,7 @@ export default function PlatformAnalytics({ visibility = null }) {
             <div className={styles.header}>
                 <span className={styles.icon}>📊</span>
                 <div>
-                    <h2>Platform Analytics</h2>
+                    <h2>Cohort Analytics</h2>
                     <p className={styles.subtitle}>
                         {data.total_cohorts} cohorts · {data.total_players} players · {data.total_decisions} decisions
                     </p>
@@ -61,6 +61,7 @@ export default function PlatformAnalytics({ visibility = null }) {
                         key={t.id}
                         className={`${styles.tab} ${tab === t.id ? styles.tabActive : ''}`}
                         onClick={() => setTab(t.id)}
+                        title={t.title}
                     >
                         {t.label}
                     </button>
@@ -212,10 +213,15 @@ function CohortComparison({ data }) {
         <div className={styles.section}>
             <h3 className={styles.sectionTitle}>Cohort KPI Trajectories</h3>
             <div className={styles.metricToggle}>
-                {['treasury', 'reputation', 'synergy', 'ebitda'].map(m => (
+                {[
+                    { m: 'treasury', label: 'Treasury', icon: '💰', title: 'Total accumulated cash reserves.' },
+                    { m: 'reputation', label: 'Reputation', icon: '⭐', title: 'Public perception and brand strength scale (0-100).' },
+                    { m: 'synergy', label: 'Synergy', icon: '🔗', title: 'Corporate operational efficiency multiplier.' },
+                    { m: 'ebitda', label: 'EBITDA', icon: '📊', title: 'Earnings before interest, taxes, depreciation, and amortization.' }
+                ].map(({ m, label, icon, title }) => (
                     <button key={m} className={`${styles.metricBtn} ${metric === m ? styles.metricActive : ''}`}
-                        onClick={() => setMetric(m)}>
-                        {m === 'treasury' ? '💰' : m === 'reputation' ? '⭐' : m === 'synergy' ? '🔗' : '📊'} {m.charAt(0).toUpperCase() + m.slice(1)}
+                        onClick={() => setMetric(m)} title={title}>
+                        {icon} {label}
                     </button>
                 ))}
             </div>
@@ -311,7 +317,9 @@ function ConvergenceAnalysis({ data }) {
             {/* Per-round breakdown */}
             <div className={styles.convergenceGrid}>
                 <div className={styles.convHeader}>
-                    <span>Round</span><span>Choice Entropy</span><span>CapEx StdDev</span>
+                    <span>Round</span>
+                    <span title="A measure of unpredictability. Lower bits indicate players are making identical choices.">Choice Entropy</span>
+                    <span title="Variance in capital expenditure. Lower deviation indicates identical spending behaviors.">CapEx StdDev</span>
                 </div>
                 {rounds.map(r => (
                     <div key={r} className={styles.convRow}>
@@ -349,17 +357,17 @@ function LearningOutcomes({ data }) {
             <h3 className={styles.sectionTitle}>Learning & Engagement Tracker</h3>
 
             <div className={styles.summaryCards}>
-                <div className={styles.sumCard}>
+                <div className={styles.sumCard} title="Total automated points awarded upon reaching learning milestones.">
                     <div className={styles.sumIcon}>🎓</div>
                     <div className={styles.sumVal}>{data.learning_bonuses_total || 0}</div>
                     <div className={styles.sumLabel}>Learning Bonuses</div>
                 </div>
-                <div className={styles.sumCard}>
+                <div className={styles.sumCard} title="Number of physical awards or manual facilitator grade-adjustments given.">
                     <div className={styles.sumIcon}>🏅</div>
                     <div className={styles.sumVal}>{data.student_bonus_count || 0}</div>
                     <div className={styles.sumLabel}>Awards Given</div>
                 </div>
-                <div className={styles.sumCard}>
+                <div className={styles.sumCard} title="Unique achievement badges earned globally.">
                     <div className={styles.sumIcon}>🏆</div>
                     <div className={styles.sumVal}>{Object.keys(badges).length}</div>
                     <div className={styles.sumLabel}>Badge Types</div>
@@ -408,10 +416,10 @@ function RiskExposure({ data }) {
     const [metric, setMetric] = useState('avg_carbon_intensity');
     const COLORS = ['#ef4444', '#f59e0b', '#3b82f6', '#10b981', '#8b5cf6'];
     const METRICS = [
-        { key: 'avg_carbon_intensity', label: '🏭 Carbon Intensity', unit: '' },
-        { key: 'avg_natural_capital_debt', label: '🌍 Natural Capital Debt', unit: '' },
-        { key: 'avg_social_license', label: '🤝 Social License', unit: '' },
-        { key: 'avg_governance_risk', label: '⚖️ Governance Risk', unit: '' },
+        { key: 'avg_carbon_intensity', label: '🏭 Carbon Intensity', unit: '', title: 'Average metric tons of CO2e emitted per $1M revenue.' },
+        { key: 'avg_natural_capital_debt', label: '🌍 Natural Capital Debt', unit: '', title: 'Unmitigated ecological damages demanding future environmental remediation.' },
+        { key: 'avg_social_license', label: '🤝 Social License', unit: '', title: 'Level of ongoing community trust and stakeholder approval.' },
+        { key: 'avg_governance_risk', label: '⚖️ Governance Risk', unit: '', title: 'Exposure to regulatory fines, internal corruption, or oversight failure.' },
     ];
 
     const maxVal = Math.max(...cohorts.flatMap(c => data[c].map(d => d[metric] || 0)), 1);
@@ -422,7 +430,7 @@ function RiskExposure({ data }) {
             <div className={styles.metricToggle}>
                 {METRICS.map(m => (
                     <button key={m.key} className={`${styles.metricBtn} ${metric === m.key ? styles.metricActive : ''}`}
-                        onClick={() => setMetric(m.key)}>
+                        onClick={() => setMetric(m.key)} title={m.title}>
                         {m.label}
                     </button>
                 ))}
