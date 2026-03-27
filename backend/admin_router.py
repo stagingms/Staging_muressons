@@ -32,7 +32,13 @@ _god_mode_settings: dict = {
     "system_frozen": False,
     "freeze_message": "",
     "freeze_started_at": None,
+    # Advanced Climate Engine fields (set by Sim Switchboard)
+    "simulation_mode": "standard",          # "standard" | "advanced_climate"
+    "global_carbon_fee": 40,
+    "market_hostility_index": 5,
+    "scope_3_threshold": 2.5,
 }
+
 
 # ── God Mode audit log ──────────────────────────────────────────
 _god_mode_audit_log: list[dict] = []
@@ -84,6 +90,35 @@ _next_facilitator_id: int = 1
 
 class FacilitatorCreateRequest(BaseModel):
     name: str
+
+
+# ── Global Settings (Sim Switchboard ↔ player sessions) ─────────
+@admin_router.get("/global-settings", summary="Get current global simulation settings")
+async def get_global_settings():
+    """Returns current god-mode settings including simulation_mode.
+    Called by player sessions on mount to detect Advanced Climate Engine."""
+    return {
+        "simulation_mode": _god_mode_settings.get("simulation_mode", "standard"),
+        "global_carbon_fee": _god_mode_settings.get("global_carbon_fee", 40),
+        "market_hostility_index": _god_mode_settings.get("market_hostility_index", 5),
+        "scope_3_threshold": _god_mode_settings.get("scope_3_threshold", 2.5),
+        "allow_facilitator_cohort_creation": _god_mode_settings.get("allow_facilitator_cohort_creation", True),
+        "system_frozen": _god_mode_settings.get("system_frozen", False),
+    }
+
+
+@admin_router.patch("/global-settings", summary="Update global simulation settings (Sim Switchboard)")
+async def patch_global_settings(body: dict = Body(...)):
+    """Sim Switchboard endpoint — updates simulation_mode and climate parameters.
+    Accepts: simulation_mode, global_carbon_fee, market_hostility_index, scope_3_threshold"""
+    allowed = ("simulation_mode", "global_carbon_fee", "market_hostility_index",
+               "scope_3_threshold", "allow_facilitator_cohort_creation",
+               "system_frozen", "freeze_message")
+    for key in allowed:
+        if key in body:
+            _god_mode_settings[key] = body[key]
+    print(f"[god-mode] Global settings updated: {_god_mode_settings}")
+    return {"status": "ok", "settings": _god_mode_settings}
 
 
 @admin_router.get("/facilitators", summary="List all facilitators")

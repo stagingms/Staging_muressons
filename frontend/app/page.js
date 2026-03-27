@@ -375,8 +375,22 @@ export default function CockpitPage() {
     });
   }, [sim.sessionId, sim.playerId]);
 
-  // Detect when the simulation mode is advanced climate
-  const isAdvancedClimate = globalState?.simulation_mode === 'advanced_climate';
+  // ── Advanced Climate Engine: read mode directly from backend ──
+  // Fetched independently of session globalState so it works at all rounds.
+  const [isAdvancedClimate, setIsAdvancedClimate] = useState(false);
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`);
+        if (!res.ok) return;
+        const d = await res.json();
+        setIsAdvancedClimate(d.simulation_mode === 'advanced_climate');
+      } catch { /* offline or not configured — stay false */ }
+    };
+    check();
+    const id = setInterval(check, 15_000); // re-poll every 15s to pick up live Switchboard changes
+    return () => clearInterval(id);
+  }, [sim.sessionId]);
 
   // ── Auto-clear lock after 30s to let user retry ─────────────
   useEffect(() => {
