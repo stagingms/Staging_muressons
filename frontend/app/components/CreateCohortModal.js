@@ -5,8 +5,9 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 export default function CreateCohortModal({ isOpen, onClose, onCreated }) {
     const [cohortName, setCohortName] = useState('');
-    const [facilitatorId, setFacilitatorId] = useState('Facilitator_System');
+    const [facilitatorId, setFacilitatorId] = useState('');
     const [loanInterestRate, setLoanInterestRate] = useState(12);
+    const [availableFacilitators, setAvailableFacilitators] = useState([]);
 
     const [masterOverrides, setMasterOverrides] = useState([]);
     const [masterSwipes, setMasterSwipes] = useState([]);
@@ -33,6 +34,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated }) {
                 setSelectedSwipes(data.swipes?.map(s => s.id) || []);
             })
             .catch(err => setError("Failed to load master interventions: " + err.message));
+
+        // Fetch facilitators
+        fetch(`${API}/api/admin/facilitators`)
+            .then(res => res.json())
+            .then(data => setAvailableFacilitators(data.facilitators || []))
+            .catch(err => console.error("Failed to fetch facilitators", err));
     }, [isOpen]);
 
     if (!isOpen) return null;
@@ -104,6 +111,30 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated }) {
                                     placeholder="e.g. Exec MBA Spring 2026"
                                     required
                                 />
+                            </div>
+                            <div className={styles.formGroup}>
+                                <label>Assigned Facilitator</label>
+                                <select
+                                    value={facilitatorId}
+                                    onChange={(e) => setFacilitatorId(e.target.value)}
+                                    required
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.6rem 1rem',
+                                        borderRadius: '6px',
+                                        border: '1px solid var(--border-subtle)',
+                                        background: 'var(--bg-body)',
+                                        color: 'var(--text-primary)',
+                                        fontSize: '0.9rem'
+                                    }}
+                                >
+                                    <option value="" disabled>-- Select a Facilitator --</option>
+                                    {availableFacilitators.map(fac => (
+                                        <option key={fac.facilitator_id} value={fac.facilitator_id}>
+                                            {fac.name} ({fac.facilitator_id})
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div className={styles.formGroup}>
                                 <label>Excess Investment Loan Rate (%)</label>
