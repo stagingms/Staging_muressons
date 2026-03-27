@@ -1689,6 +1689,7 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
             "session_id": sid,
             "short_code": sess.get("short_code"),
             "cohort_name": sess.get("cohort_name", "Unknown"),
+            "facilitator_id": sess.get("facilitator_id"),
             "player_id": player_id,
             "round_number": latest["round_number"],
             "terminal_value": terminal_value,
