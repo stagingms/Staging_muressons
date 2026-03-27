@@ -287,6 +287,17 @@ async def list_facilitators(unmask: bool = False):
 @admin_router.post("/facilitators", summary="Create a new facilitator")
 async def create_facilitator(req: FacilitatorCreateRequest):
     global _next_facilitator_id
+    
+    # Dynamically find the highest FAC-XXX to ensure no collisions
+    max_id = 0
+    for f in _facilitator_registry:
+        if f["facilitator_id"].startswith("FAC-"):
+            try:
+                max_id = max(max_id, int(f["facilitator_id"].split("-")[1]))
+            except ValueError:
+                pass
+    _next_facilitator_id = max_id + 1
+
     fac = {
         "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
         "name": req.name,

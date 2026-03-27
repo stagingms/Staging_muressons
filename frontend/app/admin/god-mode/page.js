@@ -506,7 +506,7 @@ function GodModeDashboard({ authData, onLogout }) {
             case 'system_export':
                 return <SystemExport />;
             case 'cohort_manager':
-                return <SimulationManager leaderboard={[]} />;
+                return <SimulationManager fetchInternal={true} leaderboard={[]} />;
             default:
                 return (
                     <div className={styles.placeholder}>
