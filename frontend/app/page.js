@@ -346,11 +346,34 @@ export default function CockpitPage() {
   // boardroomDone prevents re-entering the boardroom when reviewing the scorecard after completion.
 
   // ── Advanced Climate Engine — completed module tracking ───────
-  // Key: round number → boolean (module shown and completed for this round)
+  // Persisted per-player per-session in localStorage so players resume where they left off.
+  // Different players in the same session each have independent progress records.
   const [completedModules, setCompletedModules] = useState({});
+
+  // Restore completed modules from localStorage when session + player identity are known
+  useEffect(() => {
+    const sid = sim.sessionId;
+    const pid = sim.playerId || (typeof window !== 'undefined' ? localStorage.getItem('muressons_playerId') : null);
+    if (!sid || !pid) return;
+    const key = `ace_modules_${sid}_${pid}`;
+    try {
+      const saved = localStorage.getItem(key);
+      if (saved) setCompletedModules(JSON.parse(saved));
+      else setCompletedModules({}); // new player on this session — start fresh
+    } catch { setCompletedModules({}); }
+  }, [sim.sessionId, sim.playerId]);
+
   const markModuleDone = useCallback((round) => {
-    setCompletedModules(prev => ({ ...prev, [round]: true }));
-  }, []);
+    const sid = sim.sessionId;
+    const pid = sim.playerId || (typeof window !== 'undefined' ? localStorage.getItem('muressons_playerId') : null);
+    setCompletedModules(prev => {
+      const next = { ...prev, [round]: true };
+      if (sid && pid) {
+        try { localStorage.setItem(`ace_modules_${sid}_${pid}`, JSON.stringify(next)); } catch { }
+      }
+      return next;
+    });
+  }, [sim.sessionId, sim.playerId]);
 
   // Detect when the simulation mode is advanced climate
   const isAdvancedClimate = globalState?.simulation_mode === 'advanced_climate';
