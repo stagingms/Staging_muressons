@@ -10,6 +10,13 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 const DIV_A = { name: 'Division A (Decarbonized)', revenue: 10_000_000, opex: 6_000_000, emissions: 500, color: '#16a34a' };
 const DIV_B = { name: 'Division B (Legacy)', revenue: 10_000_000, opex: 7_800_000, emissions: 30_000, color: '#2563eb' };
 
+const BUS = [
+    { id: 'pharma', name: 'Muressons Pharma', emissions: 800 },
+    { id: 'electronics', name: 'Electronics', emissions: 28_000 },
+    { id: 'consumer_goods', name: 'Consumer Goods', emissions: 22_000 },
+    { id: 'software', name: 'Software', emissions: 200 },
+];
+
 function calcProfit(div, fee) {
     return div.revenue - div.opex - div.emissions * fee;
 }
@@ -110,8 +117,7 @@ export default function RegulatoryShockModule({ sessionId, onComplete }) {
         onComplete?.();
     }, [buChoices, fee, sessionId, onComplete]);
 
-    const allChosen = ['pharma', 'electronics', 'consumer_goods', 'software']
-        .every(bu => buChoices[bu]);
+    const allChosen = BUS.every(bu => bu.emissions < 1000 || buChoices[bu.id]);
 
     // ── Phase 1: Breaking News ─────────────────────────────────
     if (phase === 'news') return (
@@ -258,12 +264,6 @@ export default function RegulatoryShockModule({ sessionId, onComplete }) {
     );
 
     // ── Phase 3: Crisis Dilemma ────────────────────────────────
-    const BUS = [
-        { id: 'pharma', name: 'Muressons Pharma', emissions: 800 },
-        { id: 'electronics', name: 'Electronics', emissions: 28_000 },
-        { id: 'consumer_goods', name: 'Consumer Goods', emissions: 22_000 },
-        { id: 'software', name: 'Software', emissions: 200 },
-    ];
     const OPTIONS = [
         { id: 'eat', label: '💸 Eat the Cost', desc: 'Miss quarterly targets. Board penalty applied to simulation score.', color: '#dc2626' },
         { id: 'pass', label: '📈 Pass to Consumers', desc: '+15% price → -20% market share (elasticity penalty).', color: '#d97706' },
