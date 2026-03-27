@@ -6,7 +6,6 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 export default function CreateCohortModal({ isOpen, onClose, onCreated }) {
     const [cohortName, setCohortName] = useState('');
     const [facilitatorId, setFacilitatorId] = useState('');
-    const [loanInterestRate, setLoanInterestRate] = useState(12);
     const [availableFacilitators, setAvailableFacilitators] = useState([]);
 
     const [masterOverrides, setMasterOverrides] = useState([]);
@@ -69,8 +68,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated }) {
                     cohort_name: cohortName.trim() || `Cohort_${Date.now()}`,
                     facilitator_id: facilitatorId,
                     allowed_overrides: selectedOverrides,
-                    allowed_swipes: selectedSwipes,
-                    loan_interest_rate: loanInterestRate / 100.0
+                    allowed_swipes: selectedSwipes
                 })
             });
 
@@ -118,15 +116,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated }) {
                                     value={facilitatorId}
                                     onChange={(e) => setFacilitatorId(e.target.value)}
                                     required
-                                    style={{
-                                        width: '100%',
-                                        padding: '0.6rem 1rem',
-                                        borderRadius: '6px',
-                                        border: '1px solid var(--border-subtle)',
-                                        background: 'var(--bg-body)',
-                                        color: 'var(--text-primary)',
-                                        fontSize: '0.9rem'
-                                    }}
+                                    className={styles.selectFacilitator}
                                 >
                                     <option value="" disabled>-- Select a Facilitator --</option>
                                     {availableFacilitators.map(fac => (
@@ -135,19 +125,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated }) {
                                         </option>
                                     ))}
                                 </select>
-                            </div>
-                            <div className={styles.formGroup}>
-                                <label>Excess Investment Loan Rate (%)</label>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    max="100"
-                                    step="0.1"
-                                    value={loanInterestRate}
-                                    onChange={(e) => setLoanInterestRate(Number(e.target.value))}
-                                    required
-                                />
-                                <small style={{ color: 'var(--text-muted)' }}>Interest charged on capital allocations exceeding 20% limit.</small>
                             </div>
                         </section>
 
