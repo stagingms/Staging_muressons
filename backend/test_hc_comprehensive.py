@@ -128,6 +128,8 @@ def build_decisions(sid: str, paradigm: str, choice: str) -> list[dict]:
     if not active_bus:
         active_bus = HEALTHCARE_BUS if paradigm == "healthcare" else STANDARD_BUS
 
+    round_number = dash.get("current_round", 1)
+    
     decisions = []
     for bu in active_bus:
         d = {
@@ -135,6 +137,7 @@ def build_decisions(sid: str, paradigm: str, choice: str) -> list[dict]:
             "investment_ratio": 0.25,
             "capex_allocated": 500_000,
             "choice_selected": choice if paradigm in ("legacy_abc", "healthcare") else "",
+            "decision_node_id": f"round_{round_number}_{bu}",
         }
         if paradigm in ("multi_toggles", "advanced_climate"):
             pillar_opts = ["moderate", "aggressive", "conservative"]
