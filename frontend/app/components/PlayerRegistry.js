@@ -88,11 +88,20 @@ export default function PlayerRegistry({ leaderboard }) {
 
     // Group players by session — merge from both /api/admin/players AND session.registered_players
     const playersBySession = {};
-    // First, add from fetched players
+    const trueOrphans = [];
+    const sessionIds = new Set(sessions.map(s => s.session_id));
+    
+    // First, categorize fetched players
     players.forEach(player => {
-        if (!playersBySession[player.session_id]) playersBySession[player.session_id] = [];
-        playersBySession[player.session_id].push(player);
+        if (player.is_orphan) {
+            trueOrphans.push(player);
+        } else if (sessionIds.has(player.session_id)) {
+            if (!playersBySession[player.session_id]) playersBySession[player.session_id] = [];
+            playersBySession[player.session_id].push(player);
+        }
+        // Valid players from OTHER facilitators are simply ignored (they aren't orphans, but aren't ours)
     });
+    
     // Then, merge any session-level registered_players not already in the list
     sessions.forEach(session => {
         const existing = playersBySession[session.session_id] || [];
@@ -198,12 +207,6 @@ export default function PlayerRegistry({ leaderboard }) {
         }
     };
 
-    // Find orphan session IDs
-    const sessionIds = new Set(sessions.map(s => s.session_id));
-    const orphanSessionIds = Object.keys(playersBySession).filter(sid => !sessionIds.has(sid));
-    const totalOrphans = orphanSessionIds.reduce((sum, sid) => sum + playersBySession[sid].length, 0);
-
-
     return (
         <section className={styles.panel}>
             <div className={styles.header}>
@@ -233,7 +236,21 @@ export default function PlayerRegistry({ leaderboard }) {
                                 <div className={styles.sessionHeader}>
                                     <div>
                                         <h3>{session.cohort_name} <span>({session.short_code || session.session_id.slice(0, 8)})</span></h3>
-                                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', alignItems: 'center' }}>
+                                        <div style={{ display: 'flex', gap: '1rem', marginTop: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                            <span style={{
+                                                fontSize: '0.75rem', fontWeight: 600, background: '#f1f5f9',
+                                                padding: '3px 8px', borderRadius: '6px', color: '#475569', border: '1px solid #cbd5e1'
+                                            }} title="Active Simulation Edition">
+                                                {(() => {
+                                                    const pd = session.decision_paradigm || 'legacy_abc';
+                                                    if (pd === 'legacy_abc') return '🏭 Legacy (Mfg)';
+                                                    if (pd === 'healthcare') return '🏥 Healthcare';
+                                                    if (pd === 'un_sdg') return '🌍 UN SDG';
+                                                    if (pd === 'multi_toggles') return '🎛️ Strategic Pillars';
+                                                    if (pd === 'defense') return '🚀 Defense/Aero';
+                                                    return pd;
+                                                })()}
+                                            </span>
                                             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.85rem' }}>
                                                 <input
                                                     type="checkbox"
@@ -424,11 +441,11 @@ export default function PlayerRegistry({ leaderboard }) {
                     })}
 
                     {/* Orphan section */}
-                    {orphanSessionIds.length > 0 && (
+                    {trueOrphans.length > 0 && (
                         <div className={styles.sessionGroup} style={{ borderColor: '#fca5a5' }}>
                             <div className={styles.sessionHeader}>
                                 <div>
-                                    <h3 style={{ color: '#ef4444' }}>⚠️ Orphaned Players ({totalOrphans})</h3>
+                                    <h3 style={{ color: '#ef4444' }}>⚠️ Orphaned Players ({trueOrphans.length})</h3>
                                     <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', margin: '0.25rem 0 0' }}>
                                         Players from deleted sessions
                                     </p>
@@ -442,12 +459,11 @@ export default function PlayerRegistry({ leaderboard }) {
                             <div className={styles.tableWrapper}>
                                 <table className={styles.table}>
                                     <tbody>
-                                        {orphanSessionIds.flatMap(sid =>
-                                            playersBySession[sid].map(p => (
+                                        {trueOrphans.map(p => (
                                                 <tr key={p.player_id}>
                                                     <td><strong>{p.name || '—'}</strong></td>
                                                     <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{p.player_id}</td>
-                                                    <td style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{getShortCode(sid, sessions)}</td>
+                                                    <td style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{getShortCode(p.session_id, sessions)}</td>
                                                     <td>
                                                         <button
                                                             onClick={() => handleDeletePlayer(p.player_id)}
@@ -455,8 +471,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                         >✕</button>
                                                     </td>
                                                 </tr>
-                                            ))
-                                        )}
+                                        ))}
                                     </tbody>
                                 </table>
                             </div>

@@ -23,9 +23,13 @@ const CHOICE_LABELS = {
 
 const BU_SHORT = {
     pharma: '💊 Pharma',
-    electronics: '🔌 Elec',
-    consumer_goods: '🛒 Consumer',
+    electronics: '🔌 Electronics',
+    consumer_goods: '🛒 Consumer Goods',
     software: '💻 Software',
+    hospitals: '🏥 Hospitals',
+    clinics: '🩺 Clinics',
+    specialised_care: '🔬 Specialised Care',
+    telehealth: '📱 Telehealth',
 };
 
 const METRIC_CONFIG = {

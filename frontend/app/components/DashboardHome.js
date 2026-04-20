@@ -1,10 +1,12 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import styles from './DashboardHome.module.css';
 import { formatSessionId } from '../utils/sessionUtils';
 
-export default function DashboardHome({ leaderboard = [], onNavigate }) {
+const API = process.env.NEXT_PUBLIC_API_URL || '';
+
+export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCohort }) {
     const stats = useMemo(() => {
         const cohorts = leaderboard.filter(s => !s.player_id);
         const players = leaderboard.filter(s => !!s.player_id);
@@ -43,6 +45,24 @@ export default function DashboardHome({ leaderboard = [], onNavigate }) {
         if (val >= 1_000) return `$${(val / 1_000).toFixed(0)}K`;
         return `$${val.toFixed(0)}`;
     };
+
+    // ── Round Briefing Data ──
+    const currentRound = useMemo(() => {
+        if (!leaderboard.length) return 1;
+        return Math.max(...leaderboard.map(s => s.round_number || 1));
+    }, [leaderboard]);
+
+    const [briefingScript, setBriefingScript] = useState(null);
+
+    useEffect(() => {
+        fetch(`${API}/api/admin/teleprompter`)
+            .then(r => r.json())
+            .then(d => {
+                const scripts = d.scripts || {};
+                setBriefingScript(scripts);
+            })
+            .catch(() => {});
+    }, []);
 
     return (
         <div className={styles.container}>
@@ -116,6 +136,9 @@ export default function DashboardHome({ leaderboard = [], onNavigate }) {
             <div className={styles.quickActions}>
                 <h3 className={styles.sectionTitle}>Quick Actions</h3>
                 <div className={styles.actionGrid}>
+                    <button className={styles.actionBtn} onClick={() => onCreateCohort?.()}>
+                        🚀 Create New Cohort
+                    </button>
                     <button className={styles.actionBtn} onClick={() => onNavigate?.('leaderboard')}>
                         📋 View Leaderboard
                     </button>
@@ -130,6 +153,77 @@ export default function DashboardHome({ leaderboard = [], onNavigate }) {
                     </button>
                 </div>
             </div>
+
+            {/* ── Round Briefing Card ── */}
+            {briefingScript && briefingScript[String(currentRound)] && (() => {
+                const script = briefingScript[String(currentRound)];
+                return (
+                    <div className={styles.briefingCard}>
+                        <div className={styles.briefingHeader}>
+                            <div className={styles.briefingRoundBadge}>R{currentRound}</div>
+                            <div style={{ flex: 1 }}>
+                                <div className={styles.briefingDirectiveLabel}>ROUND {currentRound} DIRECTIVE</div>
+                                <h3 className={styles.briefingTitle}>{script.title}</h3>
+                            </div>
+                            <button
+                                className={styles.briefingOpenBtn}
+                                onClick={() => onNavigate?.('teleprompter')}
+                                title="Open full Teleprompter"
+                            >
+                                🎤 Full Teleprompter →
+                            </button>
+                        </div>
+
+                        <div className={styles.briefingGrid}>
+                            {/* Talking Points */}
+                            <div className={styles.briefingSection}>
+                                <div className={styles.briefingSectionLabel}>
+                                    <span>💬</span> Talking Points
+                                </div>
+                                <ul className={styles.briefingList}>
+                                    {(script.talking_points || []).slice(0, 4).map((pt, i) => (
+                                        <li key={i}>{pt}</li>
+                                    ))}
+                                </ul>
+                                {(script.talking_points || []).length > 4 && (
+                                    <div className={styles.briefingMore}>+{script.talking_points.length - 4} more</div>
+                                )}
+                            </div>
+
+                            {/* Right column: Engines + Discussion */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                {/* Engines */}
+                                {script.engines_likely?.length > 0 && (
+                                    <div className={styles.briefingSection}>
+                                        <div className={styles.briefingSectionLabel}>
+                                            <span>⚙️</span> Engines Likely to Fire
+                                        </div>
+                                        <div className={styles.briefingEngines}>
+                                            {script.engines_likely.map((eng, i) => (
+                                                <span key={i} className={styles.engineChip}>{eng}</span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Discussion Prompts */}
+                                {script.discussion_prompts?.length > 0 && (
+                                    <div className={styles.briefingSection}>
+                                        <div className={styles.briefingSectionLabel}>
+                                            <span>🗣️</span> Discussion Prompts
+                                        </div>
+                                        <div className={styles.briefingPrompts}>
+                                            {script.discussion_prompts.slice(0, 2).map((p, i) => (
+                                                <div key={i} className={styles.promptQuote}>&ldquo;{p}&rdquo;</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                );
+            })()}
 
             {/* ── Session Status Table ── */}
             {leaderboard.length > 0 && (
@@ -179,7 +273,25 @@ export default function DashboardHome({ leaderboard = [], onNavigate }) {
                 <div className={styles.empty}>
                     <div className={styles.emptyIcon}>🎓</div>
                     <h3>No Active Sessions</h3>
-                    <p>Create a cohort from the Leaderboard tab to get started.</p>
+                    <p>Create your first cohort to get started.</p>
+                    <button
+                        onClick={() => onCreateCohort?.()}
+                        style={{
+                            marginTop: '1rem',
+                            padding: '0.65rem 1.5rem',
+                            borderRadius: '8px',
+                            border: 'none',
+                            background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                            color: '#fff',
+                            fontSize: '0.9rem',
+                            fontWeight: 700,
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
+                            transition: 'all 0.2s',
+                        }}
+                    >
+                        🚀 Create New Cohort
+                    </button>
                 </div>
             )}
         </div>

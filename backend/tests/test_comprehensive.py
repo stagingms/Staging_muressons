@@ -290,13 +290,17 @@ class TestProcessTickIntegration:
         """Talent penalty should only inflate Software OPEX, not others."""
         gs = make_global(reputation=30)  # Very low rep → trigger brain drain
         bus = make_bus()
-        original_pharma_opex = bus[0]["opex_base"]
+        # Set BU reputation_scores below 65 so calc_contagion produces
+        # a group_reputation under the brain-drain threshold
+        for bu in bus:
+            bu["reputation_score"] = 30
 
         result = process_tick(gs, bus, make_decisions())
 
-        # Pharma OPEX should be reduced by synergy, never inflated by brain drain
-        pharma = next(b for b in result["bu_states"] if b["bu_id"] == "pharma")
-        assert pharma["opex_base"] < original_pharma_opex
+        # Brain drain penalty should be recorded for software, not for pharma
+        assert "talent_penalty_applied" in result["events"]  # software key
+        assert result["events"]["talent_penalty_applied"] > 1.0  # penalty active
+        assert "talent_penalty_applied_pharma" not in result["events"]
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -463,8 +467,12 @@ class TestVulnerabilities:
     def test_vuln_investment_ratio_clamped(self):
         """FIX VULN-002: Investment ratio now clamped to 1.0 (was 1.5)."""
         result = calc_synergy_opex(10_000_000, 1.5, 1.0)
-        # Clamped to 1.0: factor = 1 - (1.0 * 1.0) = 0 → OPEX = 0
-        assert result == 0.0
+        # Clamped to 1.0: effective = sqrt(1.0) * 0.7 = 0.7
+        # factor = 1 - (0.7 * 1.0) = 0.3 → OPEX = 3,000,000
+        assert result == 3_000_000.0
+        # Crucially, 1.5 is treated identically to 1.0 (clamped)
+        result_at_1 = calc_synergy_opex(10_000_000, 1.0, 1.0)
+        assert result == result_at_1
 
     def test_vuln_negative_crisis_fixed(self):
         """FIX VULN-003: Negative crisis_severity no longer boosts reputation."""

@@ -8,7 +8,7 @@
 
 /* ── Root Container ─────────────────────────────────────── */
 .cockpit {
-  height: 100vh;
+  height: calc(100vh - 32px);
   width: 100%;
   overflow: hidden;
   display: flex;
@@ -27,7 +27,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 100px 0 20px;
   background: linear-gradient(180deg, #0f1524, #0a0e1a);
   border-bottom: 1px solid rgba(0, 229, 195, 0.1);
   z-index: 100;
@@ -134,11 +134,10 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: 6px 6px 220px 6px;
+  padding: 6px;
   background: #0c1020;
   border-right: 1px solid rgba(0, 229, 195, 0.06);
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   animation: sectionFadeIn 0.5s ease-out 0.05s both;
 }
 
@@ -192,7 +191,9 @@
 .rightMailbox {
   height: 40%;
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   border-bottom: 1px solid rgba(0, 229, 195, 0.06);
 }
 
@@ -204,63 +205,67 @@
 }
 
 .rightCommit {
-  height: 12%;
-  min-height: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px 14px;
+  padding: 6px 14px;
   background: transparent;
 }
 
 /* ── KPI Card ───────────────────────────────────────────── */
 .kpiCard {
   flex: 0 0 auto;
-  background: #ffffff;
-  border: 1px solid rgba(0, 229, 195, 0.06);
-  border-radius: 10px;
-  padding: 8px 10px 0px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 10px 12px 2px;
   display: flex;
   flex-direction: column;
-  transition: border-color 0.3s ease, box-shadow 0.3s ease, transform 0.2s ease;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+  backdrop-filter: blur(8px);
 }
 
 .kpiCard:hover {
-  border-color: rgba(0, 229, 195, 0.15);
-  box-shadow: 0 4px 16px rgba(0, 229, 195, 0.08), 0 2px 6px rgba(0,0,0,0.06);
+  border-color: rgba(0, 229, 195, 0.25);
+  box-shadow: 0 8px 24px rgba(0, 229, 195, 0.08), 0 4px 12px rgba(0,0,0,0.2);
   transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .kpiTitle {
   font-size: 0.65rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #1e293b;
-  margin-bottom: 2px;
+  letter-spacing: 0.1em;
+  color: #94a3b8;
+  margin-bottom: 4px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  border-bottom: 1px solid rgba(0, 229, 195, 0.04);
-  padding-bottom: 3px;
+  gap: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding-bottom: 4px;
 }
 
 .kpiValue {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: #0f172a;
-  line-height: 1.3;
+  font-size: 1.25rem;
+  font-weight: 900;
+  color: #f8fafc;
+  line-height: 1.2;
   font-variant-numeric: tabular-nums;
   font-family: 'JetBrains Mono', monospace;
   margin-bottom: 2px;
+  text-shadow: 0 0 20px rgba(255,255,255,0.1);
 }
 
 .kpiChart {
   flex: 1 1 auto;
+  height: 140px;
   min-height: 120px;
   max-height: 160px;
   min-width: 40px;
+  position: relative;
 }
 
 /* ── Briefing Panel ─────────────────────────────────────── */
@@ -362,32 +367,38 @@
 }
 
 .resourceCard {
-  padding: 6px 10px;
-  background: rgba(10, 14, 26, 0.5);
-  border: 1px solid rgba(0, 229, 195, 0.06);
-  border-radius: 6px;
-  transition: border-color 0.2s;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
 }
 
 .resourceCard:hover {
-  border-color: rgba(0, 229, 195, 0.15);
+  border-color: rgba(0, 229, 195, 0.25);
+  background: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 20px rgba(0, 229, 195, 0.05);
+  transform: translateY(-1px);
 }
 
 .resourceLabel {
   font-size: 0.55rem;
-  font-weight: 700;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: #1e293b;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
   margin-bottom: 2px;
 }
 
 .resourceValue {
-  font-size: 0.88rem;
-  font-weight: 800;
-  color: #0f172a;
+  font-size: 0.95rem;
+  font-weight: 900;
+  color: #f8fafc;
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
+  text-shadow: 0 0 10px rgba(255,255,255,0.05);
 }
 
 /* ── Decision Workspace ─────────────────────────────────── */
@@ -413,11 +424,12 @@
   display: flex;
   gap: 8px;
   flex-wrap: nowrap;
+  overflow-x: auto;
 }
 
 .decisionTile {
-  flex: 1;
-  min-width: 0;
+  flex: 1 1 0;
+  min-width: 160px;
   padding: 12px 14px;
   background: rgba(14, 20, 36, 0.6);
   border: 1px solid rgba(0, 229, 195, 0.06);
@@ -634,21 +646,21 @@
 /* ── Commit Button ───────────────────────────────────────── */
 .commitBtn {
   width: 100%;
-  height: 100%;
-  max-height: 42px;
+  height: auto;
+  max-height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 0 16px;
+  padding: 0 14px;
   background: linear-gradient(135deg, #00e5c3, #0dd9b0);
   color: #0a0e1a;
   border: none;
   border-radius: 6px;
   font-family: 'Inter', sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 800;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.25s ease;
@@ -815,13 +827,13 @@
 .resultsTitle {
   font-size: 1.15rem;
   font-weight: 800;
-  color: #0f172a;
+  color: #f1f5f9;
   margin: 0 0 6px;
 }
 
 .resultsSubtitle {
   font-size: 0.78rem;
-  color: #1e293b;
+  color: #94a3b8;
   margin: 0 0 18px;
   line-height: 1.5;
 }
@@ -850,10 +862,10 @@
 .resultCardIcon { font-size: 1.2rem; margin-bottom: 4px; }
 .resultCardLabel {
   font-size: 0.65rem; font-weight: 700; text-transform: uppercase;
-  letter-spacing: 0.06em; color: #1e293b; margin-bottom: 2px;
+  letter-spacing: 0.06em; color: #94a3b8; margin-bottom: 2px;
 }
 .resultCardValue {
-  font-size: 1.0rem; font-weight: 800; color: #0f172a;
+  font-size: 1.0rem; font-weight: 800; color: #f1f5f9;
   font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono', monospace;
 }
 
@@ -1352,6 +1364,46 @@
 
 :global([data-theme="light"]) .resultsTitle {
   color: #0f172a;
+}
+
+:global([data-theme="light"]) .resultsSubtitle {
+  color: #475569;
+}
+
+:global([data-theme="light"]) .resultsBadge {
+  color: #0d9488;
+  background: rgba(13, 148, 136, 0.08);
+  border-color: rgba(13, 148, 136, 0.2);
+}
+
+:global([data-theme="light"]) .resultCard {
+  background: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+:global([data-theme="light"]) .resultCard:hover {
+  border-color: #cbd5e1;
+}
+
+:global([data-theme="light"]) .resultCardLabel {
+  color: #475569;
+}
+
+:global([data-theme="light"]) .resultCardValue {
+  color: #0f172a;
+}
+
+:global([data-theme="light"]) .resultsEvents {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+:global([data-theme="light"]) .resultsEventsTitle {
+  color: #b45309;
+}
+
+:global([data-theme="light"]) .resultsEventItem {
+  color: #92400e;
 }
 
 :global([data-theme="light"]) .resultsBody {

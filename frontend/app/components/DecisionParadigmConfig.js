@@ -96,6 +96,8 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
     legacy_abc: 'Narrative Crises (A/B/C)',
     multi_toggles: 'Strategic Pillars (4-Area)',
     advanced_climate: 'Advanced Climate Engine',
+    healthcare: 'Healthcare Edition',
+
   };
 
   const handleToggle = async (paradigm) => {
@@ -151,7 +153,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
     const modifiedFields = fieldNames.filter(f => isFieldModified(paradigm, roundStr, optionKey, areaKey, f));
     if (modifiedFields.length === 0) return;
 
-    const label = paradigm === 'legacy_abc' ? 'Narrative Crises' : 'Strategic Pillars';
+    const label = paradigm === 'legacy_abc' ? 'Narrative Crises' : paradigm === 'healthcare' ? 'Healthcare' : 'Strategic Pillars';
     const changes = modifiedFields.map(f => {
       const pathKey = [paradigm, roundStr, areaKey || 'none', optionKey, f].join('|');
       return `  • ${f}: ${localEdits[pathKey]}`;
@@ -204,6 +206,10 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       let target = null;
       if (paradigm === 'legacy_abc') {
         target = matrixData.merged_narrative[roundStr]?.options?.[optionKey];
+      } else if (paradigm === 'healthcare') {
+        target = matrixData.merged_healthcare[roundStr]?.options?.[optionKey];
+      } else if (paradigm === 'un_sdg') {
+        target = matrixData.merged_sdg[roundStr]?.options?.[optionKey];
       } else {
         target = matrixData.merged_pillars[roundStr]?.areas?.[areaKey]?.options?.[optionKey];
       }
@@ -292,6 +298,34 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       description: 'Rounds 1 & 2 are identical to other paradigms. From Round 3, hard carbon taxation, regulatory hostility, and Scope 3 volatility engage — branching the simulation into an advanced physics track.',
       features: ['Rounds 1–2 shared with all paradigms', 'Configurable carbon fee ($/tonne)', 'Regulatory & NGO Hostility Index', 'Scope 3 threshold from Round 3'],
       color: '#10b981',
+    },
+    {
+      key: 'healthcare',
+      icon: (
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect x="12" y="6" width="4" height="16" rx="1" fill="currentColor" opacity="0.9"/>
+          <rect x="6" y="12" width="16" height="4" rx="1" fill="currentColor" opacity="0.9"/>
+        </svg>
+      ),
+      title: 'Healthcare Edition',
+      subtitle: 'Hospital & Clinical Operations',
+      description: 'Ten rounds adapted specifically for the healthcare sector, focusing on compliance, patient outcomes, digital transformation, and clinical burnout.',
+      features: ['Industry-specific crisis scenarios', 'Clinical burnout & patient outcome metrics', 'Optimized for hospital board structures'],
+      color: '#0ea5e9',
+    },
+    {
+      key: 'DELETED',
+      icon: (
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+         <circle cx="14" cy="14" r="10" stroke="currentColor" strokeWidth="2" opacity="0.6"/>
+         <path d="M14 4 L14 24 M4 14 L24 14 M7 7 L21 21 M7 21 L21 7" stroke="currentColor" strokeWidth="2" opacity="0.4"/>
+        </svg>
+      ),
+      title: 'UN SDG Edition',
+      subtitle: 'Global Development Mandate',
+      description: 'Ten rounds adapted for the public sector, managing four global regions. Evaluate investments against the SDG Interlinkage Matrix and monitor the Global Human Development Index.',
+      features: ['Six composite SDG clusters', 'Geopolitical Migration dynamics', 'Population-weighted Terminal HDI'],
+      color: '#f59e0b',
     },
   ];
 
@@ -466,71 +500,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
             </div>
           )}
 
-          <button
-            className={styles.climateApplyBtn}
-            onClick={handleApplyClimateParams}
-            disabled={climateApplying}
-          >
-            {climateApplying ? (
-              <><span className={styles.spinner} /> Applying…</>
-            ) : (
-              <>⚡ Apply Parameters to Live Engine</>
-            )}
-          </button>
-        </div>
-      )}
-
-      {saving && (
-        <div className={styles.saving}>
-          <span className={styles.spinner} />
-          Saving…
-        </div>
-      )}
-      {message && <div className={styles.message}>{message}</div>}
-
-      {/* God Mode Matrix Editor Section */}
-      <div className={styles.editorSection}>
-        <div className={styles.editorHeader}>
-          <h3>Global Default Overrides</h3>
-          <p className={styles.headerSubtitle}>Edit base costs, emissions, and EBITDA impacts for every round.</p>
-        </div>
-
-        {!showEditor && (
-          <div className={styles.gatePrompt}>
-            <div className={styles.gateIcon}>
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
-                <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
-              </svg>
-            </div>
-            <p className={styles.gateText}>The base simulation parameters are currently locked. Modifying these values will affect <strong>all cohorts</strong> and <strong>all future rounds</strong>.</p>
-            <button
-              className={styles.gateBtn}
-              onClick={() => {
-                if (confirm('⚠️ You are about to open the Global Default Overrides editor.\n\nChanges made here will affect ALL cohorts and ALL players.\n\nWould you like to proceed?')) {
-                  setShowEditor(true);
-                }
-              }}
-            >Change Base Parameters</button>
-          </div>
-        )}
-
-        {showEditor && (<>
-
-        {/* Dynamic Editor Tabs */}
-        <div className={styles.editorTabs}>
-          <button 
-            className={`${styles.editorTab} ${activeEditorTab === 'legacy_abc' ? styles.editorTabActive : ''}`}
-            onClick={() => setActiveEditorTab('legacy_abc')}
-          >
-            Narrative Crises Editor
-          </button>
-          <button 
-            className={`${styles.editorTab} ${activeEditorTab === 'multi_toggles' ? styles.editorTabActive : ''}`}
-            onClick={() => setActiveEditorTab('multi_toggles')}
-          >
-            Strategic Pillars Editor
-          </button>
+          
           <button 
             className={`${styles.editorTab} ${activeEditorTab === 'climate_engine' ? styles.editorTabActive : ''}`}
             onClick={() => setActiveEditorTab('climate_engine')}
@@ -539,6 +509,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
             ⚡ Climate Engine Editor
           </button>
         </div>
+      )}
 
         {matrixLoading && <div style={{ padding: '2rem', textAlign: 'center' }}>Loading Game Matrices...</div>}
         
@@ -692,6 +663,148 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
                       </tr>
                     ));
                   });
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!matrixLoading && matrixData && matrixData.merged_healthcare && activeEditorTab === 'healthcare' && (
+          <div className={styles.tableWrapper}>
+            <table className={styles.matrixTable}>
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Option</th>
+                  <th>Cost (Treasury)</th>
+                  <th>EBITDA (Revenue Δ)</th>
+                  <th>Carbon Δ</th>
+                  <th>Reputation Δ</th>
+                  <th>Resilience</th>
+                  <th>Actions</th>
+                </tr>
+                <tr className={styles.defaultHeaderRow}>
+                  <th colSpan={2} />
+                  {['Cost','EBITDA','Carbon','Reputation','Resilience'].map(f => (
+                    <th key={f} className={styles.defaultHeaderCell}>Default → Override</th>
+                  ))}
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(matrixData.merged_healthcare).map(roundStr => {
+                  const options = matrixData.merged_healthcare[roundStr].options || {};
+                  return Object.keys(options).map((optKey, idx) => (
+                    <tr key={`${roundStr}-${optKey}`}>
+                      {idx === 0 && (
+                        <td rowSpan={Object.keys(options).length} className={styles.roundCell}>
+                          Round {roundStr}
+                        </td>
+                      )}
+                      <td className={styles.optionCell}>
+                        <span className={styles.optionTitle}>{options[optKey].title || optKey}</span>
+                        <span className={styles.optionId}>{optKey}</span>
+                      </td>
+
+                      {[['treasury','healthcare'],['revenue_delta','healthcare'],['carbon_intensity_delta','healthcare'],['reputation','healthcare'],['resilience_factor','healthcare']].map(([field]) => {
+                        const serverVal = getServerDefault('healthcare', roundStr, optKey, null, field);
+                        const modified = isFieldModified('healthcare', roundStr, optKey, null, field);
+                        return (
+                          <td key={field}>
+                            <div className={styles.defaultValueLabel}>{serverVal !== '' ? serverVal : '—'}</div>
+                            <input type="number"
+                              className={`${styles.inputField} ${modified ? styles.modified : ''}`}
+                              value={getResolvedValue('healthcare', roundStr, optKey, null, field)}
+                              onChange={(e) => handleEditChange('healthcare', roundStr, optKey, null, field, e.target.value)}
+                            />
+                          </td>
+                        );
+                      })}
+
+                      <td className={styles.actionCell}>
+                        <button 
+                          className={styles.saveBtn}
+                          disabled={!isFieldModified('healthcare', roundStr, optKey, null, 'treasury') && 
+                                    !isFieldModified('healthcare', roundStr, optKey, null, 'revenue_delta') &&
+                                    !isFieldModified('healthcare', roundStr, optKey, null, 'carbon_intensity_delta') &&
+                                    !isFieldModified('healthcare', roundStr, optKey, null, 'reputation') &&
+                                    !isFieldModified('healthcare', roundStr, optKey, null, 'resilience_factor')}
+                          onClick={() => handleSaveRow('healthcare', roundStr, optKey, null, ['treasury', 'revenue_delta', 'carbon_intensity_delta', 'reputation', 'resilience_factor'])}
+                        >Save Edits</button>
+                      </td>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!matrixLoading && matrixData && matrixData.merged_sdg && activeEditorTab === 'un_sdg' && (
+          <div className={styles.tableWrapper}>
+            <table className={styles.matrixTable}>
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Option</th>
+                  <th>Cost (Treasury)</th>
+                  <th>EBITDA (Revenue Δ)</th>
+                  <th>Carbon Δ</th>
+                  <th>Reputation Δ</th>
+                  <th>Resilience</th>
+                  <th>Actions</th>
+                </tr>
+                <tr className={styles.defaultHeaderRow}>
+                  <th colSpan={2} />
+                  {['Cost','EBITDA','Carbon','Reputation','Resilience'].map(f => (
+                    <th key={f} className={styles.defaultHeaderCell}>Default → Override</th>
+                  ))}
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {Object.keys(matrixData.merged_sdg).map(roundStr => {
+                  const options = matrixData.merged_sdg[roundStr].options || {};
+                  return Object.keys(options).map((optKey, idx) => (
+                    <tr key={`${roundStr}-${optKey}`}>
+                      {idx === 0 && (
+                        <td rowSpan={Object.keys(options).length} className={styles.roundCell}>
+                          Round {roundStr}
+                        </td>
+                      )}
+                      <td className={styles.optionCell}>
+                        <span className={styles.optionTitle}>{options[optKey].title || optKey}</span>
+                        <span className={styles.optionId}>{optKey}</span>
+                      </td>
+
+                      {[['treasury','un_sdg'],['revenue_delta','un_sdg'],['carbon_intensity_delta','un_sdg'],['reputation','un_sdg'],['resilience_factor','un_sdg']].map(([field]) => {
+                        const serverVal = getServerDefault('un_sdg', roundStr, optKey, null, field);
+                        const modified = isFieldModified('un_sdg', roundStr, optKey, null, field);
+                        return (
+                          <td key={field}>
+                            <div className={styles.defaultValueLabel}>{serverVal !== '' ? serverVal : '—'}</div>
+                            <input type="number"
+                              className={`${styles.inputField} ${modified ? styles.modified : ''}`}
+                              value={getResolvedValue('un_sdg', roundStr, optKey, null, field)}
+                              onChange={(e) => handleEditChange('un_sdg', roundStr, optKey, null, field, e.target.value)}
+                            />
+                          </td>
+                        );
+                      })}
+
+                      <td className={styles.actionCell}>
+                        <button 
+                          className={styles.saveBtn}
+                          disabled={!isFieldModified('un_sdg', roundStr, optKey, null, 'treasury') && 
+                                    !isFieldModified('un_sdg', roundStr, optKey, null, 'revenue_delta') &&
+                                    !isFieldModified('un_sdg', roundStr, optKey, null, 'carbon_intensity_delta') &&
+                                    !isFieldModified('un_sdg', roundStr, optKey, null, 'reputation') &&
+                                    !isFieldModified('un_sdg', roundStr, optKey, null, 'resilience_factor')}
+                          onClick={() => handleSaveRow('un_sdg', roundStr, optKey, null, ['treasury', 'revenue_delta', 'carbon_intensity_delta', 'reputation', 'resilience_factor'])}
+                        >Save Edits</button>
+                      </td>
+                    </tr>
+                  ));
                 })}
               </tbody>
             </table>
@@ -862,8 +975,6 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
         {!matrixLoading && !matrixData && (
           <div className={styles.message}>❌ Failed to load decision configurations. Check that the backend is running.</div>
         )}
-        </>)}
-      </div>
 
     </div>
   );

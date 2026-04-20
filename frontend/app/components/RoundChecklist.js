@@ -40,7 +40,6 @@ export default function RoundChecklist({
       <div
         onClick={() => setCollapsed(false)}
         style={{
-          position: 'fixed', bottom: 42, left: '50%', transform: 'translateX(-50%)',
           background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
           borderRadius: 20, padding: '6px 18px', zIndex: 8000,
           fontSize: '0.78rem', fontWeight: 700, color: '#475569',
@@ -66,42 +65,79 @@ export default function RoundChecklist({
   }
 
   return (
-    <div style={{
-      position: 'fixed', bottom: 42, left: '50%', transform: 'translateX(-50%)',
-      background: 'rgba(255,255,255,0.97)', backdropFilter: 'blur(12px)',
-      borderRadius: 14, padding: '10px 16px', zIndex: 8000,
-      boxShadow: '0 4px 20px rgba(0,0,0,0.12)', border: '1px solid #e2e8f0',
-      fontFamily: 'Inter, sans-serif', display: 'flex', alignItems: 'center', gap: 8,
-      maxWidth: '90vw',
-    }}>
-      {steps.map((step, i) => (
-        <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 5,
-            padding: '6px 14px', borderRadius: 8,
-            background: step.done ? '#f0fdf4' : '#f8fafc',
-            border: `1px solid ${step.done ? '#bbf7d0' : '#e2e8f0'}`,
-            fontSize: '0.75rem', fontWeight: 600,
-            color: step.done ? '#15803d' : '#64748b',
-            transition: 'all 0.2s',
-            whiteSpace: 'nowrap',
-          }}>
-            <span style={{ fontSize: '0.85rem' }}>{step.done ? '✅' : step.icon}</span>
-            {step.label}
+    <>
+      <style>{`
+        .checklist-wrapper {
+          position: fixed;
+          bottom: 30px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: rgba(255,255,255,0.97);
+          backdrop-filter: blur(12px);
+          border-radius: 14px;
+          padding: 10px 16px;
+          z-index: 8000;
+          box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+          border: 1px solid #e2e8f0;
+          font-family: Inter, sans-serif;
+          display: flex;
+          flex-wrap: nowrap;
+          justify-content: center;
+          align-items: center;
+          gap: 8px;
+          width: max-content;
+          max-width: 90vw;
+          white-space: nowrap;
+        }
+        .checklist-item {
+          display: flex; align-items: center; gap: 5px;
+          padding: 6px 14px; border-radius: 8px;
+          font-size: 0.75rem; font-weight: 600;
+          transition: all 0.2s;
+        }
+        .checklist-icon { font-size: 0.85rem; }
+        .checklist-arrow { font-size: 0.7rem; }
+        
+        @media (max-width: 1300px) {
+          .checklist-wrapper { padding: 8px 12px; gap: 6px; }
+          .checklist-item { font-size: 0.7rem; padding: 5px 10px; gap: 4px; }
+          .checklist-icon { font-size: 0.75rem; }
+        }
+        @media (max-width: 1000px) {
+          .checklist-wrapper { padding: 6px 10px; gap: 4px; }
+          .checklist-item { font-size: 0.6rem; padding: 4px 8px; gap: 3px; }
+          .checklist-icon { font-size: 0.65rem; }
+          .checklist-arrow { font-size: 0.6rem; }
+        }
+        @media (max-width: 800px) {
+          .checklist-wrapper { transform: translateX(-50%) scale(0.85); transform-origin: bottom center; }
+        }
+      `}</style>
+      <div className="checklist-wrapper">
+        {steps.map((step, i) => (
+          <div key={step.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div className="checklist-item" style={{
+              background: step.done ? '#f0fdf4' : '#f8fafc',
+              border: `1px solid ${step.done ? '#bbf7d0' : '#e2e8f0'}`,
+              color: step.done ? '#15803d' : '#64748b',
+            }}>
+              <span className="checklist-icon">{step.done ? '✅' : step.icon}</span>
+              {step.label}
+            </div>
+            {i < steps.length - 1 && (
+              <span className="checklist-arrow" style={{ color: step.done ? '#bbf7d0' : '#d1d5db' }}>→</span>
+            )}
           </div>
-          {i < steps.length - 1 && (
-            <span style={{ color: step.done ? '#bbf7d0' : '#d1d5db', fontSize: '0.7rem' }}>→</span>
-          )}
-        </div>
-      ))}
-      <button
-        onClick={() => setCollapsed(true)}
-        style={{
-          background: 'none', border: 'none', cursor: 'pointer',
-          fontSize: '0.65rem', color: '#94a3b8', marginLeft: 4,
-          padding: '2px 4px',
-        }}
-      >✕</button>
-    </div>
+        ))}
+        <button
+          onClick={() => setCollapsed(true)}
+          style={{
+            background: 'none', border: 'none', cursor: 'pointer',
+            fontSize: '0.65rem', color: '#94a3b8', marginLeft: 4,
+            padding: '2px 4px', flexShrink: 0,
+          }}
+        >✕</button>
+      </div>
+    </>
   );
 }

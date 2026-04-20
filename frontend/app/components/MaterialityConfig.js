@@ -20,6 +20,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
         { id: 'electronics', label: 'Electronics', icon: '⚡', is_custom: false },
         { id: 'consumer_goods', label: 'Consumer Goods', icon: '🛒', is_custom: false },
         { id: 'software', label: 'Software', icon: '💻', is_custom: false },
+        { id: 'hospitals', label: 'Hospitals', icon: '🏥', is_custom: false },
     ]);
     const [showAddCategory, setShowAddCategory] = useState(false);
     const [newCategory, setNewCategory] = useState({ id: '', label: '', icon: '🏢' });
@@ -497,7 +498,20 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     return (
         <div className={styles.container}>
             <div className={styles.header}>
-                <h2>⚙️ Materiality Matrix Configurator</h2>
+                <div>
+                    <h2>🧩 Materiality Matrix</h2>
+                    <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted,#94a3b8)', fontWeight: 400 }}>
+                        Issue dictionaries, interdependencies & consultant fee configuration
+                    </p>
+                </div>
+                <span style={{
+                    fontSize: '0.65rem', fontWeight: 700, letterSpacing: '0.1em',
+                    textTransform: 'uppercase', padding: '4px 10px', borderRadius: '6px',
+                    background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)',
+                    color: '#60a5fa', fontFamily: 'var(--font-mono,monospace)',
+                }}>
+                    {config.issues.length} Issues · {config.interdependencies.length} Links
+                </span>
             </div>
 
             {/* Dictionary Selector */}

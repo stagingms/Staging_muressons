@@ -14,6 +14,7 @@ from engine import process_tick
 from round_logic import pre_tick, post_tick
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
+from config import MASTER_PASSWORD
 from admin_router import set_session_interventions, SessionInterventionsRequest, check_hidden_resource_triggers, auto_inject_scheduled_interventions, check_and_increment_cohort_count, is_practice_mode
 from models import (
     BUStateOut,
@@ -38,6 +39,16 @@ _BU_NAMES = {
     "electronics": "Muressons Electronics",
     "consumer_goods": "Muressons Consumer Goods",
     "software": "Muressons Software",
+    "hospitals": "Hospitals & Acute Care",
+    "clinics": "Primary Care Clinics",
+    "specialised_care": "Specialised Care Centers",
+    "telehealth": "Digital Health / Telehealth",
+    # UN SDG Edition regions
+    "sub_saharan_corridor": "Sub-Saharan Corridor",
+    "south_asia_subcontinent": "South Asia Subcontinent",
+    "southeast_asia_hub": "South-East Asia Hub",
+    "latin_america_basin": "Latin America Basin",
+    "northern_transition_zone": "Northern Transition Zone",
 }
 
 
@@ -54,6 +65,9 @@ def _bu_out(bu: dict) -> BUStateOut:
         governance_risk_score=bu.get("governance_risk_score", 0),
         water_dependency=bu.get("water_dependency", 0),
         carbon_intensity=bu.get("carbon_intensity", 0),
+        staff_burnout_index=bu.get("staff_burnout_index", 0),
+        bed_capacity_utilization=bu.get("bed_capacity_utilization", 0),
+        patient_outcomes_score=bu.get("patient_outcomes_score", 0),
         risk_factors=bu.get("risk_factors", {}),
     )
 
@@ -194,9 +208,10 @@ async def player_login(req: PlayerLoginRequest):
             detail="Player ID not found. Please check with your facilitator."
         )
 
-    # Validate password ("321" is master override)
+    # FIX AUDIT-005: Use configurable master password
     stored_pw = player_record.get("password", "")
-    if stored_pw and req.password != "321" and req.password != stored_pw:
+    master_ok = bool(MASTER_PASSWORD) and req.password == MASTER_PASSWORD
+    if stored_pw and not master_ok and req.password != stored_pw:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Incorrect password."
@@ -256,7 +271,9 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         from admin_router import _player_registry
         player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
         if player_record and player_record.get("password"):
-            if req.password != "321" and req.password != player_record["password"]:
+            # FIX AUDIT-005: Use configurable master password
+            master_ok = bool(MASTER_PASSWORD) and req.password == MASTER_PASSWORD
+            if not master_ok and req.password != player_record["password"]:
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password.")
     except ImportError:
         pass  # admin_router not available, skip password check
@@ -302,6 +319,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         facilitator_id=cohort_info.get("facilitator_id") if cohort_info else None,
         player_id=req.player_id,
         parent_cohort_id=session_id,
+        decision_paradigm=cohort_info.get("decision_paradigm", "legacy_abc") if cohort_info else "legacy_abc",
     )
 
     player_sid = str(player_session["session_id"])
@@ -394,7 +412,16 @@ async def start_simulation(body: StartSessionRequest):
             )
 
         # 2. No session found, create a new one
-        # 2a. Check facilitator cohort limit
+        # 2a. Validate decision paradigm before doing anything
+        _req_paradigm = getattr(body, 'decision_paradigm', 'legacy_abc') or 'legacy_abc'
+        _VALID_PARADIGMS = {"legacy_abc", "multi_toggles", "advanced_climate", "healthcare"}
+        if _req_paradigm not in _VALID_PARADIGMS:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid decision_paradigm '{_req_paradigm}'. Valid values: {sorted(_VALID_PARADIGMS)}"
+            )
+
+        # 2b. Check facilitator cohort limit
         if not check_and_increment_cohort_count(body.facilitator_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -405,9 +432,20 @@ async def start_simulation(body: StartSessionRequest):
             body.cohort_name, 
             body.facilitator_id, 
             loan_interest_rate=body.loan_interest_rate,
-            decision_paradigm=getattr(body, 'decision_paradigm', 'legacy_abc'),
+            decision_paradigm=_req_paradigm,
         )
         
+        # 2c. Persist decision_paradigm on the facilitator record
+        #     so GET /facilitators always returns it (fixes paradigm disappearing on poll)
+        try:
+            from admin_router import _facilitator_registry, _persist_facilitators
+            fac_rec = next((f for f in _facilitator_registry if f["facilitator_id"] == body.facilitator_id), None)
+            if fac_rec:
+                fac_rec["decision_paradigm"] = _req_paradigm
+                _persist_facilitators()
+        except Exception:
+            pass  # Non-critical
+
         # 3. Store allowed interventions natively for this session
         overrides = body.allowed_overrides or []
         swipes = body.allowed_swipes or []
@@ -559,7 +597,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
 
     # ── FIX VULN-005/008/009: Input validation ────────────────
     valid_choices = {"option_a", "option_b", "option_c", ""}
-    valid_bu_ids = {"pharma", "electronics", "consumer_goods", "software"}
+    valid_bu_ids = {bu["bu_id"] for bu in current_bus}
     submitted_bu_ids = [d["bu_id"] for d in decisions_raw]
 
     # VULN-005: Reject duplicate BU IDs
@@ -569,7 +607,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             detail="Duplicate BU IDs in decisions. Each BU must appear exactly once.",
         )
 
-    # VULN-009: Require all 4 BUs
+    # VULN-009: Require decisions for all active BUs
     missing = valid_bu_ids - set(submitted_bu_ids)
     if missing:
         raise HTTPException(
@@ -731,96 +769,13 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     if "saved_decision_choice" in new_global:
         del new_global["saved_decision_choice"]
 
-    # ── FINAL REPORT: Generate game-over summary after Round 10 ──
-    if current_round == 10:
-        treasury = new_global.get("corporate_treasury", 0)
-        reputation = new_global.get("group_reputation", 50)
-        synergy = new_global.get("synergy_multiplier", 1.0)
-        ebitda = new_global.get("historical_ebitda", 0)
-
-        # Carbon tonnage and carbon tax
-        carbon_tonnage = sum(
-            bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000
-            for bu in new_bus
-        )
-        carbon_tax_per_ton = 250  # EU ETS projected Year 3
-        carbon_cost = round(carbon_tonnage * carbon_tax_per_ton, 2)
-
-        # Regenerative Multiple breakdown
-        avg_sl = sum(bu.get("social_license_score", 50) for bu in new_bus) / max(len(new_bus), 1)
-        avg_ncd = sum(bu.get("natural_capital_debt", 0) for bu in new_bus) / max(len(new_bus), 1)
-
-        base_mr = 1.0
-        synergy_bonus = round(max(0, (synergy - 1.0) * 3), 2)
-        resilience_bonus = round(max(0, (avg_sl - 50) / 50) * 0.5, 2)
-        truth_premium = 0  # From stakeholder map accuracy — future enhancement
-        instability_discount = round(-min(1.0, avg_ncd / 5_000_000) * 0.8, 2)
-
-        regenerative_multiple = round(base_mr + synergy_bonus + resilience_bonus + truth_premium + instability_discount, 2)
-        regenerative_multiple = max(0.5, min(3.0, regenerative_multiple))
-
-        # Terminal value
-        exit_multiple = round(8 + regenerative_multiple * 3, 1)
-        terminal_value = round(ebitda * exit_multiple, 2)
-
-        # Profile classification
-        if regenerative_multiple >= 2.0 and avg_sl >= 65:
-            profile = "regenerative_pioneer"
-            profile_title = "The Regenerative Pioneer"
-            profile_description = (
-                "A transformational corporation that has embedded sustainability into its DNA. "
-                "Investors see outsized long-term returns with minimal tail risk."
-            )
-        elif regenerative_multiple >= 1.5:
-            profile = "strategic_integrator"
-            profile_title = "The Strategic Integrator"
-            profile_description = (
-                "A corporation that has strategically woven ESG into operations. "
-                "Strong risk management and growing competitive advantages."
-            )
-        elif regenerative_multiple >= 1.0:
-            profile = "derisked_safe_haven"
-            profile_title = "The De-risked Safe-Haven"
-            profile_description = (
-                "A resilient corporation that avoided the worst tail risks. "
-                "Investors value the predictability, but innovation is stalling."
-            )
-        else:
-            profile = "stranded_asset"
-            profile_title = "The Stranded Asset"
-            profile_description = (
-                "A corporation weighed down by unmanaged ESG risks. "
-                "Regulatory penalties and reputational damage erode long-term value."
-            )
-
-        # Synergy score (0-200 scale)
-        synergy_score = round(synergy * 100, 1)
-
-        # R10 choice (from decisions)
-        r10_choice = decisions_raw[0].get("choice_selected", "option_b") if decisions_raw else "option_b"
-
-        # Inject final report into events
-        events["terminal_ebitda"] = round(ebitda, 2)
-        events["carbon_tonnage_group"] = round(carbon_tonnage, 1)
-        events["carbon_cost"] = carbon_cost
-        events["carbon_tax_per_ton"] = carbon_tax_per_ton
-        events["regenerative_multiple"] = regenerative_multiple
-        events["mr_breakdown"] = {
-            "base": base_mr,
-            "synergy_bonus": synergy_bonus,
-            "resilience_bonus": resilience_bonus,
-            "truth_premium": truth_premium,
-            "instability_discount": instability_discount,
-        }
-        events["terminal_value"] = terminal_value
-        events["exit_multiple"] = exit_multiple
-        events["final_treasury"] = round(treasury, 2)
-        events["profile"] = profile
-        events["profile_title"] = profile_title
-        events["profile_description"] = profile_description
-        events["synergy_score"] = synergy_score
-        events["avg_social_license"] = round(avg_sl, 1)
-        events["r10_choice"] = r10_choice
+    # FIX AUDIT-002: Removed duplicate R10 terminal valuation block.
+    # The authoritative R10 calculation lives in round_logic.py →
+    # _post_r10_grand_finale(), which uses flag-based MR accounting,
+    # config-driven exit multiples, and correct carbon tonnage units.
+    # The previous block here used a divergent formula (continuous MR,
+    # dynamic exit multiple, different profile thresholds) that silently
+    # overwrote the round_logic.py values in the events dict.
 
     # ── Enrich decisions for audit trail ─────────────────────
     # Populate decision_node_id from round config (crisis ID)
@@ -962,13 +917,39 @@ async def save_decisions(session_id: str, body: SaveDecisionsRequest):
     "/round-config/{round_number}",
     summary="Get crisis and options for a specific round",
 )
-async def get_round_config_endpoint(round_number: int):
+async def get_round_config_endpoint(round_number: int, session_id: str | None = None):
     """
     Returns the crisis definition, decision options, special rules,
     and UI constraints for a round.
     Used by the frontend to populate the DecisionModal.
+    
+    If session_id is provided, returns paradigm-specific config
+    (e.g. SDG or Healthcare) when applicable.
     """
-    cfg = get_round_config(round_number)
+    paradigm = None
+    if session_id:
+        try:
+            state = await db.get_session_info(session_id)
+            if state:
+                paradigm = state.get("decision_paradigm")
+                if (paradigm is None or paradigm == "legacy_abc") and state.get("parent_cohort_id"):
+                    parent_state = await db.get_session_info(state["parent_cohort_id"])
+                    if parent_state:
+                        paradigm = parent_state.get("decision_paradigm")
+        except Exception as e:
+            print(f"[WARN] Error fetching session paradigm for round-config: {e}")
+            pass
+
+    # Select the correct config based on paradigm
+    if paradigm == "un_sdg":
+        from sdg_configs import get_sdg_round_config
+        cfg = get_sdg_round_config(round_number)
+    elif paradigm == "healthcare":
+        from healthcare_configs import get_healthcare_round_config
+        cfg = get_healthcare_round_config(round_number)
+    else:
+        cfg = get_round_config(round_number)
+
     if cfg is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -989,6 +970,7 @@ async def get_round_config_endpoint(round_number: int):
         "options": cfg.get("options"),
         "special_rules": cfg.get("special_rules", {}),
         "ui_constraints": ui_constraints,
+        "paradigm": paradigm or "legacy_abc",
     }
 
 
@@ -1060,8 +1042,8 @@ class UpdateParadigmRequest(BaseModel):
 )
 async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest):
     """Set the decision paradigm for a session. Propagates to child player sessions."""
-    if body.decision_paradigm not in ("legacy_abc", "multi_toggles", "advanced_climate"):
-        raise HTTPException(status_code=400, detail="Invalid paradigm. Must be 'legacy_abc', 'multi_toggles', or 'advanced_climate'.")
+    if body.decision_paradigm not in ("legacy_abc", "multi_toggles", "advanced_climate", "healthcare"):
+        raise HTTPException(status_code=400, detail="Invalid paradigm. Must be 'legacy_abc', 'multi_toggles', 'advanced_climate', or 'healthcare'.")
 
     session_info = await db.get_session_info(session_id)
     if not session_info:
@@ -1079,10 +1061,37 @@ async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest):
 
     # Propagate to all child player sessions
     try:
-        from database_memory import _sessions
+        import copy
+        from database_memory import _sessions, _bu_states, _global_states, _load_seed
+        
+        # If healthcare is chosen, we must rewrite the business units to healthcare ones.
+        # This assumes the configuration is done at Round 1 before significant progression.
+        if body.decision_paradigm == "healthcare":
+            seed = _load_seed(industry="healthcare")
+            # Overwrite the parent cohort BUs
+            _bu_states[session_id] = {1: copy.deepcopy(seed["business_units"])}
+            _bu_states[session_id] = {1: copy.deepcopy(seed["business_units"])}
+            # Also overwrite global state with SDG-specific treasury ($500M)
+            states = _global_states.get(session_id, [])
+            if states:
+                states[-1]["corporate_treasury"] = seed["global_state"]["corporate_treasury_usd"]
+                states[-1]["political_capital"] = seed["global_state"].get("political_capital", 50.0)
+                states[-1]["community_trust_score"] = seed["global_state"].get("community_trust_score", 50.0)
+                states[-1]["global_emissions_intensity"] = seed["global_state"].get("global_emissions_intensity", 60.0)
+
         for sid, sdata in _sessions.items():
             if sdata.get("parent_cohort_id") == session_id:
                 sdata["decision_paradigm"] = body.decision_paradigm
+                if body.decision_paradigm == "healthcare":
+                    _bu_states[sid] = {1: copy.deepcopy(seed["business_units"])}
+                elif body.decision_paradigm == "un_sdg":
+                    _bu_states[sid] = {1: copy.deepcopy(seed["business_units"])}
+                    child_states = _global_states.get(sid, [])
+                    if child_states:
+                        child_states[-1]["corporate_treasury"] = seed["global_state"]["corporate_treasury_usd"]
+                        child_states[-1]["political_capital"] = seed["global_state"].get("political_capital", 50.0)
+                        child_states[-1]["community_trust_score"] = seed["global_state"].get("community_trust_score", 50.0)
+                        child_states[-1]["global_emissions_intensity"] = seed["global_state"].get("global_emissions_intensity", 60.0)
     except ImportError:
         pass
 
@@ -1221,6 +1230,9 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
     # Store BU context if applicable
     if body.bu_id:
         global_state["materiality_bu_id"] = body.bu_id
+
+    # Unlock the module gate
+    global_state["csrd_completed"] = True 
 
     # Persist the updated treasury back to the database for this round
     await db.update_latest_global_state(session_id, global_state, bu_states)

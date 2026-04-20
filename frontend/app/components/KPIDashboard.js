@@ -42,10 +42,10 @@ export default function KPIDashboard({
 
   // VRIO radar data
   const vrioData = useMemo(() => [
-    { axis: 'Avg. Social License', value: vrio.value || 0 },
-    { axis: 'Avg. Carbon Intensity', value: vrio.rarity || 0 },
+    { axis: 'Social License', value: vrio.value || 0 },
+    { axis: 'Carbon Risk', value: vrio.rarity || 0 },
     { axis: 'Synergy', value: vrio.imitability || 0 },
-    { axis: 'Avg. Governance Risk', value: vrio.organization || 0 },
+    { axis: 'Governance', value: vrio.organization || 0 },
   ], [vrio]);
 
   // Round-over-round delta for EBITDA
@@ -65,25 +65,27 @@ export default function KPIDashboard({
     <>
       {/* ── Tab Toggle ── */}
       <div style={{
-        display: 'flex', gap: 0, marginBottom: 6,
-        background: '#f1f5f9', borderRadius: 8, padding: 2,
+        display: 'flex', gap: 4, marginBottom: 8,
+        background: 'rgba(255,255,255,0.03)', borderRadius: 10, padding: 4,
+        border: '1px solid rgba(255,255,255,0.05)',
       }}>
         {TAB_CONFIG.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
             style={{
-              flex: 1, padding: '6px 4px',
+              flex: 1, padding: '6px 8px',
               borderRadius: 6, border: 'none',
               background: activeTab === tab.id
-                ? '#fff'
+                ? 'rgba(0, 229, 195, 0.15)'
                 : 'transparent',
-              color: activeTab === tab.id ? '#1e293b' : '#94a3b8',
-              fontSize: '0.68rem', fontWeight: 700,
+              color: activeTab === tab.id ? '#00e5c3' : '#64748b',
+              fontSize: '0.65rem', fontWeight: 800,
               cursor: 'pointer',
-              boxShadow: activeTab === tab.id ? '0 1px 4px rgba(0,0,0,0.08)' : 'none',
+              boxShadow: activeTab === tab.id ? '0 0 12px rgba(0, 229, 195, 0.2)' : 'none',
               transition: 'all 0.2s',
-              letterSpacing: '0.01em',
+              letterSpacing: '0.05em',
+              textTransform: 'uppercase',
             }}
           >
             {tab.label}
@@ -157,13 +159,10 @@ export default function KPIDashboard({
       {activeTab === 'esg' && (
         <>
           {/* Carbon Tracker */}
-          <div className={styles.kpiCard}>
-            <div className={styles.kpiTitle}>🏭 Environmental Impact (Cumulative tCO₂e)</div>
+            <div className={styles.kpiCard}>
+            <div className={styles.kpiTitle}>🏭 Carbon Footprint (Current Year tCO₂e)</div>
             <div className={styles.kpiValue}>
-              {(() => {
-                const cumTotal = historyData.reduce((s, h) => s + (h.tco2e || 0), 0);
-                return cumTotal.toLocaleString();
-              })()} t
+              {tco2e.toLocaleString()} t
               {historyData.length >= 2 && (() => {
                 const curr = historyData[historyData.length - 1]?.tco2e || 0;
                 const prev = historyData[historyData.length - 2]?.tco2e || 0;
@@ -178,7 +177,7 @@ export default function KPIDashboard({
                 ) : null;
               })()}
             </div>
-            <div className={styles.kpiChart}>
+            <div className={styles.kpiChart} style={{ height: '110px', minHeight: '110px', marginTop: '8px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={(() => {
                   let cumulative = 0;
@@ -205,14 +204,74 @@ export default function KPIDashboard({
             </div>
           </div>
 
-          {/* VRIO Radar Chart */}
+          {/* Carbon Intensity Tracker */}
           <div className={styles.kpiCard}>
-            <div className={styles.kpiTitle}>🎯 Strategic Resilience Score</div>
+            <div className={styles.kpiTitle}>📏 Carbon Intensity (tCO₂e per $1M Revenue)</div>
+            <div className={styles.kpiValue}>
+              {(() => {
+                const rev = globalState?.revenue || (ebitda * 4.5);
+                return rev ? (tco2e / (rev / 1_000_000)).toFixed(2) : '0.00';
+              })()}
+              <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginLeft: '4px', fontWeight: 600 }}>t/$1M</span>
+              {historyData.length >= 2 && (() => {
+                const getInt = (h) => {
+                  const r = h.globalState?.revenue || ((h.ebitda || 1) * 4.5);
+                  return r ? (h.tco2e || 0) / (r / 1_000_000) : 0;
+                };
+                const curr = getInt(historyData[historyData.length - 1]);
+                const prev = getInt(historyData[historyData.length - 2]);
+                const delta = curr - prev;
+                return delta !== 0 ? (
+                  <span style={{
+                    marginLeft: 8, fontSize: '0.6rem', fontWeight: 600,
+                    color: delta <= 0 ? '#22c55e' : '#ef4444',
+                  }}>
+                    {delta <= 0 ? '▼' : '▲'} {Math.abs(delta).toFixed(2)}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            <div className={styles.kpiChart} style={{ height: '110px', minHeight: '110px', marginTop: '8px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={(() => {
+                  return historyData.map(h => {
+                    const r = h.globalState?.revenue || ((h.ebitda || 1) * 4.5);
+                    const intensity = r ? (h.tco2e || 0) / (r / 1_000_000) : 0;
+                    return { ...h, intensity: parseFloat(intensity.toFixed(2)) };
+                  });
+                })()} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
+                  <XAxis dataKey="round" tick={{ fontSize: 9, fill: '#94a3b8' }} tickLine={false} axisLine={false} tickFormatter={(v) => roundToQuarter(v).shortLabel} />
+                  <YAxis hide domain={['auto', 'auto']} />
+                  <Tooltip
+                    labelFormatter={(v) => roundToQuarter(v).label}
+                    formatter={(v) => [`${v} t/$1M`, 'Intensity']}
+                    contentStyle={{ fontSize: 10, borderRadius: 6, border: '1px solid rgba(0,229,195,0.15)', background: '#0f1524', color: '#e2e8f0' }}
+                  />
+                  <Line type="monotone" dataKey="intensity" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 3, fill: '#8b5cf6' }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          {/* Risk & Reputation Dual Display */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          {/* Risk Exposure & Resilience Radar */}
+          <div className={styles.kpiCard}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className={styles.kpiTitle}>🛡️ Risk & Resilience</div>
+              {vrio.value !== undefined && (() => {
+                const riskScore = ((vrio.organization || 0) + (100 - (vrio.value || 0)) + (vrio.rarity || 0)) / 3;
+                return (
+                  <div style={{ fontSize: '0.65rem', fontWeight: 800, padding: '2px 6px', borderRadius: 4, background: riskScore > 50 ? 'rgba(239, 68, 68, 0.15)' : 'rgba(16, 185, 129, 0.15)', color: riskScore > 50 ? '#fca5a5' : '#6ee7b7' }}>
+                    Risk: {riskScore.toFixed(0)}/100
+                  </div>
+                );
+              })()}
+            </div>
             <div className={styles.kpiChart}>
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={vrioData} cx="50%" cy="50%">
+                <RadarChart data={vrioData} cx="50%" cy="50%" outerRadius="55%">
                   <PolarGrid stroke="rgba(0,229,195,0.12)" />
-                  <PolarAngleAxis dataKey="axis" tick={{ fontSize: 9, fill: '#64748b' }} />
+                  <PolarAngleAxis dataKey="axis" tick={{ fontSize: 8, fill: '#64748b' }} />
                   <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
                   <Radar dataKey="value" stroke="#7c3aed" fill="#7c3aed" fillOpacity={0.15} strokeWidth={2} />
                 </RadarChart>
@@ -222,10 +281,10 @@ export default function KPIDashboard({
 
           {/* Stakeholder Trust Gauge */}
           <div className={styles.kpiCard}>
-            <div className={styles.kpiTitle}>🤝 Stakeholder Trust</div>
+            <div className={styles.kpiTitle}>🌍 Corporate Reputation</div>
             <div className={styles.gauge}>
               <div className={styles.gaugeCircle}>
-                <svg width="100" height="100" viewBox="0 0 100 100">
+                <svg width="100%" height="80px" viewBox="-15 -15 130 130" preserveAspectRatio="xMidYMid meet">
                   <defs>
                     <linearGradient id="trustGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                       <stop offset="0%" stopColor={reputation >= 80 ? '#15803d' : reputation >= 60 ? '#3b82f6' : reputation >= 40 ? '#f59e0b' : '#ef4444'} />
@@ -239,7 +298,7 @@ export default function KPIDashboard({
                       </feMerge>
                     </filter>
                   </defs>
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="#e2e8f0" strokeWidth="7" />
+                  <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="7" />
                   <circle
                     cx="50" cy="50" r="42"
                     fill="none"
@@ -262,12 +321,13 @@ export default function KPIDashboard({
                     return <line key={v} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#94a3b8" strokeWidth="1.5" />;
                   })}
                 </svg>
-                <span className={styles.gaugeValue} style={{ color: '#0f172a' }}>{Math.round(reputation)}</span>
+                <span className={styles.gaugeValue} style={{ color: '#f8fafc', textShadow: '0 0 10px rgba(255,255,255,0.2)' }}>{Math.round(reputation)}</span>
               </div>
-              <span className={styles.gaugeLabel} style={{ color: reputation >= 80 ? '#166534' : reputation >= 60 ? '#2563eb' : reputation >= 40 ? '#d97706' : '#dc2626' }}>
+              <span className={styles.gaugeLabel} style={{ color: reputation >= 80 ? '#4ade80' : reputation >= 60 ? '#60a5fa' : reputation >= 40 ? '#fcd34d' : '#fca5a5' }}>
                 {reputation >= 80 ? 'Excellent' : reputation >= 60 ? 'Strong' : reputation >= 40 ? 'Moderate' : reputation >= 20 ? 'Low' : 'Critical'}
               </span>
             </div>
+          </div>
           </div>
         </>
       )}

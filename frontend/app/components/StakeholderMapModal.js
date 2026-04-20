@@ -280,30 +280,30 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {/* Score Summary Cards */}
                             <div style={{
                                 display: 'flex', justifyContent: 'center', gap: '1rem',
-                                margin: '1rem 0', padding: '0.75rem',
+                                margin: '0.5rem 0', padding: '0.5rem',
                                 background: result.passed ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
-                                borderRadius: '12px',
+                                borderRadius: '10px',
                                 border: `1px solid ${result.passed ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
                             }}>
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: result.passed ? '#10b981' : '#ef4444' }}>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.passed ? '#10b981' : '#ef4444' }}>
                                         {result.accuracy_percentage}%
                                     </div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Accuracy</div>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Accuracy</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: result.passed ? '#f59e0b' : '#94a3b8' }}>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.passed ? '#f59e0b' : '#94a3b8' }}>
                                         {result.correct_count}/{result.total_count}
                                     </div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Correct</div>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Correct</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '1.8rem', fontWeight: 800, color: result.points_awarded > 0 ? '#6366f1' : '#94a3b8' }}>
+                                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.points_awarded > 0 ? '#6366f1' : '#94a3b8' }}>
                                         +{result.points_awarded}
                                     </div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Bonus Pts</div>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Bonus Pts</div>
                                 </div>
                             </div>
 
@@ -319,10 +319,10 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
 
                             {/* ── Comparison Table ── */}
                             {result.details && (
-                                <div style={{ textAlign: 'left', marginTop: '0.75rem' }}>
+                                <div style={{ textAlign: 'left', marginTop: '0.4rem' }}>
                                     <table style={{
-                                        width: '100%', borderCollapse: 'separate', borderSpacing: '0 3px',
-                                        fontSize: '0.78rem',
+                                        width: '100%', borderCollapse: 'separate', borderSpacing: '0 2px',
+                                        fontSize: '0.72rem',
                                     }}>
                                         <thead>
                                             <tr style={{
@@ -388,10 +388,10 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {/* ── Suggested Solution ── */}
                             {result.details && (
                                 <div style={{
-                                    marginTop: '1rem', padding: '0.75rem',
+                                    marginTop: '0.5rem', padding: '0.5rem',
                                     background: 'rgba(99,102,241,0.04)',
                                     border: '1px solid rgba(99,102,241,0.12)',
-                                    borderRadius: '10px',
+                                    borderRadius: '8px',
                                 }}>
                                     <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
                                         📖 Official Stakeholder Ratings
@@ -444,7 +444,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
 
                             {/* ── Action Button — go to Decision Tab ── */}
                             <button className={styles.dismissBtn} onClick={handleDismiss}
-                                style={{ width: '100%', marginTop: '1rem', fontSize: '0.95rem', padding: '0.8rem' }}>
+                                style={{ width: '100%', marginTop: '0.6rem', fontSize: '0.9rem', padding: '0.65rem' }}>
                                 📋 Open Decision Tab →
                             </button>
                         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import styles from '../page.module.css';
 
@@ -14,16 +14,20 @@ import CrisisTriggerConfig from '../../components/CrisisTriggerConfig';
 import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
 import GodModeStatus from '../../components/GodModeStatus';
 import GodModeAuditLog from '../../components/GodModeAuditLog';
-import GlobalSettings from '../../components/GlobalSettings';
 import UniversalBroadcast from '../../components/UniversalBroadcast';
 import SystemExport from '../../components/SystemExport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
 import AnalyticsControlPanel from '../../components/AnalyticsControlPanel';
 import GlossaryManager from '../../components/GlossaryManager';
+import TechnicalGlossary from '../../components/TechnicalGlossary';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 import ArchetypeEditor from '../../components/ArchetypeEditor';
 import MasterVariableEditor from '../../components/MasterVariableEditor';
 import SimulationManager from '../../components/SimulationManager';
+import EconomicEngineTunables from '../../components/EconomicEngineTunables';
+import SessionHealthDashboard from '../../components/SessionHealthDashboard';
+import ComplexityEventFeed from '../../components/ComplexityEventFeed';
+import DecisionTimeline from '../../components/DecisionTimeline';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -388,11 +392,12 @@ function GodModeDashboard({ authData, onLogout }) {
     const [activeTab, setActiveTab] = useState('system_status');
     const [showChangePw, setShowChangePw] = useState(false);
     const [openCategories, setOpenCategories] = useState({
-        overview: true,
-        config: true,
-        master: true,
-        comms: false,
+        system: true,
+        engine_core: true,
+        crisis: false,
+        content: false,
         analytics: false,
+        admin: false,
         danger: false,
     });
 
@@ -406,28 +411,44 @@ function GodModeDashboard({ authData, onLogout }) {
             icon: '🎯',
             id: 'system',
             items: [
-                { id: 'system_status', label: 'System Status' },
-                { id: 'audit_log', label: 'Activity Log' },
-                { id: 'facilitator_roles', label: 'Facilitator Manager' },
+                { id: 'system_status',     label: 'System Status',       icon: '📊' },
+                { id: 'session_health',    label: 'Session Health',       icon: '🏥' },
+                { id: 'audit_log',         label: 'Activity Log',         icon: '📋' },
+                { id: 'facilitator_roles', label: 'Facilitator Manager',  icon: '🎓' },
             ]
         },
         {
             category: 'Simulation Engine',
             icon: '⚙️',
-            id: 'engine',
+            id: 'engine_core',
             items: [
-                { id: 'global_settings', label: 'Global Settings' },
-                { id: 'master_variables', label: '🎛️ Master Variables' },
-                { id: 'scorecard_evaluator', label: '📊 Scorecard Evaluator' },
-                { id: 'round_pacing', label: 'Round Pacing' },
-                { id: 'decision_paradigm', label: 'Decision Paradigm' },
-                { id: 'archetypes', label: '🏆 Profile Archetypes' },
-                { id: 'materiality', label: 'Materiality Matrix' },
-                { id: 'master_interventions', label: 'Team Interventions' },
-                { id: 'crisis_triggers', label: 'Crisis Triggers' },
-                { id: 'black_swan', label: 'Black Swan Injector' },
-                { id: 'resources', label: 'Resource Library' },
-                { id: 'glossary_editor', label: 'Glossary Editor' },
+                { id: 'engine_tunables',    label: 'Engine Tunables',      icon: '🔧' },
+                { id: 'master_variables',   label: 'Master Variables',     icon: '🎛️' },
+                { id: 'materiality',        label: 'Materiality Matrix',   icon: '🧩' },
+                { id: 'round_pacing',       label: 'Round Pacing',         icon: '⏱️' },
+                { id: 'decision_paradigm',  label: 'Decision Paradigm',    icon: '🦭' },
+                { id: 'archetypes',         label: 'Profile Archetypes',   icon: '🏆' },
+                { id: 'scorecard_evaluator',label: 'Scorecard Evaluator',  icon: '📊' },
+            ]
+        },
+        {
+            category: 'Crisis & Events',
+            icon: '⚡',
+            id: 'crisis',
+            items: [
+                { id: 'master_interventions', label: 'Team Interventions', icon: '🚀' },
+                { id: 'crisis_triggers',      label: 'Crisis Triggers',    icon: '🚨' },
+                { id: 'black_swan',           label: 'Black Swan Injector',icon: '🦢' },
+            ]
+        },
+        {
+            category: 'Content & Resources',
+            icon: '📚',
+            id: 'content',
+            items: [
+                { id: 'resources',          label: 'Resource Library',    icon: '📁' },
+                { id: 'glossary_editor',    label: 'Glossary Editor',     icon: '📖' },
+                { id: 'technical_glossary', label: 'Technical Reference', icon: '📐' },
             ]
         },
         {
@@ -435,9 +456,11 @@ function GodModeDashboard({ authData, onLogout }) {
             icon: '📊',
             id: 'analytics',
             items: [
-                { id: 'platform_analytics', label: 'Platform Analytics' },
-                { id: 'analytics_controls', label: 'Visibility Controls' },
-                { id: 'universal_broadcast', label: 'Universal Broadcast' },
+                { id: 'platform_analytics',  label: 'Platform Analytics',  icon: '📈' },
+                { id: 'complexity_events',   label: 'Complexity Feed',     icon: '📡' },
+                { id: 'decision_replay',     label: 'Decision Replay',     icon: '🕐' },
+                { id: 'analytics_controls',  label: 'Visibility Controls', icon: '👁️' },
+                { id: 'universal_broadcast', label: 'Universal Broadcast', icon: '📢' },
             ]
         },
         {
@@ -445,34 +468,44 @@ function GodModeDashboard({ authData, onLogout }) {
             icon: '🛡️',
             id: 'admin',
             items: [
-                { id: 'cohort_manager', label: 'Cohort Manager' },
-                { id: 'system_export', label: 'Backup & Export' },
+                { id: 'cohort_manager', label: 'Cohort Manager', icon: '🗂️' },
+                { id: 'system_export',  label: 'Backup & Export', icon: '💾' },
+            ]
+        },
+        {
+            category: 'Danger Zone',
+            icon: '☢️',
+            id: 'danger',
+            items: [
+                { id: 'session_reset', label: 'Reset & Deletion', icon: '💥' },
             ]
         }
     ];
 
-    const handleResetAll = useCallback(async () => {
-        if (!confirm('☢️ RESET ALL SESSIONS?\nThis will DELETE every session and all data. Cannot be undone.')) return;
-        if (!confirm('Are you absolutely sure? This action is irreversible.')) return;
-        try {
-            const res = await fetch(`${API}/api/admin/reset-all`, { method: 'DELETE' });
-            if (res.ok) {
-                const d = await res.json();
-                alert(`✅ All ${d.sessions_removed} sessions have been wiped.`);
-            } else {
-                alert('❌ Reset failed: ' + res.status);
-            }
-        } catch { alert('❌ Reset failed: network error'); }
-    }, []);
+    // Breadcrumb helper — maps activeTab → { label, category, categoryIcon }
+    const getTabMeta = (tabId) => {
+        for (const group of SIDEBAR_CONFIG) {
+            const item = group.items.find(i => i.id === tabId);
+            if (item) return { label: item.label, category: group.category, categoryIcon: group.icon };
+        }
+        return { label: 'Overview', category: 'System & Monitoring', categoryIcon: '🎯' };
+    };
+
 
     const renderActiveComponent = () => {
         switch (activeTab) {
             case 'system_status':
                 return <GodModeStatus />;
+            case 'session_health':
+                return <SessionHealthDashboard />;
+            case 'engine_tunables':
+                return <EconomicEngineTunables />;
+            case 'complexity_events':
+                return <ComplexityEventFeed sessionId={null} />;
+            case 'decision_replay':
+                return <DecisionTimeline leaderboard={[]} />;
             case 'audit_log':
                 return <GodModeAuditLog />;
-            case 'global_settings':
-                return <GlobalSettings />;
             case 'master_variables':
                 return <MasterVariableEditor />;
             case 'scorecard_evaluator':
@@ -489,12 +522,14 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <ResourceManager />;
             case 'glossary_editor':
                 return <GlossaryManager />;
+            case 'technical_glossary':
+                return <div style={{ padding: '1.5rem' }}><TechnicalGlossary /></div>;
             case 'crisis_triggers':
                 return <CrisisTriggerConfig />;
             case 'black_swan':
                 return <CustomBlackSwanBuilder />;
             case 'facilitator_roles':
-                return <FacilitatorManager />;
+                return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />;
             case 'universal_broadcast':
                 return <UniversalBroadcast />;
             case 'platform_analytics':
@@ -507,6 +542,8 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <SystemExport />;
             case 'cohort_manager':
                 return <SimulationManager fetchInternal={true} leaderboard={[]} />;
+            case 'session_reset':
+                return <DangerZonePanel apiBase={API} />;
             default:
                 return (
                     <div className={styles.placeholder}>
@@ -590,19 +627,26 @@ function GodModeDashboard({ authData, onLogout }) {
                 <nav className={styles.sidebarNav}>
                     {SIDEBAR_CONFIG.map((group) => (
                         <div key={group.id} className={styles.navCategory}>
-                            <div className={styles.categoryHeader}>
+                            <div
+                                className={styles.categoryHeader}
+                                onClick={() => toggleCategory(group.id)}
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={e => e.key === 'Enter' && toggleCategory(group.id)}
+                            >
                                 <span>{group.icon} {group.category}</span>
-                                <span className={styles.categoryArrow}>▶</span>
+                                <span className={`${styles.categoryArrow} ${openCategories[group.id] ? styles.categoryArrowOpen : ''}`}>▶</span>
                             </div>
 
-                            <div className={styles.categoryItems}>
+                            <div className={`${styles.categoryItems} ${openCategories[group.id] ? styles.categoryOpen : ''}`}>
                                 {group.items.map((item) => (
                                     <button
                                         key={item.id}
                                         className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
                                         onClick={() => setActiveTab(item.id)}
                                     >
-                                        {item.label}
+                                        {item.icon && <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>{item.icon}</span>}
+                                        <span>{item.label}</span>
                                     </button>
                                 ))}
                             </div>
@@ -615,7 +659,18 @@ function GodModeDashboard({ authData, onLogout }) {
             <main className={styles.mainPanel}>
                 <header className={styles.topBar}>
                     <div className={styles.meta}>
-                        <span className={styles.selectedTag}>Universal simulation parameters</span>
+                        {(() => {
+                            const meta = getTabMeta(activeTab);
+                            return (
+                                <nav style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '0.78rem' }}>
+                                    <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>👑 God Mode</span>
+                                    <span style={{ color: 'var(--text-muted)', opacity: 0.35 }}>›</span>
+                                    <span style={{ color: 'var(--text-muted)' }}>{meta.categoryIcon} {meta.category}</span>
+                                    <span style={{ color: 'var(--text-muted)', opacity: 0.35 }}>›</span>
+                                    <span style={{ color: 'var(--text-primary)', fontWeight: 700 }}>{meta.label}</span>
+                                </nav>
+                            );
+                        })()}
                     </div>
                 </header>
 
@@ -623,6 +678,280 @@ function GodModeDashboard({ authData, onLogout }) {
                     {renderActiveComponent()}
                 </div>
             </main>
+        </div>
+    );
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+ *  DANGER ZONE PANEL
+ * ═════════════════════════════════════════════════════════════════ */
+
+function DangerZonePanel({ apiBase }) {
+    const [sessions, setSessions] = useState([]);
+    const [selectedIds, setSelectedIds] = useState(new Set());
+    const [loading, setLoading] = useState(true);
+
+    // Factory Reset guard state
+    const [resetPhrase, setResetPhrase] = useState('');
+    const [resetCountdown, setResetCountdown] = useState(0);
+    const [resetResult, setResetResult] = useState('');
+    const REQUIRED_PHRASE = 'WIPE ALL DATA';
+
+    useEffect(() => {
+        fetch(`${apiBase}/api/admin/sessions`)
+            .then(res => res.json())
+            .then(data => {
+                setSessions(data.sessions || []);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, [apiBase]);
+
+    // Factory Reset countdown effect
+    useEffect(() => {
+        if (resetCountdown <= 0) return;
+        if (resetCountdown === 1) {
+            (async () => {
+                try {
+                    const res = await fetch(`${apiBase}/api/admin/reset-all`, { method: 'DELETE' });
+                    if (res.ok) {
+                        const d = await res.json();
+                        setResetResult(`✅ All ${d.sessions_removed} sessions wiped.`);
+                        setSessions([]);
+                    } else { setResetResult('❌ Reset failed'); }
+                } catch { setResetResult('❌ Network error'); }
+                setResetCountdown(0);
+                setResetPhrase('');
+            })();
+            return;
+        }
+        const t = setTimeout(() => setResetCountdown(c => c - 1), 1000);
+        return () => clearTimeout(t);
+    }, [resetCountdown, apiBase]);
+
+    const topLevelCohorts = sessions.filter(s => !s.player_id);
+
+    const toggleSession = (id) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const handleClearOrphans = async () => {
+        if (!confirm('⚠️ REMOVE ORPHANED COHORTS?\nThis will clear all cohorts globally that do not have a facilitator assigned.')) return;
+        try {
+            const orphans = topLevelCohorts.filter(s => !s.facilitator_id);
+            if (orphans.length === 0) {
+               alert("No orphaned cohorts found.");
+               return;
+            }
+            await Promise.all(
+                orphans.map(s => fetch(`${apiBase}/api/admin/sessions/${s.session_id}?hard=true`, { method: 'DELETE' }))
+            );
+            alert(`✅ Successfully removed ${orphans.length} orphaned cohort(s).`);
+            setSessions(prev => prev.filter(s => !!s.facilitator_id || !!s.player_id));
+            setSelectedIds(new Set());
+        } catch (e) {
+            alert('❌ Failed to clear orphans: ' + e.message);
+        }
+    };
+
+    const toggleAll = () => {
+        if (selectedIds.size === topLevelCohorts.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(topLevelCohorts.map(s => s.session_id)));
+        }
+    };
+
+    const handleDeleteSelected = async () => {
+        if (selectedIds.size === 0) return;
+        if (!confirm(`⚠️ DELETE ${selectedIds.size} COHORT(S)?\nThis will permanently delete the selected cohorts and all their player state.`)) return;
+        
+        try {
+            // Delete one by one manually, we don't need promise.all to spam it if we're worried about locks, but for speed Promise.all
+            await Promise.all(
+                Array.from(selectedIds).map(id => fetch(`${apiBase}/api/admin/sessions/${id}?hard=true`, { method: 'DELETE' }))
+            );
+            alert(`✅ ${selectedIds.size} cohort(s) deleted.`);
+            setSessions(prev => prev.filter(s => !selectedIds.has(s.session_id)));
+            setSelectedIds(new Set());
+        } catch (e) {
+            alert('❌ Failed to delete cohorts: ' + e.message);
+        }
+    };
+
+    return (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1.5rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+            <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>
+                <h2 style={{ marginBottom: '0.5rem', color: '#ef4444' }}>☢️ Danger Zone</h2>
+                <p style={{ color: 'var(--text-muted)' }}>Perform destructive operations on the simulation database. These actions cannot be undone.</p>
+            </div>
+
+            {/* Targeted Deletion Panel */}
+            <div style={{ padding: '1.5rem', border: '1px solid var(--border-subtle)', borderRadius: '8px', background: 'var(--bg-body)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+                    <div>
+                        <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <span>🗑️</span>
+                            Targeted Deletion
+                        </h3>
+                        <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.9rem' }}>
+                            Select specific cohorts to permanently delete. This will erase all connected player sessions within the cohort.
+                        </p>
+                    </div>
+                    <button 
+                        onClick={handleClearOrphans}
+                        style={{
+                            padding: '0.6rem 1.2rem', background: 'none', border: '1px solid #ef4444', 
+                            color: '#ef4444', borderRadius: '6px', fontWeight: 600, cursor: 'pointer',
+                            fontSize: '0.85rem'
+                        }}
+                    >
+                        🗑️ Clear All Orphans Globally
+                    </button>
+                </div>
+
+                {loading ? (
+                    <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading cohorts...</div>
+                ) : (
+                    <>
+                        <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '6px', marginBottom: '1rem', background: '#fff' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
+                                <thead>
+                                    <tr style={{ background: 'var(--bg-body)', textAlign: 'left', borderBottom: '1px solid var(--border-subtle)' }}>
+                                        <th style={{ padding: '0.75rem', width: '40px' }}>
+                                            <input 
+                                                type="checkbox" 
+                                                checked={topLevelCohorts.length > 0 && selectedIds.size === topLevelCohorts.length}
+                                                onChange={toggleAll}
+                                            />
+                                        </th>
+                                        <th style={{ padding: '0.75rem' }}>Cohort Name</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>Facilitator</th>
+                                        <th style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>Paradigm</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {topLevelCohorts.length === 0 ? (
+                                        <tr>
+                                            <td colSpan="4" style={{ padding: '1.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>No cohorts active</td>
+                                        </tr>
+                                    ) : topLevelCohorts.map(s => {
+                                        return (
+                                            <tr key={s.session_id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                                                <td style={{ padding: '0.75rem' }}>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        checked={selectedIds.has(s.session_id)}
+                                                        onChange={() => toggleSession(s.session_id)}
+                                                    />
+                                                </td>
+                                                <td style={{ padding: '0.75rem', fontWeight: 600 }}>{s.cohort_name || '(Unnamed Cohort)'}</td>
+                                                <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{s.facilitator_id || '—'}</td>
+                                                <td style={{ padding: '0.75rem', color: 'var(--text-muted)' }}>{s.decision_paradigm || 'legacy'}</td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button 
+                                onClick={handleDeleteSelected}
+                                disabled={selectedIds.size === 0}
+                                style={{
+                                    background: selectedIds.size > 0 ? '#ef4444' : '#e2e8f0',
+                                    color: selectedIds.size > 0 ? '#fff' : '#94a3b8',
+                                    border: 'none',
+                                    padding: '0.6rem 1.25rem',
+                                    borderRadius: '6px',
+                                    fontWeight: 'bold',
+                                    cursor: selectedIds.size > 0 ? 'pointer' : 'not-allowed',
+                                    transition: 'background 0.2s'
+                                }}
+                            >
+                                DELETE {selectedIds.size} SELECTED COHORT(S)
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+
+            {/* Factory Reset — type-to-confirm guard */}
+            <div style={{ padding: '1.5rem', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', background: 'rgba(239,68,68,0.04)' }}>
+                <h3 style={{ color: '#ef4444', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span>☢️</span>
+                    Factory Reset
+                </h3>
+                <p style={{ color: 'var(--text-muted)', margin: '0 0 0.5rem', fontSize: '0.9rem' }}>
+                    Permanently destroy ALL sessions, player data, and simulation state. This cannot be undone.
+                </p>
+                <p style={{ color: 'var(--text-muted)', margin: '0 0 1rem', fontSize: '0.82rem', fontStyle: 'italic' }}>
+                    Type <code style={{ background: 'rgba(239,68,68,0.12)', color: '#ef4444', padding: '2px 6px', borderRadius: '3px', fontWeight: 700, fontSize: '0.78rem' }}>{REQUIRED_PHRASE}</code> to unlock the reset button.
+                </p>
+                <input
+                    type="text"
+                    placeholder={`Type "${REQUIRED_PHRASE}" to confirm`}
+                    value={resetPhrase}
+                    onChange={e => setResetPhrase(e.target.value)}
+                    disabled={resetCountdown > 0}
+                    style={{
+                        width: '100%', boxSizing: 'border-box', padding: '0.65rem 1rem',
+                        border: '1.5px solid rgba(239,68,68,0.3)', borderRadius: '6px',
+                        background: 'rgba(255,255,255,0.03)', color: 'var(--text-primary)',
+                        fontSize: '0.88rem', fontFamily: 'var(--font-mono,monospace)',
+                        outline: 'none', marginBottom: '0.75rem',
+                    }}
+                />
+                {resetCountdown > 0 ? (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '10px 14px', borderRadius: '6px',
+                        background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                        color: '#ef4444', fontSize: '0.85rem', fontWeight: 700,
+                    }}>
+                        ⏳ Executing in {resetCountdown}s…
+                        <button
+                            onClick={() => setResetCountdown(0)}
+                            style={{
+                                marginLeft: 'auto', background: 'none', border: '1px solid #ef4444',
+                                color: '#ef4444', padding: '3px 10px', borderRadius: '4px',
+                                cursor: 'pointer', fontWeight: 700, fontSize: '0.78rem',
+                            }}
+                        >
+                            CANCEL
+                        </button>
+                    </div>
+                ) : (
+                    <button
+                        disabled={resetPhrase !== REQUIRED_PHRASE}
+                        onClick={() => { if (resetPhrase === REQUIRED_PHRASE) setResetCountdown(10); }}
+                        style={{
+                            width: '100%', padding: '0.7rem', borderRadius: '6px', border: 'none',
+                            background: resetPhrase === REQUIRED_PHRASE ? '#ef4444' : 'rgba(239,68,68,0.15)',
+                            color: resetPhrase === REQUIRED_PHRASE ? '#fff' : 'rgba(239,68,68,0.4)',
+                            fontWeight: 700, fontSize: '0.88rem', cursor: resetPhrase === REQUIRED_PHRASE ? 'pointer' : 'not-allowed',
+                            transition: 'all 0.2s',
+                            boxShadow: resetPhrase === REQUIRED_PHRASE ? '0 4px 12px rgba(239,68,68,0.3)' : 'none',
+                        }}
+                    >
+                        ☢️ Factory Nuke All Sessions
+                    </button>
+                )}
+                {resetResult && (
+                    <div style={{ marginTop: '10px', padding: '8px 12px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600, color: resetResult.startsWith('✅') ? '#10b981' : '#ef4444', background: resetResult.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)' }}>
+                        {resetResult}
+                    </div>
+                )}
+            </div>
+
+
         </div>
     );
 }

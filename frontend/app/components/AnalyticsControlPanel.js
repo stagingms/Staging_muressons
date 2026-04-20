@@ -5,18 +5,20 @@ import styles from './AnalyticsControlPanel.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const FACILITATOR_ANALYTICS = [
-    { key: 'decision_heatmap', label: 'Decision Heatmap', icon: '📊', desc: 'Choice distributions per round' },
-    { key: 'time_to_decision', label: 'Time-to-Decision', icon: '⏱', desc: 'Decision speed analytics' },
-    { key: 'cohort_comparison', label: 'Cohort Comparison', icon: '📈', desc: 'KPI trajectories side-by-side' },
-    { key: 'convergence_analysis', label: 'Convergence Analysis', icon: '🔄', desc: 'Strategy similarity metrics' },
-    { key: 'learning_outcomes', label: 'Learning Outcomes', icon: '🎯', desc: 'Quiz scores, badges, engagement' },
-    { key: 'risk_exposure', label: 'Risk Exposure', icon: '📉', desc: 'Carbon, NCD, social license trends' },
+    { key: 'decision_heatmap', label: 'Decision Heatmap', icon: '📊', desc: 'Choice distributions per round', tooltip: 'Choice distribution matrix showing which strategic options (A, B, C, etc.) were selected in each round across all players. Includes a heatmap grid with counts/percentages and stacked bar charts for visual comparison. Answers: "What are the most popular choices per round?"' },
+    { key: 'time_to_decision', label: 'Time-to-Decision', icon: '⏱', desc: 'Decision speed analytics', tooltip: 'Decision speed analytics — how long players take to commit their choices each round. Displays average, median, min, and max times in seconds with horizontal bar visualizations. Answers: "Are players deliberating or rushing?"' },
+    { key: 'cohort_comparison', label: 'Cohort Comparison', icon: '📈', desc: 'KPI trajectories side-by-side', tooltip: 'Plots KPI trajectories side-by-side for multiple cohorts on an SVG line chart. Togglable between Treasury, Reputation, Synergy, and EBITDA metrics. Answers: "How do different cohorts perform against each other over time?"' },
+    { key: 'convergence_analysis', label: 'Convergence Analysis', icon: '🔄', desc: 'Strategy similarity metrics', tooltip: 'Measures strategy similarity using a convergence gauge (0–100%). Tracks choice entropy (bits of unpredictability) and CapEx standard deviation per round. Low entropy = players thinking alike. Answers: "Are teams converging on the same strategy or diversifying?"' },
+    { key: 'learning_outcomes', label: 'Learning Outcomes', icon: '🎯', desc: 'Quiz scores, badges, engagement', tooltip: 'Tracks gamification and engagement: total learning bonuses awarded, manual facilitator awards, badge distribution counts, and bonuses by category. Answers: "How engaged are students and what milestones have they hit?"' },
+    { key: 'risk_exposure', label: 'Risk Exposure', icon: '📉', desc: 'Carbon, NCD, social license trends', tooltip: 'Multi-axis tracking of non-financial risks per cohort over time: Carbon Intensity, Natural Capital Debt, Social License, and Governance Risk. Rendered as vertical bar charts per cohort. Answers: "How are teams managing ESG/sustainability risks?"' },
+    { key: 'materiality_matrix', label: 'Materiality Matrix', icon: '🧩', desc: 'Show/hide Materiality Matrix on Facilitator Dashboard', tooltip: 'Toggles the Mendelow\'s Materiality Matrix panel — the drag-and-drop issue mapping grid with financial vs. societal impact axes for stakeholder analysis. Used for teaching ESG materiality assessment.' },
+    { key: 'technical_reference', label: 'Technical Reference', icon: '📐', desc: 'Show/hide Technical Glossary on Facilitator Dashboard', tooltip: 'Toggles the Technical Glossary panel — a comprehensive reference guide explaining simulation terminology, engine mechanics, KPI calculation formulas, and contagion/talent engine parameters.' },
 ];
 
 const PLAYER_ANALYTICS = [
-    { key: 'peer_benchmarking', label: 'Peer Benchmarking', icon: '🏆', desc: 'Anonymous percentile rankings' },
-    { key: 'decision_impact', label: 'Decision Impact', icon: '🧠', desc: 'Per-round KPI attribution' },
-    { key: 'what_if_simulator', label: 'What-If Simulator', icon: '📈', desc: 'Counterfactual analysis' },
+    { key: 'peer_benchmarking', label: 'Peer Benchmarking', icon: '🏆', desc: 'Anonymous percentile rankings', tooltip: 'Shows the player their anonymous percentile ranking vs. the cohort for Treasury, Reputation, and Synergy. Includes bar visualizations with their value compared against the cohort average. Answers: "How do I rank among my peers?"' },
+    { key: 'decision_impact', label: 'Decision Impact', icon: '🧠', desc: 'Per-round KPI attribution', tooltip: 'Per-round KPI attribution — shows how each choice affected Treasury, Reputation, and Synergy with colour-coded delta badges (+/-) and a narrative explanation of the outcome. Answers: "What impact did my decisions actually have?"' },
+    { key: 'what_if_simulator', label: 'What-If Simulator', icon: '📈', desc: 'Counterfactual analysis', tooltip: 'Counterfactual analysis — shows what would have happened if the player had chosen the most popular alternative option. Displays projected Treasury and Reputation diffs. Only appears when choices differ from the majority. Disabled by default.' },
 ];
 
 export default function AnalyticsControlPanel() {
@@ -84,7 +86,7 @@ export default function AnalyticsControlPanel() {
                         <h3>Facilitator Dashboard</h3>
                     </div>
                     {FACILITATOR_ANALYTICS.map(a => (
-                        <div key={a.key} className={styles.toggleRow}>
+                        <div key={a.key} className={styles.toggleRow} data-tooltip={a.tooltip}>
                             <div className={styles.toggleInfo}>
                                 <span className={styles.toggleIcon}>{a.icon}</span>
                                 <div>
@@ -109,7 +111,7 @@ export default function AnalyticsControlPanel() {
                         <h3>Player Dashboard</h3>
                     </div>
                     {PLAYER_ANALYTICS.map(a => (
-                        <div key={a.key} className={styles.toggleRow}>
+                        <div key={a.key} className={styles.toggleRow} data-tooltip={a.tooltip}>
                             <div className={styles.toggleInfo}>
                                 <span className={styles.toggleIcon}>{a.icon}</span>
                                 <div>

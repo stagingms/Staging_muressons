@@ -54,10 +54,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS — allow all origins during development/testing
+# FIX AUDIT-011: CORS — use explicit origins instead of wildcard + credentials.
+# Set CORS_ORIGINS env var to a comma-separated list for production.
+import os as _os
+_cors_origins = _os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+_cors_origins = [o.strip() for o in _cors_origins if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

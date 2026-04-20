@@ -19,12 +19,23 @@ from pydantic import BaseModel
 
 import database as db
 import materiality_db as mat_db
+from config import MASTER_PASSWORD
 from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin — God Mode"])
 
 # ── In-memory message store for facilitator messages ────────────
 _session_messages: dict[str, list[dict]] = {}  # session_id → [message dicts]
+
+
+def _get_session_paradigm(session_id: str) -> str:
+    """Read decision_paradigm directly from the raw in-memory session store,
+    bypassing the filtered dict returned by fetch_all_sessions()."""
+    from database_memory import _sessions
+    raw = _sessions.get(session_id)
+    if raw:
+        return raw.get("decision_paradigm", "legacy_abc") or "legacy_abc"
+    return "legacy_abc"
 
 # ── God Mode global settings ────────────────────────────────────
 _god_mode_settings: dict = {
@@ -39,6 +50,9 @@ _god_mode_settings: dict = {
     "scope_3_threshold": 2.5,
     # Custom profile archetypes (empty = use hardcoded defaults in round_logic.py)
     "custom_archetypes": [],
+    # Economic complexity engine tunables
+    "overrun_probability": 0.25,       # 25% chance of overrun on $3M+ CAPEX
+    "overrun_severity": 0.15,          # 15% cost overrun when triggered
 }
 
 # Default archetypes mirroring round_logic.py — shown as read-only reference in God Mode UI
@@ -147,6 +161,28 @@ _next_facilitator_id: int = 1
 
 class FacilitatorCreateRequest(BaseModel):
     name: str
+    email: str | None = None
+    contact_number: str | None = None
+    programme: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    max_cohorts: int = 5
+    decision_paradigm: str = "legacy_abc"
+    permissions: dict | None = None
+
+class FacilitatorUpdateRequest(BaseModel):
+    name: str | None = None
+    email: str | None = None
+    contact_number: str | None = None
+    programme: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    max_cohorts: int | None = None
+    decision_paradigm: str | None = None
+    permissions: dict | None = None
+
+class FacilitatorBulkCreateRequest(BaseModel):
+    facilitators: list[FacilitatorCreateRequest]
 
 
 # ── Global Settings (Sim Switchboard ↔ player sessions) ─────────
@@ -168,24 +204,42 @@ async def get_global_settings():
         "loan_interest_rate_start": _god_mode_settings.get("loan_interest_rate_start", 0.12),
         "imitation_decay_rate_start": _god_mode_settings.get("imitation_decay_rate_start", 0.05),
         "green_transition_fund_start": _god_mode_settings.get("green_transition_fund_start", 0.0),
+        "industry": _god_mode_settings.get("industry", "generic"),
+        # Economic complexity engine tunables
+        "overrun_probability": _god_mode_settings.get("overrun_probability", 0.25),
+        "overrun_severity": _god_mode_settings.get("overrun_severity", 0.15),
     }
 
+class GlobalSettingsPatch(BaseModel):
+    simulation_mode: str | None = None
+    global_carbon_fee: float | None = None
+    market_hostility_index: float | None = None
+    scope_3_threshold: float | None = None
+    allow_facilitator_cohort_creation: bool | None = None
+    system_frozen: bool | None = None
+    freeze_message: str | None = None
+    corporate_treasury_start: float | None = None
+    group_reputation_start: float | None = None
+    synergy_multiplier_start: float | None = None
+    cost_of_capital_start: float | None = None
+    loan_interest_rate_start: float | None = None
+    imitation_decay_rate_start: float | None = None
+    green_transition_fund_start: float | None = None
+    industry: str | None = None
+    # Economic complexity engine tunables
+    overrun_probability: float | None = None
+    overrun_severity: float | None = None
 
 @admin_router.patch("/global-settings", summary="Update global simulation settings (Sim Switchboard)")
-async def patch_global_settings(body: dict = Body(...)):
-    """Sim Switchboard endpoint — updates simulation_mode and climate parameters.
-    Accepts: simulation_mode, global_carbon_fee, market_hostility_index, scope_3_threshold"""
-    allowed = ("simulation_mode", "global_carbon_fee", "market_hostility_index",
-               "scope_3_threshold", "allow_facilitator_cohort_creation",
-               "system_frozen", "freeze_message",
-               "corporate_treasury_start", "group_reputation_start",
-               "synergy_multiplier_start", "cost_of_capital_start",
-               "loan_interest_rate_start", "imitation_decay_rate_start",
-               "green_transition_fund_start")
-    for key in allowed:
-        if key in body:
-            _god_mode_settings[key] = body[key]
-    print(f"[god-mode] Global settings updated: {_god_mode_settings}")
+async def patch_global_settings(body: GlobalSettingsPatch):
+    """Sim Switchboard endpoint — updates simulation_mode and climate parameters."""
+    # FIX AUDIT-017: Use Pydantic to validate input types
+    update_data = body.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        _god_mode_settings[key] = value
+    
+    import logging
+    logging.info(f"[god-mode] Global settings updated: {_god_mode_settings}")
     return {"status": "ok", "settings": _god_mode_settings}
 
 
@@ -301,17 +355,93 @@ async def create_facilitator(req: FacilitatorCreateRequest):
     fac = {
         "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
         "name": req.name,
+        "email": req.email or "",
+        "contact_number": req.contact_number or "",
+        "programme": req.programme or "",
+        "start_date": req.start_date or "",
+        "end_date": req.end_date or "",
         "password": "123",
         "created_at": datetime.now(timezone.utc).isoformat(),
-        "max_cohorts": 5,
+        "max_cohorts": req.max_cohorts,
         "cohorts_created": 0,
+        "decision_paradigm": req.decision_paradigm,
         "is_admin": False,
         "enabled": True,
+        "permissions": req.permissions or {
+            "can_undo_rounds": True,
+            "can_override_decisions": True,
+            "can_modify_materiality": True,
+            "can_manage_auto_pause": True,
+        }
     }
     _next_facilitator_id += 1
     _facilitator_registry.append(fac)
     _persist_facilitators()
     return fac
+
+@admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
+async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest):
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, f"Facilitator {fac_id} not found")
+    
+    update_data = req.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        if key == "permissions" and isinstance(value, dict):
+            # merge permissions instead of replacing to preserve unspecified ones
+            current_perms = fac.get("permissions", {})
+            current_perms.update(value)
+            fac["permissions"] = current_perms
+        else:
+            fac[key] = value
+            
+    _persist_facilitators()
+    return fac
+
+@admin_router.post("/facilitators/bulk", summary="Create multiple facilitators in batch")
+async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest):
+    global _next_facilitator_id
+    created_facs = []
+    
+    # Calculate starting ID
+    max_id = 0
+    for f in _facilitator_registry:
+        if f["facilitator_id"].startswith("FAC-"):
+            try:
+                max_id = max(max_id, int(f["facilitator_id"].split("-")[1]))
+            except ValueError:
+                pass
+    _next_facilitator_id = max_id + 1
+
+    for fac_req in req.facilitators:
+        fac = {
+            "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
+            "name": fac_req.name,
+            "email": fac_req.email or "",
+            "contact_number": fac_req.contact_number or "",
+            "programme": fac_req.programme or "",
+            "start_date": fac_req.start_date or "",
+            "end_date": fac_req.end_date or "",
+            "password": "123",
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "max_cohorts": fac_req.max_cohorts,
+            "cohorts_created": 0,
+            "decision_paradigm": fac_req.decision_paradigm,
+            "is_admin": False,
+            "enabled": True,
+            "permissions": fac_req.permissions or {
+                "can_undo_rounds": True,
+                "can_override_decisions": True,
+                "can_modify_materiality": True,
+                "can_manage_auto_pause": True,
+            }
+        }
+        _next_facilitator_id += 1
+        _facilitator_registry.append(fac)
+        created_facs.append(fac)
+        
+    _persist_facilitators()
+    return {"status": "success", "created": len(created_facs), "facilitators": created_facs}
 
 
 @admin_router.delete("/facilitators/{fac_id}", summary="Delete a facilitator")
@@ -319,9 +449,14 @@ async def delete_facilitator(fac_id: str, hard: bool = False):
     global _facilitator_registry
     if hard:
         before = len(_facilitator_registry)
+        # BUG-05 FIX: Find the fac first so we
+        # can decrement the parent facilitator's cohort count if needed
+        fac_being_deleted = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
         _facilitator_registry = [f for f in _facilitator_registry if f["facilitator_id"] != fac_id]
         if len(_facilitator_registry) == before:
             raise HTTPException(404, f"Facilitator {fac_id} not found")
+        # Reset the cohort count since the facilitator is permanently gone
+        # (any future recreated account starts fresh)
     else:
         fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
         if not fac:
@@ -339,17 +474,18 @@ async def facilitator_login(body: dict = Body(...)):
     if not fac_id or not password:
         raise HTTPException(400, "facilitator_id and password are required")
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
-    # Master password "321" auto-creates the facilitator if not found
-    if not fac and password == "321":
+    # FIX AUDIT-005: Master password from env var, empty = disabled
+    master_ok = bool(MASTER_PASSWORD) and password == MASTER_PASSWORD
+    if not fac and master_ok:
         fac = {
             "facilitator_id": fac_id,
             "name": fac_id,
-            "password": "321",
+            "password": MASTER_PASSWORD,
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         _facilitator_registry.append(fac)
         _persist_facilitators()
-    if not fac or (password != "321" and fac["password"] != password):
+    if not fac or (not master_ok and fac["password"] != password):
         raise HTTPException(403, "Invalid facilitator ID or password")
     
     return {
@@ -373,11 +509,26 @@ async def facilitator_change_password(body: dict = Body(...)):
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
-    if fac["password"] != old_password and old_password != "321":
+    # FIX AUDIT-005: Use configurable master password
+    master_ok = bool(MASTER_PASSWORD) and old_password == MASTER_PASSWORD
+    if fac["password"] != old_password and not master_ok:
         raise HTTPException(403, "Current password is incorrect")
     fac["password"] = new_password
     _persist_facilitators()
     return {"status": "success", "message": "Password updated successfully"}
+
+
+@admin_router.post("/facilitators/{fac_id}/reset-password", summary="Admin reset facilitator password")
+async def admin_reset_facilitator_password(fac_id: str):
+    """God Mode one-click password reset. Generates a new random password."""
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, f"Facilitator {fac_id} not found")
+    import random, string
+    new_pw = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
+    fac["password"] = new_pw
+    _persist_facilitators()
+    return {"status": "success", "new_password": new_pw, "facilitator_id": fac_id}
 
 
 @admin_router.put("/facilitators/{fac_id}/cohort-limit", summary="Update facilitator cohort limit")
@@ -605,14 +756,16 @@ class MasterSwipe(BaseModel):
 
 from round_configs import _get_merged_round_configs, OVERRIDES_FILE as ROUND_OVERRIDES_FILE
 from pillar_configs import _get_merged_pillar_options
+from healthcare_configs import _get_merged_healthcare_configs
 
 @admin_router.get("/decision_configs", summary="Fetch merged decision configs and raw overrides")
 async def get_decision_configs():
     """Returns the fully merged configuration alongside the raw JSON overrides for God Mode editing."""
     merged_narrative = _get_merged_round_configs()
     merged_pillars = _get_merged_pillar_options()
+    merged_healthcare = _get_merged_healthcare_configs()
     
-    raw_overrides = {"legacy_abc": {}, "multi_toggles": {}}
+    raw_overrides = {"legacy_abc": {}, "multi_toggles": {}, "healthcare": {}}
     if ROUND_OVERRIDES_FILE.exists():
         try:
             with open(ROUND_OVERRIDES_FILE, "r") as f:
@@ -623,11 +776,12 @@ async def get_decision_configs():
     return {
         "merged_narrative": merged_narrative,
         "merged_pillars": merged_pillars,
+        "merged_healthcare": merged_healthcare,
         "raw_overrides": raw_overrides
     }
 
 class OverridesUpdateRequest(BaseModel):
-    paradigm: str # 'legacy_abc' or 'multi_toggles'
+    paradigm: str # 'legacy_abc', 'multi_toggles', 'healthcare', 'un_sdg'
     round_number: str
     option_key: str
     area_key: str | None = None # Required for multi_toggles
@@ -640,7 +794,7 @@ async def update_decision_config(req: OverridesUpdateRequest):
     Saves a single field override to decision_overrides.json.
     Updates in-memory dict dicts then flushes to disk.
     """
-    raw_overrides = {"legacy_abc": {}, "multi_toggles": {}}
+    raw_overrides = {"legacy_abc": {}, "multi_toggles": {}, "healthcare": {}}
     if ROUND_OVERRIDES_FILE.exists():
         try:
             with open(ROUND_OVERRIDES_FILE, "r") as f:
@@ -657,7 +811,7 @@ async def update_decision_config(req: OverridesUpdateRequest):
         area_node = areas_dict.setdefault(req.area_key, {})
         opts_dict = area_node.setdefault("options", {})
         target_dict = opts_dict.setdefault(req.option_key, {})
-    elif req.paradigm == "legacy_abc":
+    elif req.paradigm in ["legacy_abc", "healthcare"]:
         opts_dict = rnd_dict.setdefault("options", {})
         target_dict = opts_dict.setdefault(req.option_key, {})
     else:
@@ -742,7 +896,11 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
         current_bus = current["bu_states"]
 
         # Build default decisions: option_b, minimal investment
-        bu_ids = ["pharma", "electronics", "consumer_goods", "software"]
+        # WARN-02 FIX: Derive BU IDs dynamically from actual session state
+        # instead of hardcoding legacy_abc BUs — critical for SDG/healthcare paradigms
+        bu_ids = [bu["bu_id"] for bu in current_bus] if current_bus else [
+            "pharma", "electronics", "consumer_goods", "software"
+        ]
         decisions_raw = [
             {
                 "bu_id": bu_id,
@@ -771,7 +929,8 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
 
         effective_crisis = pre_result.get("crisis_severity", 0)
 
-        session_info = await db.get_session_info(session_id)
+        # FIX AUDIT-007: Was referencing undefined `session_id` — must use `player_session_id`
+        session_info = await db.get_session_info(player_session_id)
         paradigm = (session_info or {}).get("decision_paradigm", "legacy_abc")
 
         # Run tick engine
@@ -1165,7 +1324,17 @@ async def list_players():
             for p in sess.get("registered_players", []):
                 if not any(r["player_id"] == p["player_id"] for r in _player_registry):
                     _player_registry.append(p)
-    active_players = [p for p in _player_registry if not p.get("deleted_at")]
+                    
+    all_sessions_now = await db.fetch_all_sessions()
+    active_ids = {s["session_id"] for s in all_sessions_now}
+    
+    active_players = []
+    for p in _player_registry:
+        if not p.get("deleted_at"):
+            p_dict = dict(p)
+            p_dict["is_orphan"] = p_dict.get("session_id") not in active_ids
+            active_players.append(p_dict)
+            
     return {"players": active_players}
 
 
@@ -1587,9 +1756,16 @@ def _apply_force_strike(
     "/sessions",
     summary="List all active sessions for leaderboard",
 )
-async def list_sessions():
+async def list_sessions(facilitator_id: Optional[str] = None):
     """Returns all sessions with their latest state for the leaderboard."""
     sessions = await db.fetch_all_sessions()
+    
+    if facilitator_id:
+        sessions = [
+            s for s in sessions 
+            if s.get("facilitator_id") == facilitator_id
+        ]
+        
     return {"sessions": sessions}
 
 
@@ -1691,6 +1867,7 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
             "cohort_name": sess.get("cohort_name", "Unknown"),
             "facilitator_id": sess.get("facilitator_id"),
             "player_id": player_id,
+            "decision_paradigm": _get_session_paradigm(sid),
             "round_number": latest["round_number"],
             "terminal_value": terminal_value,
             "total_cash": gs.get("corporate_treasury", 0),
@@ -4129,6 +4306,8 @@ _analytics_visibility: dict = {
         "convergence_analysis": True,
         "learning_outcomes": True,
         "risk_exposure": True,
+        "materiality_matrix": True,
+        "technical_reference": True,
     },
     "player": {
         "peer_benchmarking": True,
@@ -4151,6 +4330,64 @@ async def set_analytics_visibility(body: dict = Body(...)):
                 if key in _analytics_visibility.get(role, {}):
                     _analytics_visibility[role][key] = bool(val)
     return _analytics_visibility
+
+
+# ── Per-Cohort Analytics Visibility ─────────────────────────────
+# Stored on session dict as session["analytics_visibility"] = {facilitator: {...}, player: {...}}
+# Global defaults apply when a cohort has no overrides.
+
+def resolve_analytics_visibility(session_id: str) -> dict:
+    """Merge global defaults with per-cohort overrides. Cohort overrides win."""
+    import copy as _copy
+    merged = _copy.deepcopy(_analytics_visibility)
+    sess = database_memory._sessions.get(session_id)
+    if not sess:
+        return merged
+    # Walk up to parent cohort if this is a player sub-session
+    if sess.get("parent_cohort_id"):
+        parent = database_memory._sessions.get(sess["parent_cohort_id"])
+        if parent:
+            sess = parent
+    cohort_vis = sess.get("analytics_visibility")
+    if cohort_vis:
+        for role in ("facilitator", "player"):
+            if role in cohort_vis:
+                for key, val in cohort_vis[role].items():
+                    if key in merged.get(role, {}):
+                        merged[role][key] = bool(val)
+    return merged
+
+
+@admin_router.get("/cohort/{session_id}/analytics-visibility", summary="Get per-cohort analytics visibility")
+async def get_cohort_analytics_visibility(session_id: str):
+    sess = database_memory._sessions.get(session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+    cohort_overrides = sess.get("analytics_visibility")
+    return {
+        "global_defaults": _analytics_visibility,
+        "cohort_overrides": cohort_overrides,
+        "effective": resolve_analytics_visibility(session_id),
+    }
+
+
+@admin_router.put("/cohort/{session_id}/analytics-visibility", summary="Set per-cohort analytics visibility overrides")
+async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...)):
+    sess = database_memory._sessions.get(session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+    overrides = sess.setdefault("analytics_visibility", {"facilitator": {}, "player": {}})
+    for role in ("facilitator", "player"):
+        if role in body:
+            for key, val in body[role].items():
+                if key in _analytics_visibility.get(role, {}):
+                    overrides.setdefault(role, {})[key] = bool(val)
+    sess["analytics_visibility"] = overrides
+    database_memory._persist()
+    return {
+        "cohort_overrides": overrides,
+        "effective": resolve_analytics_visibility(session_id),
+    }
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -4574,3 +4811,779 @@ async def delete_glossary_term(term_id: str):
     global _glossary_terms
     _glossary_terms = [t for t in _glossary_terms if t["id"] != term_id]
     return {"status": "deleted", "term_id": term_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  ECONOMIC ENGINE TUNABLES — All 16 engine constants
+# ═════════════════════════════════════════════════════════════════
+
+_engine_tunables: dict = {
+    # Phase 1
+    "inflation_rate": 0.025,
+    "technical_debt_threshold": 2,
+    "technical_debt_penalty": 0.04,
+    "overrun_probability": 0.25,
+    "overrun_severity": 0.15,
+    "overrun_capex_floor": 3_000_000,
+    "implementation_lag_threshold": 0.10,
+    "vrio_imitation_decay_rate": 0.05,
+    # Phase 2
+    "cannibalization_rate": 0.03,
+    "stakeholder_fatigue_factor": 0.3,
+    "supply_chain_overlap_coeff": 0.002,
+    "competitor_growth_rate": 0.03,
+    "cash_conversion_base": 1.0,
+    "dividend_cut_threshold": 0.80,
+    "dividend_reputation_penalty": 5.0,
+    "talent_neglect_threshold": 0.15,
+    "talent_neglect_penalty": 0.02,
+    "lockin_streak_threshold": 3,
+    "lockin_synergy_penalty": 0.15,
+    "greenwashing_investment_threshold": 0.15,
+    "greenwashing_penalty": 8.0,
+    "fog_of_war_rounds": 3,
+    "fog_noise_range": 0.10,
+}
+
+
+@admin_router.get("/engine-tunables", summary="Get all economic engine tunables")
+async def get_engine_tunables():
+    return {"tunables": _engine_tunables, "descriptions": {
+        "inflation_rate": "Annual OPEX inflation applied each round (0.025 = 2.5%)",
+        "technical_debt_threshold": "Rounds of zero investment before penalty kicks in",
+        "technical_debt_penalty": "OPEX multiplier penalty for neglected BUs",
+        "overrun_probability": "Chance of cost overrun on large CAPEX (0-1)",
+        "overrun_severity": "Cost overrun magnitude when triggered (0-1)",
+        "overrun_capex_floor": "Minimum CAPEX ($) to trigger overrun risk",
+        "implementation_lag_threshold": "Investment ratio above which synergy is deferred 1 round",
+        "vrio_imitation_decay_rate": "Rate at which synergy decays per round (0-1)",
+        "cannibalization_rate": "Revenue stolen from victim BU when aggressor dominates",
+        "stakeholder_fatigue_factor": "Trust recovery decay factor per crisis (higher = harsher)",
+        "supply_chain_overlap_coeff": "Cross-BU governance risk contagion coefficient",
+        "competitor_growth_rate": "NPC competitor annual EBITDA growth rate",
+        "cash_conversion_base": "Base revenue-to-cash efficiency (1.0 = perfect)",
+        "dividend_cut_threshold": "% of prior dividends below which ratchet triggers",
+        "dividend_reputation_penalty": "Reputation points lost when dividend ratchet fires",
+        "talent_neglect_threshold": "CAPEX share below which BU suffers talent penalty",
+        "talent_neglect_penalty": "OPEX surcharge rate for neglected BUs",
+        "lockin_streak_threshold": "Consecutive rounds of top investment before lock-in",
+        "lockin_synergy_penalty": "Synergy penalty on non-locked BUs when lock-in active",
+        "greenwashing_investment_threshold": "Avg investment ratio below which green rhetoric = scandal",
+        "greenwashing_penalty": "Social license points lost in greenwashing scandal",
+        "fog_of_war_rounds": "Number of early rounds with metric noise active",
+        "fog_noise_range": "Max ±noise factor for fog of war metrics",
+    }}
+
+
+@admin_router.patch("/engine-tunables", summary="Update economic engine tunables")
+async def update_engine_tunables(body: dict = Body(...)):
+    changed = {}
+    for key, val in body.items():
+        if key in _engine_tunables:
+            old = _engine_tunables[key]
+            _engine_tunables[key] = val
+            changed[key] = {"old": old, "new": val}
+    # Sync to god_mode_settings for backward compat
+    _god_mode_settings["overrun_probability"] = _engine_tunables["overrun_probability"]
+    _god_mode_settings["overrun_severity"] = _engine_tunables["overrun_severity"]
+    _audit("engine_tunables_updated", details=changed)
+    return {"tunables": _engine_tunables, "changed": changed}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  SCENARIO PRESETS — Pre-configured difficulty templates
+# ═════════════════════════════════════════════════════════════════
+
+_scenario_presets: list[dict] = [
+    {
+        "id": "classroom_easy",
+        "name": "Classroom (Easy)",
+        "description": "Gentle settings for introductory classes. Low volatility, forgiving penalties.",
+        "icon": "🎓",
+        "tunables": {
+            "inflation_rate": 0.015,
+            "overrun_probability": 0.10,
+            "overrun_severity": 0.10,
+            "technical_debt_threshold": 3,
+            "technical_debt_penalty": 0.02,
+            "stakeholder_fatigue_factor": 0.15,
+            "greenwashing_penalty": 4.0,
+            "dividend_reputation_penalty": 2.0,
+            "fog_of_war_rounds": 1,
+            "competitor_growth_rate": 0.02,
+        }
+    },
+    {
+        "id": "workshop_standard",
+        "name": "Workshop (Standard)",
+        "description": "Balanced settings for corporate workshops. Moderate complexity.",
+        "icon": "🏢",
+        "tunables": {
+            "inflation_rate": 0.025,
+            "overrun_probability": 0.25,
+            "overrun_severity": 0.15,
+            "technical_debt_threshold": 2,
+            "technical_debt_penalty": 0.04,
+            "stakeholder_fatigue_factor": 0.3,
+            "greenwashing_penalty": 8.0,
+            "dividend_reputation_penalty": 5.0,
+            "fog_of_war_rounds": 3,
+            "competitor_growth_rate": 0.03,
+        }
+    },
+    {
+        "id": "executive_hard",
+        "name": "Executive (Hard)",
+        "description": "Aggressive parameters for experienced executives. High stakes, punishing penalties.",
+        "icon": "💼",
+        "tunables": {
+            "inflation_rate": 0.040,
+            "overrun_probability": 0.35,
+            "overrun_severity": 0.20,
+            "technical_debt_threshold": 1,
+            "technical_debt_penalty": 0.06,
+            "stakeholder_fatigue_factor": 0.5,
+            "greenwashing_penalty": 12.0,
+            "dividend_reputation_penalty": 8.0,
+            "fog_of_war_rounds": 4,
+            "competitor_growth_rate": 0.05,
+        }
+    },
+    {
+        "id": "chaos_mode",
+        "name": "Chaos Mode",
+        "description": "Maximum volatility. Every engine cranked to extreme. Only for stress-testing.",
+        "icon": "🔥",
+        "tunables": {
+            "inflation_rate": 0.060,
+            "overrun_probability": 0.50,
+            "overrun_severity": 0.25,
+            "technical_debt_threshold": 1,
+            "technical_debt_penalty": 0.08,
+            "stakeholder_fatigue_factor": 0.7,
+            "greenwashing_penalty": 15.0,
+            "dividend_reputation_penalty": 10.0,
+            "fog_of_war_rounds": 5,
+            "competitor_growth_rate": 0.07,
+            "cannibalization_rate": 0.06,
+            "lockin_streak_threshold": 2,
+            "lockin_synergy_penalty": 0.25,
+        }
+    },
+]
+
+
+@admin_router.get("/scenario-presets", summary="Get available scenario presets")
+async def get_scenario_presets():
+    return {"presets": _scenario_presets, "current_tunables": _engine_tunables}
+
+
+@admin_router.post("/scenario-presets/apply/{preset_id}", summary="Apply a scenario preset")
+async def apply_scenario_preset(preset_id: str):
+    preset = next((p for p in _scenario_presets if p["id"] == preset_id), None)
+    if not preset:
+        raise HTTPException(404, f"Preset '{preset_id}' not found")
+    changed = {}
+    for key, val in preset["tunables"].items():
+        if key in _engine_tunables:
+            old = _engine_tunables[key]
+            _engine_tunables[key] = val
+            changed[key] = {"old": old, "new": val}
+    _god_mode_settings["overrun_probability"] = _engine_tunables["overrun_probability"]
+    _god_mode_settings["overrun_severity"] = _engine_tunables["overrun_severity"]
+    _audit("scenario_preset_applied", details={"preset": preset_id, "changed_count": len(changed)})
+    return {"applied": preset_id, "name": preset["name"], "tunables": _engine_tunables, "changed": changed}
+
+
+@admin_router.post("/scenario-presets", summary="Save a custom scenario preset")
+async def save_custom_preset(body: dict = Body(...)):
+    preset_id = body.get("id", f"custom_{len(_scenario_presets)+1}")
+    preset = {
+        "id": preset_id,
+        "name": body.get("name", "Custom Preset"),
+        "description": body.get("description", ""),
+        "icon": body.get("icon", "⚙️"),
+        "tunables": body.get("tunables", dict(_engine_tunables)),
+        "is_custom": True,
+    }
+    _scenario_presets.append(preset)
+    _audit("custom_preset_created", details={"preset_id": preset_id})
+    return preset
+
+
+@admin_router.delete("/scenario-presets/{preset_id}", summary="Delete a custom scenario preset")
+async def delete_custom_preset(preset_id: str):
+    global _scenario_presets
+    preset = next((p for p in _scenario_presets if p["id"] == preset_id), None)
+    if not preset:
+        raise HTTPException(404, "Preset not found")
+    if not preset.get("is_custom"):
+        raise HTTPException(403, "Cannot delete built-in presets")
+    _scenario_presets = [p for p in _scenario_presets if p["id"] != preset_id]
+    return {"deleted": preset_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  COMPLEXITY EVENT FEED — Surface engine events as human-readable
+# ═════════════════════════════════════════════════════════════════
+
+_COMPLEXITY_EVENT_LABELS = {
+    "greenwashing_scandal": ("🌿🚨", "Greenwashing Scandal", "critical"),
+    "dividend_ratchet_triggered": ("📉", "Dividend Ratchet Triggered", "warning"),
+    "technology_lockin_penalty": ("🔒", "Technology Lock-In Active", "warning"),
+    "fog_of_war_active": ("🌫️", "Fog of War Active", "info"),
+    "stakeholder_fatigue_applied": ("😰", "Stakeholder Fatigue Hit", "warning"),
+    "regulatory_ratchet_active": ("📜", "Regulatory Ratchet Floor Active", "info"),
+    "inflation_index_increased": ("📈", "Inflation Index Increased", "info"),
+    "tipping_point_reached": ("🌡️", "Climate Tipping Point Reached!", "critical"),
+    "stranded_asset_penalty_applied": ("🏭", "Stranded Asset Penalty", "warning"),
+    "institutional_leakage": ("🏛️", "Institutional Leakage (SDG)", "warning"),
+    "sanitation_miracle": ("🚰", "Sanitation Miracle Bonus!", "success"),
+    "carbon_retribution_triggered": ("⚡", "Carbon Retribution Active", "critical"),
+    "migration_service_penalty": ("🚶", "Migration Contagion Penalty", "warning"),
+    "education_lag_mature": ("📚", "Education Investment Matured", "success"),
+}
+
+
+@admin_router.get("/complexity-events/{session_id}", summary="Get complexity engine events for a session")
+async def get_complexity_events(session_id: str):
+    """Surface the 16 engine events from a session's latest state as human-readable cards."""
+    global_states = getattr(db, '_global_states', {})
+    rounds = global_states.get(session_id, [])
+    if not rounds:
+        raise HTTPException(404, "No round data")
+
+    feed = []
+    for grs in rounds:
+        rn = grs.get("round_number", 1)
+        flags = grs.get("active_event_flags", {})
+        round_events = []
+        for key, value in flags.items():
+            if key in _COMPLEXITY_EVENT_LABELS and value:
+                icon, label, severity = _COMPLEXITY_EVENT_LABELS[key]
+                round_events.append({
+                    "key": key,
+                    "icon": icon,
+                    "label": label,
+                    "severity": severity,
+                    "value": value,
+                    "round": rn,
+                })
+            # Dynamic per-BU events
+            for prefix, (picon, plabel, psev) in [
+                ("technical_debt_penalty_", ("🛠️", "Technical Debt", "warning")),
+                ("revenue_cannibalized_", ("🍽️", "Revenue Cannibalized", "warning")),
+                ("supply_chain_contagion_", ("🔗", "Supply Chain Contagion", "info")),
+                ("cash_conversion_drag_", ("💸", "Cash Conversion Drag", "info")),
+                ("talent_neglect_surcharge_", ("🧑‍💼", "Talent Neglect", "warning")),
+                ("overrun_penalty_", ("💥", "Cost Overrun!", "critical")),
+            ]:
+                if key.startswith(prefix) and value:
+                    bu_id = key[len(prefix):]
+                    round_events.append({
+                        "key": key, "icon": picon,
+                        "label": f"{plabel}: {bu_id}",
+                        "severity": psev,
+                        "value": value if isinstance(value, (int, float, str)) else True,
+                        "round": rn,
+                    })
+            # Competitor warning
+            if key == "competitor_warning" and value:
+                round_events.append({
+                    "key": key, "icon": "🏆", "label": "Competitor Warning",
+                    "severity": "warning", "value": value, "round": rn,
+                })
+        if round_events:
+            feed.append({"round": rn, "events": round_events})
+
+    return {"session_id": session_id, "feed": feed}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  SESSION HEALTH MONITOR — Live heatmap data
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/session-health", summary="Get health status of all sessions")
+async def get_session_health():
+    """
+    Returns compact health indicators for each cohort.
+    Status: active, idle, stuck, disconnected.
+    """
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    now = datetime.now(timezone.utc)
+    health = []
+
+    for sid, sess in all_sessions.items():
+        if sess.get("player_id"):
+            continue  # Skip player sub-sessions
+
+        gs_list = global_states.get(sid, [])
+        latest_gs = gs_list[-1] if gs_list else {}
+        round_num = latest_gs.get("round_number", 1)
+
+        # Compute health metrics
+        treasury = float(latest_gs.get("corporate_treasury", 0))
+        reputation = float(latest_gs.get("group_reputation", 50))
+        synergy = float(latest_gs.get("synergy_multiplier", 1.0))
+        ebitda = float(latest_gs.get("historical_ebitda", 0))
+        inflation = float(latest_gs.get("inflation_index", 0.025))
+        competitor = float(latest_gs.get("competitor_ebitda", 0))
+
+        # Count active events
+        flags = latest_gs.get("active_event_flags", {})
+        crisis_count = sum(1 for k, v in flags.items()
+                          if v and k in _COMPLEXITY_EVENT_LABELS)
+
+        # Determine health status
+        if round_num >= 10:
+            status = "completed"
+            status_color = "#8b5cf6"
+        elif treasury < 0:
+            status = "critical"
+            status_color = "#ef4444"
+        elif reputation < 25:
+            status = "warning"
+            status_color = "#f59e0b"
+        elif crisis_count >= 3:
+            status = "stressed"
+            status_color = "#f97316"
+        else:
+            status = "healthy"
+            status_color = "#22c55e"
+
+        # Relative advantage vs competitor
+        relative_advantage = round(ebitda / competitor, 2) if competitor > 0 else 1.0
+
+        health.append({
+            "session_id": sid,
+            "cohort_name": sess.get("cohort_name", sid[:12]),
+            "facilitator_id": sess.get("facilitator_id", "—"),
+            "paradigm": sess.get("decision_paradigm", "legacy_abc"),
+            "round": round_num,
+            "status": status,
+            "status_color": status_color,
+            "treasury_m": round(treasury / 1_000_000, 2),
+            "reputation": round(reputation, 1),
+            "synergy": round(synergy, 3),
+            "ebitda_m": round(ebitda / 1_000_000, 2),
+            "inflation": round(inflation, 4),
+            "active_crises": crisis_count,
+            "relative_advantage": relative_advantage,
+        })
+
+    # Sort: critical first, then by round
+    health.sort(key=lambda h: (
+        {"critical": 0, "warning": 1, "stressed": 2, "healthy": 3, "completed": 4}.get(h["status"], 5),
+        -h["round"]
+    ))
+
+    return {"sessions": health, "total": len(health)}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  SESSION CLONING — Fork a cohort for what-if exploration
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.post("/sessions/{session_id}/clone", summary="Clone a session for what-if scenarios")
+async def clone_session(session_id: str, body: dict = Body(...)):
+    """Deep-clone a cohort's current state into a new session."""
+    import copy
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    bu_states_store = getattr(db, '_bu_states', {})
+
+    source = all_sessions.get(session_id)
+    if not source:
+        raise HTTPException(404, "Source session not found")
+
+    clone_name = body.get("name", f"{source.get('cohort_name', 'Clone')} (Fork)")
+    new_sid = f"clone-{session_id[:8]}-{datetime.now(timezone.utc).strftime('%H%M%S')}"
+
+    # Deep copy session
+    cloned_session = copy.deepcopy(source)
+    cloned_session["cohort_name"] = clone_name
+    cloned_session["cloned_from"] = session_id
+    cloned_session["cloned_at"] = datetime.now(timezone.utc).isoformat()
+    all_sessions[new_sid] = cloned_session
+
+    # Deep copy global states
+    if session_id in global_states:
+        global_states[new_sid] = copy.deepcopy(global_states[session_id])
+
+    # Deep copy BU states
+    if session_id in bu_states_store:
+        bu_states_store[new_sid] = copy.deepcopy(bu_states_store[session_id])
+
+    _audit("session_cloned", details={
+        "source": session_id,
+        "clone_id": new_sid,
+        "clone_name": clone_name,
+    })
+
+    return {
+        "clone_id": new_sid,
+        "clone_name": clone_name,
+        "source_id": session_id,
+        "round": cloned_session.get("global_state", {}).get("round_number", 1),
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  AUTO-PAUSE TRIGGERS — Configurable pause-on-event rules
+# ═════════════════════════════════════════════════════════════════
+
+_auto_pause_triggers: dict = {
+    "enabled": False,
+    "triggers": {
+        "greenwashing_scandal": True,
+        "technology_lockin_penalty": True,
+        "tipping_point_reached": True,
+        "dividend_ratchet_triggered": False,
+        "stakeholder_fatigue_applied": False,
+        "treasury_negative": True,
+        "reputation_below_20": True,
+    },
+    "pause_message": "⏸️ Simulation paused by facilitator for discussion.",
+}
+
+
+@admin_router.get("/auto-pause", summary="Get auto-pause trigger configuration")
+async def get_auto_pause():
+    return _auto_pause_triggers
+
+
+@admin_router.put("/auto-pause", summary="Update auto-pause trigger configuration")
+async def set_auto_pause(body: dict = Body(...)):
+    if "enabled" in body:
+        _auto_pause_triggers["enabled"] = bool(body["enabled"])
+    if "triggers" in body:
+        for key, val in body["triggers"].items():
+            if key in _auto_pause_triggers["triggers"]:
+                _auto_pause_triggers["triggers"][key] = bool(val)
+    if "pause_message" in body:
+        _auto_pause_triggers["pause_message"] = str(body["pause_message"])
+    _audit("auto_pause_updated", details=_auto_pause_triggers)
+    return _auto_pause_triggers
+
+
+def check_auto_pause_triggers(events: dict, global_state: dict) -> Optional[str]:
+    """Called by process_tick to check if auto-pause should fire."""
+    if not _auto_pause_triggers["enabled"]:
+        return None
+    triggers = _auto_pause_triggers["triggers"]
+    for event_key, enabled in triggers.items():
+        if not enabled:
+            continue
+        if event_key == "treasury_negative" and global_state.get("corporate_treasury", 0) < 0:
+            return f"Treasury went negative (${global_state['corporate_treasury']:,.0f})"
+        if event_key == "reputation_below_20" and global_state.get("group_reputation", 50) < 20:
+            return f"Reputation dropped to {global_state['group_reputation']:.1f}"
+        if event_key in events and events[event_key]:
+            label = _COMPLEXITY_EVENT_LABELS.get(event_key, ("", event_key, ""))[1]
+            return f"{label} triggered"
+    return None
+
+
+# ═════════════════════════════════════════════════════════════════
+#  DECISION HISTORY REPLAY — Full decision timeline per session
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/decision-history/{session_id}", summary="Full decision timeline for a session")
+async def get_decision_history(session_id: str):
+    """Reconstruct the complete decision history with state snapshots."""
+    global_states = getattr(db, '_global_states', {})
+    bu_states_store = getattr(db, '_bu_states', {})
+    decision_log = getattr(db, '_decision_log', [])
+
+    rounds = global_states.get(session_id, [])
+    if not rounds:
+        raise HTTPException(404, "No history for this session")
+
+    session_decisions = [d for d in decision_log if d.get("session_id") == session_id]
+    dec_by_round = {}
+    for d in session_decisions:
+        rn = d.get("round_number", 0)
+        if rn not in dec_by_round:
+            dec_by_round[rn] = []
+        dec_by_round[rn].append(d)
+
+    timeline = []
+    for i, grs in enumerate(rounds):
+        rn = grs.get("round_number", 1)
+        flags = grs.get("active_event_flags", {})
+        bus = bu_states_store.get(session_id, {}).get(rn, [])
+
+        # Extract complexity events for this round
+        round_complexity = []
+        for key, value in flags.items():
+            if key in _COMPLEXITY_EVENT_LABELS and value:
+                icon, label, sev = _COMPLEXITY_EVENT_LABELS[key]
+                round_complexity.append({"icon": icon, "label": label, "severity": sev})
+
+        # Get decisions for this round
+        round_decs = dec_by_round.get(rn, [])
+        choices = [d.get("choice_selected", "") for d in round_decs if d.get("choice_selected")]
+        total_capex = sum(d.get("capex_allocated", 0) for d in round_decs)
+
+        timeline.append({
+            "round": rn,
+            "treasury_m": round(float(grs.get("corporate_treasury", 0)) / 1_000_000, 2),
+            "reputation": round(float(grs.get("group_reputation", 50)), 1),
+            "synergy": round(float(grs.get("synergy_multiplier", 1.0)), 3),
+            "ebitda_m": round(float(grs.get("historical_ebitda", 0)) / 1_000_000, 2),
+            "inflation": round(float(grs.get("inflation_index", 0.025)), 4),
+            "cost_of_capital": round(float(grs.get("cost_of_capital", 0.05)), 4),
+            "choices": choices,
+            "total_capex": round(total_capex, 0),
+            "complexity_events": round_complexity,
+            "bu_summary": [{
+                "bu_id": b.get("bu_id", ""),
+                "revenue_m": round(float(b.get("revenue_base", 0)) / 1_000_000, 2),
+                "opex_m": round(float(b.get("opex_base", 0)) / 1_000_000, 2),
+                "social_license": round(float(b.get("social_license_score", 50)), 1),
+                "governance_risk": round(float(b.get("governance_risk_score", 0)), 1),
+            } for b in bus],
+        })
+
+    return {"session_id": session_id, "timeline": timeline}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  FACILITATOR ANNOTATIONS — Tag sessions with teaching notes
+# ═════════════════════════════════════════════════════════════════
+
+_annotations: dict[str, list[dict]] = {}  # session_id → [annotation dicts]
+
+
+@admin_router.get("/annotations/{session_id}", summary="Get annotations for a session")
+async def get_annotations(session_id: str):
+    return {"annotations": _annotations.get(session_id, [])}
+
+
+@admin_router.post("/annotations/{session_id}", summary="Add an annotation")
+async def add_annotation(session_id: str, body: dict = Body(...)):
+    if session_id not in _annotations:
+        _annotations[session_id] = []
+    annotation = {
+        "id": f"ANN-{len(_annotations[session_id])+1:04d}",
+        "round": body.get("round", 0),
+        "text": body.get("text", ""),
+        "tag": body.get("tag", "general"),  # general, teaching_moment, warning, insight
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "author": body.get("author", "facilitator"),
+    }
+    _annotations[session_id].append(annotation)
+    return annotation
+
+
+@admin_router.delete("/annotations/{session_id}/{annotation_id}", summary="Delete an annotation")
+async def delete_annotation(session_id: str, annotation_id: str):
+    if session_id in _annotations:
+        _annotations[session_id] = [a for a in _annotations[session_id] if a["id"] != annotation_id]
+    return {"deleted": annotation_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  FACILITATOR TELEPROMPTER — Round-by-round teaching script
+# ═════════════════════════════════════════════════════════════════
+
+_TELEPROMPTER_SCRIPTS = {
+    1: {
+        "title": "Round 1: Setting the Stage",
+        "talking_points": [
+            "Welcome teams to their first strategic decision cycle",
+            "Explain the Fog of War: metrics are noisy in early rounds — teams must decide with imperfect information",
+            "Emphasize: there are NO risk-free choices — every option has trade-offs",
+            "Highlight: the inflation engine means doing nothing still costs money",
+        ],
+        "engines_likely": ["fog_of_war_active", "inflation_index_applied"],
+        "discussion_prompts": [
+            "How did you prioritize between BUs without full information?",
+            "What assumptions did you make about the reliability of the data?",
+        ],
+    },
+    2: {
+        "title": "Round 2: First Consequences",
+        "talking_points": [
+            "Deferred synergy investments from Round 1 are now landing",
+            "Technical debt counters may begin ticking for neglected BUs",
+            "Cash conversion drag should be visible for high-governance-risk BUs",
+            "Ask teams to explain their capital allocation rationale",
+        ],
+        "engines_likely": ["cash_conversion_drag", "implementation_lag", "supply_chain_contagion"],
+        "discussion_prompts": [
+            "Which BUs did you neglect, and why?",
+            "Did the implementation lag surprise you? How does this change your planning horizon?",
+        ],
+    },
+    3: {
+        "title": "Round 3: Fog Lifts",
+        "talking_points": [
+            "Fog of War clears after this round — true metrics become visible",
+            "Competitive NPC is growing at 3%/round — are teams keeping pace?",
+            "Revenue cannibalization may be visible if one BU dominates",
+            "Technology lock-in streaks are building — are teams diversifying?",
+        ],
+        "engines_likely": ["fog_of_war_active", "competitor_warning", "revenue_cannibalized"],
+        "discussion_prompts": [
+            "Now that you can see true metrics, would you have changed your Round 1 decisions?",
+            "How does the NPC competitor change your strategy?",
+        ],
+    },
+    4: {
+        "title": "Round 4: Strategic Inflection Point",
+        "talking_points": [
+            "Technology lock-in may trigger if teams haven't diversified (3-round streak)",
+            "Greenwashing risk is real — green rhetoric without matching investment will be punished",
+            "Regulatory ratchet means cost of capital may be permanently elevated",
+            "This is the mid-game — long-term strategy should now be clear",
+        ],
+        "engines_likely": ["technology_lockin_penalty", "greenwashing_scandal", "regulatory_ratchet_active"],
+        "discussion_prompts": [
+            "Is your strategy sustainable for 6 more rounds?",
+            "How do you balance short-term EBITDA vs long-term resilience?",
+        ],
+    },
+    5: {
+        "title": "Round 5: The Real Test Begins",
+        "talking_points": [
+            "Halfway mark — compounding effects are now unavoidable",
+            "Stakeholder fatigue factor means crises are getting harder to recover from",
+            "Dividend ratchet is live — cutting dividends has consequences",
+            "Climate tipping point may activate in advanced_climate paradigm",
+        ],
+        "engines_likely": ["stakeholder_fatigue_applied", "dividend_ratchet_triggered", "tipping_point_reached"],
+        "discussion_prompts": [
+            "What would a Board of Directors think of your performance?",
+            "How has your strategy evolved since Round 1?",
+        ],
+    },
+    6: {
+        "title": "Round 6: Compounding Pressures",
+        "talking_points": [
+            "Inflation is now 6 rounds deep — OPEX has grown significantly",
+            "Supply chain contagion amplifies if governance risk hasn't been addressed",
+            "Talent allocation pressure penalizes chronically underfunded BUs",
+            "This is where poor early decisions create cascading failures",
+        ],
+        "engines_likely": ["supply_chain_contagion", "talent_neglect_surcharge", "technical_debt_penalty"],
+        "discussion_prompts": [
+            "Are you fighting fires or executing a strategy?",
+            "Which complexity engine has hurt you the most, and could you have prevented it?",
+        ],
+    },
+    7: {
+        "title": "Round 7: Terminal Strategy",
+        "talking_points": [
+            "Three rounds left — terminal value calculations are becoming critical",
+            "Teams should be thinking about their final position versus the competitor",
+            "Encourage teams to calculate: will my EBITDA beat the NPC at Round 10?",
+        ],
+        "engines_likely": ["competitor_warning", "regulatory_ratchet_active"],
+        "discussion_prompts": [
+            "What metrics matter most for your final score?",
+            "If you could undo one decision from the entire game, which would it be?",
+        ],
+    },
+    8: {
+        "title": "Round 8: Late-Game Optimization",
+        "talking_points": [
+            "Two rounds left — marginal decisions now have outsized impact",
+            "Greenwashing risk is still active — don't make promises you can't fund",
+            "Dividend policies should be locked in — the ratchet doesn't forgive",
+        ],
+        "engines_likely": ["greenwashing_scandal", "dividend_ratchet_triggered"],
+        "discussion_prompts": [
+            "How are you positioning for the debrief?",
+            "What have you learned about the relationship between ESG and financial performance?",
+        ],
+    },
+    9: {
+        "title": "Round 9: The Finish Line Approaches",
+        "talking_points": [
+            "Final substantive round — next round is endgame",
+            "Encourage teams to maximize terminal value while maintaining ESG scores",
+            "All complexity engines are running — the full system is in play",
+        ],
+        "engines_likely": ["inflation_index_applied", "competitor_warning"],
+        "discussion_prompts": [
+            "What surprised you most about the simulation?",
+            "How does this experience change how you think about real corporate strategy?",
+        ],
+    },
+    10: {
+        "title": "Round 10: Endgame",
+        "talking_points": [
+            "Final round — terminal values are computed",
+            "Prepare teams for the debrief and final report",
+            "Highlight: the simulation mirrors real-world complexity — no perfect answers exist",
+            "Celebrate the journey, not just the outcome",
+        ],
+        "engines_likely": [],
+        "discussion_prompts": [
+            "What was your biggest strategic mistake, and when did you realize it?",
+            "How would you advise the next cohort playing this simulation?",
+            "What real-world parallel does this simulation remind you of?",
+        ],
+    },
+}
+
+
+@admin_router.get("/teleprompter/{round_number}", summary="Get facilitator teleprompter script")
+async def get_teleprompter(round_number: int):
+    script = _TELEPROMPTER_SCRIPTS.get(round_number, {
+        "title": f"Round {round_number}",
+        "talking_points": ["Continue guiding teams through their decisions."],
+        "engines_likely": [],
+        "discussion_prompts": ["What patterns are emerging in your strategy?"],
+    })
+    return {"round": round_number, "script": script}
+
+
+@admin_router.get("/teleprompter", summary="Get all teleprompter scripts")
+async def get_all_teleprompter():
+    return {"scripts": _TELEPROMPTER_SCRIPTS}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  COHORT COMPARISON — Side-by-side analytics
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/cohort-comparison", summary="Side-by-side cohort comparison")
+async def get_cohort_comparison(facilitator_id: str = None):
+    """Compare all cohorts (or a facilitator's cohorts) side by side."""
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+
+    comparisons = []
+    for sid, sess in all_sessions.items():
+        if sess.get("player_id"):
+            continue
+        if facilitator_id and sess.get("facilitator_id") != facilitator_id:
+            continue
+
+        gs_list = global_states.get(sid, [])
+        latest = gs_list[-1] if gs_list else {}
+        flags = latest.get("active_event_flags", {})
+
+        comparisons.append({
+            "session_id": sid,
+            "cohort_name": sess.get("cohort_name", sid[:12]),
+            "paradigm": sess.get("decision_paradigm", "legacy_abc"),
+            "round": latest.get("round_number", 1),
+            "treasury_m": round(float(latest.get("corporate_treasury", 0)) / 1_000_000, 2),
+            "reputation": round(float(latest.get("group_reputation", 50)), 1),
+            "synergy": round(float(latest.get("synergy_multiplier", 1.0)), 3),
+            "ebitda_m": round(float(latest.get("historical_ebitda", 0)) / 1_000_000, 2),
+            "inflation": round(float(latest.get("inflation_index", 0.025)), 4),
+            "competitor_ebitda_m": round(float(latest.get("competitor_ebitda", 0)) / 1_000_000, 2),
+            "cost_of_capital": round(float(latest.get("cost_of_capital", 0.05)), 4),
+            "active_crises": sum(1 for k, v in flags.items() if k in _COMPLEXITY_EVENT_LABELS and v),
+            "greenwashing": bool(flags.get("greenwashing_scandal")),
+            "lockin": bool(flags.get("technology_lockin_penalty")),
+            "fog": bool(flags.get("fog_of_war_active")),
+        })
+
+    comparisons.sort(key=lambda c: -c["treasury_m"])
+    return {"cohorts": comparisons, "total": len(comparisons)}

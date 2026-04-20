@@ -11,6 +11,9 @@ from enum import Enum
 class DecisionParadigm(str, Enum):
     legacy_abc = "legacy_abc"
     multi_toggles = "multi_toggles"
+    # FIX AUDIT-021: Add missing paradigm to enum for Pydantic validation
+    advanced_climate = "advanced_climate"
+    healthcare = "healthcare"
 
 
 # ── Enums ────────────────────────────────────────────────────────
@@ -113,8 +116,29 @@ class GlobalStateOut(BaseModel):
     tco2e_emissions: Optional[float] = 0
     vrio_advantage: Optional[float] = 0
     vrio_capabilities: Optional[dict[str, Any]] = {}
+    
+    # FIX AUDIT-026: Tighten GlobalStateOut by explicitly defining fields
+    # rather than allowing arbitrary extra fields.
+    green_transition_fund: Optional[float] = 0.0
+    tipping_point_active: Optional[bool] = False
+    pending_capex_projects: Optional[list[dict]] = []
+    bonus_score: Optional[int] = 0
+    stakeholder_map_completed: Optional[bool] = False
+    learning_bonuses_awarded: Optional[dict] = {}
+    saved_allocations: Optional[dict] = {}
+    saved_decision_choice: Optional[str] = None
+    materiality_budget_allocated: Optional[list] = None
+    materiality_bu_id: Optional[str] = None
+    csrd_completed: Optional[bool] = False
 
-    model_config = {"extra": "allow"}
+    # Economic complexity engines
+    inflation_index: Optional[float] = 0.025
+    competitor_ebitda: Optional[float] = 0.0
+
+    # UN SDG Edition metrics
+    political_capital: Optional[float] = None
+    community_trust_score: Optional[float] = None
+    global_emissions_intensity: Optional[float] = None
 
 
 class BUStateOut(BaseModel):
@@ -129,6 +153,11 @@ class BUStateOut(BaseModel):
     water_dependency: float = 0
     carbon_intensity: float = 0
     risk_factors: dict[str, Any] = {}
+    
+    # Healthcare Mechanics
+    patient_outcomes_score: Optional[float] = None
+    staff_burnout_index: Optional[float] = None
+    bed_capacity_utilization: Optional[float] = None
 
 
 # ── POST /api/simulations/start ─────────────────────────────────

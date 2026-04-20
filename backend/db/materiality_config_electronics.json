@@ -8,7 +8,14 @@
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 1200000
+      "mitigation_cost_usd": 1200000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "conflict_minerals",
@@ -17,7 +24,14 @@
       "category": "social",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 4000000
+      "mitigation_cost_usd": 4000000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "semiconductor_volatility",
@@ -26,7 +40,14 @@
       "category": "economic",
       "financial_impact": "high",
       "societal_impact": "medium",
-      "mitigation_cost_usd": 2000000
+      "mitigation_cost_usd": 2000000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "planned_obsolescence",
@@ -35,7 +56,14 @@
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 3500000
+      "mitigation_cost_usd": 3500000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "factory_conditions",
@@ -44,7 +72,14 @@
       "category": "social",
       "financial_impact": "medium",
       "societal_impact": "high",
-      "mitigation_cost_usd": 1500000
+      "mitigation_cost_usd": 1500000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "data_center_energy",
@@ -53,7 +88,14 @@
       "category": "ecological",
       "financial_impact": "medium",
       "societal_impact": "medium",
-      "mitigation_cost_usd": 900000
+      "mitigation_cost_usd": 900000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "elec_led_swap",
@@ -62,7 +104,14 @@
       "category": "ecological",
       "financial_impact": "low",
       "societal_impact": "low",
-      "mitigation_cost_usd": 30000
+      "mitigation_cost_usd": 30000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "elec_ergonomic",
@@ -71,7 +120,14 @@
       "category": "social",
       "financial_impact": "low",
       "societal_impact": "low",
-      "mitigation_cost_usd": 40000
+      "mitigation_cost_usd": 40000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     }
   ],
   "interdependencies": []

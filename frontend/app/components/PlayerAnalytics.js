@@ -5,9 +5,9 @@ import styles from './PlayerAnalytics.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const TABS = [
-    { id: 'benchmarking', label: '🏆 Peer Benchmarking', key: 'peer_benchmarking' },
-    { id: 'impact', label: '🧠 Decision Impact', key: 'decision_impact' },
-    { id: 'whatif', label: '📈 What-If', key: 'what_if_simulator' },
+    { id: 'benchmarking', label: '🏆 Peer Benchmarking', key: 'peer_benchmarking', title: 'Shows your anonymous percentile ranking vs. the cohort for Treasury, Reputation, and Synergy. Includes bar visualizations with your value compared against the cohort average. Answers: "How do I rank among my peers?"' },
+    { id: 'impact', label: '🧠 Decision Impact', key: 'decision_impact', title: 'Per-round KPI attribution — shows how each of your choices affected Treasury, Reputation, and Synergy with colour-coded delta badges (+/-) and a narrative explanation of the outcome. Answers: "What impact did my decisions actually have?"' },
+    { id: 'whatif', label: '📈 What-If', key: 'what_if_simulator', title: 'Counterfactual analysis — shows what would have happened if you had chosen the most popular alternative option. Displays projected Treasury and Reputation diffs. Only appears when your choices differ from the majority. Disabled by default.' },
 ];
 
 export default function PlayerAnalytics({ sessionId, isOpen, onClose }) {
@@ -50,7 +50,9 @@ export default function PlayerAnalytics({ sessionId, isOpen, onClose }) {
                             {visibleTabs.map(t => (
                                 <button key={t.id}
                                     className={`${styles.tab} ${tab === t.id ? styles.tabActive : ''}`}
-                                    onClick={() => setTab(t.id)}>
+                                    onClick={() => setTab(t.id)}
+                                    data-tooltip={t.title}
+                                    data-tooltip-pos="below">
                                     {t.label}
                                 </button>
                             ))}

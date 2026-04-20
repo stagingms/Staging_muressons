@@ -50,11 +50,13 @@ export default function useSimulation() {
     }, []);
 
     // ── Fetch round config ───────────────────────────────────
-    const fetchRoundConfig = useCallback(async (roundNum) => {
+    const fetchRoundConfig = useCallback(async (roundNum, sid) => {
         try {
-            const res = await fetch(
-                `${API_BASE}/api/simulations/round-config/${roundNum}`
-            );
+            const sessionParam = sid || sessionId;
+            const url = sessionParam
+                ? `${API_BASE}/api/simulations/round-config/${roundNum}?session_id=${sessionParam}`
+                : `${API_BASE}/api/simulations/round-config/${roundNum}`;
+            const res = await fetch(url);
             if (!res.ok) return null;
             const data = await res.json();
             setRoundConfig(data);
@@ -64,7 +66,7 @@ export default function useSimulation() {
             setRoundConfig(null);
             return null;
         }
-    }, []);
+    }, [sessionId]);
 
     // ── Start a new session ───────────────────────────────────
     const startSession = useCallback(

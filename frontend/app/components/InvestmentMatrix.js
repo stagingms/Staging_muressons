@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
 import styles from './InvestmentMatrix.module.css';
 import { Abbr } from './Glossary';
 
@@ -9,6 +10,11 @@ const BU_META = {
     electronics: { label: 'Electronics', icon: '🔌', accent: '#3b82f6' },
     consumer_goods: { label: 'Consumer Goods', icon: '🛒', accent: '#f59e0b' },
     software: { label: 'Software', icon: '💻', accent: '#8b5cf6' },
+    // Healthcare Edition
+    hospitals: { label: 'Hospitals', icon: '🏥', accent: '#ef4444' },
+    clinics: { label: 'Primary Care Clinics', icon: '🩺', accent: '#10b981' },
+    specialised_care: { label: 'Specialised Care', icon: '🔬', accent: '#8b5cf6' },
+    telehealth: { label: 'Digital Health', icon: '📱', accent: '#0ea5e9' },
 };
 
 /**
@@ -27,6 +33,7 @@ export default function InvestmentMatrix({
     businessUnits = [],
     allocations = {},
     onAllocationsChange,
+    historyData = []
 }) {
     const [csrdIssues, setCsrdIssues] = useState([]);
 
@@ -171,6 +178,21 @@ export default function InvestmentMatrix({
                                         Rev: ${(bu.revenue_base / 1_000_000).toFixed(1)}M
                                     </span>
                                 </div>
+                                
+                                <div style={{ flex: 1, height: 26, marginLeft: 10, marginRight: 10 }}>
+                                    {historyData.length > 0 && (
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <LineChart data={historyData.map(h => {
+                                                const hbu = h.business_units?.find(b => b.bu_id === bu.bu_id);
+                                                return { val: hbu ? hbu.revenue_base : 0 };
+                                            })}>
+                                                <YAxis domain={['dataMin', 'dataMax']} hide />
+                                                <Line type="monotone" dataKey="val" stroke={meta.accent} strokeWidth={1.5} dot={false} isAnimationActive={false} />
+                                            </LineChart>
+                                        </ResponsiveContainer>
+                                    )}
+                                </div>
+
                                 <span className={styles.allocAmount}>
                                     ${(alloc / 1_000_000).toFixed(2)}M
                                 </span>
@@ -192,6 +214,39 @@ export default function InvestmentMatrix({
                                     }}
                                 />
                             </div>
+
+                            {/* P1: Context Scorecard */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', borderTop: '1px solid rgba(226, 232, 240, 0.1)', paddingTop: '0.4rem' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Opex Base</span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>${(bu.opex_base / 1_000_000).toFixed(1)}M</span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Margin</span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: bu.revenue_base > bu.opex_base ? '#10b981' : '#ef4444', fontFamily: 'JetBrains Mono, monospace' }}>
+                                        {((bu.revenue_base - bu.opex_base) / bu.revenue_base * 100).toFixed(1)}%
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Social Lic.</span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: bu.social_license_score < 40 ? '#ef4444' : 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
+                                        {Math.round(bu.social_license_score || 0)}/100
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Gov Risk</span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: bu.governance_risk_score > 20 ? '#ef4444' : 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
+                                        {Math.round(bu.governance_risk_score || 0)}%
+                                    </span>
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                    <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nat. Debt</span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: bu.natural_capital_debt > 0 ? '#f59e0b' : 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
+                                        ${(bu.natural_capital_debt / 1_000_000).toFixed(1)}M
+                                    </span>
+                                </div>
+                            </div>
+
 
                             <div className={styles.sliderFooter}>
                                 <span className={styles.footerLabel}>

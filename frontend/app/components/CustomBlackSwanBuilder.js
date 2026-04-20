@@ -11,6 +11,10 @@ const SCOPE_OPTIONS = [
   { value: 'electronics', label: '🔌 Muressons Electronics' },
   { value: 'consumer_goods', label: '🛍️ Muressons Consumer Goods' },
   { value: 'software', label: '💻 Muressons Software' },
+  { value: 'hospitals', label: '🏥 Muressons Hospitals' },
+  { value: 'clinics', label: '🩺 Primary Care Clinics' },
+  { value: 'specialised_care', label: '🔬 Specialised Care' },
+  { value: 'telehealth', label: '📱 Digital Health' },
 ];
 
 export default function CustomBlackSwanBuilder() {

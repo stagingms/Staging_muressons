@@ -644,7 +644,18 @@ def _deep_merge(dict1: dict, dict2: dict) -> dict:
             dict1[k] = copy.deepcopy(v)
     return dict1
 
+_merged_configs_cache = None
+_overrides_mtime = None
+
 def _get_merged_round_configs() -> dict[int, dict[str, Any]]:
+    global _merged_configs_cache, _overrides_mtime
+    
+    # FIX AUDIT-019: Cache merged configs and only rebuild if the file changed
+    current_mtime = OVERRIDES_FILE.stat().st_mtime if OVERRIDES_FILE.exists() else 0
+    
+    if _merged_configs_cache is not None and current_mtime == _overrides_mtime:
+        return _merged_configs_cache
+        
     base_configs = copy.deepcopy(ROUND_CONFIGS)
     if OVERRIDES_FILE.exists():
         try:
@@ -657,6 +668,9 @@ def _get_merged_round_configs() -> dict[int, dict[str, Any]]:
                     _deep_merge(base_configs[round_num], cfg_override)
         except Exception as e:
             print(f"Error loading decision overrides: {e}")
+            
+    _merged_configs_cache = base_configs
+    _overrides_mtime = current_mtime
     return base_configs
 
 _detailed_cache = None

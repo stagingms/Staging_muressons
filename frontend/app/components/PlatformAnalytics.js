@@ -5,12 +5,12 @@ import styles from './PlatformAnalytics.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const TABS = [
-    { id: 'heatmap', label: '📊 Decision Heatmap', key: 'decision_heatmap', title: 'Top strategic choices selected round-by-round across all teams.' },
-    { id: 'timing', label: '⏱ Time-to-Decision', key: 'time_to_decision', title: 'Analytics on how fast or slow cohorts lock in their choices.' },
-    { id: 'cohorts', label: '📈 Cohort Comparison', key: 'cohort_comparison', title: 'Core performance trajectory mapping showing Terminal Value and abstract scores.' },
-    { id: 'convergence', label: '🔄 Convergence', key: 'convergence_analysis', title: 'Choice entropy and CapEx variance to measure if teams are thinking alike.' },
-    { id: 'learning', label: '🎯 Learning Outcomes', key: 'learning_outcomes', title: 'Gamification tracking, quiz success, and manual facilitator bonuses.' },
-    { id: 'risk', label: '📉 Risk Exposure', key: 'risk_exposure', title: 'Multi-axis tracking of non-financial risks like Natural Capital Debt and Social License.' },
+    { id: 'heatmap', label: '📊 Decision Heatmap', key: 'decision_heatmap', title: 'Choice distribution matrix showing which strategic options (A, B, C, etc.) were selected in each round across all players. Includes a heatmap grid with counts/percentages and stacked bar charts for visual comparison. Answers: "What are the most popular choices per round?"' },
+    { id: 'timing', label: '⏱ Time-to-Decision', key: 'time_to_decision', title: 'Decision speed analytics — how long players take to commit their choices each round. Displays average, median, min, and max times in seconds with horizontal bar visualizations. Answers: "Are players deliberating or rushing?"' },
+    { id: 'cohorts', label: '📈 Cohort Comparison', key: 'cohort_comparison', title: 'Plots KPI trajectories side-by-side for multiple cohorts on an SVG line chart. Togglable between Treasury, Reputation, Synergy, and EBITDA metrics. Answers: "How do different cohorts perform against each other over time?"' },
+    { id: 'convergence', label: '🔄 Convergence', key: 'convergence_analysis', title: 'Measures strategy similarity using a convergence gauge (0–100%). Tracks choice entropy (bits of unpredictability) and CapEx standard deviation per round. Low entropy = players thinking alike. Answers: "Are teams converging on the same strategy or diversifying?"' },
+    { id: 'learning', label: '🎯 Learning Outcomes', key: 'learning_outcomes', title: 'Tracks gamification and engagement: total learning bonuses awarded, manual facilitator awards, badge distribution counts, and bonuses by category. Answers: "How engaged are students and what milestones have they hit?"' },
+    { id: 'risk', label: '📉 Risk Exposure', key: 'risk_exposure', title: 'Multi-axis tracking of non-financial risks per cohort over time: Carbon Intensity, Natural Capital Debt, Social License, and Governance Risk. Rendered as vertical bar charts per cohort. Answers: "How are teams managing ESG/sustainability risks?"' },
 ];
 
 const CHOICE_COLORS = {
@@ -61,7 +61,8 @@ export default function PlatformAnalytics({ visibility = null }) {
                         key={t.id}
                         className={`${styles.tab} ${tab === t.id ? styles.tabActive : ''}`}
                         onClick={() => setTab(t.id)}
-                        title={t.title}
+                        data-tooltip={t.title}
+                        data-tooltip-pos="below"
                     >
                         {t.label}
                     </button>

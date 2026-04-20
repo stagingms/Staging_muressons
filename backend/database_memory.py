@@ -23,9 +23,13 @@ _save_lock = threading.Lock()
 
 # ── Seed Data ───────────────────────────────────────────────────
 
-def _load_seed() -> dict:
-    """Load the Round 1 seed JSON (relative to the backend directory)."""
-    seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / "seed_round1.json"
+def _load_seed(industry: str = "generic") -> dict:
+    """Load the Round 1 seed JSON depending on selected industry."""
+    if industry == "healthcare":
+        filename = "seed_healthcare.json"
+    else:
+        filename = "seed_round1.json"
+    seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / filename
     with open(seed_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -183,7 +187,12 @@ async def create_session(
                     and not existing.get("parent_cohort_id")):
                 raise ValueError(f"A cohort named '{cohort_name}' already exists.")
 
-    seed = _load_seed()
+    from admin_router import _god_mode_settings
+    # Determine industry/seed based on the requested decision paradigm.
+    # Paradigm-specific seeds take priority over the global god-mode industry setting.
+    _PARADIGM_INDUSTRY_MAP = {"healthcare": "healthcare"}
+    industry = _PARADIGM_INDUSTRY_MAP.get(decision_paradigm, _god_mode_settings.get("industry", "generic"))
+    seed = _load_seed(industry=industry)
     session_id = str(uuid.uuid4())
     global_state_id = str(uuid.uuid4())
 
@@ -246,20 +255,28 @@ async def create_session(
         "green_transition_fund": green_fund,
         "tipping_point_active": False,
         "pending_capex_projects": [],
+        "inflation_index": 0.025,
+        "competitor_ebitda": round(sum(b["revenue_base"] - b["opex_base"] for b in bus), 2),
+        # SDG Edition metrics (zeroed for non-SDG paradigms)
+        "political_capital": gs.get("political_capital", 50.0),
+        "community_trust_score": gs.get("community_trust_score", 50.0),
+        "global_emissions_intensity": gs.get("global_emissions_intensity", 0.0),
     }
 
     _global_states[session_id] = [global_state]
     _bu_states[session_id] = {1: copy.deepcopy(bus)}
     _persist()
 
+    # FIX AUDIT-004: Return the same god-mode-adjusted values that were
+    # actually stored in _global_states, not the raw seed defaults.
     return {
         "session_id": session_id,
         "round_number": 1,
         "global_state": {
-            "corporate_treasury": gs["corporate_treasury_usd"],
-            "group_reputation": gs["group_reputation_score"],
-            "synergy_multiplier": gs["group_synergy_multiplier"],
-            "cost_of_capital": gs["cost_of_capital_rate"],
+            "corporate_treasury": treasury,
+            "group_reputation": reputation,
+            "synergy_multiplier": synergy,
+            "cost_of_capital": coc,
             "active_event_flags": {
                 **gs.get("active_event_flags", {}),
                 "loan_interest_rate": loan_interest_rate
@@ -267,9 +284,11 @@ async def create_session(
             "historical_ebitda": baseline_ebitda,
             "tco2e_emissions": baseline_tco2e,
             "vrio_capabilities": baseline_vrio,
-            "green_transition_fund": 0.0,
+            "green_transition_fund": green_fund,
             "tipping_point_active": False,
             "pending_capex_projects": [],
+            "inflation_index": 0.025,
+            "competitor_ebitda": baseline_ebitda,
         },
         "business_units": seed["business_units"],
     }
@@ -373,9 +392,16 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "saved_decision_choice": grs.get("saved_decision_choice"),
             "materiality_budget_allocated": grs.get("materiality_budget_allocated"),
             "materiality_bu_id": grs.get("materiality_bu_id"),
+            "csrd_completed": grs.get("csrd_completed", False),
             "green_transition_fund": float(grs.get("green_transition_fund", 0.0)),
             "tipping_point_active": grs.get("tipping_point_active", False),
             "pending_capex_projects": grs.get("pending_capex_projects", []),
+            "inflation_index": float(grs.get("inflation_index", 0.025)),
+            "competitor_ebitda": float(grs.get("competitor_ebitda", 0.0)),
+            # SDG Edition metrics
+            "political_capital": float(grs.get("political_capital", 50.0)),
+            "community_trust_score": float(grs.get("community_trust_score", 50.0)),
+            "global_emissions_intensity": float(grs.get("global_emissions_intensity", 0.0)),
         },
         "bu_states": [
             {
@@ -388,6 +414,20 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
                 "governance_risk_score": float(bu.get("governance_risk_score", 0)),
                 "water_dependency": float(bu.get("water_dependency", 0)),
                 "carbon_intensity": float(bu.get("carbon_intensity", 0)),
+                "staff_burnout_index": float(bu.get("staff_burnout_index", 0)),
+                "bed_capacity_utilization": float(bu.get("bed_capacity_utilization", 0)),
+                "patient_outcomes_score": float(bu.get("patient_outcomes_score", 0)),
+                # SDG cluster scores (UN SDG Edition)
+                "basic_needs": float(bu.get("basic_needs", 0)),
+                "human_capital": float(bu.get("human_capital", 0)),
+                "sustainable_growth": float(bu.get("sustainable_growth", 0)),
+                "planet": float(bu.get("planet", 0)),
+                "governance": float(bu.get("governance", 0)),
+                "partnerships": float(bu.get("partnerships", 0)),
+                "population": int(bu.get("population", 0)),
+                "migration_pressure": float(bu.get("migration_pressure", 0)),
+                "institutional_leakage_multiplier": float(bu.get("institutional_leakage_multiplier", 1.0)),
+                "sanitation_miracle_bonus": float(bu.get("sanitation_miracle_bonus", 1.0)),
                 "risk_factors": bu.get("risk_factors") or {},
             }
             for bu in bus
@@ -419,6 +459,10 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                 "green_transition_fund": float(grs.get("green_transition_fund", 0.0)),
                 "tipping_point_active": grs.get("tipping_point_active", False),
                 "pending_capex_projects": grs.get("pending_capex_projects", []),
+                # SDG Edition metrics
+                "political_capital": float(grs.get("political_capital", 50.0)),
+                "community_trust_score": float(grs.get("community_trust_score", 50.0)),
+                "global_emissions_intensity": float(grs.get("global_emissions_intensity", 0.0)),
             },
             "business_units": [
                 {
@@ -474,9 +518,16 @@ async def insert_next_round(
         "saved_decision_choice": global_state.get("saved_decision_choice"),
         "materiality_budget_allocated": global_state.get("materiality_budget_allocated"),
         "materiality_bu_id": global_state.get("materiality_bu_id"),
+        "csrd_completed": global_state.get("csrd_completed", False),
         "green_transition_fund": global_state.get("green_transition_fund", 0.0),
         "tipping_point_active": global_state.get("tipping_point_active", False),
         "pending_capex_projects": global_state.get("pending_capex_projects", []),
+        "inflation_index": global_state.get("inflation_index", 0.025),
+        "competitor_ebitda": global_state.get("competitor_ebitda", 0.0),
+        # SDG Edition metrics
+        "political_capital": global_state.get("political_capital", 50.0),
+        "community_trust_score": global_state.get("community_trust_score", 50.0),
+        "global_emissions_intensity": global_state.get("global_emissions_intensity", 0.0),
     }
 
     if session_id not in _global_states:
@@ -533,19 +584,6 @@ async def get_decision_log(session_id: str) -> list[dict]:
     return results
 
 
-async def get_child_sessions(session_id: str) -> list[dict]:
-    """Return all child player sessions under a parent cohort session."""
-    children = []
-    for sid, sess in _sessions.items():
-        if sess.get("parent_cohort_id") == session_id:
-            children.append({
-                "session_id": sid,
-                "player_id": sess.get("player_id", ""),
-                "cohort_name": sess.get("cohort_name", ""),
-                "parent_cohort_id": session_id,
-            })
-    return children
-
 
 # ── Admin / God Mode Operations ───────────────────────────────
 
@@ -568,6 +606,7 @@ async def fetch_all_sessions() -> list[dict]:
             "player_id": s.get("player_id"),
             "parent_cohort_id": s.get("parent_cohort_id"),
             "registered_players": s.get("registered_players", []),
+            "decision_paradigm": s.get("decision_paradigm", "legacy_abc"),
             "deleted_at": s.get("deleted_at"),
         }
         for s in sorted(
@@ -623,9 +662,16 @@ async def update_latest_global_state(
     latest["saved_decision_choice"] = global_state.get("saved_decision_choice")
     latest["materiality_budget_allocated"] = global_state.get("materiality_budget_allocated")
     latest["materiality_bu_id"] = global_state.get("materiality_bu_id")
+    latest["csrd_completed"] = global_state.get("csrd_completed", latest.get("csrd_completed", False))
     latest["green_transition_fund"] = global_state.get("green_transition_fund", latest.get("green_transition_fund", 0.0))
     latest["tipping_point_active"] = global_state.get("tipping_point_active", latest.get("tipping_point_active", False))
     latest["pending_capex_projects"] = global_state.get("pending_capex_projects", latest.get("pending_capex_projects", []))
+    latest["inflation_index"] = global_state.get("inflation_index", latest.get("inflation_index", 0.025))
+    latest["competitor_ebitda"] = global_state.get("competitor_ebitda", latest.get("competitor_ebitda", 0.0))
+    # SDG Edition metrics
+    latest["political_capital"] = global_state.get("political_capital", latest.get("political_capital", 50.0))
+    latest["community_trust_score"] = global_state.get("community_trust_score", latest.get("community_trust_score", 50.0))
+    latest["global_emissions_intensity"] = global_state.get("global_emissions_intensity", latest.get("global_emissions_intensity", 0.0))
 
     rn = latest["round_number"]
     if session_id in _bu_states:
@@ -754,6 +800,8 @@ async def reset_session_to_round1(session_id: str) -> bool:
         "green_transition_fund": 0.0,
         "tipping_point_active": False,
         "pending_capex_projects": [],
+        "inflation_index": 0.025,
+        "competitor_ebitda": baseline_ebitda,
     }
 
     # Reset this session's state

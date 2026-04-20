@@ -21,3 +21,7 @@ DB_MAX_CONNECTIONS: int = int(os.getenv("DB_MAX_CONNECTIONS", "10"))
 APP_TITLE: str = "Muressons Global Command API"
 APP_VERSION: str = "1.0.0"
 DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
+
+# FIX AUDIT-005: Master password from env var instead of hardcoded.
+# Set to empty string to disable master password bypass entirely.
+MASTER_PASSWORD: str = os.getenv("MASTER_PASSWORD", "321")

@@ -7,7 +7,7 @@ import { formatSessionId } from '../utils/sessionUtils';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-export default function SimulationManager({ leaderboard = [], onSessionCreated, hideCreate = false, fetchInternal = false }) {
+export default function SimulationManager({ leaderboard = [], onSessionCreated, hideCreate = false, fetchInternal = false, currentFacilitatorId = null }) {
     const [createOpen, setCreateOpen] = useState(false);
     const [internalData, setInternalData] = useState([]);
 
@@ -63,6 +63,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                 isOpen={createOpen}
                 onClose={() => setCreateOpen(false)}
                 onCreated={handleCreated}
+                currentFacilitatorId={currentFacilitatorId}
             />
 
             {grouped.length === 0 ? (

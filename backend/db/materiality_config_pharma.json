@@ -8,7 +8,14 @@
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 1800000
+      "mitigation_cost_usd": 1800000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "drug_safety",
@@ -17,7 +24,14 @@
       "category": "social",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 7500000
+      "mitigation_cost_usd": 7500000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "clinical_trial_ethics",
@@ -26,7 +40,14 @@
       "category": "social",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 3000000
+      "mitigation_cost_usd": 3000000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "water_scarcity_pharma",
@@ -35,7 +56,14 @@
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 2500000
+      "mitigation_cost_usd": 2500000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "generic_access",
@@ -44,7 +72,14 @@
       "category": "social",
       "financial_impact": "medium",
       "societal_impact": "high",
-      "mitigation_cost_usd": 1200000
+      "mitigation_cost_usd": 1200000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "cold_chain_carbon",
@@ -53,7 +88,14 @@
       "category": "ecological",
       "financial_impact": "medium",
       "societal_impact": "medium",
-      "mitigation_cost_usd": 800000
+      "mitigation_cost_usd": 800000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "pharma_paper_recycling",
@@ -62,7 +104,14 @@
       "category": "ecological",
       "financial_impact": "low",
       "societal_impact": "low",
-      "mitigation_cost_usd": 50000
+      "mitigation_cost_usd": 50000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "pharma_earth_day",
@@ -71,7 +120,14 @@
       "category": "social",
       "financial_impact": "low",
       "societal_impact": "low",
-      "mitigation_cost_usd": 25000
+      "mitigation_cost_usd": 25000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     }
   ],
   "interdependencies": []

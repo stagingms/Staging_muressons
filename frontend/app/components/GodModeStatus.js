@@ -8,6 +8,11 @@ export default function GodModeStatus() {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    // Global settings state (merged from GlobalSettings)
+    const [settings, setSettings] = useState(null);
+    const [freezeMsg, setFreezeMsg] = useState('System maintenance in progress.');
+    const [settingsStatus, setSettingsStatus] = useState('');
+
     const load = async () => {
         try {
             const res = await fetch(`${API}/api/admin/god/system-status`);
@@ -16,7 +21,34 @@ export default function GodModeStatus() {
         setLoading(false);
     };
 
-    useEffect(() => { load(); const i = setInterval(load, 10000); return () => clearInterval(i); }, []);
+    const loadSettings = async () => {
+        try {
+            const res = await fetch(`${API}/api/admin/god/settings`);
+            if (res.ok) setSettings(await res.json());
+        } catch {}
+    };
+
+    useEffect(() => {
+        load();
+        loadSettings();
+        const i = setInterval(load, 10000);
+        return () => clearInterval(i);
+    }, []);
+
+    // ── Global Settings handlers ──
+    const handleFreeze = async () => {
+        if (!confirm('⚠️ This will freeze ALL active simulations. Continue?')) return;
+        const res = await fetch(`${API}/api/admin/god/freeze`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: freezeMsg }),
+        });
+        if (res.ok) { load(); loadSettings(); setSettingsStatus('System FROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
+    };
+
+    const handleUnfreeze = async () => {
+        const res = await fetch(`${API}/api/admin/god/unfreeze`, { method: 'POST' });
+        if (res.ok) { load(); loadSettings(); setSettingsStatus('System UNFROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
+    };
 
     if (loading) return <div className={styles.loading}>Loading system status…</div>;
     if (!status) return <div className={styles.error}>Failed to load system status</div>;
@@ -72,6 +104,65 @@ export default function GodModeStatus() {
                     <div className={styles.bar}><div className={styles.barFill} style={{ width: `${Math.min(status.avg_reputation, 100)}%`, background: '#f59e0b' }} /></div>
                 </div>
             </div>
+
+            {/* ── Platform Controls (merged from GlobalSettings) ── */}
+            {settings && (
+                <div className={styles.section}>
+                    <h3>⚙️ Platform Controls</h3>
+                    {settingsStatus && (
+                        <div style={{
+                            marginBottom: '1rem', padding: '0.5rem 1rem', borderRadius: '6px',
+                            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                            fontSize: '0.82rem', fontWeight: 600, color: '#10b981',
+                        }}>
+                            {settingsStatus}
+                        </div>
+                    )}
+                    <div className={styles.controlsGrid}>
+                        {/* Emergency Freeze */}
+                        <div className={`${styles.controlCard} ${settings.system_frozen ? styles.controlCardFrozen : ''}`}>
+                            <div>
+                                <div className={styles.controlTitle}>🚨 Emergency Freeze</div>
+                                <div className={styles.controlDesc}>
+                                    {settings.system_frozen
+                                        ? `❄️ Frozen since ${new Date(settings.freeze_started_at).toLocaleString()}`
+                                        : 'Instantly pause all simulations with a maintenance banner.'}
+                                </div>
+                            </div>
+                            {!settings.system_frozen ? (
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                    <input
+                                        type="text"
+                                        placeholder="Freeze message…"
+                                        value={freezeMsg}
+                                        onChange={e => setFreezeMsg(e.target.value)}
+                                        style={{
+                                            padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem',
+                                            border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
+                                            color: 'var(--text-primary)', width: '180px',
+                                        }}
+                                    />
+                                    <button onClick={handleFreeze} style={{
+                                        padding: '0.4rem 0.8rem', borderRadius: '6px', border: 'none',
+                                        background: '#ef4444', color: '#fff', fontWeight: 700, fontSize: '0.75rem',
+                                        cursor: 'pointer', whiteSpace: 'nowrap',
+                                    }}>
+                                        🔴 Freeze
+                                    </button>
+                                </div>
+                            ) : (
+                                <button onClick={handleUnfreeze} style={{
+                                    padding: '0.4rem 0.8rem', borderRadius: '6px', border: 'none',
+                                    background: '#10b981', color: '#fff', fontWeight: 700, fontSize: '0.75rem',
+                                    cursor: 'pointer', whiteSpace: 'nowrap',
+                                }}>
+                                    🟢 Unfreeze
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {Object.keys(status.round_distribution).length > 0 && (
                 <div className={styles.section}>

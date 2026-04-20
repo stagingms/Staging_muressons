@@ -20,8 +20,12 @@ const CHOICE_LABELS = {
 const BU_LABELS = {
     pharma: '💊 Pharma',
     electronics: '🔌 Electronics',
-    consumer_goods: '🛒 Consumer',
+    consumer_goods: '🛒 Consumer Goods',
     software: '💻 Software',
+    hospitals: '🏥 Hospitals',
+    clinics: '🩺 Clinics',
+    specialised_care: '🔬 Specialised Care',
+    telehealth: '📱 Telehealth',
 };
 
 export default function AuditTrail({ sessionId }) {

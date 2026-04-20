@@ -13,6 +13,9 @@ import { DETAILED_DESCRIPTIONS } from '../utils/detailedDescriptions';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, ReferenceLine } from 'recharts';
 import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
 import { roundToQuarter } from '../utils/roundToQuarter';
+import EngineEventsPanel from './EngineEventsPanel';
+import CompetitorIntelligence from './CompetitorIntelligence';
+import DecisionHistory from './DecisionHistory';
 
 // AI Board Member Personas (Improvement #4.2)
 const BOARD_PERSONAS = {
@@ -83,6 +86,19 @@ const ROUND_TITLES = {
   10: 'Grand Finale — Activist Ultimatum',
 };
 
+const ROUND_TITLES_SDG = {
+  1: 'Mandate Selection — SDG Prioritisation',
+  2: 'WASH Crisis — SDG 6',
+  3: 'Education Investment — SDG 4 & 8',
+  4: 'Pandemic Response — SDG 3',
+  5: 'Climate Resilience — SDG 13',
+  6: 'Digital Divide — SDG 9 & 17',
+  7: 'Resource Extraction — SDG 12 & 15',
+  8: 'Just Transition — SDG 8 & 10',
+  9: 'Debt & Finance — SDG 1 & 17',
+  10: 'Legacy of Leadership — All SDGs',
+};
+
 const AREA_ICONS = { energy: '⚡', operations: '🏭', supply_chain: '🔗', offsetting: '🌱' };
 
 // Simulation starts at the current calendar year
@@ -95,6 +111,9 @@ export default function ExecutiveCockpit({
   sim,
   globalState,
   businessUnits,
+  actionToolbar = null,
+  roundChecklist = null,
+  isHealthcare,
   roundNumber,
   history,
   roundConfig,
@@ -123,6 +142,7 @@ export default function ExecutiveCockpit({
   hasAllocated,
   hasReadBriefing,
   onLogout,
+  lastSavedAt,
 }) {
   // Sequential gating: determine if round prerequisite is met
   const hasSecondStage = roundNumber === 1 || roundNumber === 2;
@@ -135,6 +155,7 @@ export default function ExecutiveCockpit({
 
   // Logout confirmation (2-click to prevent accidents)
   const [logoutConfirm, setLogoutConfirm] = useState(false);
+  const [rightPanelTab, setRightPanelTab] = useState('mailbox');
   useEffect(() => {
     if (!logoutConfirm) return;
     const t = setTimeout(() => setLogoutConfirm(false), 3500);
@@ -157,20 +178,62 @@ export default function ExecutiveCockpit({
   const tippingPointActive = globalState?.tipping_point_active || false;
   const pendingProjects = globalState?.pending_capex_projects || [];
 
+  // SDG Edition Detection
+  const isSDG = decisionParadigm === 'un_sdg';
+  const politicalCapital = globalState?.political_capital || 0;
+  const communityTrust = globalState?.community_trust_score || 0;
+  const globalEmissions = globalState?.global_emissions_intensity || 0;
+  const activeRoundTitles = isSDG ? ROUND_TITLES_SDG : ROUND_TITLES;
+
+  // Healthcare Edition Extra Metrics
+  const systemBurnout = useMemo(() => {
+    if (!isHealthcare || !businessUnits?.length) return 0;
+    const total = businessUnits.reduce((acc, bu) => acc + (bu.staff_burnout_index || 0), 0);
+    return total / businessUnits.length;
+  }, [isHealthcare, businessUnits]);
+
+  const totalBedCapacity = useMemo(() => {
+    if (!isHealthcare || !businessUnits?.length) return 0;
+    // bed_capacity_utilization is stored as a 0–100 utilisation %; derive absolute count for display
+    return businessUnits.reduce((acc, bu) => acc + (bu.bed_capacity_utilization || 0), 0);
+  }, [isHealthcare, businessUnits]);
+
   // Build history data for charts
   const historyData = useMemo(() => {
-    const arr = (history || []).map(h => ({
-      round: h.round_number,
-      year: roundToQuarter(h.round_number, BASE_YEAR).year,
-      ebitda: h.global_state?.historical_ebitda || 0,
-      tco2e: h.global_state?.tco2e_emissions || 0,
-      reputation: h.global_state?.group_reputation || 50,
-      treasury: h.global_state?.corporate_treasury || 0,
-    }));
+    const raw = (history || []);
+    const arr = raw.map((h, idx) => {
+      const prev = idx > 0 ? raw[idx - 1] : null;
+      return {
+        round: h.round_number,
+        year: roundToQuarter(h.round_number, BASE_YEAR).year,
+        ebitda: h.global_state?.historical_ebitda || 0,
+        tco2e: h.global_state?.tco2e_emissions || 0,
+        reputation: h.global_state?.group_reputation || 50,
+        treasury: h.global_state?.corporate_treasury || 0,
+        synergy: h.global_state?.synergy_multiplier || 1.0,
+        previous_ebitda: prev?.global_state?.historical_ebitda || 0,
+        previous_treasury: prev?.global_state?.corporate_treasury || 0,
+        previous_reputation: prev?.global_state?.group_reputation || 50,
+        previous_tco2e: prev?.global_state?.tco2e_emissions || 0,
+        bu_count: h.business_units?.length || 0,
+        decisions: h.global_state?.active_event_flags?.round_decisions || null,
+      };
+    });
     // Add current round only if not already in history
     const roundsInHistory = new Set(arr.map(d => d.round));
     if (!roundsInHistory.has(roundNumber)) {
-      arr.push({ round: roundNumber, year: roundToQuarter(roundNumber, BASE_YEAR).year, ebitda, tco2e, reputation, treasury });
+      const lastEntry = arr[arr.length - 1];
+      arr.push({
+        round: roundNumber, year: roundToQuarter(roundNumber, BASE_YEAR).year,
+        ebitda, tco2e, reputation, treasury,
+        synergy: globalState?.synergy_multiplier || 1.0,
+        previous_ebitda: lastEntry?.ebitda || 0,
+        previous_treasury: lastEntry?.treasury || 0,
+        previous_reputation: lastEntry?.reputation || 50,
+        previous_tco2e: lastEntry?.tco2e || 0,
+        bu_count: businessUnits?.length || 0,
+        decisions: null,
+      });
     }
     // When commitResults are available (results overlay showing), append
     // the post-commit state as the next data point so trends show the change
@@ -184,11 +247,18 @@ export default function ExecutiveCockpit({
           tco2e: commitResults.globalState.tco2e_emissions || 0,
           reputation: commitResults.globalState.group_reputation || 50,
           treasury: commitResults.globalState.corporate_treasury || 0,
+          synergy: commitResults.globalState.synergy_multiplier || 1.0,
+          previous_ebitda: ebitda,
+          previous_treasury: treasury,
+          previous_reputation: reputation,
+          previous_tco2e: tco2e,
+          bu_count: commitResults.businessUnits?.length || 0,
+          decisions: null,
         });
       }
     }
     return arr;
-  }, [history, roundNumber, ebitda, tco2e, reputation, treasury, commitResults]);
+  }, [history, roundNumber, ebitda, tco2e, reputation, treasury, commitResults, globalState, businessUnits]);
 
   // Projected costs from staged decision
   const [projectedCost, setProjectedCost] = useState(0);
@@ -277,25 +347,29 @@ export default function ExecutiveCockpit({
     if (crisisInfo) {
       items.push({ type: 'info', text: `📋 ${crisisInfo.title || `Round ${roundNumber} Crisis`}: ${crisisInfo.description || ''}` });
     }
-    if (events?.talent_penalty_applied > 1) {
-      items.push({ type: 'alert', text: `🧠 Brain-Drain: Software OPEX inflated ${((events.talent_penalty_applied - 1) * 100).toFixed(1)}%` });
+    
+    // Dynamic Engine Events
+    const flags = globalState?.active_event_flags || {};
+    if (flags.tech_lock_in_active) {
+      items.push({ type: 'alert', text: '📉 Tech sector consolidation: non-dominant platforms facing severe integration resistance.' });
     }
-    if (events?.loan_interest_payment > 0) {
-      items.push({ type: 'alert', text: `🏦 Loan Interest: -${fmtCurrency(events.loan_interest_payment)} charged` });
+    if (flags.inflation_active || globalState?.inflation_index > 1.0) {
+      const rate = ((globalState?.inflation_index - 1) * 100).toFixed(1);
+      items.push({ type: 'info', text: `💸 Global inflation print at ${rate !== "NaN" && rate > 0 ? rate : "2.5"}%. OPEX scaling across all markets.` });
     }
-    if (events?.strike_probabilities) {
-      const highs = Object.entries(events.strike_probabilities).filter(([, p]) => p > 0.3);
-      if (highs.length) {
-        items.push({ type: 'alert', text: `⚠️ Strike Risk: ${highs.map(([b, p]) => `${b} ${(p * 100).toFixed(0)}%`).join(', ')}` });
-      }
+    if (flags.greenwashing_penalty_active) {
+      items.push({ type: 'alert', text: `🎭 Public backlash over corporate greenwashing. Institutional trust dropping.` });
     }
-    // Filler macro events
-    if (items.length < 3) {
-      items.push({ type: 'info', text: '📈 Global ESG regulations tightening — compliance costs expected to rise in emerging markets.' });
-      items.push({ type: 'info', text: '🌍 COP31 summit outcomes: Net-zero commitments accelerated to 2045 for heavy industries.' });
+    if (flags.cogs_penalty_ratio > 1) {
+      items.push({ type: 'alert', text: `⚙️ Supply chain disruptions hitting global shipping lanes.` });
+    }
+    
+    // Fallback
+    if (items.length < 2) {
+      items.push({ type: 'info', text: '📊 Markets stable ahead of next quarter earnings reports.' });
     }
     return items;
-  }, [crisisInfo, events, roundNumber]);
+  }, [crisisInfo, events, roundNumber, globalState]);
 
   // Active event popup (traps/penalties)
   const [blackSwanAlert, setBlackSwanAlert] = useState(null);
@@ -352,7 +426,7 @@ export default function ExecutiveCockpit({
           <span className={styles.headerDivider} />
           <span className={styles.headerModule}>Turn {roundNumber}</span>
           <span className={styles.headerDivider} />
-          <span>{ROUND_TITLES[roundNumber] || ''}</span>
+          <span>{activeRoundTitles[roundNumber] || ''}</span>
           {tippingPointActive && (
             <motion.span
               animate={{ opacity: [1, 0.5, 1] }}
@@ -368,6 +442,25 @@ export default function ExecutiveCockpit({
             </motion.span>
           )}
           <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
+          <span style={{
+            marginLeft: 10, padding: '2px 10px', borderRadius: 12,
+            background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)',
+            fontSize: '0.62rem', fontWeight: 700, textTransform: 'uppercase',
+            letterSpacing: '0.04em', color: '#818cf8', whiteSpace: 'nowrap',
+          }}>
+            {{
+              'legacy_abc': 'Narrative Crises',
+              'multi_toggles': 'Strategic Pillars',
+              'advanced_climate': 'Advanced Climate',
+              'healthcare': 'Healthcare Edition',
+              'un_sdg': 'UN SDG Edition'
+            }[decisionParadigm] || 'Simulation Active'}
+          </span>
+          {lastSavedAt && (
+             <span style={{ marginLeft: 16, fontSize: '0.65rem', color: '#10b981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+               ✓ Saved {lastSavedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+             </span>
+          )}
         </div>
 
         <div className={styles.headerRight}>
@@ -376,72 +469,6 @@ export default function ExecutiveCockpit({
               {projectedCost > 0 ? '↓' : '↑'} {fmtCurrency(Math.abs(projectedCost))} staged
             </span>
           )}
-          <motion.div
-            className={`${styles.treasuryDisplay} ${treasuryFlash ? styles.treasuryFlash : ''} ${kpiFlashActive ? styles.kpiFlash : ''}`}
-            animate={treasuryFlash ? { scale: [1, 1.05, 1] } : {}}
-            transition={{ duration: 0.4 }}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 2 }}
-          >
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-              <span style={{ fontSize: '0.65rem', opacity: 0.5 }}>USD</span>
-              {fmtCurrency(treasury)}
-            </div>
-            {greenFund > 0 && (
-              <div style={{
-                fontSize: '0.55rem', color: '#4ade80', fontWeight: 600,
-                display: 'flex', alignItems: 'center', gap: 3
-              }}>
-                <span style={{ fontSize: '0.65rem' }}>🌱</span> Fund: {fmtCurrency(greenFund)}
-              </div>
-            )}
-            <div style={{ fontSize: '0.5rem', color: '#94a3b8', letterSpacing: '0.02em', marginTop: -2 }}>
-              CoC: {(costOfCapital * 100).toFixed(1)}%
-            </div>
-          </motion.div>
-
-          {/* Logout Button */}
-          {onLogout && (
-            <button
-              onClick={() => {
-                if (logoutConfirm) {
-                  onLogout();
-                } else {
-                  setLogoutConfirm(true);
-                }
-              }}
-              title={logoutConfirm ? 'Click again to confirm logout' : 'Log out — your progress is auto-saved'}
-              style={{
-                marginLeft: '0.75rem',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.35rem',
-                padding: logoutConfirm ? '0.35rem 0.85rem' : '0.35rem 0.65rem',
-                borderRadius: '8px',
-                border: logoutConfirm
-                  ? '1px solid rgba(251,113,133,0.7)'
-                  : '1px solid rgba(255,255,255,0.12)',
-                background: logoutConfirm
-                  ? 'rgba(239,68,68,0.18)'
-                  : 'rgba(255,255,255,0.06)',
-                color: logoutConfirm ? '#fca5a5' : '#94a3b8',
-                fontSize: '0.7rem',
-                fontWeight: 600,
-                letterSpacing: '0.04em',
-                cursor: 'pointer',
-                transition: 'all 0.2s',
-                whiteSpace: 'nowrap',
-                backdropFilter: 'blur(4px)',
-              }}
-            >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-                <polyline points="16 17 21 12 16 7"/>
-                <line x1="21" y1="12" x2="9" y2="12"/>
-              </svg>
-              {logoutConfirm ? 'Confirm Logout?' : 'Log out'}
-            </button>
-          )}
         </div>
       </header>
 
@@ -449,8 +476,105 @@ export default function ExecutiveCockpit({
       <div className={styles.mainContent}>
 
         {/* ── LEFT: KPI Dashboard ─── */}
-        <aside className={`${styles.leftSidebar} ${kpiFlashActive ? styles.kpiFlash : ''}`}>
-          <KPIDashboard
+        <aside id="tour-kpi-target" className={`${styles.leftSidebar} ${kpiFlashActive ? styles.kpiFlash : ''}`}>
+          
+          {/* Resources Panel (2×2 grid) — moved ABOVE KPI charts */}
+          <div style={{ background: '#0a0e1a', borderBottom: '1px solid rgba(0, 229, 195, 0.2)', paddingTop: 10, paddingBottom: 10 }}>
+          <div className={styles.resourcesPanel}>
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>💰 Treasury</div>
+              <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
+            </div>
+            {!isHealthcare && (
+              <div className={styles.resourceCard}>
+                <div className={styles.resourceLabel}>🌱 Green Fund</div>
+                <div className={styles.resourceValue} style={{ color: '#4ade80' }}>{fmtCurrency(greenFund)}</div>
+              </div>
+            )}
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>🌍 Reputation</div>
+              <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
+            </div>
+            {!isHealthcare && (
+              <div className={styles.resourceCard}>
+                <div className={styles.resourceLabel}>🏭 Carbon</div>
+                <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>t</span></div>
+              </div>
+            )}
+            <div className={styles.resourceCard}>
+              <div className={styles.resourceLabel}>📈 EBITDA</div>
+              <div className={styles.resourceValue}>{fmtCurrency(ebitda)}</div>
+            </div>
+            {isHealthcare && (
+              <>
+                <div className={styles.resourceCard}>
+                  <div className={styles.resourceLabel}>🩺 Avg Burnout</div>
+                  <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? '#ef4444' : systemBurnout > 50 ? '#f59e0b' : '#10b981' }}>
+                    {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                  </div>
+                </div>
+                <div className={styles.resourceCard}>
+                  <div className={styles.resourceLabel}>🛏️ Bed Util.</div>
+                  <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? '#ef4444' : totalBedCapacity > 70 ? '#f59e0b' : '#10b981' }}>
+                    {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>%</span>
+                  </div>
+                </div>
+              </>
+            )}
+            {isSDG && (
+              <>
+                <div className={styles.resourceCard}>
+                  <div className={styles.resourceLabel}>🏛️ Political Capital</div>
+                  <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? '#10b981' : politicalCapital > 30 ? '#f59e0b' : '#ef4444' }}>
+                    {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                  </div>
+                </div>
+                <div className={styles.resourceCard}>
+                  <div className={styles.resourceLabel}>🤝 Community Trust</div>
+                  <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? '#10b981' : communityTrust > 30 ? '#f59e0b' : '#ef4444' }}>
+                    {communityTrust.toFixed(0)}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                  </div>
+                </div>
+                <div className={styles.resourceCard}>
+                  <div className={styles.resourceLabel}>🌡️ Emissions Int.</div>
+                  <div className={styles.resourceValue} style={{ color: globalEmissions > 100 ? '#ef4444' : globalEmissions > 60 ? '#f59e0b' : '#10b981' }}>
+                    {globalEmissions.toFixed(0)}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          
+          {/* P1: Macro & Strategy Indicators */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '0 12px 10px 12px', marginTop: 12 }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: '1px solid rgba(0, 229, 195, 0.1)' }}>
+                <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700, marginBottom: 4 }}>Synergy</div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: (globalState?.synergy_multiplier || 1) < 1 ? '#ef4444' : '#00e5c3', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {((globalState?.synergy_multiplier || 1) * 100).toFixed(0)}%
+                </div>
+              </div>
+              <div style={{ flex: 1, padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: '1px solid #334155' }}>
+                <div style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700, marginBottom: 4 }}>Inflation</div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 800, color: (globalState?.inflation_index || 1) > 1 ? '#f59e0b' : '#f8fafc', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {(((globalState?.inflation_index || 1) - 1) * 100).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+            <div style={{ padding: '8px 10px', background: 'rgba(14, 20, 36, 0.4)', borderRadius: 8, border: '1px solid #334155' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '0.6rem', textTransform: 'uppercase', color: '#94a3b8', fontWeight: 700 }}>Cost of Capital</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#f8fafc', fontFamily: 'JetBrains Mono, monospace' }}>
+                  {((globalState?.cost_of_capital || 0.05) * 100).toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          </div>
+
+          </div>
+
+          <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 10 }}>
+            <KPIDashboard
             historyData={historyData}
             ebitda={ebitda}
             tco2e={tco2e}
@@ -462,44 +586,39 @@ export default function ExecutiveCockpit({
             roundNumber={roundNumber}
             events={events}
           />
-          {/* Resources Panel (2×2 grid) — moved below KPI charts */}
-          <div className={styles.resourcesPanel}>
-            <div className={styles.resourceCard}>
-              <div className={styles.resourceLabel}>💰 Treasury</div>
-              <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
-            </div>
-            <div className={styles.resourceCard}>
-              <div className={styles.resourceLabel}>🌱 Green Fund</div>
-              <div className={styles.resourceValue} style={{ color: '#4ade80' }}>{fmtCurrency(greenFund)}</div>
-            </div>
-            <div className={styles.resourceCard}>
-              <div className={styles.resourceLabel}>🌍 Reputation</div>
-              <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
-            </div>
-            <div className={styles.resourceCard}>
-              <div className={styles.resourceLabel}>🏭 Carbon</div>
-              <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.55rem', color: '#475569', marginLeft: 2 }}>t</span></div>
-            </div>
-            <div className={styles.resourceCard}>
-              <div className={styles.resourceLabel}>📈 EBITDA</div>
-              <div className={styles.resourceValue}>{fmtCurrency(ebitda)}</div>
-            </div>
           </div>
+
+          {/* Action Toolbar placed at the bottom of the left panel */}
+          {actionToolbar && (
+            <div style={{ borderTop: '1px solid rgba(0, 229, 195, 0.2)', background: '#0a0e1a', paddingTop: 10, paddingBottom: 10, display: 'flex', justifyContent: 'center' }}>
+              {actionToolbar}
+            </div>
+          )}
         </aside>
 
         {/* ── CENTER: Briefing + Decisions ─── */}
         <main className={styles.centerConsole}>
+          
+          {/* Round Checklist natively rendered rather than floating */}
+          {roundChecklist && (
+            <div style={{ padding: '4px 16px', flexShrink: 0, marginTop: '8px' }}>
+              {roundChecklist}
+            </div>
+          )}
+
           {/* Briefing Panel */}
           <div className={styles.briefingArea} id="tour-briefing-target">
             <div className={styles.briefingHeader}>
               <span className={styles.briefingRound}>Round {roundNumber}</span>
-              <h2 className={styles.briefingTitle}>{ROUND_TITLES[roundNumber] || `Module ${roundNumber}`}</h2>
+              <h2 className={styles.briefingTitle}>{activeRoundTitles[roundNumber] || `Module ${roundNumber}`}</h2>
             </div>
             <div className={styles.briefingBody}>
               {crisisInfo?.description || crisisInfo?.narrative || (
                 <>The board expects decisive action this quarter. Review the crisis briefing in your mailbox and select a strategic response below. Your choice will affect treasury, reputation, and long-term resilience.</>
               )}
             </div>
+            
+            <EngineEventsPanel globalState={globalState} />
 
             {/* ── Round Gates ── */}
             {roundNumber === 1 && !hasCompletedStakeholderMap && (
@@ -565,7 +684,7 @@ export default function ExecutiveCockpit({
           </div>
 
           {/* Resource Allocation Matrix */}
-          <div className={styles.decisionArea} style={{ borderBottom: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0', paddingBottom: 8, position: 'relative' }}>
+          <div className={styles.decisionArea} style={{ flex: 'none', overflow: 'visible', borderBottom: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0', paddingBottom: 8, position: 'relative' }}>
             <div id="tour-capital-target">
             {/* Click-intercept: requires Strategic Decision to be made */}
             {!canAccessAllocation && (
@@ -590,13 +709,14 @@ export default function ExecutiveCockpit({
               globalState={globalState}
               businessUnits={businessUnits}
               allocations={allocations}
+              historyData={historyData}
               onAllocationsChange={canAccessAllocation ? onAllocationsChange : () => {}}
             />
             </div>
           </div>
 
           {/* Decision Workspace */}
-          <div className={styles.decisionArea} style={{ position: 'relative' }}>
+          <div className={styles.decisionArea} style={{ flex: 'none', overflow: 'visible', position: 'relative', marginTop: '16px' }}>
             <div id="tour-strategic-target">
             {/* Click-intercept: requires Briefing read + Second Stage (R1/R2) done */}
             {!canAccessStrategy && (
@@ -761,111 +881,198 @@ export default function ExecutiveCockpit({
               <div className={styles.breakdownContent}>
                 {hoveredOpt ? (
                   <p><strong>{hoveredOpt.title}:</strong> {hoveredOpt.desc}</p>
-                ) : decisionParadigm === 'legacy_abc' && decisionChoice ? (
-                  <p><strong>{options[decisionChoice]?.title}:</strong> {DETAILED_DESCRIPTIONS.narrative?.[roundNumber]?.[decisionChoice] || options[decisionChoice]?.description}</p>
+                ) : decisionParadigm === 'legacy_abc' ? (
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#64748b', marginBottom: 6 }}>Comparison Matrix</div>
+                    <table style={{ width: '100%', fontSize: '0.68rem', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.1)' }}>
+                          <th style={{ textAlign: 'left', paddingBottom: 4 }}>Option</th>
+                          <th style={{ textAlign: 'center', paddingBottom: 4 }}>Treasury Impact</th>
+                          <th style={{ textAlign: 'center', paddingBottom: 4 }}>Reputation</th>
+                          <th style={{ textAlign: 'center', paddingBottom: 4 }}>CO₂ / ESG</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(options).map(([optId, opt]) => (
+                          <tr key={optId} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
+                            <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
+                            <td style={{ textAlign: 'center', color: opt.impacts?.treasury < 0 ? '#16a34a' : (opt.impacts?.treasury > 0 ? '#ef4444' : '#64748b') }}>
+                              {opt.impacts?.treasury ? fmtCurrency(opt.impacts.treasury) : '—'}
+                            </td>
+                            <td style={{ textAlign: 'center', color: opt.impacts?.reputation > 0 ? '#16a34a' : (opt.impacts?.reputation < 0 ? '#ef4444' : '#64748b') }}>
+                              {opt.impacts?.reputation ? (opt.impacts.reputation > 0 ? '+' : '') + opt.impacts.reputation : '—'}
+                            </td>
+                            <td style={{ textAlign: 'center', color: opt.impacts?.carbon < 0 ? '#16a34a' : (opt.impacts?.carbon > 0 ? '#ef4444' : '#64748b') }}>
+                              {opt.impacts?.carbon ? (opt.impacts.carbon > 0 ? '+' : '') + opt.impacts.carbon + 't' : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 ) : (
                   <p className={styles.breakdownPlaceholder}>
-                    {decisionParadigm === 'multi_toggles' 
-                      ? "Hover over an active Strategic Pillar dropdown to view its detailed implications."
-                      : "Hover over a strategic option above to view its detailed implications."}
+                    Hover over an active Strategic Pillar dropdown to view its detailed implications.
                   </p>
                 )}
               </div>
             </div>
-            </div>
 
+            </div>
           </div>
+          
+          {/* Spacer to prevent Fixed RoundChecklist from overlapping bottom content */}
+          <div style={{ height: '80px', flexShrink: 0 }} />
         </main>
 
         {/* ── RIGHT SIDEBAR ─── */}
-        <aside className={styles.rightSidebar}>
+        <aside id="tour-intelligence-target" className={styles.rightSidebar}>
           {/* Resources link */}
-          <div className={styles.rightResources} style={{ padding: '4px 14px', cursor: 'pointer' }} onClick={onResourcesOpen}>
-            <span className={styles.resourcesLabel}>📎 Resources</span>
+          <div className={styles.rightResources} style={{ padding: '8px 14px', cursor: 'pointer', background: '#f1f5f9', fontWeight: 600 }} onClick={onResourcesOpen}>
+            <span className={styles.resourcesLabel}>📎 Simulation Resources</span>
             <span style={{ fontSize: '0.6rem', color: '#475569' }}>▶</span>
           </div>
 
-          {/* Executive Mailbox (40%) */}
-          <div className={styles.rightMailbox}>
-            <div className={styles.mailboxSection}>
-              <div className={styles.mailboxTitle}>
-                📬 Mailbox — Round {roundNumber}
-                {unreadCount > 0 && <span className={styles.mailboxBadge}>{unreadCount}</span>}
-              </div>
-              {currentMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className={styles.feedItem}
-                  onClick={() => { onMarkRead?.(msg.id); setExpandedMessage(msg); }}
-                  style={{ cursor: 'pointer', opacity: msg.read ? 0.6 : 1 }}
-                >
-                  {/* Improvement #4.2: AI Personas */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                    <span style={{ fontSize: '0.7rem' }}>{getPersona(msg).avatar}</span>
-                    <span style={{ fontSize: '0.55rem', fontWeight: 600, color: getPersona(msg).color }}>{getPersona(msg).name}</span>
-                  </div>
-                  <strong style={{ fontSize: '0.68rem', color: '#0f172a' }}>{msg.title}</strong>
-                  <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#334155' }}>{msg.body?.substring(0, 120)}...</p>
-                </div>
-              ))}
-              {currentMessages.length === 0 && (
-                <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center' }}>No messages this round</div>
-              )}
+          <CompetitorIntelligence globalState={globalState} ebitda={ebitda} />
 
-              {/* ── Previous Rounds Accordion ── */}
-              {(() => {
-                const archivedRounds = {};
-                (messages || []).filter(m => (m.round || 1) < roundNumber).forEach(m => {
-                  const r = m.round || 1;
-                  if (!archivedRounds[r]) archivedRounds[r] = [];
-                  archivedRounds[r].push(m);
-                });
-                const roundKeys = Object.keys(archivedRounds).sort((a, b) => Number(b) - Number(a));
-                if (roundKeys.length === 0) return null;
-                return roundKeys.map(rk => {
-                  const r = Number(rk);
-                  const items = archivedRounds[r];
-                  return (
-                    <ArchiveAccordion key={r} round={r} roundLabel={getRoundLabel(r)} items={items} onMarkRead={onMarkRead} onExpand={setExpandedMessage} />
-                  );
-                });
-              })()}
+          {/* Executive Mailbox / Decision History (tabbed) */}
+          <div className={styles.rightMailbox}>
+            {/* Sticky Tab Header */}
+            <div style={{
+              position: 'sticky', top: 0, zIndex: 10,
+              display: 'flex', gap: 0,
+              background: 'var(--bg-sidebar, #ffffff)',
+              borderBottom: '1px solid var(--border-subtle, #e2e8f0)',
+            }}>
+              <button
+                onClick={() => setRightPanelTab('mailbox')}
+                style={{
+                  flex: 1, padding: '8px 10px', cursor: 'pointer',
+                  fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', border: 'none',
+                  background: rightPanelTab === 'mailbox' ? 'rgba(59,130,246,0.08)' : 'transparent',
+                  color: rightPanelTab === 'mailbox' ? '#3b82f6' : '#64748b',
+                  borderBottom: rightPanelTab === 'mailbox' ? '2px solid #3b82f6' : '2px solid transparent',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                📬 Mailbox {unreadCount > 0 && <span className={styles.mailboxBadge}>{unreadCount}</span>}
+              </button>
+              <button
+                onClick={() => setRightPanelTab('decisions')}
+                style={{
+                  flex: 1, padding: '8px 10px', cursor: 'pointer',
+                  fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', border: 'none',
+                  background: rightPanelTab === 'decisions' ? 'rgba(99,102,241,0.08)' : 'transparent',
+                  color: rightPanelTab === 'decisions' ? '#6366f1' : '#64748b',
+                  borderBottom: rightPanelTab === 'decisions' ? '2px solid #6366f1' : '2px solid transparent',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                📜 My Decisions
+              </button>
+            </div>
+
+            {/* Tab Content */}
+            <div style={{ padding: '8px 12px', overflowY: 'auto', flex: 1 }}>
+              {rightPanelTab === 'mailbox' ? (
+                <>
+                  <div className={styles.mailboxTitle}>
+                    Round {roundNumber}
+                    {unreadCount > 0 && <span className={styles.mailboxBadge}>{unreadCount}</span>}
+                  </div>
+                  {currentMessages.map((msg) => (
+                    <div
+                      key={msg.id}
+                      className={styles.feedItem}
+                      onClick={() => { onMarkRead?.(msg.id); setExpandedMessage(msg); }}
+                      style={{ cursor: 'pointer', opacity: msg.read ? 0.6 : 1 }}
+                    >
+                      {/* Improvement #4.2: AI Personas */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                        <span style={{ fontSize: '0.7rem' }}>{getPersona(msg).avatar}</span>
+                        <span style={{ fontSize: '0.55rem', fontWeight: 600, color: getPersona(msg).color }}>{getPersona(msg).name}</span>
+                      </div>
+                      <strong style={{ fontSize: '0.68rem', color: '#0f172a' }}>{msg.title}</strong>
+                      <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#334155' }}>{msg.body?.substring(0, 120)}...</p>
+                    </div>
+                  ))}
+                  {currentMessages.length === 0 && (
+                    <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center' }}>No messages this round</div>
+                  )}
+
+                  {/* ── Previous Rounds Accordion ── */}
+                  {(() => {
+                    const archivedRounds = {};
+                    (messages || []).filter(m => (m.round || 1) < roundNumber).forEach(m => {
+                      const r = m.round || 1;
+                      if (!archivedRounds[r]) archivedRounds[r] = [];
+                      archivedRounds[r].push(m);
+                    });
+                    const roundKeys = Object.keys(archivedRounds).sort((a, b) => Number(b) - Number(a));
+                    if (roundKeys.length === 0) return null;
+                    return roundKeys.map(rk => {
+                      const r = Number(rk);
+                      const items = archivedRounds[r];
+                      return (
+                        <ArchiveAccordion key={r} round={r} roundLabel={getRoundLabel(r)} items={items} onMarkRead={onMarkRead} onExpand={setExpandedMessage} />
+                      );
+                    });
+                  })()}
+                </>
+              ) : (
+                <DecisionHistory historyData={historyData} />
+              )}
             </div>
           </div>
 
           {/* Market Reality Feed (40%) */}
-          <div className={styles.rightMarket}>
+          <div className={styles.rightMarket} style={{ height: '50%' }}>
             <MarketRealityFeed items={marketEvents} activeAlert={activeAlert} />
           </div>
 
-          {/* Commit Footer */}
-          <div className={styles.rightCommit}>
-            {stageWarning && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }}
-                style={{
-                  padding: '8px 14px', marginBottom: 6, borderRadius: 8,
-                  background: isDark ? 'rgba(239,68,68,0.12)' : '#fef2f2',
-                  border: isDark ? '1px solid rgba(239,68,68,0.25)' : '1px solid #fecaca',
-                  fontSize: '0.7rem', fontWeight: 600,
-                  color: isDark ? '#fca5a5' : '#dc2626',
-                  display: 'flex', alignItems: 'center', gap: 6,
-                }}
+          {/* ── Commit Footer (Moved to Right Panel Bottom) ── */}
+          <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '16px 14px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, fontSize: '0.7rem', fontWeight: 600, color: '#94a3b8', flexWrap: 'wrap' }}>
+              <span style={{ color: hasReadBriefing ? '#10b981' : '#f59e0b' }}>Brief {hasReadBriefing ? '✓' : ''}</span> → 
+              <span style={{ color: (decisionParadigm === 'multi_toggles' ? Object.keys(pillarSelections || {}).length > 0 : !!decisionChoice) ? '#10b981' : '#f59e0b' }}>Decide {(decisionParadigm === 'multi_toggles' ? Object.keys(pillarSelections || {}).length > 0 : !!decisionChoice) ? '✓' : ''}</span> → 
+              <span style={{ color: Object.keys(allocations).length > 0 ? '#10b981' : '#f59e0b' }}>Allocate {Object.keys(allocations).length > 0 ? '✓' : ''}</span>
+            </div>
+            
+            {/* Decision Quality Meter */}
+            {(() => {
+              const allocTotal = Object.values(allocations).reduce((a, b) => a + b, 0);
+              let quality = 0;
+              if (hasReadBriefing) quality += 10;
+              if (decisionParadigm === 'multi_toggles' ? Object.keys(pillarSelections || {}).length > 0 : !!decisionChoice) quality += 40;
+              quality += Math.min(50, (allocTotal / (csfPool || 1)) * 50);
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, width: '100%' }}>
+                  <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#cbd5e1' }}>Readiness</span>
+                  <div style={{ flex: 1, height: 6, background: '#1e293b', borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${quality}%`, height: '100%', background: quality > 80 ? '#10b981' : quality > 40 ? '#f59e0b' : '#ef4444', transition: 'all 0.3s ease' }} />
+                  </div>
+                </div>
+              );
+            })()}
+            
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '100%' }}>
+              {stageWarning && (
+                <span style={{ color: '#ef4444', fontSize: '0.65rem', fontWeight: 700, textAlign: 'center' }}>🔒 {stageWarning}</span>
+              )}
+              <motion.button
+                className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
+                style={{ width: '100%', height: 42, fontSize: '0.85rem' }}
+                disabled={!!commitResults}
+                onClick={onCommit}
+                whileHover={{ scale: commitResults ? 1 : 1.02 }}
+                whileTap={{ scale: commitResults ? 1 : 0.98 }}
               >
-                🔒 {stageWarning}
-              </motion.div>
-            )}
-            <motion.button
-              className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
-              disabled={!!commitResults}
-              onClick={onCommit}
-              whileHover={{ scale: commitResults ? 1 : 1.02 }}
-              whileTap={{ scale: commitResults ? 1 : 0.98 }}
-            >
-              {commitResults ? '✅ Committed' : '▶ Commit'}
-            </motion.button>
+                {commitResults ? '✅ Committed' : '▶ Commit Decisions'}
+              </motion.button>
+            </div>
           </div>
         </aside>
 
@@ -898,8 +1105,8 @@ export default function ExecutiveCockpit({
                   <span style={{
                     fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
                     padding: '3px 8px', borderRadius: '4px', letterSpacing: '0.05em',
-                    background: expandedMessage.type === 'crisis' ? '#fef2f2' : expandedMessage.type === 'facilitator' ? '#f0fdf4' : '#f0f4ff',
-                    color: expandedMessage.type === 'crisis' ? '#dc2626' : expandedMessage.type === 'facilitator' ? '#16a34a' : '#4338ca',
+                    background: (expandedMessage.type === 'crisis' || expandedMessage.type === 'alert') ? '#fef2f2' : expandedMessage.type === 'facilitator' ? '#f0fdf4' : '#f0f4ff',
+                    color: (expandedMessage.type === 'crisis' || expandedMessage.type === 'alert') ? '#dc2626' : expandedMessage.type === 'facilitator' ? '#16a34a' : '#4338ca',
                   }}>
                     {expandedMessage.type?.toUpperCase() || 'MESSAGE'}
                   </span>
@@ -954,30 +1161,72 @@ export default function ExecutiveCockpit({
               transition={{ duration: 0.35, ease: 'easeOut' }}
             >
               <div className={styles.resultsBadge}>Round {roundNumber} Results</div>
-              <h2 className={styles.resultsTitle} style={{ color: '#f8fafc' }}>📊 Turn Committed Successfully</h2>
-              <p className={styles.resultsSubtitle} style={{ color: '#cbd5e1' }}>Review your round outcomes before advancing to Round {commitResults.newRoundNumber}.</p>
+              <h2 className={styles.resultsTitle}>📊 Turn Committed Successfully</h2>
+              <p className={styles.resultsSubtitle}>Review your round outcomes before advancing to Round {commitResults.newRoundNumber}.</p>
 
               <div className={styles.resultsGrid}>
-                <div className={styles.resultCard}>
-                  <div className={styles.resultCardIcon}>💰</div>
-                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>Treasury</div>
-                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{fmtCurrency(commitResults.globalState?.corporate_treasury || 0)}</div>
-                </div>
-                <div className={styles.resultCard}>
-                  <div className={styles.resultCardIcon}>📈</div>
-                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>EBITDA</div>
-                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{fmtCurrency(commitResults.globalState?.historical_ebitda || 0)}</div>
-                </div>
-                <div className={styles.resultCard}>
-                  <div className={styles.resultCardIcon}>🌍</div>
-                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>Reputation</div>
-                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{commitResults.globalState?.group_reputation?.toFixed(0) || '—'}</div>
-                </div>
-                <div className={styles.resultCard}>
-                  <div className={styles.resultCardIcon}>🏭</div>
-                  <div className={styles.resultCardLabel} style={{ color: '#cbd5e1' }}>CO₂ Emissions</div>
-                  <div className={styles.resultCardValue} style={{ color: '#f8fafc' }}>{(commitResults.globalState?.tco2e_emissions || 0).toLocaleString()} t</div>
-                </div>
+                {(() => {
+                  const newTreasury = commitResults.globalState?.corporate_treasury || 0;
+                  const newEbitda = commitResults.globalState?.historical_ebitda || 0;
+                  const newRep = commitResults.globalState?.group_reputation || 50;
+                  const newCarbon = commitResults.globalState?.tco2e_emissions || 0;
+                  
+                  const dTreasury = newTreasury - treasury;
+                  const dEbitda = newEbitda - ebitda;
+                  const dRep = newRep - reputation;
+                  const dCarbon = newCarbon - tco2e;
+                  
+                  const renderDelta = (v, inverseGood = false) => {
+                    if (!v) return null;
+                    const isGood = inverseGood ? v < 0 : v > 0;
+                    return (
+                      <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: isGood ? '#4ade80' : '#ef4444' }}>
+                        {v > 0 ? '▲' : '▼'} {fmtCurrency ? (inverseGood && v < 500 ? Math.abs(v) : fmtCurrency(Math.abs(v))) : Math.abs(v).toFixed(0)}
+                      </span>
+                    );
+                  };
+
+                  return (
+                    <>
+                      <div className={styles.resultCard}>
+                        <div className={styles.resultCardIcon}>💰</div>
+                        <div className={styles.resultCardLabel}>Treasury</div>
+                        <div className={styles.resultCardValue}>
+                          {fmtCurrency(newTreasury)}
+                          {renderDelta(dTreasury)}
+                        </div>
+                      </div>
+                      <div className={styles.resultCard}>
+                        <div className={styles.resultCardIcon}>📈</div>
+                        <div className={styles.resultCardLabel}>EBITDA</div>
+                        <div className={styles.resultCardValue}>
+                          {fmtCurrency(newEbitda)}
+                          {renderDelta(dEbitda)}
+                        </div>
+                      </div>
+                      <div className={styles.resultCard}>
+                        <div className={styles.resultCardIcon}>🌍</div>
+                        <div className={styles.resultCardLabel}>Reputation</div>
+                        <div className={styles.resultCardValue}>
+                          {newRep.toFixed(0)}
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dRep >= 0 ? '#4ade80' : '#ef4444' }}>
+                            {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className={styles.resultCard}>
+                        <div className={styles.resultCardIcon}>🏭</div>
+                        <div className={styles.resultCardLabel}>CO₂ Emissions</div>
+                        <div className={styles.resultCardValue}>
+                          {newCarbon.toLocaleString()} t
+                          <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dCarbon <= 0 ? '#4ade80' : '#ef4444' }}>
+                            {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()} t
+                          </span>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               {/* Trend Sparklines */}
@@ -1002,11 +1251,10 @@ export default function ExecutiveCockpit({
                       : [Math.max(0, minVal - padding), maxVal + padding];
 
                     return (
-                    <div key={key} style={{
-                      background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
+                    <div key={key} className={styles.resultCard} style={{
                       padding: '0.5rem 0.6rem 0.3rem',
                     }}>
-                      <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }}>
+                      <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }} className={styles.resultCardLabel}>
                         {label}
                       </div>
                       <ResponsiveContainer width="100%" height={72}>
@@ -1064,15 +1312,14 @@ export default function ExecutiveCockpit({
                 const pctChg = ((latestPrice - IPO_PRICE) / IPO_PRICE * 100);
 
                 return (
-                  <div style={{
-                    background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
+                  <div className={styles.resultCard} style={{
                     padding: '0.5rem 0.6rem 0.3rem', marginBottom: '1rem',
                   }}>
                     <div style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
-                      fontSize: '0.68rem', fontWeight: 700, color: '#6b7280',
+                      fontSize: '0.68rem', fontWeight: 700,
                       textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem',
-                    }}>
+                    }} className={styles.resultCardLabel}>
                       <span>📈 Stock Price</span>
                       <span style={{
                         color: pctChg >= 0 ? '#16a34a' : '#ef4444', fontFamily: 'JetBrains Mono, monospace',
@@ -1106,18 +1353,18 @@ export default function ExecutiveCockpit({
               {/* Events summary */}
               {commitResults.events && Object.keys(commitResults.events).length > 0 && (
                 <div className={styles.resultsEvents}>
-                  <div className={styles.resultsEventsTitle} style={{ color: '#f8fafc' }}>⚡ Key Events</div>
+                  <div className={styles.resultsEventsTitle}>⚡ Key Events</div>
                   {commitResults.events.talent_penalty_applied > 1 && (
-                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>🧠 Brain-Drain: Software OPEX inflated by {((commitResults.events.talent_penalty_applied - 1) * 100).toFixed(1)}%</div>
+                    <div className={styles.resultsEventItem}>🧠 Brain-Drain: Software OPEX inflated by {((commitResults.events.talent_penalty_applied - 1) * 100).toFixed(1)}%</div>
                   )}
                   {commitResults.events.loan_interest_payment > 0 && (
-                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
+                    <div className={styles.resultsEventItem}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
                   )}
                   {commitResults.events.auto_injected_messages?.length > 0 && (
-                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>📬 {commitResults.events.auto_injected_messages.length} new swipe file(s) delivered</div>
+                    <div className={styles.resultsEventItem}>📬 {commitResults.events.auto_injected_messages.length} new swipe file(s) delivered</div>
                   )}
                   {commitResults.events.strike_probabilities && (
-                    <div className={styles.resultsEventItem} style={{ color: '#cbd5e1' }}>
+                    <div className={styles.resultsEventItem}>
                       ⚠️ Strike risk: {Object.entries(commitResults.events.strike_probabilities)
                         .filter(([, p]) => p > 0.1)
                         .map(([bu, p]) => `${bu} ${(p * 100).toFixed(0)}%`)

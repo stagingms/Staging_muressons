@@ -700,6 +700,15 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     <button className={styles.downloadBtn} onClick={handleDownload}>
                         📥 Download Report
                     </button>
+                    {onLogout && (
+                        <button
+                            className={styles.downloadBtn}
+                            onClick={onLogout}
+                            style={{ background: 'rgba(239,68,68,0.1)', borderColor: '#fca5a5', color: '#fca5a5' }}
+                        >
+                            🚪 Logout
+                        </button>
+                    )}
                 </nav>
 
                 {/* ──────── TAB: Scorecard ──────── */}

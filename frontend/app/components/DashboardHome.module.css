@@ -54,8 +54,159 @@
 .empty h3 { font-size: 1.1rem; font-weight: 700; color: var(--text-secondary); margin: 0 0 0.5rem 0; }
 .empty p { font-size: 0.85rem; margin: 0; }
 
+/* ── Round Briefing Card ── */
+.briefingCard {
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+    border-left: 3px solid #c9a84c;
+}
+
+.briefingHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.briefingRoundBadge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #c9a84c, #a78a3a);
+    color: #0f172a;
+    font-weight: 800;
+    font-size: 0.82rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 10px rgba(201, 168, 76, 0.3);
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+}
+
+.briefingDirectiveLabel {
+    font-size: 0.6rem;
+    font-weight: 700;
+    color: #c9a84c;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 0.15rem;
+}
+
+.briefingTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.briefingOpenBtn {
+    background: rgba(201, 168, 76, 0.08);
+    border: 1px solid rgba(201, 168, 76, 0.2);
+    color: #c9a84c;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+    font-family: inherit;
+}
+
+.briefingOpenBtn:hover {
+    background: rgba(201, 168, 76, 0.15);
+    border-color: rgba(201, 168, 76, 0.4);
+}
+
+.briefingGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+.briefingSection {
+    background: var(--bg-elevated, rgba(0,0,0,0.06));
+    border: 1px solid var(--border-subtle);
+    border-radius: 10px;
+    padding: 0.85rem;
+}
+
+.briefingSectionLabel {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.briefingList {
+    margin: 0;
+    padding-left: 1.1rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    line-height: 1.5;
+}
+
+.briefingMore {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    margin-top: 0.4rem;
+    font-style: italic;
+}
+
+.briefingEngines {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.engineChip {
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
+    background: rgba(245, 158, 11, 0.08);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+    font-size: 0.68rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+}
+
+.briefingPrompts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.promptQuote {
+    padding: 0.4rem 0.6rem;
+    border-radius: 6px;
+    background: rgba(139, 92, 246, 0.04);
+    border-left: 2px solid rgba(139, 92, 246, 0.3);
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    font-style: italic;
+    line-height: 1.5;
+}
+
 @media (max-width: 768px) {
     .cardGrid { grid-template-columns: repeat(2, 1fr); }
     .gaugeRow { grid-template-columns: 1fr; }
     .actionGrid { grid-template-columns: repeat(2, 1fr); }
+    .briefingGrid { grid-template-columns: 1fr; }
 }

@@ -36,7 +36,7 @@ const FALLBACK_CRISES = {
     },
     3: {
         id: 'scope3', title: 'Scope 3 Supply Chain Disruption', icon: '🏭',
-        description: 'Major Scope 3 emissions discovered in your electronics and pharma supply chains. Regulators are watching closely.'
+        description: 'Major Scope 3 emissions discovered in your crucial supply chains. Regulators are watching closely.'
     },
     4: {
         id: 'contagion', title: 'ESG Contagion Crisis', icon: '⚡',

@@ -85,7 +85,15 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
       
       switch(currentStep) {
         case 0: break;
-        case 1: newSpot = { x: '0', y: '52px', w: '24%', h: `${HPx}px` }; break;
+        case 1: 
+          const kTarget = document.getElementById('tour-kpi-target');
+          if (kTarget) {
+            const rect = kTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          } else {
+            newSpot = { x: '0', y: '52px', w: '24%', h: `${HPx}px` };
+          }
+          break;
         case 2: 
           const bTarget = document.getElementById('tour-briefing-target');
           if (bTarget) {
@@ -107,7 +115,15 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
             newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
           }
           break;
-        case 5: newSpot = { x: '76%', y: '52px', w: '24%', h: `${HPx * 0.88}px` }; break;
+        case 5: 
+          const rTarget = document.getElementById('tour-intelligence-target');
+          if (rTarget) {
+            const rect = rTarget.getBoundingClientRect();
+            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
+          } else {
+            newSpot = { x: '76%', y: '52px', w: '24%', h: `${HPx * 0.88}px` };
+          }
+          break;
         case 6:
           const guides = document.getElementById('tour-player-guides-target');
           if (guides) {
@@ -227,39 +243,47 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
 
       {/* ── Active Tour Overlay ── */}
       {tourActive && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, fontFamily: 'Inter, sans-serif' }}>
-          
-          {/* SVG Spotlight Mask background */}
-          <svg style={{ position: 'absolute', inset: 0, width: '100vw', height: '100vh', pointerEvents: 'none' }}>
-            <defs>
-              <mask id="spotlight-mask">
-                <rect x="0" y="0" width="100%" height="100%" fill="white" />
-                <rect x={spot.x} y={spot.y} width={spot.w} height={spot.h} fill="black" rx="8" />
-              </mask>
-            </defs>
-            <rect 
-              x="0" y="0" width="100%" height="100%" 
-              fill="rgba(15,23,42,0.85)" 
-              mask="url(#spotlight-mask)" 
-              style={{ backdropFilter: 'blur(6px)' }}
-            />
-            {/* Outline box around the cutout */}
-            {spot.w !== '0' && (
-              <rect x={spot.x} y={spot.y} width={spot.w} height={spot.h} fill="none" stroke="#6366f1" strokeWidth="3" strokeDasharray="6 4" rx="8" />
-            )}
-          </svg>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, fontFamily: 'Inter, sans-serif', pointerEvents: 'none' }}>
 
-          {/* Invisible click blocker over the cutout to prevent interaction during tour */}
-          <div style={{ position: 'absolute', inset: 0, zIndex: 1 }} />
+          {/* Invisible click blocker — prevents interaction with cockpit while tour runs */}
+          <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'all' }} />
+
+          {/* Dark overlay for Step 0 or when no target is found */}
+          {(currentStep === 0 || spot.w === '0') && (
+            <div style={{
+              position: 'absolute', inset: 0, zIndex: 2,
+              background: 'rgba(15, 23, 42, 0.75)',
+              pointerEvents: 'none',
+              transition: 'opacity 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
+            }} />
+          )}
+
+          {/* Spotlight Highlight */}
+          {currentStep > 0 && spot.w !== '0' && (
+            <div style={{
+              position: 'absolute',
+              left: spot.x,
+              top: spot.y,
+              width: spot.w,
+              height: spot.h,
+              borderRadius: '8px',
+              border: '2px dashed #a5b4fc',
+              boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.75)',
+              zIndex: 2,
+              transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+              pointerEvents: 'none',
+            }} />
+          )}
 
           {/* Step Card */}
           <div style={{
             position: 'absolute',
             ...getCardStyle(),
-            zIndex: 2,
+            zIndex: 3,
             background: '#fff', borderRadius: 16, padding: '1.8rem 2rem',
             maxWidth: 420, width: '90%',
             boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
+            pointerEvents: 'all',
             transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
             minHeight: 220, display: 'flex', flexDirection: 'column'
           }}>

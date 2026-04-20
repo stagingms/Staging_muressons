@@ -1,5 +1,6 @@
 import './globals.css';
 import ThemeToggle from './components/ThemeToggle';
+import GlobalTooltip from './components/GlobalTooltip';
 
 export const metadata = {
   title: 'Muressons Corporation — Executive Cockpit',
@@ -13,7 +14,9 @@ export default function RootLayout({ children }) {
       <body suppressHydrationWarning>
         {children}
         <ThemeToggle />
+        <GlobalTooltip />
       </body>
     </html>
   );
 }
+

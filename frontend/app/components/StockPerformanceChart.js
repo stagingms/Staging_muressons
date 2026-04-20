@@ -154,7 +154,7 @@ export default function StockPerformanceChart({
 
             <XAxis
               dataKey="day"
-              tick={{ fontSize: 8, fill: '#1e293b' }}
+              tick={{ fontSize: 8, fill: '#94a3b8' }}
               tickLine={false}
               axisLine={false}
               tickFormatter={fmtXAxis}

@@ -181,7 +181,7 @@ DEFAULT_CONFIG = {
 
 BU_DEFAULT_CONFIGS = {
     "pharma": {
-        "consultant_fee_usd": 1500000,
+        "consultant_fee_usd": 1000000,
         "issues": [
             {"id": "api_leakage", "title": "API Leakage into Water Table", "hover_description": "Active Pharmaceutical Ingredients contaminating groundwater near Deccan Plateau facilities", "category": "ecological", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 1800000},
             {"id": "drug_safety", "title": "Drug Safety & Pharmacovigilance", "hover_description": "Post-market adverse events and potential product liability lawsuits", "category": "social", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 7500000},
@@ -195,7 +195,7 @@ BU_DEFAULT_CONFIGS = {
         "interdependencies": []
     },
     "electronics": {
-        "consultant_fee_usd": 1500000,
+        "consultant_fee_usd": 1000000,
         "issues": [
             {"id": "e_waste_runoff", "title": "E-Waste & Toxic Mineral Runoff", "hover_description": "Future EU bans; massive ecological damage from rare earth mining", "category": "ecological", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 1200000},
             {"id": "conflict_minerals", "title": "Conflict Mineral Sourcing", "hover_description": "Cobalt and tantalum from DRC; forced labour exposure", "category": "social", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 4000000},
@@ -209,7 +209,7 @@ BU_DEFAULT_CONFIGS = {
         "interdependencies": []
     },
     "consumer_goods": {
-        "consultant_fee_usd": 1500000,
+        "consultant_fee_usd": 1000000,
         "issues": [
             {"id": "plastic_packaging", "title": "End-of-Life Plastic Packaging", "hover_description": "15% EPR tax imminent; ocean microplastics crisis", "category": "ecological", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 3200000},
             {"id": "palm_oil_deforestation", "title": "Palm Oil & Deforestation", "hover_description": "Biodiversity collapse; NDPE policy violations", "category": "ecological", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 2800000},
@@ -223,7 +223,7 @@ BU_DEFAULT_CONFIGS = {
         "interdependencies": []
     },
     "software": {
-        "consultant_fee_usd": 1500000,
+        "consultant_fee_usd": 1000000,
         "issues": [
             {"id": "ai_bias", "title": "AI Algorithmic Bias & Redlining", "hover_description": "Massive fines; systemic inequality from biased hiring/lending algorithms", "category": "social", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 5000000},
             {"id": "data_privacy", "title": "Data Privacy & Surveillance", "hover_description": "GDPR mega-fines; user trust erosion from data harvesting", "category": "social", "financial_impact": "high", "societal_impact": "high", "mitigation_cost_usd": 2500000},
@@ -332,3 +332,4 @@ def update_bu_config(bu_id: str, new_config: dict) -> None:
     global _cached_bu_configs
     _cached_bu_configs[bu_id] = new_config
     save_bu_config(bu_id, new_config)
+# Force reload

@@ -1,12 +1,12 @@
 """
-Muressons Global Command — Round-Specific State Mutation Logic
+Muressons Global Command â€” Round-Specific State Mutation Logic
 Dispatches to per-round handlers that apply conditional mutations
 BEFORE and AFTER the generic tick engine runs.
 
 Architecture:
-  1. pre_tick(round, state, decisions)  → validates, modifies crisis_severity
-  2. engine.process_tick()              → runs the 8 generic formulas
-  3. post_tick(round, state, decisions) → applies round-specific mutations
+  1. pre_tick(round, state, decisions)  â†’ validates, modifies crisis_severity
+  2. engine.process_tick()              â†’ runs the 8 generic formulas
+  3. post_tick(round, state, decisions) â†’ applies round-specific mutations
 """
 
 from __future__ import annotations
@@ -16,11 +16,11 @@ from typing import Any
 from round_configs import get_round_config, get_round_options
 
 
-# ═════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PRE-TICK HOOKS
 #  Run BEFORE the generic engine.  Can modify crisis_severity,
 #  reject invalid inputs (raise ValueError), or set flags.
-# ═════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def pre_tick(
     round_number: int,
@@ -32,9 +32,9 @@ def pre_tick(
 ) -> dict[str, Any]:
     """
     Returns a dict that may contain:
-      - "crisis_severity"  → overridden value
-      - "validation_error" → string message (will become 400)
-      - "pre_events"       → dict of events to merge
+      - "crisis_severity"  â†’ overridden value
+      - "validation_error" â†’ string message (will become 400)
+      - "pre_events"       â†’ dict of events to merge
     """
     result: dict[str, Any] = {"crisis_severity": crisis_severity, "pre_events": {}}
     handler = _PRE_TICK_MAP.get(round_number)
@@ -46,7 +46,7 @@ def pre_tick(
     return result
 
 
-# ── R2: CFO Materiality Gate ─────────────────────────────────────
+# â”€â”€ R2: CFO Materiality Gate â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _pre_r2_materiality_gate(
     result: dict, current_global: dict, current_bus: list[dict], decisions: list[dict], force_override_cfo: bool = False
 ):
@@ -61,7 +61,13 @@ def _pre_r2_materiality_gate(
     if not rules.get("cfo_materiality_gate"):
         return
 
+    # Start with the static whitelist from config
     high_impact_nodes = set(rules.get("high_impact_nodes", []))
+
+    # Dynamically add all BU IDs from the current session so healthcare
+    # (and any future industry type) passes the gate correctly.
+    for bu in current_bus:
+        high_impact_nodes.add(f"round_2_{bu.get('bu_id', '')}")
 
     for dec in decisions:
         capex = dec.get("capex_allocated", 0)
@@ -69,8 +75,10 @@ def _pre_r2_materiality_gate(
         if capex > 0 and node and node not in high_impact_nodes:
             if force_override_cfo:
                # Apply executive bypass -> penalize group reputation!
+               # FIX AUDIT-014: We flag this in pre_events but do NOT mutate
+               # current_global here (which is input state). The penalty is
+               # applied in post_tick on the output state.
                result["pre_events"]["cfo_override_used"] = True
-               current_global["group_reputation"] = max(0, current_global.get("group_reputation", 50) - 5.0)
                return # bypass validation return!
             else:
                 result["validation_error"] = (
@@ -81,13 +89,13 @@ def _pre_r2_materiality_gate(
                 return
 
 
-# ── R4: Electronics Blindspot doubles crisis ─────────────────────
+# â”€â”€ R4: Electronics Blindspot doubles crisis â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _pre_r4_contagion(
     result: dict, current_global: dict, current_bus: list[dict], decisions: list[dict]
 ):
     """If electronics_blindspot flag is active, double crisis severity."""
     flags = current_global.get("active_event_flags", {})
-    # Walk history flags — check any flag list that might contain it
+    # Walk history flags â€” check any flag list that might contain it
     all_flags = _collect_all_flags(flags)
 
     cfg = get_round_config(4)
@@ -109,11 +117,11 @@ _PRE_TICK_MAP = {
 }
 
 
-# ═════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  POST-TICK HOOKS
 #  Run AFTER the generic engine.  Mutate the already-computed
 #  next-round state in place.
-# ═════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def post_tick(
     round_number: int,
@@ -129,6 +137,11 @@ def post_tick(
     Returns extra events to merge.
     """
     extra_events: dict[str, Any] = {}
+
+    # FIX AUDIT-014: Apply the CFO override reputation penalty here
+    # rather than mutating the input state directly in pre_tick.
+    if events.get("cfo_override_used"):
+        global_state["group_reputation"] = max(0.0, global_state.get("group_reputation", 50.0) - 5.0)
     handler = _POST_TICK_MAP.get(round_number)
     if handler:
         handler(global_state, bu_states, decisions, events, extra_events, previous_flags)
@@ -137,10 +150,18 @@ def post_tick(
     _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events)
 
     # Persist new flags from chosen option into active_event_flags
-    _apply_option_flags(round_number, decisions, global_state, extra_events)
+    _apply_option_flags(round_number, decisions, global_state, extra_events, bus=bu_states)
 
     return extra_events
 
+
+from healthcare_configs import get_healthcare_round_options
+
+
+def _fetch_options_for_industry(round_number: int, bus: list[dict]) -> dict:
+    if any(b["bu_id"] == "hospitals" for b in bus):
+        return get_healthcare_round_options(round_number)
+    return get_round_options(round_number)
 
 def _apply_common_impacts(
     round_number: int,
@@ -155,11 +176,11 @@ def _apply_common_impacts(
     Skips if the round-specific handler already applied these (R3 carbon).
     """
     choice = _get_primary_choice(decisions)
-    cfg_opts = get_round_options(round_number)
+    cfg_opts = _fetch_options_for_industry(round_number, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
-    # Carbon intensity delta — applied to all BUs
+    # Carbon intensity delta â€” applied to all BUs
     ci_delta = impacts.get("carbon_intensity_delta", 0)
     if ci_delta != 0 and f"carbon_intensity_applied_r{round_number}" not in extra:
         for bu in bus:
@@ -167,7 +188,7 @@ def _apply_common_impacts(
             bu["carbon_intensity"] = max(0, round(old_ci + ci_delta, 2))
         extra[f"carbon_intensity_applied_r{round_number}"] = ci_delta
 
-    # Revenue delta — applied to all BUs equally
+    # Revenue delta â€” applied to all BUs equally
     rev_delta = impacts.get("revenue_delta", 0)
     if rev_delta != 0:
         for bu in bus:
@@ -175,15 +196,112 @@ def _apply_common_impacts(
             bu["revenue_base"] = max(0, round(old_rev + rev_delta, 2))
         extra[f"revenue_delta_applied_r{round_number}"] = rev_delta
 
+    # NCD application is handled individually in each round's post handler
+    # because some rounds (like R5 and R8) queue it as a pending capex project instead of applying immediately.
 
-# ── R1: Set foundation flags ────────────────────────────────────
+    # â”€â”€ Healthcare Specific Impacts â”€â”€
+    if impacts.get("bed_capacity_increase"):
+        for b in bus:
+            if b["bu_id"] in ("hospitals", "clinics"):
+                b["bed_capacity_utilization"] = max(0.0, b.get("bed_capacity_utilization", 0.0) - impacts["bed_capacity_increase"])
+                
+    if impacts.get("burnout_spike"):
+        for b in bus:
+            if b["bu_id"] in ("hospitals", "clinics"):
+                b["staff_burnout_index"] = min(100.0, b.get("staff_burnout_index", 0.0) + 25.0)
+                
+    if impacts.get("burnout_recovery"):
+        for b in bus:
+            if b["bu_id"] in ("hospitals", "clinics"):
+                b["staff_burnout_index"] = max(0.0, b.get("staff_burnout_index", 0.0) - 30.0)
+                
+    if impacts.get("telehealth_opex_delta"):
+        for b in bus:
+            if b["bu_id"] == "telehealth":
+                b["opex_base"] = round(b["opex_base"] + impacts["telehealth_opex_delta"], 2)
+                
+    if impacts.get("opex_penalty"):
+        for b in bus:
+            b["opex_base"] = round(b["opex_base"] + (impacts["opex_penalty"] / len(bus)), 2)
+
+    # Synergy is handled cleanly in R7 specific post_tick.
+    if impacts.get("contagion_spike"):
+        is_healthcare = any(b["bu_id"] == "hospitals" for b in bus)
+        if is_healthcare:
+            for b in bus:
+                if b["bu_id"] == "hospitals":
+                    b["reputation_score"] = max(0.0, b.get("reputation_score", 50.0) - 15.0)
+                elif b["bu_id"] == "telehealth":
+                    # Surge in digital health utilization during contagion
+                    b["revenue_base"] = round(b.get("revenue_base", 0) * 1.15, 2)
+                    extra["telehealth_surge_active"] = True
+        else:
+            gs["group_reputation"] = max(0.0, gs.get("group_reputation", 50.0) - 10.0)
+
+    # â”€â”€ UN SDG Edition: Apply cluster score deltas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # These are the budget_delta-based deltas defined in sdg_configs.py options.
+    # They are scaled by institutional_leakage_multiplier and sanitation_miracle_bonus.
+    sdg_cluster_keys = [
+        "basic_needs_delta", "human_capital_delta", "sustainable_growth_delta",
+        "planet_delta", "governance_delta", "partnerships_delta",
+    ]
+    has_sdg_deltas = any(impacts.get(k, 0) != 0 for k in sdg_cluster_keys)
+
+    if has_sdg_deltas:
+        # Also scale by donor fatigue budget multiplier if available
+        budget_mult = gs.get("active_event_flags", {}).get(
+            "donor_fatigue_budget_multiplier", 1.0
+        )
+
+        target_regions = impacts.get("target_regions", [])
+        for bu in bus:
+            # If target_regions is specified, only apply to those BUs
+            if target_regions and bu["bu_id"] not in target_regions:
+                continue
+
+            leakage = bu.get("institutional_leakage_multiplier", 1.0)
+            miracle = bu.get("sanitation_miracle_bonus", 1.0)
+
+            for key in sdg_cluster_keys:
+                raw_delta = impacts.get(key, 0)
+                if raw_delta == 0:
+                    continue
+
+                cluster_name = key.replace("_delta", "")
+                effective_delta = raw_delta * leakage * budget_mult
+
+                # Sanitation miracle doubles basic_needs investment returns
+                if cluster_name == "basic_needs" and raw_delta > 0:
+                    effective_delta *= miracle
+
+                old_val = bu.get(cluster_name, 0)
+                bu[cluster_name] = round(max(0, min(100, old_val + effective_delta)), 2)
+
+        extra[f"sdg_clusters_applied_r{round_number}"] = True
+        if budget_mult != 1.0:
+            extra["donor_fatigue_scaling_applied"] = budget_mult
+
+    # migration_pressure delta from option impacts
+    mig_delta = impacts.get("migration_pressure", 0)
+    if mig_delta != 0:
+        target_regions = impacts.get("target_regions", [])
+        for bu in bus:
+            if target_regions and bu["bu_id"] not in target_regions:
+                continue
+            bu["migration_pressure"] = round(
+                bu.get("migration_pressure", 0) + mig_delta, 2
+            )
+        extra["migration_pressure_applied"] = mig_delta
+
+
+# â”€â”€ R1: Set foundation flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _post_r1_foundations(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     """Apply reputation impacts from R1 option choice."""
     choice = _get_primary_choice(decs)
-    cfg_opts = get_round_options(1)
+    cfg_opts = _fetch_options_for_industry(1, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
@@ -196,13 +314,13 @@ def _post_r1_foundations(
     extra["r1_flags_set"] = opt.get("flags_set", [])
 
 
-# ── R3: Scope 3 mutations ──────────────────────────────────────
+# â”€â”€ R3: Scope 3 mutations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _post_r3_scope3(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = get_round_options(3)
+    cfg_opts = _fetch_options_for_industry(3, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
@@ -223,12 +341,25 @@ def _post_r3_scope3(
             bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + ci_delta, 2))
         extra["carbon_intensity_applied_r3"] = ci_delta  # prevent generic applicator double-apply
 
-    # Option A: supply chain disruption risk → increase governance risk
+    # Option A: supply chain disruption risk â†’ increase governance risk
     if impacts.get("supply_chain_disruption"):
         for bu in bus:
             if bu["bu_id"] in ("electronics", "pharma"):
                 bu["governance_risk_score"] = min(100, bu["governance_risk_score"] + 10)
         extra["supply_chain_disruption_applied"] = True
+
+    # UN SDG: Option A (Compulsory Schooling) â†’ create education_lag pending project
+    # Education investments yield 0% impact for 3 rounds, then +0.8 multiplier for SDG 8
+    if choice == "option_a" and any(bu.get("basic_needs") is not None for bu in bus):
+        if "pending_capex_projects" not in gs:
+            gs["pending_capex_projects"] = []
+        gs["pending_capex_projects"].append({
+            "type": "education_lag",
+            "rounds_remaining": 3,
+            "amount": 0.8,
+            "description": "Education Investment Maturing (SDG 4 â†’ SDG 8)"
+        })
+        extra["education_lag_project_started"] = True
 
     # Reputation impact
     if "reputation" in impacts:
@@ -237,17 +368,21 @@ def _post_r3_scope3(
     extra["r3_choice"] = choice
 
 
-# ── R5: Stochastic Climate Event ────────────────────────────────
+# â”€â”€ R5: Stochastic Climate Event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _post_r5_climate(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = get_round_options(5)
+    cfg_opts = _fetch_options_for_industry(5, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
-    cfg = get_round_config(5)
+    from healthcare_configs import get_healthcare_round_config
+    if any(b["bu_id"] == "hospitals" for b in bus):
+        cfg = get_healthcare_round_config(5)
+    else:
+        cfg = get_round_config(5)
     special = cfg.get("special_rules", {}) if cfg else {}
     base_damage = special.get("base_damage", 12_000_000)
     threshold = special.get("stochastic_threshold", 0.75)
@@ -261,14 +396,28 @@ def _post_r5_climate(
 
     # Check for active resilience factor stored by completed pending projects
     active_resilience_factor = events.get("active_resilience_factor", 0.0)
+    
+    # FIX AUDIT-009 was reverted: Hard Engineering is a delayed capex, so its
+    # resilience_factor does NOT apply immediately. Only previously completed 
+    # projects provide protection.
+    effective_resilience = active_resilience_factor
 
     if roll < threshold:
-        # Event strikes — apply damage mitigated by resilience
-        actual_damage = round(base_damage * (1 - active_resilience_factor), 2)
+        # Event strikes â€” apply damage mitigated by resilience
+        actual_damage = round(base_damage * (1 - effective_resilience), 2)
+
+        # UN SDG: Carbon Retribution Hook â€” triples damage if global emissions
+        # exceeded threshold by Round 5
+        carbon_retribution = events.get("carbon_retribution_multiplier", 1.0)
+        if carbon_retribution > 1.0:
+            actual_damage = round(actual_damage * carbon_retribution, 2)
+            extra["carbon_retribution_applied"] = True
+            extra["carbon_retribution_multiplier"] = carbon_retribution
+
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - actual_damage, 2)
         extra["climate_event_struck"] = True
         extra["base_damage"] = base_damage
-        extra["resilience_factor"] = active_resilience_factor
+        extra["resilience_factor"] = effective_resilience
         extra["actual_damage"] = actual_damage
     else:
         extra["climate_event_struck"] = False
@@ -307,13 +456,13 @@ def _post_r5_climate(
     extra["r5_choice"] = choice
 
 
-# ── R6: AI Bias ─────────────────────────────────────────────────
+# â”€â”€ R6: AI Bias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _post_r6_ai_bias(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = get_round_options(6)
+    cfg_opts = _fetch_options_for_industry(6, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
@@ -352,13 +501,13 @@ def _post_r6_ai_bias(
     extra["r6_choice"] = choice
 
 
-# ── R7: Circularity — Option C unlocks synergy multiplier ───────
+# â”€â”€ R7: Circularity â€” Option C unlocks synergy multiplier â”€â”€â”€â”€â”€â”€â”€
 def _post_r7_circularity(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = get_round_options(7)
+    cfg_opts = _fetch_options_for_industry(7, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
@@ -391,15 +540,28 @@ def _post_r7_circularity(
     extra["r7_choice"] = choice
 
 
-# ── R8: Blue Stress ─────────────────────────────────────────────
+# â”€â”€ R8: Blue Stress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _post_r8_blue_stress(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = get_round_options(8)
+    cfg_opts = _fetch_options_for_industry(8, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
+
+    # UN SDG: Blockchain Traceability (R3 Option C) prevents Scandal Shock
+    all_flags = _collect_all_flags(prev_flags)
+    if "blockchain_traceability" in all_flags:
+        # Traceability verified â€” no scandal, governance bonus
+        extra["scandal_shock_prevented"] = True
+        extra["blockchain_traceability_dividend"] = True
+        gs["group_reputation"] = min(100, round(
+            gs.get("group_reputation", 50) + 5, 2
+        ))
+        # Skip the negative governance/reputation impacts of the strike
+        impacts = {k: v for k, v in impacts.items()
+                   if k not in ("governance_delta",) or v >= 0}
 
     if "treasury" in impacts:
         cost = abs(impacts["treasury"])
@@ -450,13 +612,13 @@ def _post_r8_blue_stress(
     extra["r8_choice"] = choice
 
 
-# ── R9: Just Transition ─────────────────────────────────────────
+# â”€â”€ R9: Just Transition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 def _post_r9_just_transition(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = get_round_options(9)
+    cfg_opts = _fetch_options_for_industry(9, bus)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
@@ -490,7 +652,7 @@ def _post_r9_just_transition(
         for bu in bus:
             bu["governance_risk_score"] = max(0, min(100, round(bu["governance_risk_score"] + gov_delta, 2)))
 
-    # Option A: Strike risk — if Social License is low
+    # Option A: Strike risk â€” if Social License is low
     if impacts.get("strike_risk"):
         avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 50
         strike_threshold = 50  # "low" social license
@@ -506,18 +668,18 @@ def _post_r9_just_transition(
             extra["strike_probability"] = 0.75
 
             if roll < 0.75:
-                # Strike hits — zero out revenue for this round
-                for bu in bus:
-                    bu["revenue_base"] = 0
+                # FIX AUDIT-003: Strike hits â€” apply as a treasury deduction
+                # rather than zeroing revenue_base, which would permanently
+                # corrupt R10's starting state.
+                revenue_lost = sum(bu.get("revenue_base", 0) for bu in bus)
+                gs["corporate_treasury"] = round(
+                    gs["corporate_treasury"] - revenue_lost, 2
+                )
                 extra["strike_triggered"] = True
+                extra["strike_revenue_lost"] = revenue_lost
                 extra["strike_message"] = (
                     "Workers have gone on strike! All BU revenue for this "
-                    "round has been zeroed out."
-                )
-                # Recalculate treasury impact
-                revenue_lost = sum(
-                    bu_orig.get("revenue_base", 0)
-                    for bu_orig in bus
+                    f"round has been lost (âˆ’${revenue_lost:,.0f} from treasury)."
                 )
                 extra["revenue_zeroed"] = True
             else:
@@ -525,19 +687,29 @@ def _post_r9_just_transition(
                 extra["strike_message"] = "Strike narrowly averted through last-minute negotiations."
         else:
             extra["strike_triggered"] = False
-            extra["strike_message"] = "Social licence sufficient — no strike risk."
+            extra["strike_message"] = "Social licence sufficient â€” no strike risk."
 
     extra["r9_choice"] = choice
 
 
-# ── R10: Grand Finale — Terminal EBITDA, MR, Terminal Valuation ────
+# â”€â”€ R10: Grand Finale â€” Terminal EBITDA, MR, Terminal Valuation â”€â”€â”€â”€
 def _post_r10_grand_finale(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg = get_round_config(10)
-    cfg_opts = get_round_options(10)
+    # FIX: Use industry-aware config so healthcare sessions get the correct R10 options.
+    is_healthcare = any(b["bu_id"] == "hospitals" for b in bus)
+
+
+
+    if is_healthcare:
+        from healthcare_configs import get_healthcare_round_config, get_healthcare_round_options
+        cfg = get_healthcare_round_config(10)
+        cfg_opts = get_healthcare_round_options(10)
+    else:
+        cfg = get_round_config(10)
+        cfg_opts = get_round_options(10)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
     special = cfg.get("special_rules", {}) if cfg else {}
@@ -546,15 +718,15 @@ def _post_r10_grand_finale(
     carbon_tax_per_ton = special.get("carbon_tax_per_ton", 250)
     exit_multiple = special.get("exit_multiple", 12.0)
 
-    # ── Check for God Mode carbon tax override ──
+    # â”€â”€ Check for God Mode carbon tax override â”€â”€
     if prev_flags.get("carbon_tax_override_active"):
         carbon_tax_per_ton = prev_flags.get("carbon_tax_per_ton", carbon_tax_per_ton)
 
-    # ── Apply Activist Ultimatum choice effects first ──
+    # â”€â”€ Apply Activist Ultimatum choice effects first â”€â”€
     if "treasury" in impacts:
         gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
 
-    # Option A: Resist & Integrate — validate synergy gate
+    # Option A: Resist & Integrate â€” validate synergy gate
     synergy_gate = special.get("synergy_gate_threshold", 80)
     synergy_score = gs.get("synergy_multiplier", 1.0) * 100  # normalise
     if choice == "option_a":
@@ -563,7 +735,7 @@ def _post_r10_grand_finale(
             extra["synergy_gate_blocked"] = True
             extra["synergy_gate_message"] = (
                 f"Resist & Integrate blocked: Synergy Score "
-                f"{synergy_score:.0f} ≤ {synergy_gate}. Defaulting to Spin-off."
+                f"{synergy_score:.0f} â‰¤ {synergy_gate}. Defaulting to Spin-off."
             )
             choice = "option_b"
             opt = cfg_opts.get(choice, {})
@@ -580,19 +752,23 @@ def _post_r10_grand_finale(
         weakest["revenue_base"] = 0
         weakest["opex_base"] = 0
 
-    # Option C: Divest — wipe synergy
+    # Option C: Divest â€” wipe synergy
     if impacts.get("synergy_wipe"):
         gs["synergy_multiplier"] = 1.0
         extra["synergy_wiped"] = True
 
-    # ═══════════════════════════════════════════════════════════
-    #  Terminal_EBITDA = Σ(Revenue_i − OPEX_i) − (Carbon_Tonnage × $250/ton)
-    # ═══════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    #  Terminal_EBITDA = Î£(Revenue_i âˆ’ OPEX_i) âˆ’ (Carbon_Tonnage Ã— $250/ton)
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     total_revenue = sum(bu["revenue_base"] for bu in bus)
     total_opex = sum(bu["opex_base"] for bu in bus)
 
-    # Carbon tonnage: sum of carbon_intensity across all BUs (units = abstract tonnes)
-    carbon_tonnage_group = sum(bu.get("carbon_intensity", 0) for bu in bus)
+    # Carbon tonnage: sum of carbon_intensity Ã— revenue scale across all BUs
+    # FIX AUDIT-027: Use correct revenue-scaled formula for carbon tonnage, matching engine.py
+    carbon_tonnage_group = sum(
+        bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000 
+        for bu in bus
+    )
     carbon_cost = round(carbon_tonnage_group * carbon_tax_per_ton, 2)
 
     terminal_ebitda = round(
@@ -600,14 +776,14 @@ def _post_r10_grand_finale(
         2,
     )
 
-    # ═══════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     #  REGENERATIVE MULTIPLE (M_R)
     #  Base = 1.0
     #  +0.30  if synergy achieved in R7  (synergy_unlock flag)
     #  +0.20  if survived R5/R8 without bailout
     #  +0.15  Truth Premium from R6 (ethical_ai_overhaul flag)
-    #  −0.40  Instability Discount if Social License < 75
-    # ═══════════════════════════════════════════════════════════
+    #  âˆ’0.40  Instability Discount if Social License < 75
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     mr = 1.0
 
     # +0.3: R7 Synergy achieved (waste_to_energy / synergy_unlock)
@@ -627,7 +803,7 @@ def _post_r10_grand_finale(
         mr += 0.15
         extra["mr_truth_premium"] = True
 
-    # −0.4: Instability Discount if avg Social License < 75
+    # âˆ’0.4: Instability Discount if avg Social License < 75
     avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 0
     if avg_sl < 75:
         mr -= 0.4
@@ -636,9 +812,9 @@ def _post_r10_grand_finale(
 
     mr = round(mr, 4)
 
-    # ═══════════════════════════════════════════════════════════
-    #  TERMINAL VALUE  =  Terminal_EBITDA  ×  Exit Multiple  ×  M_R
-    # ═══════════════════════════════════════════════════════════
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+    #  TERMINAL VALUE  =  Terminal_EBITDA  Ã—  Exit Multiple  Ã—  M_R
+    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     terminal_value = round(terminal_ebitda * exit_multiple * mr, 2)
 
     # ===================================================
@@ -731,18 +907,18 @@ def _post_r10_grand_finale(
     extra["avg_social_license"] = round(avg_sl, 2)
     extra["r10_choice"] = choice
 
-    # Additional KPIs for the TBL-BSC 4×3 Grid
+    # Additional KPIs for the TBL-BSC 4Ã—3 Grid
     extra["total_revenue"] = total_revenue
     extra["total_opex"] = total_opex
     extra["instability_discount_applied"] = bool(extra.get("mr_instability_discount"))
-    # R&D allocation: sum capex_allocated across all BU decisions ÷ total_revenue
+    # R&D allocation: sum capex_allocated across all BU decisions Ã· total_revenue
     total_capex = sum(d.get("capex_allocated", 0) for d in decs) if decs else 0
     extra["rd_allocation_pct"] = round(total_capex / max(total_revenue, 1) * 100, 2)
     # Climate resilience factor
     extra["climate_resilience_factor"] = round(gs.get("climate_resilience", 0.5), 2)
-    # Talent penalty from software BU
-    sw_bu = next((b for b in bus if b["bu_id"] == "software"), None)
-    extra["talent_penalty"] = round(sw_bu.get("talent_penalty", 0), 2) if sw_bu else 0
+    # Talent penalty from software BU (or digital health BU in healthcare mode)
+    tech_bu = next((b for b in bus if b["bu_id"] in ("software", "telehealth")), None)
+    extra["talent_penalty"] = round(tech_bu.get("talent_penalty", 0), 2) if tech_bu else 0
     extra["group_reputation"] = round(gs.get("group_reputation", 0), 2)
     extra["synergy_multiplier_raw"] = round(gs.get("synergy_multiplier", 1.0), 4)
     extra["vrio_advantage"] = round(gs.get("vrio_advantage", 0), 4)
@@ -776,9 +952,9 @@ _POST_TICK_MAP = {
 }
 
 
-# ═════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  HELPERS
-# ═════════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def _get_primary_choice(decisions: list[dict]) -> str:
     """
@@ -795,20 +971,24 @@ def _get_primary_choice(decisions: list[dict]) -> str:
 
 def _collect_all_flags(flags_dict: dict) -> set[str]:
     """
-    Recursively collect all string values that look like flags
-    from the active_event_flags (which may be nested from prior rounds).
+    FIX AUDIT-008: Collect boolean keys and specific flag lists (e.g., rX_flags),
+    rather than recursively slurping every string value in the event dictionary.
     """
     result = set()
     for key, val in flags_dict.items():
-        if isinstance(val, list):
-            result.update(str(v) for v in val)
-        elif isinstance(val, str):
-            result.add(val)
+        if "flag" in key.lower():
+            if isinstance(val, list):
+                result.update(str(v) for v in val)
+            elif isinstance(val, str):
+                result.add(val)
         elif isinstance(val, bool) and val:
+            # Explicit boolean states are valid flags (e.g. cfo_override_used: True)
             result.add(key)
         elif isinstance(val, dict):
+            # Recurse to find nested booleans or flag lists
             result.update(_collect_all_flags(val))
-    # Also check for specific flag keys
+            
+    # Fallback to check specific critical string keys if they weren't matched
     for flag_key in [
         "electronics_blindspot", "deep_audit_completed",
         "electronics_blindspot_triggered", "deep_audit_protected",
@@ -823,13 +1003,14 @@ def _apply_option_flags(
     decisions: list[dict],
     global_state: dict,
     extra_events: dict,
+    bus: list[dict] = None,
 ):
     """
     Persist the flags_set from the chosen option into the
     active_event_flags on the global state.
     """
     choice = _get_primary_choice(decisions)
-    cfg_opts = get_round_options(round_number)
+    cfg_opts = _fetch_options_for_industry(round_number, bus or [])
     opt = cfg_opts.get(choice, {})
     flags = opt.get("flags_set", [])
 

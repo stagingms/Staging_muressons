@@ -10,7 +10,8 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 const DIV_A = { name: 'Division A (Decarbonized)', revenue: 10_000_000, opex: 6_000_000, emissions: 500, color: '#16a34a' };
 const DIV_B = { name: 'Division B (Legacy)', revenue: 10_000_000, opex: 7_800_000, emissions: 30_000, color: '#2563eb' };
 
-const BUS = [
+// Default legacy BUS if not mapping dynamically
+const DEFAULT_BUS = [
     { id: 'pharma', name: 'Muressons Pharma', emissions: 800 },
     { id: 'electronics', name: 'Electronics', emissions: 28_000 },
     { id: 'consumer_goods', name: 'Consumer Goods', emissions: 22_000 },
@@ -88,11 +89,13 @@ function BarChart({ fee }) {
 }
 
 // ── Main Component ─────────────────────────────────────────────
-export default function RegulatoryShockModule({ sessionId, onComplete }) {
+export default function RegulatoryShockModule({ sessionId, businessUnits, onComplete }) {
     const [phase, setPhase] = useState('news');      // 'news' | 'stress' | 'dilemma'
     const [fee, setFee] = useState(40);
     const [buChoices, setBuChoices] = useState({});  // bu_id → 'eat' | 'pass' | 'abate'
     const [submitting, setSubmitting] = useState(false);
+
+    const activeBUs = businessUnits?.length ? businessUnits : DEFAULT_BUS;
 
     const mA = calcMargin(DIV_A, fee).toFixed(1);
     const mB = calcMargin(DIV_B, fee).toFixed(1);
@@ -117,7 +120,7 @@ export default function RegulatoryShockModule({ sessionId, onComplete }) {
         onComplete?.();
     }, [buChoices, fee, sessionId, onComplete]);
 
-    const allChosen = BUS.every(bu => bu.emissions < 1000 || buChoices[bu.id]);
+    const allChosen = activeBUs.every(bu => (bu.emissions || bu.carbon_intensity * 1000) < 1000 || buChoices[bu.bu_id || bu.id]);
 
     // ── Phase 1: Breaking News ─────────────────────────────────
     if (phase === 'news') return (
@@ -284,19 +287,22 @@ export default function RegulatoryShockModule({ sessionId, onComplete }) {
                     <h2 style={{ margin: '0.2rem 0 0', fontSize: '1rem', fontWeight: 800 }}>Choose Your Crisis Response — Per Business Unit</h2>
                 </div>
                 <div style={{ padding: '1.25rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                    {BUS.map(bu => {
-                        const isGreen = bu.emissions < 1000;
+                    {activeBUs.map(bu => {
+                        const emissionsVal = bu.emissions || (bu.carbon_intensity * 1000) || 500;
+                        const isGreen = emissionsVal < 1000;
+                        const buIdentifier = bu.bu_id || bu.id;
+                        const buName = bu.name || buIdentifier;
                         return (
-                            <div key={bu.id} style={{
+                            <div key={buIdentifier} style={{
                                 border: `1px solid ${isGreen ? '#bbf7d0' : '#fecaca'}`,
                                 background: isGreen ? '#f0fdf4' : '#fef2f2',
                                 borderRadius: 8, padding: '0.9rem 1rem',
                             }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.6rem' }}>
-                                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>{bu.name}</div>
+                                    <div style={{ fontWeight: 700, fontSize: '0.88rem', color: '#0f172a' }}>{buName}</div>
                                     <div style={{ fontSize: '0.75rem', color: isGreen ? '#16a34a' : '#dc2626', fontWeight: 700 }}>
-                                        {bu.emissions.toLocaleString()}t residual •{' '}
-                                        Cost: ${((bu.emissions * 90) / 1_000_000).toFixed(2)}M/round
+                                        {emissionsVal.toLocaleString()}t residual •{' '}
+                                        Cost: ${((emissionsVal * 90) / 1_000_000).toFixed(2)}M/round
                                     </div>
                                 </div>
                                 {isGreen ? (
@@ -306,11 +312,11 @@ export default function RegulatoryShockModule({ sessionId, onComplete }) {
                                 ) : (
                                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                                         {OPTIONS.map(opt => (
-                                            <button key={opt.id} onClick={() => setBuChoices(c => ({ ...c, [bu.id]: opt.id }))}
+                                            <button key={opt.id} onClick={() => setBuChoices(c => ({ ...c, [buIdentifier]: opt.id }))}
                                                 style={{
                                                     flex: 1, minWidth: 130, padding: '0.5rem 0.4rem',
-                                                    border: `2px solid ${buChoices[bu.id] === opt.id ? opt.color : '#e2e8f0'}`,
-                                                    background: buChoices[bu.id] === opt.id ? `${opt.color}15` : '#fff',
+                                                    border: `2px solid ${buChoices[buIdentifier] === opt.id ? opt.color : '#e2e8f0'}`,
+                                                    background: buChoices[buIdentifier] === opt.id ? `${opt.color}15` : '#fff',
                                                     borderRadius: 6, cursor: 'pointer', textAlign: 'left',
                                                     transition: 'all 0.15s',
                                                 }}>

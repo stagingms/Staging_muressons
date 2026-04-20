@@ -76,6 +76,33 @@ const SEED_BUS = [
   },
 ];
 
+const SEED_BUS_HEALTHCARE = [
+  {
+    bu_id: 'hospitals', name: 'Muressons Hospitals', revenue_base: 22_000_000,
+    opex_base: 18_500_000, natural_capital_debt: 0, social_license_score: 65,
+    reputation_score: 55, governance_risk_score: 25, water_dependency: 85,
+    carbon_intensity: 70, risk_factors: {}
+  },
+  {
+    bu_id: 'clinics', name: 'Primary Care Clinics', revenue_base: 12_500_000,
+    opex_base: 9_800_000, natural_capital_debt: 0, social_license_score: 70,
+    reputation_score: 60, governance_risk_score: 15, water_dependency: 40,
+    carbon_intensity: 35, risk_factors: {}
+  },
+  {
+    bu_id: 'specialised_care', name: 'Specialised Care', revenue_base: 15_000_000,
+    opex_base: 10_500_000, natural_capital_debt: 0, social_license_score: 55,
+    reputation_score: 65, governance_risk_score: 20, water_dependency: 60,
+    carbon_intensity: 50, risk_factors: {}
+  },
+  {
+    bu_id: 'telehealth', name: 'Digital Health', revenue_base: 8_000_000,
+    opex_base: 4_200_000, natural_capital_debt: 0, social_license_score: 50,
+    reputation_score: 45, governance_risk_score: 10, water_dependency: 10,
+    carbon_intensity: 25, risk_factors: {}
+  },
+];
+
 // Round narrative titles for context
 const ROUND_TITLES = {
   1: 'Foundations — ESG Materiality',
@@ -123,7 +150,10 @@ export default function CockpitPage() {
 
   // Live state or seed fallback
   const globalState = sim.globalState || SEED_GLOBAL;
-  const businessUnits = sim.businessUnits?.length ? sim.businessUnits : SEED_BUS;
+  const _tempBus = sim.businessUnits?.length ? sim.businessUnits : null;
+  const isHealthcare = _tempBus ? _tempBus.some(b => b.bu_id === 'hospitals') : (globalState?.industry === 'healthcare');
+  
+  const businessUnits = _tempBus || (isHealthcare ? SEED_BUS_HEALTHCARE : SEED_BUS);
   const roundNumber = sim.roundNumber || 1;
 
   // Synergy score for R10 gate (multiplier × 100)
@@ -175,6 +205,7 @@ export default function CockpitPage() {
 
   // R2 BU selection for Strategic Pillars mode
   const [r2BuSelection, setR2BuSelection] = useState(null); // { selected_bu, bu_label }
+  const [csrdDone, setCsrdDone] = useState(false);
 
   // Detect paradigm from session (poll every 8s for facilitator changes)
   useEffect(() => {
@@ -228,6 +259,8 @@ export default function CockpitPage() {
   const [showOverrideModal, setShowOverrideModal] = useState(false);
   const [pendingDecisions, setPendingDecisions] = useState({});
   const [cfoErrorMsg, setCfoErrorMsg] = useState("");
+
+  const [lastSavedAt, setLastSavedAt] = useState(null);
 
   // ── Save State Hydration ──────────────────────────────────
   // Pre-load saved allocations and decisions if they exist
@@ -318,11 +351,20 @@ export default function CockpitPage() {
         allocations,
         decision_choice: decisionChoice,
       });
-      // Optionally flash a success message or rely on button UI feedback
+      setLastSavedAt(new Date());
     } catch (err) {
       console.error("Failed to save decisions:", err);
     }
   }, [sim, allocations, decisionChoice]);
+
+  // Periodic Auto-Save
+  useEffect(() => {
+    if (!sim.sessionId || sim.gameOver || (!decisionChoice && !globalState?.pillar_selections) || Object.keys(allocations).length === 0) return;
+    const interval = setInterval(() => {
+      handleSaveDecisions();
+    }, 30_000);
+    return () => clearInterval(interval);
+  }, [sim.sessionId, sim.gameOver, handleSaveDecisions, decisionChoice, globalState, allocations]);
 
   const handleForceOverride = useCallback(async () => {
     if (!pendingDecisions) return;
@@ -407,7 +449,7 @@ export default function CockpitPage() {
     return () => clearTimeout(timer);
   }, [sim.roundLocked]);
 
-  const hasSubmittedMatrix = globalState && globalState.materiality_budget_allocated != null;
+  const hasSubmittedMatrix = csrdDone || (globalState && (globalState.materiality_budget_allocated != null || globalState.csrd_completed));
   const hasCompletedStakeholderMap = globalState?.stakeholder_map_completed === true || stakeholderDone;
   // In multi_toggles mode, at least one pillar must be selected
   const hasDecision = decisionParadigm === 'multi_toggles'
@@ -421,7 +463,7 @@ export default function CockpitPage() {
   const [facilitatorMessages, setFacilitatorMessages] = useState([]);
   const addedRoundsRef = useRef(new Set());
 
-  const CRISES = useMemo(() => ({
+  const CRISES_ESG = {
     1: '📋 ESG Foundation Audit: Board demands an initial ESG materiality assessment.',
     2: '⚖️ Double Materiality Gate: CFO requires all investments to pass a double materiality test.',
     3: '🏭 Scope 3 Disruption: Major Scope 3 emissions discovered in supply chains.',
@@ -432,7 +474,9 @@ export default function CockpitPage() {
     8: '💧 Blue Water Stress: Primary watershed reclassified as critically stressed.',
     9: '✊ Just Transition: Automation layoffs triggering labor unrest.',
     10: '📢 Activist Ultimatum: Major activist fund demands structural change.',
-  }), []);
+  };
+
+  const CRISES = CRISES_ESG;
 
   // Append crisis briefing for current + all previous rounds (accumulate, never reset)
   useEffect(() => {
@@ -454,13 +498,36 @@ export default function CockpitPage() {
 
   // Append engine event messages (talent penalties etc.) for current round
   useEffect(() => {
-    if (sim.events?.talent_penalty_applied > 1) {
-      const evtId = `evt-talent-${roundNumber}`;
-      setMailboxMessages(prev => {
-        if (prev.some(m => m.id === evtId)) return prev;
-        return [...prev, { id: evtId, round: roundNumber, type: 'warning', title: '🧠 Brain-Drain Alert', body: `Software OPEX inflated by ${((sim.events.talent_penalty_applied - 1) * 100).toFixed(1)}%`, read: false }];
-      });
-    }
+    setMailboxMessages(prev => {
+      const msgs = [...prev];
+      let changed = false;
+
+      const addMsg = (id, title, body) => {
+        if (!msgs.some(m => m.id === id)) {
+          msgs.push({ id, round: roundNumber, type: 'alert', title, body, read: false });
+          changed = true;
+        }
+      };
+
+      if (sim.events?.talent_penalty_applied > 1) {
+        addMsg(`evt-talent-${roundNumber}`, '🧠 Brain-Drain Alert', `Software OPEX inflated by ${((sim.events.talent_penalty_applied - 1) * 100).toFixed(1)}%`);
+      }
+      
+      if (sim.events?.loan_interest_payment > 0) {
+        const fmtCurrency = (v) => v >= 1_000_000 ? `$${(v/1_000_000).toFixed(1)}M` : `$${(v/1000).toFixed(0)}K`;
+        addMsg(`evt-loan-${roundNumber}`, '🏦 Loan Interest Charged', `Interest payment of -${fmtCurrency(sim.events.loan_interest_payment)} applied this round.`);
+      }
+
+      if (sim.events?.strike_probabilities) {
+        const highs = Object.entries(sim.events.strike_probabilities).filter(([, p]) => p > 0.3);
+        if (highs.length) {
+          const body = highs.map(([b, p]) => `${b} ${(p * 100).toFixed(0)}%`).join(', ');
+          addMsg(`evt-strike-${roundNumber}`, '⚠️ Strike Risk Warning', `Elevated strike risk detected: ${body}`);
+        }
+      }
+
+      return changed ? msgs : prev;
+    });
   }, [roundNumber, sim.events]);
 
   // Merge facilitator messages into mailbox (deduplicate by id)
@@ -646,6 +713,47 @@ export default function CockpitPage() {
 
   return (
     <>
+      {/* ── Persistent Logout Button (always visible) ── */}
+      {sim.sessionId && (
+        <button
+          onClick={() => sim.logout()}
+          title="Logout & Exit Simulation"
+          style={{
+            position: 'fixed',
+            top: 12,
+            right: 16,
+            zIndex: 19000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '6px 14px',
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(248, 113, 113, 0.25)',
+            borderRadius: 8,
+            color: '#fca5a5',
+            fontSize: '0.72rem',
+            fontWeight: 700,
+            fontFamily: "'Inter', system-ui, sans-serif",
+            cursor: 'pointer',
+            transition: 'all 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = 'rgba(127, 29, 29, 0.85)';
+            e.currentTarget.style.color = '#fff';
+            e.currentTarget.style.borderColor = '#f87171';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)';
+            e.currentTarget.style.color = '#fca5a5';
+            e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.25)';
+          }}
+        >
+          🚪 Logout
+        </button>
+      )}
+
       {/* Join/Login overlay */}
       {!sim.sessionId && <div className={styles.joinOverlay}><JoinCohortModal sim={sim} /></div>}
 
@@ -700,6 +808,7 @@ export default function CockpitPage() {
       {sim.sessionId && showDesktop && (
         <RoundBriefing
           roundNumber={roundNumber}
+          isHealthcare={isHealthcare}
           onProceed={handleProceedFromDesktop}
         />
       )}
@@ -709,10 +818,80 @@ export default function CockpitPage() {
         sim={sim}
         globalState={globalState}
         businessUnits={businessUnits}
+        isHealthcare={isHealthcare}
         roundNumber={roundNumber}
         history={sim.history}
         roundConfig={sim.roundConfig}
         decisionParadigm={decisionParadigm}
+        actionToolbar={
+          sim.sessionId && !sim.gameOver ? (
+            <div id="tour-player-guides-target" style={{
+              display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 6,
+              fontFamily: 'Inter, sans-serif', width: '100%', padding: '6px',
+            }}>
+              {/* Paradigm Indicator */}
+              <div style={{
+                padding: '4px 12px', borderRadius: 14, 
+                background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)',
+                display: 'flex', alignItems: 'center', gap: 6,
+                marginBottom: 6, width: '100%', justifyContent: 'center'
+              }}>
+                <span style={{ fontSize: '0.85rem' }}>⚙️</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#818cf8', whiteSpace: 'nowrap' }}>
+                  {{
+                    'legacy_abc': 'Narrative Crises',
+                    'multi_toggles': 'Strategic Pillars',
+                    'advanced_climate': 'Advanced Climate',
+                    'healthcare': 'Healthcare Edition',
+                    'un_sdg': 'UN SDG Edition'
+                  }[decisionParadigm] || 'Simulation Active'}
+                </span>
+              </div>
+              
+              {[
+                { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
+                { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
+                { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
+                { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
+                { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
+                { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound' : 'Muted', shortcut: null, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
+                { icon: '👋', label: 'Log Out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
+              ].map(btn => (
+                <button
+                  key={btn.label}
+                  onClick={btn.onClick}
+                  title={btn.shortcut ? `${btn.label} (${btn.shortcut})` : btn.label}
+                  style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                    padding: '4px 8px', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                    transition: 'transform 0.15s, background 0.15s',
+                    color: '#e2e8f0',
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
+                  onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
+                >
+                  <span style={{ fontSize: '0.85rem' }}>{btn.icon}</span>
+                  <span style={{ fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase' }}>{btn.label}</span>
+                </button>
+              ))}
+            </div>
+          ) : null
+        }
+        roundChecklist={
+          sim.sessionId && !showDesktop && !sim.gameOver ? (
+            <RoundChecklist
+              roundNumber={roundNumber}
+              hasReadBriefing={!showDesktop}
+              hasCompletedStakeholderMap={hasCompletedStakeholderMap}
+              hasSubmittedMatrix={hasSubmittedMatrix}
+              hasDecision={hasDecision}
+              hasAllocated={Object.keys(allocations).length > 0}
+              hasCommitted={!!sim.commitResults}
+            />
+          ) : null
+        }
         pillarSelections={pillarSelections}
         onPillarChange={setPillarSelections}
         onDecisionChoice={setDecisionChoice}
@@ -737,6 +916,7 @@ export default function CockpitPage() {
         hasAllocated={Object.keys(allocations).length > 0}
         hasReadBriefing={!showDesktop}
         onLogout={sim.logout}
+        lastSavedAt={lastSavedAt}
       />
 
       {/* ═══ CRISIS ALERTS (auto-trigger + manual inject) ═══ */}
@@ -921,10 +1101,10 @@ export default function CockpitPage() {
               });
               const data = await res.json();
               if (!res.ok) return { error: data.detail };
-              if (sim.globalState) {
-                sim.globalState.corporate_treasury += data.allocated_budget;
-                sim.globalState.materiality_budget_allocated = payload.matrix_submission.quadrant_1_top_right;
+              if (sim.fetchDashboard) {
+                await sim.fetchDashboard();
               }
+              setCsrdDone(true);
               return { success: true, allocated_budget: data.allocated_budget };
             } catch { return { error: 'Network error submitting matrix.' }; }
           }}
@@ -960,64 +1140,14 @@ export default function CockpitPage() {
         }}>⚠️ {sim.error}</div>
       )}
 
-      {/* ═══ IMPROVEMENT: Round Checklist (1.1) ═══ */}
-      {sim.sessionId && !showDesktop && !sim.gameOver && (
-        <RoundChecklist
-          roundNumber={roundNumber}
-          hasReadBriefing={!showDesktop}
-          hasCompletedStakeholderMap={hasCompletedStakeholderMap}
-          hasSubmittedMatrix={hasSubmittedMatrix}
-          hasDecision={hasDecision}
-          hasAllocated={Object.keys(allocations).length > 0}
-          hasCommitted={!!sim.commitResults}
-        />
-      )}
+      {/* ═══ IMPROVEMENT: Round Checklist (moved to ExecutiveCockpit) ═══ */}
 
       {/* ═══ IMPROVEMENT: Onboarding Walkthrough (1.4) ═══ */}
       {sim.sessionId && showOnboarding && !showDesktop && !sim.gameOver && (
         <OnboardingWalkthrough roundNumber={roundNumber} onComplete={() => setShowOnboarding(false)} />
       )}
 
-      {/* ═══ IMPROVEMENT: Action Toolbar (Glossary, Achievements, AI, Peer, Sound) ═══ */}
-      {sim.sessionId && !showDesktop && !sim.gameOver && (
-        <div id="tour-player-guides-target" style={{
-          position: 'fixed', bottom: 82, left: 'calc(12% - 105px)', zIndex: 8500,
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5,
-          fontFamily: 'Inter, sans-serif',
-          width: 210,
-        }}>
-          {[
-            { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
-            { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
-            { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
-            { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
-            { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
-            { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound' : 'Muted', shortcut: null, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
-            { icon: '👋', label: 'Log Out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
-          ].map(btn => (
-            <button
-              key={btn.label}
-              onClick={btn.onClick}
-              title={btn.shortcut ? `${btn.label} (${btn.shortcut})` : btn.label}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                padding: '8px 6px', borderRadius: 10,
-                background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
-                boxShadow: '0 2px 12px rgba(0,0,0,0.2)',
-                transition: 'transform 0.15s, box-shadow 0.15s, background 0.15s',
-                color: '#e2e8f0',
-              }}
-              onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.04)'; e.currentTarget.style.background = 'rgba(15,23,42,0.95)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.3)'; }}
-              onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(15,23,42,0.85)'; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,0.2)'; }}
-            >
-              <span style={{ fontSize: '1rem' }}>{btn.icon}</span>
-              <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.02em' }}>{btn.label}</span>
-              {btn.shortcut && <span style={{ fontSize: '0.5rem', opacity: 0.5, background: 'rgba(255,255,255,0.1)', padding: '1px 4px', borderRadius: 3 }}>{btn.shortcut}</span>}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* ═══ IMPROVEMENT: Action Toolbar has been moved to ExecutiveCockpit leftSidebar ═══ */}
 
       {/* ═══ IMPROVEMENT: Market Ticker (4.3) ═══ */}
       {sim.sessionId && !sim.gameOver && (

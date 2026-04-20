@@ -8,7 +8,14 @@
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 3200000
+      "mitigation_cost_usd": 3200000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "palm_oil_deforestation",
@@ -17,7 +24,14 @@
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 2800000
+      "mitigation_cost_usd": 2800000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "tier3_labor",
@@ -26,7 +40,14 @@
       "category": "social",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 1500000
+      "mitigation_cost_usd": 1500000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "consumer_health",
@@ -35,7 +56,14 @@
       "category": "social",
       "financial_impact": "high",
       "societal_impact": "high",
-      "mitigation_cost_usd": 2000000
+      "mitigation_cost_usd": 2000000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "food_waste",
@@ -44,7 +72,14 @@
       "category": "ecological",
       "financial_impact": "medium",
       "societal_impact": "high",
-      "mitigation_cost_usd": 1000000
+      "mitigation_cost_usd": 1000000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "water_usage_cg",
@@ -53,7 +88,14 @@
       "category": "ecological",
       "financial_impact": "medium",
       "societal_impact": "medium",
-      "mitigation_cost_usd": 700000
+      "mitigation_cost_usd": 700000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "cg_volunteering",
@@ -62,7 +104,14 @@
       "category": "social",
       "financial_impact": "low",
       "societal_impact": "low",
-      "mitigation_cost_usd": 35000
+      "mitigation_cost_usd": 35000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     },
     {
       "id": "cg_straws",
@@ -71,7 +120,14 @@
       "category": "ecological",
       "financial_impact": "low",
       "societal_impact": "low",
-      "mitigation_cost_usd": 15000
+      "mitigation_cost_usd": 15000,
+      "stakeholders_group": "",
+      "stakeholders_subgroup": "",
+      "nature_of_impact": "",
+      "interdependency_1": "",
+      "interdependency_2": "",
+      "affected_bu_1": "",
+      "affected_bu_2": ""
     }
   ],
   "interdependencies": []

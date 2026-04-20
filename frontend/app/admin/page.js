@@ -15,7 +15,6 @@ export default function AdminGateway() {
 
             <main className={styles.cardsGrid}>
 
-
                 {/* ── Facilitator Card ── */}
                 <Link href="/admin/facilitator" className={`${styles.roleCard} ${styles.facilitator}`}>
                     <div className={styles.icon}>🎓</div>

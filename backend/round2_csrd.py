@@ -138,8 +138,8 @@ ROUND_2_DEFAULT_CONFIG = {
         "total_materiality_budget": 15000000,
         "consultant_feature": {
             "enabled": True,
-            "consultant_fee_usd": 1500000,
-            "auto_solve_count": 5
+            "consultant_fee_usd": 1000000,
+            "auto_solve_count": 4
         }
     }
 }
