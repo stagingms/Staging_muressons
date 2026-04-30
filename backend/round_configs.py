@@ -72,9 +72,10 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Phased Audit Rollout",
                 "description": (
                     "Audit Pharma and Consumer Goods now; defer Electronics "
-                    "and Software. Balanced cost."
+                    "and Software to next quarter. Balanced cost, but "
+                    "partial blind spots remain."
                 ),
-                "flags_set": ["electronics_blindspot"],
+                "flags_set": ["deferred_audit"],
                 "impacts": {
                     "treasury": -1_500_000,
                     "reputation": +2,
@@ -108,27 +109,52 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "round_2_software"
             ],
         },
+        "special_rules": {
+            "materiality_accuracy_treasury_bonus": True,
+            "accuracy_threshold": 90,
+            "accuracy_bonus_amount": 2_000_000,
+        },
         "options": {
             "option_a": {
                 "label": "A",
                 "title": "Full Materiality Alignment",
-                "description": "Allocate exclusively to high-impact nodes.",
+                "description": (
+                    "Allocate exclusively to high-impact nodes. Genuine CSRD compliance: "
+                    "assurance-ready report, stakeholder panel, full ESRS disclosure. "
+                    "In Advanced Climate mode: unlocks CSRD/ESRS climate materiality bonus "
+                    "(NCD forgiveness +25%). Compliance cost is real."
+                ),
                 "flags_set": ["materiality_aligned"],
-                "impacts": {"reputation": +5, "governance_risk": -5, "carbon_intensity_delta": -3, "revenue_delta": -300_000},
+                "ac_bonus": {"ncd_forgiveness_multiplier": 1.25, "note": "CSRD climate materiality alignment"},
+                "impacts": {
+                    "reputation": +5,
+                    "governance_risk_delta": -5,
+                    "carbon_intensity_delta": -3,
+                    # Raised from -$300K to -$2.5M: genuine compliance cost friction
+                    # (ESRS assurance, stakeholder engagement, reporting infrastructure)
+                    "revenue_delta": -2_500_000,
+                },
             },
             "option_b": {
                 "label": "B",
                 "title": "Strategic Exceptions",
-                "description": "Allow limited off-quadrant spending with CFO approval.",
+                "description": "Allow limited off-quadrant spending with CFO approval. Partial compliance.",
                 "flags_set": ["materiality_exceptions"],
-                "impacts": {"reputation": +2, "governance_risk": -2, "carbon_intensity_delta": -1, "revenue_delta": 0},
+                "impacts": {"reputation": +2, "governance_risk_delta": -2, "carbon_intensity_delta": -1, "revenue_delta": 0},
             },
             "option_c": {
                 "label": "C",
                 "title": "Ignore Materiality Framework",
-                "description": "Business-as-usual. No materiality filter.",
+                "description": (
+                    "Business-as-usual. No materiality filter applied to capital allocation. "
+                    "⚠️ CFO Warning: 40% of materiality budget unlocked this round will be "
+                    "clawed back — governance posture must match investment rationale."
+                ),
                 "flags_set": ["materiality_ignored"],
-                "impacts": {"reputation": -5, "governance_risk": +10, "carbon_intensity_delta": +3, "revenue_delta": +400_000},
+                # budget_clawback_pct is read by submit_materiality_matrix in router.py
+                # to retroactively reduce the materiality capital released this round.
+                "budget_clawback_pct": 0.40,
+                "impacts": {"reputation": -5, "governance_risk_delta": +10, "carbon_intensity_delta": +3, "revenue_delta": +400_000},
             },
         },
     },
@@ -153,9 +179,10 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Rapid Supplier Switch",
                 "description": (
                     "Immediately switch to low-carbon suppliers. Fast "
-                    "reduction but high disruption risk."
+                    "reduction but high disruption risk. Early movers "
+                    "gain a strategic advantage in circular economy."
                 ),
-                "flags_set": ["supply_chain_disruption_risk"],
+                "flags_set": ["supply_chain_disruption_risk", "early_decarboniser"],
                 "impacts": {
                     "treasury": -4_000_000,
                     "carbon_intensity_delta": -15,
@@ -262,9 +289,15 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Hard Engineering Defence",
                 "description": (
                     "Build flood walls and reinforced infrastructure. "
-                    "Resilience Factor 0.85, but adds 10 Natural Capital Debt."
+                    "Resilience Factor 0.85 — but construction takes 2 rounds. "
+                    "⚠️ NO PROTECTION THIS ROUND. Infrastructure completes in Round 7. "
+                    "Adds 10 Natural Capital Debt (concrete/steel environmental cost). "
+                    "🌡️ CLIMATE WARNING: +3 Carbon Intensity contributes to the "
+                    "Climate Tipping Point (avg CI > 70). In Advanced Climate mode, "
+                    "crossing this threshold doubles NCD costs permanently."
                 ),
                 "flags_set": ["hard_engineering"],
+                "climate_framing": "ADAPTATION (physical infrastructure)",
                 "impacts": {
                     "resilience_factor": 0.85,
                     "natural_capital_debt_delta": +10,
@@ -278,9 +311,12 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Nature-Based Solutions",
                 "description": (
                     "Invest in mangrove restoration and natural buffers. "
-                    "Resilience Factor 0.60, reduces Natural Capital Debt."
+                    "Resilience Factor 0.60 — but ecosystem establishment takes 2 rounds. "
+                    "⚠️ NO PROTECTION THIS ROUND. Buffers mature by Round 7. "
+                    "Reduces Natural Capital Debt (nature-positive infrastructure)."
                 ),
                 "flags_set": ["nature_based_resilience"],
+                "climate_framing": "ADAPTATION + MITIGATION (nature-positive)",
                 "impacts": {
                     "resilience_factor": 0.60,
                     "natural_capital_debt_delta": -8,
@@ -292,8 +328,14 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_c": {
                 "label": "C",
                 "title": "Insurance Only",
-                "description": "Buy comprehensive insurance. No resilience factor.",
+                "description": (
+                    "Buy comprehensive insurance. No physical resilience built — "
+                    "full damage if cyclone strikes this round or any future round. "
+                    "⚠️ Blocks the Resilience Bonus at terminal valuation (−0.20 M_R)."
+                ),
                 "flags_set": ["insurance_only"],
+                "climate_framing": "RISK TRANSFER (no physical adaptation)",
+                "warning_badge": "⚠️ This option provides ZERO physical protection. Full damage if cyclone strikes.",
                 "impacts": {
                     "resilience_factor": 0.0,
                     "treasury": -2_000_000,
@@ -328,7 +370,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 ),
                 "flags_set": ["ai_monetised"],
                 "impacts": {
-                    "software_revenue_delta": +5_000_000,
+                    "software_revenue_delta": +10_000_000,
                     "reputation_delta": -20,
                     "contagion_spike": True,
                     "carbon_intensity_delta": +2,
@@ -416,7 +458,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "flags_set": ["waste_to_energy", "synergy_unlock"],
                 "impacts": {
                     "treasury": -7_000_000,
-                    "synergy_multiplier_boost": 0.35,
+                    "synergy_multiplier_boost": 0.30,  # Fix #4: harmonised to match M_R +0.30 in _post_r10
                     "natural_capital_debt_delta": -4,
                     "carbon_intensity_delta": -6,
                     "revenue_delta": +400_000,
@@ -445,6 +487,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Water Efficiency for All BUs",
                 "description": "Equitable water-saving upgrades across all units.",
                 "flags_set": ["water_efficiency_all"],
+                "climate_framing": "ADAPTATION (equitable water resilience)",
                 "impacts": {
                     "treasury": -12_000_000,
                     "water_dependency_delta": -20,
@@ -461,6 +504,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "Pharma and Consumer Goods take severe social licence hit."
                 ),
                 "flags_set": ["electronics_water_priority"],
+                "climate_framing": "MALADAPTATION (inequitable resource allocation)",
                 "impacts": {
                     "treasury": -4_000_000,
                     "social_license_severe_drop": True,
@@ -474,18 +518,25 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "label": "C",
                 "title": "Desalination Mega-Project",
                 "description": (
-                    "Build a desalination plant. Massive cost ($30M) but "
-                    "reduces Natural Capital Debt by 30 points."
+                    "Build a desalination plant. Massive cost ($30M) with a "
+                    "2-round construction delay before benefits arrive. "
+                    "Reduces Natural Capital Debt by 30 points and water "
+                    "dependency by 40. Generates $5M/round revenue from "
+                    "Round 10 onward (Rounds 8+2) for 3 rounds."
                 ),
                 "flags_set": ["desalination_built"],
+                "climate_framing": "ADAPTATION (energy-intensive infrastructure)",
                 "impacts": {
                     "treasury": -30_000_000,
                     "natural_capital_debt_delta": -30,
                     "water_dependency_delta": -40,
-                    "carbon_intensity_delta": -5,
+                    "carbon_intensity_delta": +5,  # Desalination is energy-intensive (~3-4 kWh/m³)
                     "revenue_delta": +300_000,
+                    "generates_revenue": 5_000_000,
+                    "payback_rounds": 3,
                 },
             },
+
         },
     },
 
@@ -505,7 +556,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
         },
         "special_rules": {
             "low_social_license_strike_trigger": True,
-            "strike_probability_override": 0.75,
+            "strike_probability_override": 0.50,
             "regulatory_friction_enabled": True,
         },
         "options": {
@@ -517,6 +568,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "License is low, 75% chance of a strike that zeros revenue."
                 ),
                 "flags_set": ["immediate_closure"],
+                "climate_framing": "MALADAPTATION (short-term extraction)",
                 "impacts": {
                     "treasury": +5_000_000,
                     "social_license_delta": -20,
@@ -531,6 +583,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Managed Transition",
                 "description": "2-year phase-out with retraining and severance packages.",
                 "flags_set": ["managed_transition"],
+                "climate_framing": "JUST TRANSITION (company-led)",
                 "impacts": {
                     "treasury": -12_000_000,
                     "social_license_delta": +10,
@@ -547,6 +600,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "and green job training."
                 ),
                 "flags_set": ["community_fund"],
+                "climate_framing": "JUST TRANSITION (community-led transformation)",
                 "impacts": {
                     "treasury": -20_000_000,
                     "social_license_delta": +18,
@@ -714,3 +768,57 @@ def get_round_crisis(round_number: int) -> dict[str, Any] | None:
     """Return a deep copy of the crisis definition for a round."""
     cfg = _get_merged_round_configs().get(round_number)
     return copy.deepcopy(cfg.get("crisis")) if cfg else None
+
+
+# ═════════════════════════════════════════════════════════════════
+#  REC-5: TURNAROUND OPTION T
+#  Dynamically injected when a team is in Survival Mode (Phase 1/2).
+#  Trades short-term pain for accelerated recovery.
+# ═════════════════════════════════════════════════════════════════
+
+TURNAROUND_OPTION_T = {
+    "label": "T",
+    "title": "Emergency Restructuring",
+    "description": (
+        "Divest the worst-performing BU (lowest EBITDA margin) at 60% book value. "
+        "All remaining BUs get a -15% OPEX haircut (forced efficiency). "
+        "Reputation +10 (market rewards decisive action). "
+        "Synergy multiplier drops 20% (fewer cross-selling opportunities). "
+        "Sets turnaround_restructuring flag, enabling Phase 2 transition."
+    ),
+    "flags_set": ["turnaround_restructuring"],
+    "is_turnaround_option": True,
+    "impacts": {
+        "divest_worst_bu": True,
+        "divest_book_value_pct": 0.60,
+        "opex_haircut_pct": -0.15,
+        "reputation": +10,
+        "synergy_multiplier_penalty": -0.20,
+    },
+    "visual_style": {
+        "gradient": "linear-gradient(135deg, #f59e0b, #d97706)",
+        "border_color": "#f59e0b",
+        "badge": "⚡ TURNAROUND",
+        "is_emergency": True,
+    },
+}
+
+
+def get_round_config_with_turnaround(
+    round_number: int,
+    turnaround_phase: str = "none",
+) -> dict[str, Any] | None:
+    """
+    Return round config with Option T injected if team is in survival mode.
+    Option T is available during 'crisis' and 'stabilisation' phases.
+    """
+    cfg = get_round_config(round_number)
+    if cfg is None:
+        return None
+
+    if turnaround_phase in ("crisis", "stabilisation"):
+        cfg["options"]["option_t"] = copy.deepcopy(TURNAROUND_OPTION_T)
+        cfg["turnaround_active"] = True
+        cfg["turnaround_phase"] = turnaround_phase
+
+    return cfg

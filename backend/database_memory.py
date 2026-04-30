@@ -77,7 +77,14 @@ def _persist():
             tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(snapshot, f, default=_datetime_serializer, ensure_ascii=False)
-            tmp_path.replace(_SNAPSHOT_PATH)  # atomic rename
+            
+            import time
+            for _ in range(5):
+                try:
+                    tmp_path.replace(_SNAPSHOT_PATH)  # atomic rename
+                    break
+                except OSError:
+                    time.sleep(0.05)
         except Exception as e:
             print(f"[persistence] Failed to save snapshot: {e}")
 
@@ -175,6 +182,14 @@ async def create_session(
     player_id: Optional[str] = None,
     parent_cohort_id: Optional[str] = None,
     decision_paradigm: str = "legacy_abc",
+    currency_symbol: str = "$",
+    scenario_preset: Optional[str] = None,
+    experience_level: Optional[str] = None,
+    difficulty_tier: Optional[str] = None,
+    created_by: Optional[str] = None,
+    created_when: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
 ) -> dict:
     """
     Create a new session and seed Round 1 state.
@@ -187,7 +202,7 @@ async def create_session(
                     and not existing.get("parent_cohort_id")):
                 raise ValueError(f"A cohort named '{cohort_name}' already exists.")
 
-    from admin_router import _god_mode_settings
+    from admin_shared import _god_mode_settings
     # Determine industry/seed based on the requested decision paradigm.
     # Paradigm-specific seeds take priority over the global god-mode industry setting.
     _PARADIGM_INDUSTRY_MAP = {"healthcare": "healthcare"}
@@ -212,6 +227,14 @@ async def create_session(
         "player_id": player_id,
         "parent_cohort_id": parent_cohort_id,
         "decision_paradigm": decision_paradigm,
+        "currency_symbol": currency_symbol,
+        "scenario_preset": scenario_preset,
+        "experience_level": experience_level,
+        "difficulty_tier": difficulty_tier or "advanced",
+        "created_by": created_by,
+        "created_when": created_when,
+        "start_date": start_date,
+        "end_date": end_date,
     }
 
     bus = seed["business_units"]
@@ -228,13 +251,18 @@ async def create_session(
         "organization": round(max(0, min(100, 100 - avg_gr)), 1),
     }
 
-    from admin_router import _god_mode_settings
+    from admin_shared import _god_mode_settings
     treasury = _god_mode_settings.get("corporate_treasury_start", gs["corporate_treasury_usd"])
     reputation = _god_mode_settings.get("group_reputation_start", gs["group_reputation_score"])
     synergy = _god_mode_settings.get("synergy_multiplier_start", gs["group_synergy_multiplier"])
     coc = _god_mode_settings.get("cost_of_capital_start", gs["cost_of_capital_rate"])
     loan_interest_rate = _god_mode_settings.get("loan_interest_rate_start", loan_interest_rate)
     green_fund = _god_mode_settings.get("green_transition_fund_start", 0.0)
+
+    # ── Resolve ending pathway for this session ──
+    from ending_pathways import resolve_pathway
+    default_pathway = _god_mode_settings.get("default_ending_pathway", "activist_ultimatum")
+    ending_pathway = resolve_pathway(default_pathway)
 
     global_state = {
         "state_id": global_state_id,
@@ -246,7 +274,8 @@ async def create_session(
         "cost_of_capital": coc,
         "active_event_flags": {
             **gs.get("active_event_flags", {}),
-            "loan_interest_rate": loan_interest_rate
+            "loan_interest_rate": loan_interest_rate,
+            "ending_pathway": ending_pathway,
         },
         "bonus_score": 0,
         "historical_ebitda": baseline_ebitda,
@@ -279,7 +308,8 @@ async def create_session(
             "cost_of_capital": coc,
             "active_event_flags": {
                 **gs.get("active_event_flags", {}),
-                "loan_interest_rate": loan_interest_rate
+                "loan_interest_rate": loan_interest_rate,
+                "ending_pathway": ending_pathway,
             },
             "historical_ebitda": baseline_ebitda,
             "tco2e_emissions": baseline_tco2e,
@@ -607,7 +637,21 @@ async def fetch_all_sessions() -> list[dict]:
             "parent_cohort_id": s.get("parent_cohort_id"),
             "registered_players": s.get("registered_players", []),
             "decision_paradigm": s.get("decision_paradigm", "legacy_abc"),
+            "currency_symbol": s.get("currency_symbol", "$"),
+            "scenario_preset": s.get("scenario_preset"),
+            "experience_level": s.get("experience_level"),
+            "difficulty_tier": s.get("difficulty_tier", "advanced"),
+            "created_by": s.get("created_by"),
+            "created_when": s.get("created_when"),
             "deleted_at": s.get("deleted_at"),
+            "pedagogical_overrides": s.get("pedagogical_overrides", {}),
+            "ceo_interview_enabled": s.get("ceo_interview_enabled", False),
+            "ceo_interview_voice_gender": s.get("ceo_interview_voice_gender", "female"),
+            "side_tracks": s.get("side_tracks", []),
+            "start_date": s.get("start_date"),
+            "end_date": s.get("end_date"),
+            "pacing_mode": s.get("pacing_mode", "free_play"),
+            "max_unlocked_round": s.get("max_unlocked_round", 10),
         }
         for s in sorted(
             _sessions.values(),

@@ -1,6 +1,7 @@
 import './globals.css';
 import ThemeToggle from './components/ThemeToggle';
 import GlobalTooltip from './components/GlobalTooltip';
+import { CurrencyProvider } from './contexts/CurrencyContext';
 
 export const metadata = {
   title: 'Muressons Corporation — Executive Cockpit',
@@ -12,7 +13,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body suppressHydrationWarning>
-        {children}
+        <CurrencyProvider>
+          {children}
+        </CurrencyProvider>
         <ThemeToggle />
         <GlobalTooltip />
       </body>

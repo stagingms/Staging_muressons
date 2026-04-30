@@ -16,7 +16,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
  *  - sessionId: current session ID
  *  - onComplete: () => void — called after submission to transition to SBSC
  */
-export default function BoardroomShowdown({ data, sessionId, onComplete }) {
+export default function BoardroomShowdown({ data, sessionId, onComplete, onLogout }) {
     const [selectedOption, setSelectedOption] = useState(null);
     const [decadePlan, setDecadePlan] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -97,9 +97,8 @@ export default function BoardroomShowdown({ data, sessionId, onComplete }) {
                 }),
             });
             onComplete?.();
-        } catch (err) {
-            console.error('Failed to save decade plan:', err);
-            // Still proceed — the SBSC should show regardless
+        } catch {
+            // Backend unreachable — still proceed to SBSC
             onComplete?.();
         } finally {
             setSubmitting(false);
@@ -108,6 +107,24 @@ export default function BoardroomShowdown({ data, sessionId, onComplete }) {
 
     return (
         <div className={styles.overlay}>
+            {onLogout && (
+                <button
+                    onClick={() => { if (window.confirm('Log out? Your progress is saved and you can return anytime.')) onLogout(); }}
+                    style={{
+                        position: 'fixed', top: 12, right: 16, zIndex: 19000,
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+                        background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8,
+                        color: '#fca5a5', fontSize: '0.72rem', fontWeight: 700,
+                        fontFamily: "'Inter', system-ui, sans-serif",
+                        cursor: 'pointer', transition: 'all 0.2s ease',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                    }}
+                    title="Logout & Exit Simulation"
+                >
+                    🚪 Logout
+                </button>
+            )}
             <div className={styles.modal}>
                 {/* ── Header ── */}
                 <header className={styles.header}>
@@ -163,7 +180,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete }) {
                             <div className={styles.stat}>
                                 <span className={styles.statLabel}>Group Reputation</span>
                                 <span className={styles.statValue}>
-                                    {(d.group_reputation || d.final_treasury ? '—' : '—')}
+                                    {(d.group_reputation ?? 0).toFixed(1)}
                                 </span>
                             </div>
                             <div className={styles.stat}>

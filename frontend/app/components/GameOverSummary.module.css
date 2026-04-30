@@ -12,8 +12,8 @@
 }
 
 .container {
-    background: var(--bg-card, #1a1a2e);
-    border: 1px solid var(--border-subtle, #2a2a4a);
+    background: #0f172a;
+    border: 1px solid #1e293b;
     border-radius: 20px;
     width: 100%;
     max-width: 700px;
@@ -88,7 +88,7 @@
 }
 
 .statCard {
-    background: var(--bg-elevated, #16213e);
+    background: #111827;
     padding: 1rem;
 }
 
@@ -97,7 +97,7 @@
     font-size: 0.6rem;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: var(--text-muted, #64748b);
+    color: #94a3b8;
     margin-bottom: 0.3rem;
 }
 
@@ -105,7 +105,7 @@
     display: block;
     font-size: 1.3rem;
     font-weight: 800;
-    color: var(--text-primary, #e2e8f0);
+    color: #e2e8f0;
 }
 
 /* ── Message ───────────────────────────────────────────────── */
@@ -117,13 +117,13 @@
 .message h2 {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
+    color: #f1f5f9;
     margin: 0 0 0.6rem;
 }
 
 .message p {
     font-size: 0.82rem;
-    color: var(--text-secondary, #94a3b8);
+    color: #94a3b8;
     line-height: 1.7;
     margin: 0;
 }
@@ -176,9 +176,9 @@
     width: 100%;
     padding: 0.7rem;
     background: none;
-    border: 1px solid var(--border-subtle, #2a2a4a);
+    border: 1px solid #334155;
     border-radius: 10px;
-    color: var(--text-muted, #64748b);
+    color: #94a3b8;
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -193,12 +193,12 @@
 /* ── Footer ────────────────────────────────────────────────── */
 .footer {
     padding: 1.2rem 2rem;
-    border-top: 1px solid var(--border-subtle, #2a2a4a);
+    border-top: 1px solid #1e293b;
 }
 
 .footer p {
     font-size: 0.65rem;
-    color: var(--text-muted, #64748b);
+    color: #64748b;
     margin: 0.15rem 0;
     letter-spacing: 0.5px;
 }

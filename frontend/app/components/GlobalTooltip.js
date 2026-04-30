@@ -128,14 +128,16 @@ export default function GlobalTooltip() {
         background: bg,
         backdropFilter: 'blur(24px) saturate(1.5)',
         WebkitBackdropFilter: 'blur(24px) saturate(1.5)',
-        border: `1px solid ${borderColor}`,
+        borderWidth: '1px',
+        borderStyle: 'solid',
+        borderColor: borderColor,
         borderRadius: '12px',
         boxShadow: shadow,
-        fontFamily: 'var(--font-sans)',
-        fontSize: '0.8rem',
-        fontWeight: 420,
-        lineHeight: 1.6,
-        letterSpacing: '0.01em',
+        fontFamily: 'var(--font-sans, system-ui, -apple-system, sans-serif)',
+        fontSize: '0.78rem',
+        fontWeight: 500,
+        lineHeight: 1.55,
+        letterSpacing: '0.02em',
         color: fg,
         textAlign: 'left',
         wordBreak: 'break-word',
@@ -144,22 +146,22 @@ export default function GlobalTooltip() {
         transition: 'opacity 0.2s cubic-bezier(0.23,1,0.32,1)',
     };
 
+    const isAbove = placement === 'above';
     const arrowStyle = {
         position: 'absolute',
         left: '50%',
         transform: 'translateX(-50%)',
         width: 0,
         height: 0,
-        border: '7px solid transparent',
+        borderWidth: '7px',
+        borderStyle: 'solid',
+        // Use explicit longhand sides — avoids React's shorthand/longhand conflict warning
+        borderTopColor:    isAbove ? bg : 'transparent',
+        borderBottomColor: isAbove ? 'transparent' : bg,
+        borderLeftColor:  'transparent',
+        borderRightColor: 'transparent',
+        ...(isAbove ? { bottom: '-13px' } : { top: '-13px' }),
     };
-
-    if (placement === 'above') {
-        arrowStyle.bottom = '-13px';
-        arrowStyle.borderTopColor = bg;
-    } else {
-        arrowStyle.top = '-13px';
-        arrowStyle.borderBottomColor = bg;
-    }
 
     // Split text on "Answers:" to render it as a distinct styled line
     const renderText = () => {

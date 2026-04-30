@@ -1,22 +1,43 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 /**
  * CountdownTimer — Visible round timer when facilitator sets time limits.
- * Improvement #2.1: Real-time countdown timer
+ * NEW-11 fix: Resolves the parent cohort session ID from /session-info to
+ * poll pacing against the cohort, not the player's sub-session ID.
  */
 export default function CountdownTimer({ sessionId, roundNumber }) {
   const [timeLeft, setTimeLeft] = useState(null); // seconds remaining
   const [totalTime, setTotalTime] = useState(null);
+  // NEW-11: Resolved cohort session ID (may differ from player's own sessionId)
+  const cohortIdRef = useRef(null);
+
+  // Resolve the correct cohort ID on mount / sessionId change
+  useEffect(() => {
+    if (!sessionId || sessionId === 'demo') return;
+    let cancelled = false;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sessionId}/session-info`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (!cancelled && data) {
+          // If this is a player sub-session, use the parent cohort ID for pacing polls
+          cohortIdRef.current = data.parent_cohort_id || sessionId;
+        }
+      })
+      .catch(() => { cohortIdRef.current = sessionId; });
+    return () => { cancelled = true; };
+  }, [sessionId]);
 
   useEffect(() => {
     if (!sessionId || sessionId === 'demo') return;
     let cancelled = false;
 
     const fetchTimer = async () => {
+      // NEW-11: Always poll pacing for the cohort, not the player's own sub-session
+      const targetId = cohortIdRef.current || sessionId;
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/sessions/${sessionId}/pacing`
+          `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/sessions/${targetId}/pacing`
         );
         if (res.ok && !cancelled) {
           const data = await res.json();

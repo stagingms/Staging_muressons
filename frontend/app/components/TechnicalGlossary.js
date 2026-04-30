@@ -307,11 +307,18 @@ function useMathJax() {
         processEscapes: false,
         packages: {'[+]': ['ams', 'noerrors']},
       },
+      chtml: {
+        mtextInheritFont: true,
+      },
       options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] },
       startup: {
         typeset: false,
         ready() {
           window.MathJax.startup.defaultReady();
+          // Force MathJax to inherit page text color (fixes dark mode)
+          const style = document.createElement('style');
+          style.textContent = 'mjx-container, mjx-container * { color: inherit !important; }';
+          document.head.appendChild(style);
           // Typeset everything on initial load
           window.MathJax.typesetPromise().catch(() => {});
           // Watch for new DOM content and auto-typeset
@@ -357,8 +364,8 @@ function TermCard({ term, clusterAccent, searchQuery }) {
   }, [searchQuery]);
 
   const cardStyle = {
-    background: 'var(--bg-card, #fff)',
-    border: '1px solid var(--border-subtle, #e2e8f0)',
+    background: 'var(--bg-card)',
+    border: '1px solid var(--border-subtle)',
     borderRadius: '10px',
     overflow: 'hidden',
     marginBottom: '16px',
@@ -371,10 +378,10 @@ function TermCard({ term, clusterAccent, searchQuery }) {
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '16px 20px',
-    borderBottom: open ? '1px solid var(--border-subtle, #e2e8f0)' : '1px solid transparent',
+    borderBottom: open ? '1px solid var(--border-subtle)' : '1px solid transparent',
     cursor: 'pointer',
     gap: '12px',
-    background: open ? 'var(--bg-body, #f8fafc)' : 'transparent',
+    background: open ? 'var(--bg-elevated, var(--bg-body))' : 'transparent',
     transition: 'background 0.2s',
   };
 
@@ -399,13 +406,14 @@ function TermCard({ term, clusterAccent, searchQuery }) {
   };
 
   const formulaBoxStyle = {
-    background: 'var(--bg-body, #f8fafc)',
+    background: 'var(--bg-elevated)',
     border: `1px solid ${clusterAccent}`,
     borderLeft: `3px solid ${clusterAccent}`,
     borderRadius: '6px',
     padding: '14px 18px',
     overflowX: 'auto',
     marginTop: '4px',
+    color: 'var(--text-primary)',
   };
 
   const sigBoxStyle = {
@@ -420,14 +428,14 @@ function TermCard({ term, clusterAccent, searchQuery }) {
     <div style={cardStyle}>
       <div style={headerStyle} onClick={() => setOpen(v => !v)} role="button" aria-expanded={open}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary, #0f172a)', lineHeight: 1.3 }}>
+          <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--text-primary)', lineHeight: 1.3 }}>
             {term.name}
           </div>
         </div>
         <span style={{
           fontSize: '10px', fontFamily: 'var(--font-mono, monospace)',
-          letterSpacing: '0.08em', color: 'var(--text-muted, #94a3b8)',
-          padding: '2px 8px', border: '1px solid var(--border-subtle,#e2e8f0)',
+          letterSpacing: '0.08em', color: 'var(--text-muted)',
+          padding: '2px 8px', border: '1px solid var(--border-subtle)',
           borderRadius: '3px', whiteSpace: 'nowrap', flexShrink: 0,
         }}>{term.abbr}</span>
         <span style={{ color: open ? clusterAccent : 'var(--text-muted,#94a3b8)', transition: 'transform 0.2s, color 0.2s', transform: open ? 'rotate(180deg)' : 'none', fontSize: '12px' }}>▼</span>
@@ -438,13 +446,13 @@ function TermCard({ term, clusterAccent, searchQuery }) {
           {/* Definition */}
           <div>
             <div style={sectionLabelStyle}>Formal Definition <span style={dividerStyle} /></div>
-            <p style={{ fontSize: '0.85rem', lineHeight: 1.75, color: 'var(--text-primary,#1e293b)', margin: 0, fontWeight: 400 }}>{term.definition}</p>
+            <p style={{ fontSize: '0.85rem', lineHeight: 1.75, color: 'var(--text-primary)', margin: 0, fontWeight: 400 }}>{term.definition}</p>
           </div>
 
           {/* Operational Logic */}
           <div>
             <div style={sectionLabelStyle}>Operational Logic <span style={dividerStyle} /></div>
-            <p style={{ fontSize: '0.85rem', lineHeight: 1.75, color: 'var(--text-primary,#1e293b)', margin: 0, fontWeight: 400 }}>{term.logic}</p>
+            <p style={{ fontSize: '0.85rem', lineHeight: 1.75, color: 'var(--text-primary)', margin: 0, fontWeight: 400 }}>{term.logic}</p>
           </div>
 
           {/* Formula — full width */}
@@ -459,7 +467,7 @@ function TermCard({ term, clusterAccent, searchQuery }) {
           <div style={{ gridColumn: '1 / -1' }}>
             <div style={sectionLabelStyle}>Strategic Significance <span style={dividerStyle} /></div>
             <div style={sigBoxStyle}>
-              <p style={{ fontSize: '0.85rem', lineHeight: 1.75, color: 'var(--text-secondary,#475569)', margin: 0 }}>{term.significance}</p>
+              <p style={{ fontSize: '0.85rem', lineHeight: 1.75, color: 'var(--text-secondary)', margin: 0 }}>{term.significance}</p>
             </div>
           </div>
         </div>
@@ -496,7 +504,7 @@ export default function TechnicalGlossary() {
   const totalVisible = filteredClusters.reduce((s, c) => s + c.terms.length, 0);
 
   return (
-    <div style={{ fontFamily: 'var(--font-sans, Inter, system-ui, sans-serif)', maxWidth: '1100px', margin: '0 auto', padding: '0 0 60px' }}>
+    <div style={{ fontFamily: 'var(--font-sans, Inter, system-ui, sans-serif)', maxWidth: '1100px', margin: '0 auto', padding: '0 0 60px', color: 'var(--text-primary)' }}>
 
       {/* ── Header ── */}
       <div style={{ marginBottom: '28px', paddingBottom: '20px', borderBottom: '1px solid var(--border-subtle,#e2e8f0)' }}>
@@ -504,17 +512,17 @@ export default function TechnicalGlossary() {
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
               <span style={{ fontSize: '1.4rem' }}>📐</span>
-              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary,#0f172a)' }}>
+              <h2 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)' }}>
                 Technical Glossary
               </h2>
               <span style={{
                 fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.12em',
                 textTransform: 'uppercase', padding: '3px 8px', borderRadius: '4px',
                 background: 'linear-gradient(135deg, #c9a84c22, #c9a84c11)',
-                border: '1px solid #c9a84c44', color: '#9a7a30',
+                border: '1px solid #c9a84c44', color: '#c9a84c',
               }}>21 Terms · 3 Clusters</span>
             </div>
-            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted,#64748b)', maxWidth: '600px', lineHeight: 1.6 }}>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: '600px', lineHeight: 1.6 }}>
               Senior-level reference for every quantitative variable, formula, and strategic lever in the Muressons simulation engine.
               All equations verified against <code style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono,monospace)' }}>engine.py</code> and <code style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono,monospace)' }}>round_logic.py</code>.
             </p>
@@ -531,7 +539,7 @@ export default function TechnicalGlossary() {
               style={{
                 paddingLeft: '34px', paddingRight: '12px', paddingTop: '9px', paddingBottom: '9px',
                 borderRadius: '8px', border: '1.5px solid var(--border-subtle,#e2e8f0)',
-                background: 'var(--bg-body,#f8fafc)', color: 'var(--text-primary,#0f172a)',
+                background: 'var(--bg-card)', color: 'var(--text-primary)',
                 fontSize: '0.82rem', outline: 'none', width: '100%', boxSizing: 'border-box',
                 fontFamily: 'var(--font-sans,system-ui)',
                 transition: 'border-color 0.2s',
@@ -544,7 +552,7 @@ export default function TechnicalGlossary() {
 
         {/* Cluster filter pills */}
         <div style={{ display: 'flex', gap: '8px', marginTop: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted,#64748b)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Filter:</span>
+          <span style={{ fontSize: '0.7rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Filter:</span>
           {[{ id: 'all', label: 'All Clusters', color: '#7c7c7c' }, ...CLUSTERS.map(c => ({ id: c.id, label: c.title, color: c.accentColor }))].map(f => (
             <button
               key={f.id}
@@ -563,13 +571,13 @@ export default function TechnicalGlossary() {
               {f.label}
             </button>
           ))}
-          {q && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted,#94a3b8)', marginLeft: 4 }}>{totalVisible} result{totalVisible !== 1 ? 's' : ''}</span>}
+          {q && <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginLeft: 4 }}>{totalVisible} result{totalVisible !== 1 ? 's' : ''}</span>}
         </div>
       </div>
 
       {/* ── No results ── */}
       {filteredClusters.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted,#94a3b8)' }}>
+        <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
           <div style={{ fontSize: '2rem', marginBottom: '12px' }}>🤷</div>
           <div style={{ fontWeight: 600, marginBottom: '4px' }}>No terms match your search</div>
           <div style={{ fontSize: '0.8rem' }}>Try a different keyword</div>
@@ -594,10 +602,10 @@ export default function TechnicalGlossary() {
                 padding: '2px 8px', borderRadius: '3px', display: 'inline-block', marginBottom: '6px',
                 background: `${cluster.accentColor}18`, color: cluster.accentColor,
               }}>{cluster.tag}</div>
-              <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary,#0f172a)', lineHeight: 1.1 }}>
+              <h3 style={{ margin: 0, fontSize: '1.4rem', fontWeight: 800, color: 'var(--text-primary)', lineHeight: 1.1 }}>
                 {cluster.title}
               </h3>
-              <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted,#64748b)', fontStyle: 'italic', maxWidth: '560px' }}>
+              <p style={{ margin: '4px 0 0', fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', maxWidth: '560px' }}>
                 {cluster.desc}
               </p>
             </div>
@@ -613,8 +621,8 @@ export default function TechnicalGlossary() {
       {/* Footer note */}
       <div style={{
         marginTop: '32px', padding: '12px 16px', borderRadius: '8px',
-        background: 'var(--bg-body,#f8fafc)', border: '1px solid var(--border-subtle,#e2e8f0)',
-        fontSize: '0.7rem', color: 'var(--text-muted,#94a3b8)', fontFamily: 'var(--font-mono,monospace)',
+        background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
+        fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono,monospace)',
         letterSpacing: '0.04em',
       }}>
         📐 Verified against engine.py, round_logic.py, round2_csrd.py · Muressons Global Command — Build 2026-R10

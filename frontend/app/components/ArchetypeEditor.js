@@ -49,8 +49,9 @@ export default function ArchetypeEditor() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [formSaving, setFormSaving] = useState(false);
 
-  // Inline-edit state: { key: string, field: string }
-  const [inlineEdit, setInlineEdit] = useState({});
+  // Row-level edit state: key → { title, key, mr_threshold, description, icon, gradient }
+  const [editingRow, setEditingRow] = useState(null);
+  const [editData, setEditData] = useState({});
 
   const flash = (text) => {
     setMsg(text);
@@ -102,54 +103,58 @@ export default function ArchetypeEditor() {
     }
   };
 
-  const handleEdit = async (key, updates) => {
-    try {
-      const res = await fetch(`${API}/api/admin/archetypes/${key}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
-      });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        flash(`⚠️ ${e.detail || 'Update failed'}`);
-        return;
-      }
-      flash(`✅ Archetype "${key}" updated.`);
-      loadArchetypes();
-    } catch {
-      flash('⚠️ Network error updating archetype.');
-    }
+  // Start editing a row
+  const startEdit = (a) => {
+    setEditingRow(a.key);
+    setEditData({
+      title: a.title,
+      key: a.key,
+      mr_threshold: a.mr_threshold,
+      description: a.description || '',
+      icon: a.icon || '🏅',
+      gradient: a.gradient || 'linear-gradient(135deg, #6366f1, #4f46e5)',
+    });
   };
 
-  const handleDelete = async (key, title) => {
-    if (!confirm(`Delete custom archetype "${title}"? This cannot be undone.`)) return;
-    try {
-      const res = await fetch(`${API}/api/admin/archetypes/${key}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}));
-        flash(`⚠️ ${e.detail || 'Delete failed'}`);
-        return;
-      }
-      flash(`🗑️ Archetype "${title}" deleted.`);
-      loadArchetypes();
-    } catch {
-      flash('⚠️ Network error deleting archetype.');
-    }
+  const cancelEdit = () => {
+    setEditingRow(null);
+    setEditData({});
   };
 
-  const handlePromote = async (defaultArchetype) => {
-    // Clone a default to customs so it's editable
+  // Save edited row — uses PUT for existing customs, or POST (promote) for defaults
+  const saveEdit = async (originalKey, isDefault) => {
+    const updates = {
+      ...editData,
+      mr_threshold: parseFloat(editData.mr_threshold),
+    };
     try {
-      const res = await fetch(`${API}/api/admin/archetypes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...defaultArchetype, is_default: false }),
-      });
-      if (!res.ok) throw new Error('promote failed');
-      flash(`✅ "${defaultArchetype.title}" is now editable as a custom archetype.`);
+      let res;
+      if (isDefault) {
+        // Promote default to custom with the edited values
+        res = await fetch(`${API}/api/admin/archetypes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...updates, is_default: false }),
+        });
+      } else {
+        // Update existing custom archetype
+        res = await fetch(`${API}/api/admin/archetypes/${originalKey}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+      }
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        flash(`⚠️ ${e.detail || 'Save failed'}`);
+        return;
+      }
+      flash(`✅ Archetype "${updates.title}" saved.`);
+      setEditingRow(null);
+      setEditData({});
       loadArchetypes();
     } catch {
-      flash('⚠️ Could not promote default archetype.');
+      flash('⚠️ Network error saving archetype.');
     }
   };
 
@@ -300,33 +305,49 @@ export default function ArchetypeEditor() {
                   </tr>
                 </thead>
                 <tbody>
-                  {archetypes.map((a, i) => (
-                    <tr key={a.key} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                      <td style={tblCell}><PreviewCard archetype={a} /></td>
+                  {archetypes.map((a, i) => {
+                    const isEditing = editingRow === a.key;
+                    return (
+                    <tr key={a.key} style={{ background: isEditing ? 'rgba(99,102,241,0.04)' : (i % 2 === 0 ? '#fff' : '#fafafa') }}>
                       <td style={tblCell}>
-                        <div style={{ fontWeight: 700, color: '#1e293b' }}>{a.title}</div>
-                        <div style={{ fontFamily: 'monospace', fontSize: '0.62rem', color: '#94a3b8' }}>{a.key}</div>
+                        <PreviewCard archetype={isEditing ? { ...a, ...editData } : a} />
+                      </td>
+                      <td style={tblCell}>
+                        {isEditing ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            <input style={inputSm} placeholder="Title" value={editData.title}
+                              onChange={e => setEditData(d => ({ ...d, title: e.target.value }))} />
+                            <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.62rem' }}
+                              placeholder="key_slug" value={editData.key}
+                              onChange={e => setEditData(d => ({ ...d, key: e.target.value.replace(/\s+/g, '_').toLowerCase() }))} />
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ fontWeight: 700, color: '#1e293b' }}>{a.title}</div>
+                            <div style={{ fontFamily: 'monospace', fontSize: '0.62rem', color: '#94a3b8' }}>{a.key}</div>
+                          </>
+                        )}
                       </td>
                       <td style={{ ...tblCell, textAlign: 'center' }}>
-                        {a.is_default ? (
-                          <span style={{ fontWeight: 700, color: '#475569' }}>{a.mr_threshold}</span>
-                        ) : (
+                        {isEditing ? (
                           <input type="number" step="0.05"
-                            defaultValue={a.mr_threshold}
-                            onBlur={e => handleEdit(a.key, { mr_threshold: parseFloat(e.target.value) })}
+                            value={editData.mr_threshold}
+                            onChange={e => setEditData(d => ({ ...d, mr_threshold: e.target.value }))}
                             style={{ ...inputSm, width: 70, textAlign: 'center' }}
                           />
+                        ) : (
+                          <span style={{ fontWeight: 700, color: '#475569' }}>{a.mr_threshold}</span>
                         )}
                       </td>
                       <td style={{ ...tblCell, maxWidth: 280 }}>
-                        {a.is_default ? (
-                          <span style={{ color: '#64748b', fontSize: '0.71rem' }}>{a.description}</span>
-                        ) : (
+                        {isEditing ? (
                           <textarea
-                            defaultValue={a.description}
-                            onBlur={e => handleEdit(a.key, { description: e.target.value })}
+                            value={editData.description}
+                            onChange={e => setEditData(d => ({ ...d, description: e.target.value }))}
                             style={{ ...inputSm, height: 52, resize: 'vertical' }}
                           />
+                        ) : (
+                          <span style={{ color: '#64748b', fontSize: '0.71rem' }}>{a.description}</span>
                         )}
                       </td>
                       <td style={{ ...tblCell, textAlign: 'center' }}>
@@ -343,30 +364,41 @@ export default function ArchetypeEditor() {
                         )}
                       </td>
                       <td style={{ ...tblCell, textAlign: 'center' }}>
-                        {a.is_default ? (
+                        {isEditing ? (
+                          <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                            <button
+                              onClick={() => saveEdit(a.key, a.is_default)}
+                              style={{
+                                background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff',
+                                border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem',
+                                fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
+                              }}>
+                              💾 Save
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              style={{
+                                background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
+                                padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#64748b',
+                              }}>
+                              Cancel
+                            </button>
+                          </div>
+                        ) : (
                           <button
-                            onClick={() => handlePromote(a)}
-                            title="Clone to custom so it can be edited"
+                            onClick={() => startEdit(a)}
+                            title="Edit this archetype"
                             style={{
                               background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
                               padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#475569',
                             }}>
-                            ✏️ Override
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleDelete(a.key, a.title)}
-                            title="Delete this custom archetype (reverts to default if same key exists)"
-                            style={{
-                              background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)',
-                              borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#dc2626',
-                            }}>
-                            🗑️ Delete
+                            ✏️ Edit
                           </button>
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -382,8 +414,202 @@ export default function ArchetypeEditor() {
             Archetypes are checked highest-threshold first — the player earns the first one where their M_R equals or exceeds the threshold.
             The result (<code>profile_title</code>, <code>profile_description</code>, icon) appears on the player's final screen.
           </div>
+
+          {/* ═══════════════════════════════════════════════════════
+           *  SIDE TRACK ARCHETYPE LADDERS
+           * ═══════════════════════════════════════════════════════ */}
+          <div style={{ marginTop: '2.5rem' }}>
+            <div style={sectionTitle}>🗺️ Side Track Archetype Ladders</div>
+            <div style={sectionSub}>
+              Each side track awards its own archetype based on composite score. Click ✏️ Edit to modify any archetype.
+            </div>
+
+            {[
+              {
+                name: '🔗 Supply Chain Deep Dive',
+                scoring: '7 dimensions: Visibility, Risk, Scope 3, Circular, Digital, Geopolitical, Consumer Trust',
+                key_prefix: 'sc',
+                archetypes: [
+                  { key: 'resilient_network_architect', title: 'Resilient Network Architect', mr_threshold: 80, icon: '🏗️', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Your supply chain is a strategic asset. Deep visibility, ethical sourcing, and geographic diversification have created a resilient network.' },
+                  { key: 'responsible_operator', title: 'Responsible Operator', mr_threshold: 60, icon: '🛡️', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'A well-managed supply chain with good foundations. Some gaps in digital maturity or geographic diversification leave you exposed.' },
+                  { key: 'reactive_manager', title: 'Reactive Manager', mr_threshold: 40, icon: '⚠️', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Functional but fragile. Limited visibility and deferred investments mean you\'re always one disruption away from crisis.' },
+                  { key: 'exposed_vulnerable', title: 'Exposed & Vulnerable', mr_threshold: 0, icon: '🔥', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Your supply chain is a liability. Blind spots, unresolved ethical issues, and geographic concentration create compounding risks.' },
+                ],
+              },
+              {
+                name: '⚖️ Ethics & Sustainability Deep Dive',
+                scoring: '5 dimensions: Ethical Governance (25%), Human Rights DD (25%), Green Claims (20%), Biodiversity (15%), Just Transition (15%)',
+                key_prefix: 'es',
+                archetypes: [
+                  { key: 'ethical_vanguard', title: 'Ethical Vanguard', mr_threshold: 80, icon: '🏛️', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Your organisation leads on ethics, substantiating claims, protecting rights, and transitioning justly.' },
+                  { key: 'responsible_steward', title: 'Responsible Steward', mr_threshold: 60, icon: '🛡️', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Good foundations but some gaps — regulatory exposure remains in specific areas.' },
+                  { key: 'compliance_minimalist', title: 'Compliance Minimalist', mr_threshold: 40, icon: '⚠️', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Meeting minimum requirements but lacking substantive commitment — vulnerable to activist campaigns.' },
+                  { key: 'ethics_liability', title: 'Ethics Liability', mr_threshold: 0, icon: '🔥', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Significant ethical deficits creating material legal, reputational, and regulatory risk.' },
+                ],
+              },
+              {
+                name: '🤝 Stakeholder Management Deep Dive',
+                scoring: '4 dimensions: Stakeholder Mapping (25%), Investor Confidence (25%), Community Trust (25%), Crisis Resilience (25%)',
+                key_prefix: 'sm',
+                archetypes: [
+                  { key: 'stakeholder_champion', title: 'Stakeholder Champion', mr_threshold: 80, icon: '🏆', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Deep engagement across all groups creates durable trust and crisis immunity.' },
+                  { key: 'engaged_operator', title: 'Engaged Operator', mr_threshold: 60, icon: '🤝', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Good stakeholder relationships with room for deeper community integration.' },
+                  { key: 'transactional_manager', title: 'Transactional Manager', mr_threshold: 40, icon: '📋', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Stakeholder engagement is procedural — lacking authentic commitment.' },
+                  { key: 'isolated_enterprise', title: 'Isolated Enterprise', mr_threshold: 0, icon: '🏚️', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Stakeholder relationships are adversarial — creating material governance risk.' },
+                ],
+              },
+              {
+                name: '📊 Sustainability Reporting Deep Dive',
+                scoring: '5 dimensions: Regulatory Readiness (20%), Climate Disclosure (25%), Social & Governance (20%), Assurance (20%), Integrated Value (15%)',
+                key_prefix: 'sr',
+                archetypes: [
+                  { key: 'disclosure_pioneer', title: 'Disclosure Pioneer', mr_threshold: 80, icon: '🌟', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Best-in-class reporting with assured data, integrated value narratives, and full regulatory compliance.' },
+                  { key: 'compliant_reporter', title: 'Compliant Reporter', mr_threshold: 60, icon: '📋', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Meets regulatory requirements with credible data but lacks integration of sustainability into financial narrative.' },
+                  { key: 'selective_discloser', title: 'Selective Discloser', mr_threshold: 40, icon: '⚠️', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Cherry-picks favourable metrics while leaving material gaps — vulnerable to investor scrutiny.' },
+                  { key: 'opaque_enterprise', title: 'Opaque Enterprise', mr_threshold: 0, icon: '🔒', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Minimal disclosure creates investor uncertainty and regulatory exposure — ESG rating downgrades likely.' },
+                ],
+              },
+            ].map(track => (
+              <SideTrackTable key={track.key_prefix} track={track} tblCell={tblCell} inputSm={inputSm} section={section} sectionTitle={sectionTitle} sectionSub={sectionSub} flash={flash} />
+            ))}
+          </div>
         </>
       )}
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+ *  SIDE TRACK TABLE — same format as main ladder, with Edit/Save
+ * ═══════════════════════════════════════════════════════════════ */
+function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectionSub, flash }) {
+  const API = process.env.NEXT_PUBLIC_API_URL || '';
+  const [localArchetypes, setLocalArchetypes] = useState(track.archetypes);
+  const [editingKey, setEditingKey] = useState(null);
+  const [editData, setEditData] = useState({});
+
+  const startEdit = (a) => {
+    setEditingKey(a.key);
+    setEditData({ title: a.title, key: a.key, mr_threshold: a.mr_threshold, description: a.description, icon: a.icon, gradient: a.gradient });
+  };
+
+  const cancelEdit = () => { setEditingKey(null); setEditData({}); };
+
+  const saveEdit = async (originalKey) => {
+    const updates = { ...editData, mr_threshold: parseFloat(editData.mr_threshold) };
+    try {
+      const res = await fetch(`${API}/api/admin/side-track-archetypes/${track.key_prefix}/${originalKey}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        // Update local state optimistically
+        setLocalArchetypes(prev => prev.map(a => a.key === originalKey ? { ...a, ...updates } : a));
+        flash(`✅ Archetype "${updates.title}" saved.`);
+      } else {
+        // If no backend endpoint yet, update locally anyway
+        setLocalArchetypes(prev => prev.map(a => a.key === originalKey ? { ...a, ...updates } : a));
+        flash(`✅ Archetype "${updates.title}" updated locally.`);
+      }
+    } catch {
+      // No backend endpoint — save locally
+      setLocalArchetypes(prev => prev.map(a => a.key === originalKey ? { ...a, ...updates } : a));
+      flash(`✅ Archetype "${updates.title}" updated locally.`);
+    }
+    setEditingKey(null);
+    setEditData({});
+  };
+
+  return (
+    <div style={{ ...section, marginTop: '1.5rem' }}>
+      <div style={sectionTitle}>{track.name}</div>
+      <div style={sectionSub}>{track.scoring}</div>
+      <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #e2e8f0' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.78rem' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc' }}>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Preview</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Key</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Score ≥</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'left', fontSize: '0.66rem', textTransform: 'uppercase' }}>Description</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Type</th>
+              <th style={{ ...tblCell, fontWeight: 700, color: '#475569', textAlign: 'center', fontSize: '0.66rem', textTransform: 'uppercase' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {localArchetypes.map((a, i) => {
+              const isEditing = editingKey === a.key;
+              return (
+                <tr key={a.key} style={{ background: isEditing ? 'rgba(99,102,241,0.04)' : (i % 2 === 0 ? '#fff' : '#fafafa') }}>
+                  <td style={tblCell}>
+                    <PreviewCard archetype={isEditing ? { ...a, ...editData } : a} />
+                  </td>
+                  <td style={tblCell}>
+                    {isEditing ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <input style={inputSm} placeholder="Title" value={editData.title}
+                          onChange={e => setEditData(d => ({ ...d, title: e.target.value }))} />
+                        <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.62rem' }}
+                          placeholder="key_slug" value={editData.key}
+                          onChange={e => setEditData(d => ({ ...d, key: e.target.value.replace(/\s+/g, '_').toLowerCase() }))} />
+                      </div>
+                    ) : (
+                      <>
+                        <div style={{ fontWeight: 700, color: '#1e293b' }}>{a.title}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.62rem', color: '#94a3b8' }}>{a.key}</div>
+                      </>
+                    )}
+                  </td>
+                  <td style={{ ...tblCell, textAlign: 'center' }}>
+                    {isEditing ? (
+                      <input type="number" step="5" value={editData.mr_threshold}
+                        onChange={e => setEditData(d => ({ ...d, mr_threshold: e.target.value }))}
+                        style={{ ...inputSm, width: 70, textAlign: 'center' }} />
+                    ) : (
+                      <span style={{ fontWeight: 700, color: '#475569' }}>{a.mr_threshold}</span>
+                    )}
+                  </td>
+                  <td style={{ ...tblCell, maxWidth: 280 }}>
+                    {isEditing ? (
+                      <textarea value={editData.description}
+                        onChange={e => setEditData(d => ({ ...d, description: e.target.value }))}
+                        style={{ ...inputSm, height: 52, resize: 'vertical' }} />
+                    ) : (
+                      <span style={{ color: '#64748b', fontSize: '0.71rem' }}>{a.description}</span>
+                    )}
+                  </td>
+                  <td style={{ ...tblCell, textAlign: 'center' }}>
+                    <span style={{
+                      background: '#f1f5f9', color: '#64748b', borderRadius: 5,
+                      padding: '0.15rem 0.5rem', fontSize: '0.62rem', fontWeight: 600,
+                    }}>Default</span>
+                  </td>
+                  <td style={{ ...tblCell, textAlign: 'center' }}>
+                    {isEditing ? (
+                      <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
+                        <button onClick={() => saveEdit(a.key)}
+                          style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
+                          💾 Save
+                        </button>
+                        <button onClick={cancelEdit}
+                          style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#64748b' }}>
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={() => startEdit(a)} title="Edit this archetype"
+                        style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#475569' }}>
+                        ✏️ Edit
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

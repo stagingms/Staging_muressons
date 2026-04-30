@@ -169,6 +169,15 @@ class StartSessionRequest(BaseModel):
     allowed_swipes: Optional[list[str]] = None
     loan_interest_rate: float = Field(0.12, ge=0.0)
     decision_paradigm: str = "legacy_abc"  # 'legacy_abc' | 'multi_toggles'
+    currency_symbol: Optional[str] = "$"   # Per-cohort display currency
+    scenario_preset: Optional[str] = None  # Per-cohort engine preset id
+    ending_pathway: Optional[str] = None   # Per-cohort ending pathway (R10 crisis)
+    experience_level: Optional[str] = None  # Per-cohort unified preset (classroom/workshop/executive/chaos)
+    difficulty_tier: Optional[str] = None   # Per-cohort visibility tier (foundation/advanced/expert)
+    created_by: Optional[str] = None        # Who created this cohort
+    created_when: Optional[str] = None      # When this cohort was created (YYYY-MM-DD)
+    start_date: Optional[str] = None        # Cohort start date (YYYY-MM-DD) — game accessible from this date
+    end_date: Optional[str] = None          # Cohort end date (YYYY-MM-DD) — game locked after this date
 
 
 class StartSessionResponse(BaseModel):
@@ -202,6 +211,10 @@ class CommitTurnRequest(BaseModel):
     imitation_decay_rate: float = Field(0.05, ge=0.0, le=1.0)
     decisions: list[BUDecision]
     force_override_cfo: bool = False
+    # ITEM 1: Optimistic locking — client sends expected round
+    expected_round: Optional[int] = None
+    # Emergency credit line: +$1M at prevailing rate + 2%
+    emergency_credit_used: bool = False
 
 
 class CommitTurnResponse(BaseModel):

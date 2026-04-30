@@ -21,7 +21,7 @@ const PLAYER_ANALYTICS = [
     { key: 'what_if_simulator', label: 'What-If Simulator', icon: '📈', desc: 'Counterfactual analysis', tooltip: 'Counterfactual analysis — shows what would have happened if the player had chosen the most popular alternative option. Displays projected Treasury and Reputation diffs. Only appears when choices differ from the majority. Disabled by default.' },
 ];
 
-export default function AnalyticsControlPanel() {
+export default function AnalyticsControlPanel({ sessionId }) {
     const [visibility, setVisibility] = useState(null);
     const [saving, setSaving] = useState(false);
     const [status, setStatus] = useState(null);
@@ -32,14 +32,21 @@ export default function AnalyticsControlPanel() {
     };
 
     useEffect(() => {
-        fetch(`${API}/api/admin/god/analytics-visibility`)
+        const endpoint = sessionId 
+            ? `${API}/api/admin/cohort/${sessionId}/analytics-visibility` 
+            : `${API}/api/admin/god/analytics-visibility`;
+            
+        fetch(endpoint)
             .then(r => r.json())
-            .then(d => setVisibility({
-                facilitator: { ...DEFAULT_VIS.facilitator, ...(d.facilitator || {}) },
-                player: { ...DEFAULT_VIS.player, ...(d.player || {}) },
-            }))
+            .then(d => {
+                const data = sessionId ? (d.cohort_overrides || {}) : d;
+                setVisibility({
+                    facilitator: { ...DEFAULT_VIS.facilitator, ...(data.facilitator || {}) },
+                    player: { ...DEFAULT_VIS.player, ...(data.player || {}) },
+                });
+            })
             .catch(() => setVisibility(DEFAULT_VIS));
-    }, []);
+    }, [sessionId]);
 
     const toggle = async (role, key) => {
         const updated = {
@@ -49,7 +56,11 @@ export default function AnalyticsControlPanel() {
         setVisibility(updated);
         setSaving(true);
         try {
-            const res = await fetch(`${API}/api/admin/god/analytics-visibility`, {
+            const endpoint = sessionId 
+                ? `${API}/api/admin/cohort/${sessionId}/analytics-visibility` 
+                : `${API}/api/admin/god/analytics-visibility`;
+                
+            const res = await fetch(endpoint, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updated),
@@ -69,9 +80,9 @@ export default function AnalyticsControlPanel() {
             <div className={styles.header}>
                 <span className={styles.icon}>🎛️</span>
                 <div>
-                    <h2 className={styles.title}>Analytics Visibility Controls</h2>
+                    <h2 className={styles.title}>Analytics Visibility Controls {sessionId ? `(${sessionId.slice(0,12)})` : ''}</h2>
                     <p className={styles.subtitle}>
-                        Choose which analytics are available to Facilitators and Players.
+                        {sessionId ? "Override analytics visibility for this specific cohort." : "Choose which analytics are available to Facilitators and Players globally."}
                         {saving && <span className={styles.savingBadge}>Saving…</span>}
                         {status && <span className={styles.savedBadge}>{status}</span>}
                     </p>

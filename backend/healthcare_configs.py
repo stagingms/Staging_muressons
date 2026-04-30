@@ -24,7 +24,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "label": "A",
                 "title": "Fast-Track Bed Expansion",
                 "description": "Ignore the waste review and funnel all capital into adding 500 new clinic beds. Triggers regulatory scrutiny.",
-                "flags_set": ["waste_compliance_gap"],
+                "flags_set": ["waste_compliance_gap", "compliance_gap"],
                 "impacts": {
                     "treasury": -2_500_000,
                     "reputation": -5,
@@ -49,7 +49,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "label": "C",
                 "title": "Outsource Waste Management",
                 "description": "Hire a low-cost third-party vendor to handle disposal. Cheap, but risks supply chain opacity.",
-                "flags_set": [],
+                "flags_set": ["outsource_opacity"],
                 "impacts": {
                     "treasury": -1_000_000,
                     "reputation": 0,
@@ -70,6 +70,20 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "description": "Patient inflow is surging. Do we dedicate capital towards physical ICU infrastructure or digital health triage (Telehealth)?",
             "icon": "⚖️",
         },
+        "validation_rules": {
+            "cfo_materiality_gate": True,
+            "high_impact_nodes": [
+                "round_2_hospitals",
+                "round_2_clinics",
+                "round_2_specialised_care",
+                "round_2_telehealth"
+            ],
+        },
+        "special_rules": {
+            "materiality_accuracy_treasury_bonus": True,
+            "accuracy_threshold": 90,
+            "accuracy_bonus_amount": 2_000_000,
+        },
         "options": {
             "option_a": {
                 "label": "A",
@@ -78,8 +92,9 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "flags_set": ["heavy_icu_capex"],
                 "impacts": {
                     "treasury": -8_000_000,
-                    "natural_capital_debt_delta": +15,
+                    "natural_capital_debt_delta": +8,
                     "carbon_intensity_delta": +8,
+                    "revenue_delta": +1_500_000,
                 },
             },
             "option_b": {
@@ -91,6 +106,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": -3_000_000,
                     "natural_capital_debt_delta": +2,
                     "carbon_intensity_delta": -1,
+                    "revenue_delta": +500_000,
                 },
             },
             "option_c": {
@@ -102,6 +118,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": -5_000_000,
                     "natural_capital_debt_delta": +5,
                     "carbon_intensity_delta": +3,
+                    "revenue_delta": +800_000,
                 },
             },
         },
@@ -122,7 +139,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "label": "A",
                 "title": "Air-Freight Emergency Supply",
                 "description": "Charter jets to fly in emergency stock. Huge carbon spike and massive short-term cost.",
-                "flags_set": [],
+                "flags_set": ["air_freight_emergency"],
                 "impacts": {
                     "treasury": -7_500_000,
                     "reputation": +2,
@@ -132,20 +149,20 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_b": {
                 "label": "B",
                 "title": "Triage & Rationing",
-                "description": "Ration existing supplies, canceling elective surgeries. Crushes immediate revenue.",
+                "description": "Ration existing supplies, canceling elective surgeries. Hospitals and Specialised Care lose revenue; Telehealth surges as patients divert digitally.",
                 "flags_set": ["cancelled_electives"],
                 "impacts": {
                     "treasury": 0,
                     "reputation": -8,
-                    "revenue_delta": -4_000_000,
                     "carbon_intensity_delta": -2,
+                    "elective_surgery_cancel": True,
                 },
             },
             "option_c": {
                 "label": "C",
                 "title": "Local Sterile Manufacturing",
                 "description": "Fund an expensive local initiative to sterilize and reuse equipment. High capex, immense long-term resilience.",
-                "flags_set": ["local_sterile_resilience"],
+                "flags_set": ["local_sterile_resilience", "early_decarboniser"],
                 "impacts": {
                     "treasury": -10_000_000,
                     "reputation": +10,
@@ -181,7 +198,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_b": {
                 "label": "B",
                 "title": "Algorithmic Recall & Settlement",
-                "description": "Pull the system offline for overhaul and settle with affected families. Very costly upfront.",
+                "description": "Pull the system offline for overhaul and settle with affected families. Very costly upfront. ⚠️ NOTE: This settlement does NOT earn the Truth Premium (+0.15 M_R) at terminal valuation — that requires the full Transparent AI Overhaul in Round 6.",
                 "flags_set": ["telehealth_overhaul"],
                 "impacts": {
                     "treasury": -12_000_000,
@@ -198,6 +215,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation": -5,
                     "telehealth_opex_delta": +2_500_000,
                     "burnout_spike": True,
+                    "burnout_spike_amount": 10,
                 },
             },
         },
@@ -213,15 +231,31 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "description": "A category 4 cyclone is approaching our densest network of hospitals.",
             "icon": "🌪️",
         },
+        # FACILITATOR NOTE: In Healthcare, Option A is insurance-only (cheapest).
+        # In Narrative Crisis (corporate), Option C is insurance-only.
+        # The flag 'insurance_only' is set on the SAME mechanic (reactive-only posture)
+        # but the option LETTER is inverted. When running mixed HC + NC cohorts,
+        # explain that the options are ordered by healthcare triage priority
+        # (reactive → evacuate → harden) rather than by cost.
+        "facilitator_note": (
+            "⚠️ FLAG INVERSION vs Corporate: In NC, insurance_only is Option C (cheapest). "
+            "In Healthcare, it is Option A. The flag targets the same mechanic (no resilience investment) "
+            "but the letter ordering reflects clinical triage priority. When debriefing mixed cohorts, "
+            "emphasize the MECHANIC not the letter."
+        ),
         "options": {
             "option_a": {
                 "label": "A",
                 "title": "Reactive Insurance Only",
-                "description": "Rely completely on our insurance premiums. Zero resilience protection if a direct hit occurs.",
+                "description": (
+                    "Rely completely on our insurance premiums. Zero resilience protection if a direct hit occurs. "
+                    "⚠️ This BLOCKS the Resilience M_R bonus (+0.20) at terminal valuation."
+                ),
                 "flags_set": ["insurance_only"],
                 "impacts": {
                     "treasury": 0,
                     "resilience_factor": 0.0,
+                    "carbon_intensity_delta": +1,
                 },
             },
             "option_b": {
@@ -232,6 +266,8 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "impacts": {
                     "treasury": -4_500_000,
                     "resilience_factor": 0.50,
+                    "carbon_intensity_delta": +2,
+                    "natural_capital_debt_delta": +3,
                 },
             },
             "option_c": {
@@ -242,6 +278,8 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "impacts": {
                     "treasury": -8_000_000,
                     "resilience_factor": 0.85,
+                    "carbon_intensity_delta": +3,
+                    "natural_capital_debt_delta": +8,
                 },
             },
         },
@@ -266,7 +304,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "label": "A",
                 "title": "Quiet Patching",
                 "description": "Silently alter the weights over 6 months to avoid inciting panic.",
-                "flags_set": [],
+                "flags_set": ["quiet_patch_oncology"],
                 "impacts": {
                     "treasury": 0,
                     "reputation": -18,
@@ -287,8 +325,8 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_c": {
                 "label": "C",
                 "title": "Scrap & Replace Vendor",
-                "description": "Fire the software vendor and buy a competitor's module.",
-                "flags_set": [],
+                "description": "Fire the software vendor and buy a competitor's module. ⚠️ Governance risk increases (+5) due to vendor transition risk: migration complexity, data portability gaps, and new vendor due diligence overhead.",
+                "flags_set": ["vendor_replacement"],
                 "impacts": {
                     "treasury": -4_500_000,
                     "governance_risk_delta": +5,
@@ -328,6 +366,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": 0,
                     "natural_capital_debt_delta": +10,
                     "opex_penalty": +3_500_000,
+                    "opex_penalty_targets": ["hospitals", "specialised_care"],
                 },
             },
             "option_c": {
@@ -339,7 +378,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": -14_000_000,
                     "natural_capital_debt_delta": -25,
                     "reputation": +12,
-                    "synergy_multiplier_boost": +0.15,
+                    "synergy_multiplier_boost": +0.30,
                 },
             },
         },
@@ -369,12 +408,12 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_b": {
                 "label": "B",
                 "title": "Invoke Emergency Priority",
-                "description": "Use our legal standing as critical infrastructure to force the city to cut residential water in our favor.",
+                "description": "Use our legal standing as critical infrastructure to force the city to cut residential water in our favor. ⚠️ Blocks the Resilience M_R bonus (+0.20) at terminal valuation.",
                 "flags_set": ["civil_water_priority"],
                 "impacts": {
                     "treasury": 0,
-                    "reputation": -25,
-                    "social_license_delta": -20,
+                    "reputation": -15,
+                    "social_license_delta": -12,
                 },
             },
             "option_c": {
@@ -385,6 +424,7 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "impacts": {
                     "treasury": -16_000_000,
                     "natural_capital_debt_delta": -15,
+                    "water_dependency_delta": -30,
                 },
             },
         },
@@ -408,15 +448,16 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "flags_set": ["union_busted"],
                 "impacts": {
                     "treasury": -8_000_000,
-                    "reputation": -15,
+                    "reputation": -10,
                     "burnout_spike": True,
+                    "burnout_spike_amount": 10,
                 },
             },
             "option_b": {
                 "label": "B",
                 "title": "Halt Automation",
-                "description": "Scrap the robotics deployment to appease the union. A colossal waste of prior R&D capital.",
-                "flags_set": [],
+                "description": "Scrap the robotics deployment to appease the union. A colossal waste of prior R&D capital. Earns +0.12 M_R (Just Transition bonus).",
+                "flags_set": ["managed_transition"],
                 "impacts": {
                     "treasury": -6_000_000,
                     "revenue_delta": -2_500_000,
@@ -425,8 +466,8 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_c": {
                 "label": "C",
                 "title": "Clinician Retraining Hub",
-                "description": "Fund a massive retraining program elevating nurses into tech-triage and oversight roles.",
-                "flags_set": ["clinician_retraining"],
+                "description": "Fund a massive retraining program elevating nurses into tech-triage and oversight roles. Earns +0.18 M_R (Community Champion bonus).",
+                "flags_set": ["clinician_retraining", "community_fund"],
                 "impacts": {
                     "treasury": -12_000_000,
                     "reputation": +15,
@@ -450,10 +491,15 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_a": {
                 "label": "A",
                 "title": "Aggressive Consolidation",
-                "description": "Slash OPEX across the board to pad EBITDA. (Guarantees +10% cash, heavily punishes outcomes)",
+                "description": "Slash OPEX across the board to pad EBITDA. Grants +10% treasury boost but devastates patient outcomes (-15) and spikes staff burnout (+20).",
                 "flags_set": ["consolidation"],
                 "impacts": {
                     "opex_slash": True,
+                    "opex_slash_pct": 0.15,
+                    "treasury_bonus_pct": 0.10,
+                    "patient_outcomes_penalty": -15,
+                    "burnout_spike": True,
+                    "burnout_spike_amount": 20,
                 },
             },
             "option_b": {
@@ -468,10 +514,11 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
             "option_c": {
                 "label": "C",
                 "title": "Universal Care Mandate",
-                "description": "Codify patient outcome standards above margins into the corporate charter. No immediate cash, massive multiple protection.",
+                "description": "Codify patient outcome standards above margins into the corporate charter. Explicitly preserves synergy multiplier and boosts social license. No immediate cash, but maximum multiple protection at terminal valuation.",
                 "flags_set": ["universal_care_charter"],
                 "impacts": {
-                    "synergy_wipe": False,  # Keeps synergy safe
+                    "synergy_preserve": True,
+                    "social_license_boost": +5,
                 },
             },
         },
@@ -485,6 +532,32 @@ HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "regenerative_titan": 1.8,
                 "derisked_safe_haven": 1.2,
                 "fragile_giant": 0.8,
+            },
+            "healthcare_archetypes": {
+                "regenerative_titan": {
+                    "title": "Community Health Champion",
+                    "icon": "💚",
+                    "description": "A beacon of regenerative healthcare. Your network has rebuilt community trust, achieved clinical excellence, and delivered sustainable patient outcomes.",
+                    "gradient": "linear-gradient(135deg, #10b981, #059669)",
+                },
+                "derisked_safe_haven": {
+                    "title": "Resilient Care System",
+                    "icon": "🛡️",
+                    "description": "A well-managed healthcare network with solid fundamentals. You balanced financial sustainability with patient care, though bold innovation was sacrificed.",
+                    "gradient": "linear-gradient(135deg, #3b82f6, #2563eb)",
+                },
+                "fragile_giant": {
+                    "title": "Profit-First Network",
+                    "icon": "💰",
+                    "description": "A financially viable but brittle system. Short-term margins were prioritised over long-term resilience, leaving the network vulnerable to future shocks.",
+                    "gradient": "linear-gradient(135deg, #f59e0b, #d97706)",
+                },
+                "stranded_relic": {
+                    "title": "Fragile Ward",
+                    "icon": "🏚️",
+                    "description": "A healthcare system in structural decline. Chronic underinvestment, staff burnout, and community distrust have eroded the foundation of care delivery.",
+                    "gradient": "linear-gradient(135deg, #ef4444, #b91c1c)",
+                },
             },
         },
     },

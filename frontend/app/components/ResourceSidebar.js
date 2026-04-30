@@ -125,7 +125,7 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
                 const data = await res.json();
                 setResources(data);
             }
-        } catch (e) { console.error('Failed to fetch resources', e); }
+        } catch { /* Backend unreachable — degrade gracefully */ }
         setLoading(false);
     }, [sessionId]);
 

@@ -248,3 +248,26 @@
     border-color: rgba(16, 185, 129, 0.5);
     box-shadow: 0 0 12px rgba(16, 185, 129, 0.15);
 }
+
+/* -- Action Buttons (Archive / Delete) -- */
+.actionBtn {
+    background: none;
+    border: 1px solid var(--border-subtle);
+    cursor: pointer;
+    font-size: 0.72rem;
+    opacity: 0.4;
+    transition: all 0.2s;
+    padding: 3px 6px;
+    border-radius: var(--radius-sm);
+    line-height: 1;
+}
+
+.actionBtn:hover {
+    opacity: 1;
+    background: rgba(239, 68, 68, 0.08);
+    transform: scale(1.1);
+}
+
+.row:hover .actionBtn {
+    opacity: 0.75;
+}

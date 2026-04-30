@@ -505,7 +505,6 @@ function FacilitatorDashboard({ authData, onLogout }) {
             icon: '⚙️',
             id: 'config',
             items: [
-                { id: 'round_pacing',        label: 'Round Pacing',          icon: '⏱️', tooltip: 'Control the pace of round progression: set countdown timers per round, enforce manual gating (facilitator must unlock each round), or configure auto-advance after all decisions are submitted. Answers: "How fast should rounds progress?"' },
                 { id: 'auto_pause',          label: 'Auto-Pause Triggers',   icon: '⏸️', tooltip: 'Configure automatic pause conditions that halt round progression for facilitator intervention: low treasury thresholds, reputation floor breaches, bankruptcy detection, or custom KPI triggers. Answers: "When should the simulation automatically pause for my attention?"' },
                 { id: 'undo_round',          label: 'Undo Round',             icon: '↩️', tooltip: 'Roll back the last completed round for a selected session, restoring all KPIs to their previous state. Useful for correcting data entry errors or re-running a round after a teaching moment. Requires confirmation. Answers: "How do I reverse a round that went wrong?"' },
                 { id: 'materiality',         label: 'Materiality Matrix',    icon: '🧩', tooltip: 'Mendelow\'s Materiality Matrix — interactive drag-and-drop issue mapping grid with financial impact (x-axis) vs. societal impact (y-axis). Upload custom issue dictionaries via CSV or use global defaults. Used for teaching ESG stakeholder analysis and materiality assessment. Answers: "How do I configure the materiality framework?"' },
@@ -566,6 +565,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
 
                         {/* Quiz Controls for Facilitator */}
                         <QuizControlPanel sessions={leaderboard.filter(s => !s.player_id).map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }))} />
+                        <InterviewControlPanel sessions={leaderboard.filter(s => !s.player_id).map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }))} />
                     </div>
                 );
             case 'teleprompter':
@@ -624,8 +624,6 @@ function FacilitatorDashboard({ authData, onLogout }) {
             // ── Interventions tabs ──
             case 'intervention_config':
                 return <InterventionConfig sessionId={selectedSession} />;
-            case 'round_pacing':
-                return <RoundPacingControl sessions={ownCohorts} />;
             case 'auto_pause':
                 return <AutoPauseConfig />;
             case 'manual_override':
@@ -719,7 +717,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
     };
 
     return (
-        <div className={styles.dashboard} data-theme="light">
+        <div className={styles.dashboard} data-theme="dark">
             {/* Choose Username Overlay */}
             {!authData.username && (
                 <div style={{ position: 'fixed', inset: 0, zIndex: 16000 }}>
@@ -1022,6 +1020,136 @@ function QuizControlPanel({ sessions = [] }) {
                             })}
                         </div>
                     </div>
+                </div>
+            </div>
+        </section>
+    );
+}
+
+
+/* ═════════════════════════════════════════════════════════════════
+ *  CEO INTERVIEW CONTROL PANEL — Per-Cohort Enable/Disable + Voice
+ * ═════════════════════════════════════════════════════════════════ */
+
+function InterviewControlPanel({ sessions = [] }) {
+    const [interviewMap, setInterviewMap] = useState({});
+    const [status, setStatus] = useState(null);
+
+    useEffect(() => {
+        fetch(`${API}/api/admin/global-settings`)
+            .then(r => r.json())
+            .then(d => {
+                const map = {};
+                sessions.forEach(s => {
+                    map[s.session_id] = {
+                        enabled: d.ceo_interview_enabled || false,
+                        voice_gender: d.ceo_interview_voice_gender || 'female',
+                    };
+                });
+                setInterviewMap(map);
+            })
+            .catch(() => {});
+    }, [sessions]);
+
+    const toggleInterview = async (sessionId, enabled) => {
+        try {
+            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/ceo-interview`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ceo_interview_enabled: enabled }),
+            });
+            if (res.ok) {
+                setInterviewMap(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], enabled } }));
+                setStatus(`✅ Interview ${enabled ? 'enabled' : 'disabled'}`);
+                setTimeout(() => setStatus(null), 3000);
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    const switchVoice = async (sessionId, gender) => {
+        try {
+            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/ceo-interview`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ceo_interview_voice_gender: gender }),
+            });
+            if (res.ok) {
+                setInterviewMap(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], voice_gender: gender } }));
+                setStatus(`✅ Voice → ${gender === 'female' ? 'Victoria' : 'Alexander'}`);
+                setTimeout(() => setStatus(null), 3000);
+            }
+        } catch (e) { console.error(e); }
+    };
+
+    return (
+        <section style={{
+            background: 'var(--bg-card, #fff)', border: '1px solid var(--border-subtle, #e2e8f0)',
+            borderRadius: 'var(--radius-lg, 16px)', padding: '1.5rem 2rem',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <span style={{ fontSize: '1.5rem' }}>🎤</span>
+                <div>
+                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
+                        CEO Interview
+                    </h2>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                        Enable/disable post-game CEO interview per cohort. Select Victoria (female) or Alexander (male) Muressons.
+                    </p>
+                </div>
+            </div>
+            {status && (
+                <div style={{
+                    padding: '8px 14px', borderRadius: 10, marginBottom: 12,
+                    background: '#f0fdf4', border: '1px solid #86efac',
+                    fontSize: '0.8rem', color: '#166534', fontWeight: 600,
+                }}>{status}</div>
+            )}
+            <div style={{
+                background: 'linear-gradient(135deg, #fef3c7, #fef9c3)', borderRadius: 14,
+                padding: '16px 20px', border: '1px solid #fbbf24',
+            }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', marginBottom: 8 }}>
+                    🎙️ Per-Cohort Configuration
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {sessions.length === 0 ? (
+                        <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>No active cohorts</span>
+                    ) : sessions.map(s => {
+                        const cfg = interviewMap[s.session_id] || { enabled: false, voice_gender: 'female' };
+                        return (
+                            <div key={s.session_id} style={{
+                                display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
+                                padding: '6px 10px', background: 'rgba(255,255,255,0.6)',
+                                borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)',
+                            }}>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1e293b', minWidth: 100 }}>
+                                    {s.cohort_name}
+                                </span>
+                                <button
+                                    onClick={() => toggleInterview(s.session_id, !cfg.enabled)}
+                                    style={{
+                                        padding: '4px 12px', borderRadius: 6, border: 'none',
+                                        background: cfg.enabled ? '#10b981' : '#e2e8f0',
+                                        color: cfg.enabled ? '#fff' : '#64748b',
+                                        fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
+                                    }}
+                                >
+                                    {cfg.enabled ? '● ON' : '○ OFF'}
+                                </button>
+                                {cfg.enabled && (
+                                    <button
+                                        onClick={() => switchVoice(s.session_id, cfg.voice_gender === 'female' ? 'male' : 'female')}
+                                        style={{
+                                            padding: '4px 10px', borderRadius: 6, border: '1px solid #c7d2fe',
+                                            background: 'rgba(99,102,241,0.08)',
+                                            color: '#4f46e5', fontWeight: 700, fontSize: '0.65rem', cursor: 'pointer',
+                                        }}
+                                    >
+                                        {cfg.voice_gender === 'female' ? '👩‍💼 Victoria' : '👨‍💼 Alexander'}
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
                 </div>
             </div>
         </section>

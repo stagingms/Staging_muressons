@@ -308,3 +308,263 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* ── Butterfly Effect Panel ────────────────── */
+
+.butterflyPanel {
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.18);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  margin-top: 1rem;
+}
+
+.butterflyHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a78bfa;
+  margin-bottom: 0.5rem;
+}
+
+.butterflyHint {
+  font-size: 0.75rem;
+  color: #c4b5fd;
+  line-height: 1.5;
+  padding: 0.2rem 0 0.2rem 1rem;
+  border-left: 2px solid rgba(139, 92, 246, 0.3);
+  margin: 0.3rem 0;
+}
+
+/* ── Previous Round Recap ──────────────────── */
+
+.recapPanel {
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  border-radius: 8px;
+  padding: 0 1rem;
+  margin-top: 1rem;
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+}
+
+.recapToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.7rem 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #93c5fd;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.recapToggle:hover { color: #bfdbfe; }
+
+.recapChevron {
+  transition: transform 0.2s ease;
+  font-size: 0.7rem;
+}
+
+.recapChevronOpen {
+  transform: rotate(90deg);
+}
+
+.recapContent {
+  padding: 0 0 0.8rem;
+}
+
+.recapRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.3rem 0;
+  font-size: 0.75rem;
+}
+
+.recapLabel { color: #94a3b8; }
+.recapValuePositive { color: #34d399; font-weight: 700; }
+.recapValueNegative { color: #f87171; font-weight: 700; }
+.recapValueNeutral { color: #e2e8f0; font-weight: 600; }
+
+/* ── Stakeholder Voices ────────────────────── */
+
+.voicesPanel {
+  margin-top: 1rem;
+}
+
+.voicesTitle {
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #64748b;
+  margin-bottom: 0.5rem;
+}
+
+.voiceQuote {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.7rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  margin-bottom: 0.4rem;
+  border-left: 2px solid rgba(100, 116, 139, 0.4);
+}
+
+.voiceAvatar {
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.voiceContent {
+  flex: 1;
+}
+
+.voiceText {
+  font-size: 0.75rem;
+  color: #cbd5e1;
+  font-style: italic;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.voiceRole {
+  font-size: 0.65rem;
+  color: #64748b;
+  font-weight: 600;
+  margin-top: 0.15rem;
+}
+
+/* ── Theory Card ───────────────────────────── */
+
+.theoryCard {
+  background: rgba(16, 185, 129, 0.06);
+  border: 1px solid rgba(16, 185, 129, 0.18);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin-top: 1rem;
+}
+
+.theoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #34d399;
+  margin-bottom: 0.4rem;
+}
+
+.theoryTitle {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 0.3rem;
+}
+
+.theoryDesc {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.5;
+  margin: 0;
+}
+
+/* ── Stochastic Probability Display ────────── */
+
+.stochasticPanel {
+  background: rgba(245, 158, 11, 0.06);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin-top: 0.8rem;
+}
+
+.stochasticHeader {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fbbf24;
+  margin-bottom: 0.5rem;
+}
+
+.stochasticBar {
+  height: 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  margin-bottom: 0.3rem;
+}
+
+.stochasticFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.stochasticLabel {
+  font-size: 0.7rem;
+  color: #fbbf24;
+  font-weight: 600;
+}
+
+/* ── Preliminary Valuation ─────────────────── */
+
+.valuationCard {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.valuationHeader {
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a78bfa;
+  margin-bottom: 0.4rem;
+}
+
+.valuationRange {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #f1f5f9;
+  margin: 0.3rem 0;
+}
+
+.valuationNote {
+  font-size: 0.65rem;
+  color: #64748b;
+}
+
+/* ── Warning Badge ─────────────────────────── */
+
+.warningBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 6px;
+  padding: 0.4rem 0.7rem;
+  font-size: 0.7rem;
+  color: #fca5a5;
+  font-weight: 600;
+  margin-top: 0.5rem;
+}

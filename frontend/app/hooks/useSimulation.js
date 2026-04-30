@@ -84,7 +84,13 @@ export default function useSimulation() {
                         facilitator_id: facilitatorId,
                     }),
                 });
-                if (!res.ok) throw new Error(`Start failed: ${res.status}`);
+            if (!res.ok) {
+                // 403 = not authorised to start without a cohort
+                if (res.status === 403) {
+                    throw new Error('JOIN_REQUIRED: Please join a cohort using your session code. Direct session starts are not permitted.');
+                }
+                throw new Error(`Start failed: ${res.status}`);
+            }
                 const rawData = await res.json();
                 const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
 
@@ -108,12 +114,16 @@ export default function useSimulation() {
                 return data;
             } catch (err) {
                 setError(err.message);
-                // If backend is offline, start in demo mode
-                setSessionId('demo');
-                setRoundNumber(1);
-                prevRoundRef.current = 0;
-                setRoundChanged(true);
-                await fetchRoundConfig(1);
+                // Only fall back to demo mode for non-auth errors
+                if (!err.message?.startsWith('JOIN_REQUIRED')) {
+                    setSessionId('demo');
+                    setRoundNumber(1);
+                    prevRoundRef.current = 0;
+                    setRoundChanged(true);
+                    await fetchRoundConfig(1);
+                    // Auto-clear transient error after 3s in demo mode
+                    setTimeout(() => setError(null), 3000);
+                }
                 return null;
             } finally {
                 setLoading(false);
@@ -245,11 +255,15 @@ export default function useSimulation() {
             }
             if (typeof window !== 'undefined') {
                 localStorage.setItem('muressons_session_id', playerSessionId);
+                localStorage.setItem('muressons_playerId', playerId);
             }
             const dashData = await fetchDashboard(playerSessionId);
             if (dashData?.current_round && dashData.current_round <= 10) {
                 await fetchRoundConfig(dashData.current_round);
             }
+            // Signal round change so the briefing page shows on login
+            prevRoundRef.current = 0;
+            setRoundChanged(true);
             return loginData;
         } catch (err) {
             setError(err.message);
@@ -449,6 +463,7 @@ export default function useSimulation() {
     // ── Auto-advance detection (scheduled mode) ──────────────
     // Poll dashboard every 10s to detect if the server auto-committed
     const [autoAdvanceDetected, setAutoAdvanceDetected] = useState(false);
+    const autoAdvanceDismissRef = useRef(null);
 
     useEffect(() => {
         if (!sessionId || sessionId === 'demo' || gameOver) return;
@@ -485,24 +500,43 @@ export default function useSimulation() {
                         await fetchRoundConfig(data.current_round);
                     }
 
-                    // Clear the flag after 5s so the alert auto-dismisses
-                    setTimeout(() => { if (!cancelled) setAutoAdvanceDetected(false); }, 5000);
+                    // Clear the flag after 5s so the alert auto-dismisses.
+                    // Use a ref-based timer so it survives effect re-runs
+                    // (the effect re-runs because setRoundNumber triggers a
+                    // dependency change, which sets cancelled=true in cleanup).
+                    if (autoAdvanceDismissRef.current) clearTimeout(autoAdvanceDismissRef.current);
+                    autoAdvanceDismissRef.current = setTimeout(() => setAutoAdvanceDetected(false), 5000);
                 }
             } catch { /* silent */ }
         };
 
-        const interval = setInterval(poll, 10_000);
+        const interval = setInterval(poll, 5_000);
         return () => { cancelled = true; clearInterval(interval); };
     }, [sessionId, roundNumber, gameOver, commitResults, fetchRoundConfig]);
 
     // ── Resume Session from Storage ───────────────────────────
     const resumeSession = useCallback(async (sid) => {
         setSessionId(sid);
-        const data = await fetchDashboard(sid);
-        if (data?.current_round && data.current_round <= 10) {
-            await fetchRoundConfig(data.current_round);
+        try {
+            const data = await fetchDashboard(sid);
+            if (data?.current_round && data.current_round <= 10) {
+                await fetchRoundConfig(data.current_round);
+            }
+            // Signal round change so the briefing page shows on session resume
+            prevRoundRef.current = 0;
+            setRoundChanged(true);
+            return data;
+        } catch (err) {
+            // Stale session — clear localStorage and show friendly error
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem('muressons_session_id');
+            }
+            setSessionId(null);
+            setError('SESSION_EXPIRED: Your previous session could not be restored. Please rejoin using your session code.');
+            // Auto-clear after 5s so the JoinCohortModal shows
+            setTimeout(() => setError(null), 5000);
+            return null;
         }
-        return data;
     }, [fetchDashboard, fetchRoundConfig]);
 
     // ── Logout — clears local session, game state persists on server ──
@@ -549,6 +583,7 @@ export default function useSimulation() {
         setRoundLocked,
         commitResults,
         autoAdvanceDetected,
+        setAutoAdvanceDetected,
         practiceReset,
 
         // Actions

@@ -238,8 +238,11 @@ export default function PlayerRegistry({ leaderboard }) {
                                         <h3>{session.cohort_name} <span>({session.short_code || session.session_id.slice(0, 8)})</span></h3>
                                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                             <span style={{
-                                                fontSize: '0.75rem', fontWeight: 600, background: '#f1f5f9',
-                                                padding: '3px 8px', borderRadius: '6px', color: '#475569', border: '1px solid #cbd5e1'
+                                                fontSize: '0.72rem', fontWeight: 700,
+                                                background: 'rgba(99,102,241,0.15)',
+                                                padding: '3px 9px', borderRadius: '6px',
+                                                color: '#a5b4fc',
+                                                border: '1px solid rgba(99,102,241,0.25)',
                                             }} title="Active Simulation Edition">
                                                 {(() => {
                                                     const pd = session.decision_paradigm || 'legacy_abc';
@@ -276,9 +279,9 @@ export default function PlayerRegistry({ leaderboard }) {
                                             <button
                                                 onClick={() => handleDeleteSession(session.session_id)}
                                                 style={{
-                                                    background: 'none', border: '1px solid #fca5a5', color: '#ef4444',
-                                                    borderRadius: '6px', padding: '0.4rem 0.8rem', cursor: 'pointer',
-                                                    fontSize: '0.75rem', fontWeight: 500,
+                                                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
+                                                    color: '#f87171', borderRadius: '6px', padding: '0.4rem 0.8rem',
+                                                    cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
                                                 }}
                                                 title="Delete this cohort"
                                             >
@@ -292,29 +295,37 @@ export default function PlayerRegistry({ leaderboard }) {
                                                 creds.map(cred => (
                                                     <div key={cred.player_id} style={{
                                                         display: 'flex', gap: '8px', alignItems: 'center',
-                                                        background: '#f8fafc', border: '1px solid #e2e8f0',
+                                                        background: 'rgba(15,23,42,0.55)',
+                                                        border: '1px solid rgba(148,163,184,0.15)',
                                                         borderRadius: '8px', padding: '6px 10px',
                                                     }}>
                                                         <span style={{
-                                                            fontWeight: 700, fontSize: '0.85rem', color: '#1e293b',
-                                                            background: '#eef2ff', padding: '2px 8px', borderRadius: '4px',
-                                                            border: '1px solid #c7d2fe',
+                                                            fontWeight: 700, fontSize: '0.82rem',
+                                                            color: '#a5b4fc',
+                                                            background: 'rgba(99,102,241,0.15)',
+                                                            padding: '2px 8px', borderRadius: '4px',
+                                                            border: '1px solid rgba(99,102,241,0.25)',
+                                                            fontFamily: 'monospace',
                                                         }}>
                                                             {cred.player_id}
                                                         </span>
                                                         <span style={{
-                                                            fontFamily: 'monospace', fontSize: '0.85rem', fontWeight: 700,
-                                                            color: '#b45309', background: '#fef3c7', padding: '2px 8px',
-                                                            borderRadius: '4px', border: '1px solid #fcd34d',
+                                                            fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700,
+                                                            color: '#fcd34d',
+                                                            background: 'rgba(245,158,11,0.12)',
+                                                            padding: '2px 8px', borderRadius: '4px',
+                                                            border: '1px solid rgba(245,158,11,0.25)',
                                                             whiteSpace: 'nowrap',
                                                         }}>
                                                             🔑 {cred.password}
                                                         </span>
                                                         <button
                                                             style={{
-                                                                background: '#e2e8f0', border: 'none', borderRadius: '4px',
-                                                                cursor: 'pointer', padding: '4px 8px', fontSize: '0.75rem',
-                                                                fontWeight: 600, color: '#475569', whiteSpace: 'nowrap',
+                                                                background: 'rgba(148,163,184,0.1)',
+                                                                border: '1px solid rgba(148,163,184,0.2)',
+                                                                borderRadius: '4px', cursor: 'pointer',
+                                                                padding: '4px 8px', fontSize: '0.72rem',
+                                                                fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap',
                                                             }}
                                                             onClick={() => {
                                                                 const text = `Player ID: ${cred.player_id}\nPassword: ${cred.password}`;
@@ -345,10 +356,11 @@ export default function PlayerRegistry({ leaderboard }) {
                                                         >📋 Copy</button>
                                                         <button
                                                             style={{
-                                                                background: '#eef2ff', border: '1px solid #c7d2fe',
+                                                                background: 'rgba(99,102,241,0.12)',
+                                                                border: '1px solid rgba(99,102,241,0.25)',
                                                                 borderRadius: '4px', cursor: 'pointer',
-                                                                padding: '4px 8px', fontSize: '0.75rem',
-                                                                fontWeight: 600, color: '#4338ca', whiteSpace: 'nowrap',
+                                                                padding: '4px 8px', fontSize: '0.72rem',
+                                                                fontWeight: 700, color: '#a5b4fc', whiteSpace: 'nowrap',
                                                             }}
                                                             onClick={() => {
                                                                 // Find the player's child session and open it
@@ -404,8 +416,8 @@ export default function PlayerRegistry({ leaderboard }) {
                                                         </td>
                                                         <td>
                                                             <span style={{
-                                                                fontFamily: 'monospace', fontWeight: 600,
-                                                                fontSize: '0.8rem', color: '#4338ca',
+                                                                fontFamily: 'monospace', fontWeight: 700,
+                                                                fontSize: '0.78rem', color: '#a5b4fc',
                                                             }}>
                                                                 {p.player_id}
                                                             </span>

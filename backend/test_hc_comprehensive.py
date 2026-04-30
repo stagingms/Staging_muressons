@@ -25,7 +25,7 @@ client = TestClient(app)
 # ─── Helpers ────────────────────────────────────────────────────────────────
 
 STANDARD_BUS = ["pharma", "electronics", "consumer_goods", "software"]
-HEALTHCARE_BUS = ["hospitals", "primary_care_clinics", "telehealth"]
+HEALTHCARE_BUS = ["hospitals", "clinics", "specialised_care", "telehealth"]
 
 PARADIGMS = ["legacy_abc", "multi_toggles", "advanced_climate", "healthcare"]
 

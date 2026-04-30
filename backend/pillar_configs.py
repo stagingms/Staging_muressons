@@ -1,7 +1,7 @@
-"""
-Muressons Global Command — Strategic Pillars Configuration
-Defines the 4-area decision options per round for the "multi_toggles" paradigm.
-Each round has options for: Energy, Operations, Supply Chain, Offsetting.
+"""Muressons Global Command — Strategic Pillars Configuration
+Defines the 5-area decision options per round for the "multi_toggles" paradigm.
+Each round has options for: Energy, Operations, Supply Chain, Offsetting,
+and Human Resources.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ OVERRIDES_FILE = Path(__file__).parent / "decision_overrides.json"
 
 # ═════════════════════════════════════════════════════════════════
 #  PILLAR OPTIONS PER ROUND
-#  Each round maps 4 areas → 3 actions each.
+#  Each round maps 5 areas → 3 actions each.
 #  Actions have: cost (treasury delta), impacts (capital deltas),
 #  flags_set (for round_logic compatibility).
 # ═════════════════════════════════════════════════════════════════
@@ -136,6 +136,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                 },
             },
+            "human_resources": {
+                "label": "Talent & Culture",
+                "icon": "👥",
+                "options": {
+                    "dei_training": {
+                        "title": "DEI & Inclusion Program",
+                        "description": "Launch a comprehensive Diversity, Equity & Inclusion training program across all BUs, including executive sponsorship and ERGs.",
+                        "cost": -2_000_000,
+                        "impacts": {"social_license_delta": +4, "reputation": +3, "burnout_delta": -8},
+                        "flags_set": ["dei_program"],
+                    },
+                    "leadership_dev": {
+                        "title": "Leadership Development",
+                        "description": "Invest in a leadership pipeline with mentoring, succession planning and executive coaching.",
+                        "cost": -1_500_000,
+                        "impacts": {"reputation": +2, "governance_risk_delta": -2},
+                        "flags_set": ["leadership_pipeline"],
+                    },
+                    "no_hr_action": {
+                        "title": "No HR Investment",
+                        "description": "Defer all workforce development spending this round.",
+                        "cost": 0,
+                        "impacts": {"social_license_delta": -1},
+                        "flags_set": [],
+                    },
+                },
+            },
         },
     },
 
@@ -206,8 +233,8 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "title": "Blockchain Traceability",
                         "description": "Implement supply chain blockchain for full transparency.",
                         "cost": -3_500_000,
-                        "impacts": {"social_license_delta": +5, "reputation": +4},
-                        "flags_set": ["blockchain_trace"],
+                        "impacts": {"social_license_delta": +5, "reputation": +4, "burnout_delta": -10},
+                        "flags_set": ["blockchain_traceability"],
                     },
                     "annual_report": {
                         "title": "Annual ESG Report",
@@ -248,6 +275,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "description": "Defer impact mitigation investments.",
                         "cost": 0,
                         "impacts": {"social_license_delta": -2},
+                        "flags_set": [],
+                    },
+                },
+            },
+            "human_resources": {
+                "label": "Workforce Analytics",
+                "icon": "👥",
+                "options": {
+                    "people_analytics": {
+                        "title": "People Analytics Platform",
+                        "description": "Deploy AI-driven workforce analytics for attrition prediction, engagement tracking and skills gap analysis.",
+                        "cost": -2_500_000,
+                        "impacts": {"governance_risk_delta": -4, "reputation": +3},
+                        "flags_set": ["people_analytics"],
+                    },
+                    "engagement_survey": {
+                        "title": "Annual Engagement Survey",
+                        "description": "Conduct a company-wide engagement survey with action plans for each BU.",
+                        "cost": -500_000,
+                        "impacts": {"social_license_delta": +2, "reputation": +1},
+                        "flags_set": ["engagement_survey"],
+                    },
+                    "no_hr_action": {
+                        "title": "No Workforce Analytics",
+                        "description": "No investment in workforce data or analytics.",
+                        "cost": 0,
+                        "impacts": {},
                         "flags_set": [],
                     },
                 },
@@ -323,7 +377,7 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "description": "Immediately switch to low-carbon suppliers.",
                         "cost": -4_000_000,
                         "impacts": {"carbon_intensity_delta": -12, "governance_risk_delta": +10},
-                        "flags_set": ["supply_chain_disruption_risk"],
+                        "flags_set": ["supply_chain_disruption_risk", "early_decarboniser"],
                     },
                     "green_bond": {
                         "title": "Green Bond Supplier Fund",
@@ -361,10 +415,38 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                     "greenwash_risk": {
                         "title": "Marketing-Only Pledge",
-                        "description": "Issue a net-zero pledge without binding commitments.",
+                        "description": "Issue a net-zero pledge without binding commitments. Low cost but activates the Greenwashing Engine if average investment ratio drops below 15%.",
                         "cost": -200_000,
                         "impacts": {"reputation": -3, "governance_risk_delta": +5},
                         "flags_set": ["greenwash_risk"],
+                        "warning_badge": "\u26a0\ufe0f GREENWASH RISK: If avg investment ratio < 15%, the Greenwashing Engine deducts \u22128 Social Licence from ALL BUs.",
+                    },
+                },
+            },
+            "human_resources": {
+                "label": "Green Skills Pipeline",
+                "icon": "👥",
+                "options": {
+                    "green_academy": {
+                        "title": "Internal Green Skills Academy",
+                        "description": "Build an in-house training academy for Scope 3 carbon accounting, lifecycle assessment and circular design skills.",
+                        "cost": -3_000_000,
+                        "impacts": {"social_license_delta": +5, "reputation": +4},
+                        "flags_set": ["green_skills_academy"],
+                    },
+                    "safety_compliance": {
+                        "title": "Basic OHS Compliance",
+                        "description": "Meet minimum occupational health and safety standards. Low cost but no strategic uplift.",
+                        "cost": -500_000,
+                        "impacts": {"reputation": +1},
+                        "flags_set": ["ohs_basic"],
+                    },
+                    "no_hr_action": {
+                        "title": "No Workforce Change",
+                        "description": "No workforce development investment. Risk of skills gap widening.",
+                        "cost": 0,
+                        "impacts": {"social_license_delta": -2},
+                        "flags_set": [],
                     },
                 },
             },
@@ -484,6 +566,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                 },
             },
+            "human_resources": {
+                "label": "Crisis Workforce Support",
+                "icon": "👥",
+                "options": {
+                    "crisis_counselling": {
+                        "title": "Employee Crisis Support",
+                        "description": "Provide mental health support, crisis counselling and transparent internal comms to maintain employee trust during the scandal.",
+                        "cost": -1_500_000,
+                        "impacts": {"social_license_delta": +4, "reputation": +3},
+                        "flags_set": ["crisis_employee_support"],
+                    },
+                    "overtime_push": {
+                        "title": "Overtime & Crisis Push",
+                        "description": "Mandate overtime to accelerate crisis response. Short-term gain at the cost of burnout and attrition risk.",
+                        "cost": +500_000,
+                        "impacts": {"social_license_delta": -4, "reputation": -2, "burnout_delta": +12},
+                        "flags_set": ["burnout_risk"],
+                    },
+                    "no_hr_action": {
+                        "title": "No Employee Support",
+                        "description": "No additional workforce support. Employee morale is left to fend for itself.",
+                        "cost": 0,
+                        "impacts": {"social_license_delta": -2, "reputation": -1},
+                        "flags_set": [],
+                    },
+                },
+            },
         },
     },
 
@@ -527,21 +636,21 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "title": "Hard Engineering Defence",
                         "description": "Build flood walls and reinforced infrastructure.",
                         "cost": -8_000_000,
-                        "impacts": {"natural_capital_debt_delta": +10},
+                        "impacts": {"natural_capital_debt_delta": +10, "resilience_factor": 0.85},
                         "flags_set": ["hard_engineering"],
                     },
                     "nature_based": {
                         "title": "Nature-Based Solutions",
                         "description": "Mangrove restoration and natural buffers.",
                         "cost": -5_000_000,
-                        "impacts": {"natural_capital_debt_delta": -8, "reputation": +4},
+                        "impacts": {"natural_capital_debt_delta": -8, "reputation": +4, "resilience_factor": 0.60},
                         "flags_set": ["nature_based_resilience"],
                     },
                     "insurance_only": {
                         "title": "Insurance Only",
                         "description": "Buy comprehensive insurance. No physical defence.",
                         "cost": -2_000_000,
-                        "impacts": {},
+                        "impacts": {"resilience_factor": 0.0},
                         "flags_set": ["insurance_only"],
                     },
                 },
@@ -581,7 +690,7 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "title": "Climate Adaptation Fund",
                         "description": "Create a dedicated fund for community adaptation.",
                         "cost": -3_000_000,
-                        "impacts": {"social_license_delta": +6, "reputation": +4},
+                        "impacts": {"social_license_delta": +6, "reputation": +4, "burnout_delta": -10},
                         "flags_set": ["adaptation_fund"],
                     },
                     "parametric_insurance": {
@@ -596,6 +705,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "description": "No additional climate adaptation investment.",
                         "cost": 0,
                         "impacts": {"reputation": -2},
+                        "flags_set": [],
+                    },
+                },
+            },
+            "human_resources": {
+                "label": "Worker Safety & Resilience",
+                "icon": "👥",
+                "options": {
+                    "emergency_team": {
+                        "title": "Emergency Response Training",
+                        "description": "Train dedicated emergency response teams at each facility. Includes evacuation drills, first-aid certification and business continuity roles.",
+                        "cost": -2_000_000,
+                        "impacts": {"social_license_delta": +5, "reputation": +3, "governance_risk_delta": -3},
+                        "flags_set": ["emergency_trained"],
+                    },
+                    "basic_ppe": {
+                        "title": "Basic Safety Gear Upgrade",
+                        "description": "Issue standard PPE and establish minimum safety protocols.",
+                        "cost": -500_000,
+                        "impacts": {"social_license_delta": +1, "reputation": +1},
+                        "flags_set": ["basic_ppe"],
+                    },
+                    "no_hr_action": {
+                        "title": "No Workforce Safety Investment",
+                        "description": "No additional worker safety spending. Accept existing risk levels.",
+                        "cost": 0,
+                        "impacts": {"social_license_delta": -3},
                         "flags_set": [],
                     },
                 },
@@ -716,6 +852,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                 },
             },
+            "human_resources": {
+                "label": "AI Ethics & Workforce",
+                "icon": "👥",
+                "options": {
+                    "responsible_ai_training": {
+                        "title": "Responsible AI Training",
+                        "description": "Train all employees on responsible AI use, bias detection and ethical data handling. Includes whistleblower protections.",
+                        "cost": -2_500_000,
+                        "impacts": {"social_license_delta": +5, "reputation": +4, "governance_risk_delta": -4, "burnout_delta": -10},
+                        "flags_set": ["responsible_ai_trained"],
+                    },
+                    "ai_upskilling": {
+                        "title": "AI Upskilling Program",
+                        "description": "Offer voluntary AI skills courses for interested employees.",
+                        "cost": -800_000,
+                        "impacts": {"reputation": +2},
+                        "flags_set": ["ai_upskilling"],
+                    },
+                    "no_hr_action": {
+                        "title": "No AI Workforce Training",
+                        "description": "No employee AI training. Risk of misuse and compliance gaps.",
+                        "cost": 0,
+                        "impacts": {"governance_risk_delta": +3, "social_license_delta": -2},
+                        "flags_set": [],
+                    },
+                },
+            },
         },
     },
 
@@ -827,6 +990,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "description": "No nature restoration spending this round.",
                         "cost": 0,
                         "impacts": {},
+                        "flags_set": [],
+                    },
+                },
+            },
+            "human_resources": {
+                "label": "Circular Workforce",
+                "icon": "👥",
+                "options": {
+                    "circular_reskilling": {
+                        "title": "Circular Economy Reskilling",
+                        "description": "Retrain manufacturing workforce in disassembly, refurbishment and reverse logistics skills. Directly supports circular transition.",
+                        "cost": -3_500_000,
+                        "impacts": {"social_license_delta": +6, "reputation": +4},
+                        "flags_set": ["circular_reskilled"],
+                    },
+                    "cross_training": {
+                        "title": "Cross-Functional Training",
+                        "description": "Implement cross-BU rotation to build generalist skills.",
+                        "cost": -1_000_000,
+                        "impacts": {"reputation": +2, "governance_risk_delta": -2},
+                        "flags_set": ["cross_trained"],
+                    },
+                    "no_hr_action": {
+                        "title": "No Skills Investment",
+                        "description": "No additional circular economy workforce investment.",
+                        "cost": 0,
+                        "impacts": {"social_license_delta": -2},
                         "flags_set": [],
                     },
                 },
@@ -946,6 +1136,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                 },
             },
+            "human_resources": {
+                "label": "Water Crisis Workforce",
+                "icon": "👥",
+                "options": {
+                    "water_steward_training": {
+                        "title": "Water Steward Certification",
+                        "description": "Certify facility managers as AWS Water Stewards. Embeds water conservation into daily operations and reporting.",
+                        "cost": -2_000_000,
+                        "impacts": {"social_license_delta": +4, "reputation": +3, "water_dependency_delta": -3},
+                        "flags_set": ["water_stewards_trained"],
+                    },
+                    "shift_rotation": {
+                        "title": "Shift Rotation Optimization",
+                        "description": "Restructure shift patterns to reduce peak water demand during shortage periods.",
+                        "cost": -700_000,
+                        "impacts": {"water_dependency_delta": -2, "reputation": +1},
+                        "flags_set": ["shift_optimized"],
+                    },
+                    "no_hr_action": {
+                        "title": "No Workforce Action",
+                        "description": "No water-related workforce changes.",
+                        "cost": 0,
+                        "impacts": {},
+                        "flags_set": [],
+                    },
+                },
+            },
         },
     },
 
@@ -1058,6 +1275,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                         "cost": 0,
                         "impacts": {"social_license_delta": -5, "reputation": -3},
                         "flags_set": [],
+                    },
+                },
+            },
+            "human_resources": {
+                "label": "Just Transition Workforce",
+                "icon": "👥",
+                "options": {
+                    "full_severance_redeploy": {
+                        "title": "Full Severance & Redeployment",
+                        "description": "Offer 12-month enhanced severance packages plus funded redeployment into green economy roles. Partnered with local government employment services.",
+                        "cost": -6_000_000,
+                        "impacts": {"social_license_delta": +10, "reputation": +7, "burnout_delta": -12},
+                        "flags_set": ["full_severance_redeployment"],
+                    },
+                    "statutory_minimum": {
+                        "title": "Statutory Minimum Only",
+                        "description": "Meet legal requirements for notice periods and minimum severance. No additional support.",
+                        "cost": -1_000_000,
+                        "impacts": {"social_license_delta": -3, "reputation": -2},
+                        "flags_set": ["statutory_minimum_hr"],
+                    },
+                    "no_hr_action": {
+                        "title": "No HR Consideration",
+                        "description": "No dedicated HR strategy for factory closures. Workers learn from media.",
+                        "cost": 0,
+                        "impacts": {"social_license_delta": -8, "reputation": -6, "burnout_delta": +15},
+                        "flags_set": ["hr_absent_transition"],
                     },
                 },
             },
@@ -1176,6 +1420,33 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                 },
             },
+            "human_resources": {
+                "label": "Workforce Legacy",
+                "icon": "👥",
+                "options": {
+                    "employee_ownership": {
+                        "title": "Employee Ownership Scheme",
+                        "description": "Transition 10% of equity to an Employee Share Ownership Plan (ESOP). Aligns workforce incentives with long-term sustainability.",
+                        "cost": -5_000_000,
+                        "impacts": {"social_license_delta": +8, "reputation": +6, "governance_risk_delta": -5},
+                        "flags_set": ["employee_ownership"],
+                    },
+                    "retention_bonuses": {
+                        "title": "Retention Bonus Package",
+                        "description": "Issue retention bonuses to key talent during restructuring uncertainty.",
+                        "cost": -2_000_000,
+                        "impacts": {"reputation": +2},
+                        "flags_set": ["retention_bonuses"],
+                    },
+                    "no_hr_action": {
+                        "title": "No Workforce Consideration",
+                        "description": "No dedicated workforce strategy during corporate restructuring.",
+                        "cost": 0,
+                        "impacts": {"social_license_delta": -4, "reputation": -3},
+                        "flags_set": [],
+                    },
+                },
+            },
         },
     },
 }
@@ -1260,11 +1531,26 @@ def aggregate_pillar_decisions(
             "impacts": {key: delta},
             "flags_set": [str],
             "per_area": {area: {action_key, title, cost, impacts}},
+            "exclusivity_warnings": [str],  # any mutual exclusivity violations
         }
     """
+    # ── Mutual exclusivity config: groups of flags that cannot coexist ──
+    # Within each group, flags are listed in priority order (first match wins).
+    MUTUAL_EXCLUSIVITY: dict[int, list[list[set]]] = {
+        7: [
+            # Synergy unlock and circular redesign are separate strategic paths
+            [{"synergy_unlock", "waste_to_energy"}, {"circular_redesign"}],
+        ],
+        9: [
+            # Community fund, managed transition, and immediate closure are
+            # three distinct approaches to factory closure
+            [{"community_fund"}, {"managed_transition"}, {"immediate_closure"}],
+        ],
+    }
+
     cfg = PILLAR_OPTIONS.get(round_number)
     if not cfg:
-        return {"total_cost": 0, "impacts": {}, "flags_set": [], "per_area": {}}
+        return {"total_cost": 0, "impacts": {}, "flags_set": [], "per_area": {}, "exclusivity_warnings": []}
 
     areas = cfg.get("areas", {})
     total_cost = 0
@@ -1296,11 +1582,42 @@ def aggregate_pillar_decisions(
             "impacts": action.get("impacts", {}),
         }
 
+    # ── Enforce mutual exclusivity ──
+    exclusivity_warnings: list[str] = []
+    exclusivity_groups = MUTUAL_EXCLUSIVITY.get(round_number, [])
+    flag_set = set(all_flags)
+
+    for group in exclusivity_groups:
+        matched_indices = [i for i, flag_group in enumerate(group) if flag_group & flag_set]
+        if len(matched_indices) > 1:
+            # Conflict: keep the first match (highest priority), remove later matches
+            kept = group[matched_indices[0]]
+            for idx in matched_indices[1:]:
+                conflicting_flags = group[idx] & flag_set
+                for f in conflicting_flags:
+                    all_flags.remove(f)
+                    # Also remove the impacts from the conflicting area
+                    for area_key, area_data in per_area.items():
+                        action_key = area_data["action_key"]
+                        area_cfg = areas.get(area_key, {})
+                        action = area_cfg.get("options", {}).get(action_key, {})
+                        action_flags = set(action.get("flags_set", []))
+                        if f in action_flags:
+                            # Reverse this area's impacts (keep cost — you still paid for it)
+                            for k, v in area_data.get("impacts", {}).items():
+                                combined_impacts[k] = combined_impacts.get(k, 0) - v
+                            exclusivity_warnings.append(
+                                f"⚠️ Mutual exclusivity: '{area_data['title']}' conflicts with "
+                                f"'{group[matched_indices[0]]}' — impacts reversed (cost still applies)."
+                            )
+                            break
+
     return {
         "total_cost": total_cost,
         "impacts": combined_impacts,
         "flags_set": all_flags,
         "per_area": per_area,
+        "exclusivity_warnings": exclusivity_warnings,
     }
 
 
@@ -1312,15 +1629,76 @@ def translate_pillars_to_legacy_choice(
     Map a set of pillar selections to the closest legacy A/B/C choice
     for backward compatibility with round_logic._get_primary_choice().
 
-    Heuristic: total cost determines aggressiveness.
-      - Aggressive spending → option_a (bold)
-      - Moderate spending → option_b (balanced)
-      - Low/no spending → option_c (conservative)
+    Fix #5: Strategy upgraded from pure cost heuristic to flag-aware priority.
+    Round-specific FLAG_OVERRIDES encode the STRATEGIC INTENT of critical pillar
+    flags (e.g. deny_and_deflect, insurance_only, ethical_ai_overhaul) so the
+    correct post-tick code path fires regardless of total spend.
+    Cost-based heuristic is retained as fallback for ambiguous combinations.
     """
     agg = aggregate_pillar_decisions(round_number, pillar_choices)
+    flags_this_round = set(agg["flags_set"])
     total_cost = agg["total_cost"]
 
-    # More negative cost = more aggressive
+    # ── Round-specific flag-based overrides (strategic intent > cost proxy) ──
+    # Maps legacy proxy choice -> set of pillar flags that unambiguously
+    # indicate that choice. Checked in a, b, c priority order.
+    FLAG_OVERRIDES: dict[int, dict[str, set]] = {
+        1: {
+            "option_b": {"deep_audit_completed"},
+            "option_c": {"electronics_blindspot"},
+        },
+        2: {
+            "option_a": {"materiality_aligned"},
+            "option_c": {"materiality_ignored"},
+        },
+        3: {
+            "option_a": {"supply_chain_disruption_risk"},
+            "option_b": {"green_bond_active"},
+            "option_c": {"carbon_deferred"},
+        },
+        4: {
+            "option_a": {"remediation_active", "supplier_remediation", "stakeholder_compensated"},
+            "option_c": {"deny_and_deflect"},
+        },
+        5: {
+            "option_a": {"hard_engineering"},
+            "option_b": {"nature_based_resilience"},
+            "option_c": {"insurance_only"},
+        },
+        6: {
+            "option_a": {"ai_monetised"},
+            "option_b": {"ethical_ai_overhaul"},
+            "option_c": {"quiet_patch"},
+        },
+        7: {
+            "option_c": {"synergy_unlock", "waste_to_energy"},
+            "option_a": {"circular_redesign"},
+        },
+        8: {
+            "option_c": {"desalination_built"},
+            "option_b": {"electronics_water_priority"},
+            "option_a": {"water_efficiency_all"},
+        },
+        9: {
+            "option_c": {"community_fund"},
+            "option_b": {"managed_transition"},
+            "option_a": {"immediate_closure"},
+        },
+        10: {
+            "option_a": {"resist_integrate"},
+            "option_c": {"divest"},
+        },
+    }
+
+    round_overrides = FLAG_OVERRIDES.get(round_number, {})
+    # Priority order: option_a first (most aggressive), then b, then c
+    for proxy_choice in ("option_a", "option_b", "option_c"):
+        trigger_flags = round_overrides.get(proxy_choice, set())
+        if trigger_flags & flags_this_round:  # any overlap -> match
+            return proxy_choice
+
+    # ── Fallback: cost-based heuristic for rounds with no flag match ──
+    # More negative cost = more aggressive strategic spend = bolder choice
     if total_cost <= -8_000_000:
         return "option_a"
     elif total_cost <= -3_000_000:

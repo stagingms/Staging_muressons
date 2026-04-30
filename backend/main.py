@@ -37,6 +37,9 @@ sys.modules["database"] = db  # type: ignore
 
 from router import router as simulation_router  # noqa: E402
 from admin_router import admin_router  # noqa: E402
+from admin_teleprompter import teleprompter_router  # noqa: E402  ARCH-002
+from admin_resources import resources_router  # noqa: E402  ARCH-002
+from admin_analytics import analytics_router  # noqa: E402  ARCH-002
 
 
 @asynccontextmanager
@@ -57,7 +60,7 @@ app = FastAPI(
 # FIX AUDIT-011: CORS — use explicit origins instead of wildcard + credentials.
 # Set CORS_ORIGINS env var to a comma-separated list for production.
 import os as _os
-_cors_origins = _os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+_cors_origins = _os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
 _cors_origins = [o.strip() for o in _cors_origins if o.strip()]
 
 app.add_middleware(
@@ -71,6 +74,9 @@ app.add_middleware(
 # Mount routers
 app.include_router(simulation_router)
 app.include_router(admin_router)
+app.include_router(teleprompter_router)  # ARCH-002: Extracted sub-router
+app.include_router(resources_router)     # ARCH-002: Extracted sub-router
+app.include_router(analytics_router)     # ARCH-002: Extracted sub-router
 
 
 @app.get("/health", tags=["System"])

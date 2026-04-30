@@ -8,7 +8,7 @@ import MaterialityConfig from '../../components/MaterialityConfig';
 import MasterInterventions from '../../components/MasterInterventions';
 import RoundPacingControl from '../../components/RoundPacingControl';
 import ResourceManager from '../../components/ResourceManager';
-import DecisionParadigmConfig from '../../components/DecisionParadigmConfig';
+
 import FacilitatorManager from '../../components/FacilitatorManager';
 import CrisisTriggerConfig from '../../components/CrisisTriggerConfig';
 import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
@@ -28,6 +28,7 @@ import EconomicEngineTunables from '../../components/EconomicEngineTunables';
 import SessionHealthDashboard from '../../components/SessionHealthDashboard';
 import ComplexityEventFeed from '../../components/ComplexityEventFeed';
 import DecisionTimeline from '../../components/DecisionTimeline';
+import SimulationReference from '../../components/SimulationReference';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -388,16 +389,56 @@ export default function GodModePage() {
  *  GOD MODE DASHBOARD (protected behind login gate)
  * ═════════════════════════════════════════════════════════════════ */
 
+
+/* ═════════════════════════════════════════════════════════════════
+ *  SYSTEM CONTEXT BAR
+ * ═════════════════════════════════════════════════════════════════ */
+function SystemContextBar() {
+    const [status, setStatus] = useState(null);
+
+    useEffect(() => {
+        const fetchStatus = () => {
+            fetch(`${API}/api/admin/god/system-status`)
+                .then(r => r.json())
+                .then(d => setStatus(d))
+                .catch(() => {});
+        };
+        fetchStatus();
+        const t = setInterval(fetchStatus, 15000);
+        return () => clearInterval(t);
+    }, []);
+
+    const activeCohorts = status ? status.total_cohorts : 0;
+    const activePlayers = status ? status.total_players : 0;
+    const isOptimal = status ? (status.system_memory_mb || 0) < 500 : true;
+
+    return (
+        <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            background: 'var(--bg-elevated)', borderBottom: '1px solid var(--border-subtle)',
+            padding: '8px 24px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)',
+            position: 'sticky', top: 0, zIndex: 10
+        }}>
+            <div style={{ display: 'flex', gap: '1.5rem' }}>
+                <span style={{ color: '#38bdf8' }}>📡 COMMAND UPLINK</span>
+                <span>Live Cohorts: <span style={{ color: 'var(--text-primary)' }}>{activeCohorts}</span></span>
+                <span>Active Players: <span style={{ color: 'var(--text-primary)' }}>{activePlayers}</span></span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                System Health: {isOptimal ? <span style={{ color: '#10b981' }}>🟢 Optimal</span> : <span style={{ color: '#ef4444' }}>🔴 Warning</span>}
+            </div>
+        </div>
+    );
+}
+
 function GodModeDashboard({ authData, onLogout }) {
-    const [activeTab, setActiveTab] = useState('system_status');
+        const [activeTab, setActiveTab] = useState('system_overview');
     const [showChangePw, setShowChangePw] = useState(false);
     const [openCategories, setOpenCategories] = useState({
-        system: true,
-        engine_core: true,
-        crisis: false,
+        command_center: true,
+        orchestration: true,
+        engine_core: false,
         content: false,
-        analytics: false,
-        admin: false,
         danger: false,
     });
 
@@ -405,71 +446,47 @@ function GodModeDashboard({ authData, onLogout }) {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
     };
 
-    const SIDEBAR_CONFIG = [
+        const SIDEBAR_CONFIG = [
         {
-            category: 'System & Monitoring',
-            icon: '🎯',
-            id: 'system',
+            category: 'Command Center',
+            icon: '📡',
+            id: 'command_center',
             items: [
-                { id: 'system_status',     label: 'System Status',       icon: '📊' },
-                { id: 'session_health',    label: 'Session Health',       icon: '🏥' },
-                { id: 'audit_log',         label: 'Activity Log',         icon: '📋' },
-                { id: 'facilitator_roles', label: 'Facilitator Manager',  icon: '🎓' },
+                { id: 'system_overview',     label: 'System Overview',       icon: '📊', tooltip: 'Unified dashboard of system status and session health' },
+                { id: 'platform_analytics',  label: 'Platform Analytics',  icon: '📈', tooltip: 'Aggregated macro statistics across all active cohorts' },
+                { id: 'activity_log',         label: 'Activity & Complexity', icon: '📋', tooltip: 'Immutable record and live firehose of systemic interactions' },
             ]
         },
         {
-            category: 'Simulation Engine',
+            category: 'Cohort Orchestration',
+            icon: '🎓',
+            id: 'orchestration',
+            items: [
+                { id: 'cohort_orchestration', label: 'Cohort Manager',  icon: '🗂️', tooltip: 'Provision cohorts and manage facilitator access' },
+                { id: 'session_controls',    label: 'Session Controls',      icon: '🎛️', tooltip: 'Round pacing, broadcasts, and visibility controls' },
+                { id: 'master_interventions', label: 'Team Interventions', icon: '🚀', tooltip: 'Directly inject capital or penalties into target teams' },
+                { id: 'crisis_overrides',      label: 'Crisis Overrides',    icon: '🚨', tooltip: 'Manually activate crises or deploy Black Swans' },
+            ]
+        },
+        {
+            category: 'Engine Configuration',
             icon: '⚙️',
             id: 'engine_core',
             items: [
-                { id: 'engine_tunables',    label: 'Engine Tunables',      icon: '🔧' },
-                { id: 'master_variables',   label: 'Master Variables',     icon: '🎛️' },
-                { id: 'materiality',        label: 'Materiality Matrix',   icon: '🧩' },
-                { id: 'round_pacing',       label: 'Round Pacing',         icon: '⏱️' },
-                { id: 'decision_paradigm',  label: 'Decision Paradigm',    icon: '🦭' },
-                { id: 'archetypes',         label: 'Profile Archetypes',   icon: '🏆' },
-                { id: 'scorecard_evaluator',label: 'Scorecard Evaluator',  icon: '📊' },
+                { id: 'macro_economics',     label: 'Macro Economics',      icon: '🔧', tooltip: 'Adjust global economic baselines and override master variables' },
+                { id: 'materiality_config',  label: 'Materiality Matrix',   icon: '🦭', tooltip: 'Configure double materiality weightings and impact/financial axes' },
+                { id: 'archetype_editor',    label: 'Profile Archetypes',   icon: '🏆', tooltip: 'Define Year 3 outcome profiles based on Regenerative Multiple (M_R)' },
+                { id: 'scorecard_evaluator', label: 'Scorecard Evaluator',  icon: '📊', tooltip: 'Audit calculation logic for the Balanced Scorecard' },
             ]
         },
         {
-            category: 'Crisis & Events',
-            icon: '⚡',
-            id: 'crisis',
-            items: [
-                { id: 'master_interventions', label: 'Team Interventions', icon: '🚀' },
-                { id: 'crisis_triggers',      label: 'Crisis Triggers',    icon: '🚨' },
-                { id: 'black_swan',           label: 'Black Swan Injector',icon: '🦢' },
-            ]
-        },
-        {
-            category: 'Content & Resources',
+            category: 'Resources & Content',
             icon: '📚',
             id: 'content',
             items: [
-                { id: 'resources',          label: 'Resource Library',    icon: '📁' },
-                { id: 'glossary_editor',    label: 'Glossary Editor',     icon: '📖' },
-                { id: 'technical_glossary', label: 'Technical Reference', icon: '📐' },
-            ]
-        },
-        {
-            category: 'Analytics & Comms',
-            icon: '📊',
-            id: 'analytics',
-            items: [
-                { id: 'platform_analytics',  label: 'Platform Analytics',  icon: '📈' },
-                { id: 'complexity_events',   label: 'Complexity Feed',     icon: '📡' },
-                { id: 'decision_replay',     label: 'Decision Replay',     icon: '🕐' },
-                { id: 'analytics_controls',  label: 'Visibility Controls', icon: '👁️' },
-                { id: 'universal_broadcast', label: 'Universal Broadcast', icon: '📢' },
-            ]
-        },
-        {
-            category: 'Administration',
-            icon: '🛡️',
-            id: 'admin',
-            items: [
-                { id: 'cohort_manager', label: 'Cohort Manager', icon: '🗂️' },
-                { id: 'system_export',  label: 'Backup & Export', icon: '💾' },
+                { id: 'resources',          label: 'Resource Library',    icon: '📁', tooltip: 'Manage unlockable swipe files and PDFs for teams' },
+                { id: 'glossary_editor',    label: 'Glossary Editor',     icon: '📖', tooltip: 'Edit the in-game definitions and term glossary' },
+                { id: 'doc_reference',      label: 'Documentation', icon: '📑', tooltip: 'Developer documentation and live simulation reference' },
             ]
         },
         {
@@ -477,7 +494,8 @@ function GodModeDashboard({ authData, onLogout }) {
             icon: '☢️',
             id: 'danger',
             items: [
-                { id: 'session_reset', label: 'Reset & Deletion', icon: '💥' },
+                { id: 'system_export',  label: 'Backup & Export', icon: '💾', tooltip: 'Download comprehensive simulation snapshots as CSV' },
+                { id: 'session_reset', label: 'Factory Reset', icon: '💥', tooltip: 'Hard wipe databases and permanently destroy cohort data' },
             ]
         }
     ];
@@ -488,62 +506,83 @@ function GodModeDashboard({ authData, onLogout }) {
             const item = group.items.find(i => i.id === tabId);
             if (item) return { label: item.label, category: group.category, categoryIcon: group.icon };
         }
-        return { label: 'Overview', category: 'System & Monitoring', categoryIcon: '🎯' };
+        return { label: 'Overview', category: 'Command Center', categoryIcon: '📡' };
     };
 
 
-    const renderActiveComponent = () => {
+        const renderActiveComponent = () => {
         switch (activeTab) {
-            case 'system_status':
-                return <GodModeStatus />;
-            case 'session_health':
-                return <SessionHealthDashboard />;
-            case 'engine_tunables':
-                return <EconomicEngineTunables />;
-            case 'complexity_events':
-                return <ComplexityEventFeed sessionId={null} />;
-            case 'decision_replay':
-                return <DecisionTimeline leaderboard={[]} />;
-            case 'audit_log':
-                return <GodModeAuditLog />;
-            case 'master_variables':
-                return <MasterVariableEditor />;
-            case 'scorecard_evaluator':
-                return <div style={{padding:'1.5rem'}}><BalancedScorecardEvaluator /></div>;
-            case 'materiality':
-                return <MaterialityConfig />;
+            case 'system_overview':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <GodModeStatus />
+                        <SessionHealthDashboard />
+                    </div>
+                );
+            case 'activity_log':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <GodModeAuditLog />
+                        <ComplexityEventFeed sessionId={null} />
+                    </div>
+                );
+            case 'platform_analytics':
+                return <PlatformAnalytics />;
+                
+            case 'cohort_orchestration':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <SimulationManager fetchInternal={true} leaderboard={[]} />
+                        <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />
+                    </div>
+                );
+            case 'session_controls':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <UniversalBroadcast />
+                    </div>
+                );
             case 'master_interventions':
                 return <MasterInterventions />;
-            case 'round_pacing':
-                return <RoundPacingControl />;
-            case 'decision_paradigm':
-                return <DecisionParadigmConfig sessions={[]} apiBase={API} />;
+            case 'crisis_overrides':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <CrisisTriggerConfig />
+                        <CustomBlackSwanBuilder />
+                    </div>
+                );
+                
+            case 'macro_economics':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <EconomicEngineTunables />
+                        <MasterVariableEditor />
+                    </div>
+                );
+            case 'materiality_config':
+                return <MaterialityConfig />;
+            case 'archetype_editor':
+                return <ArchetypeEditor />;
+            case 'scorecard_evaluator':
+                return <div style={{padding:'1.5rem'}}><BalancedScorecardEvaluator /></div>;
+                
             case 'resources':
                 return <ResourceManager />;
             case 'glossary_editor':
                 return <GlossaryManager />;
-            case 'technical_glossary':
-                return <div style={{ padding: '1.5rem' }}><TechnicalGlossary /></div>;
-            case 'crisis_triggers':
-                return <CrisisTriggerConfig />;
-            case 'black_swan':
-                return <CustomBlackSwanBuilder />;
-            case 'facilitator_roles':
-                return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />;
-            case 'universal_broadcast':
-                return <UniversalBroadcast />;
-            case 'platform_analytics':
-                return <PlatformAnalytics />;
-            case 'analytics_controls':
-                return <AnalyticsControlPanel />;
-            case 'archetypes':
-                return <ArchetypeEditor />;
+            case 'doc_reference':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <div style={{ padding: '1.5rem', background: 'var(--bg-card)', borderRadius: '12px' }}><TechnicalGlossary /></div>
+                        <SimulationReference />
+                    </div>
+                );
+                
             case 'system_export':
                 return <SystemExport />;
-            case 'cohort_manager':
-                return <SimulationManager fetchInternal={true} leaderboard={[]} />;
             case 'session_reset':
                 return <DangerZonePanel apiBase={API} />;
+                
             default:
                 return (
                     <div className={styles.placeholder}>
@@ -644,6 +683,8 @@ function GodModeDashboard({ authData, onLogout }) {
                                         key={item.id}
                                         className={`${styles.navItem} ${activeTab === item.id ? styles.activeNav : ''}`}
                                         onClick={() => setActiveTab(item.id)}
+                                        data-tooltip={item.tooltip}
+                                        data-tooltip-pos="right"
                                     >
                                         {item.icon && <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>{item.icon}</span>}
                                         <span>{item.label}</span>
@@ -657,6 +698,7 @@ function GodModeDashboard({ authData, onLogout }) {
 
             {/* ── Main Workspace ── */}
             <main className={styles.mainPanel}>
+                <SystemContextBar />
                 <header className={styles.topBar}>
                     <div className={styles.meta}>
                         {(() => {

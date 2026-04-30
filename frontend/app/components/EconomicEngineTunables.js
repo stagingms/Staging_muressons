@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
+import { useCurrency, CURRENCIES } from '../contexts/CurrencyContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -80,10 +81,11 @@ function getRange(key, float) {
     return { min: 0, max: 100, step: 0.5 };
 }
 
-function formatVal(key, val) {
+function formatVal(key, val, currSymbol) {
+    const sym = currSymbol || '$';
     if (typeof val !== 'number') return String(val);
     if (isFloatPct(key, val)) return `${(val * 100).toFixed(1)}%`;
-    if (key === 'overrun_capex_floor') return `$${(val / 1000000).toFixed(1)}M`;
+    if (key === 'overrun_capex_floor') return `${sym}${(val / 1000000).toFixed(1)}M`;
     if (Number.isInteger(val)) return val.toLocaleString();
     return val.toFixed(2);
 }
@@ -130,7 +132,7 @@ function Tooltip({ data, accentColor }) {
 }
 
 // ─── Custom slider row ────────────────────────────────────
-function TunableRow({ varKey, val, accentColor, trackGradient, onChange }) {
+function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSymbol }) {
     const [hovering, setHovering] = useState(false);
     const [editing, setEditing] = useState(false);
     const [draft, setDraft] = useState('');
@@ -217,7 +219,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange }) {
                         onMouseOver={e => { e.currentTarget.style.background = `${accentColor}28`; e.currentTarget.style.borderColor = `${accentColor}66`; }}
                         onMouseOut={e => { e.currentTarget.style.background = `${accentColor}18`; e.currentTarget.style.borderColor = `${accentColor}33`; }}
                     >
-                        {formatVal(varKey, val)}
+                        {formatVal(varKey, val, currSymbol)}
                     </button>
                 )}
             </div>
@@ -270,6 +272,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange }) {
 
 // ─── Main Component ───────────────────────────────────────
 export default function EconomicEngineTunables() {
+    const { currency, setCurrency } = useCurrency();
     const [tunables, setTunables] = useState({});
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -451,6 +454,102 @@ export default function EconomicEngineTunables() {
                 </div>
             </div>
 
+            {/* ── Currency Selector ── */}
+            <div style={{
+                background: 'var(--bg-card,#1e293b)', border: '1px solid var(--border-subtle,#334155)',
+                borderRadius: '14px', overflow: 'hidden',
+            }}>
+                {/* Header */}
+                <div style={{
+                    padding: '14px 20px',
+                    background: 'linear-gradient(90deg, rgba(251,191,36,0.08), transparent)',
+                    borderBottom: '1px solid var(--border-subtle,#334155)',
+                    display: 'flex', alignItems: 'center', gap: '10px',
+                    borderLeft: '3px solid #fbbf24',
+                }}>
+                    <span style={{ fontSize: '0.9rem' }}>💱</span>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#fbbf24' }}>Simulation Currency</span>
+                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted,#64748b)', marginLeft: '4px' }}>— Display currency for all monetary values</span>
+                    {/* Active indicator */}
+                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{
+                            fontSize: '1.1rem',
+                            lineHeight: 1,
+                        }}>{currency.flag}</span>
+                        <span style={{
+                            fontSize: '0.68rem', fontWeight: 700,
+                            padding: '2px 8px', borderRadius: '4px',
+                            background: 'rgba(251,191,36,0.1)',
+                            border: '1px solid rgba(251,191,36,0.25)',
+                            color: '#fbbf24',
+                            fontFamily: 'var(--font-mono,monospace)',
+                        }}>{currency.symbol} {currency.code}</span>
+                    </div>
+                </div>
+
+                {/* Toggle strip */}
+                <div style={{ padding: '16px 20px' }}>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(6, 1fr)',
+                        gap: '6px',
+                        background: 'rgba(255,255,255,0.03)',
+                        borderRadius: '10px',
+                        padding: '6px',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                    }}>
+                        {CURRENCIES.map(c => {
+                            const isActive = c.code === currency.code;
+                            return (
+                                <button
+                                    key={c.code}
+                                    onClick={() => setCurrency(c)}
+                                    style={{
+                                        padding: '10px 8px',
+                                        borderRadius: '8px',
+                                        border: isActive
+                                            ? '1.5px solid rgba(251,191,36,0.5)'
+                                            : '1.5px solid transparent',
+                                        background: isActive
+                                            ? 'rgba(251,191,36,0.12)'
+                                            : 'transparent',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.18s ease',
+                                        display: 'flex', flexDirection: 'column',
+                                        alignItems: 'center', gap: '4px',
+                                        boxShadow: isActive
+                                            ? '0 0 0 3px rgba(251,191,36,0.1), inset 0 1px 0 rgba(255,255,255,0.05)'
+                                            : 'none',
+                                    }}
+                                    onMouseOver={e => { if (!isActive) { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; } }}
+                                    onMouseOut={e => { if (!isActive) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'transparent'; } }}
+                                    title={`${c.label} (${c.symbol})`}
+                                >
+                                    <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>{c.flag}</span>
+                                    <span style={{
+                                        fontFamily: 'var(--font-mono,monospace)',
+                                        fontWeight: 800, fontSize: '1rem',
+                                        color: isActive ? '#fbbf24' : 'var(--text-secondary,#94a3b8)',
+                                        transition: 'color 0.18s',
+                                    }}>{c.symbol}</span>
+                                    <span style={{
+                                        fontSize: '0.6rem', fontWeight: 600,
+                                        color: isActive ? '#fbbf24' : 'var(--text-muted,#64748b)',
+                                        letterSpacing: '0.04em', transition: 'color 0.18s',
+                                    }}>{c.code}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    <p style={{
+                        margin: '10px 0 0', fontSize: '0.68rem',
+                        color: 'var(--text-muted,#64748b)', lineHeight: 1.55,
+                    }}>
+                        Sets the symbol displayed on all monetary KPIs, investment panels, leaderboard values, and reports across both the Executive Cockpit and Facilitator Dashboard. Takes effect immediately — no session restart required.
+                    </p>
+                </div>
+            </div>
+
             {/* ── Engine Groups ── */}
             {GROUPS.map(group => {
                 const accent = GROUP_ACCENTS[group.label] || { color: '#94a3b8', glow: 'rgba(148,163,184,0.1)', track: 'linear-gradient(90deg,#475569,#94a3b8)' };
@@ -506,6 +605,7 @@ export default function EconomicEngineTunables() {
                                     accentColor={accent.color}
                                     trackGradient={accent.track}
                                     onChange={handleChange}
+                                    currSymbol={currency.symbol}
                                 />
                             ))}
                         </div>

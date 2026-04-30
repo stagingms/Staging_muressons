@@ -1,23 +1,36 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import styles from './PeerComparison.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
+const WS_BASE = (API || 'http://localhost:8000').replace(/^http/, 'ws');
 
 /**
- * PeerComparison — Live anonymized leaderboard showing cohort rankings.
- * Fetches real data from GET /api/simulations/{sessionId}/peer-leaderboard
- * Falls back to demo data for solo sessions.
+ * PeerComparison — Live anonymized leaderboard with WebSocket real-time updates.
+ *
+ * Connects to ws://.../api/admin/ws/session/{sessionId} for push-based
+ * leaderboard refreshes. Falls back to polling every 30s if WS fails.
+ *
+ * Props:
+ *  - sessionId: current player's session ID
+ *  - isOpen: boolean — controls modal visibility
+ *  - onClose: () => void
+ *  - roundNumber: current round (1 = locked placeholder)
  */
-export default function PeerComparison({ sessionId, isOpen, onClose }) {
+export default function PeerComparison({ sessionId, isOpen, onClose, roundNumber }) {
   const [leaderboard, setLeaderboard] = useState([]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
+  const [wsConnected, setWsConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
+  const wsRef = useRef(null);
+  const pollRef = useRef(null);
+  const reconnectTimerRef = useRef(null);
+  const mountedRef = useRef(false);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
+  // ── Fetch leaderboard via REST ──────────────────────────────
+  const fetchLeaderboard = useCallback(async () => {
     if (!sessionId || sessionId === 'demo') {
-      // Demo/solo mode — show placeholder data
       setLeaderboard([
         { rank: 1, name: 'Team Alpha', treasury: 48200000, reputation: 62, co2: 2100, bonus_score: 3000, trend: '↑' },
         { rank: 2, name: 'Your Team', treasury: 45000000, reputation: 55, co2: 2635, bonus_score: 1000, trend: '→', isYou: true },
@@ -29,138 +42,219 @@ export default function PeerComparison({ sessionId, isOpen, onClose }) {
       return;
     }
 
-    // Fetch real peer leaderboard data
-    setLoading(true);
-    setMessage('');
-    fetch(`${API}/api/simulations/${sessionId}/peer-leaderboard`)
-      .then(res => res.json())
-      .then(data => {
-        if (data.leaderboard && data.leaderboard.length > 0) {
-          setLeaderboard(data.leaderboard);
-          setMessage('');
-        } else {
-          // No peers — solo session
-          setLeaderboard([]);
-          setMessage(data.message || 'No peers in this cohort yet.');
-        }
-      })
-      .catch(() => {
-        setMessage('Unable to load leaderboard data.');
+    try {
+      setLoading(true);
+      const res = await fetch(`${API}/api/simulations/${sessionId}/peer-leaderboard`);
+      const data = await res.json();
+      if (data.leaderboard && data.leaderboard.length > 0) {
+        setLeaderboard(data.leaderboard);
+        setMessage('');
+      } else {
         setLeaderboard([]);
-      })
-      .finally(() => setLoading(false));
-  }, [isOpen, sessionId]);
+        setMessage(data.message || 'No peers in this cohort yet.');
+      }
+    } catch {
+      setMessage('Unable to load leaderboard data.');
+      setLeaderboard([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionId]);
+
+  // ── WebSocket connection ────────────────────────────────────
+  const connectWs = useCallback(() => {
+    if (!sessionId || sessionId === 'demo' || !isOpen) return;
+    if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+    try {
+      const ws = new WebSocket(`${WS_BASE}/api/admin/ws/session/${sessionId}`);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        setWsConnected(true);
+        setReconnecting(false);
+        clearTimeout(reconnectTimerRef.current);
+      };
+
+      ws.onmessage = (evt) => {
+        try {
+          const msg = JSON.parse(evt.data);
+          // Server pushes leaderboard_update or commit events
+          if (msg.type === 'leaderboard_update' && msg.leaderboard) {
+            setLeaderboard(msg.leaderboard);
+          } else if (
+            msg.type === 'round_committed' ||
+            msg.type === 'state_override' ||
+            msg.type === 'sessions_refresh_trigger'
+          ) {
+            // Trigger a REST fetch on relevant events
+            fetchLeaderboard();
+          }
+        } catch { /* ignore malformed messages */ }
+      };
+
+      ws.onclose = () => {
+        setWsConnected(false);
+        wsRef.current = null;
+        // Auto-reconnect after 5s if modal still open
+        if (mountedRef.current && isOpen) {
+          setReconnecting(true);
+          reconnectTimerRef.current = setTimeout(connectWs, 5000);
+        }
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
+    } catch {
+      // WebSocket not available — fall back to polling
+      setWsConnected(false);
+    }
+  }, [sessionId, isOpen, fetchLeaderboard]);
+
+  // ── Lifecycle: connect/disconnect on open/close ─────────────
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(reconnectTimerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      // Close WebSocket when modal closes
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+      setWsConnected(false);
+      setReconnecting(false);
+      clearInterval(pollRef.current);
+      clearTimeout(reconnectTimerRef.current);
+      return;
+    }
+
+    // Initial fetch
+    fetchLeaderboard();
+
+    // Attempt WebSocket connection
+    connectWs();
+
+    // Polling fallback: every 30s if WS is not connected
+    pollRef.current = setInterval(() => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        fetchLeaderboard();
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(pollRef.current);
+    };
+  }, [isOpen, fetchLeaderboard, connectWs]);
 
   if (!isOpen) return null;
 
-  // Detect theme
-  const isDark = typeof document !== 'undefined' &&
-    document.documentElement.getAttribute('data-theme') !== 'light';
+  // ── Round 1: Locked placeholder ─────────────────────────────
+  if (roundNumber === 1) {
+    return (
+      <div className={styles.overlay} onClick={onClose} data-testid="peer-overlay">
+        <div className={styles.lockedCard} onClick={e => e.stopPropagation()}>
+          <div className={styles.lockedIcon}>🏅</div>
+          <h2 className={styles.lockedTitle}>Leaderboard</h2>
+          <div className={styles.lockedBadge}>🔒 Available from Round 2</div>
+          <p className={styles.lockedBody}>
+            The leaderboard will unlock after your first round is committed.
+            Complete your decisions and commit to see how your team ranks!
+          </p>
+          <button className={styles.gotItBtn} onClick={onClose}>Got it</button>
+        </div>
+      </div>
+    );
+  }
 
-  const overlayStyle = {
-    position: 'fixed', inset: 0, zIndex: 12000,
-    background: isDark ? 'rgba(10,14,26,0.6)' : 'rgba(15,23,42,0.5)',
-    backdropFilter: 'blur(4px)',
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    fontFamily: 'Inter, sans-serif',
-  };
-
-  const cardStyle = {
-    background: isDark ? '#0f1524' : '#fff',
-    borderRadius: 16, width: '90%', maxWidth: 620,
-    maxHeight: '80vh', overflow: 'auto', padding: '1.5rem',
-    boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.5)' : '0 25px 60px rgba(0,0,0,0.2)',
-    border: isDark ? '1px solid rgba(45,212,191,0.15)' : 'none',
-  };
-
-  const thStyle = {
-    padding: '8px 6px', textAlign: 'left',
-    color: isDark ? '#64748b' : '#6b7280',
-    fontWeight: 700, fontSize: '0.62rem',
-    textTransform: 'uppercase', letterSpacing: '0.06em',
-  };
-
+  // ── Main leaderboard ────────────────────────────────────────
   return (
-    <div style={overlayStyle} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-          <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: isDark ? '#e2e8f0' : '#0f172a' }}>
-            📊 Cohort Leaderboard
-          </h2>
-          <button onClick={onClose} style={{
-            background: isDark ? '#1e293b' : '#f1f5f9', border: 'none', borderRadius: '50%',
-            width: 28, height: 28, cursor: 'pointer', fontSize: '0.85rem',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: isDark ? '#94a3b8' : '#64748b', fontWeight: 700,
-          }}>✕</button>
+    <div className={styles.overlay} onClick={onClose} data-testid="peer-overlay">
+      <div className={styles.card} onClick={e => e.stopPropagation()} data-testid="peer-card">
+        {/* Header */}
+        <div className={styles.header}>
+          <h2 className={styles.title}>📊 Cohort Leaderboard</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            {/* Live indicator */}
+            {wsConnected && (
+              <div className={styles.liveIndicator} data-testid="ws-live">
+                <span className={styles.liveDot} />
+                LIVE
+              </div>
+            )}
+            <button className={styles.closeBtn} onClick={onClose} data-testid="peer-close">✕</button>
+          </div>
         </div>
 
-        <p style={{ fontSize: '0.72rem', color: isDark ? '#94a3b8' : '#64748b', margin: '0 0 1rem', lineHeight: 1.5 }}>
+        <p className={styles.subtitle}>
           See how your team compares to others in your cohort. Rankings are anonymized.
-          {message && <span style={{ display: 'block', marginTop: 4, fontStyle: 'italic' }}>{message}</span>}
+          {message && <span className={styles.message}>{message}</span>}
         </p>
 
+        {/* Reconnecting banner */}
+        {reconnecting && (
+          <div className={styles.reconnecting} data-testid="ws-reconnecting">
+            ⏳ Reconnecting to live feed…
+          </div>
+        )}
+
         {loading ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Loading...</div>
+          <div className={styles.loading}>Loading...</div>
         ) : leaderboard.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>
+          <div className={styles.emptyState}>
             {message || 'No peers to compare with in this cohort.'}
           </div>
         ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.73rem' }}>
+          <table className={styles.table} data-testid="peer-table">
             <thead>
-              <tr style={{ borderBottom: isDark ? '2px solid #1e293b' : '2px solid #e2e8f0' }}>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Team</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Treasury</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Reputation</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>CO₂</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Bonus</th>
-                <th style={{ ...thStyle, textAlign: 'center' }}>Trend</th>
+              <tr className={styles.tableHeader}>
+                <th className={styles.th}>#</th>
+                <th className={styles.th}>Team</th>
+                <th className={styles.thRight}>Treasury</th>
+                <th className={styles.thRight}>Reputation</th>
+                <th className={styles.thRight}>CO₂</th>
+                <th className={styles.thRight}>Bonus</th>
+                <th className={styles.thCenter}>Trend</th>
               </tr>
             </thead>
             <tbody>
               {leaderboard.map(team => (
-                <tr key={team.rank} style={{
-                  borderBottom: isDark ? '1px solid #1e293b' : '1px solid #f1f5f9',
-                  background: team.isYou
-                    ? (isDark ? 'rgba(45,212,191,0.08)' : '#f0f4ff')
-                    : 'transparent',
-                }}>
-                  <td style={{ padding: '10px 6px', fontWeight: 800, color: isDark ? '#e2e8f0' : '#0f172a' }}>
+                <tr
+                  key={team.rank}
+                  className={team.isYou ? styles.rowYou : styles.row}
+                  data-testid={team.isYou ? 'peer-row-you' : 'peer-row'}
+                >
+                  <td className={styles.rankCell}>
                     {team.rank <= 3 ? ['🥇', '🥈', '🥉'][team.rank - 1] : team.rank}
                   </td>
-                  <td style={{
-                    padding: '10px 6px',
-                    fontWeight: team.isYou ? 800 : 600,
-                    color: team.isYou
-                      ? (isDark ? '#2dd4bf' : '#6366f1')
-                      : (isDark ? '#e2e8f0' : '#0f172a'),
-                  }}>
+                  <td className={team.isYou ? styles.nameCellYou : styles.nameCell}>
                     {team.name}
-                    {team.isYou && (
-                      <span style={{
-                        fontSize: '0.55rem',
-                        background: isDark ? '#2dd4bf' : '#6366f1',
-                        color: isDark ? '#0a0e1a' : '#fff',
-                        padding: '1px 5px', borderRadius: 4, marginLeft: 4,
-                      }}>YOU</span>
-                    )}
+                    {team.isYou && <span className={styles.youBadge}>YOU</span>}
                   </td>
-                  <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>
+                  <td className={styles.treasuryCell}>
                     ${(team.treasury / 1_000_000).toFixed(1)}M
                   </td>
-                  <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 600, color: '#f59e0b' }}>
+                  <td className={styles.reputationCell}>
                     {team.reputation.toFixed(0)}
                   </td>
-                  <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 600, color: isDark ? '#94a3b8' : '#64748b' }}>
+                  <td className={styles.co2Cell}>
                     {team.co2.toLocaleString()}t
                   </td>
-                  <td style={{ padding: '10px 6px', textAlign: 'right', fontWeight: 600, color: team.bonus_score > 0 ? '#059669' : (isDark ? '#64748b' : '#94a3b8') }}>
+                  <td className={`${styles.bonusCell} ${team.bonus_score > 0 ? styles.bonusActive : styles.bonusInactive}`}>
                     {team.bonus_score > 0 ? `🏅 ${team.bonus_score.toLocaleString()}` : '–'}
                   </td>
-                  <td style={{ padding: '10px 6px', textAlign: 'center', fontSize: '0.85rem' }}>
-                    <span style={{ color: team.trend === '↑' ? '#16a34a' : team.trend === '↓' ? '#ef4444' : '#94a3b8' }}>
+                  <td className={styles.trendCell}>
+                    <span className={
+                      team.trend === '↑' ? styles.trendUp
+                        : team.trend === '↓' ? styles.trendDown
+                        : styles.trendFlat
+                    }>
                       {team.trend}
                     </span>
                   </td>

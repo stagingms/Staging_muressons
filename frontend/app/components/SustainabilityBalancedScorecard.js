@@ -275,8 +275,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     // MR Breakdown
     const mrBreakdown = d.mr_breakdown || {};
     const mrItems = Object.entries(mrBreakdown)
-        .filter(([, val]) => val !== 0)
-        .map(([key, val]) => ({ key, value: val }));
+        .filter(([, val]) => val != null && val !== 0)
+        .map(([key, val]) => ({ key, value: Number(val) || 0 }));
 
 
     const PERSPECTIVES = [

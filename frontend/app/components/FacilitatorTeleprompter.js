@@ -33,6 +33,21 @@ const ENGINE_TOOLTIPS = {
     deep_audit_completed:       'Deep Audit — R1 audit choice affects R5 crisis severity. Deep audit halves contagion; surface scan doubles exposure.',
     electronics_blindspot:      'Electronics Blindspot — Surface audit in R1 left hidden supply chain vulnerabilities. R5 crisis hits this BU 2× harder.',
     
+    // ── Teleprompter Narrative Engines ──
+    cash_conversion_drag:       'Cash Conversion Drag — High governance risk BUs suffer slower cash collections, temporarily reducing available treasury.',
+    implementation_lag:         'Implementation Lag — Delayed realization of synergy or CAPEX benefits. Decisions made now only fully impact EBITDA in future rounds.',
+    supply_chain_contagion:     'Supply Chain Contagion — A crisis or high risk in one business unit spills over, amplifying operational costs across the entire group.',
+    competitor_warning:         'Competitor Growth — The NPC competitor expands reliably by 3% every round. Falling behind means sacrificing future market share.',
+    revenue_cannibalized:       'Revenue Cannibalization — One highly dominant BU begins eating into the market share of your other BUs, limiting overall group growth.',
+    technology_lockin_penalty:  'Technology Lock-in — Repeated investment in legacy systems over 3 consecutive rounds triggers switching costs and reduces future agility.',
+    regulatory_ratchet_active:  'Regulatory Ratchet — Escalating compliance costs permanently elevate the cost of capital if ESG standards are repeatedly missed.',
+    stakeholder_fatigue_applied:'Stakeholder Fatigue — Repeated crises degrade stakeholder trust. Recovering reputation becomes exponentially more expensive over time.',
+    dividend_ratchet_triggered: 'Dividend Ratchet — Cutting dividends after a period of stable payouts severely damages board confidence and group reputation.',
+    tipping_point_reached:      'Climate Tipping Point — Systemic environmental thresholds have been crossed, activating irreversible acceleration of natural capital debt costs.',
+    talent_neglect_surcharge:   'Talent Neglect — Chronically underfunded BUs experience extreme turnover. Replacement hiring introduces a sharp OPEX surcharge.',
+    technical_debt_penalty:     'Technical Debt — A compounding penalty for deferring necessary infrastructure upgrades, manifesting as sudden, unavoidable capital expenditures.',
+    greenwashing_scandal:       'Greenwashing Scandal — Punishes cosmetic ESG spending without substance. Reputation takes a severe hit that takes rounds to recover.',
+
     // ── Round-specific engines ──
     truth_premium_check:        'Truth Premium — R7 AI Bias decision. Transparent overhaul costs more but yields +8 reputation and unlocks governance bonuses.',
     cyclone_damage:             'Stochastic Cyclone — R6 random weather event. Infrastructure hardening (R4-B) reduces damage by 60%.',
@@ -313,6 +328,316 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 </>
             )}
 
+            {/* ── Journey Improvement Guidance (Phase 6 Mechanics) ── */}
+            {(() => {
+                const ji = script.journey_improvement;
+                if (!ji) return null;
+                const entries = Object.entries(ji);
+                if (entries.length === 0) return null;
+                return (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.04))',
+                        border: '1px solid rgba(99,102,241,0.2)',
+                        borderRadius: '10px', padding: '1rem',
+                        borderLeft: '3px solid #818cf8',
+                    }}>
+                        {sectionLabel('🎮', 'Journey Mechanic Guidance (Phase 6)', '#818cf8')}
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
+                            New mechanic variants active this round — review these facilitator notes before gameplay.
+                        </div>
+                        {entries.map(([mechKey, mechData]) => (
+                            <details key={mechKey} open style={{
+                                background: 'rgba(0,0,0,0.12)', borderRadius: '8px',
+                                border: '1px solid rgba(255,255,255,0.04)',
+                                overflow: 'hidden', marginBottom: '0.5rem',
+                            }}>
+                                <summary style={{
+                                    padding: '0.6rem 0.85rem', cursor: 'pointer',
+                                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)',
+                                    listStyle: 'none',
+                                }}>
+                                    <span>🎮</span>
+                                    {mechKey.replace(/_/g, ' ').replace(/\br\d/g, m => m.toUpperCase()).replace(/\b\w/g, m => m.toUpperCase())}
+                                    {mechData.applies_to_tiers && (
+                                        <span style={{
+                                            marginLeft: 'auto', fontSize: '0.58rem', padding: '2px 6px',
+                                            borderRadius: '4px', background: 'rgba(99,102,241,0.1)',
+                                            color: '#a5b4fc', fontFamily: 'var(--font-mono, monospace)',
+                                        }}>
+                                            {mechData.applies_to_tiers.join(' / ')}
+                                        </span>
+                                    )}
+                                </summary>
+                                <div style={{ padding: '0 0.85rem 0.75rem' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                        {(mechData.facilitator_guidance || []).map((point, i) => (
+                                            <div key={i} style={{
+                                                padding: '0.4rem 0.6rem', borderRadius: '6px',
+                                                background: point.startsWith('DEBRIEF') || point.startsWith('Connect')
+                                                    ? 'rgba(139,92,246,0.06)' : 'rgba(99,102,241,0.04)',
+                                                borderLeft: `2px solid ${
+                                                    point.startsWith('⚠️') || point.startsWith('CRITICAL')
+                                                        ? 'rgba(239,68,68,0.4)'
+                                                        : point.startsWith('DEBRIEF') || point.startsWith('Connect')
+                                                            ? 'rgba(139,92,246,0.4)'
+                                                            : 'rgba(99,102,241,0.25)'
+                                                }`,
+                                                fontSize: '0.78rem',
+                                                color: point.startsWith('⚠️') || point.startsWith('CRITICAL')
+                                                    ? '#fca5a5'
+                                                    : point.startsWith('DEBRIEF') || point.startsWith('Connect')
+                                                        ? '#e9d5ff'
+                                                        : 'var(--text-secondary, #cbd5e1)',
+                                                lineHeight: 1.5,
+                                                fontStyle: point.startsWith('DEBRIEF') || point.startsWith('Connect')
+                                                    ? 'italic' : 'normal',
+                                            }}>{point}</div>
+                                        ))}
+                                    </div>
+                                </div>
+                            </details>
+                        ))}
+                    </div>
+                );
+            })()}
+
+            {/* ── Strategic Intel Hints (Facilitator-Only) ── */}
+            {(() => {
+                const STRATEGIC_HINTS = {
+                    1: '💡 Teams that choose Surface Scan (A) or Phased Rollout (C) will face amplified crisis severity in Round 4. This is a 2× or 1.5× multiplier respectively.',
+                    2: '💡 Perfect materiality matrix scores (>90% accuracy) earn a $2M treasury bonus. Encourage teams to use the CSRD framework carefully. ⚡ STRATEGIC PILLARS: The "materiality_aligned" flag (which earns +0.10 M_R at terminal valuation) is set by the "Materiality Advisory Board" sub-option within the Operations area, NOT by the primary round choice. Ensure facilitators running Pillars cohorts highlight this — teams often miss it.',
+                    3: '💡 Teams choosing Rapid Supplier Switch (A) get the "early_decarboniser" flag — this unlocks a +0.10 synergy bonus in Round 7.',
+                    4: '💡 Teams that did deep audits in R1 will see base crisis severity (40). Surface scans face 80 (doubled!). Phased audits face 60 (1.5×).',
+                    5: '💡 Insurance Only (C) provides ZERO physical protection. If the cyclone strikes, full $12M damage hits. Hard Engineering and Nature-Based both mitigate.',
+                    6: '💡 Ethical AI Overhaul (B) sets the "ethical_ai_overhaul" flag that provides +0.15 to the Regenerative Multiple in R10. This is the "Truth Premium."',
+                    7: '💡 Waste-to-Energy (C) unlocks +0.35 synergy multiplier — the largest single boost. Teams above 1.20 synergy unlock "Resist & Integrate" in R10.',
+                    8: '💡 Desalination (C) now generates $3M/round payback for 3 rounds after completion. The $30M cost becomes $21M net — still expensive but recoverable.',
+                    9: '💡 Strike probability is now 50% (reduced from 75%). Strike only fires if average Social License is below 50. Teams with good SLO are safe.',
+                    10: '💡 The Regenerative Multiple (M_R) determines the profile: ≥1.8 = Regenerative Titan, ≥1.2 = De-Risked Safe Haven, ≥0.8 = Fragile Giant, <0.8 = Stranded Relic.',
+                };
+                const CLIMATE_HINTS = {
+                    1: '🌍 CLIMATE MODE: Foundation decisions are identical to legacy. Remind teams that carbon intensity will matter — their choices here set the trajectory.',
+                    2: '🌍 CLIMATE MODE: The materiality matrix is the same across paradigms. Carbon pricing activates from R3 onwards — this is their last "free" round.',
+                    3: '🌍 The Internal Carbon Fee ($40/tonne default) is now active. Every tonne of CO₂e is taxed from treasury → Green Fund. Teams with high emissions pay more. The early_decarboniser flag from Option A gives +0.10 synergy in R7.',
+                    4: '🌍 Watch teams\' carbon intensity. If avg CI > 70 by R5, the CLIMATE TIPPING POINT activates — doubling all NCD hostility. Surface Scan (R1) teams face 2× crisis severity AND higher carbon costs.',
+                    5: '🌍 CRITICAL ROUND: Tipping point evaluation happens now. Avg CI > 70 = irreversible. Teams should know: BUs with CI > 120 become "stranded assets", adding +1.5% to cost of capital permanently.',
+                    6: '🌍 The carbon fee continues to accumulate. Check each team\'s Green Fund balance — teams paying high carbon fees should be using the fund to subsidise green CapEx. Ethical AI (B) provides the Truth Premium for R10.',
+                    7: '🌍 Green fund is consumed first for all treasury costs. Waste-to-Energy (C) unlocks +0.35 synergy AND reduces carbon intensity. Teams in tipping point territory should prioritise decarbonisation to trigger "managed retreat" (25% hostility reduction if avg CI < 50).',
+                    8: '🌍 NCD Forgiveness is now active: green CapEx reduces NCD by 0.5 per $1M invested. Teams in NCD death spirals can invest their way out. Desalination (C) generates $3M/round payback.',
+                    9: '🌍 If tipping point is active AND avg CI has dropped below 50, the managed retreat kicks in: hostility is 1.5× instead of 2×. This is the reward for aggressive mid-game decarbonisation.',
+                    10: '🌍 FINAL ROUND: The Regenerative Multiple absorbs all climate decisions. Teams with low NCD, active green funds, and managed tipping points will score highest. Carbon tax paid to date is shown in the valuation.'
+                };
+                // Use climate hints if the session paradigm is advanced_climate
+                const hints = roundConfig?.decision_paradigm === 'advanced_climate' ? CLIMATE_HINTS : STRATEGIC_HINTS;
+                const hint = hints[activeRound];
+                if (!hint) return null;
+                return (
+                    <div style={{
+                        background: roundConfig?.decision_paradigm === 'advanced_climate' ? 'rgba(16,185,129,0.10)' : 'rgba(16,185,129,0.06)',
+                        border: '1px solid rgba(16,185,129,0.18)',
+                        borderRadius: '10px', padding: '1rem',
+                        borderLeft: roundConfig?.decision_paradigm === 'advanced_climate' ? '3px solid #10b981' : '3px solid #10b981',
+                    }}>
+                        {sectionLabel('🔮', roundConfig?.decision_paradigm === 'advanced_climate' ? 'Climate Engine Intel (Facilitator Only)' : 'Strategic Intel (Facilitator Only)', '#10b981')}
+                        <div style={{ fontSize: '0.82rem', color: '#a7f3d0', lineHeight: 1.6 }}>{hint}</div>
+                    </div>
+                );
+            })()}
+
+            {/* ── Reflection Pause Points ── */}
+            {(() => {
+                const PAUSE_PROMPTS = {
+                    3: {
+                        title: 'Mid-Act I Reflection Pause',
+                        prompts: [
+                            'What patterns are emerging in how teams are balancing cost vs. long-term risk?',
+                            'Which teams are building governance credibility vs. cutting corners?',
+                            'How did the materiality gate in R2 affect their R3 decision confidence?',
+                        ],
+                    },
+                    6: {
+                        title: 'Mid-Game Reflection Pause',
+                        prompts: [
+                            'Ask teams: "If you could redo one decision from R1-R5, which would it be?"',
+                            'Compare treasury positions across teams — who is financially strongest and why?',
+                            'Discuss the invisible cost of deferred decisions — NCD, SLO erosion, reputation damage.',
+                        ],
+                    },
+                    9: {
+                        title: 'Pre-Finale Reflection Pause',
+                        prompts: [
+                            'What is the accumulated human cost of each team\'s strategy?',
+                            'Which teams have built genuine stakeholder trust vs. performative ESG?',
+                            'Preview: R10 will calculate Terminal Value. Ask teams to predict their Regenerative Multiple.',
+                        ],
+                    },
+                };
+                const pause = PAUSE_PROMPTS[activeRound];
+                if (!pause) return null;
+                return (
+                    <div style={{
+                        background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.18)',
+                        borderRadius: '10px', padding: '1rem', borderLeft: '3px solid #f59e0b',
+                    }}>
+                        {sectionLabel('⏸️', pause.title, '#f59e0b')}
+                        <div style={{
+                            fontSize: '0.68rem', fontWeight: 800, color: '#fbbf24',
+                            letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: '0.5rem',
+                        }}>
+                            RECOMMENDED: Pause the simulation for 5-10 minutes of facilitated discussion
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                            {pause.prompts.map((p, i) => (
+                                <div key={i} style={{
+                                    padding: '0.5rem 0.7rem', borderRadius: '7px',
+                                    background: 'rgba(245,158,11,0.04)',
+                                    borderLeft: '2px solid rgba(245,158,11,0.3)',
+                                    fontSize: '0.82rem', color: '#fde68a',
+                                    fontStyle: 'italic', lineHeight: 1.5,
+                                }}>
+                                    {p}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
+
+            {/* ── Side Track Debrief Intel ── */}
+            {(() => {
+                const SIDE_TRACK_DEBRIEF = {
+                    supply_chain: {
+                        icon: '🔗', label: 'Supply Chain Deep Dive',
+                        debrief_after_round: 5,
+                        talking_points: [
+                            'Compare how teams handled the cobalt sourcing ethics dilemma — did they prioritise cost or human rights?',
+                            'Teams that invested in Tier-4 mapping (SC-R1) should have seen cost savings in SC-R2. Highlight this forward-looking ROI.',
+                            'The SC-R7 stress test is the capstone: teams with "option_a" resilience investments absorbed 80% of damage vs. 10% for reactive teams.',
+                            'Cross-track dependency: SC cobalt findings seed into the Ethics track — discuss how supply chain decisions cascade into governance.',
+                        ],
+                        discussion_prompts: [
+                            'What was the most surprising trade-off between supply chain cost and resilience?',
+                            'How did your SC choices affect your reputation with different stakeholder groups?',
+                            'If you could redo one supply chain decision, which would it be and why?',
+                        ],
+                    },
+                    ethics_sustainability: {
+                        icon: '⚖️', label: 'Ethics & Sustainability Deep Dive',
+                        debrief_after_round: 4,
+                        talking_points: [
+                            'The AI governance decision in ES-R1 has compounding effects — teams that denied the bias issue face credibility penalties in later rounds.',
+                            'Modern slavery due diligence (ES-R2) mirrors real CSDDD requirements. Discuss how "sphere of influence" arguments play out in practice.',
+                            'Greenwashing substantiation (ES-R3) connects directly to the main sim\'s reputation mechanics — teams that defended claims face ASA-style penalties.',
+                            'The Just Transition fund (ES-R5) is the most expensive option but yields the highest M_R bonus. Discuss the tension between short-term cost and long-term trust.',
+                        ],
+                        discussion_prompts: [
+                            'How did your R1 AI governance decision affect employee trust in later rounds?',
+                            'What regulatory frameworks (EU AI Act, CSDDD, TNFD) were most surprising to encounter?',
+                            'Is a "just transition" affordable, or is it a luxury only profitable companies can afford?',
+                        ],
+                    },
+                    stakeholder_management: {
+                        icon: '🤝', label: 'Stakeholder Management Deep Dive',
+                        debrief_after_round: 3,
+                        talking_points: [
+                            'Teams that established engagement policies in SM-R1 had crisis playbooks for SM-R4 — discuss the value of proactive stakeholder strategy.',
+                            'ESG rating downgrade threats (SM-R2) mirror real MSCI/Sustainalytics dynamics. Challenge teams: was challenging the methodology ever justifiable?',
+                            'Community opposition (SM-R3) tests the "social license to operate" concept. Teams that overrode communities face compounding backlash in SM-R4.',
+                            'The SM-R4 multi-front crisis is the capstone — did reactive teams spiral while engaged teams had pre-established channels?',
+                        ],
+                        discussion_prompts: [
+                            'Which stakeholder group was hardest to manage, and why?',
+                            'How does your SM strategy compare to real ESG rating agency methodologies?',
+                            'When (if ever) is it justified to prioritise speed over community engagement?',
+                        ],
+                    },
+                    sustainability_reporting: {
+                        icon: '📊', label: 'Sustainability Reporting Deep Dive',
+                        debrief_after_round: 4,
+                        talking_points: [
+                            'CSRD readiness (SR-R1) sets the trajectory — minimum compliance teams face compounding credibility issues by SR-R4.',
+                            'Climate disclosure quality (SR-R2) directly mirrors IFRS S2 requirements. Discuss the real cost of Scope 3 data collection at 90%+ coverage.',
+                            'Assurance credibility (SR-R4) is the inflection point — teams without external assurance have their entire reporting undermined.',
+                            'The integrated reporting capstone (SR-R5) challenges teams to prove ESG-to-financial connectivity. Cross-track: Ethics track score enriches social metrics.',
+                        ],
+                        discussion_prompts: [
+                            'What was the hardest data gap to close, and what does that tell you about real CSRD implementation?',
+                            'Is reasonable assurance worth 2× the cost of limited assurance? When does credibility justify the investment?',
+                            'How would you explain the ROI of sustainability reporting to a sceptical CFO?',
+                        ],
+                    },
+                };
+
+                // Show debrief sections for all tracks (facilitator can review at any time)
+                const tracks = Object.entries(SIDE_TRACK_DEBRIEF);
+                if (tracks.length === 0) return null;
+
+                return (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(0,229,195,0.04))',
+                        border: '1px solid rgba(99,102,241,0.15)',
+                        borderRadius: '10px', padding: '1rem',
+                        borderLeft: '3px solid #818cf8',
+                    }}>
+                        {sectionLabel('🛤️', 'Side Track Debrief Intel (Facilitator Only)', '#818cf8')}
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
+                            Use these prompts when debriefing side track results with your cohort.
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                            {tracks.map(([tid, t]) => (
+                                <details key={tid} style={{
+                                    background: 'rgba(0,0,0,0.12)', borderRadius: '8px',
+                                    border: '1px solid rgba(255,255,255,0.04)',
+                                    overflow: 'hidden',
+                                }}>
+                                    <summary style={{
+                                        padding: '0.6rem 0.85rem', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                        fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)',
+                                        listStyle: 'none',
+                                    }}>
+                                        <span>{t.icon}</span> {t.label}
+                                        <span style={{
+                                            marginLeft: 'auto', fontSize: '0.58rem', padding: '2px 6px',
+                                            borderRadius: '4px', background: 'rgba(99,102,241,0.1)',
+                                            color: '#a5b4fc', fontFamily: 'var(--font-mono, monospace)',
+                                        }}>Debrief after R{t.debrief_after_round}</span>
+                                    </summary>
+                                    <div style={{ padding: '0 0.85rem 0.75rem' }}>
+                                        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                            Key Teaching Points
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.6rem' }}>
+                                            {t.talking_points.map((p, i) => (
+                                                <div key={i} style={{
+                                                    padding: '0.4rem 0.6rem', borderRadius: '6px',
+                                                    background: 'rgba(99,102,241,0.04)',
+                                                    borderLeft: '2px solid rgba(99,102,241,0.25)',
+                                                    fontSize: '0.78rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.5,
+                                                }}>{p}</div>
+                                            ))}
+                                        </div>
+                                        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                            Discussion Prompts
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                            {t.discussion_prompts.map((p, i) => (
+                                                <div key={i} style={{
+                                                    padding: '0.4rem 0.6rem', borderRadius: '6px',
+                                                    background: 'rgba(139,92,246,0.04)',
+                                                    borderLeft: '2px solid rgba(139,92,246,0.25)',
+                                                    fontSize: '0.78rem', color: '#e9d5ff', fontStyle: 'italic', lineHeight: 1.5,
+                                                }}>&ldquo;{p}&rdquo;</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </details>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })()}
             {/* ── Official Round Briefing ── */}
             {roundConfig && (
                 <div style={{

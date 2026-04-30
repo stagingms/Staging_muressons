@@ -25,3 +25,6 @@ DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 # FIX AUDIT-005: Master password from env var instead of hardcoded.
 # Set to empty string to disable master password bypass entirely.
 MASTER_PASSWORD: str = os.getenv("MASTER_PASSWORD", "321")
+
+# ElevenLabs Voice AI — used for CEO Interview post-game feature
+ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")

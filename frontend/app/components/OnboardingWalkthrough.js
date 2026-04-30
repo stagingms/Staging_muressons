@@ -4,9 +4,10 @@ import { useState, useEffect } from 'react';
 /**
  * OnboardingWalkthrough — Step-by-step guided tour for first-time players.
  * Improvement #1.4: Onboarding walkthrough overlay
+ * MC-01: Advanced Climate Engine bonus tour steps
  */
 
-const STEPS = [
+const BASE_STEPS = [
   {
     title: 'Welcome to the Executive Cockpit',
     body: 'You are the Chief Sustainability Officer of Muressons Global — a diversified conglomerate with 4 business units. Your decisions over 10 rounds will shape the company\'s future.',
@@ -57,7 +58,35 @@ const STEPS = [
   },
 ];
 
-export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
+const CLIMATE_EXTRA_STEPS = [
+  {
+    title: '🌍 Advanced Climate Engine',
+    body: 'You are playing the Advanced Climate Edition. Every round, an Internal Carbon Fee is automatically charged on each Business Unit based on its Carbon Intensity (CI). Higher CI = higher fee.',
+    icon: '💨',
+    position: 'center',
+    isClimate: true,
+  },
+  {
+    title: '🌱 The Green Fund',
+    body: 'Carbon fees flow into a shared Green Fund that automatically subsidises green CapEx investments — reducing your out-of-pocket cost. The higher the fund, the more green investments are underwritten for free.',
+    icon: '🌱',
+    position: 'center',
+    isClimate: true,
+  },
+  {
+    title: '🌡️ Tipping Points & Carbon Intensity',
+    body: 'Watch the group average Carbon Intensity (CI). If it exceeds 70, a Climate Tipping Point is triggered — imposing hostile regulation, inflation, and reduced valuations. Reduce CI by selecting greener investment options.',
+    icon: '🌡️',
+    position: 'center',
+    isClimate: true,
+  },
+];
+
+export default function OnboardingWalkthrough({ onComplete, roundNumber, decisionParadigm }) {
+  const STEPS = decisionParadigm === 'advanced_climate'
+    ? [...BASE_STEPS, ...CLIMATE_EXTRA_STEPS]
+    : BASE_STEPS;
+
   const [currentStep, setCurrentStep] = useState(0);
   const [visible, setVisible] = useState(true);
   const [promptOpen, setPromptOpen] = useState(false);
@@ -216,7 +245,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
             animation: 'fadeSlideUp 0.3s ease-out'
           }}>
             <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
-            <h2 style={{ margin: '0 0 0.5rem', color: '#0f172a', fontWeight: 800 }}>Welcome to Module 1</h2>
+            <h2 style={{ margin: '0 0 0.5rem', color: '#0f172a', fontWeight: 800 }}>Welcome to the Executive Cockpit</h2>
             <p style={{ color: '#64748b', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
               You have just entered the Executive Cockpit. Would you like a quick interactive tour to familiarize yourself with the controls?
             </p>
@@ -300,6 +329,26 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
               ))}
             </div>
 
+
+            {/* Climate step badge */}
+            {step.isClimate && (
+              <div style={{
+                textAlign: 'center', marginBottom: '0.5rem',
+              }}>
+                <span style={{
+                  display: 'inline-block',
+                  fontSize: '0.55rem', fontWeight: 800,
+                  letterSpacing: '0.12em', textTransform: 'uppercase',
+                  padding: '3px 10px', borderRadius: 20,
+                  background: 'rgba(16,185,129,0.12)',
+                  border: '1px solid rgba(16,185,129,0.3)',
+                  color: '#10b981',
+                }}>
+                  🌍 Advanced Climate Edition
+                </span>
+              </div>
+            )}
+
             <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: '0.6rem' }}>{step.icon}</div>
             <h2 style={{
               margin: '0 0 0.5rem', fontSize: '1.1rem', fontWeight: 800,
@@ -323,10 +372,14 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber }) {
                 onClick={handleNext}
                 style={{
                   flex: 2, padding: '9px 0',
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: step.isClimate
+                    ? 'linear-gradient(135deg, #059669, #10b981)'
+                    : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   color: '#fff', border: 'none', borderRadius: 8, fontWeight: 700,
                   cursor: 'pointer', fontSize: '0.75rem', fontFamily: 'Inter, sans-serif',
-                  boxShadow: '0 4px 14px rgba(99,102,241,0.3)',
+                  boxShadow: step.isClimate
+                    ? '0 4px 14px rgba(16,185,129,0.3)'
+                    : '0 4px 14px rgba(99,102,241,0.3)',
                 }}
               >{isLast ? '🚀 Start Playing' : `Next (${currentStep + 1}/${STEPS.length})`}</button>
             </div>

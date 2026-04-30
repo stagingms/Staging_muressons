@@ -120,7 +120,7 @@ export default function MarketTicker({ roundNumber = 1 }) {
           </span>
         ))}
       </div>
-      <style jsx>{`
+      <style>{`
         @keyframes tickerScroll {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }

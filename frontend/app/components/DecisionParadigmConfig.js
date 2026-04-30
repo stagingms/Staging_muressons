@@ -44,7 +44,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
     loan_interest_rate: 0.12,
     cost_of_capital: 0.05,
     synergy_gate_threshold: 80,
-    strike_probability: 0.75,
+    strike_probability: 0.50,
   });
   const [climateOverrideSaving, setClimateOverrideSaving] = useState(false);
   const [climateOverrideMsg, setClimateOverrideMsg] = useState('');
@@ -500,11 +500,81 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
             </div>
           )}
 
-          
+          <button
+            className={styles.saveBtn}
+            disabled={climateApplying}
+            onClick={handleApplyClimateParams}
+            style={{ marginTop: 12, width: '100%' }}
+          >
+            {climateApplying ? 'Applying...' : '🚀 Apply Core Climate Parameters'}
+          </button>
+
+          {/* ── Advanced Climate Overrides (All 17 Params) ── */}
+          <details style={{ marginTop: 16, borderTop: '1px solid rgba(16,185,129,0.15)', paddingTop: 12 }}>
+            <summary style={{ cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700, color: '#10b981', letterSpacing: '0.04em' }}>
+              ⚙️ Advanced Engine Overrides ({Object.keys(climateOverrides).length} Parameters)
+            </summary>
+            <div style={{ marginTop: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              {[
+                { group: 'Terminal Valuation', keys: ['r10_exit_multiple', 'r10_carbon_tax_per_ton', 'mr_synergy_bonus', 'mr_resilience_bonus', 'mr_truth_premium', 'mr_instability_discount'] },
+                { group: 'Archetype Profiles', keys: ['profile_regenerative_titan', 'profile_derisked_safe_haven', 'profile_fragile_giant'] },
+                { group: 'Round Tunables', keys: ['r5_base_damage', 'r5_stochastic_threshold', 'strike_probability'] },
+                { group: 'Financial Thresholds', keys: ['loan_interest_rate', 'cost_of_capital', 'synergy_gate_threshold'] },
+              ].map(section => (
+                <div key={section.group} style={{ gridColumn: '1 / -1', borderBottom: '1px solid rgba(100,116,139,0.2)', paddingBottom: 8, marginBottom: 4 }}>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }}>{section.group}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+                    {section.keys.map(key => (
+                      <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 8px', background: 'rgba(15,23,42,0.4)', borderRadius: 6 }}>
+                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 500 }}>{key.replace(/_/g, ' ')}</span>
+                        <input
+                          type="number"
+                          step={key.includes('probability') || key.includes('rate') || key.includes('threshold') ? 0.01 : key.includes('multiple') || key.includes('profile') || key.includes('bonus') || key.includes('premium') || key.includes('discount') ? 0.05 : 1}
+                          value={climateOverrides[key]}
+                          onChange={(e) => setClimateOverrides(prev => ({ ...prev, [key]: Number(e.target.value) }))}
+                          style={{ width: 70, padding: '2px 6px', fontSize: '0.72rem', fontWeight: 700, background: '#1e293b', color: '#f8fafc', border: '1px solid #334155', borderRadius: 4, textAlign: 'right', fontFamily: 'JetBrains Mono, monospace' }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <button
+              className={styles.saveBtn}
+              disabled={climateOverrideSaving}
+              onClick={async () => {
+                setClimateOverrideSaving(true);
+                setClimateOverrideMsg('');
+                try {
+                  const res = await fetch(`${API}/api/admin/global-settings`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...climateOverrides, simulation_mode: 'advanced_climate' }),
+                  });
+                  setClimateOverrideMsg(res.ok ? '✅ All climate overrides saved.' : `⚠️ Backend returned ${res.status}`);
+                } catch {
+                  setClimateOverrideMsg('⚠️ Backend offline — saved in UI state only.');
+                } finally {
+                  setClimateOverrideSaving(false);
+                  setTimeout(() => setClimateOverrideMsg(''), 4000);
+                }
+              }}
+              style={{ marginTop: 10, width: '100%' }}
+            >
+              {climateOverrideSaving ? 'Saving...' : '💾 Save All Advanced Overrides'}
+            </button>
+            {climateOverrideMsg && (
+              <div className={`${styles.message} ${climateOverrideMsg.startsWith('✅') ? styles.messageSuccess : styles.messageWarn}`} style={{ marginTop: 8 }}>
+                {climateOverrideMsg}
+              </div>
+            )}
+          </details>
+
           <button 
             className={`${styles.editorTab} ${activeEditorTab === 'climate_engine' ? styles.editorTabActive : ''}`}
             onClick={() => setActiveEditorTab('climate_engine')}
-            style={{ '--editorTabAccent': '#10b981' }}
+            style={{ '--editorTabAccent': '#10b981', marginTop: 12 }}
           >
             ⚡ Climate Engine Editor
           </button>

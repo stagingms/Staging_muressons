@@ -24,15 +24,15 @@
 }
 
 .modal {
-    background: var(--bg-main, #0f172a);
-    border: 1px solid var(--border-subtle, #334155);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg, 0.75rem);
     width: 90%;
     max-width: 650px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
-    color: var(--text-primary, #f8fafc);
+    color: var(--text-primary);
     max-height: 90vh;
 }
 
@@ -41,8 +41,8 @@
     justify-content: space-between;
     align-items: center;
     padding: var(--space-md, 1rem) var(--space-lg, 1.5rem);
-    border-bottom: 1px solid var(--border-subtle, #334155);
-    background: var(--bg-elevated, #172033);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
     border-top-left-radius: var(--radius-lg, 0.75rem);
     border-top-right-radius: var(--radius-lg, 0.75rem);
 }
@@ -73,6 +73,67 @@
 }
 
 .form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.accordionItem {
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md, 0.5rem);
+    background: var(--bg-card);
+    overflow: hidden;
+}
+
+.accordionItem.open {
+    border-color: var(--accent-blue, #3b82f6);
+    background: var(--bg-elevated);
+}
+
+.accordionHeader {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    text-align: left;
+}
+
+.accordionHeader:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.accHeaderContent {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.accTitle {
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-primary);
+}
+
+.accSummary {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.accIcon {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.accordionBody {
+    padding: 1rem 1.25rem;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
     display: flex;
     flex-direction: column;
     gap: 1.5rem;
@@ -111,33 +172,33 @@
 .formGroup label {
     font-size: 0.85rem;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9) !important;
+    color: var(--text-primary);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     margin-bottom: 0.25rem;
 }
 
 .formGroup input, .selectFacilitator {
-    background: rgba(30, 41, 59, 1) !important;
-    border: 1px solid rgba(71, 85, 105, 1) !important;
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: 0.375rem;
     padding: 0.75rem 1rem;
-    color: white !important;
+    color: var(--text-primary);
     font-size: 0.95rem;
     font-family: inherit;
     transition: all 0.2s;
     outline: none;
-    box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
 }
 
 .formGroup input:focus, .selectFacilitator:focus {
-    border-color: #3b82f6 !important;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+    border-color: var(--accent-blue, #3b82f6);
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3);
 }
 
 .selectFacilitator option {
-    background: #1e293b;
-    color: white;
+    background: var(--bg-card);
+    color: var(--text-primary);
 }
 
 .splitLists {
@@ -147,18 +208,19 @@
 
 .listCol {
     flex: 1;
-    background: var(--bg-elevated, #172033);
-    border: 1px solid var(--border-subtle, #334155);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md, 0.5rem);
     padding: 0.75rem;
 }
 
 .listCol h4 {
     font-size: 0.85rem;
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: 0.5rem;
     border-bottom: 1px solid var(--border-subtle);
     padding-bottom: 0.5rem;
+    color: var(--text-primary);
 }
 
 .checkboxList {
@@ -175,13 +237,14 @@
     gap: 0.5rem;
     font-size: 0.85rem;
     cursor: pointer;
-    padding: 0.25rem;
+    padding: 0.25rem 0.4rem;
     border-radius: 4px;
     transition: background 0.2s;
+    color: var(--text-secondary);
 }
 
 .checkboxItem:hover {
-    background: var(--bg-main, #0f172a);
+    background: var(--bg-secondary);
 }
 
 .checkboxItem input {
@@ -271,23 +334,23 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
+    padding: 0.45rem 0.65rem;
     border-radius: 6px;
-    background: rgba(30, 41, 59, 0.6);
-    border: 1px solid rgba(71, 85, 105, 0.4);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     cursor: pointer;
     transition: all 0.15s;
     font-size: 0.78rem;
 }
 
 .visCard:hover {
-    background: rgba(30, 41, 59, 0.9);
-    border-color: rgba(71, 85, 105, 0.7);
+    background: var(--bg-elevated);
+    border-color: var(--text-muted);
 }
 
 .visCardActive {
-    border-color: rgba(16, 185, 129, 0.4);
-    background: rgba(16, 185, 129, 0.06);
+    border-color: rgba(16, 185, 129, 0.5);
+    background: rgba(16, 185, 129, 0.1);
 }
 
 .visIcon {
@@ -297,7 +360,7 @@
 
 .visLabel {
     flex: 1;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
@@ -305,7 +368,8 @@
 }
 
 .visCardActive .visLabel {
-    color: var(--text-primary, #f8fafc);
+    color: var(--text-primary);
+    font-weight: 600;
 }
 
 .visToggleTrack {

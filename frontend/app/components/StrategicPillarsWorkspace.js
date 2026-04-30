@@ -9,6 +9,7 @@ const AREA_ICONS = {
   operations: '🏭',
   supply_chain: '🔗',
   offsetting: '🌱',
+  human_resources: '👥',
 };
 
 export default function StrategicPillarsWorkspace({
@@ -36,8 +37,8 @@ export default function StrategicPillarsWorkspace({
         // Reset selections when round changes
         setSelections({});
       })
-      .catch((err) => {
-        console.error('Failed to fetch pillar config:', err);
+      .catch(() => {
+        // Backend unreachable — show fallback state
         setLoading(false);
       });
   }, [roundNumber, apiBase]);
@@ -121,6 +122,7 @@ export default function StrategicPillarsWorkspace({
     social_license_delta: { label: 'Social License', icon: '🤝', positive: true },
     governance_risk_delta: { label: 'Gov Risk', icon: '⚖️', positive: false },
     water_dependency_delta: { label: 'Water', icon: '💧', positive: false },
+    burnout_delta: { label: 'Burnout', icon: '🔥', positive: false },
   };
 
   return (

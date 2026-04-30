@@ -2,18 +2,27 @@
 
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import styles from './FacilitatorManager.module.css';
+import dynamic from 'next/dynamic';
+
+const CreateCohortModal = dynamic(() => import('./CreateCohortModal'), { ssr: false });
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-// ─── Relative timestamp ────────────────────────────────────────────────────
-function relativeDate(dateStr) {
-    if (!dateStr) return '—';
-    const diff = Date.now() - new Date(dateStr).getTime();
+// ─── Date formatting ─────────────────────────────────────────────────────
+function formatCreatedDate(dateStr) {
+    if (!dateStr) return { display: '—', relative: '' };
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return { display: '—', relative: '' };
+    const display = d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    const diff = Date.now() - d.getTime();
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    if (days === 0) return 'Today';
-    if (days === 1) return 'Yesterday';
-    if (days < 7) return `${days} days ago`;
-    return new Date(dateStr).toLocaleDateString();
+    let relative = '';
+    if (days === 0) relative = 'Today';
+    else if (days === 1) relative = 'Yesterday';
+    else if (days < 7) relative = `${days}d ago`;
+    else if (days < 30) relative = `${Math.floor(days / 7)}w ago`;
+    else relative = `${Math.floor(days / 30)}mo ago`;
+    return { display, relative };
 }
 
 function formatDateInput(dateStr) {
@@ -48,11 +57,14 @@ const EMPTY_FORM = {
     startDate: '',
     endDate: '',
     notes: '',
+    createdBy: '',
+    dateCreated: new Date().toISOString().slice(0, 10),
     permissions: {
         can_undo_rounds: true,
         can_override_decisions: true,
         can_modify_materiality: true,
         can_manage_auto_pause: true,
+        can_create_cohorts: true,
     },
 };
 
@@ -122,6 +134,9 @@ export default function FacilitatorManager({ onNavigate }) {
     const [sortKey, setSortKey] = useState('created_at');
     const [sortDir, setSortDir] = useState('desc');
     const [confirmDeleteId, setConfirmDeleteId] = useState(null);
+    const [deleteModal, setDeleteModal] = useState(null);   // { facId, facName } | null
+    const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
+    const [expandedVisRow, setExpandedVisRow] = useState(null); // facilitator_id of expanded row
     const deleteTimerRef = useRef(null);
 
 
@@ -170,6 +185,15 @@ export default function FacilitatorManager({ onNavigate }) {
         }
     };
 
+    // ── New Cohort Modal ─────────────────────────────────────────────
+    const [showCohortModal, setShowCohortModal] = useState(false);
+    const [cohortFacilitatorId, setCohortFacilitatorId] = useState(null);
+
+    const handleOpenNewCohort = (facId) => {
+        setCohortFacilitatorId(facId || (facilitators[0]?.facilitator_id ?? null));
+        setShowCohortModal(true);
+    };
+
     // ── Drawer ──────────────────────────────────────────────
     const openDrawer = (mode = 'create') => {
         setStep(1);
@@ -210,7 +234,7 @@ export default function FacilitatorManager({ onNavigate }) {
 
     // ── Validation per step ─────────────────────────────────
     const canAdvanceStep = (s) => {
-        if (s === 1) return form.name.trim().length > 0;
+        if (s === 1) return form.name.trim().length > 0 && form.createdBy.trim().length > 0 && !!form.dateCreated;
         if (s === 2) return true; // programme is optional
         if (s === 3) return true; // paradigm always has a default
         return true;
@@ -230,6 +254,8 @@ export default function FacilitatorManager({ onNavigate }) {
                 max_cohorts: form.cohorts,
                 decision_paradigm: form.paradigm,
                 permissions: form.permissions,
+                created_by: form.createdBy.trim(),
+                date_created: form.dateCreated,
             };
 
             if (drawerMode === 'edit' && editingFacId) {
@@ -271,6 +297,8 @@ export default function FacilitatorManager({ onNavigate }) {
                         cohort_name: cohortName,
                         decision_paradigm: form.paradigm,
                         facilitator_id: fac.facilitator_id,
+                        created_by: form.createdBy.trim(),
+                        created_when: form.dateCreated,
                     }),
                 });
 
@@ -348,20 +376,15 @@ export default function FacilitatorManager({ onNavigate }) {
         }
     };
 
-    // ── Delete (inline double-click confirm) ────────────────
-    const handleDeleteClick = (facId) => {
-        if (confirmDeleteId === facId) {
-            clearTimeout(deleteTimerRef.current);
-            setConfirmDeleteId(null);
-            handleDelete(facId);
-        } else {
-            clearTimeout(deleteTimerRef.current);
-            setConfirmDeleteId(facId);
-            deleteTimerRef.current = setTimeout(() => setConfirmDeleteId(null), 3000);
-        }
+    // ── Delete: open typed-confirmation modal ─────────────────
+    const handleDeleteClick = (facId, facName) => {
+        setDeleteModal({ facId, facName });
+        setDeleteConfirmInput('');
     };
 
     const handleDelete = async (facId) => {
+        setDeleteModal(null);
+        setDeleteConfirmInput('');
         try {
             const res = await fetch(`${API}/api/admin/facilitators/${facId}`, { method: 'DELETE' });
             if (res.ok) {
@@ -434,7 +457,7 @@ export default function FacilitatorManager({ onNavigate }) {
     const TOTAL_STEPS = 4;
 
     // ── Step content titles ─────────────────────────────────
-    const stepTitles = ['Identity', 'Programme', 'Configuration', 'Review & Confirm'];
+    const stepTitles = ['Identity', 'Programme', 'Permissions', 'Review & Confirm'];
 
     // ────────────────────────────────────────────────────────
     // ── RENDER ──────────────────────────────────────────────
@@ -500,6 +523,33 @@ export default function FacilitatorManager({ onNavigate }) {
                         value={form.phone}
                         onChange={e => updateForm('phone', e.target.value)}
                     />
+                </div>
+
+                <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Created By <span className={styles.required}>*</span></label>
+                    <input
+                        id="fac-created-by-input"
+                        className={styles.formInput}
+                        type="text"
+                        placeholder="e.g. Admin, Prof. Sharma"
+                        value={form.createdBy}
+                        onChange={e => updateForm('createdBy', e.target.value)}
+                        style={{ borderColor: !form.createdBy.trim() && form.name.trim() ? 'rgba(239,68,68,0.5)' : undefined }}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>Person creating this facilitator account</span>
+                </div>
+
+                <div className={styles.formGroup}>
+                    <label className={styles.formLabel}>Date Created <span className={styles.required}>*</span></label>
+                    <input
+                        id="fac-date-created-input"
+                        className={styles.formInput}
+                        type="date"
+                        value={form.dateCreated}
+                        onChange={e => updateForm('dateCreated', e.target.value)}
+                        style={{ borderColor: !form.dateCreated && form.name.trim() ? 'rgba(239,68,68,0.5)' : undefined }}
+                    />
+                    <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: 2 }}>Date this account is being created</span>
                 </div>
             </div>
 
@@ -591,46 +641,28 @@ export default function FacilitatorManager({ onNavigate }) {
 
             <div className={styles.stepNavigation}>
                 <button className={styles.navBtnSecondary} onClick={() => setStep(1)}>← Identity</button>
-                <button className={styles.navBtnPrimary} onClick={() => setStep(3)}>Continue → Configuration</button>
+                <button className={styles.navBtnPrimary} onClick={() => setStep(3)}>Continue → Permissions</button>
             </div>
         </div>
     );
 
-    // ── Step 3: Paradigm & Permissions ──────────────────────
+    // ── Step 3: Permissions ──────────────────────────────────
     const renderStep3 = () => (
         <div className={styles.stepContent}>
             <div className={styles.stepHeader}>
                 <span className={styles.stepIcon}>⚙️</span>
                 <div>
-                    <h4 className={styles.stepTitle}>Simulation Configuration</h4>
-                    <p className={styles.stepDesc}>Choose the decision paradigm and configure permissions for this facilitator.</p>
+                    <h4 className={styles.stepTitle}>Admin Permissions</h4>
+                    <p className={styles.stepDesc}>Configure what this facilitator is allowed to do within their cohort sessions.</p>
                 </div>
             </div>
 
-            <label className={styles.formLabel} style={{ marginBottom: '0.5rem' }}>Decision Paradigm</label>
-            <div className={styles.paradigmGrid}>
-                {PARADIGM_OPTIONS.map(opt => (
-                    <div
-                        key={opt.id}
-                        onClick={() => updateForm('paradigm', opt.id)}
-                        className={`${styles.paradigmCard} ${form.paradigm === opt.id ? styles.paradigmCardActive : ''}`}
-                    >
-                        <span className={styles.paradigmIcon}>{opt.icon}</span>
-                        <div style={{ flex: 1 }}>
-                            <div className={styles.paradigmLabel}>{opt.label}</div>
-                            <div className={styles.paradigmSub}>{opt.sub}</div>
-                        </div>
-                        {form.paradigm === opt.id && (
-                            <span className={styles.paradigmCheck}>✓</span>
-                        )}
-                    </div>
-                ))}
-            </div>
 
             <div className={styles.permissionsSection}>
                 <label className={styles.formLabel} style={{ marginBottom: '0.6rem' }}>Admin Permissions</label>
                 <div className={styles.permGrid}>
                     {[
+                        { key: 'can_create_cohorts', label: 'Create Cohorts', icon: '🚀' },
                         { key: 'can_undo_rounds', label: 'Undo Rounds', icon: '↩️' },
                         { key: 'can_override_decisions', label: 'Override Decisions', icon: '🔧' },
                         { key: 'can_modify_materiality', label: 'Modify Materiality', icon: '📊' },
@@ -698,6 +730,14 @@ export default function FacilitatorManager({ onNavigate }) {
                                 <span className={styles.reviewKey}>Phone</span>
                                 <span className={styles.reviewValue}>{form.phone || '—'}</span>
                             </div>
+                            <div className={styles.reviewItem}>
+                                <span className={styles.reviewKey}>Created By</span>
+                                <span className={styles.reviewValue}>{form.createdBy || '—'}</span>
+                            </div>
+                            <div className={styles.reviewItem}>
+                                <span className={styles.reviewKey}>Date Created</span>
+                                <span className={styles.reviewValue}>{form.dateCreated || '—'}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -729,13 +769,11 @@ export default function FacilitatorManager({ onNavigate }) {
                     <div className={styles.reviewDivider} />
 
                     <div className={styles.reviewSection}>
-                        <h5 className={styles.reviewSectionTitle}>Configuration</h5>
+                        <h5 className={styles.reviewSectionTitle}>Permissions</h5>
                         <div className={styles.reviewGrid}>
                             <div className={styles.reviewItem}>
                                 <span className={styles.reviewKey}>Paradigm</span>
-                                <span className={styles.paradigmBadge} style={{ color: paradigmInfo.color, background: paradigmInfo.bg }}>
-                                    {paradigmInfo.label || form.paradigm}
-                                </span>
+                                <span className={styles.reviewValue} style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.78rem' }}>Set per-cohort at creation</span>
                             </div>
                             <div className={styles.reviewItem}>
                                 <span className={styles.reviewKey}>Permissions</span>
@@ -753,7 +791,7 @@ export default function FacilitatorManager({ onNavigate }) {
                 )}
 
                 <div className={styles.stepNavigation}>
-                    <button className={styles.navBtnSecondary} onClick={() => setStep(3)} disabled={creating}>← Configuration</button>
+                    <button className={styles.navBtnSecondary} onClick={() => setStep(3)} disabled={creating}>← Permissions</button>
                     <button
                         className={styles.navBtnCreate}
                         onClick={handleSubmit}
@@ -946,7 +984,6 @@ export default function FacilitatorManager({ onNavigate }) {
         </div>
     );
 
-    // ────────────────────────────────────────────────────────
     return (
         <section className={styles.container}>
 
@@ -1036,6 +1073,7 @@ export default function FacilitatorManager({ onNavigate }) {
                     <table className={styles.table}>
                         <thead>
                             <tr>
+                                <th style={{ width: 40 }} />{/* toggle */}
                                 <th onClick={() => toggleSort('facilitator_id')} className={styles.sortable}>
                                     Facilitator ID <SortIcon col="facilitator_id" />
                                 </th>
@@ -1046,14 +1084,13 @@ export default function FacilitatorManager({ onNavigate }) {
                                 <th onClick={() => toggleSort('programme')} className={styles.sortable}>
                                     Programme <SortIcon col="programme" />
                                 </th>
-                                <th>Paradigm</th>
                                 <th onClick={() => toggleSort('cohorts_created')} className={styles.sortable}>
                                     Cohorts <SortIcon col="cohorts_created" />
                                 </th>
-                                <th>Schedule</th>
                                 <th onClick={() => toggleSort('created_at')} className={styles.sortable}>
                                     Created <SortIcon col="created_at" />
                                 </th>
+                                <th>Created By</th>
                                 <th style={{ textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
@@ -1063,34 +1100,44 @@ export default function FacilitatorManager({ onNavigate }) {
                                 const max = fac.max_cohorts ?? 5;
                                 const pct = getUsagePct(created, max);
                                 const barColor = getUsageColor(pct);
-                                const isConfirmDelete = confirmDeleteId === fac.facilitator_id;
                                 const paradigm = PARADIGM_LABELS[fac.decision_paradigm] || null;
+                                const createdDate = formatCreatedDate(fac.created_at);
+                                const isVisExpanded = expandedVisRow === fac.facilitator_id;
+                                // player visibility defaults
+                                const vis = fac.player_visibility || {};
 
                                 return (
-                                    <tr key={fac.facilitator_id} className={`${isConfirmDelete ? styles.rowDanger : ''} ${fac.enabled === false ? styles.rowDisabled : ''}`}>
-                                        <td>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <button
-                                                    onClick={() => toggleFacilitatorEnabled(fac.facilitator_id, fac.enabled !== false)}
-                                                    title={fac.enabled !== false ? 'Enabled — click to disable' : 'Disabled — click to enable'}
-                                                    style={{
-                                                        position: 'relative', width: '32px', height: '18px', borderRadius: '9px', border: 'none',
-                                                        cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
-                                                        background: fac.enabled !== false ? '#10b981' : '#94a3b8',
-                                                    }}
-                                                >
-                                                    <span style={{
-                                                        position: 'absolute', top: '2px',
-                                                        left: fac.enabled !== false ? '16px' : '2px',
-                                                        width: '14px', height: '14px', borderRadius: '50%',
-                                                        background: '#fff', transition: 'left 0.2s',
-                                                        boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
-                                                    }} />
-                                                </button>
-                                                <code className={styles.facId} style={{ opacity: fac.enabled === false ? 0.5 : 1 }}>{fac.facilitator_id}</code>
-                                            </div>
+                                    <Fragment key={fac.facilitator_id}>
+                                    <tr className={fac.enabled === false ? styles.rowDisabled : ''}>
+                                        {/* Enable/Disable toggle */}
+                                        <td style={{ paddingRight: 0 }}>
+                                            <button
+                                                onClick={() => toggleFacilitatorEnabled(fac.facilitator_id, fac.enabled !== false)}
+                                                title={fac.enabled !== false ? 'Enabled — click to disable' : 'Disabled — click to enable'}
+                                                style={{
+                                                    position: 'relative', width: '32px', height: '18px', borderRadius: '9px', border: 'none',
+                                                    cursor: 'pointer', transition: 'background 0.2s', flexShrink: 0,
+                                                    background: fac.enabled !== false ? '#10b981' : '#94a3b8',
+                                                }}
+                                            >
+                                                <span style={{
+                                                    position: 'absolute', top: '2px',
+                                                    left: fac.enabled !== false ? '16px' : '2px',
+                                                    width: '14px', height: '14px', borderRadius: '50%',
+                                                    background: '#fff', transition: 'left 0.2s',
+                                                    boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                                                }} />
+                                            </button>
                                         </td>
+                                        {/* Facilitator ID */}
+                                        <td>
+                                            <code className={styles.facId} style={{ opacity: fac.enabled === false ? 0.5 : 1 }}>
+                                                {fac.facilitator_id}
+                                            </code>
+                                        </td>
+                                        {/* Name */}
                                         <td className={styles.facName}>{fac.name}</td>
+                                        {/* Contact */}
                                         <td>
                                             <div className={styles.contactCell}>
                                                 {fac.email && <span className={styles.contactItem} title={fac.email}>✉️ {fac.email}</span>}
@@ -1098,6 +1145,7 @@ export default function FacilitatorManager({ onNavigate }) {
                                                 {!fac.email && !fac.contact_number && <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>}
                                             </div>
                                         </td>
+                                        {/* Programme */}
                                         <td>
                                             {fac.programme ? (
                                                 <span className={styles.programmeBadge}>{fac.programme}</span>
@@ -1105,15 +1153,7 @@ export default function FacilitatorManager({ onNavigate }) {
                                                 <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>
                                             )}
                                         </td>
-                                        <td>
-                                            {paradigm ? (
-                                                <span className={styles.paradigmBadge} style={{ color: paradigm.color, background: paradigm.bg }}>
-                                                    {paradigm.label}
-                                                </span>
-                                            ) : (
-                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>
-                                            )}
-                                        </td>
+                                        {/* Cohorts usage */}
                                         <td>
                                             <div className={styles.usageWrap}>
                                                 <span className={styles.usageText} style={{ color: barColor }}>
@@ -1127,53 +1167,62 @@ export default function FacilitatorManager({ onNavigate }) {
                                                 </div>
                                             </div>
                                         </td>
-                                        <td>
-                                            <div className={styles.scheduleCell}>
-                                                {fac.start_date && <span className={styles.scheduleItem}>From: {fac.start_date}</span>}
-                                                {fac.end_date && <span className={styles.scheduleItem}>To: {fac.end_date}</span>}
-                                                {!fac.start_date && !fac.end_date && <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>}
-                                            </div>
+                                        {/* Created — real date + relative */}
+                                        <td className={styles.date}>
+                                            {createdDate.display !== '—' ? (
+                                                <span title={createdDate.relative} style={{ cursor: 'default' }}>
+                                                    {createdDate.display}
+                                                    {createdDate.relative && (
+                                                        <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '1px' }}>
+                                                            {createdDate.relative}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            ) : '—'}
                                         </td>
-                                        <td className={styles.date}>{relativeDate(fac.created_at)}</td>
+                                        {/* Created By */}
+                                        <td className={styles.date}>
+                                            {fac.created_by || <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>}
+                                        </td>
+                                        {/* Actions */}
                                         <td>
                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
-                                                {/* Edit */}
-                                                <button
-                                                    className={styles.actionBtn}
-                                                    onClick={() => openEditDrawer(fac)}
-                                                    title="Edit facilitator"
-                                                >
-                                                    ✏️
-                                                </button>
-                                                {/* View Cohorts */}
+                                                <button className={styles.actionBtn} onClick={() => openEditDrawer(fac)} title="Edit facilitator">✏️</button>
                                                 {onNavigate && (
+                                                    <button className={styles.actionBtn} onClick={() => onNavigate('cohort_manager')} title="View cohorts">🗂️</button>
+                                                )}
+                                                {(fac.permissions?.can_create_cohorts !== false) ? (
                                                     <button
                                                         className={styles.actionBtn}
-                                                        onClick={() => onNavigate('cohort_manager')}
-                                                        title="View cohorts"
+                                                        onClick={() => handleOpenNewCohort(fac.facilitator_id)}
+                                                        title={`Set up a new cohort for ${fac.name}`}
+                                                        style={{ color: '#34d399', borderColor: 'rgba(16,185,129,0.3)' }}
                                                     >
-                                                        🗂️
+                                                        🚀
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        className={styles.actionBtn}
+                                                        disabled
+                                                        title="Cohort creation disabled for this facilitator"
+                                                        style={{ color: '#475569', borderColor: 'rgba(71,85,105,0.2)', cursor: 'not-allowed', opacity: 0.4 }}
+                                                    >
+                                                        🚀
                                                     </button>
                                                 )}
-                                                {/* Reset Password */}
+                                                <button className={styles.actionBtn} onClick={() => handleResetPassword(fac.facilitator_id)} title="Reset password">🔑</button>
                                                 <button
-                                                    className={styles.actionBtn}
-                                                    onClick={() => handleResetPassword(fac.facilitator_id)}
-                                                    title="Reset password"
+                                                    className={styles.deleteBtn}
+                                                    onClick={() => handleDeleteClick(fac.facilitator_id, fac.name)}
+                                                    title="Delete facilitator"
                                                 >
-                                                    🔑
-                                                </button>
-                                                {/* Delete */}
-                                                <button
-                                                    className={`${styles.deleteBtn} ${isConfirmDelete ? styles.deleteBtnConfirm : ''}`}
-                                                    onClick={() => handleDeleteClick(fac.facilitator_id)}
-                                                    title={isConfirmDelete ? 'Click again to confirm delete' : 'Delete facilitator'}
-                                                >
-                                                    {isConfirmDelete ? '⚠️ Confirm?' : '🗑️'}
+                                                    🗑️
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
+
+                                    </Fragment>
                                 );
                             })}
                         </tbody>
@@ -1230,11 +1279,105 @@ export default function FacilitatorManager({ onNavigate }) {
                 </>
             )}
 
+            {/* ── Delete Confirmation Modal ── */}
+            {deleteModal && (
+                <>
+                    <div
+                        onClick={() => setDeleteModal(null)}
+                        style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+                            zIndex: 9998, backdropFilter: 'blur(4px)',
+                        }}
+                    />
+                    <div style={{
+                        position: 'fixed', top: '50%', left: '50%',
+                        transform: 'translate(-50%,-50%)',
+                        zIndex: 9999,
+                        background: 'var(--bg-card, #1e293b)',
+                        border: '1px solid rgba(239,68,68,0.35)',
+                        borderRadius: 14,
+                        padding: '28px 32px',
+                        width: 400,
+                        boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                            <span style={{ fontSize: '1.6rem' }}>⚠️</span>
+                            <div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem', color: '#ef4444' }}>Delete Facilitator</div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>This action cannot be undone.</div>
+                            </div>
+                        </div>
+                        <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: 1.5, marginBottom: 18 }}>
+                            You are about to permanently delete <strong style={{ color: 'var(--text-primary)' }}>{deleteModal.facName}</strong> ({deleteModal.facId}) and all their associated data.
+                        </p>
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                            Type <code style={{ background: 'rgba(239,68,68,0.1)', padding: '1px 6px', borderRadius: 4, color: '#f87171', fontWeight: 700 }}>{deleteModal.facId}</code> to confirm:
+                        </p>
+                        <input
+                            autoFocus
+                            value={deleteConfirmInput}
+                            onChange={e => setDeleteConfirmInput(e.target.value)}
+                            placeholder={deleteModal.facId}
+                            onKeyDown={e => { if (e.key === 'Enter' && deleteConfirmInput === deleteModal.facId) handleDelete(deleteModal.facId); }}
+                            style={{
+                                width: '100%', padding: '9px 12px', borderRadius: 8,
+                                border: deleteConfirmInput === deleteModal.facId ? '1.5px solid #ef4444' : '1px solid var(--border-subtle)',
+                                background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                                fontFamily: 'var(--font-mono)', fontSize: '0.9rem',
+                                outline: 'none', transition: 'border 0.15s',
+                                marginBottom: 18,
+                                boxSizing: 'border-box',
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setDeleteModal(null)}
+                                style={{
+                                    padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border-subtle)',
+                                    background: 'transparent', color: 'var(--text-secondary)',
+                                    cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={deleteConfirmInput !== deleteModal.facId}
+                                onClick={() => handleDelete(deleteModal.facId)}
+                                style={{
+                                    padding: '8px 18px', borderRadius: 8, border: 'none',
+                                    background: deleteConfirmInput === deleteModal.facId ? '#ef4444' : 'rgba(239,68,68,0.2)',
+                                    color: deleteConfirmInput === deleteModal.facId ? '#fff' : 'rgba(239,68,68,0.4)',
+                                    cursor: deleteConfirmInput === deleteModal.facId ? 'pointer' : 'not-allowed',
+                                    fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.15s',
+                                }}
+                            >
+                                Delete Permanently
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
             {/* ── Toast ── */}
             {toast && (
                 <div className={`${styles.toast} ${toast.type === 'error' ? styles.toastError : ''}`}>
                     {toast.msg}
                 </div>
+            )}
+
+            {/* ── Set Up New Cohort Modal ─────────────────────────── */}
+            {showCohortModal && (
+                <CreateCohortModal
+                    isOpen={true}
+                    currentFacilitatorId={cohortFacilitatorId}
+                    onClose={() => setShowCohortModal(false)}
+                    onCreated={() => {
+                        setShowCohortModal(false);
+                        showToast('Cohort created successfully! 🚀', 'success');
+                        // Refresh facilitator list to pick up updated cohorts_created count
+                        fetchFacilitators?.();
+                    }}
+                />
             )}
         </section>
     );

@@ -36,10 +36,15 @@ const PROFILES = {
 
 const MR_LABELS = {
     base: { label: 'Base', description: 'Starting multiple' },
-    synergy_bonus: { label: 'R7 Synergy', description: 'Achieved circularity synergy' },
-    resilience_bonus: { label: 'R5/R8 Resilience', description: 'Survived without bailout' },
+    synergy_bonus: { label: 'R7 Synergy', description: 'Achieved circularity synergy (waste-to-energy)' },
+    resilience_bonus: { label: 'R5/R8 Resilience', description: 'Survived without bailout or water prioritisation' },
     truth_premium: { label: 'R6 Truth Premium', description: 'Chose ethical AI overhaul' },
-    instability_discount: { label: 'Instability Discount', description: 'Social License < 75' },
+    community_champion_bonus: { label: 'R9 Community Champion', description: 'Invested $20M in community fund' },
+    just_transition_bonus: { label: 'R9 Just Transition', description: 'Chose managed transition' },
+    workforce_bonus: { label: 'HR Workforce Excellence', description: 'Workforce readiness ≥ 75 at terminal' },
+    wellbeing_bonus: { label: 'HR Wellbeing Champion', description: 'Average burnout < 20 at terminal' },
+    instability_discount: { label: 'Instability Discount', description: 'Average Social License < 75' },
+    max_achievable_mr: { label: 'Max Achievable', description: 'Perfect play ceiling' },
 };
 
 /**
@@ -64,6 +69,10 @@ export default function FinalReport({ data = null, onClose }) {
             synergy_bonus: 0.3,
             resilience_bonus: 0.2,
             truth_premium: 0,
+            community_champion_bonus: 0,
+            just_transition_bonus: 0.12,
+            workforce_bonus: 0.10,
+            wellbeing_bonus: 0,
             instability_discount: -0.4,
         },
         terminal_value: 230_850_000,
@@ -228,6 +237,44 @@ export default function FinalReport({ data = null, onClose }) {
                             </span>
                         </div>
                     </div>
+
+                    {/* SBTi Pathway History */}
+                    {d.sbti_pathway_history && d.sbti_pathway_history.length > 0 && (
+                        <div style={{ marginTop: '1.5rem', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                            <h3 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>📉</span> SBTi Decarbonisation Pathway
+                            </h3>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                {d.sbti_pathway_history.map((pt, i) => (
+                                    <div key={i} style={{ background: '#fff', padding: '6px 10px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.75rem' }}>
+                                        <span style={{ color: '#64748b', marginRight: '6px' }}>R{pt.round}</span>
+                                        <span style={{ fontWeight: 'bold', color: pt.on_track ? '#10b981' : '#ef4444' }}>
+                                            {pt.emissions.toFixed(0)}t {pt.on_track ? '✅' : '⚠️'}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Carbon Forwards */}
+                    {d.carbon_forwards && d.carbon_forwards.length > 0 && (
+                        <div style={{ marginTop: '1rem', background: 'rgba(0,0,0,0.02)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                            <h3 style={{ fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <span>📜</span> Active Carbon Forwards
+                            </h3>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '8px' }}>
+                                {d.carbon_forwards.map((fw, i) => (
+                                    <div key={i} style={{ background: '#fff', padding: '8px', borderRadius: '4px', border: '1px solid #e2e8f0', fontSize: '0.75rem', display: 'flex', flexDirection: 'column' }}>
+                                        <span style={{ color: '#64748b', fontSize: '0.65rem', textTransform: 'uppercase' }}>Volume</span>
+                                        <span style={{ fontWeight: 'bold' }}>{fw.amount} tons</span>
+                                        <span style={{ color: '#64748b', fontSize: '0.65rem', textTransform: 'uppercase', marginTop: '4px' }}>Strike Price</span>
+                                        <span style={{ fontWeight: 'bold', color: '#3b82f6' }}>${fw.strike_price}/t</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </section>
 
                 {/* ── Terminal Value Formula ───────────────────────── */}
@@ -248,6 +295,62 @@ export default function FinalReport({ data = null, onClose }) {
                         </div>
                     </div>
                 </section>
+
+                {/* ── HR ROI Report ─────────────────────────────────── */}
+                {d.hr_roi_report && (
+                    <section className={styles.carbonSection}>
+                        <h2 className={styles.sectionTitle}>
+                            <span>🧑‍💼</span> HR Investment ROI Report
+                        </h2>
+                        <div className={styles.carbonGrid}>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>Workforce Readiness</span>
+                                <span className={styles.carbonValue} style={{
+                                    color: d.hr_roi_report.workforce_readiness_r10 >= 75 ? '#10b981' : '#f59e0b'
+                                }}>
+                                    {d.hr_roi_report.workforce_readiness_r10}/100
+                                    {d.hr_roi_report.workforce_bonus_earned && ' ✅'}
+                                </span>
+                            </div>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>Avg Burnout Index</span>
+                                <span className={styles.carbonValue} style={{
+                                    color: d.hr_roi_report.avg_burnout_r10 < 20 ? '#10b981' :
+                                           d.hr_roi_report.avg_burnout_r10 < 50 ? '#f59e0b' : '#ef4444'
+                                }}>
+                                    {d.hr_roi_report.avg_burnout_r10}/100
+                                    {d.hr_roi_report.wellbeing_bonus_earned && ' ✅'}
+                                </span>
+                            </div>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>Burnout OPEX Penalty</span>
+                                <span className={styles.carbonValue} style={{
+                                    color: d.hr_roi_report.burnout_opex_penalty_rate > 0 ? '#ef4444' : '#10b981'
+                                }}>
+                                    {d.hr_roi_report.burnout_opex_penalty_rate > 0
+                                        ? `−${d.hr_roi_report.burnout_opex_penalty_rate.toFixed(1)}%`
+                                        : 'None ✅'}
+                                </span>
+                            </div>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>HR Terminal Value Uplift</span>
+                                <span className={styles.carbonValue} style={{ color: theme.tagColor }}>
+                                    {d.hr_roi_report.terminal_value_uplift_from_hr > 0
+                                        ? `+$${(d.hr_roi_report.terminal_value_uplift_from_hr / 1_000_000).toFixed(1)}M`
+                                        : '$0'}
+                                </span>
+                            </div>
+                        </div>
+                        {d.hr_roi_report.mr_bonus_from_hr > 0 && (
+                            <div className={styles.mrTotal}>
+                                <span>HR M<sub>R</sub> Contribution</span>
+                                <span className={styles.mrTotalValue} style={{ color: '#10b981' }}>
+                                    +{d.hr_roi_report.mr_bonus_from_hr.toFixed(2)}
+                                </span>
+                            </div>
+                        )}
+                    </section>
+                )}
 
                 {/* ── Close Button ────────────────────────────────── */}
                 <div className={styles.closeRow}>

@@ -279,8 +279,8 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         return initial;
                     });
                 }
-            } catch (err) {
-                console.error("Failed to load materiality config", err);
+            } catch {
+                // Backend unreachable — matrix will show empty state
             }
             setLoading(false);
         };

@@ -156,8 +156,8 @@ export default function DebriefReport({ sessionId }) {
                     setExpandedRounds(new Set([latest.round_number]));
                 }
             }
-        } catch (err) {
-            console.error('Failed to fetch debrief:', err);
+        } catch {
+            // Backend unreachable — degrade gracefully
         } finally {
             setLoading(false);
         }

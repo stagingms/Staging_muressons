@@ -248,7 +248,7 @@ class TestPostTick:
         assert has_ncd is True
 
     def test_r6_option_a_revenue_boost_rep_drop(self):
-        """R6 Option A: +$5M software revenue, -20 reputation."""
+        """R6 Option A: +$10M software revenue, -20 reputation."""
         gs = make_global(round_number=7, treasury=50_000_000, reputation=60)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -256,7 +256,7 @@ class TestPostTick:
 
         extra = post_tick(6, gs, bus, decs, {}, {})
         sw = next(b for b in bus if b["bu_id"] == "software")
-        assert sw["revenue_base"] == 8_500_000 + 5_000_000
+        assert sw["revenue_base"] == 8_500_000 + 10_000_000
         assert gs["group_reputation"] == 30  # 60 - 20 (base) - 10 (contagion spike)
         assert extra.get("contagion_spike_triggered") is True
 
@@ -273,24 +273,27 @@ class TestPostTick:
             assert bu["social_license_score"] >= 60  # all boosted by +15
 
     def test_r7_option_c_unlocks_synergy(self):
-        """R7 Option C should boost synergy multiplier by 0.35."""
+        """R7 Option C should boost synergy multiplier by 0.30 (Fix #4: harmonised to M_R)."""
         gs = make_global(round_number=8, synergy=1.0, treasury=50_000_000)
         gs["active_event_flags"] = {}
         bus = make_bus()
         decs = make_decisions("option_c")
 
         extra = post_tick(7, gs, bus, decs, {}, {})
-        assert gs["synergy_multiplier"] == 1.35
+        assert gs["synergy_multiplier"] == 1.30  # Fix #4: was 1.35 (boost now 0.30 not 0.35)
         assert extra.get("synergy_multiplier_unlocked") is True
 
     def test_r8_option_b_severe_social_drop(self):
-        """R8 Option B drops social license severely for pharma/consumer_goods."""
+        """R8 Option B drops social license severely for pharma/consumer_goods when
+        electronics_water_priority flag is explicitly in the round's pillar choices."""
         gs = make_global(round_number=9, treasury=50_000_000)
         gs["active_event_flags"] = {}
         bus = make_bus()
         decs = make_decisions("option_b")
+        # Fix #8: Pass electronics_water_priority flag so the guard condition fires
+        events_with_flag = {"pillar_flags": ["electronics_water_priority"]}
 
-        post_tick(8, gs, bus, decs, {}, {})
+        post_tick(8, gs, bus, decs, events_with_flag, {})
         pharma = next(b for b in bus if b["bu_id"] == "pharma")
         cg = next(b for b in bus if b["bu_id"] == "consumer_goods")
         assert pharma["social_license_score"] == 30  # 55 - 25
@@ -370,18 +373,23 @@ class TestPostTick:
         assert extra["terminal_ebitda"] is not None
 
     def test_r10_regenerative_multiple_all_bonuses(self):
-        """R10: MR base=1.0, +0.3 synergy, +0.2 resilience, +0.15 truth = 1.65."""
+        """R10: MR structure with all bonuses via community_fund path.
+        community_fund (+0.18) > managed_transition (+0.12) — budget arbitrage eliminated.
+        Bonus path: base(1.0) + synergy(+0.3) + resilience(+0.2) + truth(+0.15)
+                    + community_champion(+0.18) + burnout_wellbeing(+0.05) = 1.88."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
         # Set high SL to avoid instability discount
         for bu in bus:
             bu["social_license_score"] = 80
+            # burnout_index not set → defaults to 0.0 → wellbeing bonus active
         decs = make_decisions("option_b")
 
         prev_flags = {
-            "synergy_unlock": True,       # R7 synergy → +0.3
-            "ethical_ai_overhaul": True,   # R6 truth premium → +0.15
+            "synergy_unlock": True,          # R7 synergy → +0.3
+            "ethical_ai_overhaul": True,     # R6 truth premium → +0.15
+            "community_fund": True,          # R9 community champion → +0.18
             # No insurance_only or electronics_water_priority → +0.2
         }
 
@@ -389,11 +397,16 @@ class TestPostTick:
         assert extra.get("mr_synergy_bonus") is True
         assert extra.get("mr_resilience_bonus") is True
         assert extra.get("mr_truth_premium") is True
-        assert extra.get("mr_instability_discount") is None  # SL >= 75
-        assert extra["regenerative_multiple"] == 1.65  # 1.0 + 0.3 + 0.2 + 0.15
+        assert extra.get("mr_community_champion_bonus") is True  # community_fund → +0.18
+        assert extra.get("mr_just_transition_bonus") is None     # managed_transition NOT set
+        assert extra.get("mr_wellbeing_bonus") is True           # burnout=0 < 20 → +0.05
+        assert extra.get("mr_instability_discount") is None      # SL >= 75
+        # 1.0 + 0.3 + 0.2 + 0.15 + 0.18 + 0.05 = 1.88
+        assert extra["regenerative_multiple"] == 1.88
 
     def test_r10_instability_discount(self):
-        """R10: Social License < 75 applies -0.4 instability discount."""
+        """R10: Social License < 75 applies -0.4 instability discount.
+        Default bus fixture has burnout=0, so wellbeing bonus (+0.05) is active."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -402,11 +415,14 @@ class TestPostTick:
 
         extra = post_tick(10, gs, bus, decs, {}, {})
         assert extra.get("mr_instability_discount") is True
-        # Base 1.0 + 0.2 (no bailout flags) - 0.4 = 0.8
-        assert extra["regenerative_multiple"] == 0.8
+        # Base 1.0 + 0.2 (no bailout flags) + 0.05 (burnout=0) - 0.4 = 0.85
+        assert extra["regenerative_multiple"] == 0.85
 
     def test_r10_profile_regenerative_titan(self):
-        """R10: MR >= 1.8 → 'The Regenerative Titan'."""
+        """R10: MR >= 1.8 -> 'The Regenerative Titan'.
+        managed_transition → +0.12 (split from community_fund at +0.18).
+        Wellbeing bonus (+0.05) active since default burnout=0.
+        Total: 1.0+0.3+0.2+0.15+0.12+0.05 = 1.82 exactly."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -414,17 +430,46 @@ class TestPostTick:
             bu["social_license_score"] = 90  # avoid instability discount
         decs = make_decisions("option_b")
 
-        # All bonuses: synergy (+0.3) + resilience (+0.2) + truth (+0.15) = 1.65
-        # Need >= 1.8, so base needs a boost. Let's push further.
-        # Actually 1.65 < 1.8 — let's test fragile_giant boundary instead
-        prev_flags = {"synergy_unlock": True, "ethical_ai_overhaul": True}
+        # synergy(+0.3) + resilience(+0.2) + truth(+0.15) + managed_transition(+0.12) + wellbeing(+0.05) = 1.82
+        prev_flags = {
+            "synergy_unlock": True,
+            "ethical_ai_overhaul": True,
+            "managed_transition": True,   # +0.12 (rebalanced)
+        }
         extra = post_tick(10, gs, bus, decs, {}, prev_flags)
-        # MR = 1.0 + 0.3 + 0.2 + 0.15 = 1.65 → "The De-risked Safe-Haven"
-        assert extra["profile"] == "derisked_safe_haven"
-        assert extra["profile_title"] == "The De-risked Safe-Haven"
+        assert extra["regenerative_multiple"] == 1.82
+        assert extra["profile"] == "regenerative_titan"
+        assert extra["profile_title"] == "The Regenerative Titan"
+
+    def test_r10_profile_regenerative_titan_with_workforce_bonus(self):
+        """R10: All bonuses including workforce readiness → MR = 1.95.
+        community_fund(+0.20) + workforce(+0.10) + wellbeing(+0.05) = peak along with synergy+resilience+truth."""
+        gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
+        gs["active_event_flags"] = {}
+        gs["workforce_readiness"] = 80.0  # Above 75 threshold for +0.10 bonus
+        bus = make_bus()
+        for bu in bus:
+            bu["social_license_score"] = 90  # avoid instability discount
+            # burnout not set → 0.0 → wellbeing bonus active
+        decs = make_decisions("option_b")
+
+        # All 6 bonuses: synergy(+0.3) + resilience(+0.2) + truth(+0.15)
+        #   + community_champion(+0.18) + workforce(+0.10) + wellbeing(+0.05) = 1.98
+        prev_flags = {
+            "synergy_unlock": True,
+            "ethical_ai_overhaul": True,
+            "community_fund": True,          # +0.18 (rebalanced)
+        }
+        extra = post_tick(10, gs, bus, decs, {}, prev_flags)
+        assert extra["regenerative_multiple"] == 1.98
+        assert extra.get("mr_workforce_bonus") is True
+        assert extra.get("mr_wellbeing_bonus") is True
+        assert extra.get("mr_community_champion_bonus") is True
+        assert extra["profile"] == "regenerative_titan"
 
     def test_r10_profile_stranded_relic(self):
-        """R10: MR < 0.8 → 'The Stranded Relic'."""
+        """R10: MR < 0.8 → 'The Stranded Relic'.
+        Wellbeing bonus (+0.05) active since default burnout=0."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -436,8 +481,8 @@ class TestPostTick:
         # Bailout flags to remove resilience bonus
         prev_flags = {"insurance_only": True}
         extra = post_tick(10, gs, bus, decs, {}, prev_flags)
-        # MR = 1.0 + 0 (no synergy) + 0 (bailout) + 0 (no truth) - 0.4 = 0.6
-        assert extra["regenerative_multiple"] == 0.6
+        # MR = 1.0 + 0 (no synergy) + 0 (bailout) + 0 (no truth) + 0.05 (burnout=0) - 0.4 = 0.65
+        assert extra["regenerative_multiple"] == 0.65
         assert extra["profile"] == "stranded_relic"
         assert extra["profile_title"] == "The Stranded Relic"
 
@@ -478,3 +523,80 @@ class TestHelpers:
     def test_get_primary_choice_default(self):
         decs = [{"bu_id": "pharma", "choice_selected": "none"}]
         assert _get_primary_choice(decs) == "option_b"  # default
+
+
+# =================================================================
+#  HR MECHANICS TESTS
+# =================================================================
+
+class TestHRMechanics:
+    """Tests for new burnout and workforce readiness engine functions."""
+
+    def test_burnout_accumulation_no_investment(self):
+        """Burnout should drift up by +3 per round with no HR investment."""
+        from engine import calc_burnout_accumulation
+        new_burnout, diag = calc_burnout_accumulation(0.0, 0.0, natural_drift=3.0)
+        assert new_burnout == 3.0
+        assert diag["opex_penalty_active"] is False
+
+    def test_burnout_accumulation_high_investment(self):
+        """High HR investment should reduce burnout and reset drift."""
+        from engine import calc_burnout_accumulation
+        new_burnout, diag = calc_burnout_accumulation(30.0, -10.0, natural_drift=0.0)
+        assert new_burnout == 20.0
+        assert diag["opex_penalty_active"] is False
+
+    def test_burnout_accumulation_opex_penalty_threshold(self):
+        """Burnout > 20 should trigger OPEX penalty on a graded curve."""
+        from engine import calc_burnout_accumulation
+        new_burnout, diag = calc_burnout_accumulation(30.0, 0.0, natural_drift=3.0)
+        assert new_burnout == 33.0
+        assert diag["opex_penalty_active"] is True
+        assert diag["opex_penalty_rate"] > 0
+
+    def test_burnout_accumulation_critical_threshold(self):
+        """Burnout > 70 should trigger critical burnout flag."""
+        from engine import calc_burnout_accumulation
+        new_burnout, diag = calc_burnout_accumulation(70.0, 5.0, natural_drift=3.0)
+        assert new_burnout == 78.0
+        assert diag["critical_burnout"] is True
+
+    def test_burnout_clamped_to_zero(self):
+        """Burnout cannot go below 0."""
+        from engine import calc_burnout_accumulation
+        new_burnout, _ = calc_burnout_accumulation(5.0, -20.0, natural_drift=0.0)
+        assert new_burnout == 0.0
+
+    def test_burnout_clamped_to_hundred(self):
+        """Burnout cannot exceed 100."""
+        from engine import calc_burnout_accumulation
+        new_burnout, _ = calc_burnout_accumulation(95.0, 10.0, natural_drift=3.0)
+        assert new_burnout == 100.0
+
+    def test_workforce_readiness_high_investment(self):
+        """High HR quality should increase readiness by +8."""
+        from engine import calc_workforce_readiness
+        new_readiness, diag = calc_workforce_readiness(50.0, True, "high")
+        assert new_readiness == 58.0
+        assert diag["hr_quality_tier"] == "high"
+
+    def test_workforce_readiness_no_investment_decay(self):
+        """No HR investment should decay readiness by -5."""
+        from engine import calc_workforce_readiness
+        new_readiness, diag = calc_workforce_readiness(50.0, False, "none")
+        assert new_readiness == 45.0
+        assert diag["low_readiness_penalty"] is False  # 45 > 40
+
+    def test_workforce_readiness_low_penalty_threshold(self):
+        """Readiness < 40 should flag low_readiness_penalty."""
+        from engine import calc_workforce_readiness
+        new_readiness, diag = calc_workforce_readiness(35.0, False, "none")
+        assert new_readiness == 30.0
+        assert diag["low_readiness_penalty"] is True
+
+    def test_workforce_readiness_high_bonus_threshold(self):
+        """Readiness > 75 should flag high_readiness_bonus."""
+        from engine import calc_workforce_readiness
+        new_readiness, diag = calc_workforce_readiness(74.0, True, "high")
+        assert new_readiness == 82.0
+        assert diag["high_readiness_bonus"] is True

@@ -7,6 +7,7 @@ import {
     useDraggable,
     useDroppable,
     PointerSensor,
+    KeyboardSensor,
     useSensor,
     useSensors,
     closestCenter,
@@ -51,10 +52,13 @@ function DraggableChip({ stakeholder, isDragging }) {
         id: stakeholder.id,
         data: stakeholder,
     });
+    const [showDossier, setShowDossier] = useState(false);
 
     const style = transform
         ? { transform: `translate(${transform.x}px, ${transform.y}px)` }
         : {};
+
+    const hasDossier = stakeholder.intel_dossier?.length > 0;
 
     return (
         <div
@@ -62,10 +66,36 @@ function DraggableChip({ stakeholder, isDragging }) {
             {...listeners}
             {...attributes}
             className={`${styles.chip} ${isDragging ? styles.chipDragging : ''}`}
-            style={style}
+            style={{ ...style, position: 'relative' }}
+            onMouseEnter={() => hasDossier && setShowDossier(true)}
+            onMouseLeave={() => setShowDossier(false)}
         >
             <span className={styles.chipIcon}>{stakeholder.icon}</span>
             <span className={styles.chipName}>{stakeholder.name}</span>
+            {hasDossier && <span style={{ fontSize: '0.55rem', color: '#60a5fa', marginLeft: 'auto', flexShrink: 0 }}>📋</span>}
+            {/* C15: Intel Dossier Tooltip */}
+            {showDossier && hasDossier && (
+                <div style={{
+                    position: 'absolute', bottom: 'calc(100% + 6px)', left: 0,
+                    minWidth: '280px', maxWidth: '340px', padding: '8px 10px',
+                    background: 'rgba(15,23,42,0.97)', borderRadius: '8px',
+                    border: '1px solid rgba(59,130,246,0.25)',
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                    zIndex: 100, pointerEvents: 'none',
+                }}>
+                    <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#60a5fa', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: '4px' }}>
+                        Intelligence Dossier
+                    </div>
+                    <div style={{ fontSize: '0.65rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: '4px' }}>
+                        {stakeholder.description}
+                    </div>
+                    {stakeholder.intel_dossier.map((clip, i) => (
+                        <div key={i} style={{ fontSize: '0.6rem', color: '#94a3b8', lineHeight: 1.4, padding: '2px 0', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                            {clip}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
@@ -108,8 +138,24 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
     const [submitting, setSubmitting] = useState(false);
     const [result, setResult] = useState(null);                // API response after submit
 
+    // C20: Timer (5 minutes default)
+    const TIMER_SECONDS = 300;
+    const [timeLeft, setTimeLeft] = useState(TIMER_SECONDS);
+    const [timerActive, setTimerActive] = useState(false);
+
+    useEffect(() => {
+        if (!timerActive || result) return;
+        if (timeLeft <= 0) return;
+        const t = setTimeout(() => setTimeLeft(prev => prev - 1), 1000);
+        return () => clearTimeout(t);
+    }, [timeLeft, timerActive, result]);
+
+    const timerMins = Math.floor(timeLeft / 60);
+    const timerSecs = timeLeft % 60;
+
     const sensors = useSensors(
-        useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor)
     );
 
     // Load stakeholder list
@@ -171,55 +217,14 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
         setBank(prev => [...prev, stakeholderId]);
     };
 
-    // Master quadrant mapping for client-side fallback scoring
-    const MASTER_MAP = {
-        activist_fund: 'manage_closely',
-        eu_regulators: 'manage_closely',
-        local_communities: 'keep_informed',
-        tier3_miners: 'keep_informed',
-        factory_employees: 'keep_informed',
-        syndicate_banks: 'keep_satisfied',
-        national_gov: 'keep_satisfied',
-        cafeteria_vendors: 'monitor',
-        gen_public: 'monitor',
-        local_media: 'monitor',
-    };
-
-    const buildClientResult = useCallback((playerPlacements) => {
-        let correctCount = 0;
-        const details = Object.keys(MASTER_MAP).map(sid => {
-            const playerQ = playerPlacements[sid] || '';
-            const correctQ = MASTER_MAP[sid];
-            const isCorrect = playerQ === correctQ;
-            if (isCorrect) correctCount++;
-            const s = stakeholders.find(st => st.id === sid);
-            return {
-                id: sid,
-                name: s?.name || sid,
-                player_quadrant: playerQ,
-                correct_quadrant: correctQ,
-                is_correct: isCorrect,
-            };
-        });
-        const total = Object.keys(MASTER_MAP).length;
-        const accuracy = total > 0 ? Math.round((correctCount / total) * 1000) / 10 : 0;
-        const passed = accuracy >= 80;
-        return {
-            accuracy_percentage: accuracy,
-            correct_count: correctCount,
-            total_count: total,
-            passed,
-            points_awarded: passed ? 1000 : 0,
-            details,
-            master_mapping: MASTER_MAP,
-        };
-    }, [stakeholders]);
-
-    const minRequired = Math.ceil(stakeholders.length * 0.5);
+    // C2: No client-side answer key — server-only evaluation
+    // C3: All stakeholders must be placed before submission
+    const minRequired = stakeholders.length;
 
     const handleSubmit = useCallback(async () => {
         if (Object.keys(placements).length < minRequired) return;
         setSubmitting(true);
+        setAttemptCount(prev => prev + 1);
         try {
             const res = await fetch(`${API}/api/simulations/${sessionId}/stakeholder-map`, {
                 method: 'POST',
@@ -227,24 +232,44 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                 body: JSON.stringify({ mapping: placements }),
             });
             const data = await res.json();
-            // If the API returned valid data, use it; otherwise fall back to client scoring
             if (data.accuracy_percentage !== undefined && data.details) {
                 setResult(data);
             } else {
-                console.warn('API returned incomplete data, using client-side scoring');
-                setResult(buildClientResult(placements));
+                console.error('API returned incomplete data');
+                setResult({ error: true, message: 'Server returned incomplete data. Please retry.' });
             }
         } catch (err) {
-            console.error('Stakeholder map submit failed, using client-side scoring:', err);
-            setResult(buildClientResult(placements));
+            console.error('Stakeholder map submit failed:', err);
+            setResult({ error: true, message: 'Connection error. Please check your network and retry.' });
         } finally {
             setSubmitting(false);
         }
-    }, [placements, sessionId, minRequired, buildClientResult]);
+    }, [placements, sessionId, minRequired]);
+
+    // C9: Re-attempt logic — 1 retry allowed
+    const [attemptCount, setAttemptCount] = useState(0);
+    const MAX_ATTEMPTS = 2;
+
+    const handleRetry = () => {
+        // Highlight incorrect placements by removing them back to bank
+        if (result?.details) {
+            const incorrectIds = result.details.filter(d => !d.is_correct).map(d => d.id);
+            setPlacements(prev => {
+                const next = { ...prev };
+                incorrectIds.forEach(id => delete next[id]);
+                return next;
+            });
+            setBank(prev => [...prev, ...incorrectIds]);
+        }
+        setResult(null);
+    };
 
     const handleDismiss = () => {
         onComplete?.(result);
     };
+
+    // C19: Executive rationale (stored for facilitator review)
+    const [rationale, setRationale] = useState('');
 
     const placedCount = Object.keys(placements).length;
     const allPlaced = placedCount >= minRequired;
@@ -262,11 +287,37 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
             <div className={styles.modal}>
                 {/* ── Header ── */}
                 <header className={styles.header}>
-                    <div className={styles.badge}>ROUND 1 • STAKEHOLDER ANALYSIS</div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div className={styles.badge}>ROUND 1 • STAKEHOLDER ANALYSIS</div>
+                        {/* C20: Timer */}
+                        {!result && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                {timerActive ? (
+                                    <span style={{
+                                        fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem',
+                                        fontWeight: 800, padding: '3px 10px', borderRadius: '6px',
+                                        color: timeLeft < 60 ? '#ef4444' : timeLeft < 120 ? '#f59e0b' : '#10b981',
+                                        background: timeLeft < 60 ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.08)',
+                                        border: `1px solid ${timeLeft < 60 ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.2)'}`,
+                                    }}>
+                                        ⏱ {timerMins}:{String(timerSecs).padStart(2, '0')}
+                                    </span>
+                                ) : (
+                                    <button onClick={() => setTimerActive(true)} style={{
+                                        fontSize: '0.65rem', padding: '3px 10px', borderRadius: '6px',
+                                        background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
+                                        color: '#818cf8', fontWeight: 700, cursor: 'pointer',
+                                    }}>
+                                        ⏱ Start 5-min Timer
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
                     <h1 className={styles.title}>⚖️ Stakeholder Power / Interest Grid</h1>
                     <p className={styles.subtitle}>
-                        Map each stakeholder to the correct quadrant based on their Power and Interest
-                        in Muressons Global. This assessment determines your strategic alignment bonus.
+                        Hover over each stakeholder to read their 📋 Intelligence Dossier before classifying.
+                        Map each stakeholder based on their Power and Interest in Muressons Global.
                     </p>
                 </header>
 
@@ -385,6 +436,93 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 </div>
                             )}
 
+                            {/* ── C17: Ambiguous Stakeholder Callout ── */}
+                            {result.details?.filter(d => d.alternate_quadrant).map(d => (
+                                <div key={`amb-${d.id}`} style={{
+                                    marginTop: '0.4rem', padding: '0.5rem 0.65rem',
+                                    background: 'rgba(245,158,11,0.06)', borderRadius: '8px',
+                                    border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b',
+                                }}>
+                                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24', marginBottom: '0.25rem' }}>
+                                        ⚖️ Ambiguous Classification — {d.name}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.5 }}>
+                                        {d.alternate_rationale}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* ── C4/C12: Scoring Tier & Penalty Banner ── */}
+                            {(result.scoring_tier || result.treasury_penalty || result.reputation_penalty) && (
+                                <div style={{
+                                    marginTop: '0.4rem', padding: '0.5rem 0.65rem',
+                                    background: result.passed ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)',
+                                    borderRadius: '8px', border: `1px solid ${result.passed ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`,
+                                    display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center',
+                                }}>
+                                    {result.scoring_tier && (
+                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: result.passed ? '#10b981' : '#f59e0b' }}>
+                                            📊 {result.scoring_tier}
+                                        </span>
+                                    )}
+                                    {result.reputation_penalty < 0 && (
+                                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#ef4444' }}>
+                                            🌍 Reputation {result.reputation_penalty}
+                                        </span>
+                                    )}
+                                    {result.treasury_penalty < 0 && (
+                                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#ef4444' }}>
+                                            💰 Treasury ${Math.abs(result.treasury_penalty / 1000)}K penalty (misaligned engagement)
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* ── C13: Urgency & Legitimacy Debrief (Mitchell et al. 1997) ── */}
+                            {result.urgency_debrief?.length > 0 && (
+                                <div style={{
+                                    marginTop: '0.5rem', padding: '0.5rem',
+                                    background: 'rgba(139,92,246,0.04)',
+                                    border: '1px solid rgba(139,92,246,0.12)',
+                                    borderRadius: '8px',
+                                }}>
+                                    <h3 style={{ margin: '0 0 0.4rem', fontSize: '0.78rem', color: '#a78bfa' }}>
+                                        🔬 Stakeholder Salience Debrief <span style={{ fontSize: '0.6rem', fontWeight: 400, color: 'var(--text-muted)' }}>(Mitchell, Agle & Wood 1997)</span>
+                                    </h3>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.35rem', lineHeight: 1.4 }}>
+                                        Beyond Power × Interest, real-world stakeholder analysis considers <strong>Urgency</strong> (time-sensitivity of claims) and <strong>Legitimacy</strong> (moral/legal standing).
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                                        {result.urgency_debrief.map(u => (
+                                            <div key={u.id} style={{
+                                                padding: '4px 8px', borderRadius: '5px',
+                                                background: 'rgba(255,255,255,0.02)',
+                                                border: '1px solid rgba(255,255,255,0.04)',
+                                                display: 'flex', alignItems: 'center', gap: '6px',
+                                            }}>
+                                                <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
+                                                    {u.name}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '0.58rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
+                                                    background: u.urgency === 'high' ? 'rgba(239,68,68,0.15)' : u.urgency === 'medium' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)',
+                                                    color: u.urgency === 'high' ? '#f87171' : u.urgency === 'medium' ? '#fbbf24' : '#94a3b8',
+                                                }}>
+                                                    ⏱ {u.urgency}
+                                                </span>
+                                                <span style={{
+                                                    fontSize: '0.58rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
+                                                    background: u.legitimacy === 'high' ? 'rgba(16,185,129,0.15)' : u.legitimacy === 'medium' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)',
+                                                    color: u.legitimacy === 'high' ? '#4ade80' : u.legitimacy === 'medium' ? '#fbbf24' : '#94a3b8',
+                                                }}>
+                                                    ⚖ {u.legitimacy}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
                             {/* ── Suggested Solution ── */}
                             {result.details && (
                                 <div style={{
@@ -442,9 +580,84 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 </div>
                             )}
 
+                            {/* ── C8: Engagement Tactics Quiz (Mendelow Strategy Selection) ── */}
+                            {result.engagement_tactics?.length > 0 && (
+                                <div style={{
+                                    marginTop: '0.5rem', padding: '0.5rem',
+                                    background: 'rgba(59,130,246,0.04)',
+                                    border: '1px solid rgba(59,130,246,0.12)',
+                                    borderRadius: '8px',
+                                }}>
+                                    <h3 style={{ margin: '0 0 0.4rem', fontSize: '0.78rem', color: '#60a5fa' }}>
+                                        🎯 Engagement Strategy — "Manage Closely" Stakeholders
+                                    </h3>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                                        Classification is only step 1. For high-power, high-interest stakeholders, what engagement tactic would you deploy?
+                                    </div>
+                                    {result.engagement_tactics.map(et => (
+                                        <div key={et.stakeholder_id} style={{ marginBottom: '0.5rem' }}>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
+                                                {et.stakeholder_name}
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                                {et.tactics.map(t => (
+                                                    <div key={t.id} style={{
+                                                        padding: '5px 8px', borderRadius: '5px',
+                                                        background: t.correct ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.04)',
+                                                        border: `1px solid ${t.correct ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.04)'}`,
+                                                    }}>
+                                                        <div style={{ fontSize: '0.68rem', fontWeight: 600, color: t.correct ? '#10b981' : 'var(--text-secondary)' }}>
+                                                            {t.correct ? '✅' : '❌'} {t.label}
+                                                        </div>
+                                                        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '2px', fontStyle: 'italic' }}>
+                                                            {t.rationale}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {/* ── C19: Executive Rationale Prompt ── */}
+                            <div style={{
+                                marginTop: '0.5rem', padding: '0.5rem',
+                                background: 'rgba(245,158,11,0.04)',
+                                border: '1px solid rgba(245,158,11,0.12)',
+                                borderRadius: '8px',
+                            }}>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24', display: 'block', marginBottom: '0.3rem' }}>
+                                    ✍️ Executive Rationale — Justify your most controversial placement:
+                                </label>
+                                <textarea
+                                    value={rationale}
+                                    onChange={e => setRationale(e.target.value)}
+                                    placeholder="e.g., I placed the journalist in 'Keep Informed' because their track record of syndication means a negative story would rapidly amplify..."
+                                    style={{
+                                        width: '100%', minHeight: '50px', padding: '6px 8px', borderRadius: '6px',
+                                        background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
+                                        color: 'var(--text-primary, #e2e8f0)', fontSize: '0.72rem', fontFamily: 'inherit',
+                                        resize: 'vertical', outline: 'none', lineHeight: 1.5,
+                                    }}
+                                />
+                            </div>
+
+                            {/* ── C9: Retry Button (1 re-attempt) ── */}
+                            {!result.passed && attemptCount < MAX_ATTEMPTS && (
+                                <button onClick={handleRetry} style={{
+                                    width: '100%', marginTop: '0.4rem', padding: '0.55rem',
+                                    fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                                    background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+                                    borderRadius: '6px', color: '#818cf8',
+                                }}>
+                                    🔄 Re-attempt — Incorrect placements returned to bank ({MAX_ATTEMPTS - attemptCount} retry remaining)
+                                </button>
+                            )}
+
                             {/* ── Action Button — go to Decision Tab ── */}
                             <button className={styles.dismissBtn} onClick={handleDismiss}
-                                style={{ width: '100%', marginTop: '0.6rem', fontSize: '0.9rem', padding: '0.65rem' }}>
+                                style={{ width: '100%', marginTop: '0.4rem', fontSize: '0.9rem', padding: '0.65rem' }}>
                                 📋 Open Decision Tab →
                             </button>
                         </div>

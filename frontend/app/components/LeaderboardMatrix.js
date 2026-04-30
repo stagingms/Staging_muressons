@@ -94,6 +94,7 @@ export default function LeaderboardMatrix({
                             <th className={styles.heatCol}><Abbr term="SL">Social License</Abbr></th>
                             <th>Talent Risk</th>
                             <th>Practice</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -173,12 +174,36 @@ export default function LeaderboardMatrix({
                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
                                         )}
                                     </td>
+                                    <td>
+                                        {isCohort && onDeleteSession ? (
+                                            <div style={{ display: 'flex', gap: '4px' }}>
+                                                <button
+                                                    className={styles.actionBtn}
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteSession(sess.session_id, sess.cohort_name, false); }}
+                                                    title="Soft delete — recoverable for 7 days"
+                                                    style={{ color: '#f59e0b', borderColor: 'rgba(245,158,11,0.3)' }}
+                                                >
+                                                    📦
+                                                </button>
+                                                <button
+                                                    className={styles.actionBtn}
+                                                    onClick={(e) => { e.stopPropagation(); onDeleteSession(sess.session_id, sess.cohort_name, true); }}
+                                                    title="Hard delete — permanently remove all data"
+                                                    style={{ color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+                                                >
+                                                    🗑️
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                        )}
+                                    </td>
                                 </tr>
                             );
                         })}
                         {leaderboard.length === 0 && (
                             <tr>
-                                <td colSpan={13} className={styles.empty}>
+                                <td colSpan={14} className={styles.empty}>
                                     No active sessions. Start a simulation to see the leaderboard.
                                 </td>
                             </tr>

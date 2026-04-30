@@ -15,6 +15,9 @@ from typing import Any
 
 from round_configs import get_round_config, get_round_options
 
+# ARCH-001: Import extracted handlers from impact_engine
+import impact_engine as _ie
+
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PRE-TICK HOOKS
@@ -106,9 +109,35 @@ def _pre_r4_contagion(
         result["crisis_severity"] = base * 2  # doubled
         result["pre_events"]["electronics_blindspot_triggered"] = True
         result["pre_events"]["crisis_severity_doubled"] = True
+    elif "deferred_audit" in all_flags:
+        result["crisis_severity"] = round(base * 1.5)  # 1.5x for phased audit
+        result["pre_events"]["deferred_audit_penalty"] = True
+        result["pre_events"]["crisis_severity_multiplied"] = 1.5
+    elif "compliance_gap" in all_flags or "waste_compliance_gap" in all_flags:
+        # Healthcare: skipping compliance in R1 -> 1.5x crisis severity
+        result["crisis_severity"] = round(base * 1.5)
+        result["pre_events"]["compliance_gap_triggered"] = True
+        result["pre_events"]["crisis_severity_multiplied"] = 1.5
+    elif "outsource_opacity" in all_flags:
+        # Healthcare: outsourced waste management creates supply chain opacity
+        result["crisis_severity"] = round(base * 1.25)
+        result["pre_events"]["outsource_opacity_triggered"] = True
+        result["pre_events"]["crisis_severity_multiplied"] = 1.25
     else:
         result["crisis_severity"] = base
         result["pre_events"]["deep_audit_protected"] = True
+
+    # C16: Poor stakeholder map accuracy modulates crisis severity
+    # If player scored < 70% on R1 stakeholder map, multiply crisis by 1.25
+    # (stacks with electronics_blindspot — misanalysing stakeholders AND
+    #  skipping the audit compounds into significantly worse crisis response)
+    stakeholder_accuracy = current_global.get("stakeholder_map_accuracy", 100)
+    if stakeholder_accuracy < 70:
+        multiplier = 1.25
+        result["crisis_severity"] = round(result["crisis_severity"] * multiplier)
+        result["pre_events"]["stakeholder_misanalysis_penalty"] = True
+        result["pre_events"]["stakeholder_accuracy_at_crisis"] = stakeholder_accuracy
+        result["pre_events"]["stakeholder_crisis_multiplier"] = multiplier
 
 
 _PRE_TICK_MAP = {
@@ -122,6 +151,30 @@ _PRE_TICK_MAP = {
 #  Run AFTER the generic engine.  Mutate the already-computed
 #  next-round state in place.
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+
+def _apply_treasury_with_green_fund(
+    gs: dict, cost: float, extra: dict,
+) -> None:
+    """
+    Deduct a treasury cost, using green_transition_fund first if available.
+    This ensures the green fund subsidises ALL round costs in advanced_climate mode.
+    Cost should be positive for expenses, negative for revenue/gains.
+    """
+    if cost <= 0:
+        # Positive impacts (revenues) bypass the fund — add to treasury directly
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - cost, 2)
+        return
+    fund = gs.get("green_transition_fund", 0.0)
+    if fund >= cost:
+        gs["green_transition_fund"] = round(fund - cost, 2)
+        extra["green_fund_used"] = extra.get("green_fund_used", 0) + cost
+    elif fund > 0:
+        gs["green_transition_fund"] = 0.0
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
+        extra["green_fund_used"] = extra.get("green_fund_used", 0) + fund
+    else:
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - cost, 2)
+
 
 def post_tick(
     round_number: int,
@@ -149,8 +202,56 @@ def post_tick(
     # Apply generic impacts (carbon_intensity_delta, revenue_delta) for ALL rounds
     _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events)
 
+    # Apply HR mechanics: burnout accumulation + workforce readiness (all rounds)
+    _apply_hr_mechanics(round_number, global_state, bu_states, events, extra_events)
+
     # Persist new flags from chosen option into active_event_flags
     _apply_option_flags(round_number, decisions, global_state, extra_events, bus=bu_states)
+
+    # C7: Dynamic Salience Migration (Ackermann & Eden 2011)
+    # Check if any stakeholders shift quadrants this round based on events/flags
+    from stakeholder_map import apply_salience_migrations
+    migrations = apply_salience_migrations(round_number, global_state)
+    if migrations:
+        extra_events["salience_migrations"] = migrations
+        extra_events["salience_migration_count"] = len(migrations)
+        migrated_names = [m["stakeholder_name"] for m in migrations]
+        extra_events["salience_migration_message"] = (
+            f"Stakeholder salience shift: {', '.join(migrated_names)} "
+            f"changed quadrant due to Round {round_number} events."
+        )
+
+    # ── Ending Pathway: Foreshadowing Events (R5–R8) ──────────────
+    # Inject news releases / market intelligence as indirect hints
+    # about the ending pathway. Only if foreshadowing_enabled (god-mode).
+    ending_pathway = previous_flags.get("ending_pathway", "activist_ultimatum")
+    try:
+        from admin_shared import _god_mode_settings
+        foreshadowing_on = _god_mode_settings.get("foreshadowing_enabled", True)
+    except ImportError:
+        foreshadowing_on = True
+
+    if foreshadowing_on and 5 <= round_number <= 8:
+        from ending_pathways import get_foreshadowing_events
+        foreshadow_items = get_foreshadowing_events(ending_pathway, round_number)
+        if foreshadow_items:
+            extra_events["foreshadowing_events"] = foreshadow_items
+            # Inject any flags from foreshadowing items
+            for item in foreshadow_items:
+                if item.get("flag"):
+                    global_state.setdefault("active_event_flags", {})[item["flag"]] = True
+
+    # Inject pathway-specific KPIs for dashboard display (R7+)
+    if round_number >= 7 and foreshadowing_on:
+        from ending_pathways import calc_stranded_asset_exposure, calc_social_capital_index, calc_takeover_vulnerability, calc_compliance_risk_index
+        if ending_pathway == "climate_black_swan":
+            extra_events["stranded_asset_exposure"] = calc_stranded_asset_exposure(bu_states)
+        elif ending_pathway == "stakeholder_revolt":
+            extra_events["social_capital_index"] = calc_social_capital_index(bu_states, global_state)
+        elif ending_pathway == "hostile_takeover":
+            extra_events["takeover_vulnerability_index"] = calc_takeover_vulnerability(bu_states, global_state)
+        elif ending_pathway == "regulatory_shutdown":
+            extra_events["compliance_risk_index"] = calc_compliance_risk_index(bu_states, global_state)
 
     return extra_events
 
@@ -196,6 +297,23 @@ def _apply_common_impacts(
             bu["revenue_base"] = max(0, round(old_rev + rev_delta, 2))
         extra[f"revenue_delta_applied_r{round_number}"] = rev_delta
 
+    # Governance risk delta — applied to all BUs
+    gov_delta = impacts.get("governance_risk_delta", 0)
+    if gov_delta != 0 and f"governance_risk_applied_r{round_number}" not in extra:
+        for bu in bus:
+            bu["governance_risk_score"] = max(
+                0.0, min(100.0, round(bu.get("governance_risk_score", 20.0) + gov_delta, 2))
+            )
+        extra[f"governance_risk_applied_r{round_number}"] = gov_delta
+
+    # Reputation delta — applied to group reputation
+    rep_delta = impacts.get("reputation", 0)
+    if rep_delta != 0 and f"reputation_applied_r{round_number}" not in extra:
+        gs["group_reputation"] = max(
+            0.0, min(100.0, round(gs.get("group_reputation", 50.0) + rep_delta, 2))
+        )
+        extra[f"reputation_applied_r{round_number}"] = rep_delta
+
     # NCD application is handled individually in each round's post handler
     # because some rounds (like R5 and R8) queue it as a pending capex project instead of applying immediately.
 
@@ -206,9 +324,10 @@ def _apply_common_impacts(
                 b["bed_capacity_utilization"] = max(0.0, b.get("bed_capacity_utilization", 0.0) - impacts["bed_capacity_increase"])
                 
     if impacts.get("burnout_spike"):
+        spike_amount = impacts.get("burnout_spike_amount", 25.0)
         for b in bus:
             if b["bu_id"] in ("hospitals", "clinics"):
-                b["staff_burnout_index"] = min(100.0, b.get("staff_burnout_index", 0.0) + 25.0)
+                b["staff_burnout_index"] = min(100.0, b.get("staff_burnout_index", 0.0) + spike_amount)
                 
     if impacts.get("burnout_recovery"):
         for b in bus:
@@ -221,8 +340,67 @@ def _apply_common_impacts(
                 b["opex_base"] = round(b["opex_base"] + impacts["telehealth_opex_delta"], 2)
                 
     if impacts.get("opex_penalty"):
+        targets = impacts.get("opex_penalty_targets")
+        if targets:
+            target_bus = [b for b in bus if b["bu_id"] in targets]
+            share = impacts["opex_penalty"] / max(len(target_bus), 1)
+            for b in target_bus:
+                b["opex_base"] = round(b["opex_base"] + share, 2)
+            extra[f"opex_penalty_targeted_r{round_number}"] = targets
+        else:
+            for b in bus:
+                b["opex_base"] = round(b["opex_base"] + (impacts["opex_penalty"] / len(bus)), 2)
+
+    # Healthcare: Elective surgery cancellation — targeted revenue impacts
+    if impacts.get("elective_surgery_cancel"):
+        is_healthcare = any(b["bu_id"] == "hospitals" for b in bus)
+        if is_healthcare:
+            for b in bus:
+                if b["bu_id"] in ("hospitals", "specialised_care"):
+                    b["revenue_base"] = max(0, round(b["revenue_base"] - 4_000_000, 2))
+                elif b["bu_id"] == "clinics":
+                    b["revenue_base"] = max(0, round(b["revenue_base"] - 1_000_000, 2))
+                elif b["bu_id"] == "telehealth":
+                    b["revenue_base"] = round(b["revenue_base"] + 2_000_000, 2)
+            extra["elective_surgery_cancel_applied"] = True
+            extra["elective_surgery_cancel_detail"] = (
+                "Elective surgery cancellation: Hospitals -$4M, Specialised Care -$4M, "
+                "Clinics -$1M, Telehealth +$2M (digital diversion surge)."
+            )
+
+    # Healthcare R10: opex_slash implementation — aggressive OPEX cut + treasury bonus
+    if impacts.get("opex_slash"):
+        slash_pct = impacts.get("opex_slash_pct", 0.15)
+        treasury_bonus_pct = impacts.get("treasury_bonus_pct", 0.10)
+        # Slash OPEX across all BUs
         for b in bus:
-            b["opex_base"] = round(b["opex_base"] + (impacts["opex_penalty"] / len(bus)), 2)
+            reduction = round(b["opex_base"] * slash_pct, 2)
+            b["opex_base"] = round(b["opex_base"] - reduction, 2)
+        # Treasury bonus
+        treasury_bonus = round(gs["corporate_treasury"] * treasury_bonus_pct, 2)
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] + treasury_bonus, 2)
+        # Patient outcomes penalty
+        outcomes_penalty = impacts.get("patient_outcomes_penalty", -15)
+        for b in bus:
+            old_po = b.get("patient_outcomes_score", 50.0)
+            b["patient_outcomes_score"] = max(0.0, round(old_po + outcomes_penalty, 2))
+        extra["opex_slash_applied"] = True
+        extra["opex_slash_reduction_pct"] = round(slash_pct * 100, 1)
+        extra["opex_slash_treasury_bonus"] = treasury_bonus
+        extra["opex_slash_outcomes_penalty"] = outcomes_penalty
+
+    # Healthcare R10C: synergy_preserve — explicit protection + SLO boost
+    if impacts.get("synergy_preserve"):
+        extra["synergy_explicitly_preserved"] = True
+        extra["synergy_preserve_message"] = (
+            "Universal Care Mandate: Synergy multiplier explicitly protected. "
+            "Corporate charter codifies patient outcomes above short-term margins."
+        )
+    sl_boost = impacts.get("social_license_boost", 0)
+    if sl_boost != 0:
+        for b in bus:
+            b["social_license_score"] = max(0, min(100, round(b["social_license_score"] + sl_boost, 2)))
+        extra[f"social_license_boost_applied_r{round_number}"] = sl_boost
 
     # Synergy is handled cleanly in R7 specific post_tick.
     if impacts.get("contagion_spike"):
@@ -294,62 +472,357 @@ def _apply_common_impacts(
         extra["migration_pressure_applied"] = mig_delta
 
 
-# â”€â”€ R1: Set foundation flags â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── HR Mechanics: Burnout + Workforce Readiness (every round) ────
+def _apply_hr_mechanics(
+    round_number: int,
+    gs: dict,
+    bus: list[dict],
+    events: dict,
+    extra: dict,
+):
+    """
+    Process HR pillar impacts every round:
+
+    1. Burnout Accumulation — per-BU staff_burnout_index driven by
+       burnout_delta from HR pillar choices + natural drift.
+       Creates OPEX penalty when burnout > 40 and governance risk spike > 70.
+
+    2. Workforce Readiness — global-level competence score that modulates
+       effectiveness of other strategic pillars.
+
+    Interdependencies wired in:
+    - R7 (_post_r7_circularity): Low readiness → synergy boost reduced
+    - R9 (_post_r9_just_transition): High burnout → strike probability boost
+    - R10 (_post_r10_grand_finale): High readiness → +0.05 M_R bonus
+    """
+    from engine import calc_burnout_accumulation, calc_workforce_readiness
+
+    # ── 1. Determine HR pillar choice quality from events ──
+    pillar_flags = set(events.get("pillar_flags", []) or [])
+    hr_choice = events.get("hr_choice", None)
+
+    # Classify HR investment tier based on known flags
+    HIGH_HR_FLAGS = {
+        "dei_program", "people_analytics", "green_skills_academy",
+        "crisis_employee_support", "emergency_trained",
+        "responsible_ai_trained", "circular_reskilled",
+        "water_stewards_trained", "full_severance_redeployment",
+        "employee_ownership",
+    }
+    MEDIUM_HR_FLAGS = {
+        "leadership_pipeline", "engagement_survey", "ohs_basic",
+        "basic_ppe", "ai_upskilling", "cross_trained",
+        "shift_optimized", "statutory_minimum_hr", "retention_bonuses",
+    }
+    NEGATIVE_HR_FLAGS = {
+        "burnout_risk", "hr_absent_transition",
+    }
+
+    if pillar_flags & HIGH_HR_FLAGS:
+        hr_quality = "high"
+        burnout_delta = -10.0  # Good HR actively reduces burnout
+        natural_drift = 0.0   # Investment resets natural drift
+    elif pillar_flags & MEDIUM_HR_FLAGS:
+        hr_quality = "medium"
+        burnout_delta = -4.0   # Moderate relief
+        natural_drift = 1.0    # Partial drift still applies
+    elif pillar_flags & NEGATIVE_HR_FLAGS:
+        hr_quality = "none"
+        burnout_delta = 12.0   # Overtime/neglect actively increases burnout
+        natural_drift = 3.0    # Full entropy
+    else:
+        hr_quality = "none"
+        burnout_delta = 0.0
+        natural_drift = 3.0    # Passive burnout accumulation
+
+    hr_invested = hr_quality in ("high", "medium")
+    extra["hr_quality_tier"] = hr_quality
+    extra["hr_invested"] = hr_invested
+
+    # ── 2. Apply burnout to each BU ──
+    burnout_diagnostics = {}
+    for bu in bus:
+        current = bu.get("staff_burnout_index", 0.0)
+        new_burnout, diag = calc_burnout_accumulation(
+            current, burnout_delta, natural_drift
+        )
+        bu["staff_burnout_index"] = new_burnout
+        burnout_diagnostics[bu["bu_id"]] = diag
+
+        # OPEX penalty when burnout > 40
+        penalty_rate = diag["opex_penalty_rate"]
+        if penalty_rate > 0:
+            penalty_amount = round(bu["opex_base"] * penalty_rate, 2)
+            bu["opex_base"] = round(bu["opex_base"] + penalty_amount, 2)
+            extra[f"burnout_opex_penalty_{bu['bu_id']}"] = penalty_amount
+
+        # Governance risk spike when burnout > 70 (critical)
+        if diag["critical_burnout"]:
+            gov_spike = 3.0
+            bu["governance_risk_score"] = min(
+                100.0, round(bu.get("governance_risk_score", 20.0) + gov_spike, 2)
+            )
+            extra[f"burnout_gov_spike_{bu['bu_id']}"] = gov_spike
+
+    extra["burnout_diagnostics"] = burnout_diagnostics
+
+    # ── 3. Workforce readiness (global-level) ──
+    current_readiness = gs.get("workforce_readiness", 50.0)
+    new_readiness, readiness_diag = calc_workforce_readiness(
+        current_readiness, hr_invested, hr_quality
+    )
+    gs["workforce_readiness"] = new_readiness
+    extra["workforce_readiness_diagnostics"] = readiness_diag
+
+    # Set effectiveness modifier for other pillars to consume
+    if new_readiness < 40.0:
+        gs["pillar_effectiveness_modifier"] = 0.80  # 20% penalty
+        extra["low_readiness_penalty_active"] = True
+        extra["low_readiness_message"] = (
+            f"⚠️ LOW WORKFORCE READINESS ({new_readiness:.0f}/100): "
+            f"Undertrained workforce reduces strategic initiative effectiveness by 20%. "
+            f"Invest in HR to restore capability."
+        )
+    else:
+        gs["pillar_effectiveness_modifier"] = 1.0
+        extra["low_readiness_penalty_active"] = False
+
+    # Avg burnout for diagnostic reporting
+    avg_burnout = round(
+        sum(bu.get("staff_burnout_index", 0.0) for bu in bus) / len(bus), 2
+    ) if bus else 0.0
+    extra["avg_burnout_index"] = avg_burnout
+    extra["workforce_readiness"] = new_readiness
+
+    # ── 4. HR ROI Metric — visible financial value of HRM investment ──
+    # Translates the indirect financial benefits of HR into $$ terms each round.
+    # Two components:
+    #   (a) Burnout OPEX Savings: penalty avoided vs a no-HR counterfactual
+    #   (b) Pillar Effectiveness Value: 20% of pillar spend protected by readiness ≥ 40
+    #
+    # hr_roi_this_round = savings (a) + preserved value (b)
+    # hr_roi_cumulative = rolling total persisted in global_state
+
+    # (a) Compute total actual burnout OPEX penalty applied this round
+    total_burnout_penalty_applied = sum(
+        extra.get(f"burnout_opex_penalty_{bu['bu_id']}", 0.0) for bu in bus
+    )
+
+    # Counterfactual: pts of burnout prevented by HR investment this round
+    if hr_quality == "high":
+        delta_saved_per_bu = 13.0   # prevented: burnout_delta(-10) + drift(0 vs 3) = 13
+    elif hr_quality == "medium":
+        delta_saved_per_bu = 6.0    # prevented: burnout_delta(-4) + drift(1 vs 3) = 6
+    else:
+        delta_saved_per_bu = 0.0
+
+    counterfactual_opex_savings = 0.0
+    for bu in bus:
+        current_boi = bu.get("staff_burnout_index", 0.0)
+        counterfactual_burnout = min(100.0, current_boi + delta_saved_per_bu)
+        if counterfactual_burnout > 20.0:
+            counterfactual_rate = ((counterfactual_burnout - 20.0) ** 2) * 0.000028125
+            counterfactual_opex_penalty = round(bu.get("opex_base", 0) * counterfactual_rate, 2)
+            actual_rate = ((current_boi - 20.0) ** 2 * 0.000028125) if current_boi > 20.0 else 0.0
+            actual_opex_penalty = round(bu.get("opex_base", 0) * actual_rate, 2)
+            counterfactual_opex_savings += max(0.0, counterfactual_opex_penalty - actual_opex_penalty)
+    counterfactual_opex_savings = round(counterfactual_opex_savings, 2)
+
+    # (b) Pillar value preserved: HR investment protecting readiness ≥ 40
+    # approximated as 20% of this round's pillar spend
+    pillar_cost_proxy = abs(events.get("pillar_cost_applied", 0))
+    pillar_value_preserved = round(pillar_cost_proxy * 0.20, 2) \
+        if (new_readiness >= 40.0 and hr_quality in ("high", "medium")) else 0.0
+
+    hr_roi_this_round = round(counterfactual_opex_savings + pillar_value_preserved, 2)
+
+    # Accumulate running HR ROI total in global_state
+    prev_cumulative = gs.get("hr_roi_cumulative", 0.0)
+    hr_roi_cumulative = round(prev_cumulative + hr_roi_this_round, 2)
+    gs["hr_roi_cumulative"] = hr_roi_cumulative
+
+    extra["hr_roi_this_round"] = hr_roi_this_round
+    extra["hr_roi_cumulative"] = hr_roi_cumulative
+    extra["hr_roi_opex_savings_component"] = counterfactual_opex_savings
+    extra["hr_roi_pillar_value_component"] = pillar_value_preserved
+    extra["hr_roi_message"] = (
+        f"💼 HR ROI this round: +${hr_roi_this_round:,.0f} "
+        f"(${counterfactual_opex_savings:,.0f} OPEX saved + "
+        f"${pillar_value_preserved:,.0f} pillar value protected). "
+        f"Cumulative: +${hr_roi_cumulative:,.0f}."
+    ) if hr_roi_this_round > 0 else (
+        f"💼 HR ROI this round: $0 (no HR investment — "
+        f"burnout accumulating, ${total_burnout_penalty_applied:,.0f} OPEX penalty active)."
+    )
+
+
+# ── R1: Set foundation flags ────────────────────────────────────
 def _post_r1_foundations(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     """Apply reputation impacts from R1 option choice."""
     choice = _get_primary_choice(decs)
-    cfg_opts = _fetch_options_for_industry(1, bus)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
+    pillar_mode = events.get("pillar_cost_applied") is not None
 
-    if "treasury" in impacts:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
-    if "reputation" in impacts:
-        gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
+    if not pillar_mode:
+        # Legacy mode: read and apply from config
+        cfg_opts = _fetch_options_for_industry(1, bus)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
+
+        if "treasury" in impacts:
+            _apply_treasury_with_green_fund(gs, abs(impacts["treasury"]) if impacts["treasury"] < 0 else -impacts["treasury"], extra)
+        if "reputation" in impacts:
+            gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
+            extra["reputation_applied_r1"] = impacts["reputation"]
+
+        extra["r1_flags_set"] = opt.get("flags_set", [])
+    else:
+        extra["r1_pillar_bypass"] = True
 
     extra["r1_choice"] = choice
-    extra["r1_flags_set"] = opt.get("flags_set", [])
 
 
-# â”€â”€ R3: Scope 3 mutations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── R4: Contagion recovery — post-tick handler (Fix #2) ─
+def _post_r4_contagion(
+    gs: dict, bus: list[dict], decs: list[dict],
+    events: dict, extra: dict, prev_flags: dict,
+):
+    """
+    Apply treasury, reputation, social licence, and governance risk impacts
+    from R4 pillar/legacy choices.
+    """
+    choice = _get_primary_choice(decs)
+    pillar_mode = events.get("pillar_cost_applied") is not None
+
+    if not pillar_mode:
+        # Legacy mode: read and apply from config
+        cfg_opts = _fetch_options_for_industry(4, bus)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
+
+        if "treasury" in impacts:
+            _apply_treasury_with_green_fund(
+                gs,
+                abs(impacts["treasury"]) if impacts["treasury"] < 0 else -impacts["treasury"],
+                extra,
+            )
+
+        rep = impacts.get("reputation", 0)
+        if rep:
+            gs["group_reputation"] = max(0.0, min(100.0, round(gs["group_reputation"] + rep, 2)))
+            extra["r4_reputation_applied"] = rep
+            extra["reputation_applied_r4"] = rep
+
+        sl = impacts.get("social_license", 0)
+        if sl:
+            for bu in bus:
+                bu["social_license_score"] = max(
+                    0.0, min(100.0, round(bu.get("social_license_score", 50.0) + sl, 2))
+                )
+            extra["r4_social_license_applied"] = sl
+
+        gov = impacts.get("governance_risk_delta", 0)
+        if gov:
+            for bu in bus:
+                bu["governance_risk_score"] = max(
+                    0.0, min(100.0, round(bu.get("governance_risk_score", 20.0) + gov, 2))
+                )
+            extra["r4_governance_risk_applied"] = gov
+            extra["governance_risk_applied_r4"] = gov
+    else:
+        extra["r4_pillar_bypass"] = True
+
+    extra["r4_choice"] = choice
+
+    # ── ITEM 14: Social Media Velocity Amplifier (R4+) ────────
+    # Digital amplification accelerates contagion in later rounds
+    round_num = gs.get("round_number", 4) if "round_number" in gs else 4
+    velocity_multiplier = round(1.0 + 0.1 * (round_num - 3), 2)
+    current_rep = gs.get("group_reputation", 50)
+    if current_rep < 60:  # Only amplifies negative reputation
+        rep_penalty = round((60 - current_rep) * 0.1 * (velocity_multiplier - 1.0), 2)
+        if rep_penalty > 0:
+            gs["group_reputation"] = max(0, round(current_rep - rep_penalty, 2))
+            extra["social_media_velocity"] = {
+                "multiplier": velocity_multiplier,
+                "reputation_penalty": rep_penalty,
+                "message": (
+                    f"📱 Social media amplification: Crisis spread {velocity_multiplier}× faster "
+                    f"than baseline. Reputation hit amplified by {rep_penalty:.1f} points."
+                ),
+            }
+
+
+
+# ── R3: Scope 3 mutations ────────────────────────────────────────────────────
 def _post_r3_scope3(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = _fetch_options_for_industry(3, bus)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
+    pillar_mode = events.get("pillar_cost_applied") is not None
 
-    # Treasury
-    if "treasury" in impacts:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
+    if not pillar_mode:
+        # Legacy mode: read and apply from config
+        cfg_opts = _fetch_options_for_industry(3, bus)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
 
-    # Natural Capital Debt delta (applied to all BUs equally)
-    ncd_delta = impacts.get("natural_capital_debt_delta", 0)
-    if ncd_delta != 0:
-        for bu in bus:
-            bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+        if "treasury" in impacts:
+            treasury_cost = abs(impacts["treasury"]) if impacts["treasury"] < 0 else -impacts["treasury"]
 
-    # Carbon intensity delta
-    ci_delta = impacts.get("carbon_intensity_delta", 0)
-    if ci_delta != 0:
-        for bu in bus:
-            bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + ci_delta, 2))
-        extra["carbon_intensity_applied_r3"] = ci_delta  # prevent generic applicator double-apply
+            # ── Gap 4 Fix: Green Bond pricing modulated by R2 materiality posture ──
+            # If R2A (materiality_aligned): institutional investors offer -$500K discount
+            # If R2C (materiality_ignored): risk premium adds +$1M
+            if choice == "option_b":  # Green Bond option
+                r2_flags = _collect_all_flags(prev_flags)
+                if "materiality_aligned" in r2_flags:
+                    discount = 500_000
+                    treasury_cost = max(0, treasury_cost - discount)
+                    extra["green_bond_r2_alignment_discount"] = discount
+                    extra["green_bond_r2_alignment_message"] = (
+                        "📊 R2 Materiality Alignment Bonus: Institutional investors rewarded "
+                        "your CSRD governance posture with a $500K Green Bond discount."
+                    )
+                elif "materiality_ignored" in r2_flags:
+                    premium = 1_000_000
+                    treasury_cost += premium
+                    extra["green_bond_r2_risk_premium"] = premium
+                    extra["green_bond_r2_risk_message"] = (
+                        "⚠️ R2 Materiality Penalty: Investors applied a $1M risk premium "
+                        "on your Green Bond — your governance track record raised red flags."
+                    )
+            _apply_treasury_with_green_fund(gs, treasury_cost, extra)
 
-    # Option A: supply chain disruption risk â†’ increase governance risk
-    if impacts.get("supply_chain_disruption"):
-        for bu in bus:
-            if bu["bu_id"] in ("electronics", "pharma"):
-                bu["governance_risk_score"] = min(100, bu["governance_risk_score"] + 10)
-        extra["supply_chain_disruption_applied"] = True
+        ncd_delta = impacts.get("natural_capital_debt_delta", 0)
+        if ncd_delta != 0:
+            for bu in bus:
+                bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
 
-    # UN SDG: Option A (Compulsory Schooling) â†’ create education_lag pending project
-    # Education investments yield 0% impact for 3 rounds, then +0.8 multiplier for SDG 8
+        ci_delta = impacts.get("carbon_intensity_delta", 0)
+        if ci_delta != 0:
+            for bu in bus:
+                bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + ci_delta, 2))
+            extra["carbon_intensity_applied_r3"] = ci_delta
+
+        if impacts.get("supply_chain_disruption"):
+            for bu in bus:
+                if bu["bu_id"] in ("electronics", "pharma"):
+                    bu["governance_risk_score"] = min(100, bu["governance_risk_score"] + 10)
+            extra["supply_chain_disruption_applied"] = True
+
+        if "reputation" in impacts:
+            gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
+            extra["reputation_applied_r3"] = impacts["reputation"]
+    else:
+        extra["r3_pillar_bypass"] = True
+        # Carbon intensity guard for _apply_common_impacts
+        extra["carbon_intensity_applied_r3"] = True
+
+    # ── Round-specific logic (runs for BOTH paradigms) ──
+    # UN SDG: Option A (Compulsory Schooling) → create education_lag pending project
     if choice == "option_a" and any(bu.get("basic_needs") is not None for bu in bus):
         if "pending_capex_projects" not in gs:
             gs["pending_capex_projects"] = []
@@ -357,231 +830,254 @@ def _post_r3_scope3(
             "type": "education_lag",
             "rounds_remaining": 3,
             "amount": 0.8,
-            "description": "Education Investment Maturing (SDG 4 â†’ SDG 8)"
+            "description": "Education Investment Maturing (SDG 4 → SDG 8)"
         })
         extra["education_lag_project_started"] = True
 
-    # Reputation impact
-    if "reputation" in impacts:
-        gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
+    # ── ITEM 13: Scope 3 Data Availability Challenge ──────────
+    # Models the real-world difficulty of getting suppliers to disclose
+    scope3_completeness = 30  # Baseline: only 30% of supply chain visible
+    if choice == "option_a":
+        scope3_completeness = 80  # Direct supplier audit → high visibility
+    elif choice == "option_b":
+        scope3_completeness = 60  # Green bond with partial audit
+    gs["scope3_data_completeness"] = scope3_completeness
+    extra["scope3_data_completeness"] = scope3_completeness
+    if scope3_completeness < 60:
+        extra["scope3_data_challenge"] = {
+            "completeness": scope3_completeness,
+            "noise_pct": round((100 - scope3_completeness) * 0.15, 1),
+            "message": (
+                f"⚠️ Scope 3 Data Gap: Only {scope3_completeness}% of your supply chain "
+                f"emissions are verifiable. Suppliers are resisting disclosure. "
+                f"Reported emissions have ±{round((100 - scope3_completeness) * 0.15, 1)}% uncertainty."
+            ),
+        }
 
     extra["r3_choice"] = choice
 
 
-# â”€â”€ R5: Stochastic Climate Event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-def _post_r5_climate(
-    gs: dict, bus: list[dict], decs: list[dict],
-    events: dict, extra: dict, prev_flags: dict,
-):
-    choice = _get_primary_choice(decs)
-    cfg_opts = _fetch_options_for_industry(5, bus)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
-
-    from healthcare_configs import get_healthcare_round_config
-    if any(b["bu_id"] == "hospitals" for b in bus):
-        cfg = get_healthcare_round_config(5)
-    else:
-        cfg = get_round_config(5)
-    special = cfg.get("special_rules", {}) if cfg else {}
-    base_damage = special.get("base_damage", 12_000_000)
-    threshold = special.get("stochastic_threshold", 0.75)
-
-    resilience_factor = impacts.get("resilience_factor", 0.0)
-
-    # Stochastic dice roll
-    roll = round(random.random(), 4)
-    extra["stochastic_roll"] = roll
-    extra["stochastic_threshold"] = threshold
-
-    # Check for active resilience factor stored by completed pending projects
-    active_resilience_factor = events.get("active_resilience_factor", 0.0)
-    
-    # FIX AUDIT-009 was reverted: Hard Engineering is a delayed capex, so its
-    # resilience_factor does NOT apply immediately. Only previously completed 
-    # projects provide protection.
-    effective_resilience = active_resilience_factor
-
-    if roll < threshold:
-        # Event strikes â€” apply damage mitigated by resilience
-        actual_damage = round(base_damage * (1 - effective_resilience), 2)
-
-        # UN SDG: Carbon Retribution Hook â€” triples damage if global emissions
-        # exceeded threshold by Round 5
-        carbon_retribution = events.get("carbon_retribution_multiplier", 1.0)
-        if carbon_retribution > 1.0:
-            actual_damage = round(actual_damage * carbon_retribution, 2)
-            extra["carbon_retribution_applied"] = True
-            extra["carbon_retribution_multiplier"] = carbon_retribution
-
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] - actual_damage, 2)
-        extra["climate_event_struck"] = True
-        extra["base_damage"] = base_damage
-        extra["resilience_factor"] = effective_resilience
-        extra["actual_damage"] = actual_damage
-    else:
-        extra["climate_event_struck"] = False
-        extra["climate_event_message"] = "The cyclone changed course. No damage."
-
-    # Treasury cost of the option itself
-    if "treasury" in impacts:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
-
-    # Advanced Climate Engine: Delay CapEx yields for Hard Engineering projects
-    ncd_delta = impacts.get("natural_capital_debt_delta", 0)
-    
-    if resilience_factor > 0 or ncd_delta != 0:
-        if "pending_capex_projects" not in gs:
-            gs["pending_capex_projects"] = []
-            
-        if resilience_factor > 0:
-            gs["pending_capex_projects"].append({
-                "type": "resilience_boost",
-                "amount": resilience_factor,
-                "rounds_remaining": 2,
-                "description": "Building Coastal Resilience Infrastructure"
-            })
-            extra["resilience_project_started"] = True
-            
-        if ncd_delta != 0:
-            gs["pending_capex_projects"].append({
-                "type": "ncd_drop",
-                "amount": ncd_delta,
-                "bu_target": "all",
-                "rounds_remaining": 2,
-                "description": "Hard Engineering Impact Adjustments"
-            })
-            extra["ncd_project_started"] = True
-
-    extra["r5_choice"] = choice
+# ── R5: Stochastic Climate Event (extracted to impact_engine.py) ──
+# _post_r5_climate = _ie._post_r5_climate  (registered in _POST_TICK_MAP below)
 
 
-# â”€â”€ R6: AI Bias â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── R6: AI Bias ──────────────────────────────────────────────────────────────
 def _post_r6_ai_bias(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = _fetch_options_for_industry(6, bus)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
+    pillar_mode = events.get("pillar_cost_applied") is not None
 
-    # Option A: +$5M revenue to Software but -20 reputation (contagion spike)
-    rev_delta = impacts.get("software_revenue_delta", 0)
-    if rev_delta != 0:
-        for bu in bus:
-            if bu["bu_id"] == "software":
-                bu["revenue_base"] = round(bu["revenue_base"] + rev_delta, 2)
-                break
-        extra["software_revenue_boosted"] = rev_delta
+    if not pillar_mode:
+        cfg_opts = _fetch_options_for_industry(6, bus)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
 
-    rep_delta = impacts.get("reputation_delta", 0)
-    if rep_delta != 0:
-        gs["group_reputation"] = max(0, min(100, round(gs["group_reputation"] + rep_delta, 2)))
+        rev_delta = impacts.get("software_revenue_delta", 0)
+        if rev_delta != 0:
+            for bu in bus:
+                if bu["bu_id"] == "software":
+                    bu["revenue_base"] = round(bu["revenue_base"] + rev_delta, 2)
+                    break
+            extra["software_revenue_boosted"] = rev_delta
 
-    if impacts.get("contagion_spike"):
-        extra["contagion_spike_triggered"] = True
+        rep_delta = impacts.get("reputation_delta", 0)
+        if rep_delta != 0:
+            gs["group_reputation"] = max(0, min(100, round(gs["group_reputation"] + rep_delta, 2)))
 
-    # Option B: treasury cost + social license boost
-    if "treasury" in impacts:
-        gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
+        if impacts.get("contagion_spike"):
+            extra["contagion_spike_triggered"] = True
 
-    sl_delta = impacts.get("social_license_delta", 0)
-    if sl_delta != 0:
-        for bu in bus:
-            bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
-        extra["social_license_boosted"] = sl_delta
+        if "treasury" in impacts:
+            _apply_treasury_with_green_fund(gs, abs(impacts["treasury"]) if impacts["treasury"] < 0 else -impacts["treasury"], extra)
 
-    # Option C: governance risk increase
-    gov_delta = impacts.get("governance_risk_delta", 0)
-    if gov_delta != 0:
-        for bu in bus:
-            bu["governance_risk_score"] = max(0, min(100, round(bu["governance_risk_score"] + gov_delta, 2)))
+        sl_delta = impacts.get("social_license_delta", 0)
+        if sl_delta != 0:
+            for bu in bus:
+                bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
+            extra["social_license_boosted"] = sl_delta
+
+        gov_delta = impacts.get("governance_risk_delta", 0)
+        if gov_delta != 0:
+            for bu in bus:
+                bu["governance_risk_score"] = max(0, min(100, round(bu["governance_risk_score"] + gov_delta, 2)))
+            extra["governance_risk_applied_r6"] = gov_delta
+    else:
+        extra["r6_pillar_bypass"] = True
 
     extra["r6_choice"] = choice
 
+    # ── ITEM 16: EU AI Act Compliance Trigger ─────────────────
+    # If AI was monetised (Option A) without ethical audit, EU AI Act
+    # triggers compliance costs from R7 onward
+    if choice == "option_a":
+        gs.setdefault("active_event_flags", {})["ai_monetised"] = True
+        extra["eu_ai_act_pending"] = {
+            "message": (
+                "🏛️ EU AI Act: Your AI deployment is classified as 'high-risk' "
+                "under the EU Artificial Intelligence Act (Article 6). "
+                "Compliance audit costs will apply from Round 7."
+            ),
+        }
+    # Apply deferred EU AI Act cost if the flag was set in a previous round
+    all_flags = _collect_all_flags(prev_flags)
+    if "ai_monetised" in all_flags and gs.get("round_number", 6) >= 7:
+        ai_compliance_cost = 3_000_000
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - ai_compliance_cost, 2)
+        for bu in bus:
+            bu["governance_risk_score"] = min(100, round(
+                bu.get("governance_risk_score", 20) + 5, 2
+            ))
+        extra["eu_ai_act_compliance"] = {
+            "cost": ai_compliance_cost,
+            "governance_risk_delta": 5,
+            "message": (
+                f"🏛️ EU AI ACT ENFORCEMENT: Mandatory bias audit + conformity "
+                f"assessment cost ${ai_compliance_cost:,.0f}. Governance risk "
+                f"increased +5 across all BUs. Deploying AI without ethical "
+                f"review has ongoing regulatory consequences."
+            ),
+        }
 
-# â”€â”€ R7: Circularity â€” Option C unlocks synergy multiplier â”€â”€â”€â”€â”€â”€â”€
+
+# ── R7: Circularity — Option C unlocks synergy multiplier ──────────────────
 def _post_r7_circularity(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = _fetch_options_for_industry(7, bus)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
+    pillar_mode = events.get("pillar_cost_applied") is not None
 
-    if "treasury" in impacts:
-        cost = abs(impacts["treasury"])
-        fund = gs.get("green_transition_fund", 0.0)
-        if fund >= cost:
-            gs["green_transition_fund"] -= cost
-            extra["green_fund_used"] = cost
-        else:
-            gs["green_transition_fund"] = 0.0
-            gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
-            extra["green_fund_used"] = fund
+    if not pillar_mode:
+        cfg_opts = _fetch_options_for_industry(7, bus)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
 
-    ncd_delta = impacts.get("natural_capital_debt_delta", 0)
-    if ncd_delta != 0:
-        for bu in bus:
-            bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
+        if "treasury" in impacts:
+            cost = abs(impacts["treasury"])
+            fund = gs.get("green_transition_fund", 0.0)
+            if fund >= cost:
+                gs["green_transition_fund"] -= cost
+                extra["green_fund_used"] = cost
+            else:
+                gs["green_transition_fund"] = 0.0
+                gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
+                extra["green_fund_used"] = fund
 
-    if "reputation" in impacts:
-        gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
+        ncd_delta = impacts.get("natural_capital_debt_delta", 0)
+        if ncd_delta != 0:
+            for bu in bus:
+                bu["natural_capital_debt"] = max(0, round(bu["natural_capital_debt"] + ncd_delta, 2))
 
-    # Option C: Synergy multiplier boost
-    syn_boost = impacts.get("synergy_multiplier_boost", 0)
+        if "reputation" in impacts:
+            gs["group_reputation"] = max(0, min(100, gs["group_reputation"] + impacts["reputation"]))
+            extra["reputation_applied_r7"] = impacts["reputation"]
+
+        syn_boost = impacts.get("synergy_multiplier_boost", 0)
+    else:
+        extra["r7_pillar_bypass"] = True
+        # In pillar mode, synergy boost comes from pillar aggregate
+        agg_impacts = events.get("pillar_aggregate_impacts", {})
+        syn_boost = agg_impacts.get("synergy_multiplier_boost", 0)
     if syn_boost > 0:
-        gs["synergy_multiplier"] = round(gs["synergy_multiplier"] + syn_boost, 4)
+        # ── Workforce Readiness Interdependency ──
+        # Low readiness → workforce can't execute complex circular transitions
+        readiness = gs.get("workforce_readiness", 50.0)
+        readiness_modifier = 1.0
+        if readiness < 40.0:
+            readiness_modifier = 0.70  # 30% penalty: undertrained workforce
+            extra["synergy_readiness_penalty"] = True
+            extra["synergy_readiness_message"] = (
+                f"⚠️ LOW WORKFORCE READINESS ({readiness:.0f}/100): "
+                f"Synergy boost reduced by 30% — workforce lacks circular economy skills. "
+                f"Earlier HR investment would have preserved full synergy potential."
+            )
+        elif readiness >= 60.0:
+            readiness_modifier = 1.10  # 10% bonus: skilled workforce amplifies innovation
+            extra["synergy_readiness_bonus"] = True
+
+        effective_boost = round(syn_boost * readiness_modifier, 4)
+        gs["synergy_multiplier"] = round(gs["synergy_multiplier"] + effective_boost, 4)
         extra["synergy_multiplier_unlocked"] = True
-        extra["synergy_boost_amount"] = syn_boost
+        extra["synergy_boost_amount"] = effective_boost
+        extra["synergy_boost_base"] = syn_boost
+        extra["synergy_readiness_modifier"] = readiness_modifier
+
+    # Early Decarboniser Bonus: R3 Option A gives +0.10 synergy
+    all_flags = _collect_all_flags(prev_flags)
+    if "early_decarboniser" in all_flags:
+        gs["synergy_multiplier"] = round(gs["synergy_multiplier"] + 0.10, 4)
+        extra["early_decarboniser_synergy_bonus"] = True
+        extra["early_decarboniser_bonus_amount"] = 0.10
 
     extra["r7_choice"] = choice
 
 
-# â”€â”€ R8: Blue Stress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# ── R8: Blue Stress ──────────────────────────────────────────────────────────
 def _post_r8_blue_stress(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
 ):
     choice = _get_primary_choice(decs)
-    cfg_opts = _fetch_options_for_industry(8, bus)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
+    pillar_mode = events.get("pillar_cost_applied") is not None
 
-    # UN SDG: Blockchain Traceability (R3 Option C) prevents Scandal Shock
+    # Blockchain traceability check (runs for both paradigms)
     all_flags = _collect_all_flags(prev_flags)
-    if "blockchain_traceability" in all_flags:
-        # Traceability verified â€” no scandal, governance bonus
+    scandal_prevented = "blockchain_traceability" in all_flags
+    if scandal_prevented:
         extra["scandal_shock_prevented"] = True
         extra["blockchain_traceability_dividend"] = True
-        gs["group_reputation"] = min(100, round(
-            gs.get("group_reputation", 50) + 5, 2
-        ))
-        # Skip the negative governance/reputation impacts of the strike
-        impacts = {k: v for k, v in impacts.items()
-                   if k not in ("governance_delta",) or v >= 0}
+        gs["group_reputation"] = min(100, round(gs.get("group_reputation", 50) + 5, 2))
 
-    if "treasury" in impacts:
-        cost = abs(impacts["treasury"])
-        fund = gs.get("green_transition_fund", 0.0)
-        if fund >= cost:
-            gs["green_transition_fund"] -= cost
-            extra["green_fund_used"] = cost
-        else:
-            gs["green_transition_fund"] = 0.0
-            gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
-            extra["green_fund_used"] = fund
+    if not pillar_mode:
+        cfg_opts = _fetch_options_for_industry(8, bus)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
 
-    # Option B: severe social licence drop on specific BUs
-    if impacts.get("social_license_severe_drop"):
+        if scandal_prevented:
+            impacts = {k: v for k, v in impacts.items()
+                       if k not in ("governance_delta",) or v >= 0}
+
+        if "treasury" in impacts:
+            cost = abs(impacts["treasury"])
+            fund = gs.get("green_transition_fund", 0.0)
+            if fund >= cost:
+                gs["green_transition_fund"] -= cost
+                extra["green_fund_used"] = cost
+            else:
+                gs["green_transition_fund"] = 0.0
+                gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
+                extra["green_fund_used"] = fund
+    else:
+        extra["r8_pillar_bypass"] = True
+        impacts = {}  # Standard impacts already applied by router
+
+    # ── Round-specific logic (runs for BOTH paradigms) ──
+    # Fix #8: Only fire if electronics_water_priority was EXPLICITLY chosen
+    r8_pillar_flags = set(
+        events.get("pillar_flags", [])
+        or events.get(f"r8_pillar_flags", [])
+        or []
+    )
+    explicit_electronics_priority = (
+        "electronics_water_priority" in r8_pillar_flags
+        or (choice == "option_b" and "water_efficiency_all" not in r8_pillar_flags
+            and "desalination_built" not in r8_pillar_flags)
+    )
+    if impacts.get("social_license_severe_drop") and explicit_electronics_priority:
         targets = impacts.get("social_license_drop_targets", [])
         drop_amt = impacts.get("social_license_drop_amount", -25)
         for bu in bus:
             if bu["bu_id"] in targets:
                 bu["social_license_score"] = max(0, round(bu["social_license_score"] + drop_amt, 2))
         extra["social_license_severe_drop_applied"] = targets
+    elif impacts.get("social_license_severe_drop") and not explicit_electronics_priority:
+        extra["social_license_severe_drop_skipped"] = True
+        extra["social_license_severe_drop_reason"] = (
+            "electronics_water_priority flag not found in pillar choices — "
+            "severe SLO drop suppressed to prevent incorrect cost-proxy punishment."
+        )
 
     # Option C: NCD reduction (Desalination Plant - Delayed CapEx)
     ncd_delta = impacts.get("natural_capital_debt_delta", 0)
@@ -603,6 +1099,21 @@ def _post_r8_blue_stress(
         for bu in bus:
             bu["water_dependency"] = max(0, round(bu.get("water_dependency", 0) + wd_delta, 2))
 
+    # Desalination payback: generates revenue over subsequent rounds
+    gen_rev = impacts.get("generates_revenue", 0)
+    payback_rounds = impacts.get("payback_rounds", 0)
+    if gen_rev > 0 and payback_rounds > 0:
+        if "pending_capex_projects" not in gs:
+            gs["pending_capex_projects"] = []
+        gs["pending_capex_projects"].append({
+            "type": "revenue_generation",
+            "amount": gen_rev,
+            "rounds_remaining": payback_rounds,
+            "description": "Desalination Plant Revenue Generation"
+        })
+        extra["desalination_payback_started"] = True
+        extra["desalination_payback_per_round"] = gen_rev
+
     # Social licence boost (Option A)
     sl_delta = impacts.get("social_license_delta", 0)
     if sl_delta != 0:
@@ -612,87 +1123,11 @@ def _post_r8_blue_stress(
     extra["r8_choice"] = choice
 
 
-# â”€â”€ R9: Just Transition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-def _post_r9_just_transition(
-    gs: dict, bus: list[dict], decs: list[dict],
-    events: dict, extra: dict, prev_flags: dict,
-):
-    choice = _get_primary_choice(decs)
-    cfg_opts = _fetch_options_for_industry(9, bus)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
-
-    # Treasury (allow positive impacts to go straight to treasury)
-    if "treasury" in impacts:
-        if impacts["treasury"] < 0:
-            cost = abs(impacts["treasury"])
-            fund = gs.get("green_transition_fund", 0.0)
-            if fund >= cost:
-                gs["green_transition_fund"] -= cost
-                extra["green_fund_used"] = cost
-            else:
-                gs["green_transition_fund"] = 0.0
-                gs["corporate_treasury"] = round(gs["corporate_treasury"] - (cost - fund), 2)
-                extra["green_fund_used"] = fund
-        else:
-            gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
-
-    # Reputation & Social License deltas
-    rep_delta = impacts.get("reputation_delta", 0)
-    if rep_delta != 0:
-        gs["group_reputation"] = max(0, min(100, round(gs["group_reputation"] + rep_delta, 2)))
-
-    sl_delta = impacts.get("social_license_delta", 0)
-    if sl_delta != 0:
-        for bu in bus:
-            bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
-
-    gov_delta = impacts.get("governance_risk_delta", 0)
-    if gov_delta != 0:
-        for bu in bus:
-            bu["governance_risk_score"] = max(0, min(100, round(bu["governance_risk_score"] + gov_delta, 2)))
-
-    # Option A: Strike risk â€” if Social License is low
-    if impacts.get("strike_risk"):
-        avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 50
-        strike_threshold = 50  # "low" social license
-
-        # Calculate Regulatory Friction = 1 / SLO_m (avg social license)
-        regulatory_friction = round(1.0 / max(1.0, avg_sl), 4)
-        extra["regulatory_friction"] = regulatory_friction
-
-        if avg_sl < strike_threshold:
-            # Roll against 75% strike probability
-            roll = round(random.random(), 4)
-            extra["strike_roll"] = roll
-            extra["strike_probability"] = 0.75
-
-            if roll < 0.75:
-                # FIX AUDIT-003: Strike hits â€” apply as a treasury deduction
-                # rather than zeroing revenue_base, which would permanently
-                # corrupt R10's starting state.
-                revenue_lost = sum(bu.get("revenue_base", 0) for bu in bus)
-                gs["corporate_treasury"] = round(
-                    gs["corporate_treasury"] - revenue_lost, 2
-                )
-                extra["strike_triggered"] = True
-                extra["strike_revenue_lost"] = revenue_lost
-                extra["strike_message"] = (
-                    "Workers have gone on strike! All BU revenue for this "
-                    f"round has been lost (âˆ’${revenue_lost:,.0f} from treasury)."
-                )
-                extra["revenue_zeroed"] = True
-            else:
-                extra["strike_triggered"] = False
-                extra["strike_message"] = "Strike narrowly averted through last-minute negotiations."
-        else:
-            extra["strike_triggered"] = False
-            extra["strike_message"] = "Social licence sufficient â€” no strike risk."
-
-    extra["r9_choice"] = choice
+# ── R9: Just Transition (extracted to impact_engine.py) ──
+# _post_r9_just_transition = _ie._post_r9_just_transition  (registered in _POST_TICK_MAP below)
 
 
-# â”€â”€ R10: Grand Finale â€” Terminal EBITDA, MR, Terminal Valuation â”€â”€â”€â”€
+# ── R10: Grand Finale — Terminal EBITDA, MR, Terminal Valuation ─────────────
 def _post_r10_grand_finale(
     gs: dict, bus: list[dict], decs: list[dict],
     events: dict, extra: dict, prev_flags: dict,
@@ -701,41 +1136,81 @@ def _post_r10_grand_finale(
     # FIX: Use industry-aware config so healthcare sessions get the correct R10 options.
     is_healthcare = any(b["bu_id"] == "hospitals" for b in bus)
 
+    # ── Ending Pathway Detection ──
+    ending_pathway = prev_flags.get("ending_pathway", "activist_ultimatum")
+    extra["ending_pathway"] = ending_pathway
 
-
-    if is_healthcare:
+    # Load pathway-specific R10 config if not the default activist_ultimatum
+    if ending_pathway not in ("activist_ultimatum", "") and not is_healthcare:
+        from ending_pathways import get_pathway_r10_config, get_pathway_r10_options
+        pw_cfg = get_pathway_r10_config(ending_pathway)
+        if pw_cfg:
+            cfg = pw_cfg
+            cfg_opts = get_pathway_r10_options(ending_pathway)
+            opt = cfg_opts.get(choice, {})
+            impacts = opt.get("impacts", {})
+            special = cfg.get("special_rules", {}) if cfg else {}
+            all_flags = _collect_all_flags(prev_flags)
+            extra["pathway_config_loaded"] = True
+        else:
+            # Fallback to standard configs
+            cfg = get_round_config(10)
+            cfg_opts = get_round_options(10)
+            opt = cfg_opts.get(choice, {})
+            impacts = opt.get("impacts", {})
+            special = cfg.get("special_rules", {}) if cfg else {}
+            all_flags = _collect_all_flags(prev_flags)
+    elif is_healthcare:
         from healthcare_configs import get_healthcare_round_config, get_healthcare_round_options
         cfg = get_healthcare_round_config(10)
         cfg_opts = get_healthcare_round_options(10)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
+        special = cfg.get("special_rules", {}) if cfg else {}
+        all_flags = _collect_all_flags(prev_flags)
     else:
         cfg = get_round_config(10)
         cfg_opts = get_round_options(10)
-    opt = cfg_opts.get(choice, {})
-    impacts = opt.get("impacts", {})
-    special = cfg.get("special_rules", {}) if cfg else {}
-    all_flags = _collect_all_flags(prev_flags)
+        opt = cfg_opts.get(choice, {})
+        impacts = opt.get("impacts", {})
+        special = cfg.get("special_rules", {}) if cfg else {}
+        all_flags = _collect_all_flags(prev_flags)
 
     carbon_tax_per_ton = special.get("carbon_tax_per_ton", 250)
     exit_multiple = special.get("exit_multiple", 12.0)
 
-    # â”€â”€ Check for God Mode carbon tax override â”€â”€
+    # ── Check for God Mode carbon tax override ──
     if prev_flags.get("carbon_tax_override_active"):
         carbon_tax_per_ton = prev_flags.get("carbon_tax_per_ton", carbon_tax_per_ton)
 
-    # â”€â”€ Apply Activist Ultimatum choice effects first â”€â”€
+    # ── Apply Activist Ultimatum choice effects first ──
     if "treasury" in impacts:
         gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts["treasury"], 2)
 
-    # Option A: Resist & Integrate â€” validate synergy gate
+    # Option A: Resist & Integrate — validate synergy gate
     synergy_gate = special.get("synergy_gate_threshold", 80)
     synergy_score = gs.get("synergy_multiplier", 1.0) * 100  # normalise
+    # ═══════════════════════════════════════════════════════════════
+    #  REGENERATIVE MULTIPLE (M_R)
+    #  Base = 1.0
+    #  +0.10  CSRD Governance Premium: R2A materiality_aligned (NEW)
+    #  +0.30  if synergy achieved in R7  (synergy_unlock flag)
+    #  +0.20  if survived R5/R8 without bailout
+    #  +0.15  Truth Premium from R6 (ethical_ai_overhaul flag)
+    #  +0.18  Community Champion R9 (community_fund)
+    #  +0.12  Just Transition R9 (managed_transition)
+    #  +0.10  Workforce Excellence (readiness >= 75)
+    #  +0.05  Wellbeing Champion (avg burnout < 20)
+    #  −0.40  Instability Discount if Social License < 75
+    #  Max achievable (all bonuses): 1.0+0.10+0.30+0.20+0.15+0.18+0.10+0.05 = 2.08
+    # ═══════════════════════════════════════════════════════════════
     if choice == "option_a":
         if synergy_score <= synergy_gate:
             # Should have been blocked by frontend; force fallback to B
             extra["synergy_gate_blocked"] = True
             extra["synergy_gate_message"] = (
                 f"Resist & Integrate blocked: Synergy Score "
-                f"{synergy_score:.0f} â‰¤ {synergy_gate}. Defaulting to Spin-off."
+                f"{synergy_score:.0f} ≤ {synergy_gate}. Defaulting to Spin-off."
             )
             choice = "option_b"
             opt = cfg_opts.get(choice, {})
@@ -752,10 +1227,169 @@ def _post_r10_grand_finale(
         weakest["revenue_base"] = 0
         weakest["opex_base"] = 0
 
-    # Option C: Divest â€” wipe synergy
+    # Option C: Divest — wipe synergy
     if impacts.get("synergy_wipe"):
         gs["synergy_multiplier"] = 1.0
         extra["synergy_wiped"] = True
+
+    # ── Pathway-Specific Option Processing ───────────────────────────
+    if ending_pathway == "climate_black_swan":
+        # Option A: Emergency Decarb — halve CI and NCD
+        if impacts.get("carbon_intensity_halve"):
+            for bu in bus:
+                bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) / 2, 2))
+            extra["carbon_intensity_halved"] = True
+        if impacts.get("ncd_halve"):
+            for bu in bus:
+                bu["natural_capital_debt"] = max(0, round(bu.get("natural_capital_debt", 0) / 2, 2))
+            extra["ncd_halved"] = True
+        # Option B: Divest high-CI BUs at fire-sale
+        if impacts.get("divest_high_ci"):
+            ci_threshold = impacts.get("ci_divest_threshold", 40)
+            realloc = impacts.get("reallocation_per_bu", 3_000_000)
+            divested_bus = []
+            remaining_bus = []
+            for bu in bus:
+                if bu.get("carbon_intensity", 0) > ci_threshold:
+                    # Fire-sale: 50% of book value added to treasury
+                    book_val = max(0, bu["revenue_base"] - bu["opex_base"])
+                    gs["corporate_treasury"] = round(gs["corporate_treasury"] + book_val * 0.5, 2)
+                    bu["revenue_base"] = 0
+                    bu["opex_base"] = 0
+                    divested_bus.append(bu["bu_id"])
+                else:
+                    remaining_bus.append(bu["bu_id"])
+            # Reallocation to remaining BUs
+            for bu in bus:
+                if bu["bu_id"] in remaining_bus:
+                    bu["revenue_base"] = round(bu["revenue_base"] + realloc, 2)
+            extra["climate_divested_bus"] = divested_bus
+            extra["climate_remaining_bus"] = remaining_bus
+        # Option C: carbon_tax_triple + ncd_double
+        if impacts.get("carbon_tax_triple"):
+            carbon_tax_per_ton = 750
+            extra["carbon_tax_tripled"] = True
+        if impacts.get("ncd_double"):
+            for bu in bus:
+                bu["natural_capital_debt"] = round(bu.get("natural_capital_debt", 0) * 2, 2)
+            extra["ncd_doubled"] = True
+        if impacts.get("exit_multiple_override"):
+            exit_multiple = impacts["exit_multiple_override"]
+            extra["exit_multiple_overridden"] = exit_multiple
+        if impacts.get("mr_penalty"):
+            extra["pathway_mr_penalty_from_option"] = impacts["mr_penalty"]
+
+    elif ending_pathway == "stakeholder_revolt":
+        # Option A: Revenue boost from brand loyalty
+        if impacts.get("revenue_boost_pct"):
+            boost = impacts["revenue_boost_pct"]
+            for bu in bus:
+                bu["revenue_base"] = round(bu["revenue_base"] * (1 + boost), 2)
+            extra["stakeholder_revenue_boost"] = boost
+        # Option B: Selective appeasement
+        if impacts.get("selective_fix"):
+            avg_slo = sum(bu.get("social_license_score", 0) for bu in bus) / max(len(bus), 1)
+            avg_bo = sum(bu.get("staff_burnout_index", 0) for bu in bus) / max(len(bus), 1)
+            # Auto-fix worst dimension
+            if avg_bo > (100 - avg_slo):  # burnout is worse
+                for bu in bus:
+                    bu["staff_burnout_index"] = max(0, round(bu.get("staff_burnout_index", 0) - 20, 2))
+                extra["selective_fix_target"] = "employee_burnout"
+            else:
+                for bu in bus:
+                    bu["social_license_score"] = min(100, round(bu.get("social_license_score", 0) + 15, 2))
+                extra["selective_fix_target"] = "community_slo"
+            # Unaddressed groups escalate
+            penalty = impacts.get("unaddressed_slo_penalty", -10)
+            if extra.get("selective_fix_target") == "employee_burnout":
+                for bu in bus:
+                    bu["social_license_score"] = max(0, round(bu.get("social_license_score", 0) + penalty, 2))
+            else:
+                for bu in bus:
+                    bu["staff_burnout_index"] = min(100, round(bu.get("staff_burnout_index", 0) + 10, 2))
+        # Option C: Corporate hardball
+        if impacts.get("slo_all_penalty"):
+            for bu in bus:
+                bu["social_license_score"] = max(0, round(bu.get("social_license_score", 0) + impacts["slo_all_penalty"], 2))
+        if impacts.get("burnout_all_increase"):
+            for bu in bus:
+                bu["staff_burnout_index"] = min(100, round(bu.get("staff_burnout_index", 0) + impacts["burnout_all_increase"], 2))
+        if impacts.get("shutter_zero_slo"):
+            for bu in bus:
+                if bu.get("social_license_score", 0) <= 0:
+                    extra.setdefault("shuttered_bus", []).append(bu["bu_id"])
+                    bu["revenue_base"] = 0
+                    bu["opex_base"] = 0
+        if impacts.get("mr_penalty"):
+            extra["pathway_mr_penalty_from_option"] = impacts["mr_penalty"]
+
+    elif ending_pathway == "hostile_takeover":
+        # Option A: White Knight — revenue drag
+        if impacts.get("white_knight"):
+            drag = impacts.get("revenue_drag_pct", -0.05)
+            for bu in bus:
+                bu["revenue_base"] = round(bu["revenue_base"] * (1 + drag), 2)
+            extra["white_knight_revenue_drag"] = drag
+        # Option B: Poison pill — exit multiple override
+        if impacts.get("poison_pill"):
+            if impacts.get("exit_multiple_override"):
+                exit_multiple = impacts["exit_multiple_override"]
+                extra["exit_multiple_overridden"] = exit_multiple
+            extra["poison_pill_deployed"] = True
+        # Option C: Accept bid — M_R cap + exit multiple override
+        if impacts.get("mr_cap"):
+            extra["mr_cap"] = impacts["mr_cap"]
+        if impacts.get("exit_multiple_override") and not impacts.get("poison_pill"):
+            exit_multiple = impacts["exit_multiple_override"]
+            extra["exit_multiple_overridden"] = exit_multiple
+        if impacts.get("mr_penalty"):
+            extra["pathway_mr_penalty_from_option"] = impacts["mr_penalty"]
+
+    elif ending_pathway == "regulatory_shutdown":
+        # Option A: Full remediation — compliance cost per BU
+        if impacts.get("compliance_cost_all_bus"):
+            cost_per_bu = special.get("compliance_cost_per_bu", 4_000_000)
+            total_cost = cost_per_bu * len(bus)
+            gs["corporate_treasury"] = round(gs["corporate_treasury"] - total_cost, 2)
+            extra["compliance_cost_total"] = total_cost
+            extra["compliance_cost_per_bu"] = cost_per_bu
+        # Option B: Consent decree — exit multiple override
+        if impacts.get("consent_decree"):
+            if impacts.get("exit_multiple_override"):
+                exit_multiple = impacts["exit_multiple_override"]
+                extra["exit_multiple_overridden"] = exit_multiple
+            extra["consent_decree_active"] = True
+        # Option C: Legal challenge — outcome based on ethical score
+        if impacts.get("legal_challenge"):
+            # Calculate ethical score to determine outcome
+            avg_ci = sum(bu.get("carbon_intensity", 0) for bu in bus) / max(len(bus), 1)
+            avg_slo = sum(bu.get("social_license_score", 0) for bu in bus) / max(len(bus), 1)
+            group_rep = gs.get("group_reputation", 50.0)
+            ethical_score = (avg_slo * 0.3 + (100 - avg_ci) * 0.3 + group_rep * 0.4) / 10
+            # Legal costs regardless of outcome
+            gs["corporate_treasury"] = round(gs["corporate_treasury"] + impacts.get("legal_costs", -10_000_000), 2)
+            if ethical_score >= 5:
+                # Successful challenge — no fine, mild reputation hit
+                gs["group_reputation"] = max(0, round(group_rep - 10, 2))
+                extra["legal_challenge_outcome"] = "successful"
+                extra["legal_challenge_ethical_score"] = round(ethical_score, 2)
+            else:
+                # Failed — double fine, suspend worst BU, exit 7×
+                fine = special.get("fine_base", 30_000_000) * 2
+                gs["corporate_treasury"] = round(gs["corporate_treasury"] - fine, 2)
+                exit_multiple = 7.0
+                extra["exit_multiple_overridden"] = 7.0
+                gs["group_reputation"] = max(0, round(group_rep - 30, 2))
+                # Suspend worst-performing BU
+                worst_bu = min(bus, key=lambda b: b.get("social_license_score", 100))
+                worst_bu["revenue_base"] = 0
+                worst_bu["opex_base"] = 0
+                extra["legal_challenge_outcome"] = "failed"
+                extra["legal_challenge_fine"] = fine
+                extra["legal_challenge_suspended_bu"] = worst_bu["bu_id"]
+                extra["legal_challenge_ethical_score"] = round(ethical_score, 2)
+        if impacts.get("mr_penalty"):
+            extra["pathway_mr_penalty_from_option"] = impacts["mr_penalty"]
 
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     #  Terminal_EBITDA = Î£(Revenue_i âˆ’ OPEX_i) âˆ’ (Carbon_Tonnage Ã— $250/ton)
@@ -786,6 +1420,18 @@ def _post_r10_grand_finale(
     # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
     mr = 1.0
 
+    # +0.10: R2 Materiality Governance Alignment (CSRD good governance → long-term value)
+    # Awarded when players chose Option A (Full Materiality Alignment) in Round 2.
+    # This closes the pedagogical promise: "getting materiality right creates long-term value."
+    if "materiality_aligned" in all_flags:
+        mr += 0.10
+        extra["mr_materiality_governance_bonus"] = True
+        extra["mr_materiality_governance_message"] = (
+            "📊 CSRD Governance Premium: Your Round 2 full materiality alignment earned "
+            "+0.10 M_R. Institutional investors reward companies that embed ESG governance "
+            "rigorously from the outset (ESRS 1 — General Requirements)."
+        )
+
     # +0.3: R7 Synergy achieved (waste_to_energy / synergy_unlock)
     if "synergy_unlock" in all_flags or "waste_to_energy" in all_flags:
         mr += 0.3
@@ -793,7 +1439,7 @@ def _post_r10_grand_finale(
 
     # +0.2: Survived R5/R8 without bailout
     r5_bailout = "insurance_only" in all_flags
-    r8_bailout = "electronics_water_priority" in all_flags
+    r8_bailout = "electronics_water_priority" in all_flags or "civil_water_priority" in all_flags
     if not r5_bailout and not r8_bailout:
         mr += 0.2
         extra["mr_resilience_bonus"] = True
@@ -803,7 +1449,57 @@ def _post_r10_grand_finale(
         mr += 0.15
         extra["mr_truth_premium"] = True
 
-    # âˆ’0.4: Instability Discount if avg Social License < 75
+    # +0.18: Community Champion (highest just-transition investment in R9)
+    # Requires community_fund — the $20M community investment, not just managed closure.
+    # Narrowed gap from +0.20/+0.10 to +0.18/+0.12 so managed_transition
+    # retains meaningful pedagogical value (not just a "consolation prize").
+    #   community_fund (−$20M) → +0.18   [community-led transformation]
+    #   managed_transition (−$12M) → +0.12 [responsible but company-led]
+    if "community_fund" in all_flags:
+        mr += 0.18
+        extra["mr_community_champion_bonus"] = True
+    elif "managed_transition" in all_flags:
+        mr += 0.12
+        extra["mr_just_transition_bonus"] = True
+
+    # +0.10: Workforce Excellence (workforce_readiness >= 75 at R10)
+    # Rewards sustained HR investment across multiple rounds.
+    workforce_readiness = gs.get("workforce_readiness", 50.0)
+    if workforce_readiness >= 75.0:
+        mr += 0.10
+        extra["mr_workforce_bonus"] = True
+        extra["mr_workforce_readiness"] = round(workforce_readiness, 2)
+
+    # +0.05: Wellbeing Champion (avg burnout < 20 at terminal valuation)
+    # Rewards early, sustained HR investment — requires consistently choosing HIGH-tier
+    # HRM options (typically 6+ rounds) to keep burnout below the 20-point OPEX threshold.
+    # This is the second HRM-linked M_R pathway, complementing workforce_readiness.
+    # Max M_R with all 6 bonuses: 1.0+0.3+0.2+0.20+0.10+0.10+0.05 = 1.95
+    avg_burnout_r10 = round(
+        sum(bu.get("staff_burnout_index", 0.0) for bu in bus) / len(bus), 2
+    ) if bus else 0.0
+    if avg_burnout_r10 < 20.0:
+        mr += 0.05
+        extra["mr_wellbeing_bonus"] = True
+        extra["mr_wellbeing_avg_burnout"] = avg_burnout_r10
+    # Just Transition M_R Scaling: bonus scales with sustained HR investment
+    # Models ILO Just Transition Guidelines (social dialogue as process)
+    # Use prev_flags (dict) not all_flags (set) for key-value iteration
+    hr_investment_rounds = sum(
+        1 for k, v in prev_flags.items()
+        if isinstance(k, str) and k.startswith("hr_invested_r") and v is True
+    )
+    if hr_investment_rounds > 0 and (extra.get("mr_community_champion_bonus") or extra.get("mr_just_transition_bonus")):
+        jt_scaling = round(1.0 + hr_investment_rounds * 0.10, 2)
+        jt_scaling = min(jt_scaling, 1.5)  # Cap at +50%
+        if extra.get("mr_community_champion_bonus"):
+            mr += round(0.18 * jt_scaling, 4) - 0.18
+        elif extra.get("mr_just_transition_bonus"):
+            mr += round(0.12 * jt_scaling, 4) - 0.12
+        extra["mr_jt_scaling_factor"] = jt_scaling
+        extra["mr_jt_hr_rounds"] = hr_investment_rounds
+
+    # Instability Discount if avg Social License < 75
     avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 0
     if avg_sl < 75:
         mr -= 0.4
@@ -812,17 +1508,56 @@ def _post_r10_grand_finale(
 
     mr = round(mr, 4)
 
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    #  TERMINAL VALUE  =  Terminal_EBITDA  Ã—  Exit Multiple  Ã—  M_R
-    # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-    terminal_value = round(terminal_ebitda * exit_multiple * mr, 2)
+    # ── Pathway-Specific M_R Modifiers ─────────────────────────────
+    if ending_pathway == "climate_black_swan":
+        from ending_pathways import calc_climate_black_swan_mr, calc_climate_exit_multiple
+        pathway_mr = calc_climate_black_swan_mr(bus, gs, all_flags, extra)
+        mr += pathway_mr
+        # Apply option-level M_R penalty (Option C: -0.40)
+        mr += extra.get("pathway_mr_penalty_from_option", 0)
+        # CI-based exit multiple haircut
+        if special.get("exit_multiple_ci_haircut") and not extra.get("exit_multiple_overridden"):
+            exit_multiple = calc_climate_exit_multiple(bus, exit_multiple)
+            extra["exit_multiple_ci_haircut"] = exit_multiple
+    elif ending_pathway == "stakeholder_revolt":
+        from ending_pathways import calc_stakeholder_revolt_mr
+        pathway_mr = calc_stakeholder_revolt_mr(bus, gs, all_flags, extra)
+        mr += pathway_mr
+        # Apply option-level M_R penalty (Option C: -0.30)
+        mr += extra.get("pathway_mr_penalty_from_option", 0)
+    elif ending_pathway == "hostile_takeover":
+        from ending_pathways import calc_hostile_takeover_mr
+        pathway_mr = calc_hostile_takeover_mr(bus, gs, all_flags, extra)
+        mr += pathway_mr
+        mr += extra.get("pathway_mr_penalty_from_option", 0)
+        # Option C: M_R cap
+        if extra.get("mr_cap"):
+            mr = min(mr, extra["mr_cap"])
+            extra["mr_capped_at"] = extra["mr_cap"]
+    elif ending_pathway == "regulatory_shutdown":
+        from ending_pathways import calc_regulatory_shutdown_mr
+        pathway_mr = calc_regulatory_shutdown_mr(bus, gs, all_flags, extra)
+        mr += pathway_mr
+        mr += extra.get("pathway_mr_penalty_from_option", 0)
+
+    mr = round(mr, 4)
+
+    # ---------------------------------------------------------------
+    #  TERMINAL VALUE = (Terminal_EBITDA + Green_Fund) x Exit_Multiple x M_R
+    #  Green Fund included as accumulated climate capital (AC mode)
+    # ---------------------------------------------------------------
+    green_fund_balance = gs.get("green_transition_fund", 0.0)
+    green_fund_terminal_bonus = green_fund_balance if green_fund_balance > 0 else 0.0
+    if green_fund_terminal_bonus > 0:
+        extra["green_fund_terminal_bonus"] = green_fund_terminal_bonus
+    terminal_value = round((terminal_ebitda + green_fund_terminal_bonus) * exit_multiple * mr, 2)
 
     # ===================================================
     #  Year 3 PROFILE ARCHETYPE
     #  Custom archetypes from god-mode take priority
     # ===================================================
     try:
-        from admin_router import _god_mode_settings
+        from admin_shared import _god_mode_settings
         custom_archetypes = _god_mode_settings.get("custom_archetypes", [])
     except ImportError:
         custom_archetypes = []
@@ -882,19 +1617,62 @@ def _post_r10_grand_finale(
             )
             profile_icon = "\U0001f480"
             profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
+
+    # Healthcare archetype override: use industry-specific names
+    if is_healthcare and not custom_archetypes:
+        hc_archetypes = special.get("healthcare_archetypes", {})
+        if profile in hc_archetypes:
+            hc_arch = hc_archetypes[profile]
+            profile_title = hc_arch.get("title", profile_title)
+            profile_desc = hc_arch.get("description", profile_desc)
+            profile_icon = hc_arch.get("icon", profile_icon)
+            profile_gradient = hc_arch.get("gradient", profile_gradient)
+
+    # Ending pathway archetype override: use pathway-specific names/icons
+    if ending_pathway not in ("activist_ultimatum", "") and not custom_archetypes and not is_healthcare:
+        from ending_pathways import get_pathway_archetype_overrides
+        pw_archetypes = get_pathway_archetype_overrides(ending_pathway)
+        if profile in pw_archetypes:
+            pw_arch = pw_archetypes[profile]
+            profile_title = pw_arch.get("title", profile_title)
+            profile_icon = pw_arch.get("icon", profile_icon)
+            profile_gradient = pw_arch.get("gradient", profile_gradient)
+
     # Populate Extra & Global State
     extra["terminal_ebitda"] = terminal_ebitda
     extra["carbon_tonnage_group"] = carbon_tonnage_group
     extra["carbon_cost"] = carbon_cost
     extra["carbon_tax_per_ton"] = carbon_tax_per_ton
     extra["regenerative_multiple"] = mr
+    # FIX-002: Use JT-scaled values in breakdown for facilitator accuracy
+    _jt_scale = extra.get("mr_jt_scaling_factor", 1.0)
     extra["mr_breakdown"] = {
         "base": 1.0,
+        "materiality_governance": 0.10 if extra.get("mr_materiality_governance_bonus") else 0,
         "synergy_bonus": 0.3 if extra.get("mr_synergy_bonus") else 0,
         "resilience_bonus": 0.2 if extra.get("mr_resilience_bonus") else 0,
         "truth_premium": 0.15 if extra.get("mr_truth_premium") else 0,
+        "community_champion_bonus": round(0.18 * _jt_scale, 4) if extra.get("mr_community_champion_bonus") else 0,
+        "just_transition_bonus": round(0.12 * _jt_scale, 4) if extra.get("mr_just_transition_bonus") else 0,
+        "jt_scaling_factor": _jt_scale if _jt_scale != 1.0 else None,
+        "workforce_bonus": 0.10 if extra.get("mr_workforce_bonus") else 0,
+        "wellbeing_bonus": 0.05 if extra.get("mr_wellbeing_bonus") else 0,
         "instability_discount": -0.4 if extra.get("mr_instability_discount") else 0,
+        "max_achievable_mr": 2.08,  # 1.0+0.10+0.30+0.20+0.15+0.18+0.10+0.05 = 2.08 (2.17 with JT-scaling)
     }
+    # Enrich mr_breakdown with pathway-specific bonuses
+    if ending_pathway == "climate_black_swan":
+        extra["mr_breakdown"]["climate_leader"] = 0.30 if extra.get("mr_climate_leader_bonus") else 0
+        extra["mr_breakdown"]["adaptation_premium"] = 0.20 if extra.get("mr_adaptation_premium") else 0
+        extra["mr_breakdown"]["carbon_transition"] = 0.15 if extra.get("mr_carbon_transition_bonus") else 0
+        extra["mr_breakdown"]["stranded_asset_penalty"] = -0.40 if extra.get("mr_stranded_asset_penalty") else 0
+        extra["mr_breakdown"]["option_mr_penalty"] = extra.get("pathway_mr_penalty_from_option", 0)
+    elif ending_pathway == "stakeholder_revolt":
+        extra["mr_breakdown"]["social_regeneration"] = 0.35 if extra.get("mr_social_regeneration_bonus") else 0
+        extra["mr_breakdown"]["employee_champion"] = 0.15 if extra.get("mr_employee_champion_bonus") else 0
+        extra["mr_breakdown"]["community_trust"] = 0.15 if extra.get("mr_community_trust_bonus") else 0
+        extra["mr_breakdown"]["social_collapse"] = -0.50 if extra.get("mr_social_collapse_penalty") else 0
+        extra["mr_breakdown"]["option_mr_penalty"] = extra.get("pathway_mr_penalty_from_option", 0)
     extra["terminal_value"] = terminal_value
     extra["exit_multiple"] = exit_multiple
     extra["final_treasury"] = gs["corporate_treasury"]
@@ -906,6 +1684,30 @@ def _post_r10_grand_finale(
     extra["synergy_score"] = round(synergy_score, 2)
     extra["avg_social_license"] = round(avg_sl, 2)
     extra["r10_choice"] = choice
+
+    # ── HR ROI Report ──
+    # Compute cumulative HR investment value for facilitator debrief
+    avg_burnout = round(sum(bu.get("staff_burnout_index", 0.0) for bu in bus) / max(len(bus), 1), 2)
+    burnout_opex_rate = ((max(0, avg_burnout - 20) ** 2) * 0.000028125) if avg_burnout > 20 else 0.0
+    total_opex = sum(bu.get("opex_base", 0) for bu in bus)
+    burnout_opex_cost = round(burnout_opex_rate * total_opex, 2)
+    hr_mr_value = 0.0
+    if extra.get("mr_workforce_bonus"):
+        hr_mr_value += 0.10
+    if extra.get("mr_wellbeing_bonus"):
+        hr_mr_value += 0.05
+    hr_terminal_uplift = round(terminal_ebitda * exit_multiple * hr_mr_value, 2) if hr_mr_value > 0 else 0
+
+    extra["hr_roi_report"] = {
+        "avg_burnout_r10": avg_burnout,
+        "workforce_readiness_r10": round(workforce_readiness, 2),
+        "burnout_opex_penalty_rate": round(burnout_opex_rate * 100, 2),  # as percentage
+        "burnout_opex_cost_per_round": burnout_opex_cost,
+        "mr_bonus_from_hr": hr_mr_value,
+        "terminal_value_uplift_from_hr": hr_terminal_uplift,
+        "workforce_bonus_earned": bool(extra.get("mr_workforce_bonus")),
+        "wellbeing_bonus_earned": bool(extra.get("mr_wellbeing_bonus")),
+    }
 
     # Additional KPIs for the TBL-BSC 4Ã—3 Grid
     extra["total_revenue"] = total_revenue
@@ -939,15 +1741,50 @@ def _post_r10_grand_finale(
     gs["active_event_flags"]["profile"] = profile
     gs["active_event_flags"]["profile_title"] = profile_title
 
+    # ── ITEM 8: Pathway Discovery Debrief ─────────────────────
+    # Reveal the full foreshadowing chain and active ending pathway
+    try:
+        ending_pathway = prev_flags.get("ending_pathway", "activist_ultimatum")
+        from ending_pathways import get_foreshadowing_events, PATHWAY_DESCRIPTIONS
+        discovery_chain = []
+        for r in range(5, 9):
+            items = get_foreshadowing_events(ending_pathway, r)
+            if items:
+                for item in items:
+                    discovery_chain.append({
+                        "round": r,
+                        "title": item.get("title", ""),
+                        "hint": item.get("narrative", ""),
+                        "flag": item.get("flag", ""),
+                    })
+        pathway_desc = PATHWAY_DESCRIPTIONS.get(ending_pathway, {})
+        extra["pathway_discovery"] = {
+            "pathway_id": ending_pathway,
+            "pathway_name": pathway_desc.get("name", ending_pathway),
+            "pathway_description": pathway_desc.get("description", ""),
+            "foreshadowing_chain": discovery_chain,
+            "foreshadowing_count": len(discovery_chain),
+            "pedagogical_note": (
+                f"This ending was determined by the '{ending_pathway}' pathway. "
+                f"The {len(discovery_chain)} foreshadowing events above were "
+                f"seeded in Rounds 5-8 as indirect signals. The pedagogical "
+                f"goal is pattern recognition: could you have predicted this "
+                f"outcome from the signals?"
+            ),
+        }
+    except Exception as exc:
+        extra["pathway_discovery_error"] = str(exc)
+
 
 _POST_TICK_MAP = {
     1: _post_r1_foundations,
     3: _post_r3_scope3,
-    5: _post_r5_climate,
+    4: _post_r4_contagion,   # Fix #2: R4 now has a registered post-tick handler
+    5: _ie._post_r5_climate,       # ARCH-001: Extracted to impact_engine.py
     6: _post_r6_ai_bias,
     7: _post_r7_circularity,
     8: _post_r8_blue_stress,
-    9: _post_r9_just_transition,
+    9: _ie._post_r9_just_transition,  # ARCH-001: Extracted to impact_engine.py
     10: _post_r10_grand_finale,
 }
 
@@ -976,6 +1813,8 @@ def _collect_all_flags(flags_dict: dict) -> set[str]:
     """
     result = set()
     for key, val in flags_dict.items():
+        if not isinstance(key, str):
+            continue  # Skip non-string keys (e.g. SDG integer indices)
         if "flag" in key.lower():
             if isinstance(val, list):
                 result.update(str(v) for v in val)
@@ -1019,3 +1858,10 @@ def _apply_option_flags(
         global_state.setdefault("active_event_flags", {})
         global_state["active_event_flags"][flag_key] = flags
         extra_events[f"flags_set_r{round_number}"] = flags
+
+
+# ═════════════════════════════════════════════════════════════════
+#  ARCH-001: Late-bind impact_engine dependencies
+#  Must run after all helper functions are defined.
+# ═════════════════════════════════════════════════════════════════
+_ie._inject_dependencies(_get_primary_choice, _fetch_options_for_industry, _apply_treasury_with_green_fund)

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
+import copy
 
 import database as db
 import materiality_db as mat_db
@@ -15,7 +16,9 @@ from round_logic import pre_tick, post_tick
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
 from config import MASTER_PASSWORD
-from admin_router import set_session_interventions, SessionInterventionsRequest, check_hidden_resource_triggers, auto_inject_scheduled_interventions, check_and_increment_cohort_count, is_practice_mode
+from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions
+from admin_resources import check_hidden_resource_triggers
+from admin_shared import check_and_increment_cohort_count, is_practice_mode
 from models import (
     BUStateOut,
     CommitTurnRequest,
@@ -78,6 +81,9 @@ def _bu_out(bu: dict) -> BUStateOut:
 
 _session_players: dict[str, list[dict]] = {}
 
+# ── ITEM 4: Per-session commit rate limiter ──
+_commit_timestamps: dict[str, float] = {}
+
 @router.get("/public/sessions", summary="List active public sessions")
 async def get_active_sessions():
     """
@@ -104,7 +110,7 @@ class SetUsernameRequest(BaseModel):
 
 @router.post("/set-username", summary="Set unique username")
 async def set_username(req: SetUsernameRequest):
-    from admin_router import _player_registry, _facilitator_registry, _persist_facilitators
+    from admin_shared import _player_registry, _facilitator_registry, _persist_facilitators
     import database_memory
     
     username_lower = req.username.strip().lower()
@@ -187,7 +193,7 @@ async def player_login(req: PlayerLoginRequest):
     Looks up the player's cohort from the registry and joins/re-joins automatically.
     Returns the player's session info so the frontend can resume where they left off.
     """
-    from admin_router import _player_registry
+    from admin_shared import _player_registry
 
     # Find the player in the registry
     player_record = next(
@@ -268,7 +274,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
 
     # Validate password against player registry
     try:
-        from admin_router import _player_registry
+        from admin_shared import _player_registry
         player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
         if player_record and player_record.get("password"):
             # FIX AUDIT-005: Use configurable master password
@@ -320,6 +326,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         player_id=req.player_id,
         parent_cohort_id=session_id,
         decision_paradigm=cohort_info.get("decision_paradigm", "legacy_abc") if cohort_info else "legacy_abc",
+        currency_symbol=cohort_info.get("currency_symbol", "$") if cohort_info else "$",
     )
 
     player_sid = str(player_session["session_id"])
@@ -330,7 +337,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
 
     # Update the player registry with the name so it shows in facilitator view
     try:
-        from admin_router import _player_registry
+        from admin_shared import _player_registry
         player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
         if player_record:
             if req.player_name:
@@ -433,12 +440,20 @@ async def start_simulation(body: StartSessionRequest):
             body.facilitator_id, 
             loan_interest_rate=body.loan_interest_rate,
             decision_paradigm=_req_paradigm,
+            currency_symbol=getattr(body, 'currency_symbol', '$') or '$',
+            scenario_preset=getattr(body, 'scenario_preset', None),
+            experience_level=getattr(body, 'experience_level', None),
+            difficulty_tier=getattr(body, 'difficulty_tier', None),
+            created_by=getattr(body, 'created_by', None),
+            created_when=getattr(body, 'created_when', None),
+            start_date=getattr(body, 'start_date', None),
+            end_date=getattr(body, 'end_date', None),
         )
         
         # 2c. Persist decision_paradigm on the facilitator record
         #     so GET /facilitators always returns it (fixes paradigm disappearing on poll)
         try:
-            from admin_router import _facilitator_registry, _persist_facilitators
+            from admin_shared import _facilitator_registry, _persist_facilitators
             fac_rec = next((f for f in _facilitator_registry if f["facilitator_id"] == body.facilitator_id), None)
             if fac_rec:
                 fac_rec["decision_paradigm"] = _req_paradigm
@@ -453,6 +468,23 @@ async def start_simulation(body: StartSessionRequest):
             allowed_overrides=overrides,
             allowed_swipes=swipes
         ))
+
+        # 4. Apply ending pathway to the session's initial state
+        _ending_pathway = getattr(body, 'ending_pathway', None)
+        if _ending_pathway:
+            try:
+                if _ending_pathway == "random":
+                    from ending_pathways import resolve_pathway
+                    _ending_pathway = resolve_pathway("random")
+                # Write directly to the session's active_event_flags
+                gs = result["global_state"]
+                gs.setdefault("active_event_flags", {})["ending_pathway"] = _ending_pathway
+                await db.update_latest_global_state(
+                    str(result["session_id"]), gs, result["business_units"]
+                )
+                print(f"[session-start] Ending pathway set to '{_ending_pathway}' for {result['session_id']}")
+            except Exception as exc:
+                print(f"[WARN] Failed to set ending pathway: {exc}")
         
     except ValueError as ve:
         raise HTTPException(
@@ -473,6 +505,50 @@ async def start_simulation(body: StartSessionRequest):
         global_state=GlobalStateOut(**result["global_state"]),
         business_units=[_bu_out(bu) for bu in result["business_units"]],
     )
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/session-info
+# Returns per-session metadata: currency_symbol, scenario_preset, paradigm
+# ─────────────────────────────────────────────────────────────────
+
+@router.get("/{session_id}/session-info", summary="Get session metadata (currency, preset, paradigm)")
+async def get_session_info(session_id: str):
+    session = await db.get_session_info(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # If this is a player sub-session, also pull parent cohort's settings
+    parent_id = session.get("parent_cohort_id")
+    parent_currency = None
+    if parent_id:
+        parent = await db.get_session_info(parent_id)
+        if parent:
+            parent_currency = parent.get("currency_symbol", "$")
+
+    # Read ending pathway from the session's latest state
+    ending_pathway = "activist_ultimatum"
+    try:
+        latest = await db.fetch_latest_state(session_id)
+        if latest:
+            ending_pathway = latest.get("global_state", {}).get(
+                "active_event_flags", {}
+            ).get("ending_pathway", "activist_ultimatum")
+    except Exception:
+        pass
+
+    return {
+        "session_id": session_id,
+        "cohort_name": session.get("cohort_name"),
+        "decision_paradigm": session.get("decision_paradigm", "legacy_abc"),
+        "currency_symbol": session.get("currency_symbol") or parent_currency or "$",
+        "parent_currency_symbol": parent_currency,
+        "scenario_preset": session.get("scenario_preset"),
+        "experience_level": session.get("experience_level"),
+        "difficulty_tier": session.get("difficulty_tier", "advanced"),
+        "parent_cohort_id": parent_id,
+        "ending_pathway": ending_pathway,
+    }
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -535,6 +611,17 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     6. Persists the new immutable state and audit log.
     7. Returns the next-round state.
     """
+    # ── ITEM 4: Per-session rate limiting (5s cooldown) ───────
+    import time as _time
+    now = _time.time()
+    last_commit = _commit_timestamps.get(session_id, 0)
+    if now - last_commit < 5.0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limited. Wait 5 seconds between commits.",
+        )
+    _commit_timestamps[session_id] = now
+
     # ── Fetch current state ──────────────────────────────────
     current = await db.fetch_latest_state(session_id)
     if current is None:
@@ -543,6 +630,22 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             detail=f"Session {session_id} not found.",
         )
 
+    # ── Cohort end-date lockout ──────────────────────────────
+    session_meta = await db.get_session_info(session_id)
+    if session_meta:
+        end_date_str = session_meta.get("end_date")
+        if end_date_str:
+            from datetime import date
+            try:
+                cohort_end = date.fromisoformat(end_date_str)
+                if date.today() > cohort_end:
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail=f"This cohort expired on {end_date_str}. The game is locked and no further rounds can be played.",
+                    )
+            except ValueError:
+                pass  # Malformed date — skip check
+
     current_round = current["round_number"]
     if current_round > 10:
         raise HTTPException(
@@ -550,8 +653,31 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             detail="Simulation has already completed all 10 rounds.",
         )
 
+    # ── ITEM 1: Optimistic locking — expected_round guard ────
+    expected_round = getattr(body, 'expected_round', None)
+    if expected_round is not None and expected_round != current_round:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Stale round: expected round {expected_round} but "
+                f"current is {current_round}. Refresh your dashboard."
+            ),
+        )
+
+    # ── ITEM 5: Cohort pace lock — max_round enforcement ─────
+    session_info_for_pace = await db.get_session_info(session_id)
+    parent_id_for_pace = (session_info_for_pace or {}).get("parent_cohort_id")
+    pace_session_id = parent_id_for_pace or session_id
+    pace_session = await db.get_session_info(pace_session_id)
+    max_round = (pace_session or {}).get("max_round")
+    if max_round is not None and current_round > max_round:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Cohort pace lock: maximum round is {max_round}. Wait for facilitator.",
+        )
+
     # ── Round pacing gate ────────────────────────────────────
-    from admin_router import is_round_unlocked
+    from admin_shared import is_round_unlocked
     if not is_round_unlocked(session_id, current_round):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -652,6 +778,24 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     # Use potentially overridden crisis severity
     effective_crisis = pre_result.get("crisis_severity", body.crisis_severity)
 
+    # ── Crisis Multiplier KPI: expose severity source for UI display ──
+    # Allows the frontend to show a visible "Crisis Multiplier" KPI panel.
+    # Base crisis severity for this paradigm is 40 (from round_config special_rules).
+    _BASE_CRISIS = 40
+    _crisis_multiplier = round(effective_crisis / _BASE_CRISIS, 2) if _BASE_CRISIS else 1.0
+    _pre_evts = pre_result.get("pre_events", {})
+    if _pre_evts.get("electronics_blindspot_triggered"):
+        _crisis_source = "electronics_blindspot"
+        _crisis_label = "⚡ DOUBLED — Electronics audit skipped in Round 1"
+    elif _pre_evts.get("deferred_audit_penalty") or _pre_evts.get("compliance_gap_triggered"):
+        _crisis_source = "deferred_audit"
+        _crisis_label = "⚠️ +50% — Audit deferred in Round 1"
+    elif effective_crisis != body.crisis_severity:
+        _crisis_source = "custom_override"
+        _crisis_label = f"Custom: {effective_crisis}"
+    else:
+        _crisis_source = "baseline"
+        _crisis_label = "✅ Baseline — Full audit completed"
     # ── Run the tick engine ──────────────────────────────────
     tick_result = process_tick(
         current_global=current_global,
@@ -661,6 +805,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         crisis_severity=effective_crisis,
         imitation_decay_rate=body.imitation_decay_rate,
         decision_paradigm=paradigm,
+        emergency_credit_used=body.emergency_credit_used,
     )
 
     new_round = tick_result["global_state"]["round_number"]
@@ -672,6 +817,12 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     new_bus = tick_result["bu_states"]
     events = tick_result["events"]
 
+    # ── Crisis Multiplier KPI: expose severity source for UI display ──
+    events["crisis_severity_effective"] = effective_crisis
+    events["crisis_multiplier"] = _crisis_multiplier
+    events["crisis_multiplier_source"] = _crisis_source
+    events["crisis_multiplier_label"] = _crisis_label
+
     # Merge pre-tick events
     events.update(pre_result.get("pre_events", {}))
 
@@ -680,50 +831,81 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         agg_impacts = pillar_aggregation.get("impacts", {})
         agg_cost = pillar_aggregation.get("total_cost", 0)
 
-        # Apply treasury cost from pillar selections
+        # Apply treasury cost from pillar selections (NOT modified by effectiveness — cost is always owed)
         if agg_cost != 0:
             new_global["corporate_treasury"] = round(new_global["corporate_treasury"] + agg_cost, 2)
             events["pillar_cost_applied"] = agg_cost
 
-        # Apply reputation delta
-        rep_delta = agg_impacts.get("reputation", 0)
+        # ── Workforce Readiness → Pillar Effectiveness ──
+        # Low readiness reduces the magnitude of strategic impacts (not costs)
+        effectiveness = new_global.get("pillar_effectiveness_modifier", 1.0)
+        if effectiveness != 1.0:
+            events["pillar_effectiveness_modifier_applied"] = effectiveness
+
+        # Apply reputation delta (scaled by effectiveness)
+        rep_delta = round(agg_impacts.get("reputation", 0) * effectiveness, 2)
         if rep_delta != 0:
             new_global["group_reputation"] = max(0, min(100, round(new_global["group_reputation"] + rep_delta, 2)))
 
-        # Apply NCD delta across all BUs
-        ncd_delta = agg_impacts.get("natural_capital_debt_delta", 0)
+        # Calculate BU revenue weights for proportional delta application
+        total_revenue = sum(bu.get("revenue_base", 0) for bu in new_bus)
+        num_bus = len(new_bus)
+
+        def _get_weight(bu_data: dict) -> float:
+            if total_revenue <= 0 or num_bus == 0:
+                return 1.0 / max(1, num_bus)
+            return bu_data.get("revenue_base", 0) / total_revenue
+
+        # Apply NCD delta proportionally across BUs (scaled by effectiveness)
+        ncd_delta = round(agg_impacts.get("natural_capital_debt_delta", 0) * effectiveness, 2)
         if ncd_delta != 0:
             for bu in new_bus:
-                bu["natural_capital_debt"] = max(0, round(bu.get("natural_capital_debt", 0) + ncd_delta, 2))
+                proportional_ncd = ncd_delta * _get_weight(bu) * num_bus
+                bu["natural_capital_debt"] = max(0, round(bu.get("natural_capital_debt", 0) + proportional_ncd, 2))
 
-        # Apply carbon intensity delta across all BUs
-        ci_delta = agg_impacts.get("carbon_intensity_delta", 0)
+        # Apply carbon intensity delta proportionally across BUs (scaled by effectiveness)
+        ci_delta = round(agg_impacts.get("carbon_intensity_delta", 0) * effectiveness, 2)
         if ci_delta != 0:
             for bu in new_bus:
-                bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + ci_delta, 2))
+                proportional_ci = ci_delta * _get_weight(bu) * num_bus
+                bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + proportional_ci, 2))
 
-        # Apply social license delta across all BUs
-        sl_delta = agg_impacts.get("social_license_delta", 0)
+        # Apply social license delta proportionally across BUs (scaled by effectiveness)
+        sl_delta = round(agg_impacts.get("social_license_delta", 0) * effectiveness, 2)
         if sl_delta != 0:
             for bu in new_bus:
-                bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + sl_delta, 2)))
+                proportional_sl = sl_delta * _get_weight(bu) * num_bus
+                bu["social_license_score"] = max(0, min(100, round(bu["social_license_score"] + proportional_sl, 2)))
 
-        # Apply governance risk delta across all BUs
-        gov_delta = agg_impacts.get("governance_risk_delta", 0)
+        # Apply governance risk delta proportionally across BUs (scaled by effectiveness)
+        gov_delta = round(agg_impacts.get("governance_risk_delta", 0) * effectiveness, 2)
         if gov_delta != 0:
             for bu in new_bus:
-                bu["governance_risk_score"] = max(0, min(100, round(bu.get("governance_risk_score", 0) + gov_delta, 2)))
+                proportional_gov = gov_delta * _get_weight(bu) * num_bus
+                bu["governance_risk_score"] = max(0, min(100, round(bu.get("governance_risk_score", 0) + proportional_gov, 2)))
 
-        # Apply water dependency delta across all BUs
-        wd_delta = agg_impacts.get("water_dependency_delta", 0)
+        # Apply water dependency delta proportionally across BUs (scaled by effectiveness)
+        wd_delta = round(agg_impacts.get("water_dependency_delta", 0) * effectiveness, 2)
         if wd_delta != 0:
             for bu in new_bus:
-                bu["water_dependency"] = max(0, round(bu.get("water_dependency", 0) + wd_delta, 2))
+                proportional_wd = wd_delta * _get_weight(bu) * num_bus
+                bu["water_dependency"] = max(0, round(bu.get("water_dependency", 0) + proportional_wd, 2))
+
+        # Apply burnout delta across all BUs (from HR pillar visible impacts)
+        burnout_delta = agg_impacts.get("burnout_delta", 0)
+        if burnout_delta != 0:
+            for bu in new_bus:
+                current_bo = bu.get("staff_burnout_index", 0.0)
+                bu["staff_burnout_index"] = max(0.0, min(100.0, round(current_bo + burnout_delta, 2)))
+            events["pillar_burnout_delta_applied"] = burnout_delta
 
         # Store pillar metadata in events
         events["decision_paradigm"] = "multi_toggles"
         events["pillar_selections"] = pillar_aggregation.get("per_area", {})
         events["pillar_flags"] = pillar_aggregation.get("flags_set", [])
+        events["pillar_exclusivity_warnings"] = pillar_aggregation.get("exclusivity_warnings", [])
+        # Rec 5: Expose aggregate impacts for post-tick handlers to read
+        events["pillar_aggregate_impacts"] = agg_impacts
 
         # Persist pillar flags into active_event_flags
         flag_key = f"r{current_round}_pillar_flags"
@@ -836,6 +1018,25 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     except Exception as exc:
         print(f"[WARN] Auto-inject scheduled interventions failed: {exc}")
 
+    # ── MP-01: Update cohort commit count in globalState ─────────────
+    try:
+        parent_cohort_id = (session_info or {}).get("parent_cohort_id")
+        if parent_cohort_id:
+            siblings = _session_players.get(parent_cohort_id, [])
+            total_teams = len(siblings)
+            committed_count = 0
+            for sibling in siblings:
+                sib_sid = sibling.get("player_session_id")
+                if sib_sid:
+                    sib_state = await db.fetch_latest_state(sib_sid)
+                    if sib_state and sib_state.get("round_number", 1) == new_round:
+                        committed_count += 1
+            new_global["team_commits_this_round"] = committed_count
+            new_global["cohort_team_count"] = total_teams
+            await db.update_latest_global_state(session_id, new_global, new_bus)
+    except Exception as exc:
+        print(f"[WARN] Cohort commit count update failed: {exc}")
+
     # ── PRACTICE MODE: Reset after Round 2 ────────────────────
     # Check if this session or its parent is in practice mode
     practice_session_id = session_id
@@ -846,7 +1047,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         # Reset the cohort session and all child sessions back to Round 1
         await db.reset_session_to_round1(practice_session_id)
         # Disable practice mode after reset
-        from admin_router import _practice_mode
+        from admin_shared import _practice_mode
         _practice_mode.pop(practice_session_id, None)
 
         # Notify all players of the practice reset
@@ -866,6 +1067,118 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             business_units=[_bu_out(bu) for bu in (reset_state["bu_states"] if reset_state else new_bus)],
             events=reset_events,
         )
+
+    # ── ENGAGEMENT 7.2: CEO Diary ──────────────────────────────
+    try:
+        from ceo_diary import generate_ceo_diary
+        primary_choice = ""
+        for d in decisions_raw:
+            c = d.get("choice_selected", "")
+            if c.startswith("option_"):
+                primary_choice = c
+                break
+        diary_entry = generate_ceo_diary(current_round, primary_choice, events)
+        events["ceo_diary"] = diary_entry
+    except Exception as exc:
+        print(f"[WARN] CEO Diary generation failed: {exc}")
+
+    # ── ENGAGEMENT 7.4: Board Pressure Events (R3, R6, R9) ───
+    if current_round in (3, 6, 9):
+        try:
+            baseline_ebitda = current_global.get("historical_ebitda", 0)
+            current_ebitda = sum(bu["revenue_base"] - bu["opex_base"] for bu in new_bus)
+            target_ebitda = baseline_ebitda * 1.05  # 5% improvement target
+            if current_ebitda < target_ebitda:
+                shortfall_pct = round(((target_ebitda - current_ebitda) / max(target_ebitda, 1)) * 100, 1)
+                events["board_pressure"] = {
+                    "triggered": True,
+                    "target_ebitda": target_ebitda,
+                    "actual_ebitda": current_ebitda,
+                    "shortfall_pct": shortfall_pct,
+                    "message": (
+                        f"⚠️ BOARD WARNING: EBITDA (${current_ebitda:,.0f}) is "
+                        f"{shortfall_pct}% below the board's target of ${target_ebitda:,.0f}. "
+                        f"The Chairman expects a credible improvement plan by next quarter. "
+                        f"Failure to deliver may result in a leadership review."
+                    ),
+                    "reputation_penalty": -3,
+                }
+                # Apply reputation penalty
+                new_global["group_reputation"] = max(0, round(
+                    new_global.get("group_reputation", 50) - 3, 2
+                ))
+            else:
+                events["board_pressure"] = {
+                    "triggered": False,
+                    "message": "✅ Board satisfied — EBITDA meets or exceeds target.",
+                }
+        except Exception as exc:
+            print(f"[WARN] Board pressure calculation failed: {exc}")
+
+    # ── ENGAGEMENT 7.1: Decision Regret (Shadow Ticks) ────────
+    try:
+        from admin_shared import _god_mode_settings
+        if _god_mode_settings.get("decision_regret_enabled", True):
+            regret_analysis = {}
+            all_options = ["option_a", "option_b", "option_c"]
+            for alt_option in all_options:
+                if alt_option == primary_choice:
+                    continue
+                # Create shadow decisions with alternative choice
+                shadow_decisions = copy.deepcopy(decisions_raw)
+                for d in shadow_decisions:
+                    d["choice_selected"] = alt_option
+                try:
+                    import copy as _copy
+                    shadow_result = process_tick(
+                        current_global=_copy.deepcopy(current_global),
+                        current_bus=_copy.deepcopy(current_bus),
+                        decisions=shadow_decisions,
+                        dividends_paid=body.dividends_paid,
+                        crisis_severity=effective_crisis,
+                        imitation_decay_rate=body.imitation_decay_rate,
+                        decision_paradigm=paradigm,
+                    )
+                    shadow_gs = shadow_result["global_state"]
+                    shadow_bus = shadow_result["bu_states"]
+                    shadow_ebitda = sum(b["revenue_base"] - b["opex_base"] for b in shadow_bus)
+                    actual_ebitda = sum(b["revenue_base"] - b["opex_base"] for b in new_bus)
+                    regret_analysis[alt_option] = {
+                        "treasury_delta": round(shadow_gs["corporate_treasury"] - new_global["corporate_treasury"], 2),
+                        "reputation_delta": round(shadow_gs["group_reputation"] - new_global.get("group_reputation", 50), 2),
+                        "ebitda_delta": round(shadow_ebitda - actual_ebitda, 2),
+                    }
+                except Exception:
+                    pass  # Shadow tick failed — skip this option
+            if regret_analysis:
+                events["decision_regret"] = {
+                    "your_choice": primary_choice,
+                    "alternatives": regret_analysis,
+                    "note": "What would have happened if you chose differently?",
+                }
+    except Exception as exc:
+        print(f"[WARN] Decision Regret analysis failed: {exc}")
+
+    # ── ITEM 24: Facilitator commit notification ─────────────
+    try:
+        parent_cohort_id = (session_info or {}).get("parent_cohort_id")
+        if parent_cohort_id:
+            import time as _time_notify
+            notification = {
+                "player_id": (session_info or {}).get("player_id", "unknown"),
+                "round": new_round,
+                "timestamp": _time_notify.time(),
+                "choice": primary_choice,
+            }
+            parent_sess = await db.get_session_info(parent_cohort_id)
+            if parent_sess:
+                commit_log = parent_sess.setdefault("commit_notifications", [])
+                commit_log.append(notification)
+                # Keep only last 100 notifications
+                if len(commit_log) > 100:
+                    parent_sess["commit_notifications"] = commit_log[-100:]
+    except Exception as exc:
+        print(f"[WARN] Facilitator notification failed: {exc}")
 
     return CommitTurnResponse(
         session_id=session_id,
@@ -950,6 +1263,25 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
     else:
         cfg = get_round_config(round_number)
 
+    # ── Ending Pathway: overlay R10 crisis/options if non-default ──
+    ending_pathway = None
+    if round_number == 10 and session_id and paradigm not in ("un_sdg", "healthcare"):
+        try:
+            latest = await db.fetch_latest_state(session_id)
+            if latest:
+                ending_pathway = latest.get("global_state", {}).get(
+                    "active_event_flags", {}
+                ).get("ending_pathway", "activist_ultimatum")
+            if ending_pathway and ending_pathway not in ("activist_ultimatum", ""):
+                from ending_pathways import get_pathway_r10_config
+                pw_cfg = get_pathway_r10_config(ending_pathway)
+                if pw_cfg and cfg:
+                    cfg["crisis"] = pw_cfg["crisis"]
+                    cfg["options"] = pw_cfg["options"]
+                    cfg["special_rules"] = pw_cfg.get("special_rules", cfg.get("special_rules", {}))
+        except Exception as e:
+            print(f"[WARN] Error loading pathway R10 config: {e}")
+
     if cfg is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -971,6 +1303,7 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
         "special_rules": cfg.get("special_rules", {}),
         "ui_constraints": ui_constraints,
         "paradigm": paradigm or "legacy_abc",
+        "ending_pathway": ending_pathway,
     }
 
 
@@ -984,7 +1317,7 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
 )
 async def get_pillar_config_endpoint(round_number: int):
     """
-    Returns the 4-area strategic pillar options for a round.
+    Returns the 5-area strategic pillar options for a round.
     Used by the frontend StrategicPillarsWorkspace in multi_toggles mode.
     """
     cfg = get_pillar_config(round_number)
@@ -1115,11 +1448,12 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
     """
     1. Fetches current state and dynamic materiality config.
     2. If bu_id is provided (Strategic Pillars mode), loads BU-specific dictionary.
-    3. Deducts consultant fee if used.
+    3. Deducts stakeholder panel fee if used (tiered: 1-4 issues=$250K each; 5-8=$500K each).
     4. Validates CFO Rule: NO non-material (Q2/Q3/Q4) issues allowed in Q1 Top Right.
     5. Calculates M_acc (valid Q1 issues placed correctly / Total True Q1).
-    6. Allocates budget based on accuracy.
-    7. Persists the new treasury state.
+    6. Applies Option C budget clawback (40%) if materiality_ignored flag is active.
+    7. Allocates disclosure_investment_budget for Q2 issues placed correctly.
+    8. Persists the new treasury state and emits ESRS debrief card.
     """
     current = await db.fetch_latest_state(session_id)
     if current is None:
@@ -1127,12 +1461,10 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
 
     global_state = current["global_state"]
     bu_states = current["bu_states"]
-    
+
     # Load dynamic Materiality Config
     # Priority: 1) BU-specific dict (if bu_id), 2) Cohort sandbox, 3) Global
     if body.bu_id:
-        # Strategic Pillars mode: load BU-specific dictionary
-        # Check for cohort-specific BU override first
         bu_override_key = f"materiality_dictionary_override_{body.bu_id}"
         if bu_override_key in global_state:
             mat_config = global_state[bu_override_key]
@@ -1142,41 +1474,96 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
         mat_config = global_state["materiality_dictionary_override"]
     else:
         mat_config = mat_db.get_current_config()
-        
+
     all_issues = mat_config.get("issues", [])
-    consultant_fee = mat_config.get("consultant_fee_usd", 1500000)
-    
+    from round2_csrd import ROUND_2_DEFAULT_CONFIG
+    panel_config = ROUND_2_DEFAULT_CONFIG["round_2_config"]["stakeholder_panel"]
+
+    # ── R1 Intelligence Modulation ─────────────────────────────────────────────
+    # If electronics_blindspot flag is active (R1A Surface Scan chosen),
+    # degrade hover_description for electronics_sensitive issues.
+    # The frontend receives this via the issues list — we annotate them here
+    # so the materiality config endpoint can surface the degraded descriptions.
+    prev_flags = global_state.get("active_event_flags", {})
+    has_blindspot = "electronics_blindspot" in _collect_flags_from_state(prev_flags)
+    if has_blindspot:
+        all_issues = [
+            {**issue, "hover_description": issue.get("blindspot_description") or issue["hover_description"]}
+            if issue.get("electronics_sensitive")
+            else issue
+            for issue in all_issues
+        ]
+        global_state["r1_blindspot_active_in_r2"] = True
+
+    # ── R1 Stakeholder Voice Boost ─────────────────────────────────────────────
+    # If player correctly classified a stakeholder in R1 Mendelow matrix,
+    # mark that stakeholder's linked issues as "stakeholder_confirmed" so
+    # the frontend can show a confirmation badge on those issue chips.
+    # FIX C1/C18/C22: Keys match stakeholder_map.py IDs, all 10 mapped.
+    stakeholder_accuracy = global_state.get("stakeholder_accuracy", {})
+    stakeholder_boosts = set()
+    stakeholder_boost_map = {
+        "activist_fund": ["shareholder_activism", "executive_compensation"],
+        "eu_regulators": ["csrd_compliance", "carbon_disclosure", "scope3_reporting"],
+        "local_communities": ["water_scarcity", "plastic_packaging", "philanthropy"],
+        "tier3_miners": ["tier3_labor", "living_wage", "conflict_minerals"],
+        "factory_employees": ["ai_bias", "employee_volunteering", "just_transition"],
+        "syndicate_banks": ["green_bonds", "esg_lending_criteria"],
+        "national_gov": ["carbon_tax", "environmental_fines"],
+        "cafeteria_vendors": [],
+        "gen_public": [],
+        "local_media": [],
+    }
+    for stakeholder_key, issue_ids in stakeholder_boost_map.items():
+        # Check if this stakeholder was correctly placed in "Manage Closely" quadrant
+        if stakeholder_accuracy.get(stakeholder_key) == "manage_closely":
+            stakeholder_boosts.update(issue_ids)
+    global_state["stakeholder_boosted_issues"] = list(stakeholder_boosts)
+
     # Pre-compute the target Q1 (High Fin + High Impact)
     q1_target_issue_ids = set()
     for issue in all_issues:
         if issue["financial_impact"] == "high" and issue["societal_impact"] == "high":
             q1_target_issue_ids.add(issue["id"])
 
-    # Provide a fallback total budget for R2
-    from round2_csrd import ROUND_2_DEFAULT_CONFIG
     total_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["total_materiality_budget"]
+    disclosure_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["disclosure_investment_budget"]
 
-    # Deduct Consultant Fee if used
+    # ── Stakeholder Panel Survey Fee (tiered pricing) ──────────────────────────
     if body.consultant_used:
-        global_state["corporate_treasury"] -= consultant_fee
+        panel_issue_count = getattr(body, "panel_issue_count", 4)  # default 4 for backward compat
+        panel_issue_count = max(1, min(8, panel_issue_count))
+        tier_break = panel_config.get("tier_break", 4)
+        base_fee = panel_config.get("base_fee_per_issue_usd", 250_000)
+        extended_fee = panel_config.get("extended_fee_per_issue_usd", 500_000)
+        if panel_issue_count <= tier_break:
+            panel_fee = panel_issue_count * base_fee
+        else:
+            panel_fee = (tier_break * base_fee) + ((panel_issue_count - tier_break) * extended_fee)
+        global_state["corporate_treasury"] -= panel_fee
+        global_state["stakeholder_panel_fee_paid"] = panel_fee
+        global_state["stakeholder_panel_issues_rated"] = panel_issue_count
 
-    # CFO Override Validation (Strict)
+    # ── CFO Override Validation (Strict) ──────────────────────────────────────
     q1_submission = set(body.matrix_submission.quadrant_1_top_right)
     invalid_q1_issues = q1_submission - q1_target_issue_ids
-    
+
     if invalid_q1_issues:
         if body.force_override_cfo:
-            # Executive override used: penalize treasury further or reputation!
+            # Executive override: penalize reputation (−10, doubled from −5 to reflect governance gravity)
             global_state["group_reputation"] = max(0, global_state.get("group_reputation", 50) - 10)
-            # Proceed with accurate counting ignoring invalid
+            global_state["cfo_override_used_r2"] = True
         else:
-            # User requested funding for an issue that shouldn't get it
             raise HTTPException(
                 status_code=400,
-                detail="Your matrix is fundamentally flawed. You have requested CapEx for non-material or low-impact issues. My office will NOT approve this capital allocation. Fix your Quadrant 1 logic and submit again."
+                detail=(
+                    "CFO Override: Proposed initiatives include non-material or low-impact issues. "
+                    "Budget allocation denied per Double Materiality framework. "
+                    "Review your Quadrant 1 classification and resubmit."
+                )
             )
 
-    # Accuracy Scoring & Capital Release
+    # ── Accuracy Scoring & Capital Release ────────────────────────────────────
     if not q1_target_issue_ids:
         m_acc = 1.0
     else:
@@ -1185,9 +1572,26 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
 
     allocated_budget = int(total_budget * m_acc)
 
-    # ── Full-Quadrant Accuracy Bonus ──────────────────────────────
-    # Compute how many of ALL placed issues are in their correct quadrant.
-    # Award 1000 bonus_score if accuracy >= 80%.
+    # ── Option C Budget Clawback ───────────────────────────────────────────────
+    # If player chose Option C (Ignore Materiality Framework), the A/B/C governance
+    # decision retroactively reduces the materiality capital unlocked.
+    # This couples governance posture to materiality outcome.
+    from round_configs import get_round_options
+    r2_opts = get_round_options(2)
+    r2_choice = global_state.get("r2_governance_choice", None)
+    clawback_applied = 0
+    if r2_choice == "option_c":
+        clawback_pct = r2_opts.get("option_c", {}).get("budget_clawback_pct", 0.40)
+        clawback_applied = int(allocated_budget * clawback_pct)
+        allocated_budget -= clawback_applied
+        global_state["r2_budget_clawback"] = clawback_applied
+        global_state["r2_budget_clawback_message"] = (
+            f"⚠️ CFO Governance Review: Option C (Ignore Framework) triggered a "
+            f"${clawback_applied:,} ({int(clawback_pct*100)}%) clawback on your materiality budget. "
+            f"Governance posture must be consistent with capital allocation rationale."
+        )
+
+    # ── Full-Quadrant Accuracy Bonus ──────────────────────────────────────────
     def _correct_quadrant(issue):
         h_fin = issue["financial_impact"] == "high"
         h_imp = issue["societal_impact"] == "high"
@@ -1199,6 +1603,7 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
     issue_lookup = {i["id"]: i for i in all_issues}
     total_placed = 0
     correct_placed = 0
+    q2_disclosure_correct = 0
     for qname in ("q1", "q2", "q3", "q4"):
         submission_attr = {
             "q1": "quadrant_1_top_right",
@@ -1214,6 +1619,9 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
             total_placed += 1
             if _correct_quadrant(issue) == qname:
                 correct_placed += 1
+                # Count correctly placed Q2 disclosure issues
+                if qname == "q2" and issue.get("disclosure_required"):
+                    q2_disclosure_correct += 1
 
     full_accuracy = (correct_placed / total_placed) if total_placed > 0 else 0
     accuracy_bonus = 0
@@ -1223,25 +1631,99 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
 
     global_state["materiality_full_accuracy"] = round(full_accuracy * 100, 1)
 
-    # Add allocation to treasury
-    global_state["corporate_treasury"] += allocated_budget
-    global_state["materiality_budget_allocated"] = list(q1_submission) # Save the funded issues directly
-    
+    # ── Q2 Disclosure Investment Budget ───────────────────────────────────────
+    # Players who correctly placed Q2 issues receive the disclosure_investment_budget
+    # to cover data collection, assurance, and stakeholder engagement costs.
+    # This teaches: impact materiality requires disclosure investment, not capex.
+    disclosure_allocated = 0
+    if q2_disclosure_correct > 0:
+        # Pro-rata: each correct Q2 issue unlocks a portion of disclosure budget
+        from round2_csrd import Q2_DISCLOSURE_ISSUES
+        max_q2 = max(len(Q2_DISCLOSURE_ISSUES), 1)
+        disclosure_allocated = int(disclosure_budget * (q2_disclosure_correct / max_q2))
+        global_state["q2_disclosure_budget_unlocked"] = disclosure_allocated
+        global_state["q2_disclosure_message"] = (
+            f"📋 ESRS Disclosure Budget: {q2_disclosure_correct} Q2 impact-material issues correctly "
+            f"identified. ${disclosure_allocated:,} disclosure investment budget unlocked for "
+            f"data collection, assurance, and stakeholder engagement (ESRS S1/S2/E1-E5)."
+        )
+
+    # Deduct allocation from treasury
+    global_state["corporate_treasury"] -= allocated_budget
+    global_state["materiality_budget_allocated"] = list(q1_submission)
+
     # Store BU context if applicable
     if body.bu_id:
         global_state["materiality_bu_id"] = body.bu_id
 
     # Unlock the module gate
-    global_state["csrd_completed"] = True 
+    global_state["csrd_completed"] = True
+
+    # ── ESRS Debrief Card ─────────────────────────────────────────────────────
+    # Post-submission regulatory literacy card explaining the scoring rationale.
+    q1_correct_ids = list(q1_submission.intersection(q1_target_issue_ids))
+    q1_missed_ids = list(q1_target_issue_ids - q1_submission)
+    global_state["r2_esrs_debrief"] = {
+        "esrs_reference": "ESRS 1 §1.51-1.61 — Impact Materiality Threshold",
+        "q1_correct": q1_correct_ids,
+        "q1_missed": q1_missed_ids,
+        "scoring_rationale": (
+            "Under ESRS 1, issues are doubly material if they meet BOTH: "
+            "(a) financial materiality threshold (enterprise value impact) AND "
+            "(b) impact materiality threshold (severity × scale × irremediability). "
+            f"Your Q1 recall: {len(q1_correct_ids)}/{len(q1_target_issue_ids)} issues correctly prioritised."
+        ),
+        "q2_insight": (
+            "Q2 issues (High Impact / Low Financial) are not capital-intensive, but "
+            "ESRS S1, S2, and E1-E5 require mandatory disclosure. They require "
+            "disclosure investment (data collection, assurance) — not silence."
+        ),
+        "spectrum_note": (
+            "Note: ESRS 1 does not use binary High/Low classification. Real-world "
+            "assessment requires continuous severity/likelihood/time-horizon weighting. "
+            "This simulation uses a simplified 2×2 matrix — real practice is more granular."
+        ),
+        "time_horizon_note": (
+            "Time horizons matter: Scope 3 Carbon is long-term but compounds; "
+            "Water Scarcity is short-term and irreversible. Both are Q1 — but "
+            "sequencing and prioritisation differ in your ESRS transition plan."
+        ),
+        "full_accuracy_pct": round(full_accuracy * 100, 1),
+        "q2_disclosure_allocated": disclosure_allocated,
+        "clawback_applied": clawback_applied,
+    }
 
     # Persist the updated treasury back to the database for this round
     await db.update_latest_global_state(session_id, global_state, bu_states)
 
+    msg_parts = [f"Materiality Matrix accepted. Accuracy: {round(full_accuracy*100)}%."]
+    if accuracy_bonus:
+        msg_parts.append("+1000 bonus points!")
+    if clawback_applied:
+        msg_parts.append(f"Option C clawback: −${clawback_applied:,}.")
+    if disclosure_allocated:
+        msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,}.")
+
     return MaterialitySubmissionResponse(
         allocated_budget=allocated_budget,
         corporate_treasury=global_state["corporate_treasury"],
-        message=f"Materiality Matrix accepted. Accuracy: {round(full_accuracy*100)}%.{' +1000 bonus points!' if accuracy_bonus else ''} Funding allocated based on Q1 accuracy."
+        message=" ".join(msg_parts)
     )
+
+
+def _collect_flags_from_state(flags_dict: dict) -> set:
+    """Thin helper to collect flag names from the active_event_flags dict."""
+    result = set()
+    for key, val in flags_dict.items():
+        if isinstance(val, list):
+            result.update(str(v) for v in val)
+        elif isinstance(val, bool) and val:
+            result.add(key)
+        elif isinstance(val, str):
+            result.add(val)
+    return result
+
+
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -1271,26 +1753,25 @@ async def get_stakeholders():
     summary="Submit stakeholder power-interest grid mapping",
 )
 async def submit_stakeholder_map(session_id: str, body: StakeholderMapSubmission):
-    # Evaluate against master
+    # Evaluate against master (C4: graduated scoring, C12: treasury penalty)
     result = evaluate_stakeholder_map(body.mapping)
 
-    # If passed, award bonus_score
-    if result["passed"]:
-        latest = await db.fetch_latest_state(session_id)
-        if latest:
-            gs = latest["global_state"]
-            gs["bonus_score"] = gs.get("bonus_score", 0) + result["points_awarded"]
-            gs["stakeholder_map_completed"] = True
-            gs["stakeholder_map_accuracy"] = result["accuracy_percentage"]
-            await db.update_latest_global_state(session_id, gs, latest["bu_states"])
-    else:
-        # Even on fail, mark as completed so player can proceed
-        latest = await db.fetch_latest_state(session_id)
-        if latest:
-            gs = latest["global_state"]
-            gs["stakeholder_map_completed"] = True
-            gs["stakeholder_map_accuracy"] = result["accuracy_percentage"]
-            await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+    latest = await db.fetch_latest_state(session_id)
+    if latest:
+        gs = latest["global_state"]
+        gs["bonus_score"] = gs.get("bonus_score", 0) + result["points_awarded"]
+        gs["stakeholder_map_completed"] = True
+        gs["stakeholder_map_accuracy"] = result["accuracy_percentage"]
+        # C18: Persist per-stakeholder accuracy for R2 Voice Boost
+        gs["stakeholder_accuracy"] = body.mapping  # {stakeholder_id: quadrant_id}
+        # C12: Treasury penalty for poor analysis (<60%)
+        if result.get("treasury_penalty", 0) != 0:
+            gs["corporate_treasury"] = gs.get("corporate_treasury", 0) + result["treasury_penalty"]
+            gs["stakeholder_penalty_applied"] = result["treasury_penalty"]
+        # C4: Reputation penalty for failing (<80%)
+        if result.get("reputation_penalty", 0) != 0:
+            gs["group_reputation"] = max(0, gs.get("group_reputation", 50) + result["reputation_penalty"])
+        await db.update_latest_global_state(session_id, gs, latest["bu_states"])
 
     return {
         "accuracy_percentage": result["accuracy_percentage"],
@@ -1300,6 +1781,11 @@ async def submit_stakeholder_map(session_id: str, body: StakeholderMapSubmission
         "total_count": result["total_count"],
         "details": result["details"],
         "master_mapping": result["master_mapping"],
+        "treasury_penalty": result.get("treasury_penalty", 0),
+        "reputation_penalty": result.get("reputation_penalty", 0),
+        "scoring_tier": result.get("scoring_tier", ""),
+        "urgency_debrief": result.get("urgency_debrief", []),
+        "engagement_tactics": result.get("engagement_tactics", []),
     }
 
 
@@ -1328,7 +1814,7 @@ class ChangePasswordRequest(BaseModel):
 )
 async def change_password(body: ChangePasswordRequest):
     try:
-        from admin_router import _player_registry
+        from admin_shared import _player_registry
     except ImportError:
         raise HTTPException(500, "Player registry not available")
 
@@ -1486,7 +1972,7 @@ async def get_quiz_questions(notebook_id: str):
     Falls back to all difficulties if not enough at the target level.
     Question and option order are shuffled for each request.
     """
-    from admin_router import _notebooklm_notebooks, _quiz_difficulty
+    from admin_resources import _notebooklm_notebooks, _quiz_difficulty
 
     nb = next((n for n in _notebooklm_notebooks if n["id"] == notebook_id), None)
     if not nb:
@@ -1548,7 +2034,7 @@ async def get_player_resources(session_id: str):
     2. Explicitly unlocked resources (facilitator-unlocked or hidden resources unlocked by triggers)
     Splits them into 'new_this_round' and 'archive'.
     """
-    from admin_router import _resource_library, _session_resource_state, _notebooklm_notebooks, _quiz_enabled
+    from admin_resources import _resource_library, _session_resource_state, _notebooklm_notebooks, _quiz_enabled
 
     # Get current round
     latest = await db.fetch_latest_state(session_id)
@@ -1680,6 +2166,7 @@ async def get_peer_leaderboard(session_id: str):
                     "bonus_score": gs.get("bonus_score", 0),
                     "round_number": gs.get("round_number", 1),
                     "synergy": float(gs.get("synergy_multiplier", 1.0)),
+                    "stakeholder_accuracy": gs.get("stakeholder_map_accuracy", None),  # C21
                 })
 
     # Sort by treasury descending
@@ -1716,3 +2203,954 @@ async def get_peer_leaderboard(session_id: str):
 
     return {"leaderboard": leaderboard}
 
+
+# ═════════════════════════════════════════════════════════════════
+#  SIDE TRACK ENDPOINTS (Player-Facing)
+#  Sequential model: main sim pauses while side track is active.
+#  Full process_tick() engine used for side track rounds.
+# ═════════════════════════════════════════════════════════════════
+
+def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dict | None]:
+    """
+    Check if a session (or its parent cohort) has an active, incomplete side track.
+    Returns (track_id, track_state) if a side track is blocking main sim progression,
+    or (None, None) if no side track is active.
+    """
+    from database_memory import _sessions
+    sess = _sessions.get(session_id)
+    if not sess:
+        return None, None
+
+    # Check parent cohort if this is a player sub-session
+    parent_id = sess.get("parent_cohort_id")
+    if parent_id:
+        parent = _sessions.get(parent_id)
+        if parent:
+            sess = parent
+
+    active_tracks = sess.get("active_side_tracks", [])
+    if not active_tracks:
+        return None, None
+
+    states = sess.get("side_track_states", {})
+    timing = sess.get("side_track_timing", {})
+
+    # Get current main sim round
+    from database_memory import _global_states
+    player_states = _global_states.get(session_id, [])
+    current_main_round = player_states[-1]["round_number"] if player_states else 1
+
+    for tid in active_tracks:
+        st = states.get(tid, {})
+        if st.get("completed"):
+            continue
+
+        # Check timing: has the unlock round been reached?
+        track_timing = timing.get(tid, {})
+        unlock_after = track_timing.get("unlock_after_round", 0)
+        if current_main_round <= unlock_after:
+            continue
+
+        # This track is active, unlocked, and not completed — it blocks main sim
+        if st.get("current_round", 0) > 0 or current_main_round > unlock_after:
+            return tid, st
+
+    return None, None
+
+
+@router.get("/{session_id}/side-tracks", summary="Get active side tracks for this session")
+async def get_session_side_tracks(session_id: str):
+    """
+    Returns all side tracks assigned to this session (via cohort),
+    their current progress, and whether the main sim is blocked.
+    """
+    from database_memory import _sessions
+
+    session = _sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Resolve parent cohort for player sub-sessions
+    parent_id = session.get("parent_cohort_id")
+    cohort = _sessions.get(parent_id) if parent_id else session
+    if not cohort:
+        cohort = session
+
+    active_tracks = cohort.get("active_side_tracks", [])
+    timing = cohort.get("side_track_timing", {})
+
+    # Use player-level side track states if they exist, otherwise cohort level
+    states = session.get("side_track_states") or cohort.get("side_track_states", {})
+
+    # Get current main sim round
+    latest = await db.fetch_latest_state(session_id)
+    current_main_round = latest["round_number"] if latest else 1
+
+    from side_tracks import get_track
+    tracks_out = []
+    blocking_track_id = None
+
+    for tid in active_tracks:
+        track = get_track(tid)
+        if not track:
+            continue
+
+        st = states.get(tid, {})
+        track_timing = timing.get(tid, {})
+        unlock_after = track_timing.get("unlock_after_round", 0)
+        is_unlocked = current_main_round > unlock_after
+        is_completed = st.get("completed", False)
+        current_track_round = st.get("current_round", 0)
+
+        # Determine if this track is blocking
+        is_blocking = is_unlocked and not is_completed and current_track_round >= 0
+        if is_blocking and not blocking_track_id:
+            blocking_track_id = tid
+
+        # Get round config for current round if in progress
+        round_config = None
+        if current_track_round > 0 and not is_completed:
+            round_config = track.get_round_config(current_track_round)
+
+        tracks_out.append({
+            "track_id": tid,
+            "display_name": track.display_name,
+            "description": track.description,
+            "icon": track.icon,
+            "num_rounds": track.num_rounds,
+            "current_round": current_track_round,
+            "completed": is_completed,
+            "is_unlocked": is_unlocked,
+            "is_blocking": is_blocking,
+            "unlock_after_round": unlock_after,
+            "scoring_dimensions": track.scoring_dimensions,
+            "track_state": st.get("state", {}),
+            "round_config": round_config,
+        })
+
+    return {
+        "session_id": session_id,
+        "side_tracks": tracks_out,
+        "main_sim_blocked": blocking_track_id is not None,
+        "blocking_track_id": blocking_track_id,
+        "current_main_round": current_main_round,
+    }
+
+
+class SideTrackCommitRequest(BaseModel):
+    decisions: list[dict]
+    crisis_severity: float = 40.0
+    dividends_paid: float = 0.0
+    imitation_decay_rate: float = 0.05
+
+
+@router.post("/{session_id}/side-tracks/{track_id}/commit", summary="Commit a side track round")
+async def commit_side_track_turn(session_id: str, track_id: str, body: SideTrackCommitRequest):
+    """
+    Processes one round of a side track using the FULL process_tick() engine.
+
+    Flow:
+      1. Resolve cohort & validate track is active/unlocked
+      2. If round 0 (not started), seed from main state via data bridge
+      3. Run pre_tick → process_tick → post_tick
+      4. Persist track state
+      5. If final round, write back to main sim via data bridge
+      6. Return new track state
+    """
+    from database_memory import _sessions, _persist
+    from side_tracks import get_track
+    import copy
+
+    # Resolve session & cohort
+    session = _sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    parent_id = session.get("parent_cohort_id")
+    cohort = _sessions.get(parent_id) if parent_id else session
+    if not cohort:
+        cohort = session
+
+    # Validate track
+    track = get_track(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail=f"Side track '{track_id}' not found")
+
+    active = cohort.get("active_side_tracks", [])
+    if track_id not in active:
+        raise HTTPException(status_code=403, detail=f"Side track '{track_id}' not assigned to this cohort")
+
+    # Get or create player-level track states
+    if "side_track_states" not in session:
+        session["side_track_states"] = copy.deepcopy(cohort.get("side_track_states", {}))
+    
+    states = session["side_track_states"]
+    if track_id not in states:
+        states[track_id] = {
+            "current_round": 0,
+            "completed": False,
+            "state": {},
+            "bu_states": [],
+            "round_history": [],
+            "accumulated_flags": [],
+        }
+
+    track_data = states[track_id]
+    if track_data.get("completed"):
+        raise HTTPException(status_code=409, detail=f"Side track '{track_id}' already completed")
+
+    # Check timing: is this track unlocked?
+    timing = cohort.get("side_track_timing", {})
+    track_timing = timing.get(track_id, {})
+    unlock_after = track_timing.get("unlock_after_round", 0)
+
+    latest_main = await db.fetch_latest_state(session_id)
+    current_main_round = latest_main["round_number"] if latest_main else 1
+    if current_main_round <= unlock_after:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Side track '{track_id}' unlocks after main Round {unlock_after}. Currently on Round {current_main_round}."
+        )
+
+    current_track_round = track_data.get("current_round", 0)
+
+    # ── SEED: If round 0, initialize from main state ─────────
+    if current_track_round == 0:
+        main_global = latest_main["global_state"] if latest_main else {}
+        main_bus = latest_main["bu_states"] if latest_main else []
+
+        # Collect completed track states for cross-track dependencies
+        completed_tracks = {}
+        for tid, tst in states.items():
+            if tst.get("completed") and tid != track_id:
+                completed_tracks[tid] = tst.get("state", {})
+
+        seed_state = track.seed_from_main_state(main_global, main_bus, completed_tracks)
+        track_data["state"] = seed_state
+        track_data["bu_states"] = copy.deepcopy(main_bus)
+        current_track_round = 1
+        track_data["current_round"] = 1
+
+    # ── BUILD ENGINE INPUTS ──────────────────────────────────
+    track_global = {
+        "round_number": current_track_round,
+        "corporate_treasury": track_data["state"].get("inherited_treasury", 50_000_000),
+        "group_reputation": track_data["state"].get("inherited_reputation", 50.0),
+        "synergy_multiplier": 1.0,
+        "cost_of_capital": 0.05,
+        "active_event_flags": {
+            f"side_track_{track_id}": True,
+            **{f: True for f in track_data.get("accumulated_flags", [])},
+        },
+        "bonus_score": 0,
+        "historical_ebitda": 0,
+        "tco2e_emissions": 0,
+        "vrio_capabilities": {},
+        "green_transition_fund": 0,
+        "tipping_point_active": False,
+        "pending_capex_projects": [],
+        "inflation_index": 0.025,
+        "competitor_ebitda": 0,
+    }
+
+    # Merge persisted treasury/reputation if track has progressed past R1
+    if current_track_round > 1:
+        track_global["corporate_treasury"] = track_data["state"].get(
+            "current_treasury", track_global["corporate_treasury"]
+        )
+        track_global["group_reputation"] = track_data["state"].get(
+            "current_reputation", track_global["group_reputation"]
+        )
+
+    current_bus = copy.deepcopy(track_data.get("bu_states", []))
+    decisions_raw = [d if isinstance(d, dict) else d.model_dump() for d in body.decisions]
+
+    # ── PRE-TICK ─────────────────────────────────────────────
+    pre_result = track.pre_tick(
+        round_number=current_track_round,
+        track_state=track_data["state"],
+        bus=current_bus,
+        decisions=decisions_raw,
+        crisis_severity=body.crisis_severity,
+    )
+    effective_crisis = pre_result.get("crisis_severity", body.crisis_severity)
+    pre_events = pre_result.get("pre_events", {})
+
+    # ── PROCESS TICK (Full 8-formula engine) ──────────────────
+    # Determine paradigm from session (side tracks use the same paradigm)
+    session_info = await db.get_session_info(session_id)
+    paradigm = (session_info or {}).get("decision_paradigm", "legacy_abc")
+
+    tick_result = process_tick(
+        current_global=track_global,
+        current_bus=current_bus,
+        decisions=decisions_raw,
+        dividends_paid=body.dividends_paid,
+        crisis_severity=effective_crisis,
+        imitation_decay_rate=body.imitation_decay_rate,
+        decision_paradigm=paradigm,
+    )
+
+    new_global = tick_result["global_state"]
+    new_bus = tick_result["bu_states"]
+    events = tick_result["events"]
+    events.update(pre_events)
+
+    # ── POST-TICK (Track-specific) ───────────────────────────
+    post_events = track.post_tick(
+        round_number=current_track_round,
+        global_state=new_global,
+        bu_states=new_bus,
+        decisions=decisions_raw,
+        events=events,
+        extra_events={},
+        previous_flags={"accumulated_flags": track_data.get("accumulated_flags", [])},
+    )
+    events.update(post_events)
+
+    # ── UPDATE TRACK STATE ───────────────────────────────────
+    # Accumulate flags from the chosen option
+    choice = track._get_primary_choice(decisions_raw)
+    round_opts = track.get_round_options(current_track_round)
+    opt = round_opts.get(choice, {})
+    new_flags = opt.get("flags_set", [])
+    track_data["accumulated_flags"] = list(
+        set(track_data.get("accumulated_flags", []) + new_flags)
+    )
+
+    # Update custom track metrics from events
+    for key, val in events.items():
+        prefix = f"st_{track_id}_custom_"
+        if key.startswith(prefix):
+            metric_name = key[len(prefix):]
+            if isinstance(val, (int, float)):
+                current_val = track_data["state"].get(metric_name, 0)
+                track_data["state"][metric_name] = round(current_val + val, 2)
+            else:
+                track_data["state"][metric_name] = val
+
+    # Persist treasury & reputation
+    track_data["state"]["current_treasury"] = new_global["corporate_treasury"]
+    track_data["state"]["current_reputation"] = new_global["group_reputation"]
+
+    # Store round snapshot in history
+    track_data["round_history"].append({
+        "round_number": current_track_round,
+        "choice": choice,
+        "events": events,
+        "treasury_after": new_global["corporate_treasury"],
+        "reputation_after": new_global["group_reputation"],
+        "track_state_snapshot": copy.deepcopy(track_data["state"]),
+    })
+
+    track_data["bu_states"] = copy.deepcopy(new_bus)
+
+    # ── CHECK COMPLETION ─────────────────────────────────────
+    is_final = current_track_round >= track.num_rounds
+    if is_final:
+        track_data["completed"] = True
+        track_data["current_round"] = current_track_round
+
+        # Calculate final score
+        score = track.calculate_score(track_data["state"])
+        track_data["final_score"] = score
+
+        # DATA BRIDGE (WRITE): merge flags into main sim
+        main_state = await db.fetch_latest_state(session_id)
+        if main_state:
+            write_back = track.write_back_to_main(track_data["state"], main_state["global_state"])
+            main_gs = main_state["global_state"]
+            main_gs.setdefault("active_event_flags", {})
+            main_gs["active_event_flags"].update(write_back)
+            await db.update_latest_global_state(
+                session_id=session_id,
+                global_state=main_gs,
+                bu_states=main_state["bu_states"],
+            )
+            events["write_back_flags"] = write_back
+            events["side_track_completed"] = True
+            events["side_track_score"] = score
+    else:
+        track_data["current_round"] = current_track_round + 1
+
+    _persist()
+
+    # ── BUILD RESPONSE ───────────────────────────────────────
+    # Get next round config if not completed
+    next_round_config = None
+    if not is_final:
+        next_round_config = track.get_round_config(current_track_round + 1)
+
+    return {
+        "session_id": session_id,
+        "track_id": track_id,
+        "round_completed": current_track_round,
+        "next_round": None if is_final else current_track_round + 1,
+        "is_final": is_final,
+        "track_state": track_data["state"],
+        "accumulated_flags": track_data["accumulated_flags"],
+        "events": events,
+        "next_round_config": next_round_config,
+        "final_score": track_data.get("final_score"),
+        "global_state": {
+            "corporate_treasury": new_global["corporate_treasury"],
+            "group_reputation": new_global["group_reputation"],
+        },
+    }
+
+
+@router.get("/{session_id}/side-tracks/{track_id}/history", summary="Get side track round history")
+async def get_side_track_history(session_id: str, track_id: str):
+    """Returns the round-by-round history for a specific side track."""
+    from database_memory import _sessions
+
+    session = _sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    states = session.get("side_track_states", {})
+    track_data = states.get(track_id)
+    if not track_data:
+        # Try parent cohort
+        parent_id = session.get("parent_cohort_id")
+        if parent_id:
+            parent = _sessions.get(parent_id)
+            if parent:
+                states = parent.get("side_track_states", {})
+                track_data = states.get(track_id)
+
+    if not track_data:
+        raise HTTPException(status_code=404, detail=f"No data for side track '{track_id}'")
+
+    return {
+        "session_id": session_id,
+        "track_id": track_id,
+        "current_round": track_data.get("current_round", 0),
+        "completed": track_data.get("completed", False),
+        "round_history": track_data.get("round_history", []),
+        "final_score": track_data.get("final_score"),
+        "accumulated_flags": track_data.get("accumulated_flags", []),
+    }
+
+
+@router.get("/{session_id}/side-tracks/{track_id}/leaderboard", summary="Side track leaderboard")
+async def get_side_track_leaderboard(session_id: str, track_id: str):
+    """
+    Returns the separate leaderboard for a side track across all players in the cohort.
+    Scores are independent of the main simulation leaderboard.
+    """
+    from database_memory import _sessions
+    from side_tracks import get_track
+
+    session = _sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    track = get_track(track_id)
+    if not track:
+        raise HTTPException(status_code=404, detail=f"Side track '{track_id}' not found")
+
+    # Find parent cohort
+    parent_id = session.get("parent_cohort_id")
+    if not parent_id:
+        parent_id = session_id  # Solo session
+
+    # Collect all sibling sessions
+    entries = []
+    for sid, sess in _sessions.items():
+        if sess.get("parent_cohort_id") == parent_id or sid == parent_id:
+            st = sess.get("side_track_states", {}).get(track_id)
+            if st and st.get("current_round", 0) > 0:
+                score = st.get("final_score") or track.calculate_score(st.get("state", {}))
+                entries.append({
+                    "session_id": sid,
+                    "player_id": sess.get("player_id", ""),
+                    "player_name": sess.get("player_name", ""),
+                    "total_score": score.get("total_score", 0),
+                    "grade": score.get("grade", "?"),
+                    "archetype": score.get("archetype", {}).get("title", ""),
+                    "completed": st.get("completed", False),
+                    "rounds_done": st.get("current_round", 0),
+                    "num_rounds": track.num_rounds,
+                    "is_you": sid == session_id,
+                })
+
+    entries.sort(key=lambda e: -e["total_score"])
+    for i, e in enumerate(entries):
+        e["rank"] = i + 1
+
+    return {
+        "track_id": track_id,
+        "display_name": track.display_name,
+        "leaderboard": entries,
+    }
+
+
+@router.get("/{session_id}/side-tracks/aggregate-leaderboard", summary="Cross-track aggregated leaderboard")
+async def get_aggregate_side_track_leaderboard(session_id: str):
+    """
+    Returns an aggregated leaderboard across ALL completed side tracks.
+    Each player gets a composite score (average of completed track scores)
+    plus per-track breakdowns. Useful for facilitator debrief dashboards.
+    """
+    from database_memory import _sessions
+    from side_tracks import get_all_tracks
+
+    session = _sessions.get(session_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    all_tracks = get_all_tracks()
+    parent_id = session.get("parent_cohort_id") or session_id
+
+    # Collect all sibling sessions
+    player_data: dict = {}  # session_id → {name, tracks: {track_id: score_dict}}
+    for sid, sess in _sessions.items():
+        if sess.get("parent_cohort_id") == parent_id or sid == parent_id:
+            st_states = sess.get("side_track_states", {})
+            if not st_states:
+                continue
+
+            tracks_done = {}
+            for tid, track_obj in all_tracks.items():
+                st = st_states.get(tid)
+                if st and st.get("current_round", 0) > 0:
+                    score = st.get("final_score") or track_obj.calculate_score(st.get("state", {}))
+                    tracks_done[tid] = {
+                        "total_score": score.get("total_score", 0),
+                        "grade": score.get("grade", "?"),
+                        "archetype": score.get("archetype", {}).get("title", ""),
+                        "completed": st.get("completed", False),
+                        "rounds_done": st.get("current_round", 0),
+                        "num_rounds": track_obj.num_rounds,
+                        "mr_bonus": score.get("total_score", 0),
+                    }
+
+            if tracks_done:
+                player_data[sid] = {
+                    "session_id": sid,
+                    "player_id": sess.get("player_id", ""),
+                    "player_name": sess.get("player_name", ""),
+                    "tracks": tracks_done,
+                    "is_you": sid == session_id,
+                }
+
+    # Calculate composite scores
+    entries = []
+    for sid, pd in player_data.items():
+        track_scores = [t["total_score"] for t in pd["tracks"].values()]
+        composite = round(sum(track_scores) / len(track_scores), 1) if track_scores else 0
+
+        # Grade the composite
+        if composite >= 85: grade = "A+"
+        elif composite >= 75: grade = "A"
+        elif composite >= 65: grade = "B"
+        elif composite >= 50: grade = "C"
+        elif composite >= 35: grade = "D"
+        else: grade = "F"
+
+        entries.append({
+            "session_id": pd["session_id"],
+            "player_id": pd["player_id"],
+            "player_name": pd["player_name"],
+            "composite_score": composite,
+            "composite_grade": grade,
+            "tracks_completed": sum(1 for t in pd["tracks"].values() if t["completed"]),
+            "tracks_started": len(pd["tracks"]),
+            "tracks_available": len(all_tracks),
+            "track_details": pd["tracks"],
+            "is_you": pd["is_you"],
+        })
+
+    entries.sort(key=lambda e: -e["composite_score"])
+    for i, e in enumerate(entries):
+        e["rank"] = i + 1
+
+    return {
+        "available_tracks": [
+            {"track_id": tid, "display_name": t.display_name, "icon": t.icon, "num_rounds": t.num_rounds}
+            for tid, t in all_tracks.items()
+        ],
+        "aggregate_leaderboard": entries,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  CEO INTERVIEW — Post-Game Competency Assessment
+# ═════════════════════════════════════════════════════════════════
+
+def _is_interview_allowed(latest: dict) -> bool:
+    """Determine if the CEO interview is available for this session.
+    Post-game (round > 10): always available.
+    Pre-game: requires explicit ceo_interview_enabled flag or god-mode toggle."""
+    from admin_shared import _god_mode_settings
+    flags = latest.get("global_state", {}).get("active_event_flags", {})
+    round_number = latest.get("round_number", 1)
+    game_is_done = round_number > 10 or bool(flags.get("profile"))
+    if game_is_done:
+        return True
+    # Pre-game: explicit per-cohort flag or god-mode toggle required
+    return flags.get("ceo_interview_enabled", _god_mode_settings.get("ceo_interview_enabled", False))
+
+
+@router.get("/{session_id}/ceo-interview/questions", summary="Get CEO interview questions")
+async def get_interview_questions_endpoint(session_id: str):
+    """Returns the interview questions for the post-game CEO assessment.
+    Auto-enabled after game completion. Can also be enabled pre-game via facilitator settings."""
+    from admin_shared import _god_mode_settings
+
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    if not _is_interview_allowed(latest):
+        raise HTTPException(403, "CEO Interview is not enabled for this cohort. Enable via God Mode or facilitator settings.")
+
+    flags = latest.get("global_state", {}).get("active_event_flags", {})
+
+    ending_pathway = flags.get("ending_pathway", "activist_ultimatum")
+
+    # Per-cohort voice gender override
+    voice_gender = flags.get(
+        "ceo_interview_voice_gender",
+        _god_mode_settings.get("ceo_interview_voice_gender", "female"),
+    )
+
+    from ceo_interview import get_interview_questions, get_ceo_persona, DIMENSIONS
+    persona = get_ceo_persona(voice_gender)
+    questions = get_interview_questions(
+        ending_pathway=ending_pathway,
+        question_count=_god_mode_settings.get("ceo_interview_question_count", 5),
+        include_pathway_question=_god_mode_settings.get("ceo_interview_pathway_question", True),
+    )
+
+    return {
+        "session_id": session_id,
+        "questions": questions,
+        "persona": persona,
+        "dimensions": DIMENSIONS,
+        "ending_pathway": ending_pathway,
+    }
+
+
+@router.post("/{session_id}/ceo-interview/assess", summary="Submit interview responses for assessment")
+async def submit_interview_responses(session_id: str, body: dict):
+    """Submit player responses for CEO interview assessment.
+    Returns scored dimensions (spider diagram data) + narrative feedback."""
+    from admin_shared import _god_mode_settings
+
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    if not _is_interview_allowed(latest):
+        raise HTTPException(403, "CEO Interview is not enabled.")
+
+    responses = body.get("responses", [])
+    if not responses:
+        raise HTTPException(400, "No responses provided")
+
+    gs = latest.get("global_state", {})
+    bus = latest.get("bu_states", [])
+    flags = gs.get("active_event_flags", {})
+    ending_pathway = flags.get("ending_pathway", "activist_ultimatum")
+
+    from ceo_interview import (
+        get_interview_questions, calc_data_scores, blend_scores,
+        generate_fallback_feedback, generate_score_rationale,
+        get_ceo_persona, DIMENSIONS,
+    )
+    voice_gender = _god_mode_settings.get("ceo_interview_voice_gender", "female")
+    persona = get_ceo_persona(voice_gender)
+
+    questions = get_interview_questions(
+        ending_pathway=ending_pathway,
+        question_count=_god_mode_settings.get("ceo_interview_question_count", 5),
+    )
+
+    # Build the extra dict from R10 grand finale results
+    # (should be in active_event_flags after commit)
+    extra = {
+        "regenerative_multiple": flags.get("regenerative_multiple", gs.get("regenerative_multiple", 1.0)),
+        "terminal_value": flags.get("terminal_value", gs.get("terminal_value", 0)),
+        "profile_title": flags.get("profile_title", gs.get("profile_title", "Unknown")),
+    }
+
+    # Step 1: Calculate data-derived scores
+    data_scores = calc_data_scores(extra, gs, bus, flags)
+
+    # Step 2: Try LLM-based response scoring, fall back to data-only
+    response_scores = {}
+    llm_feedback = None
+    try:
+        # TODO: Integrate with actual LLM API (GPT-4o / Claude)
+        # For now, use data scores as both halves (with slight randomisation)
+        import random
+        for dim_id in data_scores:
+            # Simulate response analysis: slight variance around data score
+            base = data_scores[dim_id]
+            noise = random.uniform(-1.0, 1.0)
+            response_scores[dim_id] = round(min(10, max(1, base + noise)), 1)
+    except Exception as e:
+        print(f"[ceo-interview] LLM scoring failed: {e}")
+        response_scores = dict(data_scores)
+
+    # Step 3: Blend scores
+    final_scores = blend_scores(data_scores, response_scores)
+
+    # Step 4: Generate score rationale (per-dimension explanations)
+    score_rationale = generate_score_rationale(data_scores, extra, gs, bus, flags)
+
+    # Step 5: Generate narrative feedback
+    feedback = llm_feedback or generate_fallback_feedback(final_scores, extra)
+
+    # Step 6: Persist the assessment in session flags
+    try:
+        flags["ceo_interview_completed"] = True
+        flags["ceo_interview_scores"] = final_scores
+        flags["ceo_interview_data_scores"] = data_scores
+        flags["ceo_interview_response_scores"] = response_scores
+        flags["ceo_interview_score_rationale"] = score_rationale
+        gs["active_event_flags"] = flags
+        await db.update_latest_global_state(session_id, gs, bus)
+    except Exception as e:
+        print(f"[ceo-interview] Failed to persist assessment: {e}")
+
+    return {
+        "session_id": session_id,
+        "dimensions": DIMENSIONS,
+        "final_scores": final_scores,
+        "data_scores": data_scores,
+        "response_scores": response_scores,
+        "score_rationale": score_rationale,
+        "feedback": feedback,
+        "persona": persona,
+    }
+
+
+@router.get("/{session_id}/ceo-interview/results", summary="Get stored interview results")
+async def get_interview_results(session_id: str):
+    """Retrieve previously completed CEO interview results."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    flags = latest.get("global_state", {}).get("active_event_flags", {})
+    if not flags.get("ceo_interview_completed"):
+        raise HTTPException(404, "No CEO interview results found for this session")
+
+    from ceo_interview import get_ceo_persona, DIMENSIONS, generate_fallback_feedback, generate_score_rationale
+    from admin_shared import _god_mode_settings as _gms
+    voice_gender = _gms.get("ceo_interview_voice_gender", "female")
+    persona = get_ceo_persona(voice_gender)
+
+    final_scores = flags.get("ceo_interview_scores", {})
+    extra = {
+        "regenerative_multiple": flags.get("regenerative_multiple", 1.0),
+        "terminal_value": flags.get("terminal_value", 0),
+        "profile_title": flags.get("profile_title", "Unknown"),
+    }
+
+    # Retrieve or regenerate score rationale
+    score_rationale = flags.get("ceo_interview_score_rationale")
+    if not score_rationale:
+        gs = latest.get("global_state", {})
+        bus = latest.get("bu_states", [])
+        data_scores = flags.get("ceo_interview_data_scores", {})
+        score_rationale = generate_score_rationale(data_scores, extra, gs, bus, flags)
+
+    return {
+        "session_id": session_id,
+        "dimensions": DIMENSIONS,
+        "final_scores": final_scores,
+        "data_scores": flags.get("ceo_interview_data_scores", {}),
+        "response_scores": flags.get("ceo_interview_response_scores", {}),
+        "score_rationale": score_rationale,
+        "feedback": generate_fallback_feedback(final_scores, extra),
+        "persona": persona,
+        "completed": True,
+    }
+
+
+@router.post("/{session_id}/ceo-interview/tts", summary="Synthesize CEO voice audio")
+async def synthesize_ceo_voice(session_id: str, body: dict):
+    """Synthesize speech for a CEO interview text segment.
+    
+    Body: { "text": "...", "voice_id": "..." (optional) }
+    Returns: { "audio_b64": "..." } — base64-encoded MP3
+    """
+    from admin_shared import _god_mode_settings
+    tts_latest = await db.fetch_latest_state(session_id)
+    if not tts_latest:
+        raise HTTPException(404, "Session not found")
+    if not _is_interview_allowed(tts_latest):
+        raise HTTPException(403, "CEO Interview is not enabled.")
+
+    text = body.get("text", "")
+    if not text:
+        raise HTTPException(400, "No text provided")
+
+    # Resolve voice from god-mode settings if not explicitly provided
+    voice_id = body.get("voice_id")
+    if not voice_id:
+        from ceo_interview import get_ceo_persona
+        voice_gender = _god_mode_settings.get("ceo_interview_voice_gender", "female")
+        persona = get_ceo_persona(voice_gender)
+        voice_id = persona.get("elevenlabs_voice_id", "21m00Tcm4TlvDq8ikWAM")
+
+    from elevenlabs_tts import synthesize_speech
+    audio_b64 = await synthesize_speech(text=text, voice_id=voice_id)
+
+    if audio_b64 is None:
+        raise HTTPException(503, "Voice synthesis unavailable. Check ElevenLabs API key.")
+
+    return {
+        "audio_b64": audio_b64,
+        "voice_id": voice_id,
+        "text_length": len(text),
+    }
+
+
+@router.get("/elevenlabs/status", summary="Check ElevenLabs API status")
+async def elevenlabs_status():
+    """Check if ElevenLabs API is available and return subscription info."""
+    from elevenlabs_tts import check_api_status
+    return await check_api_status()
+
+
+# ─────────────────────────────────────────────────────────────────
+# ENGAGEMENT 7.3: Industry Benchmarks
+# ─────────────────────────────────────────────────────────────────
+
+@router.get("/{session_id}/benchmarks", summary="ESG Industry Benchmarks comparison")
+async def get_industry_benchmarks(session_id: str):
+    """Compare simulation metrics against real FTSE 100 ESG benchmarks."""
+    current = await db.fetch_latest_state(session_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    from benchmarks import get_benchmarks
+    return get_benchmarks(current["bu_states"], current["global_state"])
+
+
+# ─────────────────────────────────────────────────────────────────
+# ENGAGEMENT 7.5: Peer Decision Reveal
+# ─────────────────────────────────────────────────────────────────
+
+@router.get("/{session_id}/peer-stats/{round_number}", summary="Aggregate peer decision stats")
+async def get_peer_stats(session_id: str, round_number: int):
+    """
+    After all players commit a round, reveal aggregate statistics:
+    choice distribution and average investment ratio.
+    Only available for completed rounds.
+    """
+    session_info = await db.get_session_info(session_id)
+    if not session_info:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Find parent cohort
+    parent_id = session_info.get("parent_cohort_id") or session_id
+    children = await db.get_child_sessions(parent_id)
+    if not children:
+        return {"available": False, "reason": "No peer sessions found"}
+
+    # Check all players have committed this round
+    all_committed = True
+    for child in children:
+        child_state = await db.fetch_latest_state(child["session_id"])
+        if child_state and child_state.get("round_number", 1) <= round_number:
+            all_committed = False
+            break
+
+    if not all_committed:
+        return {"available": False, "reason": "Not all peers have committed this round yet"}
+
+    # Aggregate decision data from logs
+    decision_log = await db.get_decision_log(parent_id)
+    round_decisions = [d for d in decision_log if d.get("round_number") == round_number]
+
+    if not round_decisions:
+        return {"available": False, "reason": "No decisions found for this round"}
+
+    # Choice distribution
+    choice_counts: dict[str, int] = {}
+    total_capex = 0.0
+    total_investment_ratio = 0.0
+    decision_count = 0
+
+    for dec in round_decisions:
+        choice = dec.get("choice_selected", "")
+        if choice:
+            choice_counts[choice] = choice_counts.get(choice, 0) + 1
+        total_capex += dec.get("capex_allocated", 0)
+        total_investment_ratio += dec.get("investment_ratio", 0) if hasattr(dec, 'get') else 0
+        decision_count += 1
+
+    total_choices = sum(choice_counts.values()) or 1
+    choice_distribution = {
+        k: round(v / total_choices * 100, 1)
+        for k, v in choice_counts.items()
+    }
+
+    return {
+        "available": True,
+        "round_number": round_number,
+        "peer_count": len(children),
+        "choice_distribution": choice_distribution,
+        "most_popular_choice": max(choice_counts, key=choice_counts.get) if choice_counts else None,
+        "avg_capex": round(total_capex / max(decision_count, 1), 2),
+        "avg_investment_ratio": round(total_investment_ratio / max(decision_count, 1), 4),
+        "total_decisions_logged": decision_count,
+        "note": "Anonymised aggregate — individual player decisions are not revealed.",
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
+# ITEM 5: Cohort Pace Lock
+# ─────────────────────────────────────────────────────────────────
+
+@router.put("/{session_id}/pace-lock", summary="Set cohort pace lock")
+async def set_pace_lock(session_id: str, body: dict):
+    """Set the maximum round players can advance to. Facilitator control."""
+    session_info = await db.get_session_info(session_id)
+    if not session_info:
+        raise HTTPException(status_code=404, detail="Session not found")
+    max_round = body.get("max_round")
+    if max_round is not None:
+        if not isinstance(max_round, int) or max_round < 1 or max_round > 10:
+            raise HTTPException(status_code=400, detail="max_round must be 1-10")
+    session_info["max_round"] = max_round
+    return {"session_id": session_id, "max_round": max_round}
+
+
+# ─────────────────────────────────────────────────────────────────
+# ITEM 19: Round Timer
+# ─────────────────────────────────────────────────────────────────
+
+@router.put("/{session_id}/round-timer", summary="Set round deadline")
+async def set_round_timer(session_id: str, body: dict):
+    """Set a deadline (Unix timestamp) for the current round. Auto-locks on expiry."""
+    session_info = await db.get_session_info(session_id)
+    if not session_info:
+        raise HTTPException(status_code=404, detail="Session not found")
+    deadline = body.get("deadline")  # Unix timestamp or null to clear
+    session_info["round_deadline"] = deadline
+    return {"session_id": session_id, "round_deadline": deadline}
+
+
+# ─────────────────────────────────────────────────────────────────
+# ITEM 24: Facilitator Commit Notifications
+# ─────────────────────────────────────────────────────────────────
+
+@router.get("/{session_id}/commit-notifications", summary="Get recent commit notifications")
+async def get_commit_notifications(session_id: str):
+    """Return recent player commit notifications for the facilitator dashboard."""
+    session_info = await db.get_session_info(session_id)
+    if not session_info:
+        raise HTTPException(status_code=404, detail="Session not found")
+    notifications = session_info.get("commit_notifications", [])
+    return {
+        "session_id": session_id,
+        "notifications": notifications[-20:],  # Last 20
+        "total": len(notifications),
+    }

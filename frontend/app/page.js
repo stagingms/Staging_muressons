@@ -39,6 +39,7 @@ const InsettingROICalculator = dynamic(() => import('./components/InsettingROICa
 const PolicyWarRoom = dynamic(() => import('./components/PolicyWarRoom'), { ssr: false });
 const ESGRefinancingSimulator = dynamic(() => import('./components/ESGRefinancingSimulator'), { ssr: false });
 const CircularStrategyDashboard = dynamic(() => import('./components/CircularStrategyDashboard'), { ssr: false });
+const SideTrackPanel = dynamic(() => import('./components/SideTrackPanel'), { ssr: false });
 
 // ── Seed data (mirrors backend baseline) ──────────────────────
 const SEED_GLOBAL = {
@@ -123,6 +124,8 @@ export default function CockpitPage() {
   const [isMatrixOpen, setIsMatrixOpen] = useState(false);
   const [showDesktop, setShowDesktop] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
+  // NEW-04: track which round briefings have already been seen — prevents re-showing on re-render
+  const seenBriefingRoundsRef = useRef(new Set());
 
   useEffect(() => {
     setIsHydrated(true);
@@ -132,16 +135,24 @@ export default function CockpitPage() {
       const params = new URLSearchParams(window.location.search);
       const sessionParam = params.get('session');
       if (sessionParam && !sim.sessionId) {
-        sim.setSessionId && sim.setSessionId(sessionParam); // Fallback for raw setSessionId if exists
-        sim.fetchDashboard(sessionParam).then(() => {
-          sim.fetchRoundConfig && sim.fetchRoundConfig(sim.roundNumber || 1);
-        }).catch(() => {});
+        // NEW-12: Only honour the url ?session= param if it matches the locally stored session
+        // (prevents cross-auth session leak when sharing links)
+        const localSession = localStorage.getItem('muressons_session_id');
+        if (!localSession || localSession === sessionParam) {
+          sim.fetchDashboard(sessionParam).then(() => {
+            sim.fetchRoundConfig && sim.fetchRoundConfig(sim.roundNumber || 1);
+          }).catch(() => {});
+        } else {
+          // The url references a different session — ignore it silently
+          console.warn('[Security] Ignoring ?session= param that does not match stored session.');
+        }
       } else if (!sim.sessionId) {
         const cachedId = localStorage.getItem('muressons_session_id');
         if (cachedId) {
-          sim.resumeSession(cachedId).catch(() => {
-            console.error('Failed to resume session');
-            localStorage.removeItem('muressons_session_id');
+          // NEW-07: Keep localStorage ID even on failure — don't wipe it, so the player can retry
+          sim.resumeSession(cachedId).catch((err) => {
+            console.error('Failed to resume session — will retry on next load:', err);
+            // Do NOT removeItem here — preserve the session pointer for reconnection
           });
         }
       }
@@ -164,11 +175,21 @@ export default function CockpitPage() {
 
   const csfPool = useMemo(
     () => {
-      // Free capital allowance is strictly 20% of corporate treasury
-      return (globalState?.corporate_treasury || SEED_GLOBAL.corporate_treasury) * 0.20;
+      const treasury = globalState?.corporate_treasury ?? SEED_GLOBAL.corporate_treasury;
+      const pool = treasury * 0.20;
+      // Emergency floor: even bankrupt teams can make $1M in strategic
+      // investments (via emergency credit line). Without this, negative
+      // treasury permanently deadlocks the investment matrix.
+      return Math.max(pool, 1_000_000);
     },
     [globalState?.corporate_treasury]
   );
+
+  // Auto-detect when emergency credit line is active (treasury × 20% < $1M)
+  const emergencyCreditActive = useMemo(() => {
+    const treasury = globalState?.corporate_treasury ?? SEED_GLOBAL.corporate_treasury;
+    return treasury * 0.20 < 1_000_000;
+  }, [globalState?.corporate_treasury]);
 
   // ── Decision modal state ──────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
@@ -180,6 +201,9 @@ export default function CockpitPage() {
   useEffect(() => {
     setStakeholderDone(false);
     setShowStakeholderMap(false);
+    // Clear briefing-seen tracker so the briefing page shows on re-login
+    seenBriefingRoundsRef.current = new Set();
+    setShowDesktop(true);
   }, [sim.sessionId]);
 
   // Resource sidebar state
@@ -192,8 +216,17 @@ export default function CockpitPage() {
   const [aiAdvisorOpen, setAiAdvisorOpen] = useState(false);
   const [peerComparisonOpen, setPeerComparisonOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [sideTracksOpen, setSideTracksOpen] = useState(false);
+  const [sideTrackInfo, setSideTrackInfo] = useState(null); // { count, unlocked, blocking_track_id }
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [showOnboarding, setShowOnboarding] = useState(true);
+  const [showOnboarding, setShowOnboarding] = useState(false); // Phase 2.1: delayed until after glimpse
+  const [cockpitGlimpse, setCockpitGlimpse] = useState(false); // Phase 2.1: 5s preview state
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  useEffect(() => {
+    if (!confirmLogout) return;
+    const t = setTimeout(() => setConfirmLogout(false), 3500);
+    return () => clearTimeout(t);
+  }, [confirmLogout]);
 
   // Decision paradigm state
   const [decisionParadigm, setDecisionParadigm] = useState('legacy_abc');
@@ -221,6 +254,36 @@ export default function CockpitPage() {
     const interval = setInterval(fetchParadigm, 8000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [sim.sessionId]);
+
+  // ── Side Track availability check ──────────────────────────
+  useEffect(() => {
+    if (!sim.sessionId || sim.sessionId === 'demo') return;
+    let cancelled = false;
+    const checkSideTracks = () => {
+      fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/side-tracks`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (cancelled || !data) return;
+          const tracks = data.side_tracks || [];
+          const unlocked = tracks.filter(t => t.is_unlocked);
+          setSideTrackInfo({
+            count: tracks.length,
+            unlocked: unlocked.length,
+            blocking_track_id: data.blocking_track_id || null,
+            mainBlocked: data.main_sim_blocked || false,
+          });
+          // Auto-open side tracks panel when a blocking track requires attention
+          if (data.blocking_track_id && !sideTracksOpen) {
+            setSideTracksOpen(true);
+          }
+        })
+        .catch(() => {});
+    };
+    checkSideTracks();
+    // Re-check after round changes (polling every 15s is sufficient)
+    const interval = setInterval(checkSideTracks, 15000);
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [sim.sessionId, roundNumber]);
 
   // Fetch pillar config for multi_toggles
   useEffect(() => {
@@ -277,25 +340,25 @@ export default function CockpitPage() {
   const [blockAlert, setBlockAlert] = useState(null);
 
   // Derived state ─────────────────────────────────────────
-  // Open crisis modal when leaving desktop after round changes
+  // NEW-04: Only re-open round briefing for rounds the player hasn't acknowledged yet
   useEffect(() => {
     if (sim.sessionId && sim.roundChanged && !sim.gameOver) {
-      setShowDesktop(true);
-    }
-  }, [sim.sessionId, sim.roundChanged, sim.gameOver]);
-
-  useEffect(() => {
-    // Only auto-open the decision modal after the desktop has been dismissed
-    if (sim.sessionId && !showDesktop && !sim.gameOver) {
-      if (sim.roundChanged || roundNumber === 1 && !decisionChoice && !modalOpen && !hasSubmittedMatrix) {
-        // Optionally you can re-open it if needed, but for now we just let it open on round start
+      if (!seenBriefingRoundsRef.current.has(roundNumber)) {
+        setShowDesktop(true);
       }
     }
-  }, [showDesktop]);
+  }, [sim.sessionId, sim.roundChanged, sim.gameOver, roundNumber]);
 
   const handleProceedFromDesktop = () => {
+    // Mark this round's briefing as seen so it doesn't re-open
+    seenBriefingRoundsRef.current.add(roundNumber);
     setShowDesktop(false);
-    // Nothing auto-opens — player clicks the Stakeholder Map / CSRD / Decision Tab explicitly
+    // Phase 2.1: Enter cockpit glimpse — 5s preview before onboarding
+    setCockpitGlimpse(true);
+    setTimeout(() => {
+      setCockpitGlimpse(false);
+      setShowOnboarding(true);
+    }, 5000);
   };
 
   const handleDecision = useCallback((optionId) => {
@@ -327,6 +390,7 @@ export default function CockpitPage() {
         crisis_severity: 0,
         imitation_decay_rate: 0.05,
         decisions,
+        emergency_credit_used: emergencyCreditActive,
       });
       soundManager.commit();
       setAllocations({});
@@ -342,7 +406,7 @@ export default function CockpitPage() {
         setShowOverrideModal(true);
       }
     }
-  }, [sim, businessUnits, allocations, csfPool, decisionChoice, roundNumber]);
+  }, [sim, businessUnits, allocations, csfPool, decisionChoice, roundNumber, emergencyCreditActive]);
 
   const handleSaveDecisions = useCallback(async () => {
     if (!sim.sessionId) return;
@@ -610,72 +674,22 @@ export default function CockpitPage() {
           data={sim.finalReport}
           sessionId={sim.sessionId}
           onComplete={() => { setBoardroomDone(true); setGameOverPhase('done'); }}
+          onLogout={sim.logout}
         />
       );
     }
     // 'done' — simulation is complete, with option to review scorecard
     return (
-      <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'linear-gradient(135deg, #0f172a, #1e293b)',
-        color: '#e2e8f0',
-        fontFamily: 'Inter, system-ui, sans-serif',
-        textAlign: 'center',
-        padding: '2rem',
-      }}>
-        <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>🏁</div>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Simulation Complete</h1>
-        <p style={{ fontSize: '1rem', color: '#94a3b8', maxWidth: 500, lineHeight: 1.6 }}>
-          {sim.finalReport?.profile_title || 'Final Assessment'} — Your strategic journey through 10 rounds is now concluded.
-        </p>
-        <p style={{ fontSize: '0.85rem', color: '#64748b', marginTop: '1rem', marginBottom: '2rem' }}>
-          Thank you for participating in the Muressons Global Command simulation.
-        </p>
-        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <button
-            onClick={() => setGameOverPhase('scorecard')}
-            style={{
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-              color: '#fff',
-              border: 'none',
-              padding: '0.8rem 2.5rem',
-              borderRadius: '10px',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)',
-              transition: 'transform 0.15s, box-shadow 0.15s',
-            }}
-            onMouseOver={(e) => { e.target.style.transform = 'scale(1.03)'; }}
-            onMouseOut={(e) => { e.target.style.transform = 'scale(1)'; }}
-          >
-            📊 Review Final Scorecard
-          </button>
-          
-          <button
-            onClick={() => sim.logout()}
-            style={{
-              background: 'transparent',
-              color: '#94a3b8',
-              border: '1px solid #475569',
-              padding: '0.8rem 2.5rem',
-              borderRadius: '10px',
-              fontSize: '1rem',
-              fontWeight: 700,
-              cursor: 'pointer',
-              transition: 'all 0.15s',
-            }}
-            onMouseOver={(e) => { e.target.style.color = '#fff'; e.target.style.borderColor = '#94a3b8'; }}
-            onMouseOut={(e) => { e.target.style.color = '#94a3b8'; e.target.style.borderColor = '#475569'; }}
-          >
-            👋 Logout & Exit
-          </button>
-        </div>
-      </div>
+      <GameOverSummary
+        data={sim.finalReport}
+        businessUnits={sim.businessUnits}
+        globalState={sim.globalState}
+        history={sim.history}
+        decisionParadigm={decisionParadigm}
+        sessionId={sim.sessionId}
+        onReviewScorecard={() => setGameOverPhase('scorecard')}
+        onLogout={sim.logout}
+      />
     );
   }
 
@@ -713,45 +727,60 @@ export default function CockpitPage() {
 
   return (
     <>
-      {/* ── Persistent Logout Button (always visible) ── */}
+      {/* UX-10: Logout — 2 click confirmation to prevent accidental exits */}
       {sim.sessionId && (
         <button
-          onClick={() => sim.logout()}
-          title="Logout & Exit Simulation"
+          onClick={() => {
+            if (confirmLogout) { sim.logout(); setConfirmLogout(false); }
+            else setConfirmLogout(true);
+          }}
+          title={confirmLogout ? 'Click again to confirm logout' : 'Logout & Exit Simulation'}
           style={{
-            position: 'fixed',
-            top: 12,
-            right: 16,
-            zIndex: 19000,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '6px 14px',
-            background: 'rgba(15, 23, 42, 0.75)',
+            position: 'fixed', top: 12, right: 16, zIndex: 19000,
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+            background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
             backdropFilter: 'blur(8px)',
-            border: '1px solid rgba(248, 113, 113, 0.25)',
-            borderRadius: 8,
-            color: '#fca5a5',
-            fontSize: '0.72rem',
-            fontWeight: 700,
-            fontFamily: "'Inter', system-ui, sans-serif",
-            cursor: 'pointer',
-            transition: 'all 0.2s ease',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.background = 'rgba(127, 29, 29, 0.85)';
-            e.currentTarget.style.color = '#fff';
-            e.currentTarget.style.borderColor = '#f87171';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.background = 'rgba(15, 23, 42, 0.75)';
-            e.currentTarget.style.color = '#fca5a5';
-            e.currentTarget.style.borderColor = 'rgba(248, 113, 113, 0.25)';
+            border: confirmLogout ? '1px solid #f87171' : '1px solid rgba(248,113,113,0.25)',
+            borderRadius: 8, color: confirmLogout ? '#fff' : '#fca5a5',
+            fontSize: '0.72rem', fontWeight: 700, fontFamily: "'Inter', system-ui, sans-serif",
+            cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
-          🚪 Logout
+          {confirmLogout ? '⚠️ Confirm Logout?' : '🚪 Logout'}
         </button>
+      )}
+
+      {/* CB-01 / MP-05: Error banners for join-required and session-expired */}
+      {sim.error && (sim.error.startsWith('JOIN_REQUIRED') || sim.error.startsWith('SESSION_EXPIRED')) && (
+        <div style={{
+          position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 20000,
+          padding: '14px 24px', borderRadius: 12, maxWidth: 480, textAlign: 'center',
+          background: 'rgba(30,15,15,0.96)', border: '1px solid rgba(239,68,68,0.5)',
+          backdropFilter: 'blur(12px)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          fontFamily: "'Inter', system-ui, sans-serif",
+        }}>
+          <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fca5a5', marginBottom: 6 }}>
+            {sim.error.startsWith('JOIN_REQUIRED') ? '🚫 Direct Session Start Not Permitted' : '⏱️ Session Expired'}
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#94a3b8', lineHeight: 1.5 }}>
+            {sim.error.startsWith('JOIN_REQUIRED')
+              ? 'Please enter your cohort session code to join the live simulation.'
+              : 'Your previous session could not be restored. Please use your session code to rejoin.'}
+          </div>
+        </div>
+      )}
+
+      {/* MP-03: Auto-advance notification */}
+      {sim.autoAdvanceDetected && (
+        <div style={{
+          position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)', zIndex: 18000,
+          padding: '10px 20px', borderRadius: 10, background: 'rgba(16,185,129,0.15)',
+          border: '1px solid rgba(16,185,129,0.4)', backdropFilter: 'blur(8px)',
+          fontFamily: "'Inter', system-ui, sans-serif", fontSize: '0.8rem',
+          color: '#6ee7b7', fontWeight: 600, letterSpacing: '0.02em',
+        }}>
+          ⚡ Facilitator has advanced the round — cockpit updating...
+        </div>
       )}
 
       {/* Join/Login overlay */}
@@ -809,7 +838,12 @@ export default function CockpitPage() {
         <RoundBriefing
           roundNumber={roundNumber}
           isHealthcare={isHealthcare}
+          isSDG={decisionParadigm === 'un_sdg'}
+          decisionParadigm={decisionParadigm}
+          globalState={globalState}
           onProceed={handleProceedFromDesktop}
+          prevRoundData={sim.history?.[sim.history.length - 1]}
+          activeFlags={Object.keys(globalState?.active_event_flags || {})}
         />
       )}
 
@@ -850,6 +884,11 @@ export default function CockpitPage() {
               
               {[
                 { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
+                ...(sideTrackInfo && sideTrackInfo.count > 0 ? [{
+                  icon: '🛤️', label: sideTrackInfo.unlocked > 0 ? `Tracks (${sideTrackInfo.unlocked})` : 'Tracks', shortcut: null,
+                  onClick: () => setSideTracksOpen(true),
+                  highlight: sideTrackInfo.mainBlocked,
+                }] : []),
                 { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
                 { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
                 { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
@@ -864,10 +903,12 @@ export default function CockpitPage() {
                   style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
                     padding: '4px 8px', borderRadius: 10,
-                    background: 'rgba(255,255,255,0.05)',
-                    border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer',
+                    background: btn.highlight ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
+                    border: btn.highlight ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                    cursor: 'pointer',
                     transition: 'transform 0.15s, background 0.15s',
-                    color: '#e2e8f0',
+                    color: btn.highlight ? '#f59e0b' : '#e2e8f0',
+                    animation: btn.highlight ? 'pulse 2s infinite' : 'none',
                   }}
                   onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
                   onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
@@ -919,6 +960,11 @@ export default function CockpitPage() {
         lastSavedAt={lastSavedAt}
       />
 
+      {/* ═══ SIDE TRACK PANEL ═══ */}
+      {sideTracksOpen && sim.sessionId && (
+        <SideTrackPanel sessionId={sim.sessionId} onClose={() => setSideTracksOpen(false)} />
+      )}
+
       {/* ═══ CRISIS ALERTS (auto-trigger + manual inject) ═══ */}
       {sim.sessionId && (
         <CrisisAlerts
@@ -930,17 +976,20 @@ export default function CockpitPage() {
 
       {/* ── Auto-Advance Notification ── */}
       {sim.autoAdvanceDetected && (
-        <div style={{
+        <div
+          onClick={() => sim.setAutoAdvanceDetected?.(false)}
+          style={{
           position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)',
           background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: '#fff',
           borderRadius: 10, padding: '12px 24px', zIndex: 20000,
           fontFamily: "'Inter', sans-serif", fontSize: '0.85rem', fontWeight: 700,
           boxShadow: '0 8px 24px rgba(245,158,11,0.35)',
           display: 'flex', alignItems: 'center', gap: '0.6rem',
-          animation: 'slideDown 0.3s ease-out',
+          animation: 'slideDown 0.3s ease-out', cursor: 'pointer',
         }}>
           <span style={{ fontSize: '1.2rem' }}>⏰</span>
           Time expired — your turn was auto-committed with default choices. Now on Round {roundNumber}.
+          <span style={{ marginLeft: '0.5rem', opacity: 0.7, fontSize: '0.7rem' }}>✕</span>
         </div>
       )}
 
@@ -1083,44 +1132,74 @@ export default function CockpitPage() {
         </div>
       )}
 
-      {/* ── Double Materiality Overlay ── */}
+      {/* ── R2 Double Materiality (Phase 2.3: slide-in panel) ── */}
       {isMatrixOpen && (
-        <DoubleMaterialityMatrix
-          csfPool={csfPool}
-          globalState={sim?.globalState}
-          initialQ1={globalState?.materiality_budget_allocated || []}
-          buId={decisionParadigm === 'multi_toggles' ? r2BuSelection?.selected_bu : null}
-          buLabel={decisionParadigm === 'multi_toggles' ? r2BuSelection?.bu_label : null}
-          sessionId={sim.sessionId}
-          onOpenAdvisor={() => setAiAdvisorOpen(true)}
-          onClose={() => setIsMatrixOpen(false)}
-          onSubmit={async (payload) => {
-            try {
-              const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/materiality`, {
-                method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-              });
-              const data = await res.json();
-              if (!res.ok) return { error: data.detail };
-              if (sim.fetchDashboard) {
-                await sim.fetchDashboard();
-              }
-              setCsrdDone(true);
-              return { success: true, allocated_budget: data.allocated_budget };
-            } catch { return { error: 'Network error submitting matrix.' }; }
-          }}
-        />
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 7500,
+          display: 'flex', justifyContent: 'flex-end',
+          background: 'rgba(10, 14, 26, 0.4)',
+          animation: 'slideInFromRight 0.3s ease-out',
+        }}>
+          <div style={{
+            width: '85%', maxWidth: 1100, height: '100%',
+            background: '#0a0e1a',
+            borderLeft: '2px solid rgba(0, 229, 195, 0.15)',
+            boxShadow: '-8px 0 32px rgba(0,0,0,0.4)',
+            overflow: 'auto',
+          }}>
+            <DoubleMaterialityMatrix
+              csfPool={csfPool}
+              globalState={sim?.globalState}
+              initialQ1={globalState?.materiality_budget_allocated || []}
+              buId={decisionParadigm === 'multi_toggles' ? r2BuSelection?.selected_bu : null}
+              buLabel={decisionParadigm === 'multi_toggles' ? r2BuSelection?.bu_label : null}
+              sessionId={sim.sessionId}
+              onOpenAdvisor={() => setAiAdvisorOpen(true)}
+              onClose={() => setIsMatrixOpen(false)}
+              onSubmit={async (payload) => {
+                try {
+                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/materiality`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                  });
+                  const data = await res.json();
+                  if (!res.ok) return { error: data.detail };
+                  if (sim.fetchDashboard) {
+                    await sim.fetchDashboard();
+                  }
+                  setCsrdDone(true);
+                  return { success: true, allocated_budget: data.allocated_budget };
+                } catch { return { error: 'Network error submitting matrix.' }; }
+              }}
+            />
+          </div>
+        </div>
       )}
 
-      {/* ── R1 Stakeholder Map ── */}
+      {/* ── R1 Stakeholder Map (Phase 2.3: slide-in panel) ── */}
       {showStakeholderMap && (
-        <StakeholderMapModal
-          sessionId={sim.sessionId}
-          onComplete={(result) => {
-            setShowStakeholderMap(false);
-            setStakeholderDone(true);
-            if (sim.sessionId) sim.fetchDashboard(sim.sessionId);
-          }}
-        />
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 7500,
+          display: 'flex', justifyContent: 'flex-end',
+          background: 'rgba(10, 14, 26, 0.4)',
+          animation: 'slideInFromRight 0.3s ease-out',
+        }}>
+          <div style={{
+            width: '85%', maxWidth: 1100, height: '100%',
+            background: '#0a0e1a',
+            borderLeft: '2px solid rgba(0, 229, 195, 0.15)',
+            boxShadow: '-8px 0 32px rgba(0,0,0,0.4)',
+            overflow: 'auto',
+          }}>
+            <StakeholderMapModal
+              sessionId={sim.sessionId}
+              onComplete={(result) => {
+                setShowStakeholderMap(false);
+                setStakeholderDone(true);
+                if (sim.sessionId) sim.fetchDashboard(sim.sessionId);
+              }}
+            />
+          </div>
+        </div>
       )}
 
       {/* ── Resource Sidebar ── */}
@@ -1142,9 +1221,49 @@ export default function CockpitPage() {
 
       {/* ═══ IMPROVEMENT: Round Checklist (moved to ExecutiveCockpit) ═══ */}
 
-      {/* ═══ IMPROVEMENT: Onboarding Walkthrough (1.4) ═══ */}
-      {sim.sessionId && showOnboarding && !showDesktop && !sim.gameOver && (
-        <OnboardingWalkthrough roundNumber={roundNumber} onComplete={() => setShowOnboarding(false)} />
+      {/* ═══ Phase 2.1: Cockpit Glimpse — 5s frosted preview ═══ */}
+      {sim.sessionId && cockpitGlimpse && !showDesktop && !sim.gameOver && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 8000,
+          background: 'rgba(10, 14, 26, 0.55)',
+          backdropFilter: 'blur(3px)', WebkitBackdropFilter: 'blur(3px)',
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          gap: 16, pointerEvents: 'auto',
+        }}>
+          <div style={{
+            padding: '16px 32px', borderRadius: 12,
+            background: 'rgba(14, 20, 36, 0.85)', border: '1px solid rgba(0, 229, 195, 0.2)',
+            textAlign: 'center', maxWidth: 420,
+          }}>
+            <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', marginBottom: 8 }}>
+              👀 Take a look around
+            </div>
+            <div style={{ fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.5 }}>
+              This is your <strong style={{ color: '#00e5c3' }}>Executive Cockpit</strong>. 
+              On the <strong>left</strong>: your KPIs and resources. 
+              In the <strong>center</strong>: briefings and decisions. 
+              On the <strong>right</strong>: mailbox, market feed, and analytics.
+            </div>
+            <div style={{ marginTop: 12, fontSize: '0.72rem', color: '#64748b' }}>
+              Auto-continuing in a moment…
+            </div>
+            <button
+              onClick={() => { setCockpitGlimpse(false); setShowOnboarding(true); }}
+              style={{
+                marginTop: 10, padding: '8px 24px', background: 'rgba(0,229,195,0.15)',
+                border: '1px solid rgba(0,229,195,0.3)', borderRadius: 8,
+                color: '#00e5c3', fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+              }}
+            >
+              Got it — continue →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ═══ Phase 2.2: Onboarding Walkthrough (contextual, dismissible) ═══ */}
+      {sim.sessionId && showOnboarding && !showDesktop && !sim.gameOver && !cockpitGlimpse && (
+        <OnboardingWalkthrough roundNumber={roundNumber} decisionParadigm={decisionParadigm} onComplete={() => setShowOnboarding(false)} />
       )}
 
       {/* ═══ IMPROVEMENT: Action Toolbar has been moved to ExecutiveCockpit leftSidebar ═══ */}
@@ -1177,6 +1296,7 @@ export default function CockpitPage() {
       {/* ═══ IMPROVEMENT: Peer Comparison (5.2) ═══ */}
       <PeerComparison
         sessionId={sim.sessionId}
+        roundNumber={roundNumber}
         isOpen={peerComparisonOpen}
         onClose={() => setPeerComparisonOpen(false)}
       />

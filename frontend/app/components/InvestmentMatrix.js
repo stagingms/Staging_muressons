@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { ResponsiveContainer, LineChart, Line, YAxis } from 'recharts';
 import styles from './InvestmentMatrix.module.css';
 import { Abbr } from './Glossary';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const BU_META = {
     pharma: { label: 'Pharma', icon: '💊', accent: '#10b981' },
@@ -33,8 +34,11 @@ export default function InvestmentMatrix({
     businessUnits = [],
     allocations = {},
     onAllocationsChange,
-    historyData = []
+    historyData = [],
+    decisionParadigm = 'legacy_abc',
 }) {
+    const { currency } = useCurrency();
+    const sym = currency?.symbol || '$';
     const [csrdIssues, setCsrdIssues] = useState([]);
 
     // Fetch materiality issues so we can display funded ones
@@ -46,8 +50,8 @@ export default function InvestmentMatrix({
                     const data = await res.json();
                     setCsrdIssues(data.issues || []);
                 }
-            } catch (err) {
-                console.error("Failed to load generic materiality config for matrix", err);
+            } catch {
+                // Silently degrade — materiality config is optional enhancement data
             }
         };
         fetchIssues();
@@ -71,9 +75,9 @@ export default function InvestmentMatrix({
             const value = parseFloat(rawValue);
             const otherTotal = totalAllocated - (allocations[buId] || 0);
 
-            // Allow them to theoretically borrow up to 30% of total treasury
-            const absoluteMax = (globalState?.corporate_treasury || 50_000_000) * 0.3;
-            const maxAvailable = Math.max(absoluteMax, csfPool) - otherTotal;
+            // Cap total allocation at 120% of CSF pool (allows 20% over-allocation via loan).
+            const maxTotal = csfPool * 1.20;
+            const maxAvailable = maxTotal - otherTotal;
 
             const clamped = Math.min(value, Math.max(0, maxAvailable));
 
@@ -87,6 +91,31 @@ export default function InvestmentMatrix({
 
     const pctUsed = csfPool > 0 ? ((totalAllocated / csfPool) * 100) : 0;
 
+    // NEW-05: Native input listener map so programmatic slider changes update counters
+    // React's synthetic onChange won't fire when external JS calls:
+    //   slider.value = X; slider.dispatchEvent(new Event('input', { bubbles: true }));
+    // The native listener below bridges that gap.
+    const sliderRefs = useRef({});
+
+    useEffect(() => {
+        const handlers = {};
+        businessUnits.forEach(bu => {
+            const el = sliderRefs.current[bu.bu_id];
+            if (!el) return;
+            const handler = (e) => handleSlider(bu.bu_id, e.target.value);
+            handlers[bu.bu_id] = handler;
+            el.addEventListener('input', handler);
+        });
+        return () => {
+            businessUnits.forEach(bu => {
+                const el = sliderRefs.current[bu.bu_id];
+                if (el && handlers[bu.bu_id]) {
+                    el.removeEventListener('input', handlers[bu.bu_id]);
+                }
+            });
+        };
+    }, [businessUnits, handleSlider]);
+
     return (
         <section className={styles.matrix}>
             {/* Pool summary */}
@@ -99,13 +128,13 @@ export default function InvestmentMatrix({
                     <div className={styles.statBlock}>
                         <span className={styles.statLabel}><Abbr term="CSF">CSF Pool</Abbr></span>
                         <span className={styles.statValue}>
-                            ${(csfPool / 1_000_000).toFixed(1)}M
+                            {sym}{(csfPool / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
                     <div className={styles.statBlock}>
                         <span className={styles.statLabel}>Allocated</span>
                         <span className={`${styles.statValue} ${styles.allocated}`}>
-                            ${(totalAllocated / 1_000_000).toFixed(1)}M
+                            {sym}{(totalAllocated / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
                     <div className={styles.statBlock}>
@@ -114,7 +143,7 @@ export default function InvestmentMatrix({
                             className={`${styles.statValue} ${remaining < csfPool * 0.1 ? styles.low : ''
                                 }`}
                         >
-                            ${(remaining / 1_000_000).toFixed(1)}M
+                            {sym}{(remaining / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
                 </div>
@@ -132,15 +161,47 @@ export default function InvestmentMatrix({
                     )}
                 </div>
 
-                {/* Warning for Over-allocation (Loan Required) */}
-                {totalAllocated > csfPool && (
+                {/* Warning for Over-allocation or Negative Treasury (Loan Required) */}
+                {(totalAllocated > csfPool || (globalState?.corporate_treasury || 0) < 0) && (
                     <div className={styles.loanWarning}>
                         <span className={styles.loanIcon}>⚠️</span>
                         <span>
-                            Loan Required: <span className={styles.loanAmount}>${((totalAllocated - csfPool) / 1_000_000).toFixed(2)}M</span>
+                            {(globalState?.corporate_treasury || 0) < 0
+                                ? <>Emergency Credit Line: <span className={styles.loanAmount}>{sym}{(Math.abs(globalState?.corporate_treasury || 0) / 1_000_000).toFixed(2)}M</span> in debt</>
+                                : <>Loan Required: <span className={styles.loanAmount}>{sym}{((totalAllocated - csfPool) / 1_000_000).toFixed(2)}M</span></>
+                            }
                             <span style={{ color: "var(--text-muted)", marginLeft: "0.5rem" }}>
                                 at {(globalState?.active_event_flags?.loan_interest_rate * 100 || 12).toFixed(1)}% interest per round
                             </span>
+                        </span>
+                    </div>
+                )}
+                {/* Emergency Credit Active: +$1M at prevailing rate + 2% */}
+                {(globalState?.corporate_treasury || 0) * 0.20 < 1_000_000 && (
+                    <div className={styles.loanWarning} style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.06)' }}>
+                        <span className={styles.loanIcon}>🚨</span>
+                        <span style={{ fontSize: '0.68rem' }}>
+                            Emergency Credit Facility: <strong>{sym}1.0M</strong> available at{' '}
+                            <span className={styles.loanAmount}>
+                                {((globalState?.active_event_flags?.loan_interest_rate || 0.12) * 100 + 2).toFixed(1)}%
+                            </span>{' '}
+                            <span style={{ color: "var(--text-muted)" }}>
+                                (prevailing rate + 2% premium)
+                            </span>
+                        </span>
+                    </div>
+                )}
+                {/* MB-01: Green Fund coverage indicator for Advanced Climate */}
+                {decisionParadigm === 'advanced_climate' && (globalState?.green_transition_fund || 0) > 0 && (
+                    <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '4px 0', fontSize: '0.62rem',
+                    }}>
+                        <span style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            🌱 Green Fund Coverage
+                        </span>
+                        <span style={{ color: '#4ade80', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace' }}>
+                            up to {sym}{((globalState?.green_transition_fund || 0) / 1_000_000).toFixed(1)}M available
                         </span>
                     </div>
                 )}
@@ -151,7 +212,7 @@ export default function InvestmentMatrix({
                 {businessUnits.map((bu, i) => {
                     const meta = BU_META[bu.bu_id] || { label: bu.bu_id, icon: '📊', accent: '#6366f1' };
                     const alloc = allocations[bu.bu_id] || 0;
-                    const sliderMax = Math.max((globalState?.corporate_treasury || 50_000_000) * 0.3, csfPool);
+                    const sliderMax = csfPool * 1.20;
                     const pct = csfPool > 0 ? (alloc / csfPool) * 100 : 0;
                     // thumbPct must match the browser's thumb position: value / max * 100
                     const thumbPct = sliderMax > 0 ? (alloc / sliderMax) * 100 : 0;
@@ -175,7 +236,7 @@ export default function InvestmentMatrix({
                                 <div className={styles.buInfo}>
                                     <span className={styles.buLabel}>{meta.label}</span>
                                     <span className={styles.buRevenue} title="Revenue — total income generated by this business unit">
-                                        Rev: ${(bu.revenue_base / 1_000_000).toFixed(1)}M
+                                        Rev: {sym}{(bu.revenue_base / 1_000_000).toFixed(1)}M
                                     </span>
                                 </div>
                                 
@@ -194,7 +255,7 @@ export default function InvestmentMatrix({
                                 </div>
 
                                 <span className={styles.allocAmount}>
-                                    ${(alloc / 1_000_000).toFixed(2)}M
+                                    {sym}{(alloc / 1_000_000).toFixed(2)}M
                                 </span>
                             </div>
 
@@ -202,6 +263,7 @@ export default function InvestmentMatrix({
                                 <input
                                     type="range"
                                     id={`slider-${bu.bu_id}`}
+                                    ref={el => { sliderRefs.current[bu.bu_id] = el; }}
                                     min={0}
                                     max={sliderMax}
                                     step={100_000}
@@ -219,7 +281,7 @@ export default function InvestmentMatrix({
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', borderTop: '1px solid rgba(226, 232, 240, 0.1)', paddingTop: '0.4rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Opex Base</span>
-                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>${(bu.opex_base / 1_000_000).toFixed(1)}M</span>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>{sym}{(bu.opex_base / 1_000_000).toFixed(1)}M</span>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Margin</span>
@@ -242,7 +304,7 @@ export default function InvestmentMatrix({
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nat. Debt</span>
                                     <span style={{ fontSize: '0.65rem', fontWeight: 600, color: bu.natural_capital_debt > 0 ? '#f59e0b' : 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>
-                                        ${(bu.natural_capital_debt / 1_000_000).toFixed(1)}M
+                                        {sym}{(bu.natural_capital_debt / 1_000_000).toFixed(1)}M
                                     </span>
                                 </div>
                             </div>
@@ -274,7 +336,7 @@ export default function InvestmentMatrix({
                                                         • {issue.title}
                                                     </span>
                                                     <span style={{ color: 'var(--accent-green, #10b981)', fontWeight: 'bold' }}>
-                                                        ${(displayCost / 1_000_000).toFixed(1)}M
+                                                        {sym}{(displayCost / 1_000_000).toFixed(1)}M
                                                     </span>
                                                 </li>
                                             );

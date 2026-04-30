@@ -12,13 +12,15 @@ export default function UniversalBroadcast() {
     const [history, setHistory] = useState([]);
     const [result, setResult] = useState('');
 
+    const [target, setTarget] = useState('all'); // 'all', 'students', 'facilitators'
+
     const handleSend = async () => {
         if (!title.trim() || !message.trim()) return;
         setSending(true);
         try {
             const res = await fetch(`${API}/api/admin/god/universal-broadcast`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title, message, priority }),
+                body: JSON.stringify({ title, message, priority, target }),
             });
             if (res.ok) {
                 const data = await res.json();
@@ -44,13 +46,29 @@ export default function UniversalBroadcast() {
                 <input className={styles.input} placeholder="Announcement title" value={title} onChange={e => setTitle(e.target.value)} />
                 <textarea className={styles.textarea} placeholder="Message body…" rows={4} value={message} onChange={e => setMessage(e.target.value)} />
 
-                <div className={styles.priorityRow}>
-                    <span className={styles.priorityLabel}>Priority:</span>
+                <div className={styles.priorityRow} style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span className={styles.priorityLabel}>Target:</span>
+                        <select 
+                            className={styles.input} 
+                            style={{ padding: '0.4rem', width: 'auto' }}
+                            value={target} 
+                            onChange={e => setTarget(e.target.value)}
+                        >
+                            <option value="all">All Clients</option>
+                            <option value="students">Students Only</option>
+                            <option value="facilitators">Facilitators Only</option>
+                        </select>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginLeft: 'auto' }}>
+                        <span className={styles.priorityLabel}>Priority:</span>
                     {['info', 'warning', 'critical'].map(p => (
                         <button key={p} className={`${styles.priorityBtn} ${priority === p ? styles[`priority_${p}`] : ''}`} onClick={() => setPriority(p)}>
                             {p === 'info' ? 'ℹ️' : p === 'warning' ? '⚠️' : '🚨'} {p}
                         </button>
                     ))}
+                    </div>
                 </div>
 
                 <button className={styles.sendBtn} disabled={sending || !title.trim() || !message.trim()} onClick={handleSend}>

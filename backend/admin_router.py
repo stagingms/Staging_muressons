@@ -22,140 +22,30 @@ import materiality_db as mat_db
 from config import MASTER_PASSWORD
 from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 
-admin_router = APIRouter(prefix="/api/admin", tags=["Admin — God Mode"])
+# ARCH-002: Import all shared state from admin_shared.py
+# Re-export for backward compatibility — external modules that do
+# `from admin_router import _god_mode_settings` continue to work.
+from admin_shared import (
+    _god_mode_settings,
+    _facilitator_registry, _persist_facilitators, _load_facilitator_registry,
+    _FAC_REGISTRY_PATH, _DEFAULT_FACILITATOR,
+    _player_registry,
+    _session_messages, _session_interventions,
+    _god_mode_audit_log, _crisis_trigger_history,
+    _practice_mode, is_practice_mode,
+    _round_pacing, _get_pacing, is_round_unlocked,
+    check_and_increment_cohort_count,
+    _get_session_paradigm,
+    DEFAULT_ARCHETYPES,
+)
 
-# ── In-memory message store for facilitator messages ────────────
-_session_messages: dict[str, list[dict]] = {}  # session_id → [message dicts]
-
-
-def _get_session_paradigm(session_id: str) -> str:
-    """Read decision_paradigm directly from the raw in-memory session store,
-    bypassing the filtered dict returned by fetch_all_sessions()."""
-    from database_memory import _sessions
-    raw = _sessions.get(session_id)
-    if raw:
-        return raw.get("decision_paradigm", "legacy_abc") or "legacy_abc"
-    return "legacy_abc"
-
-# ── God Mode global settings ────────────────────────────────────
-_god_mode_settings: dict = {
-    "allow_facilitator_cohort_creation": True,
-    "system_frozen": False,
-    "freeze_message": "",
-    "freeze_started_at": None,
-    # Advanced Climate Engine fields (set by Sim Switchboard)
-    "simulation_mode": "standard",          # "standard" | "advanced_climate"
-    "global_carbon_fee": 40,
-    "market_hostility_index": 5,
-    "scope_3_threshold": 2.5,
-    # Custom profile archetypes (empty = use hardcoded defaults in round_logic.py)
-    "custom_archetypes": [],
-    # Economic complexity engine tunables
-    "overrun_probability": 0.25,       # 25% chance of overrun on $3M+ CAPEX
-    "overrun_severity": 0.15,          # 15% cost overrun when triggered
-}
-
-# Default archetypes mirroring round_logic.py — shown as read-only reference in God Mode UI
-DEFAULT_ARCHETYPES = [
-    {
-        "key": "regenerative_titan",
-        "title": "The Regenerative Titan",
-        "description": (
-            "A truly regenerative enterprise. Muressons has rebuilt natural capital, "
-            "earned deep social trust, and delivered superior financial returns. "
-            "This is the gold standard of Year 3."
-        ),
-        "mr_threshold": 1.8,
-        "icon": "🌱",
-        "gradient": "linear-gradient(135deg, #10b981, #059669)",
-        "is_default": True,
-    },
-    {
-        "key": "derisked_safe_haven",
-        "title": "The De-risked Safe-Haven",
-        "description": (
-            "A resilient corporation that avoided the worst tail risks. "
-            "Investors value the predictability, but innovation is stalling. "
-            "Solid, but not transformational."
-        ),
-        "mr_threshold": 1.2,
-        "icon": "🏦",
-        "gradient": "linear-gradient(135deg, #3b82f6, #1d4ed8)",
-        "is_default": True,
-    },
-    {
-        "key": "fragile_giant",
-        "title": "The Fragile Giant",
-        "description": (
-            "Big but brittle. The cracks in social license and natural capital are visible. "
-            "One more shock could trigger a cascade of write-downs and stakeholder defections."
-        ),
-        "mr_threshold": 0.8,
-        "icon": "⚠️",
-        "gradient": "linear-gradient(135deg, #f59e0b, #d97706)",
-        "is_default": True,
-    },
-    {
-        "key": "stranded_relic",
-        "title": "The Stranded Relic",
-        "description": (
-            "A cautionary tale. Stranded assets, depleted social capital, "
-            "and a brand synonymous with extraction. The Year 3 market has moved on. "
-            "Terminal decline is imminent."
-        ),
-        "mr_threshold": 0.0,
-        "icon": "💀",
-        "gradient": "linear-gradient(135deg, #ef4444, #b91c1c)",
-        "is_default": True,
-    },
-]
+admin_router = APIRouter(prefix="/api/admin", tags=["Admin \u2014 God Mode"])
 
 
-# ── God Mode audit log ──────────────────────────────────────────
-_god_mode_audit_log: list[dict] = []
+# _get_session_paradigm imported from admin_shared
 
-# ── Crisis trigger history ──────────────────────────────────────
-_crisis_trigger_history: list[dict] = []
-
-# ── In-memory facilitator registry (with JSON persistence) ──────
-_FAC_REGISTRY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "db", "facilitator_registry.json")
-
-_DEFAULT_FACILITATOR = {
-    "facilitator_id": "Jose",
-    "name": "Jose",
-    "password": "123",
-    "created_at": "2026-01-01T00:00:00+00:00",
-    "max_cohorts": 5,
-    "cohorts_created": 0,
-    "is_admin": True,
-    "enabled": True,
-}
-
-def _load_facilitator_registry() -> list[dict]:
-    """Load facilitator registry from disk. Falls back to default if not found."""
-    try:
-        if os.path.exists(_FAC_REGISTRY_PATH):
-            with open(_FAC_REGISTRY_PATH, "r", encoding="utf-8") as f:
-                data = json.load(f)
-            if data:
-                print(f"[persistence] Restored {len(data)} facilitator(s) from registry.")
-                return data
-    except Exception as e:
-        print(f"[persistence] Failed to load facilitator registry: {e}")
-    return [{**_DEFAULT_FACILITATOR}]
-
-def _persist_facilitators():
-    """Save current facilitator registry to disk."""
-    try:
-        os.makedirs(os.path.dirname(_FAC_REGISTRY_PATH), exist_ok=True)
-        tmp_path = _FAC_REGISTRY_PATH + ".tmp"
-        with open(tmp_path, "w", encoding="utf-8") as f:
-            json.dump(_facilitator_registry, f, ensure_ascii=False, indent=2)
-        os.replace(tmp_path, _FAC_REGISTRY_PATH)
-    except Exception as e:
-        print(f"[persistence] Failed to save facilitator registry: {e}")
-
-_facilitator_registry: list[dict] = _load_facilitator_registry()
+# God mode settings, facilitator registry, and archetypes now imported from admin_shared.
+# The _next_facilitator_id is kept local since it's only used in this file.
 _next_facilitator_id: int = 1
 
 
@@ -169,6 +59,8 @@ class FacilitatorCreateRequest(BaseModel):
     max_cohorts: int = 5
     decision_paradigm: str = "legacy_abc"
     permissions: dict | None = None
+    created_by: str | None = None
+    date_created: str | None = None
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -180,6 +72,8 @@ class FacilitatorUpdateRequest(BaseModel):
     max_cohorts: int | None = None
     decision_paradigm: str | None = None
     permissions: dict | None = None
+    created_by: str | None = None
+    date_created: str | None = None
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
@@ -208,6 +102,37 @@ async def get_global_settings():
         # Economic complexity engine tunables
         "overrun_probability": _god_mode_settings.get("overrun_probability", 0.25),
         "overrun_severity": _god_mode_settings.get("overrun_severity", 0.15),
+        # Display currency
+        "currency_symbol": _god_mode_settings.get("currency_symbol", "$"),
+        # Ending pathways
+        "default_ending_pathway": _god_mode_settings.get("default_ending_pathway", "activist_ultimatum"),
+        "ending_pathways_available": _god_mode_settings.get("ending_pathways_available", ["activist_ultimatum"]),
+        "allow_pathway_switching": _god_mode_settings.get("allow_pathway_switching", False),
+        "foreshadowing_enabled": _god_mode_settings.get("foreshadowing_enabled", True),
+        # CEO Interview
+        "ceo_interview_enabled": _god_mode_settings.get("ceo_interview_enabled", False),
+        "ceo_interview_voice_gender": _god_mode_settings.get("ceo_interview_voice_gender", "female"),
+        "ceo_interview_question_count": _god_mode_settings.get("ceo_interview_question_count", 5),
+        "ceo_interview_pathway_question": _god_mode_settings.get("ceo_interview_pathway_question", True),
+        # Pedagogical Scaffolding
+        "difficulty_tier": _god_mode_settings.get("difficulty_tier", "advanced"),
+        "prediction_gates_enabled": _god_mode_settings.get("prediction_gates_enabled", False),
+        "board_room_moments_enabled": _god_mode_settings.get("board_room_moments_enabled", True),
+        "mental_model_tracker_enabled": _god_mode_settings.get("mental_model_tracker_enabled", True),
+        "confidence_calibration_enabled": _god_mode_settings.get("confidence_calibration_enabled", False),
+        "mid_game_checkpoint_enabled": _god_mode_settings.get("mid_game_checkpoint_enabled", True),
+        "peer_comparison_enabled": _god_mode_settings.get("peer_comparison_enabled", True),
+        "strategy_memo_enabled": _god_mode_settings.get("strategy_memo_enabled", False),
+        "what_if_builder_enabled": _god_mode_settings.get("what_if_builder_enabled", False),
+        "custom_crisis_enabled": _god_mode_settings.get("custom_crisis_enabled", False),
+        "round_recap_enabled": _god_mode_settings.get("round_recap_enabled", False),
+        "real_world_cards_enabled": _god_mode_settings.get("real_world_cards_enabled", False),
+        "real_world_cards_teleprompter": _god_mode_settings.get("real_world_cards_teleprompter", True),
+        "debrief_protocol_enabled": _god_mode_settings.get("debrief_protocol_enabled", False),
+        "self_learning_mode": _god_mode_settings.get("self_learning_mode", False),
+        "flag_diagram_enabled": _god_mode_settings.get("flag_diagram_enabled", True),
+        "stochastic_labels_enabled": _god_mode_settings.get("stochastic_labels_enabled", True),
+        "engine_summariser_enabled": _god_mode_settings.get("engine_summariser_enabled", True),
     }
 
 class GlobalSettingsPatch(BaseModel):
@@ -229,6 +154,36 @@ class GlobalSettingsPatch(BaseModel):
     # Economic complexity engine tunables
     overrun_probability: float | None = None
     overrun_severity: float | None = None
+    # Display currency
+    currency_symbol: str | None = None
+    # Ending pathways
+    default_ending_pathway: str | None = None
+    allow_pathway_switching: bool | None = None
+    foreshadowing_enabled: bool | None = None
+    # CEO Interview
+    ceo_interview_enabled: bool | None = None
+    ceo_interview_voice_gender: str | None = None
+    ceo_interview_question_count: int | None = None
+    ceo_interview_pathway_question: bool | None = None
+    # Pedagogical Scaffolding
+    difficulty_tier: str | None = None
+    prediction_gates_enabled: bool | None = None
+    board_room_moments_enabled: bool | None = None
+    mental_model_tracker_enabled: bool | None = None
+    confidence_calibration_enabled: bool | None = None
+    mid_game_checkpoint_enabled: bool | None = None
+    peer_comparison_enabled: bool | None = None
+    strategy_memo_enabled: bool | None = None
+    what_if_builder_enabled: bool | None = None
+    custom_crisis_enabled: bool | None = None
+    round_recap_enabled: bool | None = None
+    real_world_cards_enabled: bool | None = None
+    real_world_cards_teleprompter: bool | None = None
+    debrief_protocol_enabled: bool | None = None
+    self_learning_mode: bool | None = None
+    flag_diagram_enabled: bool | None = None
+    stochastic_labels_enabled: bool | None = None
+    engine_summariser_enabled: bool | None = None
 
 @admin_router.patch("/global-settings", summary="Update global simulation settings (Sim Switchboard)")
 async def patch_global_settings(body: GlobalSettingsPatch):
@@ -243,7 +198,178 @@ async def patch_global_settings(body: GlobalSettingsPatch):
     return {"status": "ok", "settings": _god_mode_settings}
 
 
-# ── Archetype CRUD ───────────────────────────────────────────────
+# ── Simulation Master Reference (read-only, live values) ────────
+@admin_router.get("/simulation-reference", summary="Live simulation master reference (read-only)")
+async def get_simulation_reference():
+    """Returns the complete simulation reference with live values from current settings.
+    This is a read-only endpoint — no inputs possible. All values are derived from
+    the current simulation state, round configs, and God Mode settings."""
+    from round_configs import ROUND_CONFIGS
+
+    settings = _god_mode_settings
+    sessions = await db.fetch_all_sessions()
+
+    # Live global settings
+    treasury_start = settings.get("corporate_treasury_start", 25_000_000)
+    reputation_start = settings.get("group_reputation_start", 50.0)
+    synergy_start = settings.get("synergy_multiplier_start", 1.0)
+    coc_start = settings.get("cost_of_capital_start", 0.05)
+    carbon_fee_base = settings.get("global_carbon_fee", 40)
+    hostility_index = settings.get("market_hostility_index", 5)
+    overrun_prob = settings.get("overrun_probability", 0.25)
+    overrun_severity = settings.get("overrun_severity", 0.15)
+    loan_rate = settings.get("loan_interest_rate_start", 0.12)
+    decay_rate = settings.get("imitation_decay_rate_start", 0.05)
+    currency = settings.get("currency_symbol", "$")
+
+    # Compute carbon fee schedule
+    carbon_fee_schedule = []
+    for r in range(1, 11):
+        fee = round(carbon_fee_base * (1.15 ** (r - 1)), 2)
+        carbon_fee_schedule.append({"round": r, "fee_per_ton": fee})
+
+    # SBTi target schedule
+    sbti_schedule = []
+    for r in range(1, 11):
+        target = round(36.25 * (1 - 0.042) ** (r - 1), 2)
+        sbti_schedule.append({"round": r, "target_ci": target})
+
+    # Build round summaries from configs
+    round_summaries = []
+    for rn in range(1, 11):
+        cfg = ROUND_CONFIGS.get(rn, {})
+        options = {}
+        for opt_key, opt_data in cfg.get("options", {}).items():
+            impacts = opt_data.get("impacts", {})
+            options[opt_data.get("label", opt_key)] = {
+                "title": opt_data.get("title", ""),
+                "description": opt_data.get("description", ""),
+                "flags": opt_data.get("flags_set", []),
+                "treasury": impacts.get("treasury", 0),
+                "ci_delta": impacts.get("carbon_intensity_delta", 0),
+                "reputation_delta": impacts.get("reputation", impacts.get("reputation_delta", 0)),
+                "ncd_delta": impacts.get("natural_capital_debt_delta", 0),
+                "slo_delta": impacts.get("social_license_delta", impacts.get("social_license", 0)),
+                "climate_framing": opt_data.get("climate_framing", ""),
+            }
+        round_summaries.append({
+            "round": rn,
+            "title": cfg.get("title", ""),
+            "theme": cfg.get("theme", ""),
+            "crisis_title": cfg.get("crisis", {}).get("title", ""),
+            "crisis_description": cfg.get("crisis", {}).get("description", ""),
+            "crisis_icon": cfg.get("crisis", {}).get("icon", ""),
+            "options": options,
+            "special_rules": cfg.get("special_rules", {}),
+        })
+
+    # Active sessions summary
+    session_count = len(sessions)
+    paradigm_counts = {}
+    for s in sessions:
+        p = s.get("decision_paradigm", "legacy_abc")
+        paradigm_counts[p] = paradigm_counts.get(p, 0) + 1
+
+    return {
+        "meta": {
+            "title": "Muressons Global Command — Simulation Master Reference",
+            "description": "Live reference document. All values sourced from current simulation state. Read-only.",
+            "active_sessions": session_count,
+            "paradigm_distribution": paradigm_counts,
+            "currency_symbol": currency,
+        },
+        "starting_state": {
+            "corporate_treasury": treasury_start,
+            "group_reputation": reputation_start,
+            "synergy_multiplier": synergy_start,
+            "cost_of_capital": coc_start,
+            "loan_interest_rate": loan_rate,
+            "vrio_decay_rate": decay_rate,
+            "inflation_index": 0.02,
+            "standard_bus": [
+                {"bu_id": "pharma", "revenue": 18_000_000, "opex": 11_500_000, "ci": 45, "ncd": 5000, "slo": 70, "rep": 72, "gov_risk": 15, "water_dep": 0.6},
+                {"bu_id": "electronics", "revenue": 22_000_000, "opex": 14_000_000, "ci": 60, "ncd": 3800, "slo": 65, "rep": 58, "gov_risk": 25, "water_dep": 0.8},
+                {"bu_id": "consumer_goods", "revenue": 15_000_000, "opex": 9_000_000, "ci": 30, "ncd": 2100, "slo": 78, "rep": 74, "gov_risk": 10, "water_dep": 0.3},
+                {"bu_id": "software", "revenue": 20_000_000, "opex": 8_000_000, "ci": 10, "ncd": 500, "slo": 85, "rep": 82, "gov_risk": 5, "water_dep": 0.1},
+            ],
+        },
+        "engine_formulas": [
+            {"id": 1, "name": "Corporate Strategic Fund", "formula": "CSF = Σ(Revenue_i - OPEX_i) - Dividends", "category": "Treasury"},
+            {"id": 2, "name": "Synergy OPEX Reduction", "formula": f"New_OPEX = OPEX × max(0, 1 - (sqrt(Inv) × 0.7 × {synergy_start}))", "category": "Operations"},
+            {"id": 3, "name": "Contagion Engine", "formula": "Group_Rep = AVG(BU_Rep) - (Crisis × 0.4)", "category": "Reputation"},
+            {"id": 4, "name": "Brain Drain", "formula": "IF Rep < 65: Penalty = 1 + (65-Rep)/100 × 1.5", "category": "Software"},
+            {"id": 5, "name": "NCD Compounding", "formula": "Rate = Base + (NCD × 0.0005); NCD_new = NCD + NCD × Rate", "category": "Natural Capital"},
+            {"id": 6, "name": "NCD OPEX Penalty", "formula": f"penalty = NCD × {currency}50K × hostility / 1M; cap 50% rev", "category": "Natural Capital"},
+            {"id": 7, "name": "VRIO Decay", "formula": f"Synergy_new = Synergy × (1 - {decay_rate})", "category": "Strategic"},
+            {"id": 8, "name": "Strike Probability", "formula": "P = GovRisk/100 + (1 - SLO/100) × 0.4", "category": "Risk"},
+            {"id": 9, "name": "Short-Term Loan", "formula": f"IF CAPEX > 20% Treasury: Interest = Loan × {loan_rate:.0%}", "category": "Treasury"},
+            {"id": 10, "name": "Inflation", "formula": "OPEX *= (1 + inflation_index); IF hostility>5: +0.5%", "category": "Operations"},
+            {"id": 11, "name": "Regulatory Ratchet", "formula": "CoC = MAX(all historical CoC)", "category": "Governance"},
+            {"id": 12, "name": "Fog of War", "formula": "R1-R3: ±10% noise (display only) unless deep_audit", "category": "Information"},
+            {"id": 13, "name": "Greenwashing Risk", "formula": "IF green choice AND avg_inv < 15%: SLO -8", "category": "Risk"},
+            {"id": 14, "name": "Competitor NPC", "formula": "Competitor EBITDA × 1.03/round; warning if < 1.0×", "category": "Market"},
+            {"id": 15, "name": "Tech Lock-In", "formula": f"IF same BU top CAPEX ×3 rounds: others -15% synergy", "category": "Strategic"},
+            {"id": 16, "name": "Board Pressure", "formula": "IF dividends < 80% prior: Reputation -5", "category": "Governance"},
+            {"id": 17, "name": "Revenue Cannibalization", "formula": "IF overlap > 30%: weaker BU rev × 2%", "category": "Market"},
+            {"id": 18, "name": "Supply Chain Contagion", "formula": "IF gov_risk > 40: 3% OPEX surcharge on connected BUs", "category": "Operations"},
+            {"id": 19, "name": "Working Capital Drag", "formula": "IF gov_risk > 30: drag = (risk-30) × rev × 0.001", "category": "Treasury"},
+            {"id": 20, "name": "CapEx Overrun", "formula": f"IF CAPEX > {currency}3M: {overrun_prob:.0%} chance of +{overrun_severity:.0%} overrun", "category": "Risk"},
+        ],
+        "ac_mechanics": {
+            "enabled": settings.get("simulation_mode") == "advanced_climate",
+            "carbon_fee_base": carbon_fee_base,
+            "carbon_fee_schedule": carbon_fee_schedule,
+            "tipping_thresholds": {"warning": 45, "stressed": 55, "tipped": 65},
+            "hostility_multipliers": {"none": 1.0, "warning": 1.25, "stressed": 1.75, "tipped": 2.50},
+            "cyclone_escalation": {"none": 0.75, "warning": 0.80, "stressed": 0.85, "tipped": 0.90},
+            "loss_damage_levies": {"warning": 0, "stressed": 500_000, "tipped": 2_000_000},
+            "ncd_forgiveness_formula": "forgiveness = 2.0 × ln(1 + CapEx_M$)",
+            "cbam_formula": "surcharge = (avg_CI - 40) × $100K (R3, R7)",
+            "taxonomy_thresholds": {"aligned_ci_max": 25, "green_discount_pct": 60, "brown_penalty_pct": 20},
+            "sbti_schedule": sbti_schedule,
+            "scope_ratios": {
+                "pharma": {"scope_1": 35, "scope_2": 25, "scope_3": 40},
+                "electronics": {"scope_1": 10, "scope_2": 15, "scope_3": 75},
+                "consumer_goods": {"scope_1": 15, "scope_2": 10, "scope_3": 75},
+                "software": {"scope_1": 5, "scope_2": 60, "scope_3": 35},
+            },
+            "carbon_futures": {"forward_premium_pct": 20, "spot_volatility_pct": 30, "forward_duration_rounds": 3},
+        },
+        "terminal_valuation": {
+            "carbon_tax_per_ton": 250,
+            "exit_multiple": 12.0,
+            "synergy_gate_threshold": 80,
+            "mr_components": [
+                {"name": "Base", "value": 1.0, "source": "Default"},
+                {"name": "Resilience Bonus", "value": 0.20, "source": "No insurance_only/electronics_priority flags"},
+                {"name": "Synergy Bonus", "value": 0.30, "source": "R7C synergy_unlock"},
+                {"name": "Truth Premium", "value": 0.15, "source": "R6B ethical_ai_overhaul"},
+                {"name": "Community Champion", "value": 0.18, "source": "R9C community_fund (× JT scaling)"},
+                {"name": "Managed Transition", "value": 0.12, "source": "R9B managed_transition (× JT scaling)"},
+                {"name": "Workforce Excellence", "value": 0.10, "source": "workforce_readiness ≥ 75"},
+                {"name": "Wellbeing Champion", "value": 0.05, "source": "burnout < 20"},
+                {"name": "Instability Discount", "value": -0.40, "source": "avg SLO < 75"},
+            ],
+            "profile_archetypes": [
+                {"name": "Regenerative Titan", "mr_min": 1.8, "icon": "🏆"},
+                {"name": "De-risked Safe Haven", "mr_min": 1.2, "icon": "🛡️"},
+                {"name": "Fragile Giant", "mr_min": 0.8, "icon": "🏢"},
+                {"name": "Stranded Relic", "mr_min": 0.0, "icon": "💀"},
+            ],
+            "formula_standard": "Terminal_EBITDA × 12 × M_R",
+            "formula_ac": "(Terminal_EBITDA + Green_Fund) × 12 × M_R",
+        },
+        "flag_dependencies": [
+            {"source": "R1 A/C", "flag": "electronics_blindspot", "target": "R4", "effect": "Doubles crisis severity to 80"},
+            {"source": "R3 A", "flag": "early_decarboniser", "target": "R7", "effect": "+0.10 synergy bonus"},
+            {"source": "R5 C", "flag": "insurance_only", "target": "R10", "effect": "Blocks +0.20 resilience M_R"},
+            {"source": "R6 B", "flag": "ethical_ai_overhaul", "target": "R10", "effect": "+0.15 truth premium M_R"},
+            {"source": "R7 C", "flag": "synergy_unlock", "target": "R10", "effect": "+0.30 synergy M_R + enables Opt A"},
+            {"source": "R8 B", "flag": "electronics_water_priority", "target": "R10", "effect": "Blocks +0.20 resilience M_R"},
+            {"source": "R9 B/C", "flag": "managed_transition/community_fund", "target": "R10", "effect": "+0.12/+0.18 M_R (× JT scaling)"},
+        ],
+        "rounds": round_summaries,
+    }
 
 @admin_router.get("/archetypes", summary="Get all profile archetypes (defaults + custom)")
 async def get_archetypes():
@@ -327,6 +453,144 @@ async def delete_archetype(key: str):
     return {"status": "deleted", "key": key}
 
 
+# ═════════════════════════════════════════════════════════════════
+#  ENDING PATHWAY MANAGEMENT
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/ending-pathways", summary="List available ending pathways")
+async def list_ending_pathways():
+    """Returns all available ending pathways with metadata."""
+    from ending_pathways import ALL_PATHWAY_IDS, IMPLEMENTED_PATHWAYS, PATHWAY_R10_CONFIGS, FORESHADOWING
+    pathways = []
+    for pid in ALL_PATHWAY_IDS:
+        pw_cfg = PATHWAY_R10_CONFIGS.get(pid, {})
+        crisis = pw_cfg.get("crisis", {})
+        archetype_overrides = pw_cfg.get("archetype_overrides", {})
+        pathways.append({
+            "id": pid,
+            "implemented": pid in IMPLEMENTED_PATHWAYS,
+            "title": crisis.get("title", pid.replace("_", " ").title()),
+            "description": crisis.get("description", ""),
+            "icon": crisis.get("icon", "🏛️"),
+            "has_foreshadowing": pid in FORESHADOWING,
+            "archetype_overrides": archetype_overrides,
+        })
+    return {
+        "pathways": pathways,
+        "default": _god_mode_settings.get("default_ending_pathway", "activist_ultimatum"),
+        "available": _god_mode_settings.get("ending_pathways_available", ["activist_ultimatum"]),
+        "allow_switching": _god_mode_settings.get("allow_pathway_switching", False),
+        "foreshadowing_enabled": _god_mode_settings.get("foreshadowing_enabled", True),
+    }
+
+
+@admin_router.get("/sessions/{session_id}/ending-pathway", summary="Get the ending pathway for a session")
+async def get_session_ending_pathway(session_id: str):
+    """Returns the current ending pathway for a session."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+    flags = latest.get("global_state", {}).get("active_event_flags", {})
+    return {
+        "session_id": session_id,
+        "ending_pathway": flags.get("ending_pathway", "activist_ultimatum"),
+        "allow_switching": _god_mode_settings.get("allow_pathway_switching", False),
+    }
+
+
+@admin_router.put("/sessions/{session_id}/ending-pathway", summary="Switch the ending pathway for a session")
+async def switch_session_ending_pathway(session_id: str, body: dict = Body(...)):
+    """Switch the ending pathway for a live session.
+    Requires allow_pathway_switching to be enabled in god-mode settings."""
+    if not _god_mode_settings.get("allow_pathway_switching", False):
+        raise HTTPException(403, "Pathway switching is disabled. Enable 'allow_pathway_switching' in God Mode settings.")
+
+    new_pathway = body.get("ending_pathway", "").strip()
+    available = _god_mode_settings.get("ending_pathways_available", ["activist_ultimatum"])
+    if new_pathway == "random":
+        from ending_pathways import resolve_pathway
+        new_pathway = resolve_pathway("random")
+    elif new_pathway not in available:
+        raise HTTPException(400, f"Pathway '{new_pathway}' is not available. Choose from: {available}")
+
+    # Update the session's active_event_flags
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    gs = latest["global_state"]
+    gs.setdefault("active_event_flags", {})["ending_pathway"] = new_pathway
+    await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+
+    # Also update all child player sessions
+    children = await db.get_child_sessions(session_id)
+    for child in children:
+        child_state = await db.fetch_latest_state(child["session_id"])
+        if child_state:
+            child_gs = child_state["global_state"]
+            child_gs.setdefault("active_event_flags", {})["ending_pathway"] = new_pathway
+            await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
+
+    print(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "ending_pathway": new_pathway,
+        "children_updated": len(children),
+    }
+
+
+@admin_router.put("/sessions/{session_id}/ceo-interview", summary="Configure CEO Interview per cohort")
+async def configure_cohort_interview(session_id: str, body: dict = Body(...)):
+    """Set per-cohort CEO Interview settings.
+    
+    Body fields (all optional):
+    - ceo_interview_enabled: bool
+    - ceo_interview_voice_gender: "female" | "male"
+    
+    Overrides god-mode defaults for this specific cohort and all its player sessions.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    gs = latest["global_state"]
+    flags = gs.setdefault("active_event_flags", {})
+
+    updated_fields = []
+    if "ceo_interview_enabled" in body:
+        flags["ceo_interview_enabled"] = bool(body["ceo_interview_enabled"])
+        updated_fields.append(f"enabled={flags['ceo_interview_enabled']}")
+    if "ceo_interview_voice_gender" in body:
+        gender = body["ceo_interview_voice_gender"]
+        if gender in ("female", "male"):
+            flags["ceo_interview_voice_gender"] = gender
+            updated_fields.append(f"voice={gender}")
+
+    await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+
+    # Propagate to all child player sessions
+    children = await db.get_child_sessions(session_id)
+    for child in children:
+        child_state = await db.fetch_latest_state(child["session_id"])
+        if child_state:
+            child_gs = child_state["global_state"]
+            child_flags = child_gs.setdefault("active_event_flags", {})
+            if "ceo_interview_enabled" in body:
+                child_flags["ceo_interview_enabled"] = flags["ceo_interview_enabled"]
+            if "ceo_interview_voice_gender" in body:
+                child_flags["ceo_interview_voice_gender"] = flags.get("ceo_interview_voice_gender", "female")
+            await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
+
+    print(f"[god-mode] CEO Interview config updated for session {session_id}: {', '.join(updated_fields)}")
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "ceo_interview_enabled": flags.get("ceo_interview_enabled"),
+        "ceo_interview_voice_gender": flags.get("ceo_interview_voice_gender"),
+        "children_updated": len(children),
+    }
+
 @admin_router.get("/facilitators", summary="List all facilitators")
 async def list_facilitators(unmask: bool = False):
     """List facilitators. Passwords are masked unless ?unmask=true."""
@@ -372,7 +636,10 @@ async def create_facilitator(req: FacilitatorCreateRequest):
             "can_override_decisions": True,
             "can_modify_materiality": True,
             "can_manage_auto_pause": True,
-        }
+            "can_create_cohorts": True,
+        },
+        "created_by": req.created_by or "",
+        "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
     }
     _next_facilitator_id += 1
     _facilitator_registry.append(fac)
@@ -557,28 +824,7 @@ async def toggle_facilitator_enabled(fac_id: str, body: dict = Body(...)):
     return fac
 
 
-def check_and_increment_cohort_count(facilitator_id: str) -> bool:
-    """Check if facilitator can create another cohort. If yes, increment and return True."""
-    if not facilitator_id:
-        return True  # No facilitator specified — no limit enforced
-    # Global toggle: if disabled, only admin facilitators may create
-    if not _god_mode_settings.get("allow_facilitator_cohort_creation", True):
-        fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
-        if not fac or not fac.get("is_admin"):
-            return False
-    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
-    if not fac:
-        return True  # Unknown facilitator — allow (auto-created via master password)
-    # Per-facilitator enabled check
-    if not fac.get("enabled", True):
-        return False
-    max_c = fac.get("max_cohorts", 5)
-    created = fac.get("cohorts_created", 0)
-    if created >= max_c:
-        return False
-    fac["cohorts_created"] = created + 1
-    _persist_facilitators()
-    return True
+# check_and_increment_cohort_count imported from admin_shared
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -586,7 +832,7 @@ def check_and_increment_cohort_count(facilitator_id: str) -> bool:
 # ═════════════════════════════════════════════════════════════════
 
 # In-memory practice mode flags: {session_id: True}
-_practice_mode: dict[str, bool] = {}
+# _practice_mode imported from admin_shared
 
 
 @admin_router.post("/sessions/{session_id}/practice-mode", summary="Enable practice mode for a cohort")
@@ -614,9 +860,7 @@ async def get_practice_mode(session_id: str):
     return {"practice_mode": _practice_mode.get(session_id, False)}
 
 
-def is_practice_mode(session_id: str) -> bool:
-    """Check if a session (or its parent cohort) is in practice mode."""
-    return _practice_mode.get(session_id, False)
+# is_practice_mode imported from admin_shared
 
 
 
@@ -674,6 +918,19 @@ class ConnectionManager:
                 dead.append(ws)
         for ws in dead:
             self.admin_connections.remove(ws)
+
+    async def broadcast_students(self, message: dict):
+        """Broadcast to all player connections."""
+        payload = json.dumps(message)
+        for session_id, conns in list(self.active_connections.items()):
+            dead = []
+            for ws in conns:
+                try:
+                    await ws.send_text(payload)
+                except Exception:
+                    dead.append(ws)
+            for ws in dead:
+                conns.remove(ws)
 
     async def broadcast(self, message: dict):
         """Broadcast to ALL connected clients (players + admins)."""
@@ -844,34 +1101,13 @@ class RoundPacingRequest(BaseModel):
     schedule: list[str | None] = [] # ISO datetimes for each round (index 0 = round 1)
 
 # Per-session pacing config: {session_id: {mode, unlocked_round, interval_seconds, timer_task}}
-_round_pacing: dict[str, dict] = {}
+# _round_pacing imported from admin_shared
 
 
-def _get_pacing(session_id: str) -> dict:
-    """Get or create default pacing config for a session."""
-    if session_id not in _round_pacing:
-        _round_pacing[session_id] = {
-            "mode": "free",
-            "unlocked_round": 999,   # free = all rounds unlocked
-            "interval_seconds": 300,
-            "next_unlock_at": None,
-            "schedule": [],           # list of ISO datetimes, one per round
-            "_timer_tasks": [],       # list of asyncio Tasks (one per scheduled round)
-            "_timer_task": None,      # legacy single-shot task
-        }
-    p = _round_pacing[session_id]
-    # Back-fill new fields for old in-memory entries
-    p.setdefault("schedule", [])
-    p.setdefault("_timer_tasks", [])
-    return p
+# _get_pacing imported from admin_shared
 
 
-def is_round_unlocked(session_id: str, round_number: int) -> bool:
-    """Check if a given round is unlocked for progression."""
-    pacing = _get_pacing(session_id)
-    if pacing["mode"] == "free":
-        return True
-    return round_number <= pacing["unlocked_round"]
+# is_round_unlocked imported from admin_shared
 
 
 async def _auto_commit_player(player_session_id: str, current_round: int):
@@ -1020,8 +1256,10 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
             # Check if this player is still on the current round
             try:
                 latest = await db.fetch_latest_state(player_sid)
-                if latest and latest["round_number"] <= current_unlocked:
-                    # Player hasn't committed yet — auto-commit
+                if latest and latest["round_number"] == current_unlocked:
+                    # NEW-11: Only auto-commit players who are STILL on the current round
+                    # (== current_unlocked). Players who already committed have round_number
+                    # > current_unlocked and must NOT be auto-committed again.
                     success = await _auto_commit_player(player_sid, latest["round_number"])
                     if success:
                         auto_committed_count += 1
@@ -1215,10 +1453,10 @@ async def unlock_next_round(session_id: str):
 #  PLAYER REGISTRY & MASTER INTERVENTIONS
 # ═════════════════════════════════════════════════════════════════
 
-_player_registry: list[dict] = []
+# _player_registry imported from admin_shared
 _next_player_id: int = 1
 
-_session_interventions: dict[str, dict] = {}
+# _session_interventions imported from admin_shared
 
 class SessionInterventionsRequest(BaseModel):
     allowed_overrides: list[str]
@@ -1879,6 +2117,22 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
             "talent_flight_risk": talent_penalty > 1.25,
             "talent_penalty_multiplier": talent_penalty,
             "active_flags": list(gs.get("active_event_flags", {}).keys()),
+            # Cohort configuration fields for SimulationManager dropdown
+            "experience_level": sess.get("experience_level"),
+            "scenario_preset": sess.get("scenario_preset"),
+            "currency_symbol": sess.get("currency_symbol", "$"),
+            "difficulty_tier": sess.get("difficulty_tier", "advanced"),
+            "ending_pathway": gs.get("active_event_flags", {}).get("ending_pathway"),
+            "pedagogical_overrides": sess.get("pedagogical_overrides", {}),
+            "ceo_interview_enabled": sess.get("ceo_interview_enabled", False),
+            "ceo_interview_voice_gender": sess.get("ceo_interview_voice_gender", "female"),
+            "side_tracks": sess.get("side_tracks", []),
+            "created_by": sess.get("created_by"),
+            "created_when": sess.get("created_when"),
+            "start_date": sess.get("start_date"),
+            "end_date": sess.get("end_date"),
+            "pacing_mode": sess.get("pacing_mode", "free_play"),
+            "max_unlocked_round": sess.get("max_unlocked_round", 10),
         })
 
     # Sort by terminal value descending
@@ -2776,6 +3030,29 @@ async def reset_session(session_id: str):
             detail=f"Session {session_id} not found.",
         )
 
+    # Purge all session-keyed admin data for deleted sessions
+    def _purge_admin_data(sid):
+        _session_messages.pop(sid, None)
+        _session_interventions.pop(sid, None)
+        _practice_mode.pop(sid, None)
+        _round_pacing.pop(sid, None)
+        _facilitator_notes.pop(sid, None)
+        _student_bonuses.pop(sid, None)
+        _peer_evaluations.pop(sid, None)
+        _annotations.pop(sid, None)
+
+    _purge_admin_data(session_id)
+    # Also purge data for cascade-deleted player sessions
+    if players_removed > 0 and not (session_info and session_info.get("parent_cohort_id")):
+        for p in _session_players.get(session_id, []):
+            psid = p.get("player_session_id")
+            if psid:
+                _purge_admin_data(psid)
+
+    # Remove associated players from registry
+    global _player_registry
+    _player_registry = [p for p in _player_registry if p.get("session_id") != session_id]
+
     # Notify admin dashboard
     await manager.broadcast_admin({
         "type": "session_reset",
@@ -2792,7 +3069,27 @@ async def reset_session(session_id: str):
 )
 async def reset_all_sessions():
     """Deletes ALL sessions and all data. Cannot be undone."""
-    count = await db.delete_all_sessions()
+    count = await db.delete_all_sessions(hard=True)
+
+    # Clear logs and history
+    _god_mode_audit_log.clear()
+    _crisis_trigger_history.clear()
+    _session_messages.clear()
+    _session_interventions.clear()
+
+    # Reset facilitators to default
+    global _facilitator_registry
+    from admin_shared import _DEFAULT_FACILITATOR, _persist_facilitators, _practice_mode, _round_pacing, _shared_marketplace
+    _facilitator_registry[:] = [{**_DEFAULT_FACILITATOR}]
+    _persist_facilitators()
+
+    # Reset other transient states
+    _practice_mode.clear()
+    _round_pacing.clear()
+    _shared_marketplace["carbon_credit_pool"]["purchased"].clear()
+    _shared_marketplace["carbon_credit_pool"]["price_history"] = [50000]
+    _shared_marketplace["green_talent_pool"]["hired"].clear()
+    _shared_marketplace["green_talent_pool"]["cost_history"] = [200000]
 
     # Notify admin dashboard
     await manager.broadcast_admin({
@@ -2803,692 +3100,9 @@ async def reset_all_sessions():
     return {"status": "all_deleted", "sessions_removed": count}
 
 
-# ═════════════════════════════════════════════════════════════════
-#  RESOURCE LIBRARY — Master Library + Per-Session Unlock Control
-# ═════════════════════════════════════════════════════════════════
 
-class ResourceUnlockCondition(BaseModel):
-    metric: str = ""           # e.g. "Investment_E5", "G1_Score", "BU_Sustainability_Score"
-    operator: str = ">="       # ">=", "<=", "==", ">", "<"
-    value: float = 0
-    min_round: int = 1         # Minimum round before condition can trigger
-
-class ResourceEffect(BaseModel):
-    target: str = ""           # e.g. "Electronics_OpEx", "S2_Financial_Risk"
-    modifier: float = 0        # e.g. -0.10 for 10% reduction
-
-class ResourceItem(BaseModel):
-    id: str
-    title: str
-    type: str  # "PDF" | "Video" | "Weblink" | "Memo" | "NotebookLM"
-    url: str = ""
-    tags: list[str] = []
-    category: str = "General"  # "Ecological" | "Social" | "Economic" | "General"
-    facilitator_default_round: int = 1
-    impact_link: str = ""
-    visibility: str = "Standard"  # "Standard" | "Hidden"
-    unlock_condition: Optional[dict] = None  # {metric, operator, value, min_round}
-    effect: Optional[dict] = None            # {target, modifier}
-    facilitator_strategy: str = ""           # Deployment hint for facilitator cheat sheet
-
-class ResourceLibraryUpload(BaseModel):
-    Resource_Library: list[ResourceItem]
-
-class ResourceUnlockRequest(BaseModel):
-    resource_ids: list[str]
-    round_number: int
-
-# ── In-memory stores ────────────────────────────────────────────
-
-_resource_library: list[dict] = [
-    # ── Standard Resources ──────────────────────────────────────
-    {
-        "id": "RES_001",
-        "title": "The ESRS Double Materiality Handbook",
-        "type": "PDF",
-        "url": "https://antigravity-sim.com/docs/esrs_handbook.pdf",
-        "tags": ["General", "CSRD"],
-        "category": "General",
-        "facilitator_default_round": 1,
-        "impact_link": "",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "The Baseline: Drop immediately. Sets the rules. Players who skip this will fail to understand the Volatility factor.",
-    },
-    {
-        "id": "RES_002",
-        "title": "Pharma Wastewater Standards 2026",
-        "type": "Weblink",
-        "url": "https://epa.gov/pharma-standards",
-        "tags": ["Pharma", "E2"],
-        "category": "Ecological",
-        "facilitator_default_round": 4,
-        "impact_link": "E2 (Pharma)",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "Drop in Round 4 to coincide with ESG Contagion Crisis. Forces Pharma BU investment decisions.",
-    },
-    {
-        "id": "RES_003",
-        "title": "Global Carbon Tax Forecast (2026-2030)",
-        "type": "PDF",
-        "url": "https://antigravity-sim.com/docs/carbon_tax_forecast.pdf",
-        "tags": ["General", "E1", "Climate"],
-        "category": "Ecological",
-        "facilitator_default_round": 3,
-        "impact_link": "E1 (All BUs)",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "The Warning: Drop in Round 3 to force players to choose between short-term dividends and E1 (Climate) investments.",
-    },
-    {
-        "id": "RES_004",
-        "title": "Gobi Region Mineral Conflict Map",
-        "type": "PDF",
-        "url": "https://antigravity-sim.com/docs/gobi_conflict_map.pdf",
-        "tags": ["Electronics", "S2", "Labor"],
-        "category": "Social",
-        "facilitator_default_round": 5,
-        "impact_link": "S2 (Electronics)",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "The Crisis Catalyst: Drop 1 turn before the embargo. If they don't act on this info, they deserve the 30% COGS hike.",
-    },
-    {
-        "id": "RES_005",
-        "title": "GDPR 2026 Compliance Brief",
-        "type": "PDF",
-        "url": "https://antigravity-sim.com/docs/gdpr_2026.pdf",
-        "tags": ["Software", "S4", "Privacy"],
-        "category": "Social",
-        "facilitator_default_round": 3,
-        "impact_link": "S4 (Software)",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "",
-    },
-    {
-        "id": "RES_006",
-        "title": "The Business of Urban Mining",
-        "type": "Video",
-        "url": "https://youtube.com/antigravity_urban_mining",
-        "tags": ["Electronics", "E5", "Circularity"],
-        "category": "Ecological",
-        "facilitator_default_round": 6,
-        "impact_link": "E5 (Conglomerate)",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "",
-    },
-    {
-        "id": "RES_007",
-        "title": "API Effluent Technical Guide",
-        "type": "Weblink",
-        "url": "https://antigravity-sim.com/docs/api_effluent_guide",
-        "tags": ["Pharma", "E2", "Pollution"],
-        "category": "Ecological",
-        "facilitator_default_round": 4,
-        "impact_link": "E2 (Pharma)",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "",
-    },
-    {
-        "id": "RES_008",
-        "title": "Gobi Region Human Rights Map",
-        "type": "PDF",
-        "url": "https://antigravity-sim.com/docs/gobi_human_rights.pdf",
-        "tags": ["Electronics", "S2", "Labor"],
-        "category": "Social",
-        "facilitator_default_round": 5,
-        "impact_link": "S2 (Electronics)",
-        "visibility": "Standard",
-        "unlock_condition": None,
-        "effect": None,
-        "facilitator_strategy": "",
-    },
-    # ── Hidden Resources (Auto-Unlock via Conditions) ───────────
-    {
-        "id": "HIDDEN_RES_001",
-        "title": "The Urban Mining Efficiency Secret",
-        "type": "Video",
-        "url": "https://antigravity-sim.com/hidden/urban_mining_secret",
-        "tags": ["Electronics", "E5", "Circularity"],
-        "category": "Ecological",
-        "facilitator_default_round": 0,
-        "impact_link": "E5 (Electronics)",
-        "visibility": "Hidden",
-        "unlock_condition": {"metric": "Investment_E5", "operator": ">=", "value": 150_000_000, "min_round": 1},
-        "effect": {"target": "Electronics_OpEx", "modifier": -0.10},
-        "facilitator_strategy": "Investment reward: Unlocks when team invests $150M+ in Electronics. Reduces future Electronics BU upgrade costs by 10%.",
-    },
-    {
-        "id": "HIDDEN_RES_002",
-        "title": "Whistleblower Brief: Gobi Mine Ethics",
-        "type": "Memo",
-        "url": "",
-        "tags": ["Electronics", "S2", "Governance"],
-        "category": "Social",
-        "facilitator_default_round": 0,
-        "impact_link": "S2 (Electronics)",
-        "visibility": "Hidden",
-        "unlock_condition": {"metric": "G1_Score", "operator": "==", "value": 10, "min_round": 1},
-        "effect": {"target": "S2_Financial_Risk", "modifier": -0.50},
-        "facilitator_strategy": "Governance reward: Unlocks when G1 Ethics Score reaches 10. Halves financial risk from S2 labor issues.",
-    },
-    {
-        "id": "HIDDEN_RES_003",
-        "title": "Bio-Safe API Manufacturing Patent",
-        "type": "PDF",
-        "url": "https://antigravity-sim.com/hidden/biosafe_patent.pdf",
-        "tags": ["Pharma", "E2"],
-        "category": "Ecological",
-        "facilitator_default_round": 0,
-        "impact_link": "E2 (Pharma)",
-        "visibility": "Hidden",
-        "unlock_condition": {"metric": "Pharma_E2_Score", "operator": ">=", "value": 8.5, "min_round": 4},
-        "effect": {"target": "Pharma_Contract", "modifier": 200_000_000},
-        "facilitator_strategy": "Sustainability reward: Unlocks when Pharma E2 score reaches 8.5+. Grants access to a $200M government contract in Round 8.",
-    },
-    {
-        "id": "HIDDEN_RES_004",
-        "title": "The Ethical AI Advantage",
-        "type": "Memo",
-        "url": "",
-        "tags": ["Software", "G1", "AI"],
-        "category": "Economic",
-        "facilitator_default_round": 0,
-        "impact_link": "G1 (Software)",
-        "visibility": "Hidden",
-        "unlock_condition": {"metric": "Software_G1_Score", "operator": "==", "value": 10, "min_round": 1},
-        "effect": {"target": "Data_Breach_Prevention", "modifier": 1},
-        "facilitator_strategy": "Risk mitigation: Unlocks when Software G1 score reaches 10. Prevents the Data Breach event from triggering.",
-    },
-]
-
-# session_id → list of {resource_id, unlocked_at_round, unlocked_at_time, is_strategic_drop, trigger}
-_session_resource_state: dict[str, list[dict]] = {}
-
-
-# ── Hidden Resource Trigger Engine ──────────────────────────────
-
-def _extract_metric_value(metric: str, global_state: dict, bu_states: list[dict]) -> Optional[float]:
-    """Extract a metric value from game state for hidden resource condition evaluation."""
-    # Investment-based metrics (cumulative capex allocated to a BU category)
-    if metric.startswith("Investment_"):
-        bu_key = metric.replace("Investment_", "").lower()
-        # Map E5 → electronics, etc.
-        bu_map = {"e5": "electronics", "e1": "pharma", "e2": "pharma", "s2": "electronics", "g1": "software"}
-        target_bu = bu_map.get(bu_key, bu_key)
-        bu = next((b for b in bu_states if b["bu_id"] == target_bu), None)
-        if bu:
-            # Use cumulative investment tracked in active_event_flags
-            flags = global_state.get("active_event_flags", {})
-            return flags.get(f"cumulative_investment_{target_bu}", 0)
-        return 0
-
-    # BU-specific sustainability/score metrics
-    if metric == "G1_Score":
-        sw = next((b for b in bu_states if b["bu_id"] == "software"), None)
-        return (10 - sw.get("governance_risk_score", 10)) if sw else 0
-
-    if metric == "Software_G1_Score":
-        sw = next((b for b in bu_states if b["bu_id"] == "software"), None)
-        return (10 - sw.get("governance_risk_score", 10)) if sw else 0
-
-    if metric == "Pharma_E2_Score":
-        pharma = next((b for b in bu_states if b["bu_id"] == "pharma"), None)
-        if pharma:
-            # Derive E2 score from social license and natural capital debt inversely
-            sl = pharma.get("social_license_score", 50)
-            return sl / 10.0  # Normalize 0-100 → 0-10 scale
-        return 0
-
-    if metric == "BU_Sustainability_Score":
-        avg_sl = sum(b.get("social_license_score", 50) for b in bu_states) / len(bu_states) if bu_states else 50
-        return avg_sl / 10.0  # Normalize to 0-10 scale
-
-    # Generic global state lookup
-    return global_state.get(metric, 0)
-
-
-def _evaluate_condition(actual: float, operator: str, target: float) -> bool:
-    """Evaluate a single condition: actual <op> target."""
-    if operator == ">=": return actual >= target
-    if operator == "<=": return actual <= target
-    if operator == "==": return actual == target
-    if operator == ">":  return actual > target
-    if operator == "<":  return actual < target
-    return False
-
-
-async def check_hidden_resource_triggers(
-    session_id: str,
-    round_number: int,
-    global_state: dict,
-    bu_states: list[dict],
-) -> list[dict]:
-    """
-    Evaluate all hidden resources against current game state.
-    Auto-unlocks any that meet their conditions.
-    Returns list of newly unlocked hidden resources.
-    """
-    if session_id not in _session_resource_state:
-        _session_resource_state[session_id] = []
-
-    existing_ids = {u["resource_id"] for u in _session_resource_state[session_id]}
-    newly_triggered = []
-
-    for res in _resource_library:
-        if res.get("visibility") != "Hidden":
-            continue
-        if res["id"] in existing_ids:
-            continue  # Already unlocked
-
-        cond = res.get("unlock_condition")
-        if not cond:
-            continue
-
-        # Check min_round
-        if round_number < cond.get("min_round", 1):
-            continue
-
-        # Extract and evaluate
-        actual = _extract_metric_value(cond["metric"], global_state, bu_states)
-        if actual is None:
-            continue
-
-        if _evaluate_condition(actual, cond["operator"], cond["value"]):
-            entry = {
-                "resource_id": res["id"],
-                "unlocked_at_round": round_number,
-                "unlocked_at_time": datetime.now(timezone.utc).isoformat(),
-                "is_strategic_drop": False,
-                "trigger": "auto_condition",
-            }
-            _session_resource_state[session_id].append(entry)
-            newly_triggered.append(res)
-
-    # Notify facilitator and players about auto-unlocked hidden resources
-    if newly_triggered:
-        await manager.push_to_session(session_id, {
-            "type": "resource_unlocked",
-            "resources": newly_triggered,
-            "round": round_number,
-            "is_hidden_unlock": True,
-        })
-        await manager.broadcast_admin({
-            "type": "hidden_resource_triggered",
-            "session_id": session_id,
-            "resources": [{"id": r["id"], "title": r["title"], "effect": r.get("effect")} for r in newly_triggered],
-            "round": round_number,
-        })
-
-    return newly_triggered
-
-
-# ── Facilitator Deployment Guide ────────────────────────────────
-
-FACILITATOR_DEPLOYMENT_GUIDE = [
-    {"round": 1, "resource_id": "RES_001", "strategy": "The Baseline: Drop immediately. It sets the rules. If players don't read this, they will fail to understand the Volatility factor."},
-    {"round": 3, "resource_id": "RES_003", "strategy": "The Warning: Drop to force players to choose between short-term dividends and E1 (Climate) investments."},
-    {"round": 3, "resource_id": "RES_005", "strategy": "Supplement the Decision Tab. GDPR compliance context for Software BU decisions."},
-    {"round": 4, "resource_id": "RES_002", "strategy": "Coincides with ESG Contagion Crisis. Forces Pharma BU investment decisions."},
-    {"round": 4, "resource_id": "RES_007", "strategy": "Technical context for Pharma pollution decisions."},
-    {"round": 5, "resource_id": "RES_004", "strategy": "The Crisis Catalyst: Drop 1 turn before the embargo. If they don't act on this info, they deserve the 30% COGS hike."},
-    {"round": 5, "resource_id": "RES_008", "strategy": "Supplement the Gobi crisis with human rights context."},
-    {"round": 6, "resource_id": "RES_006", "strategy": "Circular Economy context for Round 6 pivot decisions."},
-]
-
-@admin_router.get("/resources/deployment-guide", summary="Get the facilitator deployment guide")
-async def get_deployment_guide():
-    """Returns the round-by-round resource deployment cheat sheet."""
-    # Enrich with resource titles
-    guide = []
-    for entry in FACILITATOR_DEPLOYMENT_GUIDE:
-        res = next((r for r in _resource_library if r["id"] == entry["resource_id"]), None)
-        guide.append({
-            **entry,
-            "title": res["title"] if res else "Unknown",
-            "type": res["type"] if res else "",
-        })
-
-    # Add hidden resource guide
-    hidden_guide = []
-    for res in _resource_library:
-        if res.get("visibility") == "Hidden":
-            hidden_guide.append({
-                "resource_id": res["id"],
-                "title": res["title"],
-                "unlock_condition": res.get("unlock_condition"),
-                "effect": res.get("effect"),
-                "strategy": res.get("facilitator_strategy", ""),
-            })
-
-    return {
-        "round_deployment": guide,
-        "hidden_resources": hidden_guide,
-    }
-
-
-
-# ── Master Library CRUD ─────────────────────────────────────────
-
-@admin_router.get("/resources/library", summary="Get the master resource library")
-async def get_resource_library():
-    return {"resources": _resource_library}
-
-
-@admin_router.put("/resources/library", summary="Upload / replace the master resource library")
-async def upload_resource_library(body: ResourceLibraryUpload):
-    global _resource_library
-    _resource_library = [r.dict() for r in body.Resource_Library]
-    return {"status": "uploaded", "count": len(_resource_library)}
-
-
-@admin_router.post("/resources/library/item", summary="Add or update a single resource")
-async def upsert_resource_item(item: ResourceItem):
-    global _resource_library
-    _resource_library = [r for r in _resource_library if r["id"] != item.id]
-    _resource_library.append(item.dict())
-    return item
-
-
-@admin_router.delete("/resources/library/item/{resource_id}", summary="Delete a resource from the master library")
-async def delete_resource_item(resource_id: str):
-    global _resource_library
-    _resource_library = [r for r in _resource_library if r["id"] != resource_id]
-    return {"status": "deleted", "resource_id": resource_id}
-
-
-@admin_router.post("/resources/upload", summary="Upload a physical resource file (PDF, image, etc)")
-async def upload_resource_file(file: UploadFile = File(...)):
-    """Uploads a file to the static assets directory and returns its public URL."""
-    # Ensure uploads directory exists in the Next.js frontend/public folder
-    project_root = os.path.dirname(os.path.dirname(__file__))
-    upload_dir = os.path.join(project_root, "frontend", "public", "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-    
-    # Save the file
-    file_path = os.path.join(upload_dir, file.filename)
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-        
-    # Return the URL path
-    file_url = f"/uploads/{file.filename}"
-    return {"status": "uploaded", "url": file_url}
-
-
-# ── Per-Session Resource State ──────────────────────────────────
-
-@admin_router.get("/sessions/{session_id}/resources", summary="Get resource state for a session")
-async def get_session_resources(session_id: str):
-    """Returns the master library annotated with unlock status for this session."""
-    unlocked = _session_resource_state.get(session_id, [])
-    unlocked_ids = {u["resource_id"] for u in unlocked}
-
-    annotated = []
-    for res in _resource_library:
-        unlock_info = next((u for u in unlocked if u["resource_id"] == res["id"]), None)
-        annotated.append({
-            **res,
-            "unlocked": res["id"] in unlocked_ids,
-            "unlocked_at_round": unlock_info["unlocked_at_round"] if unlock_info else None,
-            "unlocked_at_time": unlock_info["unlocked_at_time"] if unlock_info else None,
-            "is_strategic_drop": unlock_info.get("is_strategic_drop", False) if unlock_info else False,
-        })
-    return {"resources": annotated}
-
-
-@admin_router.post("/sessions/{session_id}/resources/unlock", summary="Unlock resources for a session")
-async def unlock_session_resources(session_id: str, body: ResourceUnlockRequest):
-    """Unlock specific resources for a session at a given round."""
-    if session_id not in _session_resource_state:
-        _session_resource_state[session_id] = []
-
-    existing_ids = {u["resource_id"] for u in _session_resource_state[session_id]}
-    newly_unlocked = []
-    for rid in body.resource_ids:
-        if rid not in existing_ids:
-            entry = {
-                "resource_id": rid,
-                "unlocked_at_round": body.round_number,
-                "unlocked_at_time": datetime.now(timezone.utc).isoformat(),
-                "is_strategic_drop": False,
-            }
-            _session_resource_state[session_id].append(entry)
-            newly_unlocked.append(rid)
-
-    # Build full resource objects for the push
-    unlocked_resources = [r for r in _resource_library if r["id"] in newly_unlocked]
-
-    # Push to players via WebSocket
-    if newly_unlocked:
-        await manager.push_to_session(session_id, {
-            "type": "resource_unlocked",
-            "resources": unlocked_resources,
-            "round": body.round_number,
-        })
-
-    return {"status": "unlocked", "newly_unlocked": newly_unlocked, "total_unlocked": len(_session_resource_state[session_id])}
-
-
-@admin_router.post("/sessions/{session_id}/resources/drop", summary="Strategic drop — reveal a resource mid-round")
-async def strategic_drop_resource(session_id: str, body: ResourceUnlockRequest):
-    """Drops resources mid-round as a 'breaking news' event. Marks them as strategic drops."""
-    if session_id not in _session_resource_state:
-        _session_resource_state[session_id] = []
-
-    existing_ids = {u["resource_id"] for u in _session_resource_state[session_id]}
-    dropped = []
-    for rid in body.resource_ids:
-        if rid not in existing_ids:
-            entry = {
-                "resource_id": rid,
-                "unlocked_at_round": body.round_number,
-                "unlocked_at_time": datetime.now(timezone.utc).isoformat(),
-                "is_strategic_drop": True,
-            }
-            _session_resource_state[session_id].append(entry)
-            dropped.append(rid)
-
-    dropped_resources = [r for r in _resource_library if r["id"] in dropped]
-
-    if dropped:
-        await manager.push_to_session(session_id, {
-            "type": "resource_dropped",
-            "resources": dropped_resources,
-            "round": body.round_number,
-            "is_breaking_news": True,
-        })
-        await manager.broadcast_admin({
-            "type": "resource_strategic_drop",
-            "session_id": session_id,
-            "resources": dropped_resources,
-        })
-
-    return {"status": "dropped", "dropped": dropped}
-
-
-@admin_router.post("/sessions/{session_id}/resources/lock", summary="Re-lock a resource for a session")
-async def lock_session_resource(session_id: str, body: dict = Body(...)):
-    """Re-lock a mistakenly unlocked resource."""
-    resource_id = body.get("resource_id")
-    if not resource_id:
-        raise HTTPException(400, "resource_id required")
-    if session_id in _session_resource_state:
-        _session_resource_state[session_id] = [
-            u for u in _session_resource_state[session_id] if u["resource_id"] != resource_id
-        ]
-    return {"status": "locked", "resource_id": resource_id}
-
-
-# ═════════════════════════════════════════════════════════════════
-#  NOTEBOOKLM INTEGRATION — Linked Notebooks for Learners
-# ═════════════════════════════════════════════════════════════════
-
-class NotebookLMItem(BaseModel):
-    id: str
-    title: str
-    share_url: str = ""
-    description: str = ""
-    content_types: list[str] = ["review"]  # "podcast" | "review" | "quiz"
-    target_round: int = 1  # Round this notebook becomes available
-    category: str = "General"  # "General" | "Ecological" | "Social" | "Economic"
-    podcast_transcript: list[dict] = []  # [{speaker, text}, ...]
-    review_content: str = ""  # Markdown-style review content
-    quiz_questions: list[dict] = []  # [{question, options, correct, explanation}, ...]
-
-# In-memory store for linked NotebookLM notebooks
-from quiz_banks import (
-    NLM_001_REVIEW, NLM_001_QUESTIONS,
-    NLM_002_REVIEW, NLM_002_QUESTIONS,
-    NLM_003_REVIEW, NLM_003_QUESTIONS,
-)
-
-_notebooklm_notebooks: list[dict] = [
-    {
-        "id": "NLM_001",
-        "title": "ESG Fundamentals Deep Dive",
-        "share_url": "",
-        "description": "Interactive review of ESG concepts, CSRD requirements, and double materiality. Includes an AI-generated podcast overview.",
-        "content_types": ["podcast", "review", "quiz"],
-        "target_round": 1,
-        "category": "General",
-        "podcast_transcript": [
-            {"speaker": "Dr. Priya Sharma", "text": "Welcome to the ESG Fundamentals podcast. Today we're breaking down what every executive needs to know about Environmental, Social, and Governance factors."},
-            {"speaker": "Prof. James Walker", "text": "Great to be here, Priya. Let's start with the basics. ESG isn't just a compliance checkbox — it's become a core driver of corporate value creation."},
-            {"speaker": "Dr. Priya Sharma", "text": "Exactly. The E stands for Environmental — think carbon emissions, water usage, waste management, and biodiversity impact. Companies like Muressons with mining and manufacturing operations face significant environmental scrutiny."},
-            {"speaker": "Prof. James Walker", "text": "The S covers Social factors — labour practices, community relations, diversity, supply chain ethics. For a conglomerate operating across regions like Gobi and Deccan, this is critical."},
-            {"speaker": "Dr. Priya Sharma", "text": "And G — Governance — covers board composition, executive pay, transparency, and anti-corruption measures. Strong governance is the foundation that makes E and S credible."},
-            {"speaker": "Prof. James Walker", "text": "Now, let's talk about Double Materiality. Under the EU's CSRD directive, companies must report on two dimensions: how sustainability issues affect the company financially, AND how the company impacts society and the environment."},
-            {"speaker": "Dr. Priya Sharma", "text": "This is a paradigm shift. Traditional financial materiality only asked 'does this risk affect our bottom line?' Double materiality also asks 'does our business affect the planet and people?'"},
-            {"speaker": "Prof. James Walker", "text": "For Muressons, this means mapping every business unit — Pharma, Electronics, Consumer Goods, Software — against both dimensions. The ESG audit in Round 1 is your first step."},
-            {"speaker": "Dr. Priya Sharma", "text": "Key takeaway: ESG integration isn't optional anymore. Investors, regulators, and consumers are all demanding it. The companies that lead on ESG will have a competitive advantage in the 2030s."},
-            {"speaker": "Prof. James Walker", "text": "Absolutely. And remember — the depth of your initial audit determines what risks you catch early versus what surprises you later. Choose wisely."},
-        ],
-        "review_content": NLM_001_REVIEW,
-        "quiz_questions": NLM_001_QUESTIONS,
-    },
-    {
-        "id": "NLM_002",
-        "title": "Carbon Markets & Climate Risk",
-        "share_url": "",
-        "description": "Deep dive into carbon pricing mechanisms, EU ETS, emission scopes, and corporate climate strategy.",
-        "content_types": ["quiz", "review"],
-        "target_round": 3,
-        "category": "Ecological",
-        "podcast_transcript": [],
-        "review_content": NLM_002_REVIEW,
-        "quiz_questions": NLM_002_QUESTIONS,
-    },
-    {
-        "id": "NLM_003",
-        "title": "Supply Chain Ethics & Labour Rights",
-        "share_url": "",
-        "description": "Explore the Gobi region conflict, modern slavery legislation, and due diligence frameworks through AI-guided review.",
-        "content_types": ["podcast", "review", "quiz"],
-        "target_round": 5,
-        "category": "Social",
-        "podcast_transcript": [
-            {"speaker": "Dr. Priya Sharma", "text": "Today we're tackling one of the most challenging aspects of ESG — supply chain ethics and labour rights. This is deeply relevant to Muressons' operations in the Gobi region."},
-            {"speaker": "Prof. James Walker", "text": "Absolutely. The Gobi region represents a classic ethical dilemma in global supply chains. Rich mineral resources, but significant human rights concerns."},
-            {"speaker": "Dr. Priya Sharma", "text": "Let's frame the issue. Modern slavery affects an estimated 50 million people globally. Forced labour generates $150 billion in illegal profits annually. And it's not just in developing countries — it exists in every sector."},
-            {"speaker": "Prof. James Walker", "text": "For mining operations like those in the Gobi region, the risks include: forced labour in artisanal mining, child labour, dangerous working conditions, and community displacement."},
-            {"speaker": "Dr. Priya Sharma", "text": "Several key pieces of legislation now require companies to act. The UK Modern Slavery Act, the French Duty of Vigilance Law, and the proposed EU Corporate Sustainability Due Diligence Directive."},
-            {"speaker": "Prof. James Walker", "text": "The EU CSDDD is particularly important. It requires companies to identify, prevent, and mitigate adverse human rights and environmental impacts throughout their value chains."},
-            {"speaker": "Dr. Priya Sharma", "text": "So what should Muressons do? First, conduct thorough supply chain mapping. Know every tier of your suppliers. Second, implement robust due diligence processes. Third, establish grievance mechanisms for workers."},
-            {"speaker": "Prof. James Walker", "text": "And critically, don't just cut and run from problematic suppliers. Responsible disengagement means working with suppliers to improve, not abandoning workers to worse conditions."},
-            {"speaker": "Dr. Priya Sharma", "text": "The business case is clear too. Companies with strong supply chain ethics see fewer disruptions, better brand reputation, and increasingly, better access to capital."},
-            {"speaker": "Prof. James Walker", "text": "Bottom line: in the Muressons simulation, your choices about the Gobi region and Tier-3 mine workers aren't just ethical decisions — they're strategic ones that affect your reputation score, regulatory risk, and long-term viability."},
-        ],
-        "review_content": NLM_003_REVIEW,
-        "quiz_questions": NLM_003_QUESTIONS,
-    },
-]
-
-
-@admin_router.get("/resources/notebooklm", summary="Get all linked NotebookLM notebooks")
-async def get_notebooklm_notebooks():
-    return {"notebooks": _notebooklm_notebooks}
-
-
-@admin_router.post("/resources/notebooklm", summary="Add or update a NotebookLM notebook link")
-async def upsert_notebooklm_notebook(item: NotebookLMItem):
-    global _notebooklm_notebooks
-    _notebooklm_notebooks = [n for n in _notebooklm_notebooks if n["id"] != item.id]
-    _notebooklm_notebooks.append(item.dict())
-    return item
-
-
-@admin_router.delete("/resources/notebooklm/{notebook_id}", summary="Remove a NotebookLM notebook link")
-async def delete_notebooklm_notebook(notebook_id: str):
-    global _notebooklm_notebooks
-    _notebooklm_notebooks = [n for n in _notebooklm_notebooks if n["id"] != notebook_id]
-    return {"status": "deleted", "notebook_id": notebook_id}
-
-
-# ── Quiz Difficulty Setting ─────────────────────────────────────
-
-_quiz_difficulty: str = "medium"  # "easy" | "medium" | "hard"
-
-
-@admin_router.get("/quiz-difficulty", summary="Get current quiz difficulty level")
-async def get_quiz_difficulty():
-    return {"difficulty": _quiz_difficulty}
-
-
-@admin_router.put("/quiz-difficulty", summary="Set quiz difficulty level")
-async def set_quiz_difficulty(body: dict = Body(...)):
-    global _quiz_difficulty
-    level = body.get("difficulty", "medium").lower()
-    if level not in ("easy", "medium", "hard"):
-        raise HTTPException(400, "Difficulty must be 'easy', 'medium', or 'hard'")
-    _quiz_difficulty = level
-    return {"status": "updated", "difficulty": _quiz_difficulty}
-
-
-# ── Per-Cohort Quiz Enabled State ────────────────────────────────
-
-_quiz_enabled: dict[str, bool] = {}  # session_id → enabled (default True)
-
-
-@admin_router.get("/quiz-enabled/{session_id}", summary="Check if quiz is enabled for a cohort")
-async def get_quiz_enabled(session_id: str):
-    enabled = _quiz_enabled.get(session_id, True)  # Default: enabled
-    return {"session_id": session_id, "quiz_enabled": enabled}
-
-
-@admin_router.put("/quiz-enabled/{session_id}", summary="Enable or disable quiz for a cohort")
-async def set_quiz_enabled(session_id: str, body: dict = Body(...)):
-    enabled = body.get("quiz_enabled", True)
-    _quiz_enabled[session_id] = bool(enabled)
-    return {"status": "updated", "session_id": session_id, "quiz_enabled": _quiz_enabled[session_id]}
-
-
-# ── Per-Cohort Consultant Allowed State ──────────────────────────
-
-_consultant_allowed: dict[str, bool] = {}  # session_id → allowed (default True)
-
-
-@admin_router.get("/consultant-allowed/{session_id}", summary="Check if ESG consultant is allowed for a cohort")
-async def get_consultant_allowed(session_id: str):
-    allowed = _consultant_allowed.get(session_id, True)  # Default: allowed
-    return {"session_id": session_id, "consultant_allowed": allowed}
-
-
-@admin_router.put("/consultant-allowed/{session_id}", summary="Enable or disable ESG consultant for a cohort")
-async def set_consultant_allowed(session_id: str, body: dict = Body(...)):
-    allowed = body.get("consultant_allowed", True)
-    _consultant_allowed[session_id] = bool(allowed)
-    return {"status": "updated", "session_id": session_id, "consultant_allowed": _consultant_allowed[session_id]}
+# ARCH-002: Resources extracted to admin_resources.py (19 endpoints)
+# Mounted in main.py via app.include_router(resources_router)
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -4148,18 +3762,68 @@ async def get_system_status():
     total_reputation = 0.0
     session_count_with_state = 0
 
+    # ── Hardening Phase aggregates ──────────────────────────────
+    macro_rate_distribution = {}    # regime → count
+    pathway_distribution = {}      # pathway → count
+    nbs_outcomes = {"succeeded": 0, "failed": 0, "not_triggered": 0}
+    scope3_completeness_vals = []
+    ai_monetised_count = 0
+    retraining_triggered = {"succeeded": 0, "failed": 0}
+
     for sid, sess in all_sessions.items():
         if sess.get("player_id"):
             total_players += 1
         else:
             total_cohorts += 1
         gs = sess.get("global_state")
-        if gs:
-            r = gs.get("current_round", 1)
-            round_distribution[f"R{r}"] = round_distribution.get(f"R{r}", 0) + 1
-            total_treasury += gs.get("treasury_balance", 0)
-            total_reputation += gs.get("reputation_score", 0)
-            session_count_with_state += 1
+        if not gs:
+            continue
+        r = gs.get("current_round", 1)
+        round_distribution[f"R{r}"] = round_distribution.get(f"R{r}", 0) + 1
+        total_treasury += gs.get("treasury_balance", 0)
+        total_reputation += gs.get("reputation_score", 0)
+        session_count_with_state += 1
+
+        # Hardening: flags-based aggregation
+        flags = gs.get("active_event_flags", {})
+        # Macro rate
+        rn = gs.get("round_number", 1)
+        from engine import calc_macro_rate_environment
+        regime = calc_macro_rate_environment(rn).get("regime", "neutral")
+        macro_rate_distribution[regime] = macro_rate_distribution.get(regime, 0) + 1
+        # Pathways
+        ep = flags.get("ending_pathway")
+        if ep:
+            pathway_distribution[ep] = pathway_distribution.get(ep, 0) + 1
+        # NBS
+        if "nbs_succeeded" in flags:
+            if flags["nbs_succeeded"]:
+                nbs_outcomes["succeeded"] += 1
+            else:
+                nbs_outcomes["failed"] += 1
+        else:
+            nbs_outcomes["not_triggered"] += 1
+        # Scope 3
+        s3 = gs.get("scope3_data_completeness")
+        if s3 is not None:
+            scope3_completeness_vals.append(s3)
+        # AI monetisation
+        if flags.get("ai_monetised"):
+            ai_monetised_count += 1
+        # Retraining
+        if "retraining_succeeded" in flags:
+            if flags["retraining_succeeded"]:
+                retraining_triggered["succeeded"] += 1
+            else:
+                retraining_triggered["failed"] += 1
+
+    # System memory (MB) — used by SystemContextBar health indicator
+    try:
+        import psutil
+        mem_mb = round(psutil.Process().memory_info().rss / 1024 / 1024, 1)
+    except Exception:
+        import os
+        mem_mb = round(os.popen('tasklist /fi "pid eq %d" /fo csv /nh' % os.getpid()).read().count('K') * 0.001, 1) if os.name == 'nt' else 0
 
     return {
         "total_facilitators": len(_facilitator_registry),
@@ -4171,6 +3835,16 @@ async def get_system_status():
         "system_frozen": _god_mode_settings["system_frozen"],
         "recent_audit": list(reversed(_god_mode_audit_log))[:10],
         "active_ws_connections": sum(len(v) for v in manager.active_connections.values()) if hasattr(manager, 'active_connections') else 0,
+        "system_memory_mb": mem_mb,
+        # ── Hardening Phase ──
+        "hardening": {
+            "macro_rate_distribution": macro_rate_distribution,
+            "pathway_distribution": pathway_distribution,
+            "nbs_outcomes": nbs_outcomes,
+            "avg_scope3_completeness": round(sum(scope3_completeness_vals) / max(len(scope3_completeness_vals), 1), 1) if scope3_completeness_vals else None,
+            "ai_monetised_count": ai_monetised_count,
+            "retraining_outcomes": retraining_triggered,
+        },
     }
 
 
@@ -4193,20 +3867,29 @@ async def toggle_facilitator_admin(fac_id: str, body: dict = Body(...)):
 #  GOD MODE — Universal Broadcast (#8)
 # ═════════════════════════════════════════════════════════════════
 
-@admin_router.post("/god/universal-broadcast", summary="Broadcast to ALL connected clients")
+@admin_router.post("/god/universal-broadcast", summary="Broadcast to clients")
 async def universal_broadcast(body: dict = Body(...)):
     title = body.get("title", "System Announcement")
     message = body.get("message", "")
     priority = body.get("priority", "info")  # info, warning, critical
+    target = body.get("target", "all")  # all, students, facilitators
     payload = {
         "type": "universal_broadcast",
         "title": title,
         "message": message,
         "priority": priority,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "target": target,
     }
-    await manager.broadcast(payload)
-    _audit("universal_broadcast", details={"title": title, "priority": priority})
+    
+    if target == "students":
+        await manager.broadcast_students(payload)
+    elif target == "facilitators":
+        await manager.broadcast_admin(payload)
+    else:
+        await manager.broadcast(payload)
+        
+    _audit("universal_broadcast", details={"title": title, "priority": priority, "target": target})
     return {"status": "sent", "payload": payload}
 
 
@@ -4290,527 +3973,9 @@ async def fire_crisis_with_history(body: dict = Body(...)):
     return entry
 
 
-# ═════════════════════════════════════════════════════════════════
-#  GOD MODE — Platform Analytics (#15)
-# ═════════════════════════════════════════════════════════════════
 
-# ═════════════════════════════════════════════════════════════════
-#  ANALYTICS VISIBILITY — God Mode controls what facilitators/players see
-# ═════════════════════════════════════════════════════════════════
-
-_analytics_visibility: dict = {
-    "facilitator": {
-        "decision_heatmap": True,
-        "time_to_decision": True,
-        "cohort_comparison": True,
-        "convergence_analysis": True,
-        "learning_outcomes": True,
-        "risk_exposure": True,
-        "materiality_matrix": True,
-        "technical_reference": True,
-    },
-    "player": {
-        "peer_benchmarking": True,
-        "decision_impact": True,
-        "what_if_simulator": False,
-    }
-}
-
-
-@admin_router.get("/god/analytics-visibility", summary="Get analytics visibility settings")
-async def get_analytics_visibility():
-    return _analytics_visibility
-
-
-@admin_router.put("/god/analytics-visibility", summary="Update analytics visibility settings")
-async def set_analytics_visibility(body: dict = Body(...)):
-    for role in ("facilitator", "player"):
-        if role in body:
-            for key, val in body[role].items():
-                if key in _analytics_visibility.get(role, {}):
-                    _analytics_visibility[role][key] = bool(val)
-    return _analytics_visibility
-
-
-# ── Per-Cohort Analytics Visibility ─────────────────────────────
-# Stored on session dict as session["analytics_visibility"] = {facilitator: {...}, player: {...}}
-# Global defaults apply when a cohort has no overrides.
-
-def resolve_analytics_visibility(session_id: str) -> dict:
-    """Merge global defaults with per-cohort overrides. Cohort overrides win."""
-    import copy as _copy
-    merged = _copy.deepcopy(_analytics_visibility)
-    sess = database_memory._sessions.get(session_id)
-    if not sess:
-        return merged
-    # Walk up to parent cohort if this is a player sub-session
-    if sess.get("parent_cohort_id"):
-        parent = database_memory._sessions.get(sess["parent_cohort_id"])
-        if parent:
-            sess = parent
-    cohort_vis = sess.get("analytics_visibility")
-    if cohort_vis:
-        for role in ("facilitator", "player"):
-            if role in cohort_vis:
-                for key, val in cohort_vis[role].items():
-                    if key in merged.get(role, {}):
-                        merged[role][key] = bool(val)
-    return merged
-
-
-@admin_router.get("/cohort/{session_id}/analytics-visibility", summary="Get per-cohort analytics visibility")
-async def get_cohort_analytics_visibility(session_id: str):
-    sess = database_memory._sessions.get(session_id)
-    if not sess:
-        raise HTTPException(status_code=404, detail="Session not found")
-    cohort_overrides = sess.get("analytics_visibility")
-    return {
-        "global_defaults": _analytics_visibility,
-        "cohort_overrides": cohort_overrides,
-        "effective": resolve_analytics_visibility(session_id),
-    }
-
-
-@admin_router.put("/cohort/{session_id}/analytics-visibility", summary="Set per-cohort analytics visibility overrides")
-async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...)):
-    sess = database_memory._sessions.get(session_id)
-    if not sess:
-        raise HTTPException(status_code=404, detail="Session not found")
-    overrides = sess.setdefault("analytics_visibility", {"facilitator": {}, "player": {}})
-    for role in ("facilitator", "player"):
-        if role in body:
-            for key, val in body[role].items():
-                if key in _analytics_visibility.get(role, {}):
-                    overrides.setdefault(role, {})[key] = bool(val)
-    sess["analytics_visibility"] = overrides
-    database_memory._persist()
-    return {
-        "cohort_overrides": overrides,
-        "effective": resolve_analytics_visibility(session_id),
-    }
-
-
-# ═════════════════════════════════════════════════════════════════
-#  PLATFORM-WIDE ANALYTICS (God Mode + Facilitator)
-# ═════════════════════════════════════════════════════════════════
-
-@admin_router.get("/god/analytics", summary="Platform-wide analytics")
-async def get_platform_analytics():
-    """
-    Compute all analytics from _global_states, _bu_states, _decision_log.
-    Returns decision heatmap, time-to-decision, cohort trajectories,
-    convergence, learning outcomes, and risk exposure.
-    """
-    import math
-    from collections import defaultdict
-
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states = getattr(db, '_bu_states', {})
-    decision_log = getattr(db, '_decision_log', [])
-
-    # ── Summary counts ────────────────────────────────────────
-    cohort_sessions = {sid: s for sid, s in all_sessions.items() if not s.get("parent_cohort_id")}
-    player_sessions = {sid: s for sid, s in all_sessions.items() if s.get("parent_cohort_id")}
-
-    # ── 1. Decision Heatmap: choice distribution per round ────
-    decision_heatmap = defaultdict(lambda: defaultdict(int))
-    for d in decision_log:
-        rn = d.get("round_number", 0)
-        choice = d.get("choice_selected", "")
-        if choice:
-            decision_heatmap[f"R{rn}"][choice] += 1
-
-    # ── 2. Time-to-Decision: per round timing stats ───────────
-    time_by_round = defaultdict(list)
-    for d in decision_log:
-        rn = d.get("round_number", 0)
-        ttd = d.get("time_to_decision_seconds", 0)
-        if ttd > 0:
-            time_by_round[f"R{rn}"].append(ttd)
-
-    time_to_decision = {}
-    for rkey, times in sorted(time_by_round.items()):
-        st = sorted(times)
-        n = len(st)
-        median = st[n // 2] if n % 2 == 1 else round((st[n // 2 - 1] + st[n // 2]) / 2, 1)
-        time_to_decision[rkey] = {
-            "avg_seconds": round(sum(st) / n, 1),
-            "median_seconds": median,
-            "min": st[0],
-            "max": st[-1],
-            "count": n,
-        }
-
-    # ── 3. Cohort Trajectories: KPI over rounds per cohort ────
-    cohort_trajectories = {}
-    for sid, sess in cohort_sessions.items():
-        cname = sess.get("cohort_name", sid[:12])
-        rounds = global_states.get(sid, [])
-        trajectory = []
-        for grs in rounds:
-            rn = grs.get("round_number", 1)
-            bus = bu_states.get(sid, {}).get(rn, [])
-            avg_sl = sum(b.get("social_license_score", 50) for b in bus) / max(len(bus), 1)
-            trajectory.append({
-                "round": rn,
-                "treasury": round(float(grs.get("corporate_treasury", 0)) / 1_000_000, 2),
-                "reputation": round(float(grs.get("group_reputation", 50)), 1),
-                "synergy": round(float(grs.get("synergy_multiplier", 1.0)), 3),
-                "ebitda": round(float(grs.get("historical_ebitda", 0)) / 1_000_000, 2),
-            })
-        cohort_trajectories[cname] = trajectory
-
-    # ── 4. Convergence Analysis ───────────────────────────────
-    # Measure strategy similarity: CapEx StdDev and choice entropy per round
-    capex_by_round = defaultdict(list)
-    choices_by_round = defaultdict(list)
-    for d in decision_log:
-        rn = d.get("round_number", 0)
-        capex_by_round[f"R{rn}"].append(d.get("capex_allocated", 0))
-        ch = d.get("choice_selected", "")
-        if ch:
-            choices_by_round[f"R{rn}"].append(ch)
-
-    capex_std_by_round = {}
-    for rkey, vals in sorted(capex_by_round.items()):
-        if len(vals) > 1:
-            mean = sum(vals) / len(vals)
-            variance = sum((v - mean) ** 2 for v in vals) / len(vals)
-            capex_std_by_round[rkey] = round(math.sqrt(variance), 0)
-        else:
-            capex_std_by_round[rkey] = 0
-
-    choice_entropy_by_round = {}
-    for rkey, choices in sorted(choices_by_round.items()):
-        n = len(choices)
-        if n == 0:
-            choice_entropy_by_round[rkey] = 0
-            continue
-        freq = defaultdict(int)
-        for c in choices:
-            freq[c] += 1
-        entropy = 0
-        for count in freq.values():
-            p = count / n
-            if p > 0:
-                entropy -= p * math.log2(p)
-        choice_entropy_by_round[rkey] = round(entropy, 3)
-
-    # Convergence index: 0 = everyone same, 1 = maximum diversity
-    all_entropies = list(choice_entropy_by_round.values())
-    max_entropy = math.log2(3) if all_entropies else 1  # 3 choices max
-    convergence_index = round(
-        1 - (sum(all_entropies) / max(len(all_entropies), 1) / max_entropy), 3
-    ) if all_entropies else 0.5
-
-    # ── 5. Learning Outcomes ──────────────────────────────────
-    total_bonuses = 0
-    bonuses_breakdown = defaultdict(int)
-    for sid, rounds in global_states.items():
-        if not rounds:
-            continue
-        latest = rounds[-1]
-        lb = latest.get("learning_bonuses_awarded", {})
-        if isinstance(lb, dict):
-            for category, val in lb.items():
-                if isinstance(val, (int, float)):
-                    total_bonuses += val
-                    bonuses_breakdown[category] += 1
-
-    # Student bonus awards
-    badges_awarded = defaultdict(int)
-    total_student_bonuses = 0
-    for sid_bonuses in _student_bonuses.values():
-        for b in sid_bonuses:
-            total_student_bonuses += 1
-            bk = b.get("badge_key", "")
-            if bk:
-                badges_awarded[bk] += 1
-
-    # ── 6. Risk Exposure: per cohort risk trends ──────────────
-    risk_exposure = {}
-    for sid, sess in cohort_sessions.items():
-        cname = sess.get("cohort_name", sid[:12])
-        rounds_data = global_states.get(sid, [])
-        risk_trend = []
-        for grs in rounds_data:
-            rn = grs.get("round_number", 1)
-            bus = bu_states.get(sid, {}).get(rn, [])
-            if not bus:
-                continue
-            n = len(bus)
-            avg_carbon = round(sum(b.get("carbon_intensity", 0) for b in bus) / n, 2)
-            avg_ncd = round(sum(b.get("natural_capital_debt", 0) for b in bus) / n, 2)
-            avg_sl = round(sum(b.get("social_license_score", 50) for b in bus) / n, 2)
-            avg_gov = round(sum(b.get("governance_risk_score", 0) for b in bus) / n, 2)
-            risk_trend.append({
-                "round": rn,
-                "avg_carbon_intensity": avg_carbon,
-                "avg_natural_capital_debt": avg_ncd,
-                "avg_social_license": avg_sl,
-                "avg_governance_risk": avg_gov,
-            })
-        risk_exposure[cname] = risk_trend
-
-    return {
-        "total_cohorts": len(cohort_sessions),
-        "total_players": len(player_sessions),
-        "total_facilitators": len(_facilitator_registry),
-        "total_decisions": len(decision_log),
-        "decision_heatmap": {k: dict(v) for k, v in sorted(decision_heatmap.items())},
-        "time_to_decision": dict(sorted(time_to_decision.items())),
-        "cohort_trajectories": cohort_trajectories,
-        "convergence": {
-            "capex_std_by_round": capex_std_by_round,
-            "choice_entropy_by_round": choice_entropy_by_round,
-            "convergence_index": convergence_index,
-        },
-        "learning_outcomes": {
-            "learning_bonuses_total": total_bonuses,
-            "bonuses_by_category": dict(bonuses_breakdown),
-            "badges_awarded": dict(badges_awarded),
-            "student_bonus_count": total_student_bonuses,
-        },
-        "risk_exposure": risk_exposure,
-        "visibility": _analytics_visibility,
-    }
-
-
-# ═════════════════════════════════════════════════════════════════
-#  PLAYER-SCOPED ANALYTICS
-# ═════════════════════════════════════════════════════════════════
-
-@admin_router.get("/analytics/player/{session_id}", summary="Player-scoped analytics")
-async def get_player_analytics(session_id: str):
-    """
-    Compute peer benchmarking, decision impact attribution, and
-    what-if counterfactual analysis for a specific player session.
-    """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states = getattr(db, '_bu_states', {})
-    decision_log = getattr(db, '_decision_log', [])
-
-    sess = all_sessions.get(session_id)
-    if not sess:
-        raise HTTPException(404, "Session not found")
-
-    player_rounds = global_states.get(session_id, [])
-    if not player_rounds:
-        raise HTTPException(404, "No round data for this session")
-
-    latest = player_rounds[-1]
-    player_treasury = float(latest.get("corporate_treasury", 0))
-    player_reputation = float(latest.get("group_reputation", 50))
-    player_synergy = float(latest.get("synergy_multiplier", 1.0))
-
-    # ── 1. Peer Benchmarking ──────────────────────────────────
-    # Compute percentiles across all sessions at the same round
-    player_round = latest.get("round_number", 1)
-    all_treasuries = []
-    all_reputations = []
-    all_synergies = []
-
-    for sid, rounds in global_states.items():
-        if not rounds:
-            continue
-        # Find the state at the same round number
-        for grs in rounds:
-            if grs.get("round_number") == player_round:
-                all_treasuries.append(float(grs.get("corporate_treasury", 0)))
-                all_reputations.append(float(grs.get("group_reputation", 50)))
-                all_synergies.append(float(grs.get("synergy_multiplier", 1.0)))
-                break
-
-    def percentile(value, population):
-        if not population:
-            return 50
-        below = sum(1 for v in population if v < value)
-        return round(below / len(population) * 100, 1)
-
-    cohort_avg_treasury = round(sum(all_treasuries) / max(len(all_treasuries), 1), 2)
-    cohort_avg_reputation = round(sum(all_reputations) / max(len(all_reputations), 1), 1)
-
-    peer_benchmarking = {
-        "treasury_percentile": percentile(player_treasury, all_treasuries),
-        "reputation_percentile": percentile(player_reputation, all_reputations),
-        "synergy_percentile": percentile(player_synergy, all_synergies),
-        "player_count": len(all_treasuries),
-        "cohort_avg": {
-            "treasury": cohort_avg_treasury,
-            "reputation": cohort_avg_reputation,
-        },
-        "player": {
-            "treasury": round(player_treasury, 2),
-            "reputation": round(player_reputation, 1),
-            "synergy": round(player_synergy, 3),
-        },
-    }
-
-    # ── 2. Decision Impact Attribution ────────────────────────
-    # For each round, show the KPI deltas caused by the player's choice
-    decision_impact = []
-    player_decisions = [
-        d for d in decision_log if d.get("session_id") == session_id
-    ]
-    # Group by round
-    from collections import defaultdict
-    dec_by_round = defaultdict(list)
-    for d in player_decisions:
-        dec_by_round[d.get("round_number", 0)].append(d)
-
-    for i in range(1, len(player_rounds)):
-        prev = player_rounds[i - 1]
-        curr = player_rounds[i]
-        rn = prev.get("round_number", i)
-        treasury_delta = float(curr.get("corporate_treasury", 0)) - float(prev.get("corporate_treasury", 0))
-        reputation_delta = float(curr.get("group_reputation", 50)) - float(prev.get("group_reputation", 50))
-        synergy_delta = float(curr.get("synergy_multiplier", 1.0)) - float(prev.get("synergy_multiplier", 1.0))
-
-        round_decs = dec_by_round.get(rn, []) or dec_by_round.get(curr.get("round_number", 0), [])
-        choice = round_decs[0].get("choice_selected", "—") if round_decs else "—"
-        total_capex = sum(d.get("capex_allocated", 0) for d in round_decs)
-
-        # Generate narrative
-        parts = []
-        if treasury_delta > 0:
-            parts.append(f"Treasury grew by ${abs(treasury_delta/1_000_000):.1f}M")
-        elif treasury_delta < 0:
-            parts.append(f"Treasury fell by ${abs(treasury_delta/1_000_000):.1f}M")
-        if reputation_delta > 0:
-            parts.append(f"reputation rose {reputation_delta:.1f} pts")
-        elif reputation_delta < 0:
-            parts.append(f"reputation dropped {abs(reputation_delta):.1f} pts")
-
-        decision_impact.append({
-            "round": rn,
-            "choice": choice,
-            "total_capex": round(total_capex, 0),
-            "treasury_delta": round(treasury_delta, 2),
-            "reputation_delta": round(reputation_delta, 2),
-            "synergy_delta": round(synergy_delta, 4),
-            "narrative": " — ".join(parts) if parts else "Minimal change this round",
-        })
-
-    # ── 3. What-If Simulator ──────────────────────────────────
-    # Simple counterfactual: show what the average player chose at each
-    # round and compare KPI trajectory
-    what_if = []
-    # Gather avg choice per round across all sessions
-    from collections import Counter
-    choices_per_round = defaultdict(list)
-    for d in decision_log:
-        ch = d.get("choice_selected", "")
-        if ch:
-            choices_per_round[d.get("round_number", 0)].append(ch)
-
-    for impact in decision_impact:
-        rn = impact["round"]
-        player_choice = impact["choice"]
-        round_choices = choices_per_round.get(rn, [])
-        if not round_choices:
-            continue
-        counter = Counter(round_choices)
-        most_popular = counter.most_common(1)[0][0] if counter else player_choice
-
-        if most_popular != player_choice:
-            # Find avg KPI delta for sessions that chose the popular option
-            pop_deltas_t = []
-            pop_deltas_r = []
-            for sid, rounds in global_states.items():
-                if sid == session_id:
-                    continue
-                sid_decs = [d for d in decision_log if d.get("session_id") == sid and d.get("round_number") == rn]
-                sid_choice = sid_decs[0].get("choice_selected", "") if sid_decs else ""
-                if sid_choice == most_popular and len(rounds) > rn:
-                    for idx in range(len(rounds) - 1):
-                        if rounds[idx].get("round_number") == rn:
-                            dt = float(rounds[idx + 1].get("corporate_treasury", 0)) - float(rounds[idx].get("corporate_treasury", 0))
-                            dr = float(rounds[idx + 1].get("group_reputation", 50)) - float(rounds[idx].get("group_reputation", 50))
-                            pop_deltas_t.append(dt)
-                            pop_deltas_r.append(dr)
-                            break
-
-            if pop_deltas_t:
-                avg_t = sum(pop_deltas_t) / len(pop_deltas_t)
-                avg_r = sum(pop_deltas_r) / len(pop_deltas_r)
-                what_if.append({
-                    "round": rn,
-                    "actual_choice": player_choice,
-                    "alternative": most_popular,
-                    "alternative_popularity": f"{counter[most_popular]}/{len(round_choices)}",
-                    "projected_treasury_diff": round(avg_t - impact["treasury_delta"], 2),
-                    "projected_reputation_diff": round(avg_r - impact["reputation_delta"], 2),
-                })
-
-    return {
-        "peer_benchmarking": peer_benchmarking,
-        "decision_impact": decision_impact,
-        "what_if": what_if,
-        "visibility": _analytics_visibility.get("player", {}),
-    }
-
-
-# ══════════════════════════════════════════════════════════════
-# ── Glossary CRUD ─────────────────────────────────────────────
-# ══════════════════════════════════════════════════════════════
-
-_glossary_terms: list = [
-    {"id": "ebitda", "term": "EBITDA", "definition": "Earnings Before Interest, Taxes, Depreciation, and Amortization — measures operational profitability.", "tags": ["finance", "profitability", "earnings"], "weblink": ""},
-    {"id": "csf_pool", "term": "CSF Pool", "definition": "Capital Sustainability Fund — 20% of corporate treasury available for ESG investment allocation.", "tags": ["finance", "investment", "treasury", "esg"], "weblink": ""},
-    {"id": "vrio", "term": "VRIO Radar", "definition": "Strategic resource analysis: Value, Rarity, Imitability, Organization — measures competitive advantage.", "tags": ["strategy", "competitive advantage", "resources"], "weblink": ""},
-    {"id": "ncd", "term": "Natural Capital Debt", "definition": "Accumulated environmental liability from unsustainable resource extraction or pollution.", "tags": ["environment", "liability", "sustainability", "esg"], "weblink": ""},
-    {"id": "social_license", "term": "Social License Score", "definition": "Community and stakeholder approval level for business operations (0-100 scale).", "tags": ["social", "stakeholder", "reputation", "esg"], "weblink": ""},
-    {"id": "synergy", "term": "Synergy Multiplier", "definition": "Cross-BU collaboration bonus applied to combined strategic outcomes.", "tags": ["strategy", "collaboration", "business unit"], "weblink": ""},
-    {"id": "cost_of_capital", "term": "Cost of Capital", "definition": "Rate of return required by investors — affects treasury deductions each round.", "tags": ["finance", "treasury", "investors"], "weblink": ""},
-    {"id": "governance_risk", "term": "Governance Risk", "definition": "Risk from poor corporate governance — regulatory fines, board conflicts, compliance failures.", "tags": ["governance", "risk", "compliance", "esg"], "weblink": ""},
-    {"id": "carbon_intensity", "term": "Carbon Intensity", "definition": "CO₂ emissions per unit of revenue — lower is better for ESG compliance.", "tags": ["environment", "emissions", "carbon", "esg"], "weblink": ""},
-    {"id": "water_dependency", "term": "Water Dependency", "definition": "Business unit reliance on water resources — higher means greater exposure to water stress crises.", "tags": ["environment", "resources", "risk"], "weblink": ""},
-    {"id": "double_materiality", "term": "Double Materiality", "definition": "EU CSRD requirement: assess both impact OF the company on environment AND impact of environment ON the company.", "tags": ["governance", "csrd", "regulation", "esg"], "weblink": ""},
-    {"id": "scope3", "term": "Scope 3 Emissions", "definition": "Indirect emissions from supply chain, transportation, and product lifecycle — hardest to measure and control.", "tags": ["environment", "emissions", "supply chain", "carbon"], "weblink": ""},
-    {"id": "stakeholder_map", "term": "Stakeholder Map", "definition": "Mendelow's Matrix classifying stakeholders by Power (influence) and Interest (engagement level).", "tags": ["strategy", "stakeholder", "governance"], "weblink": ""},
-    {"id": "treasury", "term": "Treasury", "definition": "Corporate cash reserves — main financial health indicator. Depleted by investments, crises, and operating costs.", "tags": ["finance", "cash", "investment"], "weblink": ""},
-    {"id": "reputation", "term": "Reputation Score", "definition": "Public perception of the company (0-100) — influences customer loyalty, talent retention, and regulatory leniency.", "tags": ["social", "reputation", "brand"], "weblink": ""},
-    {"id": "brand_equity", "term": "Brand Equity", "definition": "Intangible asset value from brand recognition and loyalty — built through reputation and stakeholder trust.", "tags": ["social", "reputation", "brand", "strategy"], "weblink": ""},
-    {"id": "strategic_pillars", "term": "Strategic Pillars", "definition": "Decision paradigm where players choose specific actions across multiple ESG categories (Energy, Operations, Supply Chain, Offsetting).", "tags": ["strategy", "decisions", "esg"], "weblink": ""},
-    {"id": "cfo_override", "term": "CFO Override", "definition": "Emergency mechanism to bypass materiality gate — incurs a reputation penalty.", "tags": ["governance", "finance", "risk"], "weblink": ""},
-    {"id": "round_pacing", "term": "Round Pacing", "definition": "Facilitator-controlled timing mode: Self-paced (players advance freely), Timed (automatic countdown), or Manual (facilitator unlocks).", "tags": ["system", "facilitator", "timing"], "weblink": ""},
-    {"id": "bu", "term": "Business Unit (BU)", "definition": "One of four Muressons divisions: Pharma, Electronics, Consumer Goods, Software — each with unique risk profiles.", "tags": ["strategy", "organization", "business unit"], "weblink": ""},
-    {"id": "esg", "term": "ESG", "definition": "Environmental, Social, and Governance — three pillars for measuring corporate sustainability and ethical impact.", "tags": ["esg", "sustainability", "environment", "social", "governance"], "weblink": ""},
-]
-
-
-class GlossaryItem(BaseModel):
-    id: str = ""
-    term: str
-    definition: str
-    tags: list = []
-    weblink: str = ""
-
-
-@admin_router.get("/glossary", summary="Get all glossary terms")
-async def get_glossary():
-    return {"terms": _glossary_terms}
-
-
-@admin_router.post("/glossary", summary="Add or update a glossary term")
-async def upsert_glossary_term(item: GlossaryItem):
-    global _glossary_terms
-    # Auto-generate ID if empty
-    term_id = item.id or item.term.lower().replace(" ", "_").replace("(", "").replace(")", "")
-    entry = item.dict()
-    entry["id"] = term_id
-    _glossary_terms = [t for t in _glossary_terms if t["id"] != term_id]
-    _glossary_terms.append(entry)
-    return entry
-
-
-@admin_router.delete("/glossary/{term_id}", summary="Delete a glossary term")
-async def delete_glossary_term(term_id: str):
-    global _glossary_terms
-    _glossary_terms = [t for t in _glossary_terms if t["id"] != term_id]
-    return {"status": "deleted", "term_id": term_id}
+# ARCH-002: Analytics + Glossary extracted to admin_analytics.py (9 endpoints)
+# Mounted in main.py via app.include_router(analytics_router)
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -4897,9 +4062,22 @@ async def update_engine_tunables(body: dict = Body(...)):
 _scenario_presets: list[dict] = [
     {
         "id": "classroom_easy",
-        "name": "Classroom (Easy)",
-        "description": "Gentle settings for introductory classes. Low volatility, forgiving penalties.",
+        "name": "Classroom",
+        "description": "Gentle settings for introductory classes. Reduced complexity, forgiving penalties, core engines only.",
         "icon": "🎓",
+        "subtitle": "Easy · Foundation Visibility",
+        "color": "#10b981",
+        "difficulty_tier": "foundation",
+        "target_audience": "Undergraduates, non-business learners",
+        "default_pedagogy": {
+            "round_recap_enabled": True,
+            "real_world_cards_enabled": True,
+            "debrief_protocol_enabled": True,
+            "prediction_gates_enabled": False,
+            "confidence_calibration_enabled": False,
+            "strategy_memo_enabled": False,
+            "self_learning_mode": False,
+        },
         "tunables": {
             "inflation_rate": 0.015,
             "overrun_probability": 0.10,
@@ -4915,9 +4093,22 @@ _scenario_presets: list[dict] = [
     },
     {
         "id": "workshop_standard",
-        "name": "Workshop (Standard)",
-        "description": "Balanced settings for corporate workshops. Moderate complexity.",
+        "name": "Workshop",
+        "description": "Balanced settings for corporate workshops. Progressive engine disclosure, moderate penalties.",
         "icon": "🏢",
+        "subtitle": "Standard · Progressive Disclosure",
+        "color": "#6366f1",
+        "difficulty_tier": "advanced",
+        "target_audience": "MBA, sustainability professionals",
+        "default_pedagogy": {
+            "round_recap_enabled": True,
+            "real_world_cards_enabled": False,
+            "debrief_protocol_enabled": False,
+            "prediction_gates_enabled": False,
+            "confidence_calibration_enabled": True,
+            "strategy_memo_enabled": False,
+            "self_learning_mode": False,
+        },
         "tunables": {
             "inflation_rate": 0.025,
             "overrun_probability": 0.25,
@@ -4933,9 +4124,22 @@ _scenario_presets: list[dict] = [
     },
     {
         "id": "executive_hard",
-        "name": "Executive (Hard)",
-        "description": "Aggressive parameters for experienced executives. High stakes, punishing penalties.",
+        "name": "Executive",
+        "description": "Aggressive parameters for experienced executives. All engines visible, punishing penalties.",
         "icon": "💼",
+        "subtitle": "Hard · Full Visibility + Audit Trail",
+        "color": "#f59e0b",
+        "difficulty_tier": "expert",
+        "target_audience": "Senior leadership, doctoral, consultants",
+        "default_pedagogy": {
+            "round_recap_enabled": False,
+            "real_world_cards_enabled": False,
+            "debrief_protocol_enabled": False,
+            "prediction_gates_enabled": True,
+            "confidence_calibration_enabled": True,
+            "strategy_memo_enabled": True,
+            "self_learning_mode": False,
+        },
         "tunables": {
             "inflation_rate": 0.040,
             "overrun_probability": 0.35,
@@ -4952,8 +4156,21 @@ _scenario_presets: list[dict] = [
     {
         "id": "chaos_mode",
         "name": "Chaos Mode",
-        "description": "Maximum volatility. Every engine cranked to extreme. Only for stress-testing.",
+        "description": "Maximum volatility. Every engine cranked to extreme. All scaffolding disabled. Stress-testing only.",
         "icon": "🔥",
+        "subtitle": "Extreme · No Scaffolding",
+        "color": "#ef4444",
+        "difficulty_tier": "expert",
+        "target_audience": "Stress-testing and advanced research",
+        "default_pedagogy": {
+            "round_recap_enabled": False,
+            "real_world_cards_enabled": False,
+            "debrief_protocol_enabled": False,
+            "prediction_gates_enabled": False,
+            "confidence_calibration_enabled": False,
+            "strategy_memo_enabled": False,
+            "self_learning_mode": False,
+        },
         "tunables": {
             "inflation_rate": 0.060,
             "overrun_probability": 0.50,
@@ -4977,6 +4194,78 @@ _scenario_presets: list[dict] = [
 async def get_scenario_presets():
     return {"presets": _scenario_presets, "current_tunables": _engine_tunables}
 
+
+@admin_router.put("/cohort/{session_id}/pedagogical-settings", summary="Save per-cohort pedagogical settings")
+async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(...)):
+    """Store experience level, difficulty tier, and pedagogical toggles per-cohort."""
+    session = db._sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    
+    # Store per-cohort settings
+    if "experience_level" in body:
+        session["experience_level"] = body["experience_level"]
+    if "difficulty_tier" in body:
+        session["difficulty_tier"] = body["difficulty_tier"]
+    
+    # Store pedagogical toggle overrides on the session
+    pedagogical_keys = {
+        "prediction_gates_enabled", "confidence_calibration_enabled",
+        "round_recap_enabled", "real_world_cards_enabled",
+        "strategy_memo_enabled", "debrief_protocol_enabled",
+        "self_learning_mode",
+    }
+    cohort_pedagogy = session.get("pedagogical_overrides", {})
+    for key in pedagogical_keys:
+        if key in body:
+            cohort_pedagogy[key] = body[key]
+    session["pedagogical_overrides"] = cohort_pedagogy
+    
+    from database_memory import _persist
+    _persist()
+    
+    _audit("cohort_pedagogical_settings_saved", details={
+        "session_id": session_id,
+        "experience_level": body.get("experience_level"),
+        "difficulty_tier": body.get("difficulty_tier"),
+    })
+    
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "experience_level": session.get("experience_level"),
+        "difficulty_tier": session.get("difficulty_tier"),
+        "pedagogical_overrides": cohort_pedagogy,
+    }
+
+
+@admin_router.put("/cohort/{session_id}/pacing", summary="Save per-cohort round pacing settings")
+async def save_cohort_pacing(session_id: str, body: dict = Body(...)):
+    """Store pacing mode and max unlocked round per-cohort."""
+    session = db._sessions.get(session_id)
+    if not session:
+        raise HTTPException(404, "Session not found")
+    
+    if "pacing_mode" in body:
+        session["pacing_mode"] = body["pacing_mode"]  # free_play | manual | scheduled
+    if "max_unlocked_round" in body:
+        session["max_unlocked_round"] = int(body["max_unlocked_round"])
+    
+    from database_memory import _persist
+    _persist()
+    
+    _audit("cohort_pacing_saved", details={
+        "session_id": session_id,
+        "pacing_mode": body.get("pacing_mode"),
+        "max_unlocked_round": body.get("max_unlocked_round"),
+    })
+    
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "pacing_mode": session.get("pacing_mode", "free_play"),
+        "max_unlocked_round": session.get("max_unlocked_round", 10),
+    }
 
 @admin_router.post("/scenario-presets/apply/{preset_id}", summary="Apply a scenario preset")
 async def apply_scenario_preset(preset_id: str):
@@ -5115,8 +4404,8 @@ async def get_session_health():
     health = []
 
     for sid, sess in all_sessions.items():
-        if sess.get("player_id"):
-            continue  # Skip player sub-sessions
+        if sess.get("player_id") or sess.get("deleted_at"):
+            continue  # Skip player sub-sessions and deleted sessions
 
         gs_list = global_states.get(sid, [])
         latest_gs = gs_list[-1] if gs_list else {}
@@ -5384,166 +4673,82 @@ async def delete_annotation(session_id: str, annotation_id: str):
     return {"deleted": annotation_id}
 
 
+
+# ARCH-002: Teleprompter extracted to admin_teleprompter.py
+from admin_teleprompter import teleprompter_router
+
 # ═════════════════════════════════════════════════════════════════
-#  FACILITATOR TELEPROMPTER — Round-by-round teaching script
+#  CROSS-PARADIGM NORMALIZED COMPARISON
 # ═════════════════════════════════════════════════════════════════
 
-_TELEPROMPTER_SCRIPTS = {
-    1: {
-        "title": "Round 1: Setting the Stage",
-        "talking_points": [
-            "Welcome teams to their first strategic decision cycle",
-            "Explain the Fog of War: metrics are noisy in early rounds — teams must decide with imperfect information",
-            "Emphasize: there are NO risk-free choices — every option has trade-offs",
-            "Highlight: the inflation engine means doing nothing still costs money",
-        ],
-        "engines_likely": ["fog_of_war_active", "inflation_index_applied"],
-        "discussion_prompts": [
-            "How did you prioritize between BUs without full information?",
-            "What assumptions did you make about the reliability of the data?",
-        ],
-    },
-    2: {
-        "title": "Round 2: First Consequences",
-        "talking_points": [
-            "Deferred synergy investments from Round 1 are now landing",
-            "Technical debt counters may begin ticking for neglected BUs",
-            "Cash conversion drag should be visible for high-governance-risk BUs",
-            "Ask teams to explain their capital allocation rationale",
-        ],
-        "engines_likely": ["cash_conversion_drag", "implementation_lag", "supply_chain_contagion"],
-        "discussion_prompts": [
-            "Which BUs did you neglect, and why?",
-            "Did the implementation lag surprise you? How does this change your planning horizon?",
-        ],
-    },
-    3: {
-        "title": "Round 3: Fog Lifts",
-        "talking_points": [
-            "Fog of War clears after this round — true metrics become visible",
-            "Competitive NPC is growing at 3%/round — are teams keeping pace?",
-            "Revenue cannibalization may be visible if one BU dominates",
-            "Technology lock-in streaks are building — are teams diversifying?",
-        ],
-        "engines_likely": ["fog_of_war_active", "competitor_warning", "revenue_cannibalized"],
-        "discussion_prompts": [
-            "Now that you can see true metrics, would you have changed your Round 1 decisions?",
-            "How does the NPC competitor change your strategy?",
-        ],
-    },
-    4: {
-        "title": "Round 4: Strategic Inflection Point",
-        "talking_points": [
-            "Technology lock-in may trigger if teams haven't diversified (3-round streak)",
-            "Greenwashing risk is real — green rhetoric without matching investment will be punished",
-            "Regulatory ratchet means cost of capital may be permanently elevated",
-            "This is the mid-game — long-term strategy should now be clear",
-        ],
-        "engines_likely": ["technology_lockin_penalty", "greenwashing_scandal", "regulatory_ratchet_active"],
-        "discussion_prompts": [
-            "Is your strategy sustainable for 6 more rounds?",
-            "How do you balance short-term EBITDA vs long-term resilience?",
-        ],
-    },
-    5: {
-        "title": "Round 5: The Real Test Begins",
-        "talking_points": [
-            "Halfway mark — compounding effects are now unavoidable",
-            "Stakeholder fatigue factor means crises are getting harder to recover from",
-            "Dividend ratchet is live — cutting dividends has consequences",
-            "Climate tipping point may activate in advanced_climate paradigm",
-        ],
-        "engines_likely": ["stakeholder_fatigue_applied", "dividend_ratchet_triggered", "tipping_point_reached"],
-        "discussion_prompts": [
-            "What would a Board of Directors think of your performance?",
-            "How has your strategy evolved since Round 1?",
-        ],
-    },
-    6: {
-        "title": "Round 6: Compounding Pressures",
-        "talking_points": [
-            "Inflation is now 6 rounds deep — OPEX has grown significantly",
-            "Supply chain contagion amplifies if governance risk hasn't been addressed",
-            "Talent allocation pressure penalizes chronically underfunded BUs",
-            "This is where poor early decisions create cascading failures",
-        ],
-        "engines_likely": ["supply_chain_contagion", "talent_neglect_surcharge", "technical_debt_penalty"],
-        "discussion_prompts": [
-            "Are you fighting fires or executing a strategy?",
-            "Which complexity engine has hurt you the most, and could you have prevented it?",
-        ],
-    },
-    7: {
-        "title": "Round 7: Terminal Strategy",
-        "talking_points": [
-            "Three rounds left — terminal value calculations are becoming critical",
-            "Teams should be thinking about their final position versus the competitor",
-            "Encourage teams to calculate: will my EBITDA beat the NPC at Round 10?",
-        ],
-        "engines_likely": ["competitor_warning", "regulatory_ratchet_active"],
-        "discussion_prompts": [
-            "What metrics matter most for your final score?",
-            "If you could undo one decision from the entire game, which would it be?",
-        ],
-    },
-    8: {
-        "title": "Round 8: Late-Game Optimization",
-        "talking_points": [
-            "Two rounds left — marginal decisions now have outsized impact",
-            "Greenwashing risk is still active — don't make promises you can't fund",
-            "Dividend policies should be locked in — the ratchet doesn't forgive",
-        ],
-        "engines_likely": ["greenwashing_scandal", "dividend_ratchet_triggered"],
-        "discussion_prompts": [
-            "How are you positioning for the debrief?",
-            "What have you learned about the relationship between ESG and financial performance?",
-        ],
-    },
-    9: {
-        "title": "Round 9: The Finish Line Approaches",
-        "talking_points": [
-            "Final substantive round — next round is endgame",
-            "Encourage teams to maximize terminal value while maintaining ESG scores",
-            "All complexity engines are running — the full system is in play",
-        ],
-        "engines_likely": ["inflation_index_applied", "competitor_warning"],
-        "discussion_prompts": [
-            "What surprised you most about the simulation?",
-            "How does this experience change how you think about real corporate strategy?",
-        ],
-    },
-    10: {
-        "title": "Round 10: Endgame",
-        "talking_points": [
-            "Final round — terminal values are computed",
-            "Prepare teams for the debrief and final report",
-            "Highlight: the simulation mirrors real-world complexity — no perfect answers exist",
-            "Celebrate the journey, not just the outcome",
-        ],
-        "engines_likely": [],
-        "discussion_prompts": [
-            "What was your biggest strategic mistake, and when did you realize it?",
-            "How would you advise the next cohort playing this simulation?",
-            "What real-world parallel does this simulation remind you of?",
-        ],
-    },
+_PARADIGM_NORMALIZATION = {
+    "legacy_abc":       {"exit_multiple": 12.0, "max_mr": 1.98, "carbon_tax": 250},
+    "multi_toggles":    {"exit_multiple": 12.0, "max_mr": 1.98, "carbon_tax": 250},
+    "advanced_climate": {"exit_multiple": 12.0, "max_mr": 1.98, "carbon_tax": 250},
+    "healthcare":       {"exit_multiple": 14.0, "max_mr": 1.98, "carbon_tax": 180},
 }
 
-
-@admin_router.get("/teleprompter/{round_number}", summary="Get facilitator teleprompter script")
-async def get_teleprompter(round_number: int):
-    script = _TELEPROMPTER_SCRIPTS.get(round_number, {
-        "title": f"Round {round_number}",
-        "talking_points": ["Continue guiding teams through their decisions."],
-        "engines_likely": [],
-        "discussion_prompts": ["What patterns are emerging in your strategy?"],
-    })
-    return {"round": round_number, "script": script}
+# Reference paradigm for normalization
+_REFERENCE_PARADIGM = _PARADIGM_NORMALIZATION["legacy_abc"]
 
 
-@admin_router.get("/teleprompter", summary="Get all teleprompter scripts")
-async def get_all_teleprompter():
-    return {"scripts": _TELEPROMPTER_SCRIPTS}
+@admin_router.get("/cross-paradigm-comparison", summary="Normalized cross-paradigm cohort comparison")
+async def get_cross_paradigm_comparison():
+    """
+    Compare cohorts across different paradigms by normalizing Terminal Values.
+    Adjusts for exit multiple and carbon tax differences so HC and NC cohorts
+    can be fairly compared on strategic quality rather than structural advantages.
+
+    Normalized_TV = Raw_TV × (ref_exit / paradigm_exit)
+    """
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+
+    comparisons = []
+    for sid, sess in all_sessions.items():
+        if sess.get("player_id"):
+            continue
+
+        paradigm = sess.get("decision_paradigm", "legacy_abc")
+        norms = _PARADIGM_NORMALIZATION.get(paradigm, _REFERENCE_PARADIGM)
+        ref = _REFERENCE_PARADIGM
+
+        gs_list = global_states.get(sid, [])
+        latest = gs_list[-1] if gs_list else {}
+        flags = latest.get("active_event_flags", {})
+
+        raw_tv = float(latest.get("terminal_value", 0))
+        raw_mr = float(latest.get("regenerative_multiple", 1.0))
+        raw_ebitda = float(latest.get("historical_ebitda", 0))
+
+        # Normalize TV: adjust for exit multiple difference
+        exit_ratio = ref["exit_multiple"] / norms["exit_multiple"] if norms["exit_multiple"] > 0 else 1.0
+        normalized_tv = round(raw_tv * exit_ratio, 2)
+
+        # Strategic efficiency: M_R as % of max achievable
+        mr_efficiency = round((raw_mr / norms["max_mr"]) * 100, 1) if norms["max_mr"] > 0 else 0
+
+        comparisons.append({
+            "session_id": sid,
+            "cohort_name": sess.get("cohort_name", sid[:12]),
+            "paradigm": paradigm,
+            "round": latest.get("round_number", 1),
+            "raw_terminal_value_m": round(raw_tv / 1_000_000, 2),
+            "normalized_terminal_value_m": round(normalized_tv / 1_000_000, 2),
+            "normalization_factor": round(exit_ratio, 4),
+            "regenerative_multiple": round(raw_mr, 4),
+            "mr_efficiency_pct": mr_efficiency,
+            "max_achievable_mr": norms["max_mr"],
+            "exit_multiple": norms["exit_multiple"],
+            "carbon_tax": norms["carbon_tax"],
+            "ebitda_m": round(raw_ebitda / 1_000_000, 2),
+            "treasury_m": round(float(latest.get("corporate_treasury", 0)) / 1_000_000, 2),
+            "reputation": round(float(latest.get("group_reputation", 50)), 1),
+            "tipping_point": bool(latest.get("tipping_point_active", False)),
+        })
+
+    comparisons.sort(key=lambda c: -c["normalized_terminal_value_m"])
+    return {"comparisons": comparisons, "total": len(comparisons), "reference_paradigm": "legacy_abc"}
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -5587,3 +4792,309 @@ async def get_cohort_comparison(facilitator_id: str = None):
 
     comparisons.sort(key=lambda c: -c["treasury_m"])
     return {"cohorts": comparisons, "total": len(comparisons)}
+
+
+# ── Cohort Pulse — real-time KPI heatmap for CohortPulse.js ──────────────────
+@admin_router.get("/cohort-pulse/{cohort_id}", summary="Real-time KPI heatmap for cohort")
+async def get_cohort_pulse(cohort_id: str):
+    """
+    Returns per-team KPI history and current state for the CohortPulse heatmap.
+    Includes climate-engine fields: green_fund, cost_of_capital, carbon_fee_paid.
+    """
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    bu_states_store = getattr(db, '_bu_states', {})
+
+    teams = []
+    for sid, sess in all_sessions.items():
+        # Only player sessions whose parent cohort matches
+        parent = sess.get("parent_session_id") or sess.get("cohort_id")
+        if sess.get("cohort_id") == cohort_id or parent == cohort_id or sid == cohort_id:
+            gs_list = global_states.get(sid, [])
+            history = {}
+            cumulative_carbon_fee = 0.0
+
+            for gs in gs_list:
+                r = gs.get("round_number", 1)
+                flags = gs.get("active_event_flags", {})
+                fee_this_round = flags.get("internal_carbon_fee_deducted", 0) or 0
+                cumulative_carbon_fee += fee_this_round
+                history[r] = {
+                    "treasury": gs.get("corporate_treasury", 0),
+                    "reputation": gs.get("group_reputation", 50),
+                    "carbon": gs.get("tco2e_emissions", 0),
+                    "social_license": gs.get("average_social_license", 0),
+                    "synergy": gs.get("synergy_multiplier", 1.0),
+                    # Climate-specific fields
+                    "green_fund": gs.get("green_transition_fund", 0),
+                    "cost_of_capital": gs.get("cost_of_capital", 0.05),
+                    "carbon_fee_paid": cumulative_carbon_fee,
+                }
+
+            latest = gs_list[-1] if gs_list else {}
+            flags = latest.get("active_event_flags", {})
+            total_fee = sum(
+                (gs.get("active_event_flags", {}).get("internal_carbon_fee_deducted") or 0)
+                for gs in gs_list
+            )
+
+            teams.append({
+                "name": sess.get("cohort_name") or sess.get("player_name") or sid[:10],
+                "session_id": sid,
+                "history": history,
+                "current": {
+                    "treasury": latest.get("corporate_treasury", 0),
+                    "reputation": latest.get("group_reputation", 50),
+                    "carbon": latest.get("tco2e_emissions", 0),
+                    "social_license": latest.get("average_social_license", 0),
+                    "synergy": latest.get("synergy_multiplier", 1.0),
+                    "green_fund": latest.get("green_transition_fund", 0),
+                    "cost_of_capital": latest.get("cost_of_capital", 0.05),
+                    "carbon_fee_paid": total_fee,
+                },
+                "round": latest.get("round_number", 1),
+                "tipping_point": bool(latest.get("tipping_point_active", False)),
+            })
+
+    teams.sort(key=lambda t: -t["current"]["treasury"])
+    return {"teams": teams, "cohort_id": cohort_id, "total_teams": len(teams)}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  SIDE TRACK MANAGEMENT (God Mode → Facilitator → Cohort)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/side-tracks/catalog", summary="Get all registered side tracks")
+async def get_side_track_catalog():
+    """Returns the full catalog of registered side tracks with metadata.
+    This is a read-only endpoint showing what tracks are available in the codebase."""
+    from side_tracks import get_track_catalog
+    catalog = get_track_catalog()
+    available = _god_mode_settings.get("side_tracks_available", [])
+    for entry in catalog:
+        entry["enabled_globally"] = entry["track_id"] in available
+    return {"catalog": catalog}
+
+
+@admin_router.put("/side-tracks/global", summary="Enable/disable side tracks globally (God Mode)")
+async def update_global_side_tracks(body: dict = Body(...)):
+    """God Mode master control: set which side tracks are available platform-wide.
+    Facilitators can only assign tracks from this enabled pool."""
+    available = body.get("available_tracks", [])
+    if not isinstance(available, list):
+        raise HTTPException(400, "'available_tracks' must be a list of track IDs")
+
+    # Validate track IDs exist in registry
+    from side_tracks import get_all_tracks
+    registered = set(get_all_tracks().keys())
+    invalid = set(available) - registered
+    if invalid:
+        raise HTTPException(400, f"Unknown track IDs: {sorted(invalid)}. Registered: {sorted(registered)}")
+
+    _god_mode_settings["side_tracks_available"] = available
+    return {"status": "ok", "available_tracks": available}
+
+
+@admin_router.get("/side-tracks/facilitator-permissions", summary="Get per-facilitator side track permissions")
+async def get_facilitator_side_track_permissions():
+    """Returns the mapping of facilitator IDs to their permitted side tracks."""
+    perms = _god_mode_settings.get("side_tracks_facilitator_permissions", {})
+    available = _god_mode_settings.get("side_tracks_available", [])
+    return {"permissions": perms, "globally_available": available}
+
+
+@admin_router.put("/side-tracks/facilitator-permissions/{fac_id}", summary="Set side track permissions for a facilitator")
+async def set_facilitator_side_track_permissions(fac_id: str, body: dict = Body(...)):
+    """God Mode: grant/revoke side track access for a specific facilitator.
+    Tracks must be globally enabled first."""
+    tracks = body.get("permitted_tracks", [])
+    if not isinstance(tracks, list):
+        raise HTTPException(400, "'permitted_tracks' must be a list of track IDs")
+
+    available = set(_god_mode_settings.get("side_tracks_available", []))
+    not_available = set(tracks) - available
+    if not_available:
+        raise HTTPException(400, f"Track(s) not globally enabled: {sorted(not_available)}. Enable them first via PUT /side-tracks/global")
+
+    # Validate facilitator exists
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, f"Facilitator {fac_id} not found")
+
+    perms = _god_mode_settings.setdefault("side_tracks_facilitator_permissions", {})
+    perms[fac_id] = tracks
+    _persist_facilitators()
+    return {"status": "ok", "facilitator_id": fac_id, "permitted_tracks": tracks}
+
+
+@admin_router.put("/cohorts/{session_id}/side-tracks", summary="Assign side tracks to a cohort (Facilitator)")
+async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...)):
+    """Facilitator endpoint: assign side tracks to a specific cohort.
+    Only tracks permitted by God Mode for this facilitator can be assigned.
+    Includes timing configuration (unlock_after_round)."""
+    from database_memory import _sessions, _persist
+
+    sess = _sessions.get(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+
+    tracks = body.get("tracks", [])
+    timing = body.get("timing", {})
+    if not isinstance(tracks, list):
+        raise HTTPException(400, "'tracks' must be a list of track IDs")
+
+    # Validate against facilitator permissions
+    fac_id = sess.get("facilitator_id")
+    if fac_id:
+        perms = _god_mode_settings.get("side_tracks_facilitator_permissions", {})
+        permitted = set(perms.get(fac_id, []))
+        # If no explicit permissions set, fall back to globally available
+        if not permitted:
+            permitted = set(_god_mode_settings.get("side_tracks_available", []))
+        unauthorized = set(tracks) - permitted
+        if unauthorized:
+            raise HTTPException(403, f"Facilitator {fac_id} not permitted to assign: {sorted(unauthorized)}")
+
+    # Validate track IDs exist
+    from side_tracks import get_all_tracks
+    registered = set(get_all_tracks().keys())
+    invalid = set(tracks) - registered
+    if invalid:
+        raise HTTPException(400, f"Unknown track IDs: {sorted(invalid)}")
+
+    # Store on the session
+    sess["active_side_tracks"] = tracks
+    sess["side_track_timing"] = timing  # e.g. {"supply_chain": {"unlock_after_round": 3}}
+
+    # Initialize side_track_states for new tracks
+    existing_states = sess.get("side_track_states", {})
+    for tid in tracks:
+        if tid not in existing_states:
+            existing_states[tid] = {
+                "current_round": 0,  # 0 = not started
+                "completed": False,
+                "state": {},
+                "bu_states": [],
+                "round_history": [],
+                "accumulated_flags": [],
+            }
+    sess["side_track_states"] = existing_states
+    _persist()
+
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "active_side_tracks": tracks,
+        "timing": timing,
+    }
+
+
+@admin_router.get("/cohorts/{session_id}/side-tracks", summary="Get side track status for a cohort")
+async def get_cohort_side_tracks(session_id: str):
+    """Returns the assigned side tracks, their progress, and timing for a cohort."""
+    from database_memory import _sessions
+
+    sess = _sessions.get(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found")
+
+    active = sess.get("active_side_tracks", [])
+    timing = sess.get("side_track_timing", {})
+    states = sess.get("side_track_states", {})
+
+    # Enrich with track metadata
+    from side_tracks import get_track
+    track_status = []
+    for tid in active:
+        track = get_track(tid)
+        st = states.get(tid, {})
+        track_status.append({
+            "track_id": tid,
+            "display_name": track.display_name if track else tid,
+            "icon": track.icon if track else "📦",
+            "num_rounds": track.num_rounds if track else 0,
+            "current_round": st.get("current_round", 0),
+            "completed": st.get("completed", False),
+            "timing": timing.get(tid, {}),
+        })
+
+    return {
+        "session_id": session_id,
+        "side_tracks": track_status,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  STRAT-002: FLAG DEPENDENCY VIEWER
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/flag-dependencies", summary="Get the cross-round flag dependency graph")
+async def get_flag_dependencies(session_id: str | None = None):
+    """STRAT-002: Returns the flag dependency graph with optional session overlay."""
+    from terminal_valuation import get_flag_dependency_graph
+    active_flags = None
+    if session_id:
+        latest = await db.fetch_latest_state(session_id)
+        if latest:
+            active_flags = latest.get("global_state", {}).get("active_event_flags", {})
+    return get_flag_dependency_graph(active_flags)
+
+
+# ═════════════════════════════════════════════════════════════════
+#  STRAT-003: WHAT-IF MODE
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.post("/what-if/{session_id}", summary="What-If M_R replay with flag overrides")
+async def what_if_replay(session_id: str, body: dict = Body(...)):
+    """STRAT-003: Replay R10 terminal valuation with modified flags."""
+    from terminal_valuation import what_if_terminal
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+    flags = gs.get("active_event_flags", {})
+    overrides = body.get("flag_overrides", {})
+    paradigm = _get_session_paradigm(session_id)
+    n = len(bus) or 1
+    avg_slo = sum(bu.get("social_license_score", 50) for bu in bus) / n
+    avg_burnout = sum(bu.get("staff_burnout_index", 0) for bu in bus) / n
+    result = what_if_terminal(
+        bus=bus, base_flags=flags, flag_overrides=overrides,
+        avg_slo=avg_slo, avg_burnout=avg_burnout,
+        workforce_readiness=flags.get("workforce_readiness_score", 50),
+        synergy_multiplier=gs.get("synergy_multiplier", 1.0),
+        hr_investment_rounds=flags.get("hr_roi_investment_rounds", 0),
+        carbon_tax_per_ton=250.0, exit_multiple=12.0,
+        green_fund_balance=gs.get("green_transition_fund", 0.0),
+        is_advanced_climate=paradigm == "advanced_climate",
+    )
+    return {"session_id": session_id, **result}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  STRAT-004: CROSS-PATHWAY NORMALIZED LEADERBOARD
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get("/leaderboard/normalized", summary="Cross-pathway normalized leaderboard")
+async def normalized_leaderboard():
+    """STRAT-004: Normalized M_R leaderboard for fair cross-pathway ranking."""
+    from terminal_valuation import normalize_mr_for_leaderboard
+    sessions = await db.fetch_all_sessions()
+    entries = []
+    for s in sessions:
+        sid = s.get("session_id", "")
+        latest = await db.fetch_latest_state(sid)
+        if not latest:
+            continue
+        gs = latest.get("global_state", {})
+        flags = gs.get("active_event_flags", {})
+        raw_mr = flags.get("final_mr")
+        if raw_mr is None:
+            continue
+        pathway = flags.get("ending_pathway", "activist_ultimatum")
+        norm = normalize_mr_for_leaderboard(raw_mr, pathway)
+        entries.append({"session_id": sid, "team_name": s.get("team_name", sid),
+                        "paradigm": s.get("decision_paradigm", "legacy_abc"), **norm})
+    entries.sort(key=lambda e: e.get("normalized_mr", 0), reverse=True)
+    return {"leaderboard": entries, "count": len(entries)}
