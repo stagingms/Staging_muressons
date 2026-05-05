@@ -17,7 +17,7 @@ STAKEHOLDER_ROUND_CONFIGS: dict = {
             "option_a": {
                 "title": "Dynamic Salience Framework",
                 "description": (
-                    "Implement Mitchell, Agle & Wood's salience model with quarterly "
+                    "Implement Mitchell, Agle & Wood's salience model with periodic "
                     "reassessment. Map all stakeholder groups by power, legitimacy, "
                     "and urgency. Establish formal engagement channels with top-tier "
                     "stakeholders and publish a Stakeholder Engagement Policy."
@@ -118,7 +118,7 @@ STAKEHOLDER_ROUND_CONFIGS: dict = {
                 "title": "Voluntary Commitments Package",
                 "description": (
                     "Offer voluntary environmental pledges, a $1M community "
-                    "development fund, and quarterly town halls. Modify the "
+                    "development fund, and periodic town halls. Modify the "
                     "expansion design to address key concerns."
                 ),
                 "impacts": {"treasury": -2_500_000, "reputation": 5, "social_license_delta": 6},

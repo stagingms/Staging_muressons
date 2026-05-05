@@ -25,7 +25,7 @@
 .evalCard { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-md); padding: 0.75rem 1rem; position: relative; }
 .evalHeader { display: flex; justify-content: space-between; font-size: 0.82rem; color: var(--text-secondary); margin-bottom: 0.3rem; }
 .evalHeader strong { color: var(--text-primary); }
-.evalTime { font-size: 0.62rem; color: var(--text-muted); font-family: var(--font-mono); }
+.evalTime { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); }
 .evalScores { display: flex; gap: 0.75rem; font-size: 0.78rem; color: var(--text-secondary); }
 .evalComment { font-size: 0.78rem; color: var(--text-muted); margin: 0.3rem 0 0; font-style: italic; }
 .deleteBtn { position: absolute; top: 0.5rem; right: 0.5rem; background: none; border: none; font-size: 0.8rem; cursor: pointer; opacity: 0.3; }

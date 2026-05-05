@@ -33,7 +33,7 @@
     0 25px 80px rgba(0, 0, 0, 0.5),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
   overflow: hidden;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 /* ── Header ────────────────────────────────────────────── */
@@ -87,7 +87,7 @@
   color: #94a3b8;
   font-size: 0.68rem;
   font-weight: 700;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   letter-spacing: 0.03em;
@@ -111,7 +111,7 @@
   color: #94a3b8;
   font-size: 0.68rem;
   font-weight: 700;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   cursor: pointer;
   transition: all 0.2s ease;
   letter-spacing: 0.02em;
@@ -218,7 +218,7 @@
   color: #00e5c3;
   font-size: 0.72rem;
   font-weight: 700;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   cursor: pointer;
   transition: all 0.25s ease;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
@@ -261,7 +261,7 @@
 }
 
 .kpiPillLabel {
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   color: #64748b;
@@ -301,7 +301,7 @@
   color: #0a0e1a;
   border: none;
   border-radius: 8px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -353,7 +353,7 @@
 }
 
 .decisionSummaryTitle {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
   color: #0d9488;
@@ -412,7 +412,7 @@
   border-radius: 8px;
   font-size: 0.78rem;
   font-weight: 800;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   cursor: pointer;
@@ -491,7 +491,7 @@
 }
 
 .focusResultLabel {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -559,7 +559,7 @@
   border-radius: 8px;
   color: #e2e8f0;
   font-size: 0.8rem;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   line-height: 1.6;
   resize: vertical;
   min-height: 60px;
@@ -590,7 +590,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: #94a3b8;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -611,7 +611,7 @@
   color: #0a0e1a;
   border: none;
   border-radius: 8px;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0.06em;
@@ -654,7 +654,7 @@
    ═══════════════════════════════════════════════════════════ */
 
 :global([data-theme="light"]) .backdrop {
-  background: rgba(100, 116, 139, 0.45);
+  background: rgba(71, 85, 105, 0.6);
 }
 
 :global([data-theme="light"]) .panel {
@@ -695,7 +695,7 @@
 
 /* Content area */
 :global([data-theme="light"]) .content {
-  color: #1e293b;
+  color: #0f172a;
 }
 
 :global([data-theme="light"]) .content::-webkit-scrollbar-thumb {
@@ -757,16 +757,16 @@
 }
 
 :global([data-theme="light"]) .kpiPillLabel {
-  color: #64748b;
+  color: #475569;
 }
 
 :global([data-theme="light"]) .kpiPillValue {
-  color: #0f172a;
+  color: #020617;
 }
 
 /* Section Titles */
 :global([data-theme="light"]) .sectionTitle {
-  color: #334155;
+  color: #1e293b;
   border-bottom-color: #e2e8f0;
 }
 
@@ -788,11 +788,11 @@
 }
 
 :global([data-theme="light"]) .decisionSummaryRow {
-  color: #334155;
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .decisionSummaryValue {
-  color: #0f172a;
+  color: #020617;
 }
 
 /* Gate Step */
@@ -801,7 +801,7 @@
 }
 
 :global([data-theme="light"]) .gateDescription {
-  color: #475569;
+  color: #334155;
 }
 
 /* Results */
@@ -811,11 +811,11 @@
 }
 
 :global([data-theme="light"]) .focusResultLabel {
-  color: #64748b;
+  color: #475569;
 }
 
 :global([data-theme="light"]) .focusResultValue {
-  color: #0f172a;
+  color: #020617;
 }
 
 /* Commit Recap */
@@ -829,17 +829,17 @@
 }
 
 :global([data-theme="light"]) .commitRecapRow {
-  color: #334155;
-  border-bottom-color: #f1f5f9;
+  color: #1e293b;
+  border-bottom-color: #cbd5e1;
 }
 
 :global([data-theme="light"]) .commitRecapValue {
-  color: #0f172a;
+  color: #020617;
 }
 
 /* Prediction */
 :global([data-theme="light"]) .predictionPrompt {
-  color: #334155;
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .predictionInput {

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './GameOverSummary.module.css';
+import StudentReportExport from './StudentReportExport';
 
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
@@ -66,6 +67,32 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
         return () => { cancelled = true; clearInterval(interval); };
     }, [sessionId, globalState]);
 
+    // ── Peer Performance: fetch leaderboard on mount ──────────
+    const [peerLeaderboard, setPeerLeaderboard] = useState([]);
+    // Balance sheet: use prop or fetch if missing
+    const [fetchedBS, setFetchedBS] = useState(null);
+    useEffect(() => {
+        if (!sessionId || sessionId === 'demo') return;
+        let cancelled = false;
+        const API = process.env.NEXT_PUBLIC_API_URL || '';
+        fetch(`${API}/api/simulations/${sessionId}/peer-leaderboard`)
+            .then(r => r.json())
+            .then(data => {
+                if (!cancelled && data.leaderboard?.length > 0) {
+                    setPeerLeaderboard(data.leaderboard);
+                }
+            })
+            .catch(() => {});
+        // Fetch balance sheet if not in globalState
+        if (!globalState?.balance_sheet?.total_assets) {
+            fetch(`${API}/api/simulations/${sessionId}/balance-sheet`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (!cancelled && d?.balance_sheet) setFetchedBS(d.balance_sheet); })
+                .catch(() => {});
+        }
+        return () => { cancelled = true; };
+    }, [sessionId]);
+
     return (
         <div className={styles.overlay}>
             <div className={styles.container}>
@@ -105,20 +132,317 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     </p>
                 </div>
 
+                {/* ── Final Peer Performance Leaderboard ── */}
+                {peerLeaderboard.length > 0 && (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.05))',
+                        border: '1px solid rgba(99,102,241,0.25)',
+                        borderRadius: '12px',
+                        padding: '1.2rem',
+                        marginTop: '0.5rem',
+                    }}>
+                        <div style={{
+                            fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em',
+                            textTransform: 'uppercase', marginBottom: '0.8rem',
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            color: '#818cf8',
+                        }}>
+                            <span>🏆</span> {peerLeaderboard.some(t => t.isAI) ? 'AI Benchmark Comparison' : 'Final Cohort Leaderboard'}
+                            {peerLeaderboard.some(t => t.isAI) && <span style={{ fontSize: '0.68rem', background: 'rgba(245,158,11,0.15)', color: '#fbbf24', padding: '2px 6px', borderRadius: 3, fontWeight: 700, marginLeft: 6 }}>🤖 AI</span>}
+                        </div>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                                    <th style={{ textAlign: 'left', padding: '6px 8px', color: '#64748b', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase' }}>#</th>
+                                    <th style={{ textAlign: 'left', padding: '6px 8px', color: '#64748b', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase' }}>Team</th>
+                                    <th style={{ textAlign: 'right', padding: '6px 8px', color: '#64748b', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase' }}>Treasury</th>
+                                    <th style={{ textAlign: 'right', padding: '6px 8px', color: '#64748b', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase' }}>Reputation</th>
+                                    <th style={{ textAlign: 'right', padding: '6px 8px', color: '#64748b', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase' }}>CO₂</th>
+                                    <th style={{ textAlign: 'right', padding: '6px 8px', color: '#64748b', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase' }}>Bonus</th>
+                                    <th style={{ textAlign: 'center', padding: '6px 8px', color: '#64748b', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase' }}>Trend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {peerLeaderboard.map(team => (
+                                    <tr key={team.rank} style={{
+                                        background: team.isYou ? 'rgba(99,102,241,0.12)' : 'transparent',
+                                        borderBottom: '1px solid rgba(255,255,255,0.05)',
+                                        transition: 'background 0.15s',
+                                    }}>
+                                        <td style={{ padding: '8px', fontSize: '0.9rem' }}>
+                                            {team.rank <= 3 ? ['🥇', '🥈', '🥉'][team.rank - 1] : team.rank}
+                                        </td>
+                                        <td style={{
+                                            padding: '8px', fontWeight: team.isYou ? 800 : 600,
+                                            color: team.isYou ? '#a5b4fc' : '#e2e8f0',
+                                        }}>
+                                            {team.name}
+                                            {team.isYou && <span style={{
+                                                marginLeft: 8, fontSize: '0.68rem', fontWeight: 800,
+                                                background: 'rgba(99,102,241,0.3)', color: '#c7d2fe',
+                                                padding: '2px 8px', borderRadius: 4,
+                                            }}>YOU</span>}
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'right', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace" }}>
+                                            ${((team.treasury || 0) / 1_000_000).toFixed(1)}M
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'right', color: '#cbd5e1' }}>
+                                            {team.reputation?.toFixed(0) ?? '—'}
+                                        </td>
+                                        <td style={{ padding: '8px', textAlign: 'right', color: '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>
+                                            {(team.co2 || 0).toLocaleString()}t
+                                        </td>
+                                        <td style={{
+                                            padding: '8px', textAlign: 'right',
+                                            color: (team.bonus_score || 0) > 0 ? '#fbbf24' : '#475569',
+                                            fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
+                                        }}>
+                                            {(team.bonus_score || 0) > 0 ? `🏅 ${(team.bonus_score || 0).toLocaleString()}` : '–'}
+                                        </td>
+                                        <td style={{
+                                            padding: '8px', textAlign: 'center', fontSize: '0.9rem',
+                                            color: team.trend === '↑' ? '#4ade80' : team.trend === '↓' ? '#f87171' : '#94a3b8',
+                                        }}>{team.trend}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                        {/* Your rank highlight */}
+                        {(() => {
+                            const you = peerLeaderboard.find(t => t.isYou);
+                            if (!you) return null;
+                            return (
+                                <div style={{
+                                    marginTop: '0.8rem', padding: '0.6rem 0.8rem', borderRadius: '8px',
+                                    background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.2)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem',
+                                    fontSize: '0.8rem', fontWeight: 700, color: '#a5b4fc',
+                                }}>
+                                    <span style={{ fontSize: '1.1rem' }}>{you.rank <= 3 ? ['🥇', '🥈', '🥉'][you.rank - 1] : '🏅'}</span>
+                                    You finished <strong style={{ color: '#e2e8f0' }}>#{you.rank}</strong> out of <strong style={{ color: '#e2e8f0' }}>{peerLeaderboard.length}</strong> teams
+                                </div>
+                            );
+                        })()}
+                    </div>
+                )}
+
+                {/* ── Final Balance Sheet — Statement of Financial Position ── */}
+                {(() => {
+                    const bs = globalState?.balance_sheet || fetchedBS;
+                    if (!bs || !bs.total_assets) return null;
+
+                    const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
+                    const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `$${((v || 0) / 1_000).toFixed(0)}K`;
+                    const ta = bs.tangible_assets || {};
+                    const ia = bs.intangible_assets || {};
+                    const ca = bs.current_assets || {};
+                    const ncl = bs.non_current_liabilities || {};
+                    const cl = bs.current_liabilities || {};
+                    const totalTangible = Object.values(ta).reduce((s, v) => s + (v || 0), 0);
+                    const totalIntangible = Object.values(ia).reduce((s, v) => s + (v || 0), 0);
+                    const totalCurrent = Object.values(ca).reduce((s, v) => s + (v || 0), 0);
+                    const totalNCL = Object.values(ncl).reduce((s, v) => s + (v || 0), 0);
+                    const totalCL = Object.values(cl).reduce((s, v) => s + (v || 0), 0);
+                    const totalEquity = (bs.share_capital || 0) + (bs.retained_earnings || 0) + (bs.other_reserves || 0);
+                    const deRatio = bs.debt_to_equity || 0;
+                    const ndEbitda = bs.net_debt_to_ebitda || 0;
+                    const netAssets = bs.net_assets || 0;
+                    const strandedExposure = bs.stranded_asset_exposure || 0;
+                    const covenantStatus = bs.covenant_status || 'green';
+                    const covenantColors = { green: '#10b981', amber: '#f59e0b', red: '#ef4444', breached: '#dc2626' };
+                    const covenantLabels = { green: '🟢 Comfortable', amber: '🟡 Watch List', red: '🔴 Breach (Cure Period)', breached: '🚨 Acceleration' };
+
+                    const lineRow = (label, value, opts = {}) => (
+                        <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: opts.bold ? '6px 0' : '3px 0',
+                            borderTop: opts.topBorder ? '1px solid var(--border-subtle, rgba(148,163,184,0.2))' : 'none',
+                            borderBottom: opts.bottomBorder ? '2px double var(--border-subtle, rgba(148,163,184,0.3))' : 'none',
+                        }}>
+                            <span style={{
+                                fontSize: opts.bold ? '0.78rem' : '0.74rem',
+                                fontWeight: opts.bold ? 800 : 500,
+                                color: opts.color || (opts.bold ? 'var(--text-primary, #e2e8f0)' : 'var(--text-secondary, #334155)'),
+                                paddingLeft: opts.indent ? 16 : 0,
+                            }}>{label}</span>
+                            <span style={{
+                                fontSize: opts.bold ? '0.82rem' : '0.74rem',
+                                fontWeight: opts.bold ? 800 : 600,
+                                fontFamily: "'JetBrains Mono', monospace",
+                                color: opts.color || (opts.bold ? 'var(--text-primary, #e2e8f0)' : 'var(--text-primary, #1e293b)'),
+                            }}>{typeof value === 'number' ? fmtK(value) : value}</span>
+                        </div>
+                    );
+
+                    const sectionHdr = (label, icon) => (
+                        <div style={{
+                            fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase',
+                            letterSpacing: '0.08em', color: 'var(--text-muted, #475569)', marginTop: 14, marginBottom: 6,
+                            display: 'flex', alignItems: 'center', gap: 5,
+                            borderBottom: '1px solid var(--border-subtle, rgba(148,163,184,0.15))', paddingBottom: 4,
+                        }}>{icon} {label}</div>
+                    );
+
+                    return (
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(56,189,248,0.06), rgba(99,102,241,0.04))',
+                            border: '1px solid rgba(56,189,248,0.2)',
+                            borderRadius: '12px',
+                            padding: '1.2rem 1.4rem',
+                            marginTop: '0.5rem',
+                        }}>
+                            {/* Header */}
+                            <div style={{
+                                textAlign: 'center', marginBottom: '0.8rem',
+                                borderBottom: '2px solid rgba(56,189,248,0.2)', paddingBottom: '0.5rem',
+                            }}>
+                                <div style={{
+                                    fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.12em',
+                                    textTransform: 'uppercase', color: '#38bdf8',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem',
+                                }}>
+                                    📊 Statement of Financial Position
+                                </div>
+                                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #475569)', marginTop: 2, fontWeight: 500 }}>
+                                    Muressons Global Corporation — As at End of Year 5 (Round 10)
+                                </div>
+                            </div>
+
+                            {/* Summary hero cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 12 }}>
+                                <div style={{ textAlign: 'center', padding: '8px', borderRadius: 8, background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.15)' }}>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted, #475569)', fontWeight: 700, textTransform: 'uppercase' }}>Total Assets</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 900, color: '#38bdf8', marginTop: 2 }}>{fmtM(bs.total_assets)}</div>
+                                </div>
+                                <div style={{ textAlign: 'center', padding: '8px', borderRadius: 8, background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.12)' }}>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted, #475569)', fontWeight: 700, textTransform: 'uppercase' }}>Total Liabilities</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 900, color: '#f87171', marginTop: 2 }}>{fmtM(bs.total_liabilities)}</div>
+                                </div>
+                                <div style={{ textAlign: 'center', padding: '8px', borderRadius: 8, background: netAssets >= 0 ? 'rgba(74,222,128,0.08)' : 'rgba(239,68,68,0.08)', border: `1px solid ${netAssets >= 0 ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)'}` }}>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted, #475569)', fontWeight: 700, textTransform: 'uppercase' }}>Net Assets</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 900, color: netAssets >= 0 ? '#4ade80' : '#ef4444', marginTop: 2 }}>{fmtM(netAssets)}</div>
+                                </div>
+                            </div>
+
+                            {/* ═══ DETAILED LINE ITEMS ═══ */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 24px' }}>
+                                {/* LEFT COLUMN: ASSETS */}
+                                <div>
+                                    {sectionHdr('Non-Current Assets', '🏭')}
+                                    {lineRow('Property, Plant & Equipment', ta.property_plant_equipment, { indent: true })}
+                                    {lineRow('Right-of-Use Assets (IFRS 16)', ta.right_of_use_assets, { indent: true })}
+                                    {lineRow('Inventory', ta.inventory, { indent: true })}
+                                    {lineRow('Total Tangible', totalTangible, { bold: true, topBorder: true })}
+
+                                    {sectionHdr('Intangible Assets', '💎')}
+                                    {lineRow('Brand Value', ia.brand_value, { indent: true })}
+                                    {lineRow('Intellectual Property', ia.intellectual_property, { indent: true })}
+                                    {lineRow('Goodwill', ia.goodwill, { indent: true })}
+                                    {lineRow('Social Licence (IAS 38)', ia.social_licence_asset, { indent: true })}
+                                    {lineRow('Reputation Capital', ia.reputation_asset, { indent: true })}
+                                    {lineRow('Total Intangible', totalIntangible, { bold: true, topBorder: true })}
+
+                                    {sectionHdr('Current Assets', '💵')}
+                                    {lineRow('Cash & Equivalents', ca.cash_and_equivalents, { indent: true, color: (ca.cash_and_equivalents || 0) < 0 ? '#f87171' : '#4ade80' })}
+                                    {lineRow('Trade Receivables', ca.trade_receivables, { indent: true })}
+                                    {lineRow('Prepayments', ca.prepayments, { indent: true })}
+                                    {lineRow('Total Current', totalCurrent, { bold: true, topBorder: true })}
+
+                                    <div style={{ marginTop: 8 }}>
+                                        {lineRow('TOTAL ASSETS', bs.total_assets, { bold: true, topBorder: true, bottomBorder: true, color: '#38bdf8' })}
+                                    </div>
+                                </div>
+
+                                {/* RIGHT COLUMN: LIABILITIES + EQUITY */}
+                                <div>
+                                    {sectionHdr('Non-Current Liabilities', '🏦')}
+                                    {lineRow('Revolving Credit Facility', ncl.revolving_credit_facility, { indent: true })}
+                                    {lineRow('Green Bonds', ncl.green_bonds_outstanding, { indent: true, color: (ncl.green_bonds_outstanding || 0) > 0 ? '#10b981' : undefined })}
+                                    {lineRow('Environmental Provisions', ncl.environmental_provisions, { indent: true })}
+                                    {lineRow('Decommissioning', ncl.decommissioning_obligations, { indent: true })}
+                                    {lineRow('Lease Liabilities (IFRS 16)', ncl.lease_liabilities, { indent: true })}
+                                    {lineRow('Total Non-Current', totalNCL, { bold: true, topBorder: true })}
+
+                                    {sectionHdr('Current Liabilities', '📋')}
+                                    {lineRow('Trade Payables', cl.trade_payables, { indent: true })}
+                                    {lineRow('Tax Provisions', cl.tax_provisions, { indent: true })}
+                                    {lineRow('Accrued Remediation', cl.accrued_remediation, { indent: true })}
+                                    {lineRow('Short-Term Debt', cl.short_term_debt, { indent: true })}
+                                    {lineRow('Total Current', totalCL, { bold: true, topBorder: true })}
+
+                                    {sectionHdr("Shareholders' Equity", '🏛️')}
+                                    {lineRow('Share Capital', bs.share_capital, { indent: true })}
+                                    {lineRow('Retained Earnings', bs.retained_earnings, { indent: true, color: (bs.retained_earnings || 0) < 0 ? '#f87171' : undefined })}
+                                    {lineRow('Other Reserves', bs.other_reserves, { indent: true })}
+                                    {lineRow('TOTAL EQUITY', totalEquity, { bold: true, topBorder: true, bottomBorder: true, color: '#a78bfa' })}
+                                </div>
+                            </div>
+
+                            {/* ═══ KEY RATIOS + COVENANT ═══ */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginTop: 14 }}>
+                                {[
+                                    { label: 'D/E Ratio', value: `${deRatio.toFixed(2)}×`, good: deRatio < 2.0, icon: '⚖️' },
+                                    { label: 'ND/EBITDA', value: `${ndEbitda.toFixed(2)}×`, good: ndEbitda <= 2.5, icon: '📐' },
+                                    { label: 'Stranded Exposure', value: fmtM(strandedExposure), good: strandedExposure < bs.total_assets * 0.15, icon: '⚠️' },
+                                    { label: 'Brand Value', value: fmtM(ia.brand_value), good: (ia.brand_value || 0) > 15_000_000, icon: '💎' },
+                                ].map((r, i) => (
+                                    <div key={i} style={{
+                                        textAlign: 'center', padding: '6px 8px', borderRadius: 8,
+                                        background: r.good ? 'rgba(74,222,128,0.06)' : 'rgba(239,68,68,0.06)',
+                                        border: `1px solid ${r.good ? 'rgba(74,222,128,0.12)' : 'rgba(239,68,68,0.12)'}`,
+                                    }}>
+                                        <div style={{ fontSize: '0.88rem' }}>{r.icon}</div>
+                                        <div style={{ fontSize: '0.62rem', color: 'var(--text-muted, #475569)', fontWeight: 700, textTransform: 'uppercase', marginTop: 2 }}>{r.label}</div>
+                                        <div style={{ fontSize: '0.82rem', fontWeight: 800, color: r.good ? '#4ade80' : '#f87171', fontFamily: "'JetBrains Mono', monospace", marginTop: 2 }}>{r.value}</div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Covenant Status */}
+                            <div style={{
+                                marginTop: 10, padding: '6px 10px', borderRadius: 6,
+                                background: `${covenantColors[covenantStatus]}12`,
+                                border: `1px solid ${covenantColors[covenantStatus]}30`,
+                                fontSize: '0.72rem', fontWeight: 700,
+                                color: covenantColors[covenantStatus],
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                            }}>
+                                <span>Debt Covenant Status:</span>
+                                <span>{covenantLabels[covenantStatus] || covenantStatus}</span>
+                            </div>
+
+                            {/* Net Assets Trend */}
+                            {bs.balance_sheet_history?.length > 1 && (
+                                <div style={{ marginTop: 12 }}>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>Net Assets Trend (10 Rounds)</div>
+                                    <div style={{ display: 'flex', alignItems: 'flex-end', gap: 3, height: 40 }}>
+                                        {bs.balance_sheet_history.map((h, i) => {
+                                            const maxNA = Math.max(...bs.balance_sheet_history.map(x => Math.abs(x.net_assets || 1)));
+                                            const pct = Math.max(5, Math.abs(h.net_assets || 0) / maxNA * 100);
+                                            const isNeg = (h.net_assets || 0) < 0;
+                                            return (
+                                                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                                                    <div style={{
+                                                        width: '100%', height: `${pct}%`, minHeight: 4, borderRadius: 3,
+                                                        background: isNeg ? '#ef4444' : '#38bdf8',
+                                                        opacity: 0.5 + (i / bs.balance_sheet_history.length) * 0.5,
+                                                        transition: 'height 0.5s ease',
+                                                    }} title={`R${h.round}: ${fmtM(h.net_assets)}`} />
+                                                    <span style={{ fontSize: '0.5rem', color: '#475569' }}>R{h.round}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
                 {/* ── 3 Key Insights ── */}
                 {history && history.length > 0 && (() => {
-                    // Find best and worst rounds by treasury delta
-                    const roundDeltas = history.map((h, i) => ({
-                        round: i + 1,
-                        treasury_delta: h?.treasury_delta || 0,
-                        choice: h?.choice || 'Unknown',
-                        choice_title: h?.choice_title || h?.choice || 'Unknown',
-                    })).filter(r => r.round <= 10);
-
-                    const best = roundDeltas.reduce((a, b) => a.treasury_delta > b.treasury_delta ? a : b, roundDeltas[0]);
-                    const worst = roundDeltas.reduce((a, b) => a.treasury_delta < b.treasury_delta ? a : b, roundDeltas[0]);
-
-                    // Road not taken: for the worst round, suggest the alternative
+                    // Build per-round deltas from actual history array.
+                    // History entries may store absolute treasury values; compute delta from consecutive rounds.
                     const ROUND_NAMES = {
                         1: 'ESG Audit', 2: 'Double Materiality', 3: 'Scope 3 Emissions',
                         4: 'Contagion Crisis', 5: 'Climate Event', 6: 'AI Bias Scandal',
@@ -126,17 +450,42 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                         10: 'Grand Finale',
                     };
 
+                    const roundDeltas = history.map((h, i) => {
+                        // Support explicit delta field OR derive from adjacent treasury values
+                        let delta = h?.treasury_delta ?? null;
+                        if (delta === null) {
+                            const curr = h?.treasury ?? h?.corporate_treasury ?? 0;
+                            const prev = i > 0 ? (history[i - 1]?.treasury ?? history[i - 1]?.corporate_treasury ?? curr) : curr;
+                            delta = curr - prev;
+                        }
+                        // Choice label: prefer explicit title, then choice_selected, then raw choice key
+                        const choiceLabel = h?.choice_title || h?.choice_label ||
+                            (h?.choice_selected ? h.choice_selected.replace('option_', 'Option ').toUpperCase() : null) ||
+                            h?.choice || null;
+                        return {
+                            round: i + 1,
+                            treasury_delta: delta,
+                            choice_title: choiceLabel,
+                        };
+                    }).filter(r => r.round <= 10 && r.choice_title); // only rounds with real decisions
+
+                    // If no rounds have labelled choices yet, skip the section
+                    if (roundDeltas.length === 0) return null;
+
+                    const best = roundDeltas.reduce((a, b) => a.treasury_delta > b.treasury_delta ? a : b, roundDeltas[0]);
+                    const worst = roundDeltas.reduce((a, b) => a.treasury_delta < b.treasury_delta ? a : b, roundDeltas[0]);
+
                     const insights = [
                         {
                             icon: '🏆',
                             title: 'Best Decision',
-                            text: `Round ${best.round} (${ROUND_NAMES[best.round] || '—'}): Your choice of "${best.choice_title}" generated ${best.treasury_delta >= 0 ? '+' : ''}$${(best.treasury_delta / 1_000_000).toFixed(1)}M in treasury impact.`,
+                            text: `Round ${best.round} (${ROUND_NAMES[best.round] || '—'}): "${best.choice_title}" generated ${best.treasury_delta >= 0 ? '+' : ''}$${(best.treasury_delta / 1_000_000).toFixed(1)}M in treasury impact.`,
                             color: '#10b981',
                         },
                         {
                             icon: '💸',
                             title: 'Most Costly Mistake',
-                            text: `Round ${worst.round} (${ROUND_NAMES[worst.round] || '—'}): Your choice of "${worst.choice_title}" cost $${(Math.abs(worst.treasury_delta) / 1_000_000).toFixed(1)}M in treasury impact.`,
+                            text: `Round ${worst.round} (${ROUND_NAMES[worst.round] || '—'}): "${worst.choice_title}" cost $${(Math.abs(worst.treasury_delta) / 1_000_000).toFixed(1)}M in treasury impact.`,
                             color: '#ef4444',
                         },
                         {
@@ -272,7 +621,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                         borderRadius: '8px',
                                         padding: '0.6rem 0.8rem',
                                     }}>
-                                        <div style={{ fontSize: '0.62rem', color: '#64748b', marginBottom: '0.2rem' }}>{m.label}</div>
+                                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginBottom: '0.2rem' }}>{m.label}</div>
                                         <div style={{ fontSize: '0.88rem', fontWeight: 800, color: m.color }}>{m.value}</div>
                                     </div>
                                 ))}
@@ -461,7 +810,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                             {/* M_R impact */}
                                             {(mrBonus || mrPenalty) && (
                                                 <div style={{
-                                                    fontSize: '0.58rem', fontWeight: 700,
+                                                    fontSize: '0.68rem', fontWeight: 700,
                                                     color: mrBonus ? '#4ade80' : '#f87171',
                                                     display: 'flex', alignItems: 'center', gap: '0.3rem',
                                                 }}>
@@ -505,6 +854,13 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     <button className={styles.primaryBtn} onClick={onReviewScorecard}>
                         📊 Review Balanced Scorecard
                     </button>
+                    <StudentReportExport
+                        data={d}
+                        globalState={globalState}
+                        history={history}
+                        businessUnits={businessUnits}
+                        sessionId={sessionId}
+                    />
                     <button className={styles.secondaryBtn} onClick={handleDownload}>
                         📥 Download Report (PDF)
                     </button>
@@ -526,7 +882,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
 
                 {/* Footer */}
                 <div className={styles.footer}>
-                    <p>Muressons Global Command — Sustainability Strategy Simulation</p>
+                    <p>Muressons Global Corporation — Sustainability Strategy Simulation</p>
                     <p>© Year 3 Board of Directors Meeting</p>
                 </div>
             </div>

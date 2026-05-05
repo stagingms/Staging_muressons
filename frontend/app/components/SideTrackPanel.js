@@ -166,7 +166,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
             <div className={styles.trackSelectorTitle}>Choose Your Track</div>
             <button onClick={() => { setShowAggregate(true); setViewMode('leaderboard'); }} style={{
               padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(99,102,241,0.3)',
-              background: 'rgba(99,102,241,0.08)', color: '#a5b4fc', fontSize: '0.62rem',
+              background: 'rgba(99,102,241,0.08)', color: '#a5b4fc', fontSize: '0.68rem',
               fontWeight: 700, cursor: 'pointer', letterSpacing: '0.05em',
             }}>🏆 All Tracks Leaderboard</button>
           </div>
@@ -192,12 +192,12 @@ export default function SideTrackPanel({ sessionId, onClose }) {
           <div style={{ position: 'absolute', inset: 0, zIndex: 5, background: 'rgba(10,15,30,0.97)', backdropFilter: 'blur(12px)', display: 'flex', flexDirection: 'column', padding: 28, overflowY: 'auto' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div>
-                <div style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#818cf8' }}>🏆 Cross-Track Leaderboard</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.12em', color: '#818cf8' }}>🏆 Cross-Track Leaderboard</div>
                 <div style={{ fontSize: '0.88rem', fontWeight: 700, color: '#f1f5f9', marginTop: 2 }}>Aggregate Side Track Performance</div>
               </div>
               <button onClick={() => { setShowAggregate(false); setViewMode('play'); }} style={{
                 padding: '6px 14px', borderRadius: 7, border: '1px solid rgba(255,255,255,0.1)',
-                background: 'transparent', color: '#94a3b8', fontSize: '0.62rem', fontWeight: 700, cursor: 'pointer',
+                background: 'transparent', color: '#94a3b8', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
               }}>← Back to Tracks</button>
             </div>
             {aggregateData?.aggregate_leaderboard?.length > 0 ? (
@@ -233,7 +233,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                             const trackInfo = aggregateData.available_tracks?.find(t => t.track_id === tid);
                             return (
                               <span key={tid} style={{
-                                padding: '2px 6px', borderRadius: 4, fontSize: '0.52rem', fontWeight: 700,
+                                padding: '2px 6px', borderRadius: 4, fontSize: '0.68rem', fontWeight: 700,
                                 background: `${tColor}15`, border: `1px solid ${tColor}30`, color: tColor,
                                 fontFamily: "'JetBrains Mono', monospace",
                               }}>{trackInfo?.icon || '📦'} {td.grade} {td.total_score.toFixed(0)}</span>
@@ -396,7 +396,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                     border: '1px solid rgba(99,102,241,0.2)',
                   }}>
                     <div style={{
-                      fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase',
+                      fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
                       letterSpacing: '0.12em', color: '#818cf8', marginBottom: 12,
                       display: 'flex', alignItems: 'center', gap: 6,
                     }}>
@@ -417,7 +417,7 @@ export default function SideTrackPanel({ sessionId, onClose }) {
                                 {(s.icon || '👤')} {name.replace(/_/g, ' ')}
                               </span>
                               <span style={{
-                                padding: '2px 7px', borderRadius: 4, fontSize: '0.55rem',
+                                padding: '2px 7px', borderRadius: 4, fontSize: '0.68rem',
                                 fontWeight: 800, background: `${color}20`, border: `1px solid ${color}50`,
                                 color, textTransform: 'uppercase', letterSpacing: '0.04em',
                               }}>{cls}</span>

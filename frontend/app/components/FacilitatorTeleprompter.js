@@ -3,6 +3,163 @@ import { useState, useEffect } from 'react';
 import { BRIEFINGS, HEALTHCARE_BRIEFINGS, SDG_BRIEFINGS } from './RoundBriefing';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
+/* ── Systemic Risk Intelligence Sub-Component ── */
+function SystemicRiskIntel({ sessionId, sectionLabel }) {
+    const [sysRisk, setSysRisk] = useState(null);
+    useEffect(() => {
+        if (!sessionId) return;
+        const fetchSys = () => {
+            fetch(`${API}/api/simulations/${sessionId}/dashboard`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => {
+                    if (!d) return;
+                    const flags = d.global_state?.active_event_flags || {};
+                    setSysRisk({
+                        tipping: flags.systemic_tipping_state || {},
+                        cascades: flags.npc_cascade_events || [],
+                        foreshadowing: flags.foreshadowing_signals || [],
+                        blackSwans: flags.black_swan_result?.events_triggered || [],
+                        blackSwanContinuing: flags.black_swan_result?.events_continuing || [],
+                        difficulty: flags.difficulty_tier || 'standard',
+                        wacc: flags.esg_wacc_diagnostics || null,
+                    });
+                })
+                .catch(() => {});
+        };
+        fetchSys();
+        const t = setInterval(fetchSys, 20000);
+        return () => clearInterval(t);
+    }, [sessionId]);
+
+    if (!sysRisk) return null;
+    const hasTipping = sysRisk.tipping.climate_tipped || sysRisk.tipping.social_tipped || sysRisk.tipping.financial_tipped;
+    const hasCascades = sysRisk.cascades.length > 0;
+    const hasBlackSwans = sysRisk.blackSwans.length > 0 || sysRisk.blackSwanContinuing.length > 0;
+    const hasForeshadowing = sysRisk.foreshadowing.length > 0;
+    const hasAny = hasTipping || hasCascades || hasBlackSwans || hasForeshadowing;
+
+    if (!hasAny && !sysRisk.wacc) return null;
+
+    const tpBadge = (label, tipped, color) => (
+        <span key={label} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '4px',
+            padding: '3px 10px', borderRadius: '6px', fontSize: '0.68rem', fontWeight: 700,
+            background: tipped ? `${color}18` : 'rgba(0,0,0,0.1)',
+            color: tipped ? color : 'var(--text-muted)',
+            border: `1px solid ${tipped ? color + '40' : 'transparent'}`,
+            fontFamily: 'var(--font-mono, monospace)',
+        }}>
+            <span style={{ fontSize: '0.6rem' }}>{tipped ? '🔴' : '🟢'}</span>
+            {label}
+        </span>
+    );
+
+    return (
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(239,68,68,0.06), rgba(245,158,11,0.04))',
+            border: '1px solid rgba(239,68,68,0.18)',
+            borderRadius: '10px', padding: '1rem',
+            borderLeft: '3px solid #ef4444',
+        }}>
+            {sectionLabel('🌡️', 'Systemic Risk Intelligence (Live)', '#ef4444')}
+            <div style={{ fontSize: '0.68rem', color: 'rgba(239,68,68,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>
+                Real-time systemic risk state for the connected session · Difficulty: <strong style={{ color: '#fbbf24' }}>{sysRisk.difficulty.toUpperCase()}</strong>
+            </div>
+
+            {/* Tipping Point Status */}
+            <div style={{ marginBottom: '0.75rem' }}>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                    Tipping Point Gates
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {tpBadge('CLIMATE', sysRisk.tipping.climate_tipped, '#ef4444')}
+                    {tpBadge('SOCIAL', sysRisk.tipping.social_tipped, '#f59e0b')}
+                    {tpBadge('FINANCIAL', sysRisk.tipping.financial_tipped, '#8b5cf6')}
+                </div>
+            </div>
+
+            {/* ESG WACC */}
+            {sysRisk.wacc && (
+                <div style={{ marginBottom: '0.75rem', padding: '0.5rem 0.7rem', borderRadius: '7px', background: 'rgba(0,0,0,0.08)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                        ESG-Adjusted WACC
+                    </div>
+                    <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--text-secondary)', flexWrap: 'wrap' }}>
+                        <span>Base: {((sysRisk.wacc.base_wacc || 0.05) * 100).toFixed(1)}%</span>
+                        <span style={{ color: '#ef4444' }}>Carbon: +{((sysRisk.wacc.carbon_premium || 0) * 100).toFixed(2)}%</span>
+                        <span style={{ color: '#f59e0b' }}>Gov: +{((sysRisk.wacc.governance_premium || 0) * 100).toFixed(2)}%</span>
+                        <span style={{ color: '#22c55e' }}>SLO: -{((sysRisk.wacc.slo_discount || 0) * 100).toFixed(2)}%</span>
+                        <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>Final: {((sysRisk.wacc.adjusted_wacc || 0.05) * 100).toFixed(2)}%</span>
+                    </div>
+                </div>
+            )}
+
+            {/* Active Black Swans */}
+            {hasBlackSwans && (
+                <div style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                        🦢 Active Black Swan Events
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        {[...sysRisk.blackSwans, ...sysRisk.blackSwanContinuing].map((evt, i) => (
+                            <div key={i} style={{
+                                padding: '0.4rem 0.65rem', borderRadius: '6px',
+                                background: 'rgba(167,139,250,0.06)',
+                                borderLeft: '2px solid rgba(167,139,250,0.4)',
+                                fontSize: '0.75rem', color: '#e9d5ff', lineHeight: 1.4,
+                            }}>
+                                {evt.icon || '🦢'} <strong>{evt.title}</strong>
+                                {evt.rounds_remaining > 0 && <span style={{ fontSize: '0.65rem', color: '#a78bfa' }}> ({evt.rounds_remaining}r left)</span>}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* NPC Cascades */}
+            {hasCascades && (
+                <div style={{ marginBottom: '0.75rem' }}>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#f97316', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                        ⚡ NPC Cascade Reactions
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                        {sysRisk.cascades.map((c, i) => (
+                            <span key={i} style={{
+                                padding: '3px 8px', borderRadius: '5px', fontSize: '0.68rem',
+                                background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)',
+                                color: '#fb923c', fontWeight: 600, fontFamily: 'var(--font-mono, monospace)',
+                            }}>
+                                {c.action?.replace(/_/g, ' ')}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Foreshadowing Signals */}
+            {hasForeshadowing && (
+                <div>
+                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                        🔮 Foreshadowing Signals
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        {sysRisk.foreshadowing.map((sig, i) => (
+                            <div key={i} style={{
+                                padding: '0.35rem 0.6rem', borderRadius: '5px',
+                                background: sig.category === 'warning' ? 'rgba(245,158,11,0.06)' : 'rgba(34,211,153,0.06)',
+                                borderLeft: `2px solid ${sig.category === 'warning' ? 'rgba(245,158,11,0.4)' : 'rgba(34,211,153,0.4)'}`,
+                                fontSize: '0.72rem', color: sig.category === 'warning' ? '#fde68a' : '#a7f3d0', lineHeight: 1.4,
+                            }}>
+                                {sig.category === 'warning' ? '⚠️' : '✅'} {sig.message || sig.signal_id?.replace(/_/g, ' ')}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* Hover-tooltip descriptions for every simulation engine flag */
 const ENGINE_TOOLTIPS = {
     // ── Financial engines ──
@@ -63,6 +220,11 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
     const [roundConfig, setRoundConfig] = useState(null);
     const [activeRound, setActiveRound] = useState(currentRound);
     const [checkedPoints, setCheckedPoints] = useState({});
+
+    // Auto-sync activeRound whenever the live cohort advances a round
+    useEffect(() => {
+        setActiveRound(currentRound);
+    }, [currentRound]);
 
     useEffect(() => {
         fetch(`${API}/api/admin/teleprompter`)
@@ -163,13 +325,17 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 display: 'flex', gap: '0.3rem', padding: '0.5rem',
                 background: 'rgba(0,0,0,0.15)', borderRadius: '10px',
                 border: '1px solid rgba(255,255,255,0.04)',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch',
+                scrollbarWidth: 'none',    /* Firefox */
+                msOverflowStyle: 'none',   /* IE/Edge */
             }}>
                 {Array.from({ length: 10 }, (_, i) => i + 1).map(r => {
                     const isActive = activeRound === r;
                     const isPast = r <= currentRound;
                     return (
                         <button key={r} onClick={() => setActiveRound(r)} style={{
-                            flex: 1, height: '36px', borderRadius: '7px', border: 'none',
+                            flex: '0 0 auto', minWidth: '36px', height: '36px', borderRadius: '7px', border: 'none',
                             background: isActive
                                 ? 'linear-gradient(135deg, #c9a84c, #b8963f)'
                                 : isPast ? 'rgba(255,255,255,0.05)' : 'transparent',
@@ -361,7 +527,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                     {mechKey.replace(/_/g, ' ').replace(/\br\d/g, m => m.toUpperCase()).replace(/\b\w/g, m => m.toUpperCase())}
                                     {mechData.applies_to_tiers && (
                                         <span style={{
-                                            marginLeft: 'auto', fontSize: '0.58rem', padding: '2px 6px',
+                                            marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 6px',
                                             borderRadius: '4px', background: 'rgba(99,102,241,0.1)',
                                             color: '#a5b4fc', fontFamily: 'var(--font-mono, monospace)',
                                         }}>
@@ -441,6 +607,42 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     }}>
                         {sectionLabel('🔮', roundConfig?.decision_paradigm === 'advanced_climate' ? 'Climate Engine Intel (Facilitator Only)' : 'Strategic Intel (Facilitator Only)', '#10b981')}
                         <div style={{ fontSize: '0.82rem', color: '#a7f3d0', lineHeight: 1.6 }}>{hint}</div>
+                    </div>
+                );
+            })()}
+
+            {/* ── R2 ESRS Concepts Reference (Facilitator-Only) ── */}
+            {activeRound === 2 && (() => {
+                const concepts = [
+                    { ref: 'ESRS 1 §1.51', icon: '🏛️', title: 'Governance Body Oversight', color: '#818cf8',
+                      body: 'ESRS requires the management body (board committee, not CEO alone) to oversee the materiality assessment. Option C (CEO-only sign-off) violates this — why institutional investors apply a Green Bond risk premium.' },
+                    { ref: 'ESRS E1–E5 / S1–S4 / G1', icon: '🏷️', title: 'ESRS Topic Mapping (chip badges)', color: '#34d399',
+                      body: 'Each chip now shows its ESRS code. E1=Climate, E3=Water, E4=Biodiversity, E5=Circular Economy. S2=Value Chain Workers, S4=Consumers. G1=Business Conduct. "Economic" is not an ESRS pillar — those risks sit under G1 or ESRS 2 SBM-3.' },
+                    { ref: 'ESRS 1 §1.38', icon: '📏', title: 'Materiality Threshold Disclosure', color: '#fbbf24',
+                      body: 'ESRS requires disclosing the thresholds used to determine materiality. Simulation threshold: ≥80% Q1 accuracy + non-C governance. After submission, students see "How was this scored?" — point them to it.' },
+                    { ref: 'ESRS 1 §1.50', icon: '⚖️', title: 'Stakeholder Tension (Investor vs NGO)', color: '#f87171',
+                      body: 'ESRS §1.50 requires "due consideration of conflicting views." Investors highlight Q3 financial risks; NGOs elevate Q2 community impacts. Ask teams: did your Panel Survey reveal tensions between what investors vs NGOs rated material?' },
+                    { ref: 'ESRS 1 §1.30', icon: '📊', title: 'Severity × Likelihood Scoring', color: '#60a5fa',
+                      body: 'Real ESRS uses Severity (Scale, Scope, Irremediability) × Likelihood, not binary High/Low. Chips now show score badges. An issue scoring ≥12 (e.g. 4×3) is Q1-eligible. Ask why high-severity issues sometimes have low likelihood.' },
+                ];
+                return (
+                    <div style={{ background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)', borderRadius: '10px', padding: '1rem', borderLeft: '3px solid #818cf8' }}>
+                        {sectionLabel('📐', 'R2 ESRS Concepts Reference (Facilitator Only)', '#818cf8')}
+                        <div style={{ fontSize: '0.68rem', color: 'rgba(129,140,248,0.7)', marginBottom: '0.75rem', fontStyle: 'italic' }}>Key ESRS mechanics to explain during the Double Materiality exercise.</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            {concepts.map((c, i) => (
+                                <details key={i} style={{ background: 'rgba(0,0,0,0.12)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.04)', overflow: 'hidden' }}>
+                                    <summary style={{ padding: '0.55rem 0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-primary)', listStyle: 'none' }}>
+                                        <span>{c.icon}</span>
+                                        <span style={{ color: c.color }}>{c.title}</span>
+                                        <span style={{ marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 6px', borderRadius: '4px', background: `${c.color}18`, color: c.color, fontFamily: 'var(--font-mono, monospace)' }}>{c.ref}</span>
+                                    </summary>
+                                    <div style={{ padding: '0.5rem 0.85rem 0.75rem' }}>
+                                        <div style={{ fontSize: '0.79rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.65, borderLeft: `2px solid ${c.color}55`, paddingLeft: '0.65rem' }}>{c.body}</div>
+                                    </div>
+                                </details>
+                            ))}
+                        </div>
                     </div>
                 );
             })()}
@@ -599,13 +801,13 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                     }}>
                                         <span>{t.icon}</span> {t.label}
                                         <span style={{
-                                            marginLeft: 'auto', fontSize: '0.58rem', padding: '2px 6px',
+                                            marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 6px',
                                             borderRadius: '4px', background: 'rgba(99,102,241,0.1)',
                                             color: '#a5b4fc', fontFamily: 'var(--font-mono, monospace)',
                                         }}>Debrief after R{t.debrief_after_round}</span>
                                     </summary>
                                     <div style={{ padding: '0 0.85rem 0.75rem' }}>
-                                        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#a5b4fc', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                                             Key Teaching Points
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem', marginBottom: '0.6rem' }}>
@@ -618,7 +820,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                 }}>{p}</div>
                                             ))}
                                         </div>
-                                        <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
                                             Discussion Prompts
                                         </div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
@@ -734,6 +936,9 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     })()}
                 </div>
             )}
+
+            {/* ── Systemic Risk Intelligence (Live Session Data) ── */}
+            {sessionId && <SystemicRiskIntel sessionId={sessionId} sectionLabel={sectionLabel} />}
 
             {/* ── Facilitator Notes ── */}
             <div style={{

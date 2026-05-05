@@ -12,8 +12,8 @@
 }
 
 .container {
-    background: #0f172a;
-    border: 1px solid #1e293b;
+    background: var(--bg-primary, #0f172a);
+    border: 1px solid var(--border-subtle, #1e293b);
     border-radius: 20px;
     width: 100%;
     max-width: 700px;
@@ -44,7 +44,7 @@
     font-size: 0.65rem;
     font-weight: 700;
     letter-spacing: 3px;
-    color: #34d399;
+    color: var(--accent-green, #34d399);
     margin: 1.5rem 0 0;
 }
 
@@ -64,7 +64,7 @@
 .heroTitle {
     font-size: 1.8rem;
     font-weight: 800;
-    color: #fff;
+    color: var(--text-inverse-always, #fff);
     margin: 0 0 0.6rem;
     text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
@@ -88,16 +88,16 @@
 }
 
 .statCard {
-    background: #111827;
+    background: var(--bg-elevated, #111827);
     padding: 1rem;
 }
 
 .statLabel {
     display: block;
-    font-size: 0.6rem;
+    font-size: 0.68rem;
     text-transform: uppercase;
     letter-spacing: 1.5px;
-    color: #94a3b8;
+    color: var(--text-muted, #94a3b8);
     margin-bottom: 0.3rem;
 }
 
@@ -105,7 +105,7 @@
     display: block;
     font-size: 1.3rem;
     font-weight: 800;
-    color: #e2e8f0;
+    color: var(--text-primary, #e2e8f0);
 }
 
 /* ── Message ───────────────────────────────────────────────── */
@@ -117,13 +117,13 @@
 .message h2 {
     font-size: 1rem;
     font-weight: 700;
-    color: #f1f5f9;
+    color: var(--text-primary, #f1f5f9);
     margin: 0 0 0.6rem;
 }
 
 .message p {
     font-size: 0.82rem;
-    color: #94a3b8;
+    color: var(--text-muted, #94a3b8);
     line-height: 1.7;
     margin: 0;
 }
@@ -139,8 +139,8 @@
 .primaryBtn {
     width: 100%;
     padding: 0.8rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff;
+    background: linear-gradient(135deg, var(--accent-purple, #6366f1), var(--accent-purple-deep, #8b5cf6));
+    color: var(--text-inverse-always, #fff);
     border: none;
     border-radius: 10px;
     font-size: 0.9rem;
@@ -161,7 +161,7 @@
     background: rgba(59, 130, 246, 0.1);
     border: 1px solid rgba(59, 130, 246, 0.3);
     border-radius: 10px;
-    color: #60a5fa;
+    color: var(--accent-blue-light, #60a5fa);
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -176,9 +176,9 @@
     width: 100%;
     padding: 0.7rem;
     background: none;
-    border: 1px solid #334155;
+    border: 1px solid var(--border-subtle, #334155);
     border-radius: 10px;
-    color: #94a3b8;
+    color: var(--text-muted, #94a3b8);
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -193,12 +193,12 @@
 /* ── Footer ────────────────────────────────────────────────── */
 .footer {
     padding: 1.2rem 2rem;
-    border-top: 1px solid #1e293b;
+    border-top: 1px solid var(--border-subtle, #1e293b);
 }
 
 .footer p {
     font-size: 0.65rem;
-    color: #64748b;
+    color: var(--text-muted, #64748b);
     margin: 0.15rem 0;
     letter-spacing: 0.5px;
 }

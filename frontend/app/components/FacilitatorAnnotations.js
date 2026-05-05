@@ -15,7 +15,9 @@ export default function FacilitatorAnnotations({ sessionId, leaderboard = [] }) 
     const [newText, setNewText] = useState('');
     const [newTag, setNewTag] = useState('general');
     const [newRound, setNewRound] = useState(1);
+    const [newVisibleToStudents, setNewVisibleToStudents] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [playerVisible, setPlayerVisible] = useState(false);
 
     const sessions = leaderboard.filter(s => !s.player_id);
 
@@ -28,6 +30,33 @@ export default function FacilitatorAnnotations({ sessionId, leaderboard = [] }) 
             .catch(() => {});
     }, [sid, sessionId]);
 
+    // Fetch visibility state
+    useEffect(() => {
+        const target = sid || sessionId;
+        if (!target) return;
+        // Check the session's annotations_player_visible flag
+        fetch(`${API}/api/admin/sessions`)
+            .then(r => r.json())
+            .then(d => {
+                const sess = (d.sessions || []).find(s => s.session_id === target);
+                if (sess) setPlayerVisible(!!sess.annotations_player_visible);
+            })
+            .catch(() => {});
+    }, [sid, sessionId]);
+
+    const toggleVisibility = async () => {
+        const target = sid || sessionId;
+        if (!target) return;
+        const newVal = !playerVisible;
+        try {
+            await fetch(`${API}/api/admin/annotations/${target}/visibility`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ player_visible: newVal }),
+            });
+            setPlayerVisible(newVal);
+        } catch {}
+    };
+
     const addAnnotation = async () => {
         if (!newText.trim()) return;
         const target = sid || sessionId;
@@ -36,7 +65,7 @@ export default function FacilitatorAnnotations({ sessionId, leaderboard = [] }) 
         try {
             const res = await fetch(`${API}/api/admin/annotations/${target}`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: newText, tag: newTag, round: newRound }),
+                body: JSON.stringify({ text: newText, tag: newTag, round: newRound, visible_to_students: newVisibleToStudents }),
             });
             if (res.ok) {
                 const ann = await res.json();
@@ -55,7 +84,24 @@ export default function FacilitatorAnnotations({ sessionId, leaderboard = [] }) 
 
     return (
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-            <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>📌 Session Annotations</h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>📌 Session Annotations</h2>
+                {/* Student Visibility Toggle */}
+                <label style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    cursor: 'pointer', userSelect: 'none',
+                    fontSize: '0.78rem', fontWeight: 600,
+                    color: playerVisible ? '#10b981' : 'var(--text-muted)',
+                    padding: '4px 10px', borderRadius: '6px',
+                    background: playerVisible ? 'rgba(16,185,129,0.08)' : 'transparent',
+                    border: `1px solid ${playerVisible ? 'rgba(16,185,129,0.3)' : 'var(--border-subtle)'}`,
+                    transition: 'all 0.2s',
+                }}>
+                    <input type="checkbox" checked={playerVisible} onChange={toggleVisibility}
+                        style={{ accentColor: '#10b981', width: 16, height: 16, cursor: 'pointer' }} />
+                    {playerVisible ? '👁️ Visible to Students' : '🔒 Hidden from Students'}
+                </label>
+            </div>
 
             {sessions.length > 0 && (
                 <select value={sid} onChange={e => setSid(e.target.value)} style={{
@@ -69,7 +115,7 @@ export default function FacilitatorAnnotations({ sessionId, leaderboard = [] }) 
 
             {/* New Annotation Form */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px', padding: '1rem' }}>
-                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <select value={newTag} onChange={e => setNewTag(e.target.value)} style={{
                         padding: '0.4rem 0.75rem', borderRadius: '6px', border: '1px solid var(--border-subtle)',
                         background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.82rem',
@@ -82,6 +128,15 @@ export default function FacilitatorAnnotations({ sessionId, leaderboard = [] }) 
                     }}>
                         {Array.from({ length: 10 }, (_, i) => i + 1).map(r => <option key={r} value={r}>Round {r}</option>)}
                     </select>
+                    <label style={{
+                        display: 'flex', alignItems: 'center', gap: '0.3rem',
+                        fontSize: '0.75rem', color: 'var(--text-muted)', cursor: 'pointer',
+                    }}>
+                        <input type="checkbox" checked={newVisibleToStudents}
+                            onChange={e => setNewVisibleToStudents(e.target.checked)}
+                            style={{ accentColor: '#10b981', cursor: 'pointer' }} />
+                        Show to students
+                    </label>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input type="text" value={newText} onChange={e => setNewText(e.target.value)}

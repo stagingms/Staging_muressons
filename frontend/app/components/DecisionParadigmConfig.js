@@ -998,7 +998,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
                             <tr key={row.key}>
                               <td>
                                 <div style={{ fontWeight: 600, fontSize: '0.78rem', color: '#1e293b' }}>{row.label}</div>
-                                <div style={{ fontSize: '0.62rem', color: '#94a3b8', fontFamily: 'monospace' }}>{row.key}</div>
+                                <div style={{ fontSize: '0.68rem', color: '#94a3b8', fontFamily: 'monospace' }}>{row.key}</div>
                               </td>
                               <td style={{ textAlign: 'center' }}>
                                 <span style={{ fontSize: '0.75rem', color: '#64748b', fontVariantNumeric: 'tabular-nums' }}>

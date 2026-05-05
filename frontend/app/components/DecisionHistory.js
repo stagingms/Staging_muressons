@@ -96,25 +96,25 @@ export default function DecisionHistory({ historyData }) {
                       marginBottom: 8,
                     }}>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Treasury</div>
+                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Treasury</div>
                         <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
                           {fmtCurrency(h.treasury)} <DeltaBadge value={dTreasury} />
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>EBITDA</div>
+                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>EBITDA</div>
                         <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
                           {fmtCurrency(h.ebitda)} <DeltaBadge value={dEbitda} />
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reputation</div>
+                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>Reputation</div>
                         <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
                           {h.reputation.toFixed(0)}/100 <DeltaBadge value={dReputation} />
                         </div>
                       </div>
                       <div>
-                        <div style={{ color: '#64748b', fontSize: '0.55rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>CO₂</div>
+                        <div style={{ color: '#64748b', fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>CO₂</div>
                         <div style={{ fontWeight: 700, color: '#1e293b', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem' }}>
                           {h.tco2e.toLocaleString()}t <DeltaBadge value={dCO2} invert />
                         </div>
@@ -127,7 +127,7 @@ export default function DecisionHistory({ historyData }) {
                         padding: '4px 8px', background: 'rgba(99,102,241,0.06)', borderRadius: 4,
                         marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                       }}>
-                        <span style={{ color: '#475569', fontSize: '0.58rem', fontWeight: 600 }}>Synergy Multiplier</span>
+                        <span style={{ color: '#475569', fontSize: '0.68rem', fontWeight: 600 }}>Synergy Multiplier</span>
                         <span style={{ color: '#6366f1', fontWeight: 800, fontSize: '0.65rem' }}>{h.synergy.toFixed(2)}×</span>
                       </div>
                     )}
@@ -135,7 +135,7 @@ export default function DecisionHistory({ historyData }) {
                     {/* Business Units */}
                     {h.bu_count > 0 && (
                       <div style={{
-                        fontSize: '0.58rem', color: '#64748b',
+                        fontSize: '0.68rem', color: '#64748b',
                         padding: '3px 0', borderTop: '1px solid #e2e8f0', marginTop: 4,
                       }}>
                         {h.bu_count} business unit{h.bu_count !== 1 ? 's' : ''} managed

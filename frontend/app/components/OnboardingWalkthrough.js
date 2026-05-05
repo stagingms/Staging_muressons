@@ -1,10 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 /**
  * OnboardingWalkthrough — Step-by-step guided tour for first-time players.
  * Improvement #1.4: Onboarding walkthrough overlay
  * MC-01: Advanced Climate Engine bonus tour steps
+ *
+ * Positioning: Card anchors dynamically relative to the spotlight element
+ * to prevent overlap at any screen size.
  */
 
 const BASE_STEPS = [
@@ -12,72 +15,67 @@ const BASE_STEPS = [
     title: 'Welcome to the Executive Cockpit',
     body: 'You are the Chief Sustainability Officer of Muressons Global — a diversified conglomerate with 4 business units. Your decisions over 10 rounds will shape the company\'s future.',
     icon: '🏢',
-    position: 'center',
+    target: null, // no spotlight — centered card
   },
   {
-    title: 'KPI Dashboard (Left Panel)',
-    body: 'Monitor real-time financial performance (EBITDA), environmental impact (CO₂), strategic resilience (VRIO Radar), and stakeholder trust. These update after every round.',
+    title: 'KPI Dashboard',
+    body: 'The left panel shows real-time financial performance (EBITDA), environmental impact (CO₂), strategic resilience (VRIO Radar), and stakeholder trust. These update after every round.',
     icon: '📊',
-    position: 'left',
+    target: 'tour-kpi-target',
   },
   {
-    title: 'Stage 1: Briefing & Gates',
-    body: 'Start each round by carefully reading the crisis briefing. You must complete any required gateway assessments (like the Stakeholder Map) before you can unlock your strategic options.',
+    title: 'Briefing & Decision Workspace',
+    body: 'Each round starts with a crisis briefing. Complete any required gate assessments (like the Stakeholder Map), then choose your strategic response from the available options.',
     icon: '📋',
-    position: 'center',
-  },
-  {
-    title: 'Stage 2: Decision Workspace',
-    body: 'Once gates are passed, choose your strategic response. Each option has different costs and consequences.',
-    icon: '🎯',
-    position: 'center',
+    target: 'tour-briefing-target',
   },
   {
     title: 'Capital Allocation',
-    body: 'Allocate your treasury (CSF Pool) across the 4 business units using the investment sliders. Balance short-term costs against long-term resilience.',
+    body: 'Allocate your treasury (CSF Pool) across the business units using the investment sliders. Balance short-term costs against long-term resilience.',
     icon: '💰',
-    position: 'center',
+    target: 'tour-capital-target',
   },
   {
-    title: 'Intelligence Hub (Right Panel)',
-    body: 'Check your Executive Mailbox for crisis briefings, read the Market Reality Feed for external events, and access learning resources via the Resources panel.',
+    title: 'Intelligence Hub',
+    body: 'The right panel contains your Executive Mailbox for crisis briefings, the Market Reality Feed for external events, and learning resources.',
     icon: '📬',
-    position: 'right',
+    target: 'tour-intelligence-target',
   },
   {
-    title: 'Player Guides & Actions',
-    body: 'Use these quick-access tools to view the Leaderboard, check Achievements, consult the AI Board Advisor, or open the Glossary. You can also toggle the soundtrack here.',
+    title: 'Player Tools',
+    body: 'Quick-access tools: Leaderboard, Achievements, AI Board Advisor, and Glossary. You can also toggle the soundtrack here.',
     icon: '🧭',
-    position: 'center',
+    target: 'tour-player-guides-target',
   },
   {
     title: 'Commit & Advance',
-    body: 'When ready, hit Commit to lock in your decisions. Review the round results, then click Advance to proceed to the next crisis. Good luck, CSO!',
+    body: 'When ready, hit Commit to lock in your decisions. Review the round results, then advance to the next crisis. Good luck, CSO!',
     icon: '✅',
-    position: 'right',
+    target: null, // fallback to commit button via querySelector
+    fallbackSelector: 'button[class*="commitBtn"], [class*="rightCommit"]',
   },
 ];
 
 const CLIMATE_EXTRA_STEPS = [
   {
     title: '🌍 Advanced Climate Engine',
-    body: 'You are playing the Advanced Climate Edition. Every round, an Internal Carbon Fee is automatically charged on each Business Unit based on its Carbon Intensity (CI). Higher CI = higher fee.',
+    body: 'Every round, an Internal Carbon Fee is charged on each Business Unit based on its Carbon Intensity (CI). Higher CI = higher fee.',
     icon: '💨',
-    position: 'center',
+    target: null,
     isClimate: true,
   },
   {
     title: '🌱 The Green Fund',
-    body: 'Carbon fees flow into a shared Green Fund that automatically subsidises green CapEx investments — reducing your out-of-pocket cost. The higher the fund, the more green investments are underwritten for free.',
+    body: 'Carbon fees flow into a shared Green Fund that automatically subsidises green CapEx investments — reducing your out-of-pocket cost.',
     icon: '🌱',
-    position: 'center',
+    target: null,
     isClimate: true,
   },
   {
-    title: '🌡️ Tipping Points & Carbon Intensity',
-    body: 'Watch the group average Carbon Intensity (CI). If it exceeds 70, a Climate Tipping Point is triggered — imposing hostile regulation, inflation, and reduced valuations. Reduce CI by selecting greener investment options.',
+    title: '🌡️ Tipping Points',
+    body: 'Watch the group average Carbon Intensity (CI). If it exceeds 70, a Climate Tipping Point is triggered — imposing hostile regulation, inflation, and reduced valuations.',
     icon: '🌡️',
-    position: 'center',
+    target: null,
     isClimate: true,
   },
 ];
@@ -89,108 +87,86 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
 
   const [currentStep, setCurrentStep] = useState(0);
   const [visible, setVisible] = useState(true);
-  const [promptOpen, setPromptOpen] = useState(false);
   const [tourActive, setTourActive] = useState(false);
-  // Must be declared here (before any early return) to satisfy Rules of Hooks
-  const [spot, setSpot] = useState({ x: '0', y: '0', w: '0', h: '0' });
+  const [spot, setSpot] = useState({ x: 0, y: 0, w: 0, h: 0 });
+  // Track which side of the screen the spotlight is on for card placement
+  const [cardSide, setCardSide] = useState('center');
 
-  // Ask for tour every time round 1 starts
+  // Start tour automatically on round 1
   useEffect(() => {
-    if (roundNumber === 1 && visible) {
-      setPromptOpen(true);
-    } else {
+    if (roundNumber === 1 && visible && !tourActive) {
+      setTourActive(true);
+      setCurrentStep(0);
+    } else if (roundNumber !== 1) {
       setVisible(false);
-      setPromptOpen(false);
     }
   }, [roundNumber]);
 
-  // Must be above early return — spotlight positioning effect (Rules of Hooks)
+  // Spotlight measurement — uses actual DOM elements, with intelligent fallbacks
+  const measureTarget = useCallback(() => {
+    if (!tourActive) return;
+    const step = STEPS[currentStep];
+    if (!step) return;
+
+    let el = null;
+
+    // Try the explicit target ID first
+    if (step.target) {
+      el = document.getElementById(step.target);
+    }
+    // Try fallback selector
+    if (!el && step.fallbackSelector) {
+      el = document.querySelector(step.fallbackSelector);
+    }
+
+    if (el) {
+      const rect = el.getBoundingClientRect();
+      const pad = 10;
+      const newSpot = {
+        x: rect.left - pad,
+        y: rect.top - pad,
+        w: rect.width + pad * 2,
+        h: rect.height + pad * 2,
+      };
+      setSpot(newSpot);
+
+      // Determine card placement based on spotlight position
+      const vw = window.innerWidth;
+      const spotCenterX = newSpot.x + newSpot.w / 2;
+      if (spotCenterX < vw * 0.35) {
+        setCardSide('right'); // spotlight is left → card goes right
+      } else if (spotCenterX > vw * 0.65) {
+        setCardSide('left'); // spotlight is right → card goes left
+      } else {
+        // Spotlight is center — put card above or below depending on vertical position
+        const spotCenterY = newSpot.y + newSpot.h / 2;
+        setCardSide(spotCenterY < window.innerHeight * 0.5 ? 'below' : 'above');
+      }
+    } else {
+      // No element found — center everything
+      setSpot({ x: 0, y: 0, w: 0, h: 0 });
+      setCardSide('center');
+    }
+  }, [currentStep, tourActive]);
+
   useEffect(() => {
     if (!tourActive) return;
 
-    const updateSpot = () => {
-      const HPx = window.innerHeight - 52;
-      let newSpot = { x: '0', y: '0', w: '0', h: '0' };
-      
-      switch(currentStep) {
-        case 0: break;
-        case 1: 
-          const kTarget = document.getElementById('tour-kpi-target');
-          if (kTarget) {
-            const rect = kTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          } else {
-            newSpot = { x: '0', y: '52px', w: '24%', h: `${HPx}px` };
-          }
-          break;
-        case 2: 
-          const bTarget = document.getElementById('tour-briefing-target');
-          if (bTarget) {
-            const rect = bTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          }
-          break;
-        case 3: 
-          const sTarget = document.getElementById('tour-strategic-target');
-          if (sTarget) {
-            const rect = sTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          }
-          break;
-        case 4: 
-          const cTarget = document.getElementById('tour-capital-target');
-          if (cTarget) {
-            const rect = cTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          }
-          break;
-        case 5: 
-          const rTarget = document.getElementById('tour-intelligence-target');
-          if (rTarget) {
-            const rect = rTarget.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 8}px`, y: `${rect.top - 8}px`, w: `${rect.width + 16}px`, h: `${rect.height + 16}px` };
-          } else {
-            newSpot = { x: '76%', y: '52px', w: '24%', h: `${HPx * 0.88}px` };
-          }
-          break;
-        case 6:
-          const guides = document.getElementById('tour-player-guides-target');
-          if (guides) {
-            const rect = guides.getBoundingClientRect();
-            newSpot = { x: `${rect.left - 12}px`, y: `${rect.top - 12}px`, w: `${rect.width + 24}px`, h: `${rect.height + 24}px` };
-          }
-          break;
-        case 7:
-          const btn = document.querySelector('button[class*="commitBtn"]');
-          if (btn) {
-            const rect = btn.getBoundingClientRect();
-            newSpot = { 
-              x: `${rect.left - 12}px`, 
-              y: `${rect.top - 12}px`, 
-              w: `${rect.width + 24}px`, 
-              h: `${rect.height + 24}px` 
-            };
-          } else {
-            newSpot = { x: '76%', y: `calc(100vh - 12vh)`, w: '24%', h: `12vh` };
-          }
-          break;
-      }
-      setSpot(newSpot);
-    };
+    // Measure immediately, then after layout stabilizes
+    measureTarget();
+    const raf = requestAnimationFrame(() => {
+      measureTarget();
+      setTimeout(measureTarget, 200);
+    });
 
-    updateSpot();
-    setTimeout(updateSpot, 50);
-    window.addEventListener('resize', updateSpot);
-    return () => window.removeEventListener('resize', updateSpot);
-  }, [currentStep, tourActive]);
+    window.addEventListener('resize', measureTarget);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', measureTarget);
+    };
+  }, [currentStep, tourActive, measureTarget]);
 
   if (!visible) return null;
-
-  const handleStartTour = () => {
-    setPromptOpen(false);
-    setTourActive(true);
-    setCurrentStep(0);
-  };
 
   const step = STEPS[currentStep] || STEPS[0];
   const isLast = currentStep === STEPS.length - 1;
@@ -206,70 +182,36 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
   };
 
   const handleSkip = () => {
-    setPromptOpen(false);
     setTourActive(false);
     setVisible(false);
     onComplete?.();
   };
 
-  // Position styles based on step
+  // Dynamic card positioning based on spotlight location
   const getCardStyle = () => {
-    switch (step.position) {
-      case 'left': return { left: '26%', top: '50%', transform: 'translateY(-50%)' }; // Shifted right so it doesn't overlap left panel
-      case 'right': return { right: '26%', top: '50%', transform: 'translateY(-50%)' }; // Shifted left to not overlap right panel
-      default: 
-        if (currentStep === 2) return { left: '50%', bottom: '15%', transform: 'translateX(-50%)' }; // Briefing at top, card at bottom
-        if (currentStep === 3) return { left: '50%', top: '15%', transform: 'translateX(-50%)' }; // Strategic Options at bottom, card at top
-        if (currentStep === 4) return { left: '50%', bottom: '15%', transform: 'translateX(-50%)' }; // Investment Matrix in middle, card at bottom
-        if (currentStep === 6) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }; // Player guides card in middle
-        if (currentStep === 7) return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' }; // Back to center
-        return { left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
+    const base = {
+      position: 'absolute',
+      zIndex: 3,
+      pointerEvents: 'all',
+      transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+    };
+
+    switch (cardSide) {
+      case 'right':
+        return { ...base, left: `${Math.min(spot.x + spot.w + 24, window.innerWidth - 460)}px`, top: '50%', transform: 'translateY(-50%)' };
+      case 'left':
+        return { ...base, left: `${Math.max(spot.x - 460, 16)}px`, top: '50%', transform: 'translateY(-50%)' };
+      case 'below':
+        return { ...base, left: '50%', top: `${Math.min(spot.y + spot.h + 24, window.innerHeight - 300)}px`, transform: 'translateX(-50%)' };
+      case 'above':
+        return { ...base, left: '50%', top: `${Math.max(spot.y - 300, 16)}px`, transform: 'translateX(-50%)' };
+      default: // center
+        return { ...base, left: '50%', top: '50%', transform: 'translate(-50%, -50%)' };
     }
   };
 
-
-
   return (
     <>
-      {/* ── Prompt Dialog ── */}
-      {promptOpen && (
-        <div style={{
-          position: 'fixed', inset: 0, zIndex: 20000,
-          background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: 'Inter, sans-serif',
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: 16, padding: '2rem', maxWidth: 400, width: '90%',
-            textAlign: 'center', boxShadow: '0 30px 60px rgba(0,0,0,0.4)',
-            animation: 'fadeSlideUp 0.3s ease-out'
-          }}>
-            <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>👋</div>
-            <h2 style={{ margin: '0 0 0.5rem', color: '#0f172a', fontWeight: 800 }}>Welcome to the Executive Cockpit</h2>
-            <p style={{ color: '#64748b', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '1.5rem' }}>
-              You have just entered the Executive Cockpit. Would you like a quick interactive tour to familiarize yourself with the controls?
-            </p>
-            <div style={{ display: 'flex', gap: '0.8rem' }}>
-              <button
-                onClick={handleSkip}
-                style={{
-                  flex: 1, padding: '10px 0', border: '1px solid #cbd5e1', background: '#f8fafc',
-                  color: '#475569', borderRadius: 8, fontWeight: 700, cursor: 'pointer'
-                }}
-              >Skip Tour</button>
-              <button
-                onClick={handleStartTour}
-                style={{
-                  flex: 1, padding: '10px 0', border: 'none', background: '#6366f1',
-                  color: '#fff', borderRadius: 8, fontWeight: 700, cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(99,102,241,0.3)'
-                }}
-              >Yes, Start Tour</button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Active Tour Overlay ── */}
       {tourActive && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 20000, fontFamily: 'Inter, sans-serif', pointerEvents: 'none' }}>
@@ -277,44 +219,64 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
           {/* Invisible click blocker — prevents interaction with cockpit while tour runs */}
           <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'all' }} />
 
-          {/* Dark overlay for Step 0 or when no target is found */}
-          {(currentStep === 0 || spot.w === '0') && (
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 2,
-              background: 'rgba(15, 23, 42, 0.75)',
-              pointerEvents: 'none',
-              transition: 'opacity 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
-            }} />
-          )}
+          {/* SVG Mask Overlay — cuts a transparent window in the dark overlay */}
+          <svg
+            style={{
+              position: 'absolute', inset: 0, width: '100%', height: '100%',
+              zIndex: 2, pointerEvents: 'none',
+              transition: 'opacity 0.3s ease',
+            }}
+          >
+            <defs>
+              <mask id="tour-spotlight-mask">
+                {/* White = visible (dark overlay shown), Black = hidden (transparent hole) */}
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                {spot.w > 0 && spot.h > 0 && (
+                  <rect
+                    x={spot.x}
+                    y={spot.y}
+                    width={spot.w}
+                    height={spot.h}
+                    rx="10"
+                    ry="10"
+                    fill="black"
+                    style={{ transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' }}
+                  />
+                )}
+              </mask>
+            </defs>
+            <rect
+              x="0" y="0" width="100%" height="100%"
+              fill="rgba(15, 23, 42, 0.75)"
+              mask="url(#tour-spotlight-mask)"
+            />
+          </svg>
 
-          {/* Spotlight Highlight */}
-          {currentStep > 0 && spot.w !== '0' && (
+          {/* Dashed border highlight around the cutout */}
+          {spot.w > 0 && spot.h > 0 && (
             <div style={{
               position: 'absolute',
               left: spot.x,
               top: spot.y,
               width: spot.w,
               height: spot.h,
-              borderRadius: '8px',
+              borderRadius: '10px',
               border: '2px dashed #a5b4fc',
-              boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.75)',
-              zIndex: 2,
+              background: 'transparent',
+              zIndex: 3,
               transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
               pointerEvents: 'none',
+              boxShadow: '0 0 20px rgba(165, 180, 252, 0.15)',
             }} />
           )}
 
           {/* Step Card */}
           <div style={{
-            position: 'absolute',
             ...getCardStyle(),
-            zIndex: 3,
             background: '#fff', borderRadius: 16, padding: '1.8rem 2rem',
             maxWidth: 420, width: '90%',
             boxShadow: '0 30px 80px rgba(0,0,0,0.5)',
-            pointerEvents: 'all',
-            transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
-            minHeight: 220, display: 'flex', flexDirection: 'column'
+            minHeight: 200, display: 'flex', flexDirection: 'column'
           }}>
             {/* Progress dots */}
             <div style={{
@@ -329,7 +291,6 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
               ))}
             </div>
 
-
             {/* Climate step badge */}
             {step.isClimate && (
               <div style={{
@@ -337,7 +298,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
               }}>
                 <span style={{
                   display: 'inline-block',
-                  fontSize: '0.55rem', fontWeight: 800,
+                  fontSize: '0.68rem', fontWeight: 800,
                   letterSpacing: '0.12em', textTransform: 'uppercase',
                   padding: '3px 10px', borderRadius: 20,
                   background: 'rgba(16,185,129,0.12)',

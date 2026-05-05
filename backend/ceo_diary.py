@@ -1,5 +1,5 @@
 """
-Muressons Global Command — CEO Diary Narrative Engine
+Muressons Global Corporation — CEO Diary Narrative Engine
 Template-driven narrative generator that produces 2-sentence
 "CEO diary entries" after each round based on choices and outcomes.
 """
@@ -59,7 +59,7 @@ _ROUND_NARRATIVES: dict[int, dict[str, tuple[str, str]]] = {
         ),
         "option_b": (
             "The green bond was issued at a premium. The market believed in our transition story — for now.",
-            "Natural capital debt is falling, but slowly. The bond investors expect quarterly progress reports.",
+            "Natural capital debt is falling, but slowly. The bond investors expect periodic progress reports.",
         ),
         "option_c": (
             "Carbon offsets. The easy path. The analysts called it 'kicking the can down the road'.",
@@ -207,7 +207,7 @@ _EVENT_OVERLAYS: dict[str, str] = {
     "talent_penalty_applied": " Our best people are leaving. Brain drain is real.",
     "technology_lockin_penalty": " We're locked in. Diversification isn't an option anymore.",
     "stakeholder_fatigue_applied": " Stakeholder fatigue is setting in. Another crisis, another apology.",
-    "strike_triggered": " The strike paralysed operations. Revenue zeroed for the quarter.",
+    "strike_triggered": " The strike paralysed operations. Revenue zeroed for the period.",
     "divestment_pressure_active": " Institutional investors are demanding a credible decarbonisation pathway — or they walk.",
     "cbam_surcharge_applied": " The EU border carbon adjustment hit our import costs hard.",
     "loss_damage_levy_applied": " We're now contributing to the UN Loss & Damage Fund. The cost of inaction made real.",

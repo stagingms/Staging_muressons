@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Round Recap Engine
+﻿"""
+Muressons Global Corporation — Round Recap Engine
 "What Just Happened?" causal chain narrator.
 Generates a 3-item narrative recap of the most impactful engine interactions.
 

@@ -80,6 +80,14 @@ class TestRoundConfigs:
             assert "options" in cfg
             assert len(cfg["options"]) == 3
 
+    def test_noise_within_bounds(self):
+        """Inflation noise must be within ±0.4% (6-month period)."""
+        from engine import calc_macro_noise
+        for _ in range(100):
+            result = calc_macro_noise(5)
+            assert -0.004 <= result["inflation_noise"] <= 0.004
+            assert -0.07 <= result["carbon_price_noise_pct"] <= 0.07
+
     def test_each_round_has_crisis(self):
         for r in range(1, 11):
             crisis = get_round_crisis(r)
@@ -200,7 +208,7 @@ class TestPostTick:
         extra = post_tick(3, gs, bus, decs, {}, {})
         assert extra.get("supply_chain_disruption_applied") is True
         pharma = next(b for b in bus if b["bu_id"] == "pharma")
-        assert pharma["governance_risk_score"] == 25  # 15 + 10
+        assert pharma["governance_risk_score"] == 22  # 15 + 10 (disruption) - 3 (option governance_risk_delta)
 
     def test_r3_option_b_lowers_ncd(self):
         """R3 Option B should reduce Natural Capital Debt."""
@@ -574,29 +582,31 @@ class TestHRMechanics:
         assert new_burnout == 100.0
 
     def test_workforce_readiness_high_investment(self):
-        """High HR quality should increase readiness by +8."""
+        """High HR quality should increase readiness by +16."""
         from engine import calc_workforce_readiness
         new_readiness, diag = calc_workforce_readiness(50.0, True, "high")
-        assert new_readiness == 58.0
+        assert new_readiness == 66.0  # 50 + 16 (high tier delta)
         assert diag["hr_quality_tier"] == "high"
 
+
     def test_workforce_readiness_no_investment_decay(self):
-        """No HR investment should decay readiness by -5."""
+        """No HR investment should decay readiness by -10."""
         from engine import calc_workforce_readiness
         new_readiness, diag = calc_workforce_readiness(50.0, False, "none")
-        assert new_readiness == 45.0
-        assert diag["low_readiness_penalty"] is False  # 45 > 40
+        assert new_readiness == 40.0  # 50 - 10 (skills atrophy)
+        assert diag["low_readiness_penalty"] is False  # 40 is NOT < 40
 
     def test_workforce_readiness_low_penalty_threshold(self):
         """Readiness < 40 should flag low_readiness_penalty."""
         from engine import calc_workforce_readiness
         new_readiness, diag = calc_workforce_readiness(35.0, False, "none")
-        assert new_readiness == 30.0
+        assert new_readiness == 25.0  # 35 - 10
         assert diag["low_readiness_penalty"] is True
+
 
     def test_workforce_readiness_high_bonus_threshold(self):
         """Readiness > 75 should flag high_readiness_bonus."""
         from engine import calc_workforce_readiness
         new_readiness, diag = calc_workforce_readiness(74.0, True, "high")
-        assert new_readiness == 82.0
+        assert new_readiness == 90.0  # 74 + 16
         assert diag["high_readiness_bonus"] is True

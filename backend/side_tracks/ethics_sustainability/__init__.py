@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Ethics & Sustainability Side Track
+﻿"""
+Muressons Global Corporation — Ethics & Sustainability Side Track
 
 5-round deep dive into corporate ethics and sustainability:
   ES-R1: Ethical AI Governance & Algorithmic Bias

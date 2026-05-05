@@ -18,7 +18,7 @@ const CHOICE_COLORS = {
     option_d: '#8b5cf6', option_e: '#ef4444',
 };
 
-export default function PlatformAnalytics({ visibility = null }) {
+export default function PlatformAnalytics({ visibility = null, leaderboard = [], onNavigate, onSelectSession }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState('heatmap');
@@ -72,10 +72,10 @@ export default function PlatformAnalytics({ visibility = null }) {
             <div className={styles.panel}>
                 {tab === 'heatmap' && <DecisionHeatmap data={data.decision_heatmap} />}
                 {tab === 'timing' && <TimeToDecision data={data.time_to_decision} />}
-                {tab === 'cohorts' && <CohortComparison data={data.cohort_trajectories} />}
+                {tab === 'cohorts' && <CohortComparison data={data.cohort_trajectories} leaderboard={leaderboard} onNavigate={onNavigate} onSelectSession={onSelectSession} />}
                 {tab === 'convergence' && <ConvergenceAnalysis data={data.convergence} />}
                 {tab === 'learning' && <LearningOutcomes data={data.learning_outcomes} />}
-                {tab === 'risk' && <RiskExposure data={data.risk_exposure} />}
+                {tab === 'risk' && <RiskExposure data={data.risk_exposure} leaderboard={leaderboard} onNavigate={onNavigate} onSelectSession={onSelectSession} />}
             </div>
         </div>
     );
@@ -201,7 +201,7 @@ function TimeToDecision({ data }) {
 /* ═══════════════════════════════════════
    3. COHORT COMPARISON
    ═══════════════════════════════════════ */
-function CohortComparison({ data }) {
+function CohortComparison({ data, leaderboard, onNavigate, onSelectSession }) {
     if (!data || !Object.keys(data).length) return <EmptyState msg="No cohort data yet" />;
     const cohorts = Object.keys(data);
     const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -209,6 +209,15 @@ function CohortComparison({ data }) {
 
     const maxRound = Math.max(...cohorts.flatMap(c => data[c].map(d => d.round)));
     const maxVal = Math.max(...cohorts.flatMap(c => data[c].map(d => d[metric] || 0)), 1);
+
+    const handleDrillDown = (cohortName) => {
+        if (!leaderboard || !onNavigate || !onSelectSession) return;
+        const cohort = leaderboard.find(c => c.cohort_name === cohortName || c.session_id.startsWith(cohortName));
+        if (cohort) {
+            onSelectSession(cohort.session_id);
+            onNavigate('session_viewer');
+        }
+    };
 
     return (
         <div className={styles.section}>
@@ -273,7 +282,13 @@ function CohortComparison({ data }) {
             </div>
             <div className={styles.legend}>
                 {cohorts.map((c, i) => (
-                    <span key={c} className={styles.legendItem}>
+                    <span 
+                        key={c} 
+                        className={`${styles.legendItem} ${leaderboard?.length ? styles.clickable : ''}`}
+                        onClick={() => handleDrillDown(c)}
+                        title="Click to view cohort in Session Viewer"
+                        style={{ cursor: 'pointer' }}
+                    >
                         <span className={styles.legendDot} style={{ background: COLORS[i % COLORS.length] }} />
                         {c}
                     </span>
@@ -411,7 +426,7 @@ function LearningOutcomes({ data }) {
 /* ═══════════════════════════════════════
    6. RISK EXPOSURE
    ═══════════════════════════════════════ */
-function RiskExposure({ data }) {
+function RiskExposure({ data, leaderboard, onNavigate, onSelectSession }) {
     if (!data || !Object.keys(data).length) return <EmptyState msg="No risk data yet" />;
     const cohorts = Object.keys(data);
     const [metric, setMetric] = useState('avg_carbon_intensity');
@@ -424,6 +439,15 @@ function RiskExposure({ data }) {
     ];
 
     const maxVal = Math.max(...cohorts.flatMap(c => data[c].map(d => d[metric] || 0)), 1);
+
+    const handleDrillDown = (cohortName) => {
+        if (!leaderboard || !onNavigate || !onSelectSession) return;
+        const cohort = leaderboard.find(c => c.cohort_name === cohortName || c.session_id.startsWith(cohortName));
+        if (cohort) {
+            onSelectSession(cohort.session_id);
+            onNavigate('session_viewer');
+        }
+    };
 
     return (
         <div className={styles.section}>
@@ -440,7 +464,12 @@ function RiskExposure({ data }) {
             <div className={styles.riskTable}>
                 {cohorts.map((cname, ci) => (
                     <div key={cname} className={styles.riskCohort}>
-                        <div className={styles.riskName}>
+                        <div 
+                            className={styles.riskName}
+                            onClick={() => handleDrillDown(cname)}
+                            title="Click to view cohort in Session Viewer"
+                            style={{ cursor: 'pointer', textDecoration: 'underline', textDecorationColor: 'var(--border-subtle)' }}
+                        >
                             <span className={styles.legendDot} style={{ background: COLORS[ci % COLORS.length] }} />
                             {cname}
                         </div>

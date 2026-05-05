@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Pedagogical Engine
+﻿"""
+Muressons Global Corporation — Pedagogical Engine
 Pure-function module for metacognitive scaffolding, engine disclosure,
 formative assessment, and learner journey support.
 
@@ -589,6 +589,42 @@ DEFAULT_PEDAGOGICAL_TOGGLES = {
     "flag_diagram_enabled": True,          # Living flag dependency diagram
     "stochastic_labels_enabled": True,     # Always on
     "engine_summariser_enabled": True,     # Always on
+    # ── QW-1: Decision Timer (cognitive pressure) ──
+    "decision_timer_enabled": False,       # Facilitator toggle
+    "decision_timer_seconds": 300,         # 5 minutes default (configurable 180-600)
+    "decision_timer_warning_pct": 0.20,    # Show warning at 20% remaining
+    "decision_timer_auto_submit": False,   # Auto-submit on expiry (vs. penalty)
+    "decision_timer_penalty_reputation": -2, # Rep penalty if timer expires
+    # ── QW-5: Peer Learning Prompts ──
+    "peer_learning_prompts_enabled": True,  # Show between R5-R6
+    "peer_learning_prompts_rounds": [5, 6],  # Rounds where prompts appear
+    # ── SE-1: Board Governance Minigame ──
+    "board_governance_enabled": True,       # Board voting minigame
+    "board_governance_rounds": [3, 6],      # Rounds where board votes occur
+    # ── SE-2: Supply Chain Network ──
+    "supply_chain_network_enabled": True,   # 3-tier supply chain model
+    # ── SE-4: Biodiversity Engine ──
+    "biodiversity_engine_enabled": True,    # Ecosystem health tracking
+    # ── SE-5: Cross-Player Market Dynamics ──
+    "market_dynamics_enabled": False,       # Only in multiplayer sessions
+    # ── SE-6: Balance Sheet View ──
+    "balance_sheet_enabled": True,          # Balance sheet dashboard
+    # ── SE-7: Regulatory Sandbox ──
+    "regulatory_sandbox_enabled": False,    # Expert tier only
+    # ── SE-8: Dynamic Case Injection ──
+    "dynamic_cases_enabled": True,          # Context-aware case briefs
+    # ── SI-1: Non-Linear Branching ──
+    "branching_enabled": True,              # Archetype-based branching at R5
+    # ── SI-2: AI-Driven NPC Stakeholders ──
+    "npc_stakeholders_enabled": True,       # Dynamic NPC reactions
+    # ── SI-4: TCFD Scenario Analysis ──
+    "tcfd_scenarios_enabled": True,         # Scenario analysis tool
+    # ── SI-5: Organisational Politics ──
+    "org_politics_enabled": True,           # C-suite coalition mechanics
+    # ── Meadows Leverage Points ──
+    "meadows_leverage_enabled": True,       # Leverage point debrief overlay
+    # ── Senge System Archetypes ──
+    "system_archetypes_enabled": True,      # Archetype detection in debrief
 }
 
 
@@ -600,3 +636,111 @@ def get_pedagogical_toggles(session_overrides: dict | None = None) -> dict:
             if k in toggles:
                 toggles[k] = v
     return toggles
+
+
+# ═══════════════════════════════════════════════════════════════
+#  14. DECISION TIMER (QW-1)
+#      Configurable time pressure to prevent "solved game" optimisation
+#      and introduce realistic cognitive load.
+#      Kahneman (2011): Forces System 1 engagement under time pressure.
+# ═══════════════════════════════════════════════════════════════
+
+def get_timer_config(toggles: dict) -> dict:
+    """
+    Return timer configuration for the frontend.
+    Frontend should display countdown and handle expiry.
+    """
+    if not toggles.get("decision_timer_enabled"):
+        return {"enabled": False}
+
+    return {
+        "enabled": True,
+        "duration_seconds": toggles.get("decision_timer_seconds", 300),
+        "warning_threshold_pct": toggles.get("decision_timer_warning_pct", 0.20),
+        "auto_submit": toggles.get("decision_timer_auto_submit", False),
+        "expiry_penalty": {
+            "reputation_delta": toggles.get("decision_timer_penalty_reputation", -2),
+            "message": (
+                "⏰ TIME EXPIRED: Decision submitted with default allocations. "
+                "Real executives face constant time pressure — indecision has costs."
+            ),
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  15. PEER LEARNING PROMPTS (QW-5)
+#      Structured peer reflection prompts injected between rounds.
+#      Vygotsky (1978): Zone of Proximal Development through peer interaction.
+# ═══════════════════════════════════════════════════════════════
+
+PEER_LEARNING_PROMPTS = {
+    5: {
+        "title": "Mid-Game Peer Reflection",
+        "instructions": (
+            "Before proceeding to Round 6, share your strategic approach with "
+            "a peer (or reflect solo if in self-learning mode)."
+        ),
+        "prompts": [
+            {
+                "id": "strategy_compare",
+                "question": (
+                    "What was your biggest strategic trade-off so far? "
+                    "What did you sacrifice, and what did you gain?"
+                ),
+                "theory_note": "March (1991): Exploration vs Exploitation — which are you prioritising?",
+            },
+            {
+                "id": "surprise_factor",
+                "question": (
+                    "What surprised you most about the simulation so far? "
+                    "What outcome didn't match your expectations?"
+                ),
+                "theory_note": "Argyris (1977): Surprises signal gaps between your mental model and reality.",
+            },
+            {
+                "id": "advice_giving",
+                "question": (
+                    "If you could advise your peer on ONE thing to change in their "
+                    "strategy for R6-R10, what would it be? Why?"
+                ),
+                "theory_note": "Vygotsky (1978): Teaching others deepens your own understanding.",
+            },
+        ],
+    },
+    6: {
+        "title": "Strategic Pivot Reflection",
+        "instructions": (
+            "Round 6 introduces new system dynamics. Reflect on whether "
+            "your current approach needs to adapt."
+        ),
+        "prompts": [
+            {
+                "id": "mental_model_check",
+                "question": (
+                    "Has your understanding of 'what drives success' in this "
+                    "simulation changed since Round 1? What shifted?"
+                ),
+                "theory_note": "Argyris (1977): Double-loop learning = questioning your assumptions.",
+            },
+            {
+                "id": "system_pattern",
+                "question": (
+                    "Can you identify any reinforcing or balancing loops in the "
+                    "simulation? Where are you stuck in a loop?"
+                ),
+                "theory_note": "Senge (1990): System archetypes reveal hidden patterns.",
+            },
+        ],
+    },
+}
+
+
+def get_peer_prompts_for_round(round_number: int, toggles: dict) -> dict | None:
+    """Return peer learning prompts if enabled for this round."""
+    if not toggles.get("peer_learning_prompts_enabled"):
+        return None
+    prompt_rounds = toggles.get("peer_learning_prompts_rounds", [5, 6])
+    if round_number not in prompt_rounds:
+        return None
+    return PEER_LEARNING_PROMPTS.get(round_number)

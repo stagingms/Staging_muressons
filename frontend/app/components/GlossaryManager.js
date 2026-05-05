@@ -139,12 +139,12 @@ export default function GlossaryManager() {
                       {(t.tags || []).slice(0, 3).map(tag => (
                         <span key={tag} style={{
                           background: '#f0f4ff', color: '#6366f1',
-                          fontSize: '0.55rem', fontWeight: 700,
+                          fontSize: '0.68rem', fontWeight: 700,
                           padding: '1px 4px', borderRadius: 3,
                         }}>{tag}</span>
                       ))}
                       {(t.tags || []).length > 3 && (
-                        <span style={{ fontSize: '0.55rem', color: '#94a3b8' }}>+{t.tags.length - 3}</span>
+                        <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>+{t.tags.length - 3}</span>
                       )}
                     </div>
                   </td>

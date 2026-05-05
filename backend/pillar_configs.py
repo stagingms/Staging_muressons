@@ -1,4 +1,4 @@
-"""Muressons Global Command — Strategic Pillars Configuration
+﻿"""Muressons Global Corporation — Strategic Pillars Configuration
 Defines the 5-area decision options per round for the "multi_toggles" paradigm.
 Each round has options for: Energy, Operations, Supply Chain, Offsetting,
 and Human Resources.

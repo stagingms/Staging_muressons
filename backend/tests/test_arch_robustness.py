@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Post-Hardening Architectural Robustness Tests
+Muressons Global Corporation — Post-Hardening Architectural Robustness Tests
 Validates ARCH-001 (round_logic decomposition) and ARCH-002 (admin_router decomposition).
 
 Test Categories:
@@ -430,8 +430,8 @@ class TestTeleprompterDataIntegrity:
     def test_teleprompter_router_serves_scripts(self):
         """Functional test: router handler returns valid data."""
         import asyncio
-        from admin_teleprompter import get_teleprompter, get_all_teleprompter
-        result = asyncio.get_event_loop().run_until_complete(get_teleprompter(1))
+        from admin_teleprompter import get_teleprompter
+        result = asyncio.run(get_teleprompter(1))
         assert result["round"] == 1
         assert "script" in result
         assert "title" in result["script"]
@@ -446,9 +446,7 @@ class TestTeleprompterDataIntegrity:
         import asyncio
         from admin_teleprompter import get_paradigm_teleprompter
         # Round 1 has overlays for all paradigms
-        result = asyncio.get_event_loop().run_until_complete(
-            get_paradigm_teleprompter(1, paradigm)
-        )
+        result = asyncio.run(get_paradigm_teleprompter(1, paradigm))
         assert result["paradigm"] == paradigm
         overlay = result["script"].get("paradigm_overlay", {})
         assert overlay_key in overlay, f"No {overlay_key} in {paradigm} R1 overlay"
@@ -457,9 +455,7 @@ class TestTeleprompterDataIntegrity:
         """Legacy ABC paradigm should NOT have a paradigm_overlay."""
         import asyncio
         from admin_teleprompter import get_paradigm_teleprompter
-        result = asyncio.get_event_loop().run_until_complete(
-            get_paradigm_teleprompter(1, "legacy_abc")
-        )
+        result = asyncio.run(get_paradigm_teleprompter(1, "legacy_abc"))
         assert "paradigm_overlay" not in result["script"]
 
     def test_paradigm_coverage_summary(self):

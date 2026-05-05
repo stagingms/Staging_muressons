@@ -1,5 +1,5 @@
 """
-Muressons Global Command - Admin Teleprompter Sub-Router (ARCH-002)
+Muressons Global Corporation - Admin Teleprompter Sub-Router (ARCH-002)
 Extracted from admin_router.py to reduce monolith size.
 
 Contains:
@@ -115,7 +115,7 @@ _TELEPROMPTER_SCRIPTS = {
                 "issue is Q1 — nature loss = production collapse. Ask: 'What is the difference between "
                 "climate risk (TCFD) and nature risk (TNFD)? Why does agriculture sit at the intersection?'"
             ),
-            "financial_services": (
+            "banking_financial_services": (
                 "🏦 FINANCIAL SERVICES INSIGHT: The sfdr_greenwashing_risk issue is Q1. "
                 "EU SFDR (Sustainable Finance Disclosure Regulation) Article 8/9 fund mislabelling "
                 "is both high financial (fund outflows, fines up to 10% AUM) AND high societal "
@@ -223,6 +223,14 @@ _TELEPROMPTER_SCRIPTS = {
             "what_to_watch": "The Board Mood indicator will start shifting colour from R3 based on reputation trajectory. Point this out.",
             "ui_tip": "Round-tier CSS will auto-transition from Foundation (clean) to Crisis (urgent) at R4. The UI will feel visually different.",
         },
+        "autonomous_agents_debrief": {
+            "likely_stage": "dormant → watching",
+            "facilitator_note": "By R3, agents with low patience (Greta Berg / Gen Z, Jay Buffet / Journalist) may have entered WATCHING if metrics are poor. Check the Autonomous Stakeholders panel.",
+            "debrief_if_watching": [
+                "An autonomous stakeholder has started monitoring your performance. Which agent is it, and what metric triggered their attention?",
+                "The Gen Z Employee (Greta Berg) has the fastest decay rate — she notices problems before others. What does this tell us about generational expectations in ESG?",
+            ],
+        },
     },
     4: {
         "title": "Round 4: Contagion — The R1 Reckoning ★ KEY DEBRIEF ROUND ★",
@@ -287,6 +295,15 @@ _TELEPROMPTER_SCRIPTS = {
             "discussion_prompt": "In Round 1, teams classified the General Public as 'Monitor' — low power, low interest. After this crisis, they are 'Manage Closely'. Ask: what changed? (Answer: The crisis gave them URGENCY. Social media gave them POWER. Mitchell et al. call this salience activation.)",
             "theory": "Ackermann & Eden (2011): Salience is dynamic, not static. A stakeholder's power/interest classification is only valid until the next crisis event. Every Mendelow's Matrix is a snapshot, not a map.",
         },
+        "autonomous_agents_debrief": {
+            "likely_stage": "watching → agitated",
+            "facilitator_note": "R4 crisis damage often pushes 2-3 agents from WATCHING to AGITATED. Teams who chose Surface Scan in R1 may see the Journalist and Community Activist escalate simultaneously.",
+            "debrief_if_agitated": [
+                "Multiple stakeholders are now publicly critical. How does this compound the R4 contagion crisis?",
+                "Jay Buffet (Journalist) has the most cascade targets — if he triggers, he pulls 3 other agents toward action. What real-world dynamic does this model? (Answer: media amplification of corporate crises)",
+                "Compare the Regulator's 'methodical' escalation with the Gen Z Employee's 'passionate' escalation. Which is more dangerous to your terminal value, and why?",
+            ],
+        },
     },
     5: {
         "title": "Round 5: Climate — Physical Climate Risk & Infrastructure Lead Times",
@@ -334,8 +351,17 @@ _TELEPROMPTER_SCRIPTS = {
         "student_ux_coaching": {
             "ux_gap": "The stochastic dice roll (75% probability) happens invisibly in the backend. Students miss the core risk vs. resilience lesson.",
             "facilitator_prompt": "Before students commit, say: 'There is a 75% chance that a Category 4 cyclone will hit your operations THIS ROUND, regardless of your choice. Your decision is about FUTURE resilience, not current protection.' Make the randomness explicit.",
-            "what_to_watch": "Students may feel cheated when damage occurs despite their investment. Explain: 'Your infrastructure takes 2 rounds to build. This is realistic — you cannot retrofit a factory in a quarter.'",
+            "what_to_watch": "Students may feel cheated when damage occurs despite their investment. Explain: 'Your infrastructure takes 2 rounds to build. This is realistic — you cannot retrofit a factory in a single period.'",
             "ui_tip": "After commit, the results overlay will show the Prediction vs. Reality comparison. Ask students: 'Did you predict the cyclone damage?'",
+        },
+        "autonomous_agents_debrief": {
+            "likely_stage": "agitated → hostile",
+            "facilitator_note": "R5 is when the first agents may reach HOSTILE. The Community Activist (Megha Patrike) often leads — she has the lowest initial tolerance (65) and monitors water stress, which spikes during climate rounds.",
+            "debrief_if_hostile": [
+                "A stakeholder is now actively preparing action against your company. Could you have prevented this? At which round was the 'point of no return'?",
+                "How does the asymmetric decay/recovery rate reflect real-world dynamics? (Gen Z: decay 10, recovery 5 vs Investor: decay 6, recovery 2)",
+                "The Community Activist monitors water stress and social license — both of which are affected by your R5 climate decision. How does physical climate risk create social risk?",
+            ],
         },
     },
     6: {
@@ -401,6 +427,20 @@ _TELEPROMPTER_SCRIPTS = {
                 ],
             },
         },
+        "autonomous_agents_debrief": {
+            "likely_stage": "hostile \u2192 FIRST TRIGGER possible",
+            "facilitator_note": "\u26a0\ufe0f R6 is the earliest round a trigger can fire under sustained poor management. The Gen Z Employee (Greta Berg, tolerance decay=10) or Journalist (Jay Buffet, decay=9) are most likely. Check the panel for HOSTILE agents.",
+            "debrief_if_triggered": [
+                "\u2605 A stakeholder has TRIGGERED. Read the crisis event aloud. Which agent was it? What was the cascading effect on other agents?",
+                "The triggered agent's cascade chain has damaged other agents' tolerance. Can you identify the domino effect in your dashboard?",
+                "Could you have prevented this trigger? Which specific metric(s) would you have needed to improve, and by how much?",
+                "If Greta Berg (Gen Z) triggered a strike: 78% of your workforce participated. What does this tell you about the relationship between employee engagement and operational continuity?",
+            ],
+            "debrief_cascade_chain": [
+                "The cascade chain creates a domino effect \u2014 one negligent trigger pulls others toward action. How does this mirror real-world corporate crises? (Example: Rana Plaza collapse triggered regulatory, investor, and media responses simultaneously)",
+                "If you could reset ONE agent's tolerance to maximum, which would you choose and why?",
+            ],
+        },
     },
     7: {
         "title": "Round 7: Circularity — Synergy Unlock & Workforce Readiness Test",
@@ -457,6 +497,15 @@ _TELEPROMPTER_SCRIPTS = {
             "ui_tip": "From R7+, the round-tier shifts to Integration — the UI automatically surfaces more historical data and cross-round analytics.",
         },
         "pillar_guidance": "For pillar teams: Mutual exclusivity is enforced in R7. Teams cannot combine synergy_unlock AND circular_redesign — they must choose one strategic path. If both are selected, synergy_unlock takes priority and circular_redesign impacts are reversed.",
+        "autonomous_agents_debrief": {
+            "likely_stage": "TRIGGER + CASCADE CHAIN",
+            "facilitator_note": "By R7, poorly-managed teams may have 1-2 triggered agents with active cascade chains. The Journalist's cascade (→ Regulator, Investor, Community) is the most devastating. Well-managed teams should still have agents in dormant/watching.",
+            "debrief_multi_trigger": [
+                "How many of your autonomous stakeholders are in hostile or triggered state? What pattern do you see in the metrics that caused this?",
+                "The Institutional Investor (Marcus Chen-Hoffmann) is the most patient agent but the hardest to recover. If he's in HOSTILE, what does that signal about your long-term financial credibility?",
+                "Compare your team's agent states with another team. What strategic choices explain the difference?",
+            ],
+        },
     },
     8: {
         "title": "Round 8: Blue Stress — Water Scarcity & Equitable Resource Allocation",
@@ -515,6 +564,15 @@ _TELEPROMPTER_SCRIPTS = {
                 ],
             },
         },
+        "autonomous_agents_debrief": {
+            "likely_stage": "MULTIPLE TRIGGERS + SYSTEMIC CASCADE",
+            "facilitator_note": "R8 water crisis often triggers the Community Activist (Megha Patrike) via water stress and social license collapse. If Option B (Prioritise Electronics) is chosen, expect −25 SLO to push Patrike into HOSTILE/TRIGGERED.",
+            "debrief_water_cascade": [
+                "The Community Activist (Megha Patrike) monitors water stress directly. How did your R8 water allocation decision affect her tolerance?",
+                "If Patrike triggered a Community Blockade: 'Muressons has destroyed our water table.' How does this connect to your R5 climate infrastructure choice?",
+                "The cascade from Community Activist hits the Journalist AND the Gen Z Employee. Why does community anger amplify through these specific channels?",
+            ],
+        },
     },
     9: {
         "title": "Round 9: Just Transition — The Social Cost of Decarbonisation",
@@ -566,6 +624,16 @@ _TELEPROMPTER_SCRIPTS = {
             "How does your burnout score reflect your HR investment strategy?",
             "Is the $20M Community Fund worth +0.18 M_R? What's the real-world equivalent?",
         ],
+        "autonomous_agents_debrief": {
+            "likely_stage": "SYSTEMIC COLLAPSE for negligent teams",
+            "facilitator_note": "R9 is where cascade chains complete. Teams with 3+ triggered agents are experiencing the simulation's full 'stakeholder systemic failure' mode. The Regulator's fine (4% revenue) and Investor's divestment (−8% treasury, +200bps cost of capital) are compounding.",
+            "debrief_systemic_failure": [
+                "★ CAPSTONE AGENT QUESTION: Trace the cascade chain from your FIRST triggered agent to your LAST. What was the domino sequence?",
+                "The Institutional Investor (Marcus Chen-Hoffmann) has the slowest recovery rate (2/round). If he triggered, can you mathematically recover before R10? What does this teach about institutional trust?",
+                "Compare: the Gen Z Employee's fast decay/fast recovery with the Investor's slow decay/slow recovery. What different engagement strategies would you use for each in a real company?",
+                "If ALL 5 agents have triggered: your company has experienced total stakeholder system failure. In real-world terms, name a company that experienced something similar. (Examples: Wirecard, Theranos, Lehman Brothers)",
+            ],
+        },
         "student_ux_coaching": {
             "ux_gap": "Strike probability is delivered as a mailbox message, not a visual threat meter. The just transition stakes feel abstract.",
             "facilitator_prompt": "Read the strike probability ALOUD: 'Your team has a X% chance of losing ALL revenue next round.' Let the room react. Then say: 'This probability is a FUNCTION of your burnout index. Open your Advanced Metrics. What is your burnout?'",
@@ -656,6 +724,18 @@ _TELEPROMPTER_SCRIPTS = {
             "what_to_watch": "The Consequence DNA panel now shows the complete 10-round causal chain. This IS the debrief. Project one team's DNA chain on the screen.",
             "ui_tip": "The Prediction vs. Reality comparison will appear after commit, showing metacognitive accuracy across all rounds. Use this as a discussion trigger: 'Were you getting BETTER at predicting outcomes as the game progressed?'",
         },
+        "autonomous_agents_debrief": {
+            "likely_stage": "FINAL STATE — full agent audit",
+            "facilitator_note": "Display each team's final agent state. The agent panel IS a stakeholder management report card. Teams with all agents in dormant/watching achieved stakeholder excellence. Teams with 3+ triggers experienced systemic stakeholder failure.",
+            "debrief_final_audit": [
+                "★ AGENT REPORT CARD: How many agents are in each stage? (dormant/watching/agitated/hostile/triggered). What grade would you give your stakeholder management?",
+                "Which agent triggered FIRST in your simulation? What metrics caused it? Could you have prevented the cascade chain?",
+                "The Journalist (Jay Buffet) has the most cascade targets (3). How does media amplification accelerate corporate crises in practice?",
+                "Compare the Gen Z Employee's fast decay/fast recovery with the Institutional Investor's slow decay/slow recovery. What does this tell you about different stakeholder engagement strategies in your future career?",
+                "If you could replay the simulation with ONLY the goal of keeping all agents in dormant, which 3 decisions would you change?",
+                "★ TRANSFER: Name one real-world stakeholder in your industry who behaves like each of the 5 agents. How would you manage them differently after this experience?",
+            ],
+        },
     },
 }
 
@@ -704,6 +784,109 @@ async def get_teleprompter(round_number: int):
 @teleprompter_router.get("/teleprompter", summary="Get all teleprompter scripts")
 async def get_all_teleprompter():
     return {"scripts": _TELEPROMPTER_SCRIPTS}
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AUTONOMOUS AGENT LIVE STATE (Session-Aware)
+#  Facilitator reads live agent states for a specific session
+#  to surface context-appropriate debrief questions.
+# ═══════════════════════════════════════════════════════════════
+
+_AGENT_DEBRIEF_BANK = {
+    "dormant": [],
+    "watching": [
+        "An autonomous stakeholder has started monitoring your company. What metric crossed their red line?",
+        "Which agent entered WATCHING first? What does their personality type tell you about their priorities?",
+    ],
+    "agitated": [
+        "A stakeholder is now publicly critical. How does this affect your reputation trajectory?",
+        "Compare the Regulator's 'methodical' escalation with the Gen Z Employee's 'passionate' escalation. Which is more dangerous?",
+    ],
+    "hostile": [
+        "A stakeholder is preparing action. Could you have prevented this? At which round was the 'point of no return'?",
+        "How does the asymmetric decay/recovery rate (fast to anger, slow to forgive) reflect real-world trust dynamics?",
+    ],
+    "triggered": [
+        "\u2605 A stakeholder has TRIGGERED. Read the crisis event aloud. What was the cascading effect on other agents?",
+        "Could you have prevented this trigger? Which metric(s) needed improvement, and by how much?",
+        "The cascade chain creates a domino effect. How does this mirror real-world corporate crises?",
+        "If you could reset ONE agent's tolerance to maximum, which would you choose and why?",
+    ],
+}
+
+
+@teleprompter_router.get(
+    "/teleprompter/agents/{session_id}",
+    summary="Get live autonomous agent state + contextual debrief questions for a session",
+)
+async def get_agent_teleprompter(session_id: str):
+    """Reads live agent state from a session and returns contextual debrief questions."""
+    try:
+        from persistence import load_state
+        state = load_state(session_id)
+        if not state:
+            return {"session_id": session_id, "agents": None, "message": "Session not found"}
+
+        gs = state.get("global_state", {})
+        aa_state = gs.get("autonomous_agents", {})
+        agents_raw = aa_state.get("agents", {})
+
+        if not agents_raw:
+            return {"session_id": session_id, "agents": None, "message": "Autonomous agents not active"}
+
+        from autonomous_agents import AGENT_PROFILES, get_agent_summary
+        summary = get_agent_summary(aa_state)
+
+        # Build facilitator-facing alert card per agent
+        agent_alerts = []
+        worst_stage = "dormant"
+        stage_order = {"dormant": 0, "watching": 1, "agitated": 2, "hostile": 3, "triggered": 4}
+
+        for agent in summary:
+            stage = agent.get("stage", "dormant")
+            if stage_order.get(stage, 0) > stage_order.get(worst_stage, 0):
+                worst_stage = stage
+
+            profile = AGENT_PROFILES.get(agent["agent_id"], {})
+            alert = {
+                "agent_id": agent["agent_id"],
+                "name": agent["name"],
+                "icon": agent["icon"],
+                "stage": stage,
+                "tolerance": agent["tolerance"],
+                "max_tolerance": agent["max_tolerance"],
+                "tolerance_pct": round(agent["tolerance"] / max(agent["max_tolerance"], 1) * 100, 1),
+                "trend": agent["trend"],
+                "patience_counter": agent["patience_counter"],
+                "triggered_round": agent.get("triggered_round"),
+                "dialogue": profile.get("stage_dialogue", {}).get(stage, ""),
+            }
+            agent_alerts.append(alert)
+
+        # Select contextual debrief questions based on worst stage
+        debrief_questions = _AGENT_DEBRIEF_BANK.get(worst_stage, [])
+
+        # Add cascade log summary
+        cascade_log = aa_state.get("cascade_log", [])
+        total_triggers = aa_state.get("total_triggers", 0)
+
+        return {
+            "session_id": session_id,
+            "round_number": state.get("round_number", 1),
+            "worst_stage": worst_stage,
+            "total_triggers": total_triggers,
+            "agents": agent_alerts,
+            "contextual_debrief_questions": debrief_questions,
+            "cascade_log": cascade_log[-10:],  # Last 10 cascades
+            "facilitator_alert": (
+                f"\u26a0\ufe0f {total_triggers} agent(s) triggered. Worst stage: {worst_stage.upper()}. "
+                f"Use the debrief questions below."
+                if total_triggers > 0 else
+                f"Agent system active. Worst stage: {worst_stage.upper()}."
+            ),
+        }
+    except Exception as exc:
+        return {"session_id": session_id, "agents": None, "error": str(exc)}
 
 
 # ═══════════════════════════════════════════════════════════════

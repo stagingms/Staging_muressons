@@ -181,9 +181,14 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
 
                     {!loading && notebooks.length === 0 && filteredNew.length === 0 && filteredArchive.length === 0 && (
                         <div className={styles.empty}>
-                            {search ? 'No resources match your search.' : 'No resources have been unlocked yet. Your facilitator will release them as the simulation progresses.'}
+                            {search
+                                ? 'No resources match your search.'
+                                : (sessionId === 'demo' || !sessionId)
+                                    ? '📚 Resources are unlocked round-by-round in live facilitated sessions. Start a cohort session with your facilitator to access learning materials.'
+                                    : 'No resources have been unlocked for this round yet. Your facilitator will release them as the simulation progresses.'}
                         </div>
                     )}
+
 
                     {/* Learning Hub (was NotebookLM Hub) */}
                     {notebooks.length > 0 && (

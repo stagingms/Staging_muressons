@@ -4,7 +4,7 @@ import styles from './GodModeStatus.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-export default function GodModeStatus() {
+export default function GodModeStatus({ facilitatorId }) {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -97,11 +97,13 @@ export default function GodModeStatus() {
                     <span>💰 Avg Treasury</span>
                     <strong>${status.avg_treasury}M</strong>
                     <div className={styles.bar}><div className={styles.barFill} style={{ width: `${Math.min(status.avg_treasury, 100)}%`, background: '#10b981' }} /></div>
+                    {status.avg_treasury === 0 && <span style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic' }}>No rounds committed yet</span>}
                 </div>
                 <div className={styles.gauge}>
                     <span>⭐ Avg Reputation</span>
                     <strong>{status.avg_reputation}</strong>
                     <div className={styles.bar}><div className={styles.barFill} style={{ width: `${Math.min(status.avg_reputation, 100)}%`, background: '#f59e0b' }} /></div>
+                    {status.avg_reputation === 0 && <span style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic' }}>No rounds committed yet</span>}
                 </div>
             </div>
 
@@ -180,34 +182,35 @@ export default function GodModeStatus() {
                                     alignItems: 'center',
                                 }}>
                                     {[
-                                        { key: 'prediction_gates_enabled', label: '🔮 Predictions', default: false },
-                                        { key: 'confidence_calibration_enabled', label: '🎰 Confidence', default: false },
-                                        { key: 'board_room_moments_enabled', label: '🏢 Board Room', default: true },
-                                        { key: 'round_recap_enabled', label: '📋 Recap', default: false },
-                                        { key: 'real_world_cards_enabled', label: '🌍 Case Cards', default: false },
-                                        { key: 'strategy_memo_enabled', label: '📝 Memo', default: false },
-                                        { key: 'debrief_protocol_enabled', label: '🎭 Debrief', default: false },
-                                        { key: 'self_learning_mode', label: '🎓 Self-Learn', default: false },
-                                        { key: 'r6_revelation_enabled', label: '🚨 R6 Twist', default: true },
-                                        { key: 'r7_budget_allocation_enabled', label: '♻️ R7 Budget', default: true },
-                                        { key: 'r8_tribunal_enabled', label: '⚖️ R8 Tribunal', default: true },
+                                        { key: 'prediction_gates_enabled', label: '🔮 Predictions', default: false, tip: 'Students must predict outcomes before submitting decisions. Forces metacognitive reflection — "What do I think will happen?"' },
+                                        { key: 'confidence_calibration_enabled', label: '🎰 Confidence', default: false, tip: 'Students rate their confidence (1-5) in each prediction. Tracks calibration accuracy over rounds to reveal overconfidence bias.' },
+                                        { key: 'board_room_moments_enabled', label: '🏢 Board Room', default: true, tip: 'Triggers Boardroom Showdown mini-game at key rounds. Students defend their strategy under simulated board scrutiny.' },
+                                        { key: 'round_recap_enabled', label: '📋 Recap', default: false, tip: 'Shows an auto-generated summary at round end: key decisions, KPI deltas, and engine events. Reduces need for facilitator verbal recap.' },
+                                        { key: 'real_world_cards_enabled', label: '🌍 Case Cards', default: false, tip: 'Surfaces real-world case study cards (e.g. BP Deepwater, Unilever Living Plan) when relevant engine events fire.' },
+                                        { key: 'strategy_memo_enabled', label: '📝 Memo', default: false, tip: 'Students write a strategy memo before Round 1, then compare against actual outcomes post-game. Encourages strategic planning.' },
+                                        { key: 'debrief_protocol_enabled', label: '🎭 Debrief', default: false, tip: 'Enables structured debrief protocol at game end: guided reflection questions, peer discussion prompts, and learning journal.' },
+                                        { key: 'self_learning_mode', label: '🎓 Self-Learn', default: false, tip: 'Activates solo self-paced mode with AI-guided hints and contextual help. For asynchronous or flipped-classroom use.' },
+                                        { key: 'r6_revelation_enabled', label: '🚨 R6 Twist', default: true, tip: 'Round 6 narrative twist: a major revelation event (e.g. supply chain scandal, regulatory change) that forces strategic pivot.' },
+                                        { key: 'r7_budget_allocation_enabled', label: '♻️ R7 Budget', default: true, tip: 'Round 7 budget allocation challenge: students must prioritize competing sustainability investments under constrained capital.' },
+                                        { key: 'r8_tribunal_enabled', label: '⚖️ R8 Tribunal', default: true, tip: 'Round 8 stakeholder tribunal: students face a simulated ESG tribunal and must justify their track record.' },
                                     ].map(t => (
                                         <button
                                             key={t.key}
+                                            title={t.tip}
                                             onClick={async () => {
                                                 const next = !settings[t.key];
                                                 const res = await fetch(`${API}/api/admin/global-settings`, {
                                                     method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json' },
+                                                    headers: { 'Content-Type': 'application/json', ...(facilitatorId ? { 'X-Facilitator-Id': facilitatorId } : {}) },
                                                     body: JSON.stringify({ [t.key]: next }),
                                                 });
                                                 if (res.ok) { loadSettings(); setSettingsStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); setTimeout(() => setSettingsStatus(''), 3000); }
                                             }}
                                             style={{
-                                                padding: '2px 8px', borderRadius: 4, border: 'none',
+                                                padding: '3px 9px', borderRadius: 4, border: 'none',
                                                 background: settings[t.key] ? 'rgba(168,85,247,0.15)' : 'rgba(148,163,184,0.08)',
                                                 color: settings[t.key] ? '#c084fc' : '#64748b',
-                                                fontWeight: 700, fontSize: '0.58rem', cursor: 'pointer',
+                                                fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
                                                 transition: 'all 0.15s',
                                             }}
                                         >
@@ -215,6 +218,95 @@ export default function GodModeStatus() {
                                         </button>
                                     ))}
                                 </div>
+                            </div>
+                        </div>
+
+                        {/* ── System Engine Modules Controls ── */}
+                        <div className={styles.controlCard} style={{
+                            borderLeft: settings.biodiversity_engine_enabled || settings.board_governance_enabled
+                                ? '3px solid #10b981' : '3px solid rgba(148,163,184,0.15)',
+                        }}>
+                            <div style={{ flex: 1 }}>
+                                <div className={styles.controlTitle}>🔬 System Engine Modules</div>
+                                <div className={styles.controlDesc}>
+                                    High-fidelity simulation engines. Toggle modules for different cohort complexity levels.
+                                    <span style={{ fontSize: '0.6rem', color: '#4ade80', fontStyle: 'italic', marginLeft: 4 }}>
+                                        Disabled engines skip gracefully — no data loss
+                                    </span>
+                                </div>
+
+                                <div style={{
+                                    display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem',
+                                    alignItems: 'center',
+                                }}>
+                                    {[
+                                        { key: 'biodiversity_engine_enabled', label: '🌿 Biodiversity', default: true, tip: 'TNFD-aligned ecosystem health tracking. Tracks Ecosystem Health Index (EHI), deforestation risk, and water stress across BUs.' },
+                                        { key: 'balance_sheet_enabled', label: '📊 Balance Sheet', default: true, tip: 'Full double-entry balance sheet: assets, liabilities, equity, D/E ratio, and covenant monitoring. Adds financial realism.' },
+                                        { key: 'board_governance_enabled', label: '🏛️ Board Gov', default: true, tip: 'Board of Directors simulation: director profiles, ESG alignment scores, voting resolutions, and activist investor pressure.' },
+                                        { key: 'supply_chain_network_enabled', label: '🔗 Supply Chain', default: true, tip: '3-tier supply chain network with Scope 3 emissions estimation, supplier audit trails, and cascading risk propagation.' },
+                                        { key: 'npc_stakeholders_enabled', label: '👥 NPC Agents', default: true, tip: 'AI-ready NPC stakeholders (activist investor, regulator, community leader, media) that react dynamically to player decisions.' },
+                                        { key: 'org_politics_enabled', label: '🤝 Org Politics', default: true, tip: 'C-suite coalition dynamics: political capital, departmental resistance, and internal change management friction.' },
+                                        { key: 'branching_enabled', label: '🔀 Branching', default: true, tip: 'Non-linear R5 branching: classifies players into archetypes (Regenerative Leader, Pragmatic Optimizer, etc.) with adaptive crisis severity.' },
+                                        { key: 'dynamic_cases_enabled', label: '📰 Case Studies', default: true, tip: 'Contextual real-world case injection (BP, VW, Danone, Patagonia) triggered by matching game state conditions.' },
+                                        { key: 'tcfd_scenarios_enabled', label: '🌡️ TCFD', default: true, tip: 'TCFD-aligned climate scenario analysis: orderly 1.5°C, disorderly 2°C, and hothouse 4°C pathway projections.' },
+                                        { key: 'meadows_leverage_enabled', label: '🎯 Leverage Pts', default: true, tip: 'Donella Meadows leverage point analysis for post-game debrief. Identifies where systemic interventions had maximum effect.' },
+                                        { key: 'system_archetypes_enabled', label: '🔄 Archetypes', default: true, tip: 'Peter Senge system archetype detection: shifting the burden, fixes that fail, limits to growth, tragedy of the commons.' },
+                                        { key: 'peer_learning_prompts_enabled', label: '💬 Peer Prompts', default: true, tip: 'Mid-game and post-game peer reflection prompts at R5 and R10. Encourages collaborative sense-making.' },
+                                        { key: 'decision_timer_enabled', label: '⏱️ Timer', default: false, tip: 'Cognitive pressure timer: forces decisions within a time limit. Simulates real boardroom time pressure.' },
+                                        { key: 'market_dynamics_enabled', label: '📈 Market Sim', default: false, tip: 'Cross-player market dynamics for multiplayer: shared carbon credit pool, competitive talent hiring, scarcity pricing.' },
+                                        { key: 'regulatory_sandbox_enabled', label: '⚖️ Reg Sandbox', default: false, tip: 'Expert-tier regulatory design: students create carbon taxes, ETS, disclosure mandates with configurable parameters.' },
+                                    ].map(t => (
+                                        <button
+                                            key={t.key}
+                                            title={t.tip}
+                                            onClick={async () => {
+                                                const next = !settings[t.key];
+                                                const res = await fetch(`${API}/api/admin/global-settings`, {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json', ...(facilitatorId ? { 'X-Facilitator-Id': facilitatorId } : {}) },
+                                                    body: JSON.stringify({ [t.key]: next }),
+                                                });
+                                                if (res.ok) { loadSettings(); setSettingsStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); setTimeout(() => setSettingsStatus(''), 3000); }
+                                            }}
+                                            style={{
+                                                padding: '3px 9px', borderRadius: 4, border: 'none',
+                                                background: settings[t.key] ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.08)',
+                                                color: settings[t.key] ? '#4ade80' : '#64748b',
+                                                fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
+                                                transition: 'all 0.15s',
+                                            }}
+                                        >
+                                            {settings[t.key] ? '●' : '○'} {t.label}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Decision Timer Duration (only when timer is enabled) */}
+                                {settings.decision_timer_enabled && (
+                                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>⏱️ Timer:</span>
+                                        <input
+                                            type="number"
+                                            min="60" max="600" step="30"
+                                            value={settings.decision_timer_seconds || 300}
+                                            onChange={async (e) => {
+                                                const val = parseInt(e.target.value) || 300;
+                                                const res = await fetch(`${API}/api/admin/global-settings`, {
+                                                    method: 'PATCH',
+                                                    headers: { 'Content-Type': 'application/json', ...(facilitatorId ? { 'X-Facilitator-Id': facilitatorId } : {}) },
+                                                    body: JSON.stringify({ decision_timer_seconds: val }),
+                                                });
+                                                if (res.ok) loadSettings();
+                                            }}
+                                            style={{
+                                                width: '70px', padding: '2px 6px', borderRadius: 4,
+                                                border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
+                                                color: 'var(--text-primary)', fontSize: '0.72rem', fontWeight: 600,
+                                            }}
+                                        />
+                                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>seconds per round</span>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -239,7 +331,7 @@ export default function GodModeStatus() {
                                 background: 'rgba(99,102,241,0.04)',
                                 border: '1px solid rgba(99,102,241,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8', marginBottom: '0.5rem' }}>
                                     🏦 Monetary Policy Distribution
                                 </div>
                                 {Object.entries(h.macro_rate_distribution || {}).map(([regime, count]) => (
@@ -257,7 +349,7 @@ export default function GodModeStatus() {
                                 background: 'rgba(168,85,247,0.04)',
                                 border: '1px solid rgba(168,85,247,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#a78bfa', marginBottom: '0.5rem' }}>
                                     🗺️ Active Ending Pathways
                                 </div>
                                 {Object.keys(h.pathway_distribution || {}).length > 0 ? Object.entries(h.pathway_distribution).map(([path, count]) => (
@@ -276,7 +368,7 @@ export default function GodModeStatus() {
                                 background: 'rgba(16,185,129,0.04)',
                                 border: '1px solid rgba(16,185,129,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#10b981', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#10b981', marginBottom: '0.5rem' }}>
                                     🌿 Stochastic Outcomes
                                 </div>
                                 <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginBottom: '0.3rem' }}>
@@ -295,7 +387,7 @@ export default function GodModeStatus() {
                                 background: 'rgba(245,158,11,0.04)',
                                 border: '1px solid rgba(245,158,11,0.15)',
                             }}>
-                                <div style={{ fontSize: '0.62rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f59e0b', marginBottom: '0.5rem' }}>
+                                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#f59e0b', marginBottom: '0.5rem' }}>
                                     📋 Regulatory Exposure
                                 </div>
                                 <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginBottom: '0.3rem' }}>

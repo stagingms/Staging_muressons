@@ -90,13 +90,13 @@
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
   color: #94a3b8;
-  font-size: 0.52rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   text-align: center;
 }
 
@@ -127,7 +127,7 @@
   border-radius: 8px !important;
   padding: 8px 12px !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
 }
 
 .tooltipLabel {

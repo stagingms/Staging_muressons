@@ -1,0 +1,133 @@
+{
+  "consultant_fee_usd": 1500000,
+  "issues": [
+    {
+      "id": "methane_leakage",
+      "title": "Methane Leakage (OGMP 2.0)",
+      "hover_description": "Scope 1 fugitive emissions; OGMP 2.0 Level 5 reporting mandatory by 2025. 80x more potent than CO2 over 20yr. ESRS E1 mandatory.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 8000000,
+      "esrs_topic": "E1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "stranded_asset_risk",
+      "title": "Stranded Asset Risk (Proven Reserves)",
+      "hover_description": "AMBIGUOUS: For a company in denial this is Q3. For one that has read the IEA NZE 2050 report, unextracted reserves face write-down risk making this Q1. Where do you stand?",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 5000000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "long",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": true
+    },
+    {
+      "id": "just_transition_refinery",
+      "title": "Just Transition for Refinery Workforce",
+      "hover_description": "2,400 workers at 3 refineries face redundancy. ILO Just Transition Guidelines; ESRS S1 mandatory. Retraining cost vs. long-term SLO preservation.",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 12000000,
+      "esrs_topic": "S1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "medium",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "water_contamination",
+      "title": "Water Contamination from Fracking",
+      "hover_description": "Groundwater incidents at 2 shale sites. Community litigation risk; EPA enforcement. Severity HIGH, irreversible. ESRS E3 mandatory.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 6000000,
+      "esrs_topic": "E3",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 3,
+      "is_ambiguous": false
+    },
+    {
+      "id": "indigenous_land",
+      "title": "Indigenous Land Rights Consultations",
+      "hover_description": "FPIC (Free Prior Informed Consent) required under UNDRIP. Low financial impact if managed; catastrophic if ignored. ESRS S3 mandatory.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2000000,
+      "esrs_topic": "S3",
+      "value_chain_scope": "upstream",
+      "time_horizon": "short",
+      "severity_score": 4,
+      "likelihood_score": 3,
+      "is_ambiguous": true
+    },
+    {
+      "id": "lng_price_volatility",
+      "title": "LNG Spot Price Volatility",
+      "hover_description": "Q3 issue \u2014 pure financial risk from geopolitical supply disruption. No direct societal harm. ESRS 2 SBM-3.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 1500000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 3,
+      "likelihood_score": 3,
+      "is_ambiguous": false
+    },
+    {
+      "id": "og_exec_offsets",
+      "title": "Executive Carbon Offset Purchases",
+      "hover_description": "Symbolic gesture. <0.01% of total Scope 1 emissions. Classic greenwashing distractor if material issues unresolved.",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 50000,
+      "esrs_topic": "E1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    },
+    {
+      "id": "og_csr_scholarships",
+      "title": "CSR Scholarship Programme",
+      "hover_description": "Community goodwill. Financially and environmentally immaterial. Not ESRS-material at group level.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 200000,
+      "esrs_topic": "S3",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    }
+  ],
+  "interdependencies": [
+    {
+      "source": "stranded_asset_risk",
+      "target": "methane_leakage",
+      "severity": "high",
+      "description": "IEA NZE pathway requires aggressive methane cuts alongside reserve write-downs"
+    }
+  ]
+}

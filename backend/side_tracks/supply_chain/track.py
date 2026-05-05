@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Supply Chain Track Implementation
+﻿"""
+Muressons Global Corporation — Supply Chain Track Implementation
 
 Concrete implementation of BaseSideTrack for the 7-round
 Supply Chain Deep Dive side simulation.

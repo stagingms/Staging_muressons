@@ -181,7 +181,7 @@ export function PillarTile({
         })}
         onMouseLeave={() => onLeave?.()}
       >
-        <option value="">— Select —</option>
+        <option key="__default__" value="">— Select —</option>
         {area.options && Object.entries(area.options).map(([optKey, opt]) => (
           <option key={optKey} value={optKey}>
             {opt.title} ({fmtCurrency(opt.cost || 0)})

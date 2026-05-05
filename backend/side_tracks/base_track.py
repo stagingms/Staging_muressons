@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Abstract Base Side Track
+﻿"""
+Muressons Global Corporation — Abstract Base Side Track
 
 All side simulation tracks inherit from this class.
 Enforces the contract for round configs, data bridges,

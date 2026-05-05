@@ -30,8 +30,8 @@ export default function PlayerRegistry({ leaderboard }) {
                 const data = await res.json();
                 setPlayers(data.players || []);
             }
-        } catch (err) {
-            console.error("Failed to fetch players:", err);
+        } catch {
+            // Silent — backend may be offline during frontend-only development
         } finally {
             setLoading(false);
         }

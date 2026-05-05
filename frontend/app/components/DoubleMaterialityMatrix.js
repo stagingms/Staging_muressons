@@ -22,7 +22,7 @@ let _customFactorCounter = 0;
 /**
  * Draggable Issue Chip component — Fix 7 (cost badge), Fix 10 (IRO badge + data-tooltip)
  */
-function IssueChip({ issue, isDragging }) {
+function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBoosted = false }) {
     const { attributes, listeners, setNodeRef, transform } = useDraggable({
         id: issue.id,
         data: issue,
@@ -38,6 +38,7 @@ function IssueChip({ issue, isDragging }) {
         switch (category) {
             case 'ecological': return <span className={styles.catIcon} style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.5)' }}>E</span>;
             case 'social': return <span className={styles.catIcon} style={{ background: 'rgba(59, 130, 246, 0.2)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.5)' }}>S</span>;
+            case 'governance': return <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.5)' }}>G</span>;
             case 'economic': return <span className={styles.catIcon} style={{ background: 'rgba(245, 158, 11, 0.2)', color: '#f59e0b', border: '1px solid rgba(245, 158, 11, 0.5)' }}>G</span>;
             default: return null;
         }
@@ -47,7 +48,25 @@ function IssueChip({ issue, isDragging }) {
         ? `$${(issue.mitigation_cost_usd / 1_000_000).toFixed(1)}M`
         : null;
 
-    const iroType = issue.iro_type || null; // 'impact' | 'risk' | 'opportunity'
+    const iroType = issue.iro_type || null;
+
+    // ESRS spectrum tags
+    const severityColor = { high: '#ef4444', medium: '#f59e0b', low: '#10b981' };
+    const horizonLabel = { short: 'ST', medium: 'MT', long: 'LT' };
+    const sev = issue.severity;
+    const horizon = issue.time_horizon;
+
+    // ── NEW: ESRS topic badge color ──
+    const esrsTopicColor = (t) => {
+        if (!t) return { bg: 'rgba(148,163,184,0.15)', color: '#94a3b8' };
+        if (t.startsWith('E')) return { bg: 'rgba(16,185,129,0.15)', color: '#10b981' };
+        if (t.startsWith('S')) return { bg: 'rgba(59,130,246,0.15)', color: '#60a5fa' };
+        return { bg: 'rgba(245,158,11,0.15)', color: '#f59e0b' };
+    };
+    const vcLabel = { own_ops: '🏭', upstream: '⬆', downstream: '⬇' };
+    const esrsTopic = issue.esrs_topic || null;
+    const vcScope = issue.value_chain_scope || null;
+    const isAmbiguous = !!issue.is_ambiguous;
 
     return (
         <div
@@ -55,13 +74,48 @@ function IssueChip({ issue, isDragging }) {
             style={style}
             {...listeners}
             {...attributes}
-            className={`${styles.chip} ${isDragging ? styles.chipDragging : ''}`}
-            data-tooltip={issue.hover_description || undefined}
+            className={`${styles.chip} ${isDragging ? styles.chipDragging : ''} ${isBlindspot ? styles.chipBlindspot : ''} ${isStakeholderBoosted ? styles.chipBoosted : ''}`}
+            data-tooltip={isBlindspot ? '⚠️ R1 Audit Gap: Incomplete data — description degraded. Commission a Stakeholder Panel to restore clarity.' : (issue.hover_description || undefined)}
         >
             <div className={styles.chipLeft}>
                 {getCategoryIcon(issue.category)}
             </div>
             <span className={styles.chipTitle}>{issue.title}</span>
+            {isStakeholderBoosted && (
+                <span className={styles.boostBadge} title="Stakeholder confirmed in R1 audit">★</span>
+            )}
+            {isBlindspot && (
+                <span className={styles.blindspotBadge} title="R1 audit gap — data degraded">⚠</span>
+            )}
+            {isAmbiguous && (
+                <span title="Ambiguous placement — genuinely sits on a quadrant boundary. Discuss in debrief."
+                    style={{ fontSize: '0.68rem', cursor: 'help' }}>🔄</span>
+            )}
+            {esrsTopic && (() => {
+                const tc = esrsTopicColor(esrsTopic);
+                return (
+                    <span title={`ESRS Topic: ${esrsTopic}`}
+                        style={{ padding: '1px 5px', borderRadius: '3px', fontSize: '0.68rem', fontWeight: 800,
+                            background: tc.bg, color: tc.color, border: `1px solid ${tc.color}44`,
+                            letterSpacing: '0.02em', flexShrink: 0 }}>
+                        {esrsTopic}
+                    </span>
+                );
+            })()}
+            {vcScope && vcLabel[vcScope] && (
+                <span title={`Value chain: ${vcScope.replace('_', ' ')}`}
+                    style={{ fontSize: '0.68rem', cursor: 'help', flexShrink: 0 }}>
+                    {vcLabel[vcScope]}
+                </span>
+            )}
+            {sev && (
+                <span className={styles.severityBadge} style={{ background: `${severityColor[sev]}22`, color: severityColor[sev], border: `1px solid ${severityColor[sev]}55` }}>
+                    {sev.toUpperCase()[0]}
+                </span>
+            )}
+            {horizon && (
+                <span className={styles.horizonBadge}>{horizonLabel[horizon] || horizon.toUpperCase()}</span>
+            )}
             {iroType && (
                 <span className={styles.iroBadge} data-iro={iroType}>
                     {iroType === 'impact' ? 'IMP' : iroType === 'risk' ? 'RSK' : 'OPP'}
@@ -226,10 +280,17 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     const [consultantUsed, setConsultantUsed] = useState(false);
     const [consultantAllowed, setConsultantAllowed] = useState(true);
 
-    // Fix 1: Onboarding state
+    // Stakeholder Panel Survey state
+    const [panelIssueCount, setPanelIssueCount] = useState(4);
+
+    // R1 intelligence modulation
+    const [blindspotActive, setBlindspotActive] = useState(false);
+    const [stakeholderBoostedIds, setStakeholderBoostedIds] = useState([]);
+
+    // Onboarding state
     const [showOnboarding, setShowOnboarding] = useState(true);
 
-    // Fix 3: Undo history
+    // Undo history
     const [history, setHistory] = useState([]);
 
     // Custom factor form
@@ -242,6 +303,12 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     const [showCheatSheet, setShowCheatSheet] = useState(false);
     const [submitStatus, setSubmitStatus] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Time horizon filter (Gap 3)
+    const [horizonFilter, setHorizonFilter] = useState('all'); // 'all' | 'short' | 'medium' | 'long'
+
+    // 4-tab stakeholder group (Gap 2)
+    const [activePanelGroup, setActivePanelGroup] = useState('investors');
 
     // Initial state: empty until fetched
     const [containers, setContainers] = useState({
@@ -258,7 +325,6 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                // If buId is provided, fetch BU-specific dictionary
                 const endpoint = buId
                     ? `${API}/api/admin/materiality-config/bu/${buId}`
                     : `${API}/api/admin/materiality-config`;
@@ -271,21 +337,26 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         const allIds = (data.issues || []).map(i => i.id);
                         const q1Ids = initialQ1.filter(id => allIds.includes(id));
                         const bankIds = allIds.filter(id => !q1Ids.includes(id));
-                        const initial = {
-                            bank: bankIds,
-                            q1: q1Ids, q2: [], q3: [], q4: []
-                        };
+                        const initial = { bank: bankIds, q1: q1Ids, q2: [], q3: [], q4: [] };
                         initialContainersRef.current = JSON.parse(JSON.stringify(initial));
                         return initial;
                     });
                 }
-            } catch {
-                // Backend unreachable — matrix will show empty state
-            }
+            } catch { /* Backend unreachable */ }
             setLoading(false);
         };
         fetchConfig();
     }, [buId]);
+
+    // Detect R1 blindspot and stakeholder boost from globalState
+    useEffect(() => {
+        const flags = globalState?.active_event_flags || {};
+        const allFlags = Object.keys(flags).filter(k => flags[k] === true || Array.isArray(flags[k]));
+        setBlindspotActive(
+            !!(flags.electronics_blindspot || flags.r1_blindspot_active_in_r2)
+        );
+        setStakeholderBoostedIds(globalState?.stakeholder_boosted_issues || []);
+    }, [globalState]);
 
     // Fetch consultant allowed status from facilitator
     useEffect(() => {
@@ -430,6 +501,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
         setIsSubmitting(true);
         const result = await onSubmit({
             consultant_used: consultantUsed,
+            panel_issue_count: panelIssueCount,
             matrix_submission: {
                 quadrant_1_top_right: containers.q1,
                 quadrant_2_top_left: containers.q2,
@@ -444,7 +516,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
             setSubmitStatus({ type: 'error', message: result.error });
             setIsSubmitting(false);
         } else if (result && result.success) {
-            setSubmitStatus({ type: 'success', amount: result.allocated_budget });
+            setSubmitStatus({ type: 'success', amount: result.allocated_budget, debrief: result.debrief });
             setIsSubmitting(false);
         }
     };
@@ -460,13 +532,24 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     }, 0);
     const isOverBudget = totalQ1Cost > csfPool;
 
+    // Compute stakeholder panel fee for display
+    const panelFee = panelIssueCount <= 4
+        ? panelIssueCount * 250_000
+        : (4 * 250_000) + ((panelIssueCount - 4) * 500_000);
+
     // Helper to render chip list for a container
     const renderChips = (containerKey) => {
         return containers[containerKey].map(id => {
             const issue = getIssue(id);
             if (!issue) return null;
+            // Gap 3: time horizon filter (only apply to bank — placed issues always visible)
+            if (containerKey === 'bank' && horizonFilter !== 'all') {
+                if (issue.time_horizon && issue.time_horizon !== horizonFilter) return null;
+            }
             const cost = globalState?.materiality_dictionary_override?.issues?.find(i => i.id === id)?.mitigation_cost_usd ?? issue.mitigation_cost_usd;
-            return <IssueChip key={id} issue={{ ...issue, mitigation_cost_usd: cost }} isDragging={activeId === id} />;
+            const isBlindspot = blindspotActive && !!issue.electronics_sensitive;
+            const isBoosted = stakeholderBoostedIds.includes(id);
+            return <IssueChip key={id} issue={{ ...issue, mitigation_cost_usd: cost }} isDragging={activeId === id} isBlindspot={isBlindspot} isStakeholderBoosted={isBoosted} />;
         });
     };
 
@@ -499,13 +582,14 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         🔄 Reset
                     </button>
 
-                    {/* Consultant */}
+                    {/* Stakeholder Panel Survey */}
                     {!consultantUsed && consultantAllowed && (
                         <button
                             className={styles.consultantBtn}
                             onClick={() => setShowConsultantConfirm(true)}
+                            data-tooltip="Engage an independent stakeholder panel to pre-rate issues (ESRS 1 §1.47-1.50)"
                         >
-                            💼 Hire External ESG Consultant (McBain & Partners)
+                            👥 Commission Stakeholder Panel Survey
                         </button>
                     )}
                     {!consultantUsed && !consultantAllowed && (
@@ -517,7 +601,12 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         </button>
                     )}
                     {consultantUsed && (
-                        <span className={styles.consultantBadge}>🔍 Consultant Retained</span>
+                        <span className={styles.consultantBadge}>👥 Panel Survey Active ({panelIssueCount} issues rated)</span>
+                    )}
+                    {blindspotActive && (
+                        <span className={styles.blindspotWarning} title="R1 Surface Scan left gaps — some issue descriptions are degraded">
+                            ⚠️ R1 Audit Gap Active
+                        </span>
                     )}
                     <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
                         <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Placed</span>
@@ -620,6 +709,23 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
 
                     {/* Right Pane: The Grid */}
                     <div className={styles.rightPane}>
+                        {/* Gap 3: Time Horizon Filter */}
+                        <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '0.5rem', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: '0.25rem' }}>Horizon</span>
+                            {[['all', 'All', '#6366f1'], ['short', 'ST ≤1yr', '#ef4444'], ['medium', 'MT 1-5yr', '#f59e0b'], ['long', 'LT >5yr', '#10b981']].map(([val, label, color]) => (
+                                <button key={val} onClick={() => setHorizonFilter(val)}
+                                    style={{
+                                        padding: '2px 10px', borderRadius: '12px', border: `1px solid ${horizonFilter === val ? color : 'rgba(255,255,255,0.1)'}`,
+                                        background: horizonFilter === val ? `${color}22` : 'transparent',
+                                        color: horizonFilter === val ? color : '#64748b',
+                                        fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
+                                        transition: 'all 0.15s',
+                                    }}>{label}</button>
+                            ))}
+                            {horizonFilter !== 'all' && (
+                                <span style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic', marginLeft: '0.25rem' }}>Bank filtered — placed issues always visible</span>
+                            )}
+                        </div>
                         <div className={styles.axesContainer}>
                             <div className={styles.yAxisLabel}>Impact Materiality (People/Planet)</div>
 
@@ -693,15 +799,75 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
 
             {/* ── Modals ── */}
 
-            {/* Consultant Confirmation */}
+            {/* Stakeholder Panel Survey Confirmation — 4-group ESRS §1.47-1.50 */}
             {showConsultantConfirm && (
                 <div className={styles.modalOverlay}>
                     <div className={styles.modalContent}>
-                        <h3>Hire McBain & Partners</h3>
-                        <p>Deduct ${consultantFee.toLocaleString()} from your Corporate Strategic Fund to hire McBain & Partners?</p>
-                        <p className={styles.modalSubtext}>They will automatically classify 5 issues and provide an ESG Materiality Cheat Sheet.</p>
+                        <h3>👥 Commission Stakeholder Panel Survey</h3>
+                        <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                            Engage independent stakeholder groups to pre-rate issues. Modelling ESRS 1 §1.47–1.50 stakeholder engagement requirements.
+                        </p>
+
+                        {/* 4-group tab selector — ESRS §1.47-1.50 */}
+                        <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+                            {[
+                                { key: 'investors', label: '💰 Investors', desc: 'Prioritise Q3 financial risks and transition risks. May underweight community impacts.', color: '#6366f1' },
+                                { key: 'workers', label: '👷 Own Workforce', desc: 'Surface S1 labour, safety, and fair wage issues. Strong on internal impacts.', color: '#3b82f6' },
+                                { key: 'ngos', label: '🌍 NGOs / Communities', desc: 'Elevate Q2 environmental and community impacts (E4, S2, S3). May overweight long-term.', color: '#10b981' },
+                                { key: 'experts', label: '🎓 Subject Matter Experts', desc: 'Provide technical accuracy on ESRS mapping and threshold calibration.', color: '#f59e0b' },
+                            ].map(g => (
+                                <button key={g.key} onClick={() => setActivePanelGroup(g.key)}
+                                    style={{
+                                        padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer',
+                                        border: `1px solid ${activePanelGroup === g.key ? g.color : 'rgba(255,255,255,0.1)'}`,
+                                        background: activePanelGroup === g.key ? `${g.color}22` : 'rgba(255,255,255,0.03)',
+                                        color: activePanelGroup === g.key ? g.color : '#94a3b8',
+                                        fontSize: '0.72rem', fontWeight: 700, transition: 'all 0.15s',
+                                    }}>{g.label}</button>
+                            ))}
+                        </div>
+                        {/* Group description */}
+                        {(() => {
+                            const groups = {
+                                investors: { desc: 'Investors prioritise Q3 financial risks and transition risks (ESRS E1, G1). They may underweight community and social impacts relative to NGOs.', ref: 'ESRS §1.47(a)', color: '#6366f1' },
+                                workers:   { desc: 'Own workforce focuses on S1 issues: fair wages, health & safety, working conditions. Strong signal for internal impacts.', ref: 'ESRS §1.47(b)', color: '#3b82f6' },
+                                ngos:      { desc: 'NGOs and affected communities elevate Q2 environmental harms (E3, E4, S2, S3). ESRS §1.50: their views may conflict with investor priorities — this tension is pedagogically important.', ref: 'ESRS §1.47(c)', color: '#10b981' },
+                                experts:   { desc: 'Subject matter experts (academics, assurance providers) calibrate ESRS topic mapping and materiality thresholds. They validate whether issues are correctly classified under E1–E5 and S1–S4.', ref: 'ESRS §1.47(d)', color: '#f59e0b' },
+                            };
+                            const g = groups[activePanelGroup];
+                            return (
+                                <div style={{ padding: '0.55rem 0.75rem', background: `${g.color}10`, borderRadius: '7px', borderLeft: `2px solid ${g.color}`, marginBottom: '0.75rem' }}>
+                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: g.color, marginBottom: '0.2rem' }}>{g.ref}</div>
+                                    <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.5 }}>{g.desc}</div>
+                                </div>
+                            );
+                        })()}
+
+                        <div style={{ margin: '0.5rem 0', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
+                            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.4rem' }}>
+                                Issues to pre-rate: <strong style={{ color: '#f1f5f9' }}>{panelIssueCount}</strong>
+                                {panelIssueCount > 4 && <span style={{ color: '#f59e0b', marginLeft: '0.5rem' }}>★ Extended panel (doubled rate)</span>}
+                            </label>
+                            <input type="range" min={1} max={8} value={panelIssueCount}
+                                onChange={e => setPanelIssueCount(+e.target.value)}
+                                style={{ width: '100%', accentColor: '#6366f1' }}
+                            />
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
+                                <span>1 issue — $250K</span><span>4 issues — $1M</span><span>8 issues — $3M</span>
+                            </div>
+                        </div>
+                        <p style={{ fontWeight: 700, color: '#f1f5f9', textAlign: 'center', fontSize: '1rem' }}>
+                            Cost: <span style={{ color: '#6366f1' }}>${(panelFee / 1_000_000).toFixed(2)}M</span>
+                        </p>
+                        <p className={styles.modalSubtext}>
+                            The panel will auto-classify {Math.min(panelIssueCount, 5)} issues on the matrix.
+                            Issues rated by stakeholders aligned with your R1 Mendelow mapping are marked ★.
+                        </p>
+                        <p style={{ fontSize: '0.72rem', color: '#64748b', fontStyle: 'italic', textAlign: 'center', marginTop: '0.25rem' }}>
+                            ESRS §1.50: Commission all 4 groups to surface conflicting views and strengthen your materiality assessment.
+                        </p>
                         <div className={styles.modalActions}>
-                            <button onClick={handleHireConsultant} className={styles.submitBtn}>Yes, Hire Them</button>
+                            <button onClick={handleHireConsultant} className={styles.submitBtn}>Commission Panel</button>
                             <button onClick={() => setShowConsultantConfirm(false)} className={styles.cancelBtn}>Cancel</button>
                         </div>
                     </div>
@@ -743,12 +909,68 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             </>
                         ) : (
                             <>
-                                <h3>✅ Matrix Approved</h3>
-                                <p>The CFO has approved your CSRD assessment.</p>
+                                <h3>✅ Materiality Matrix Approved</h3>
                                 <div className={styles.budgetBox}>
                                     + ${submitStatus.amount?.toLocaleString()} Unlocked
                                 </div>
-                                <button onClick={onClose} className={styles.submitBtn}>Return to Dashboard</button>
+                                {submitStatus.debrief && (
+                                    <div style={{ textAlign: 'left', marginTop: '1rem', fontSize: '0.8rem' }}>
+                                        {/* ESRS Reference */}
+                                        <div style={{ padding: '0.6rem', background: 'rgba(99,102,241,0.1)', borderRadius: '6px', borderLeft: '3px solid #6366f1', marginBottom: '0.75rem' }}>
+                                            <strong style={{ color: '#818cf8' }}>📋 {submitStatus.debrief.esrs_reference}</strong>
+                                            <p style={{ color: '#cbd5e1', margin: '0.3rem 0 0' }}>{submitStatus.debrief.scoring_rationale}</p>
+                                        </div>
+
+                                        {/* ── Gap 4: Transparent Scoring Breakdown ── */}
+                                        <details style={{ marginBottom: '0.75rem' }}>
+                                            <summary style={{ cursor: 'pointer', padding: '0.5rem 0.6rem', background: 'rgba(255,255,255,0.04)', borderRadius: '6px', borderLeft: '3px solid #6366f1', color: '#a5b4fc', fontWeight: 700, fontSize: '0.78rem', listStyle: 'none', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                                <span>📊</span> How was this scored? ({submitStatus.debrief.full_accuracy_pct}% accuracy)
+                                            </summary>
+                                            <div style={{ padding: '0.6rem', background: 'rgba(0,0,0,0.15)', borderRadius: '0 0 6px 6px', borderLeft: '3px solid #6366f1' }}>
+                                                <p style={{ color: '#94a3b8', fontSize: '0.72rem', margin: '0 0 0.5rem', fontStyle: 'italic' }}>ESRS 1 §1.38: Materiality threshold = ≥80% Q1 accuracy + board-level governance oversight</p>
+                                                {submitStatus.debrief.q1_correct?.length > 0 && (
+                                                    <div style={{ marginBottom: '0.5rem' }}>
+                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4ade80', marginBottom: '0.25rem' }}>✅ Correctly in Q1 ({submitStatus.debrief.q1_correct.length})</div>
+                                                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                                            {submitStatus.debrief.q1_correct.map(id => (
+                                                                <span key={id} style={{ padding: '2px 7px', borderRadius: '4px', background: 'rgba(74,222,128,0.1)', border: '1px solid rgba(74,222,128,0.3)', color: '#4ade80', fontSize: '0.68rem' }}>{id.replace(/_/g, ' ')}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {submitStatus.debrief.q1_missed?.length > 0 && (
+                                                    <div style={{ marginBottom: '0.5rem' }}>
+                                                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fbbf24', marginBottom: '0.25rem' }}>⚠ Should have been in Q1 ({submitStatus.debrief.q1_missed.length})</div>
+                                                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
+                                                            {submitStatus.debrief.q1_missed.map(id => (
+                                                                <span key={id} style={{ padding: '2px 7px', borderRadius: '4px', background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.3)', color: '#fbbf24', fontSize: '0.68rem' }}>{id.replace(/_/g, ' ')}</span>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                                {submitStatus.debrief.clawback_applied > 0 && (
+                                                    <div style={{ padding: '0.4rem 0.6rem', background: 'rgba(239,68,68,0.08)', borderRadius: '5px', borderLeft: '2px solid #ef4444', color: '#fca5a5', fontSize: '0.72rem' }}>
+                                                        ⚠ ESRS 1 §1.51: CEO-only sign-off (Option C) — ${submitStatus.debrief.clawback_applied?.toLocaleString()} clawback applied. Board committee oversight required.
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </details>
+
+                                        {submitStatus.debrief.q2_insight && (
+                                            <div style={{ padding: '0.6rem', background: 'rgba(16,185,129,0.08)', borderRadius: '6px', borderLeft: '3px solid #10b981', marginBottom: '0.5rem' }}>
+                                                <strong style={{ color: '#34d399' }}>Q2 Impact Disclosure</strong>
+                                                <p style={{ color: '#cbd5e1', margin: '0.3rem 0 0' }}>{submitStatus.debrief.q2_insight}</p>
+                                            </div>
+                                        )}
+                                        {submitStatus.debrief.spectrum_note && (
+                                            <div style={{ padding: '0.6rem', background: 'rgba(245,158,11,0.08)', borderRadius: '6px', borderLeft: '3px solid #f59e0b' }}>
+                                                <strong style={{ color: '#fbbf24' }}>⚠ Simulation Simplification</strong>
+                                                <p style={{ color: '#cbd5e1', margin: '0.3rem 0 0' }}>{submitStatus.debrief.spectrum_note}</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                                <button onClick={onClose} className={styles.submitBtn} style={{ marginTop: '1rem' }}>Return to Dashboard</button>
                             </>
                         )}
                     </div>

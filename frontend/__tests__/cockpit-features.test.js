@@ -98,7 +98,7 @@ describe('Consequence Threading', () => {
   test('renders trace badge when event matches a past decision', () => {
     const items = [
       { type: 'alert', text: 'Greenwashing backlash across institutional trust networks' },
-      { type: 'info', text: 'Markets stable ahead of next quarter' },
+      { type: 'info', text: 'Markets stable ahead of next period' },
     ];
     render(
       <MarketFeedTestHarness

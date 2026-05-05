@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Mathematical Engine
+Muressons Global Corporation — Mathematical Engine
 Pure-function module: no I/O, no database access.
 All formulas operate on plain dicts and return new state dicts.
 """
@@ -36,6 +36,9 @@ def calc_contagion(bu_states: list[dict], crisis_severity: float) -> float:
     """
     # FIX VULN-003: Clamp crisis_severity to non-negative
     crisis_severity = max(0.0, crisis_severity)
+    # FIX BUG-001: Guard against empty BU list (ZeroDivisionError)
+    if not bu_states:
+        return 50.0
     avg_rep = sum(bu["reputation_score"] for bu in bu_states) / len(bu_states)
     # Sigmoid S-curve: slow-fast-slow damage propagation
     sigmoid_input = (crisis_severity - 30.0) / 15.0
@@ -99,7 +102,7 @@ def calc_vrio_decay(
 def calc_burnout_accumulation(
     current_burnout: float,
     burnout_delta: float,
-    natural_drift: float = 3.0,
+    natural_drift: float = 6.0,
 ) -> tuple[float, dict]:
     """
     Apply HR-driven burnout changes and natural drift to a BU's burnout index.
@@ -108,15 +111,15 @@ def calc_burnout_accumulation(
         current_burnout: Current staff_burnout_index (0-100)
         burnout_delta: Delta from HR pillar choice (negative = reduces burnout)
         natural_drift: Per-round passive burnout increase when no HR investment
-                       is made (default +3.0). Set to 0 when HR was invested.
+                       is made (default +6.0 for 6-month rounds). Set to 0 when HR was invested.
 
     Returns:
         (new_burnout, diagnostics)
 
     Mechanics:
-        - burnout_delta from positive HR actions: typically -8 to -15
-        - burnout_delta from negative HR actions (overtime_push): +12 to +15
-        - Natural drift: +3/round if no HR action taken (workforce entropy)
+        - burnout_delta from positive HR actions: typically -16 to -30
+        - burnout_delta from negative HR actions (overtime_push): +24 to +30
+        - Natural drift: +6/round if no HR action taken (workforce entropy, 6-month period)
         - Clamped to [0, 100]
         - OPEX penalty threshold: burnout > 40 → +0.3% OPEX per burnout point above 40
         - Critical threshold: burnout > 70 → additional governance risk
@@ -163,10 +166,10 @@ def calc_workforce_readiness(
     Returns:
         (new_readiness, diagnostics)
 
-    Mechanics:
-        - High HR investment: +8 readiness
-        - Medium HR investment: +4 readiness
-        - No investment: -5 readiness (skills atrophy / brain drain)
+    Mechanics (6-month rounds):
+        - High HR investment: +16 readiness
+        - Medium HR investment: +8 readiness
+        - No investment: -10 readiness (skills atrophy / brain drain)
         - Clamped to [0, 100]
 
     Interdependencies (applied in round_logic):
@@ -174,11 +177,11 @@ def calc_workforce_readiness(
         - readiness > 75: Synergy multiplier gets +0.05 bonus at terminal valuation
     """
     if hr_quality_tier == "high":
-        delta = 8.0
+        delta = 16.0
     elif hr_quality_tier == "medium":
-        delta = 4.0
+        delta = 8.0
     else:
-        delta = -5.0  # skills atrophy
+        delta = -10.0  # skills atrophy (6-month period)
 
     new_readiness = round(max(0.0, min(100.0, current_readiness + delta)), 2)
 
@@ -237,12 +240,12 @@ def apply_natural_decay(
 ) -> tuple[float, float]:
     """
     If no investment was made during the tick, both Reputation and
-    Social License decay by 2%.
+    Social License decay by ~4% (compounded from 2%/quarter over 6 months).
     Returns (new_reputation, new_social_license).
     """
     if invested:
         return reputation, social_license
-    decay = 0.98
+    decay = 0.96  # 1 - (1 - 0.98²) ≈ 0.9604, rounded to 0.96 for 6-month period
     return (
         round(reputation * decay, 2),
         round(social_license * decay, 2),
@@ -256,11 +259,11 @@ def calc_inflation(
 ) -> float:
     """
     FEATURE 5 — Macroeconomic Inflation:
-    Every round, baseline OPEX increases by inflation_index %.
+    Every round (6 months), baseline OPEX increases by inflation_index %.
     Players must invest just to tread water.
 
     New_OPEX = OPEX * (1 + inflation_index)
-    Default inflation_index = 0.025 (2.5%)
+    Default inflation_index = 0.05 (5% per 6-month period, ~10% annualized)
     """
     return round(opex * (1.0 + inflation_index), 2)
 
@@ -320,6 +323,17 @@ _MARKET_OVERLAP: dict[tuple[str, str], float] = {
     ("telehealth", "clinics"): 0.70,         # Direct substitution
     ("telehealth", "hospitals"): 0.20,       # Triage diversion
     ("hospitals", "specialised_care"): 0.30,  # Referral competition
+    # ── Industry Verticals ──
+    ("technology", "electronics"): 0.40,     # Hardware / semiconductor
+    ("technology", "software"): 0.75,        # Direct substitution
+    ("banking_financial_services", "software"): 0.50,  # Enterprise SaaS
+    ("banking_financial_services", "technology"): 0.55, # Fintech
+    ("oil_gas", "electronics"): 0.20,        # Petrochemicals for plastics
+    ("oil_gas", "agriculture"): 0.30,        # Energy inputs, fertiliser
+    ("retail_fmcg", "consumer_goods"): 0.70, # Direct substitution
+    ("retail_fmcg", "agriculture"): 0.50,    # Food supply chain
+    ("agriculture", "consumer_goods"): 0.45, # Food & beverage inputs
+    ("agriculture", "pharma"): 0.25,         # Biotech / nutraceuticals
 }
 
 def calc_revenue_cannibalization(
@@ -410,7 +424,7 @@ def calc_supply_chain_contagion(
 def calc_competitor_pressure(
     competitor_ebitda: float,
     player_ebitda: float,
-    competitor_growth_rate: float = 0.03,
+    competitor_growth_rate: float = 0.06,
 ) -> tuple[float, float]:
     """
     FEATURE 10 — Competitive Market Dynamics:
@@ -576,30 +590,30 @@ def calc_greenwashing_risk(
 
 # ── 21. Macro Interest Rate Environment ─────────────────────────
 _MACRO_RATE_CYCLES = {
-    # R1-R3: Central bank easing (accommodative policy)
-    1: -0.005, 2: -0.005, 3: -0.005,
-    # R4-R6: Neutral stance (inflation stabilising)
-    4: 0.0, 5: 0.0, 6: 0.0,
-    # R7-R9: Tightening cycle (inflation pressures)
-    7: 0.005, 8: 0.005, 9: 0.005,
-    # R10: Crisis premium
-    10: 0.010,
+    # R1-R2: Central bank easing (accommodative policy) — 1 year
+    1: -0.010, 2: -0.010,
+    # R3-R5: Neutral stance (inflation stabilising) — 1.5 years
+    3: 0.0, 4: 0.0, 5: 0.0,
+    # R6-R8: Tightening cycle (inflation pressures) — 1.5 years
+    6: 0.010, 7: 0.010, 8: 0.010,
+    # R9-R10: Crisis premium — 1 year
+    9: 0.015, 10: 0.020,
 }
 
 def calc_macro_rate_environment(round_number: int) -> dict:
     """
     FEATURE 21 — Macro Interest Rate Environment:
-    Models central bank policy cycles. Returns a CoC modifier
+    Models central bank policy cycles over 6-month rounds. Returns a CoC modifier
     and a descriptive label for the current rate regime.
     """
     modifier = _MACRO_RATE_CYCLES.get(round_number, 0.0)
-    if round_number <= 3:
+    if round_number <= 2:
         regime = "easing"
         label = "🕊️ Accommodative — Central banks maintain low rates to stimulate growth"
-    elif round_number <= 6:
+    elif round_number <= 5:
         regime = "neutral"
         label = "⚖️ Neutral — Rates stable as inflation targets are met"
-    elif round_number <= 9:
+    elif round_number <= 8:
         regime = "tightening"
         label = "🦅 Hawkish — Central banks raise rates to combat inflation"
     else:
@@ -625,6 +639,12 @@ _BU_FX_EXPOSURE: dict[str, float] = {
     "clinics": 0.05,          # 5% (neighbourhood-level)
     "specialised_care": 0.15, # 15% (some medical tourism)
     "telehealth": 0.50,       # 50% (cross-border digital health)
+    # ── Industry Verticals ──
+    "oil_gas": 0.85,                       # 85% (global commodity, USD-denominated)
+    "banking_financial_services": 0.70,    # 70% (cross-border banking, FX trading)
+    "retail_fmcg": 0.35,                   # 35% (domestic-heavy retail)
+    "agriculture": 0.45,                   # 45% (commodity exports)
+    "technology": 0.85,                    # 85% (cloud is borderless)
 }
 
 def calc_fx_impact(
@@ -634,15 +654,15 @@ def calc_fx_impact(
 ) -> dict:
     """
     FEATURE 22 — FX Risk Engine:
-    Stochastic currency movement ±5% per round. Impact proportional
+    Stochastic currency movement ±7% per round. Impact proportional
     to each BU's geographic revenue exposure.
     Returns {adjustments: {bu_id: revenue_delta}, fx_index, details}.
     """
     rng = _rng if seed is None else type(_rng)()
     if seed is not None:
         rng.seed(seed)
-    # FX index: -0.05 to +0.05 (5% band)
-    fx_movement = round(rng.uniform(-0.05, 0.05), 4)
+    # FX index: -0.07 to +0.07 (7% band for 6-month period, ≈ sqrt(2) × 5%)
+    fx_movement = round(rng.uniform(-0.07, 0.07), 4)
     adjustments: dict[str, float] = {}
     details: dict[str, dict] = {}
     for bu in bus:
@@ -690,8 +710,8 @@ def calc_dso_lag(
     dso_factor = 0.02 + 0.001 * governance_risk
     dso_factor = max(0.0, min(0.15, dso_factor))  # Cap at 15%
     deferred = round(revenue * dso_factor, 2)
-    # Approximate DSO in days (1 round ≈ 90 days)
-    dso_days = round(90 * dso_factor / 0.10, 0)  # Normalised to 90-day quarter
+    # Approximate DSO in days (1 round ≈ 180 days / 6-month semester)
+    dso_days = round(180 * dso_factor / 0.10, 0)  # Normalised to 180-day semester
     return {
         "deferred_amount": deferred,
         "dso_days_approx": dso_days,
@@ -709,17 +729,17 @@ def calc_macro_noise(round_number: int, seed: int | None = None) -> dict:
     Returns per-round noise deltas for inflation, carbon pricing, and strikes:
     - inflation_noise: ±0.2% (±0.002 as decimal)
     - carbon_price_noise: ±5% of baseline
-    - localized_strike_chance: 3% per round (random micro-disruption)
+    - localized_strike_chance: 6% per round (random micro-disruption)
     """
     if seed is not None:
         rng = _rng.Random(seed)
     else:
         rng = _rng
 
-    inflation_noise = round(rng.uniform(-0.002, 0.002), 4)
-    carbon_price_pct = round(rng.uniform(-0.05, 0.05), 4)
-    # 3% chance of a localized micro-strike in any given round
-    micro_strike = rng.random() < 0.03
+    inflation_noise = round(rng.uniform(-0.004, 0.004), 4)
+    carbon_price_pct = round(rng.uniform(-0.07, 0.07), 4)
+    # 6% chance of a localized micro-strike in any given 6-month round
+    micro_strike = rng.random() < 0.06
     # Pick a random BU index for the micro-strike target
     micro_strike_bu_idx = rng.randint(0, 3)
 
@@ -799,9 +819,9 @@ def detect_distress(
     Phase 3 (Recovery):      Treasury > $10M AND Rep > 45 → Full CapEx, M_R ≤ 1.20
     Exit:                    Treasury > $20M AND Rep > 55 → All caps lifted, +0.10 M_R bonus
 
-    Only triggers from Round 3 onward (too early = normal volatility).
+    Only triggers from Round 2 onward (too early = normal volatility, ~1 year grace).
     """
-    if round_number < 3:
+    if round_number < 2:
         return {"distress_detected": False, "survival_mode": already_in_survival,
                 "turnaround_phase": current_phase}
 
@@ -1001,6 +1021,42 @@ def calc_momentum_score(
 
 
 # ── 26. Predictive Forecast Engine ──────────────────────────────
+# ── Forecast Caching Layer ──────────────────────────────────────
+# calc_forecast is called on every dashboard render. Since it's pure
+# (deterministic given the same gs/bus), we cache by session+round.
+_forecast_cache: dict[str, dict] = {}
+
+def calc_forecast_cached(
+    session_id: str,
+    round_number: int,
+    current_global: dict,
+    current_bus: list[dict],
+) -> dict:
+    """
+    Round-keyed cached wrapper for calc_forecast().
+    Returns cached result if available for this session+round,
+    otherwise computes, caches, and returns.
+    """
+    key = f"{session_id}_{round_number}"
+    if key not in _forecast_cache:
+        _forecast_cache[key] = calc_forecast(current_global, current_bus)
+    return _forecast_cache[key]
+
+def invalidate_forecast_cache(session_id: str = None):
+    """
+    Invalidate forecast cache entries.
+    If session_id is provided, only invalidate that session's entries.
+    If None, flush the entire cache.
+    """
+    global _forecast_cache
+    if session_id is None:
+        _forecast_cache.clear()
+    else:
+        keys_to_remove = [k for k in _forecast_cache if k.startswith(f"{session_id}_")]
+        for k in keys_to_remove:
+            del _forecast_cache[k]
+
+
 def calc_forecast(
     current_global: dict,
     current_bus: list[dict],
@@ -1265,7 +1321,7 @@ def process_tick(
     decisions: list[dict],
     dividends_paid: float = 0.0,
     crisis_severity: float = 0.0,
-    imitation_decay_rate: float = 0.05,
+    imitation_decay_rate: float = 0.10,  # 6-month compounded: 1-(1-0.05)² ≈ 0.0975
     decision_paradigm: str = "legacy_abc",
     emergency_credit_used: bool = False,
 ) -> dict[str, Any]:
@@ -1319,6 +1375,36 @@ def process_tick(
     new_bus: list[dict] = copy.deepcopy(current_bus)
 
     events: dict[str, Any] = {}
+
+    # ── PHASE-1: Black Swan Evaluation — stochastic disruptions ──
+    try:
+        from black_swan_registry import evaluate_black_swans, apply_black_swan_impacts
+        _session_tier = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
+        _active_swans = current_global.get("active_event_flags", {}).get("active_black_swans", [])
+        _forced_swan = current_global.get("active_event_flags", {}).get("forced_black_swan", None)
+        _swan_result = evaluate_black_swans(
+            current_global, new_bus, current_global["round_number"],
+            difficulty_tier=_session_tier,
+            active_black_swans=_active_swans,
+            forced_event_id=_forced_swan,
+        )
+        if _swan_result["total_new_events"] > 0:
+            _swan_diag = apply_black_swan_impacts(current_global, new_bus, _swan_result["events_triggered"])
+            events["black_swan_events"] = _swan_result["events_triggered"]
+            events["black_swan_narratives"] = _swan_result["narratives"]
+            events["black_swan_diagnostics"] = _swan_diag
+            events.setdefault("custom_black_swans", []).extend([
+                {"title": e["title"], "narrative": e["narrative"], "icon": e["icon"], "severity": "critical"}
+                for e in _swan_result["events_triggered"]
+            ])
+        # Persist active swans (continuing multi-round events)
+        _all_active = _swan_result.get("events_continuing", []) + _swan_result.get("events_triggered", [])
+        events["active_black_swans"] = [e for e in _all_active if e.get("rounds_remaining", 0) > 0]
+        # Clear forced injection after use
+        if _forced_swan:
+            events["forced_black_swan"] = None
+    except ImportError:
+        pass  # Graceful degradation if black_swan_registry not available
 
     # ── REC-1: Consequence Waterfall Tracker ─────────────────────
     # Snapshot initial values to track deltas through the tick
@@ -1420,7 +1506,7 @@ def process_tick(
             events[f"cash_conversion_drag_{bu['bu_id']}"] = round(old_rev - bu["revenue_base"], 2)
 
     # ── FEATURE 5: Macroeconomic Inflation — apply BEFORE synergy ──
-    inflation_index = current_global.get("inflation_index", 0.025)
+    inflation_index = current_global.get("inflation_index", 0.05)
 
     # ── FEATURE 24: Macro-Economic Noise — stochastic volatility ──
     macro_noise = calc_macro_noise(current_global["round_number"])
@@ -1725,13 +1811,13 @@ def process_tick(
         if bu["bu_id"] in ("hospitals", "clinics", "specialised_care", "telehealth"):
             # Healthcare: faster passive decay simulates shift rotation
             if current_burnout > 0:
-                bu["staff_burnout_index"] = max(0.0, current_burnout - 5.0)
-                events[f"burnout_passive_decay_{bu['bu_id']}"] = 5.0
+                bu["staff_burnout_index"] = max(0.0, current_burnout - 10.0)
+                events[f"burnout_passive_decay_{bu['bu_id']}"] = 10.0
         else:
             # NC/AC: slower passive decay prevents permanent burnout spirals
             if current_burnout > 0:
-                bu["staff_burnout_index"] = max(0.0, current_burnout - 2.0)
-                events[f"burnout_passive_decay_{bu['bu_id']}"] = 2.0
+                bu["staff_burnout_index"] = max(0.0, current_burnout - 4.0)
+                events[f"burnout_passive_decay_{bu['bu_id']}"] = 4.0
 
         if bu["bu_id"] in ("software", "hospitals", "clinics"):
             
@@ -1739,7 +1825,7 @@ def process_tick(
             if bu["bu_id"] in ("hospitals", "clinics"):
                 utilization = bu.get("bed_capacity_utilization", 0.0)
                 if utilization > 85.0:
-                    bu["staff_burnout_index"] = min(100.0, bu.get("staff_burnout_index", 0.0) + 5.0)
+                    bu["staff_burnout_index"] = min(100.0, bu.get("staff_burnout_index", 0.0) + 10.0)
                     events[f"utilization_overload_fatigue_{bu['bu_id']}"] = True
 
             # Healthcare: Logarithmic bed capacity utilization drift
@@ -1748,7 +1834,7 @@ def process_tick(
             # More realistic than linear — beds fill fast early, slow near capacity.
             if bu["bu_id"] in ("hospitals", "clinics"):
                 current_util = bu.get("bed_capacity_utilization", 0.0)
-                utilization_drift = round((100.0 - current_util) * 0.05, 2)
+                utilization_drift = round((100.0 - current_util) * 0.10, 2)
                 bu["bed_capacity_utilization"] = min(100.0, round(current_util + utilization_drift, 2))
                 events[f"bed_utilization_drift_{bu['bu_id']}"] = utilization_drift
 
@@ -1778,6 +1864,71 @@ def process_tick(
         corporate_cost_of_capital + macro_rate["coc_modifier"], 4
     )
     events["coc_macro_rate_applied"] = macro_rate["coc_modifier"]
+
+    # ── PHASE-1: ESG-Adjusted WACC — dynamic cost of capital ─────
+    # Replaces static CoC with ESG-sensitive WACC (El Ghoul 2011)
+    try:
+        from systemic_risk_engine import calc_esg_adjusted_wacc, calc_supply_chain_transparency, calc_employer_brand, get_foreshadowing_for_round
+        n_bu = max(len(new_bus), 1)
+        _avg_ci = sum(bu.get("carbon_intensity", 50) for bu in new_bus) / n_bu
+        _avg_gov = sum(bu.get("governance_risk_score", 20) for bu in new_bus) / n_bu
+        _avg_slo = sum(bu.get("social_license_score", 50) for bu in new_bus) / n_bu
+        _avg_water = sum(bu.get("water_dependency", 0) for bu in new_bus) / n_bu
+        _sct = current_global.get("active_event_flags", {}).get("supply_chain_transparency", 30)
+
+        esg_wacc, esg_wacc_diag = calc_esg_adjusted_wacc(
+            corporate_cost_of_capital, _avg_ci, _avg_gov, _avg_slo, _avg_water, _sct
+        )
+        corporate_cost_of_capital = esg_wacc
+        events["esg_adjusted_wacc"] = esg_wacc_diag
+
+        # Update Supply Chain Transparency metric
+        _sct_new, _sct_diag = calc_supply_chain_transparency(
+            _sct, current_global.get("active_event_flags", {}), current_global["round_number"]
+        )
+        events["supply_chain_transparency"] = _sct_new
+        events["supply_chain_transparency_diag"] = _sct_diag
+
+        # Employer Brand Score
+        _avg_burnout = sum(bu.get("staff_burnout_index", 0) for bu in new_bus) / n_bu
+        _workforce_readiness = current_global.get("active_event_flags", {}).get("workforce_readiness", 50)
+        _eb, _eb_diag = calc_employer_brand(group_reputation, _avg_burnout, _workforce_readiness)
+        events["employer_brand"] = _eb_diag
+
+        # ── Employer Brand OPEX Penalty (All BUs) ──
+        # When employer brand score drops below 40, ALL BUs face recruitment cost
+        # escalation: turnover increases, replacement hiring is expensive, and
+        # institutional knowledge drains. This extends the talent flight mechanic
+        # from Software/HC-only to the entire organisation.
+        if _eb < 40:
+            # Graded penalty: 0% at 40, max 8% at 0
+            eb_opex_multiplier = round(((40 - _eb) / 40) * 0.08, 4)
+            eb_total_penalty = 0.0
+            for bu in new_bus:
+                bu_opex = bu.get("opex_base", 0)
+                penalty = round(bu_opex * eb_opex_multiplier, 2)
+                bu["opex_base"] = round(bu_opex + penalty, 2)
+                eb_total_penalty += penalty
+            events["employer_brand_opex_penalty"] = {
+                "multiplier": eb_opex_multiplier,
+                "total_penalty": round(eb_total_penalty, 2),
+                "employer_brand_score": _eb,
+                "affected_bus": len(new_bus),
+                "narrative": (
+                    f"⚠️ TALENT CRISIS: Employer brand score has fallen to {_eb:.0f}/100. "
+                    f"Recruitment costs surging across all divisions — "
+                    f"${eb_total_penalty/1_000_000:.1f}M in additional OPEX."
+                ),
+            }
+
+        # Foreshadowing Signals
+        _foreshadowing = get_foreshadowing_for_round(
+            current_global["round_number"], current_global.get("active_event_flags", {})
+        )
+        if _foreshadowing:
+            events["foreshadowing_signals"] = _foreshadowing
+    except ImportError:
+        pass  # Graceful degradation if systemic_risk_engine not available
     
     # Stranded Asset Decay: Cost of Capital Spike
     if decision_paradigm == "advanced_climate":
@@ -1797,10 +1948,12 @@ def process_tick(
     
     # If treasury is negative, deduct interest
     if new_treasury < 0:
-        # Prevent unbound negative geometry (insolvency floor at -$500M)
-        new_treasury = max(new_treasury, -500_000_000.0)
+        # Compute debt-service interest first (on the pre-clamp balance)
         debt_service = round(abs(new_treasury) * corporate_cost_of_capital, 2)
         new_treasury = round(new_treasury - debt_service, 2)
+        # Prevent unbound negative geometry — hard floor AFTER interest (true absolute bound)
+        new_treasury = max(new_treasury, -500_000_000.0)
+
         events["negative_treasury_interest_applied"] = debt_service
         events["negative_treasury_interest_because"] = (
             f"Your treasury is negative. Creditors charge {corporate_cost_of_capital*100:.1f}% "
@@ -1899,7 +2052,7 @@ def process_tick(
         # CBAM Border Adjustment: supply chain rounds (R3, R7) face import surcharge
         # if avg CI remains high — models EU Carbon Border Adjustment Mechanism
         round_number = current_global.get("round_number", 1)
-        if round_number in (3, 7) and avg_ci > 40:
+        if round_number in (2, 5) and avg_ci > 40:
             cbam_surcharge = round((avg_ci - 40) * 100_000, 2)  # $100K per CI point above 40
             new_treasury = round(new_treasury - cbam_surcharge, 2)
             events["cbam_surcharge_applied"] = cbam_surcharge
@@ -2000,7 +2153,7 @@ def process_tick(
         # SBTi Pathway Validation — with multi-round history for dashboard visualization
         import math
         round_num = current_global.get("round_number", 1)
-        sbti_target_ci = round(36.25 * (1 - 0.042) ** (round_num - 1), 2)
+        sbti_target_ci = round(36.25 * (1 - 0.0822) ** (round_num - 1), 2)
         sbti_aligned = avg_ci <= sbti_target_ci
         # Build cumulative pathway history from previous rounds
         sbti_history = list(current_global.get("sbti_pathway_history", []))
@@ -2217,7 +2370,7 @@ def process_tick(
     events["regulatory_floor_coc"] = max(historical_coc_max, corporate_cost_of_capital)
 
     # ── FEATURE 14: Fog of War — metric noise for undiscovered BUs ──
-    fog_active = current_global.get("round_number", 1) <= 3
+    fog_active = current_global.get("round_number", 1) <= 2
     deep_audit = "deep_audit_completed" in current_global.get("active_event_flags", {})
     if fog_active and not deep_audit:
         events["fog_of_war_active"] = True
@@ -2263,11 +2416,11 @@ def process_tick(
     new_synergy = round(new_synergy, 4)
 
     # ── Internal Carbon Pricing — Escalating per Paris Ratchet ────
-    # Base $40/ton escalating 15%/round to model Article 4 ratchet mechanism
-    # R1:$40 → R3:$53 → R5:$70 → R7:$92 → R10:$162
+    # Base $40/ton escalating 32.25%/round (compounded from 15%/quarter × 2) to model Article 4 ratchet
+    # R1:$40 → R3:$70 → R5:$122 → R7:$214 → R10:$495
     if decision_paradigm == "advanced_climate":
         base_carbon_fee = current_global.get("active_event_flags", {}).get("global_carbon_fee", 40)
-        escalation_rate = 0.15  # 15% per round (Paris Agreement ratchet)
+        escalation_rate = 0.3225  # 32.25% per 6-month round (1.15² = 1.3225)
         round_number = current_global.get("round_number", 1)
         carbon_fee_per_ton = round(base_carbon_fee * (1 + escalation_rate) ** (round_number - 1), 2)
         round_carbon_fee_total = round(tco2e_emissions * carbon_fee_per_ton, 2)
@@ -2278,8 +2431,8 @@ def process_tick(
         events["internal_carbon_fee_deducted"] = round_carbon_fee_total
         events["internal_carbon_fee_because"] = (
             f"Internal carbon price of ${carbon_fee_per_ton:,.0f}/tCO₂e applied to "
-            f"{tco2e_emissions:,.0f} tonnes total emissions. Fee escalates 15% per "
-            f"round under Paris Agreement ratchet mechanism."
+            f"{tco2e_emissions:,.0f} tonnes total emissions. Fee escalates 32.25% per "
+            f"6-month round under Paris Agreement ratchet mechanism."
         )
         _wf("Internal Carbon Fee", -round_carbon_fee_total,
             because=f"${carbon_fee_per_ton:,.0f}/tCO₂e × {tco2e_emissions:,.0f}t = ${round_carbon_fee_total:,.0f} transferred to Green Fund.",
@@ -2295,7 +2448,7 @@ def process_tick(
     # Once a tier is reached, it NEVER drops back (hysteresis/ratchet)
     tipping_point_active = current_global.get("tipping_point_active", False)
     tipping_tier = current_global.get("tipping_tier", "none")
-    if decision_paradigm == "advanced_climate" and current_global["round_number"] >= 4:
+    if decision_paradigm == "advanced_climate" and current_global["round_number"] >= 3:
         # Tier 1: Warning (avg CI > 45)
         if tipping_tier == "none" and avg_ci > 45:
             tipping_tier = "warning"
@@ -2342,7 +2495,7 @@ def process_tick(
                 "severity": "critical",
             }]
         # Also check direct entry to tipped (for backward compat)
-        if not tipping_point_active and current_global["round_number"] >= 5 and avg_ci > 55:
+        if not tipping_point_active and current_global["round_number"] >= 4 and avg_ci > 55:
             if tipping_tier == "none":
                 tipping_tier = "stressed"
             tipping_point_active = True
@@ -2351,16 +2504,16 @@ def process_tick(
         # ── Loss & Damage Levy — post-tipping mandatory contribution ──
         # Models UNFCCC Loss & Damage Fund (COP27/28)
         if tipping_tier == "tipped":
-            loss_damage_levy = 2_000_000  # $2M/round
+            loss_damage_levy = 4_000_000  # $4M/6-month round (doubled from quarterly $2M)
             new_treasury = round(new_treasury - loss_damage_levy, 2)
             events["loss_damage_levy_applied"] = loss_damage_levy
             events["loss_damage_message"] = (
-                "UNFCCC Loss & Damage Fund contribution: -$2M. "
+                "UNFCCC Loss & Damage Fund contribution: -$4M. "
                 "Post-tipping economies bear the cost of climate inaction "
                 "through mandatory contributions to developing-economy adaptation."
             )
         elif tipping_tier == "stressed":
-            loss_damage_levy = 500_000  # $500K/round at stressed tier
+            loss_damage_levy = 1_000_000  # $1M/6-month round (doubled from quarterly $500K)
             new_treasury = round(new_treasury - loss_damage_levy, 2)
             events["loss_damage_levy_applied"] = loss_damage_levy
             events["loss_damage_message"] = (
@@ -2466,7 +2619,7 @@ def process_tick(
     # ── Inflation drift: hostility increases inflation ───────────
     new_inflation_index = inflation_index
     if hostility_multiplier > 5:
-        new_inflation_index = round(inflation_index + 0.005, 4)  # +0.5% per hostile round
+        new_inflation_index = round(inflation_index + 0.010, 4)  # +1.0% per hostile 6-month round
         events["inflation_index_increased"] = new_inflation_index
         events["inflation_drift_hostile"] = True
         events["inflation_drift_message"] = (
@@ -2591,6 +2744,49 @@ def process_tick(
         events["reflection_prompt"] = reflection_trigger
     else:
         events["reflection_required"] = False
+
+    # ── PHASE-1: Systemic Tipping Point Evaluation ────────────────
+    systemic_tipping_state = {}
+    try:
+        from systemic_risk_engine import evaluate_tipping_points, evaluate_materiality_shocks
+        _current_tipped = current_global.get("active_event_flags", {}).get("systemic_tipping_state", {})
+        _tp_result = evaluate_tipping_points(current_global, new_bus, _current_tipped)
+        systemic_tipping_state = _tp_result["tipping_state"]
+        events["systemic_tipping"] = _tp_result
+        if _tp_result["transitions"]:
+            for trans in _tp_result["transitions"]:
+                events.setdefault("custom_black_swans", []).append({
+                    "title": f"⚠️ SYSTEMIC TIPPING — {trans['dimension'].upper()}",
+                    "narrative": trans["message"],
+                    "icon": "⚠️",
+                    "severity": "critical",
+                })
+        # Materiality Shocks
+        _session_tier_ms = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
+        _shocks = evaluate_materiality_shocks(current_global["round_number"], _session_tier_ms)
+        if _shocks:
+            events["materiality_shocks"] = _shocks
+            for shock in _shocks:
+                events.setdefault("custom_black_swans", []).append({
+                    "title": f"📊 MATERIALITY SHOCK — {shock['issue']}",
+                    "narrative": shock["narrative"],
+                    "icon": "📊",
+                    "severity": "critical",
+                })
+    except ImportError:
+        pass
+
+    # ── FIX-QA-005: Final bounds-clamping pass for all BU state variables ──
+    # Prevents logic leaks where compound penalties (cannibalization, FX,
+    # NCD penalties, talent surcharges) could push variables past logical bounds.
+    for bu in new_bus:
+        bu["revenue_base"] = max(0.0, bu.get("revenue_base", 0.0))
+        bu["opex_base"] = max(0.0, bu.get("opex_base", 0.0))
+        bu["reputation_score"] = max(0.0, min(100.0, bu.get("reputation_score", 50.0)))
+        bu["social_license_score"] = max(0.0, min(100.0, bu.get("social_license_score", 50.0)))
+        bu["natural_capital_debt"] = max(0.0, min(1_000_000, bu.get("natural_capital_debt", 0.0)))
+        bu["carbon_intensity"] = max(0.0, bu.get("carbon_intensity", 0.0))
+        bu["staff_burnout_index"] = max(0.0, min(100.0, bu.get("staff_burnout_index", 0.0)))
 
     # ── Assemble new immutable global state ─────────────────────
     new_global: dict[str, Any] = {

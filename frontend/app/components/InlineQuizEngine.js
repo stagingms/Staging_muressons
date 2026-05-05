@@ -103,7 +103,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
         position: 'fixed', inset: 0, zIndex: 10000,
         background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontFamily: "'Inter', sans-serif",
+        fontFamily: "'DM Sans', sans-serif",
       }} onClick={onClose}>
         <div style={{
           width: 400, borderRadius: 20, background: '#fff',
@@ -141,7 +141,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
       position: 'fixed', inset: 0, zIndex: 10000,
       background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Inter', sans-serif",
+      fontFamily: "'DM Sans', sans-serif",
     }} onClick={onClose}>
       <div style={{
         width: 580, maxHeight: '90vh', borderRadius: 20,

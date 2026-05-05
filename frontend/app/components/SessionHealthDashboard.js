@@ -4,6 +4,18 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const STATUS_ICONS = { healthy: '🟢', warning: '🟡', stressed: '🟠', critical: '🔴', completed: '🟣' };
 
+// Pulse animation styles for live session indicators
+const pulseKeyframes = `
+@keyframes healthPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+@keyframes criticalPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239,68,68,0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(239,68,68,0); }
+}
+`;
+
 export default function SessionHealthDashboard() {
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -23,6 +35,7 @@ export default function SessionHealthDashboard() {
 
     return (
         <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>🏥 Session Health Monitor</h2>
                 <button onClick={refresh} style={{ padding: '0.4rem 1rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}>🔄 Refresh</button>
@@ -57,7 +70,13 @@ export default function SessionHealthDashboard() {
                                     <div style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{s.cohort_name}</div>
                                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{s.facilitator_id} · {s.paradigm}</div>
                                 </div>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', padding: '0.2rem 0.6rem', borderRadius: '4px', background: `${s.status_color}15`, color: s.status_color, fontSize: '0.72rem', fontWeight: 700 }}>
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: '0.25rem',
+                                    padding: '0.2rem 0.6rem', borderRadius: '4px',
+                                    background: `${s.status_color}15`, color: s.status_color,
+                                    fontSize: '0.72rem', fontWeight: 700,
+                                    animation: s.status === 'critical' ? 'criticalPulse 1.5s infinite' : (s.status === 'healthy' ? 'healthPulse 3s infinite' : 'none'),
+                                }}>
                                     {STATUS_ICONS[s.status]} {s.status.toUpperCase()}
                                 </div>
                             </div>

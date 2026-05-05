@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Pydantic Request / Response Models
+Muressons Global Corporation — Pydantic Request / Response Models
 """
 
 from __future__ import annotations
@@ -80,15 +80,18 @@ class MatrixSubmission(BaseModel):
 
 class MaterialitySubmissionRequest(BaseModel):
     consultant_used: bool = False
+    panel_issue_count: int = 4             # 1-8; tiered stakeholder panel pricing
     matrix_submission: MatrixSubmission
     force_override_cfo: bool = False
     bu_id: Optional[str] = None  # BU-specific dictionary for Strategic Pillars mode
 
 
 class MaterialitySubmissionResponse(BaseModel):
+    success: bool = True
     allocated_budget: int
     corporate_treasury: float
     message: str = "Success"
+    debrief: Optional[dict] = None         # ESRS regulatory debrief card
 
 
 # ── Config Models ────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Admin Shared State
+Muressons Global Corporation — Admin Shared State
 Shared in-memory state and utilities used by all admin sub-routers.
 Extracted from admin_router.py (ARCH-002) to decouple domain modules.
 
@@ -14,6 +14,95 @@ from datetime import datetime, timezone
 from typing import Any, Optional
 
 from config import MASTER_PASSWORD
+
+# ═════════════════════════════════════════════════════════════════
+#  3-TIER ROLE MODEL
+# ═════════════════════════════════════════════════════════════════
+
+ROLE_HIERARCHY = {
+    "super_admin": 3,
+    "lead_facilitator": 2,
+    "facilitator": 1,
+}
+
+# Tabs accessible at each role level
+ROLE_ALLOWED_TABS = {
+    "facilitator": [
+        "dashboard_home", "timeline", "teleprompter", "leaderboard",
+        "registry", "session_viewer", "impersonate", "swipe_file",
+        "broadcast", "platform_analytics", "cohort_comparison",
+        "complexity_feed", "decision_replay", "debrief",
+        "scorecard_evaluator", "bonuses", "peer_eval", "reports",
+        "notes", "annotations", "teaching_journal", "technical_glossary",
+    ],
+    "lead_facilitator": [
+        # All facilitator tabs plus:
+        "manual_override", "intervention_config", "auto_pause",
+        "undo_round", "materiality", "activity_log",
+    ],
+    "super_admin": ["*"],  # All tabs
+}
+
+
+def get_role(fac: dict) -> str:
+    """Get the role for a facilitator, with backward-compat migration from is_admin."""
+    if "role" in fac:
+        return fac["role"]
+    # Backward compatibility: migrate from is_admin boolean
+    if fac.get("is_admin"):
+        return "super_admin"
+    return "facilitator"
+
+
+def has_role_level(fac: dict, required_role: str) -> bool:
+    """Check if facilitator has at least the required role level."""
+    fac_role = get_role(fac)
+    return ROLE_HIERARCHY.get(fac_role, 0) >= ROLE_HIERARCHY.get(required_role, 0)
+
+
+def get_allowed_tabs(fac: dict) -> list[str]:
+    """Return the list of tab IDs this facilitator is allowed to access."""
+    role = get_role(fac)
+    if role == "super_admin":
+        return ["*"]
+    # Build cumulative tabs: facilitator tabs + lead_facilitator extras if applicable
+    tabs = list(ROLE_ALLOWED_TABS.get("facilitator", []))
+    if ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("lead_facilitator", 0):
+        tabs.extend(ROLE_ALLOWED_TABS.get("lead_facilitator", []))
+    # Add any custom allowed_tabs from the facilitator record
+    custom_tabs = fac.get("allowed_tabs", [])
+    if custom_tabs:
+        tabs.extend(custom_tabs)
+    return list(set(tabs))
+
+
+def can_access_tab(fac: dict, tab_id: str) -> bool:
+    """Check if a facilitator can access a specific tab."""
+    allowed = get_allowed_tabs(fac)
+    return "*" in allowed or tab_id in allowed
+
+
+def owns_session(fac: dict, session: dict) -> bool:
+    """Check if a facilitator owns a session (multi-tenancy enforcement).
+    Super admins can access all sessions."""
+    if get_role(fac) == "super_admin":
+        return True
+    fac_id = fac.get("facilitator_id", "")
+    session_fac = session.get("facilitator_id", "")
+    return session_fac == fac_id
+
+
+def _migrate_facilitator_roles(registry: list[dict]) -> list[dict]:
+    """Migrate facilitator records from is_admin boolean to role string."""
+    for fac in registry:
+        if "role" not in fac:
+            if fac.get("is_admin"):
+                fac["role"] = "super_admin"
+            else:
+                fac["role"] = "facilitator"
+            # Keep is_admin for backward compat but role is authoritative
+            fac["is_admin"] = fac["role"] == "super_admin"
+    return registry
 
 # ═════════════════════════════════════════════════════════════════
 #  GOD MODE GLOBAL SETTINGS
@@ -46,6 +135,12 @@ _god_mode_settings: dict = {
     "ceo_interview_voice_gender": "female",
     "ceo_interview_question_count": 5,
     "ceo_interview_pathway_question": True,
+    # PHASE-1: Systemic Risk & Black Swan settings
+    "difficulty_tier": "standard",               # standard | advanced | expert
+    "systemic_risk_enabled": True,                # Enable ESG-adjusted WACC + tipping points
+    "black_swan_events_enabled": True,            # Enable stochastic Black Swan disruptions
+    "npc_cascading_enabled": True,                # Enable NPC stakeholder cascade reactions
+    "foreshadowing_signals_enabled": True,        # Show pedagogical foreshadowing hints
 }
 
 
@@ -64,18 +159,21 @@ _DEFAULT_FACILITATOR = {
     "created_at": "2026-01-01T00:00:00+00:00",
     "max_cohorts": 5,
     "cohorts_created": 0,
-    "is_admin": True,
+    "role": "super_admin",
+    "is_admin": True,  # backward compat — role is authoritative
     "enabled": True,
 }
 
 
 def _load_facilitator_registry() -> list[dict]:
-    """Load facilitator registry from disk. Falls back to default if not found."""
+    """Load facilitator registry from disk. Falls back to default if not found.
+    Applies role migration for backward compatibility."""
     try:
         if os.path.exists(_FAC_REGISTRY_PATH):
             with open(_FAC_REGISTRY_PATH, "r", encoding="utf-8") as f:
                 data = json.load(f)
             if data:
+                data = _migrate_facilitator_roles(data)
                 print(f"[persistence] Restored {len(data)} facilitator(s) from registry.")
                 return data
     except Exception as e:
@@ -136,7 +234,7 @@ def is_practice_mode(session_id: str) -> bool:
 
 
 # ═════════════════════════════════════════════════════════════════
-#  ROUND PACING
+#  ROUND PACING (with facilitator ownership protection)
 # ═════════════════════════════════════════════════════════════════
 
 _round_pacing: dict[str, dict] = {}
@@ -153,10 +251,12 @@ def _get_pacing(session_id: str) -> dict:
             "schedule": [],
             "_timer_tasks": [],
             "_timer_task": None,
+            "set_by": None,  # Track who set the pacing
         }
     p = _round_pacing[session_id]
     p.setdefault("schedule", [])
     p.setdefault("_timer_tasks", [])
+    p.setdefault("set_by", None)
     return p
 
 
@@ -166,6 +266,13 @@ def is_round_unlocked(session_id: str, round_number: int) -> bool:
     if pacing["mode"] == "free":
         return True
     return round_number <= pacing["unlocked_round"]
+
+
+def is_pacing_set_by_facilitator(session_id: str) -> bool:
+    """Check if pacing for a session was explicitly set by a facilitator.
+    If True, God Mode cannot override it."""
+    pacing = _get_pacing(session_id)
+    return pacing.get("set_by") is not None and pacing["mode"] != "free"
 
 
 # ═════════════════════════════════════════════════════════════════

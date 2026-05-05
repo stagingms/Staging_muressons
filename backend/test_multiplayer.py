@@ -181,17 +181,18 @@ def run_multiplayer_test(paradigm):
         player_sids.append((p, sid))
     
     errors = []
-    
+    materiality_done = {}  # per-session materiality gate
+
     for rnd in range(1, 11):
         # Admin needs to unlock round for the cohort
         api("POST", f"/api/admin/{parent_sid}/rounds/{rnd}/unlock", {"unlocked": True})
-        
+
         print(f"\n  -- Round {rnd} --")
-        
+
         for idx, (p, sid) in enumerate(player_sids):
             if rnd == 1:
                 if not submit_stakeholder_map(sid): errors.append(f"R1: {p['name']} map failed")
-            elif rnd == 2:
+            elif rnd == 2 and not materiality_done.get(sid):
                 if paradigm == "multi_toggles":
                     r = api("GET", f"/api/admin/{sid}/r2-bu-selection")
                     if r.status_code == 200:
@@ -201,14 +202,17 @@ def run_multiplayer_test(paradigm):
                         submit_materiality(sid)
                 else:
                     submit_materiality(sid)
-            
+                materiality_done[sid] = True
+
             result = commit_turn(sid, rnd, paradigm, idx)
             if not result:
                 errors.append(f"R{rnd}: {p['name']} commit failed")
                 continue
-            
+
             gs = result.get("global_state", {})
             print(f"    {p['name']} => Treasury: ${gs.get('corporate_treasury', 0):,.0f} | Rep: {gs.get('group_reputation', 0):.1f}")
+            # Respect 5-second per-session rate limiter between players
+            time.sleep(5.2)
 
     # Check peer leaderboard for P1
     print(f"\n  -- Leaderboard Check --")

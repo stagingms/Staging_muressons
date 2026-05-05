@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Comprehensive Automated Test Suite
+Muressons Global Corporation — Comprehensive Automated Test Suite
 Covers: edge cases, boundary conditions, mathematical invariants,
 full-game simulation, and vulnerability detection.
 
@@ -230,8 +230,9 @@ class TestNaturalDecayEdgeCases:
         for _ in range(10):
             rep, sl = apply_natural_decay(rep, sl, invested=False)
         # Iterative rounding produces slight drift vs single exponentiation
-        assert abs(rep - 80 * 0.98**10) < 0.1
-        assert rep < 66  # Drops below brain-drain threshold
+        # Decay is 0.96 per 6-month round (compounded from 2%/quarter)
+        assert abs(rep - 80 * 0.96**10) < 0.1
+        assert rep < 55  # Drops well below brain-drain threshold with 4% decay
 
     def test_zero_scores_stay_zero(self):
         rep, sl = apply_natural_decay(0, 0, invested=False)

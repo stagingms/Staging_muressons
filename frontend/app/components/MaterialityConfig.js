@@ -26,15 +26,25 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     const [newCategory, setNewCategory] = useState({ id: '', label: '', icon: '🏢' });
     const [categoryMsg, setCategoryMsg] = useState('');
 
+    // Industry vertical blueprints (from /api/admin/industry-verticals)
+    const [industryVerticals, setIndustryVerticals] = useState([]);
+    const [verticalSessions, setVerticalSessions] = useState([]);
+    const [applyingVertical, setApplyingVertical] = useState(false);
+    const [applyTarget, setApplyTarget] = useState('');
+    const [applyMsg, setApplyMsg] = useState('');
+
     // Load BU categories dynamically from backend
     useEffect(() => {
         fetch(`${API}/api/admin/bu-categories`)
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (data?.categories) {
-                    const buOpts = data.categories.map(c => ({
-                        id: c.id, label: c.label, icon: c.icon, is_custom: c.is_custom || false,
-                    }));
+                    // Exclude industry verticals — they have their own dedicated row
+                    const buOpts = data.categories
+                        .filter(c => !c.is_industry_vertical)
+                        .map(c => ({
+                            id: c.id, label: c.label, icon: c.icon, is_custom: c.is_custom || false,
+                        }));
                     setDictOptions([
                         { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐', is_custom: false },
                         ...buOpts,
@@ -42,7 +52,40 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 }
             })
             .catch(() => {});
+
+        // Load industry vertical blueprints
+        fetch(`${API}/api/admin/industry-verticals`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data?.verticals) setIndustryVerticals(data.verticals); })
+            .catch(() => {});
+
+        // Load sessions for the vertical-apply dropdown
+        fetch(`${API}/api/admin/sessions`)
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (Array.isArray(data)) setVerticalSessions(data);
+                else if (data?.sessions) setVerticalSessions(data.sessions);
+            })
+            .catch(() => {});
     }, []);
+
+    const handleApplyVertical = async () => {
+        if (!applyTarget || !selectedDict) return;
+        setApplyingVertical(true);
+        setApplyMsg('');
+        try {
+            const res = await fetch(`${API}/api/admin/industry-verticals/${selectedDict}/apply/${applyTarget}`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                setApplyMsg(`✅ Applied to session (${data.issue_count} issues loaded).`);
+            } else {
+                setApplyMsg(`⚠️ ${data.detail || 'Apply failed'}`);
+            }
+        } catch {
+            setApplyMsg('⚠️ Network error.');
+        }
+        setApplyingVertical(false);
+    };
 
     const handleAddCategory = async () => {
         const id = newCategory.id.trim().toLowerCase().replace(/\s+/g, '_');
@@ -158,8 +201,8 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                     setIsSandboxed(false);
                 }
             }
-        } catch (err) {
-            console.error('Failed to fetch materiality config', err);
+        } catch {
+            // Silent — backend may be offline during frontend-only development
         }
         setLoading(false);
     };
@@ -552,6 +595,46 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                         </div>
                     ))}
 
+                {/* ── Industry Vertical Blueprints row ──────────────────── */}
+                {industryVerticals.length > 0 && (
+                    <>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', width: '100%' }}>
+                            <span style={{
+                                fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em',
+                                textTransform: 'uppercase', color: '#6366f1', whiteSpace: 'nowrap',
+                            }}>★ Industry Verticals</span>
+                            <div style={{ flex: 1, height: 1, background: 'rgba(99,102,241,0.25)' }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', paddingTop: '2px' }}>
+                            {industryVerticals.map(v => (
+                                <button
+                                    key={v.id}
+                                    onClick={() => { setSelectedDict(v.id); setShowConfigurator(false); setApplyMsg(''); }}
+                                    title={`Q1 issues: ${v.q1_titles?.join(', ') || 'none'}`}
+                                    style={{
+                                        padding: '6px 14px', borderRadius: '20px', cursor: 'pointer',
+                                        fontSize: '0.78rem', fontWeight: 700,
+                                        borderWidth: '1.5px', borderStyle: 'solid',
+                                        transition: 'all 0.15s',
+                                        background: selectedDict === v.id ? '#6366f1' : 'rgba(99,102,241,0.08)',
+                                        color: selectedDict === v.id ? '#fff' : '#6366f1',
+                                        borderColor: selectedDict === v.id ? '#6366f1' : 'rgba(99,102,241,0.35)',
+                                    }}
+                                >
+                                    {v.icon} {v.label}
+                                    {v.q1_count > 0 && (
+                                        <span style={{
+                                            marginLeft: '0.4rem', fontSize: '0.68rem', fontWeight: 800,
+                                            background: selectedDict === v.id ? 'rgba(255,255,255,0.25)' : 'rgba(99,102,241,0.15)',
+                                            padding: '1px 5px', borderRadius: '10px',
+                                        }}>{v.q1_count} Q1</span>
+                                    )}
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
+
                     {/* Add Category Button */}
                     <button
                         onClick={() => { setShowAddCategory(!showAddCategory); setCategoryMsg(''); }}
@@ -574,7 +657,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                         display: 'flex', gap: '0.6rem', flexWrap: 'wrap', alignItems: 'flex-end',
                     }}>
                         <div>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ICON</div>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ICON</div>
                             <input
                                 value={newCategory.icon}
                                 onChange={e => setNewCategory(c => ({ ...c, icon: e.target.value }))}
@@ -583,7 +666,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                             />
                         </div>
                         <div style={{ flex: 1, minWidth: 120 }}>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>LABEL</div>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>LABEL</div>
                             <input
                                 value={newCategory.label}
                                 onChange={e => setNewCategory(c => ({ ...c, label: e.target.value }))}
@@ -592,7 +675,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                             />
                         </div>
                         <div style={{ flex: 1, minWidth: 120 }}>
-                            <div style={{ fontSize: '0.62rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ID (slug)</div>
+                            <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#065f46', marginBottom: 3 }}>ID (slug)</div>
                             <input
                                 value={newCategory.id}
                                 onChange={e => setNewCategory(c => ({ ...c, id: e.target.value.replace(/\s+/g, '_').toLowerCase() }))}
@@ -615,15 +698,59 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 )}
             </div>
 
-            {selectedDict !== 'global' && (
-                <div style={{
-                    padding: '0.6rem 0.8rem', background: '#eff6ff', borderLeft: '4px solid #3b82f6',
-                    borderRadius: '4px', marginBottom: '1rem', fontSize: '0.82rem', color: '#1e40af'
-                }}>
-                    📌 You are editing the <strong>{dictOptions.find(o => o.id === selectedDict)?.label}</strong> issue dictionary.
-                    This dictionary is used when the <strong>Strategic Pillars</strong> paradigm is active and this BU is randomly selected for Round 2 materiality analysis.
-                </div>
-            )}
+            {selectedDict !== 'global' && (() => {
+                const isVertical = industryVerticals.some(v => v.id === selectedDict);
+                const vertMeta = isVertical ? industryVerticals.find(v => v.id === selectedDict) : null;
+                return (
+                    <div style={{
+                        padding: '0.6rem 0.8rem', borderRadius: '4px', marginBottom: '1rem', fontSize: '0.82rem',
+                        ...(isVertical
+                            ? { background: 'rgba(99,102,241,0.07)', borderLeft: '4px solid #6366f1', color: '#4f46e5' }
+                            : { background: '#eff6ff', borderLeft: '4px solid #3b82f6', color: '#1e40af' })
+                    }}>
+                        {isVertical ? (
+                            <>
+                                <strong>★ Industry Vertical Blueprint: {vertMeta?.label}</strong>
+                                {vertMeta && <span style={{ marginLeft: '0.75rem', opacity: 0.75 }}>{vertMeta.q1_count} doubly-material issues · {vertMeta.issue_count} total</span>}
+                                <div style={{ marginTop: '0.4rem', fontSize: '0.78rem', opacity: 0.8 }}>
+                                    Q1 issues: {vertMeta?.q1_titles?.join(', ') || '—'}
+                                </div>
+                                <div style={{ marginTop: '0.75rem', display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontWeight: 700, fontSize: '0.78rem' }}>Apply to session:</span>
+                                    <select
+                                        value={applyTarget}
+                                        onChange={e => setApplyTarget(e.target.value)}
+                                        style={{ padding: '0.3rem 0.6rem', borderRadius: '6px', border: '1px solid #c7d2fe', background: '#eef2ff', color: '#3730a3', fontSize: '0.78rem', minWidth: 160 }}
+                                    >
+                                        <option value=''>-- choose session --</option>
+                                        {verticalSessions.map(s => (
+                                            <option key={s.session_id || s.id} value={s.session_id || s.id}>
+                                                {s.cohort_name || s.session_id || s.id}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <button
+                                        onClick={handleApplyVertical}
+                                        disabled={!applyTarget || applyingVertical}
+                                        style={{
+                                            background: 'linear-gradient(135deg,#6366f1,#4f46e5)', color: '#fff',
+                                            border: 'none', padding: '0.3rem 0.85rem', borderRadius: '6px',
+                                            fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
+                                            opacity: (!applyTarget || applyingVertical) ? 0.5 : 1,
+                                        }}
+                                    >
+                                        {applyingVertical ? '⏳ Applying...' : '▶ Apply Blueprint'}
+                                    </button>
+                                    {applyMsg && <span style={{ fontSize: '0.76rem', fontWeight: 600 }}>{applyMsg}</span>}
+                                </div>
+                            </>
+                        ) : (
+                            <>📌 You are editing the <strong>{dictOptions.find(o => o.id === selectedDict)?.label}</strong> issue dictionary.
+                            This dictionary is used when the <strong>Strategic Pillars</strong> paradigm is active and this BU is randomly selected for Round 2 materiality analysis.</>
+                        )}
+                    </div>
+                );
+            })()}
 
             {!showConfigurator && (
                 <div className={styles.gatePrompt}>
@@ -735,7 +862,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                 )}
 
                 <div className={styles.tabs}>
-                    {['economic', 'ecological', 'social'].map(tab => (
+                    {['economic', 'ecological', 'social', 'governance'].map(tab => (
                         <button
                             key={tab}
                             className={`${styles.tabBtn} ${activeTab === tab ? styles.active : ''}`}
@@ -905,13 +1032,15 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                     </div>
 
                     <div className={styles.issueList}>
-                        {config.interdependencies.map(link => {
-                            const source = config.issues.find(i => i.id === link.source_issue_id);
-                            const target = config.issues.find(i => i.id === link.target_issue_id);
+                        {config.interdependencies.map((link, idx) => {
+                            const srcId = link.source_issue_id || link.source;
+                            const tgtId = link.target_issue_id || link.target;
+                            const source = config.issues.find(i => i.id === srcId);
+                            const target = config.issues.find(i => i.id === tgtId);
                             return (
-                                <div key={link.id} className={styles.issueCard}>
+                                <div key={link.id || `${srcId}_${tgtId}_${idx}`} className={styles.issueCard}>
                                     <div className={styles.issueInfo}>
-                                        <h4>{source?.title || link.source_issue_id} <span style={{ color: 'var(--accent-blue)' }}>➔</span> {target?.title || link.target_issue_id}</h4>
+                                        <h4>{source?.title || srcId} <span style={{ color: 'var(--accent-blue)' }}>➔</span> {target?.title || tgtId}</h4>
                                         <p className={styles.issueDesc}>{link.description}</p>
                                         <div className={styles.impactBadges}>
                                             <span className={styles.badge} style={{ border: '1px solid var(--accent-blue)' }}>Severity: {link.severity}/5</span>

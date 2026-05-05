@@ -63,7 +63,7 @@ export default function UsernamePromptModal({ userId, role, onComplete }) {
                 </div>
 
                 <div className={styles.formSection}>
-                    <h2 className={styles.title} style={{ color: '#00e5c3' }}>Welcome to Global Command</h2>
+                    <h2 className={styles.title} style={{ color: '#00e5c3' }}>Welcome to Global Corporation</h2>
                     <p className={styles.subtitle}>
                         This is your first login. Please choose a unique username. This will be displayed on the global leaderboards and communication channels.
                     </p>

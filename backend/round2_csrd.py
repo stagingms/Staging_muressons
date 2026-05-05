@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Round 2 Data Dictionary
+﻿"""
+Muressons Global Corporation — Round 2 Data Dictionary
 20 CSRD Materiality Issues configured for the Double Materiality Matrix
 
 ESRS 1 Compliance:

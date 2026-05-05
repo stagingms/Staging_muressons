@@ -1,5 +1,5 @@
 """
-Muressons Global Command — In-Memory Database Service
+Muressons Global Corporation — In-Memory Database Service
 Drop-in replacement for database.py when PostgreSQL is unavailable.
 Stores all state in Python dicts with automatic JSON file persistence.
 Data survives server restarts via snapshot file.
@@ -30,7 +30,7 @@ def _load_seed(industry: str = "generic") -> dict:
     else:
         filename = "seed_round1.json"
     seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / filename
-    with open(seed_path, "r", encoding="utf-8") as f:
+    with open(seed_path, "r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 
@@ -432,6 +432,8 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "political_capital": float(grs.get("political_capital", 50.0)),
             "community_trust_score": float(grs.get("community_trust_score", 50.0)),
             "global_emissions_intensity": float(grs.get("global_emissions_intensity", 0.0)),
+            # BU Substitution state (vertical industry selection)
+            "bu_substitutions": grs.get("bu_substitutions", {}),
         },
         "bu_states": [
             {
@@ -558,6 +560,8 @@ async def insert_next_round(
         "political_capital": global_state.get("political_capital", 50.0),
         "community_trust_score": global_state.get("community_trust_score", 50.0),
         "global_emissions_intensity": global_state.get("global_emissions_intensity", 0.0),
+        # BU Substitution state (vertical industry selection)
+        "bu_substitutions": global_state.get("bu_substitutions", {}),
     }
 
     if session_id not in _global_states:
@@ -716,6 +720,8 @@ async def update_latest_global_state(
     latest["political_capital"] = global_state.get("political_capital", latest.get("political_capital", 50.0))
     latest["community_trust_score"] = global_state.get("community_trust_score", latest.get("community_trust_score", 50.0))
     latest["global_emissions_intensity"] = global_state.get("global_emissions_intensity", latest.get("global_emissions_intensity", 0.0))
+    # BU Substitution state (vertical industry selection)
+    latest["bu_substitutions"] = global_state.get("bu_substitutions", latest.get("bu_substitutions", {}))
 
     rn = latest["round_number"]
     if session_id in _bu_states:

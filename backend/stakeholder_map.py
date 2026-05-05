@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Stakeholder Power-Interest Grid (Mendelow's Matrix)
+Muressons Global Corporation — Stakeholder Power-Interest Grid (Mendelow's Matrix)
 Master data dictionary and evaluation logic for the Round 1 minigame.
 
 2×2 Salience Grid:
@@ -39,7 +39,7 @@ STAKEHOLDERS = [
         "name": "FutureFirst Activist Fund",
         "icon": "🦅",
         "description": (
-            "Filed 3 shareholder resolutions last quarter demanding climate risk disclosure. "
+            "Filed 3 shareholder resolutions last period demanding climate risk disclosure. "
             "Currently building a 7% blocking stake and publicly threatening a board challenge "
             "at the next AGM."
         ),
@@ -175,7 +175,7 @@ STAKEHOLDERS = [
         "description": (
             "Conducted a standard transfer pricing audit of the Singapore subsidiary last year "
             "with no adverse findings. New carbon border adjustment regulations are in draft "
-            "stage — earliest implementation is 18 months away. No direct correspondence this quarter."
+            "stage — earliest implementation is 18 months away. No direct correspondence this period."
         ),
         "correct_quadrant": "keep_satisfied",
         "urgency": "low",
@@ -214,7 +214,7 @@ STAKEHOLDERS = [
         "icon": "👥",
         "description": (
             "A consumer sentiment survey shows 4% unaided brand awareness for Muressons. "
-            "No trending social media mentions this quarter. A B2B conglomerate, Muressons "
+            "No trending social media mentions this period. A B2B conglomerate, Muressons "
             "products are rarely purchased directly by end consumers."
         ),
         "correct_quadrant": "monitor",
@@ -252,7 +252,7 @@ STAKEHOLDERS = [
         "legitimacy": "medium",
         "urgency_rationale": "No immediate deadline, but investigative interest creates latent exposure.",
         "intel_dossier": [
-            "📰 Press Office: 'Interview request from J. Mehta, Deccan Herald Business — 3rd request this quarter'",
+            "📰 Press Office: 'Interview request from J. Mehta, Deccan Herald Business — 3rd request this period'",
             "📰 Media Monitor: 'J. Mehta's competitor ESG article syndicated to Economic Times (reach: 2.1M)'",
             "📰 X/Twitter: 'Reporter's thread on greenwashing in Indian manufacturing got 12K engagements'",
         ],
@@ -262,7 +262,145 @@ STAKEHOLDERS = [
 # Quick lookup: stakeholder_id → correct_quadrant
 MASTER_MAP: dict[str, str] = {s["id"]: s["correct_quadrant"] for s in STAKEHOLDERS}
 
-# C17: Alternate acceptable quadrants
+# ═══════════════════════════════════════════════════════════════
+#  VERTICAL-AWARE HELPERS
+#  When BU substitutions are active, we can serve the vertical's
+#  stakeholder set instead of the default Muressons set.
+# ═══════════════════════════════════════════════════════════════
+
+
+def _resolve_active_vertical(global_state: dict) -> str | None:
+    """
+    If the session has any BU substitutions, return the first
+    vertical ID found (used to select alternate stakeholder data).
+    Returns None for default sessions.
+    """
+    subs = global_state.get("bu_substitutions", {})
+    if not subs:
+        return None
+    # Return the first substitution vertical_id
+    from bu_profiles import DEFAULT_SLOTS
+    for slot in DEFAULT_SLOTS:
+        v_id = subs.get(slot)
+        if v_id and v_id != slot:
+            return v_id
+    return None
+
+
+def get_stakeholders_for_session(global_state: dict) -> list[dict]:
+    """Return the appropriate stakeholder set for a session (vertical or default)."""
+    v_id = _resolve_active_vertical(global_state)
+    if v_id:
+        from vertical_stakeholders import get_stakeholders_for_vertical
+        vertical_data = get_stakeholders_for_vertical(v_id)
+        if vertical_data:
+            return vertical_data
+    return STAKEHOLDERS
+
+
+def get_master_map_for_session(global_state: dict) -> dict[str, str]:
+    """Return the stakeholder_id→quadrant mapping for the active session context."""
+    stakeholders = get_stakeholders_for_session(global_state)
+    return {s["id"]: s["correct_quadrant"] for s in stakeholders}
+
+
+def evaluate_stakeholder_map_for_session(
+    submission: dict[str, str], global_state: dict
+) -> dict[str, Any]:
+    """
+    Session-aware evaluation: uses vertical stakeholders if substitutions are active.
+    Falls back to the default Muressons evaluation otherwise.
+    """
+    stakeholders = get_stakeholders_for_session(global_state)
+    if stakeholders is STAKEHOLDERS:
+        # Default path — use existing function
+        return evaluate_stakeholder_map(submission)
+    # Vertical path — run evaluation against the vertical set
+    return _evaluate_against(submission, stakeholders)
+
+
+def _evaluate_against(submission: dict[str, str], stakeholders: list[dict]) -> dict[str, Any]:
+    """Generic evaluator parameterised by a stakeholder set."""
+    correct_count = 0
+    details = []
+    master_map = {}
+
+    for stakeholder in stakeholders:
+        sid = stakeholder["id"]
+        player_quadrant = submission.get(sid, "")
+        correct_quadrant = stakeholder["correct_quadrant"]
+        alternate = stakeholder.get("alternate_quadrant")
+        master_map[sid] = correct_quadrant
+
+        is_correct = (player_quadrant == correct_quadrant) or (
+            alternate and player_quadrant == alternate
+        )
+        if is_correct:
+            correct_count += 1
+
+        details.append({
+            "id": sid,
+            "name": stakeholder["name"],
+            "player_quadrant": player_quadrant,
+            "correct_quadrant": correct_quadrant,
+            "alternate_quadrant": alternate,
+            "alternate_rationale": stakeholder.get("alternate_rationale", ""),
+            "is_correct": is_correct,
+        })
+
+    total = len(stakeholders)
+    accuracy = correct_count / total if total > 0 else 0
+
+    points_awarded = 0
+    scoring_tier = "Below Threshold"
+    for threshold, points, label in SCORING_TIERS:
+        if accuracy >= threshold:
+            points_awarded = points
+            scoring_tier = label
+            break
+
+    passed = accuracy >= 0.80
+    reputation_penalty = FAILURE_REPUTATION_PENALTY if not passed else 0
+    treasury_penalty = POOR_ANALYSIS_TREASURY_PENALTY if accuracy < 0.60 else 0
+
+    urgency_debrief = [
+        {
+            "id": s["id"], "name": s["name"],
+            "urgency": s.get("urgency", "low"),
+            "legitimacy": s.get("legitimacy", "low"),
+            "urgency_rationale": s.get("urgency_rationale", ""),
+        }
+        for s in stakeholders
+    ]
+
+    engagement_tactics = []
+    for s in stakeholders:
+        if s["correct_quadrant"] == "manage_closely" and s.get("engagement_tactics"):
+            engagement_tactics.append({
+                "stakeholder_id": s["id"],
+                "stakeholder_name": s["name"],
+                "tactics": [
+                    {"id": t["id"], "label": t["label"], "correct": t["correct"], "rationale": t["rationale"]}
+                    for t in s["engagement_tactics"]
+                ],
+            })
+
+    return {
+        "accuracy_percentage": round(accuracy * 100, 1),
+        "correct_count": correct_count,
+        "total_count": total,
+        "passed": passed,
+        "points_awarded": points_awarded,
+        "scoring_tier": scoring_tier,
+        "reputation_penalty": reputation_penalty,
+        "treasury_penalty": treasury_penalty,
+        "details": details,
+        "master_mapping": master_map,
+        "urgency_debrief": urgency_debrief,
+        "engagement_tactics": engagement_tactics,
+    }
+
+
 ALTERNATE_MAP: dict[str, str] = {
     s["id"]: s["alternate_quadrant"]
     for s in STAKEHOLDERS

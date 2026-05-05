@@ -142,6 +142,8 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
   const [currentAnswer, setCurrentAnswer] = useState('');
   const [results, setResults] = useState(null);
   const [error, setError] = useState(null);
+  const [leverageAnalysis, setLeverageAnalysis] = useState(null);
+  const [contextualCases, setContextualCases] = useState([]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTimer, setRecordingTimer] = useState(120); // 2 minutes
@@ -357,6 +359,16 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
       const data = await res.json();
       setResults(data);
       setPhase(PHASE.RESULTS);
+      
+      // Fetch pedagogical debrief data asynchronously in the background
+      Promise.all([
+        fetch(`${API}/api/simulations/${sessionId}/leverage-analysis`).then(r => r.ok ? r.json() : null),
+        fetch(`${API}/api/simulations/${sessionId}/contextual-cases`).then(r => r.ok ? r.json() : null)
+      ]).then(([levData, caseData]) => {
+        if (levData?.leverage_analysis) setLeverageAnalysis(levData.leverage_analysis);
+        if (caseData?.contextual_cases) setContextualCases(caseData.contextual_cases);
+      }).catch(err => console.error('Failed to fetch debrief data', err));
+
       onComplete?.(data);
     } catch (e) {
       setError('Failed to submit assessment. Please try again.');
@@ -665,7 +677,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
                       <div className={styles.timerDisplay}>
                         <span className={styles.recordDot}>●</span>
                         {Math.floor(recordingTimer / 60)}:{String(recordingTimer % 60).padStart(2, '0')}
-                        <span style={{ fontSize: '0.55rem', color: '#64748b', marginLeft: 4 }}>remaining</span>
+                        <span style={{ fontSize: '0.68rem', color: '#64748b', marginLeft: 4 }}>remaining</span>
                       </div>
                     )}
                   </div>
@@ -833,8 +845,299 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
               )}
             </div>
 
+            {/* Contextual Cases */}
+            {contextualCases?.length > 0 && (
+              <div className={styles.feedbackSection} style={{ marginTop: 24 }}>
+                <div className={styles.feedbackTitle}>📚 Real-World Contextual Cases</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: 12 }}>
+                  These case studies reflect the real-world equivalents of your strategic situations.
+                </div>
+                <div className={styles.insightsGrid}>
+                  {contextualCases.map((c, i) => (
+                    <div key={i} className={styles.insightCard} style={{ border: '1px solid rgba(99,102,241,0.2)', background: 'rgba(99,102,241,0.02)' }}>
+                      <div className={styles.insightTitle} style={{ color: '#4f46e5' }}>{c.headline}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#334155', lineHeight: 1.5, marginBottom: 8 }}>{c.brief}</div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', fontStyle: 'italic' }}>
+                        <strong>Relevance:</strong> {c.relevance}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Leverage Analysis */}
+            {leverageAnalysis && leverageAnalysis.dominant_leverage_point && (
+              <div className={styles.feedbackSection} style={{ marginTop: 24 }}>
+                <div className={styles.feedbackTitle}>⚙️ Meadows Leverage Analysis</div>
+                <div style={{ fontSize: '0.8rem', color: '#64748b', marginBottom: 12 }}>
+                  Analysis of your decisions against Donella Meadows' 12 Leverage Points to Intervene in a System.
+                </div>
+                <div className={styles.insightCard} style={{ borderLeftColor: leverageAnalysis.dominant_leverage_point <= 6 ? '#10b981' : '#f59e0b' }}>
+                  <div className={styles.insightTitle}>Dominant Mode: {leverageAnalysis.dominant_name} (LP{leverageAnalysis.dominant_leverage_point})</div>
+                  <div style={{ fontSize: '0.8rem', color: '#334155', lineHeight: 1.5, marginBottom: 8 }}>
+                    {leverageAnalysis.summary_text}
+                  </div>
+                  {leverageAnalysis.leverage_point_examples?.length > 0 && (
+                    <div style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#475569', marginBottom: 4 }}>Key Interventions:</div>
+                      <ul style={{ paddingLeft: 16, margin: 0, fontSize: '0.75rem', color: '#475569' }}>
+                        {leverageAnalysis.leverage_point_examples.slice(0, 3).map((ex, i) => (
+                          <li key={i} style={{ marginBottom: 4 }}>{ex}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Actions */}
             <div className={styles.resultsActions}>
+              <button
+                className={styles.btnSecondary}
+                onClick={() => {
+                  // ── Generate self-contained HTML for print-to-PDF ──
+                  const scoreRat = results.score_rationale || {};
+                  const fs = results.final_scores || {};
+                  const ds = results.data_scores || {};
+                  const rs = results.response_scores || {};
+                  const fb = results.feedback || {};
+
+                  const healthColor = (s) => s >= 8 ? '#10b981' : s >= 6 ? '#3b82f6' : s >= 4 ? '#f59e0b' : '#ef4444';
+
+                  const dimHTML = dimensions.map(d => {
+                    const sc = fs[d.id] || 0;
+                    const dsc = ds[d.id] || 0;
+                    const rsc = rs[d.id] || 0;
+                    const rat = scoreRat[d.id] || '';
+                    const col = healthColor(sc);
+                    const dcol = healthColor(dsc);
+                    const rcol = healthColor(rsc);
+                    return `
+                      <div class="dim-card">
+                        <div class="dim-header">
+                          <div>
+                            <div class="dim-label">${d.label}</div>
+                            <div class="dim-desc">${d.description}</div>
+                          </div>
+                          <div class="dim-score" style="color:${col}">${sc.toFixed(1)}</div>
+                        </div>
+                        <div class="bar-track"><div class="bar-fill" style="width:${(sc/10)*100}%;background:${col}"></div></div>
+                        <div class="blend-formula">
+                          ⚖️ Final Score = (Performance ${dsc.toFixed(1)} × 50%) + (Interview ${rsc.toFixed(1)} × 50%) = ${sc.toFixed(1)}
+                        </div>
+                        <div class="split-bars">
+                          <div class="split-bar">
+                            <div class="split-header">
+                              <span>📊 Performance Score</span>
+                              <span style="color:${dcol};font-weight:800">${dsc.toFixed(1)}/10</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill" style="width:${(dsc/10)*100}%;background:${dcol}"></div></div>
+                            ${rat ? `<div class="rationale">${rat}</div>` : ''}
+                          </div>
+                          <div class="split-bar">
+                            <div class="split-header">
+                              <span>🎤 Interview Score</span>
+                              <span style="color:${rcol};font-weight:800">${rsc.toFixed(1)}/10</span>
+                            </div>
+                            <div class="bar-track"><div class="bar-fill" style="width:${(rsc/10)*100}%;background:${rcol}"></div></div>
+                            <div class="rationale">${
+                              rsc >= 8 ? 'Your interview responses demonstrated deep, nuanced understanding with specific examples and sophisticated analysis.'
+                              : rsc >= 6 ? 'Your responses showed good awareness with reasonable examples, though deeper analysis would have strengthened your score.'
+                              : rsc >= 4 ? 'Your responses touched on this dimension but lacked specificity or depth.'
+                              : 'This dimension was not well-addressed in your interview responses.'
+                            }</div>
+                          </div>
+                        </div>
+                      </div>`;
+                  }).join('');
+
+                  const narrativeHTML = (fb.feedback_paragraphs || []).map(p =>
+                    `<p class="narrative">${p}</p>`
+                  ).join('');
+
+                  const strengthsHTML = (fb.key_strengths || []).map(s =>
+                    `<div class="insight strength">${s}</div>`
+                  ).join('');
+
+                  const growthHTML = (fb.growth_areas || []).map(g =>
+                    `<div class="insight growth">${g}</div>`
+                  ).join('');
+
+                  const casesHTML = (contextualCases || []).map(c => `
+                    <div class="case-card">
+                      <div class="case-headline">${c.headline}</div>
+                      <div class="case-brief">${c.brief}</div>
+                      <div class="case-relevance"><strong>Relevance:</strong> ${c.relevance}</div>
+                    </div>
+                  `).join('');
+
+                  const leverageHTML = leverageAnalysis?.dominant_leverage_point ? `
+                    <div class="section">
+                      <h2>⚙️ Meadows Leverage Analysis</h2>
+                      <p class="section-desc">Analysis against Donella Meadows' 12 Leverage Points to Intervene in a System.</p>
+                      <div class="leverage-card">
+                        <div class="leverage-title">Dominant Mode: ${leverageAnalysis.dominant_name} (LP${leverageAnalysis.dominant_leverage_point})</div>
+                        <p class="narrative">${leverageAnalysis.summary_text}</p>
+                        ${leverageAnalysis.leverage_point_examples?.length ? `
+                          <div class="leverage-examples">
+                            <strong>Key Interventions:</strong>
+                            <ul>${leverageAnalysis.leverage_point_examples.slice(0,3).map(e => `<li>${e}</li>`).join('')}</ul>
+                          </div>
+                        ` : ''}
+                      </div>
+                    </div>
+                  ` : '';
+
+                  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CEO Interview — Competency Assessment Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@600;700;800&display=swap');
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'DM Sans', 'Inter', system-ui, sans-serif; background: #ffffff; color: #1e293b; line-height: 1.6; }
+    .report { max-width: 800px; margin: 0 auto; padding: 40px 32px; }
+    .header { text-align: center; padding: 32px 24px; border-radius: 16px; margin-bottom: 28px;
+              background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06));
+              border: 1px solid rgba(99,102,241,0.2); }
+    .header .badge { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: #6366f1; margin-bottom: 8px; }
+    .header h1 { font-size: 24px; font-weight: 900; color: #0f172a; margin: 8px 0 4px; }
+    .header .subtitle { font-size: 13px; color: #475569; }
+    .avg-card { display: flex; align-items: baseline; justify-content: center; gap: 6px;
+                padding: 16px; background: rgba(99,102,241,0.06);
+                border: 1px solid rgba(99,102,241,0.2); border-radius: 12px; margin-bottom: 24px; }
+    .avg-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.08em; }
+    .avg-value { font-size: 36px; font-weight: 900; color: #4f46e5; font-family: 'JetBrains Mono', monospace; }
+    .avg-scale { font-size: 14px; color: #64748b; font-weight: 600; }
+    .methodology { display: flex; gap: 12px; padding: 12px 16px; background: rgba(59,130,246,0.05);
+                   border: 1px solid rgba(59,130,246,0.15); border-radius: 10px; margin-bottom: 24px; font-size: 12px; color: #334155; }
+    .methodology strong { color: #1e293b; }
+    .dim-card { padding: 16px; background: #fafafa;
+                border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 12px; }
+    .dim-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .dim-label { font-size: 13px; font-weight: 800; color: #0f172a; }
+    .dim-desc { font-size: 10px; color: #64748b; margin-top: 2px; }
+    .dim-score { font-size: 18px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
+    .bar-track { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+    .bar-fill { height: 100%; border-radius: 3px; }
+    .blend-formula { font-size: 11px; color: #475569; font-family: 'JetBrains Mono', monospace; padding: 6px 10px;
+                     background: rgba(99,102,241,0.05); border: 1px solid rgba(99,102,241,0.12); border-radius: 6px; margin-bottom: 12px; }
+    .split-bars { display: flex; flex-direction: column; gap: 10px; }
+    .split-bar { display: flex; flex-direction: column; gap: 4px; }
+    .split-header { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: #1e293b; }
+    .rationale { font-size: 11px; color: #334155; line-height: 1.65; padding: 6px 8px; background: #f8fafc;
+                 border-left: 3px solid rgba(99,102,241,0.3); border-radius: 0 6px 6px 0; margin-top: 4px; }
+    .section { margin-top: 28px; }
+    .section h2 { font-size: 15px; font-weight: 800; color: #0f172a; margin-bottom: 12px; padding-bottom: 6px;
+                  border-bottom: 1px solid #e2e8f0; }
+    .section-desc { font-size: 12px; color: #475569; margin-bottom: 12px; }
+    .narrative { font-size: 13px; color: #334155; line-height: 1.7; margin-bottom: 10px; }
+    .insights-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .insight-card { display: flex; flex-direction: column; gap: 6px; }
+    .insight-title { font-size: 11px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.06em; }
+    .insight { font-size: 12px; color: #334155; line-height: 1.5; padding: 6px 10px; border-left: 3px solid #94a3b8;
+               background: #f8fafc; border-radius: 0 6px 6px 0; }
+    .insight.strength { border-left-color: #10b981; }
+    .insight.growth { border-left-color: #f59e0b; }
+    .case-card { padding: 12px; border: 1px solid rgba(99,102,241,0.2); background: rgba(99,102,241,0.03);
+                 border-radius: 8px; margin-bottom: 10px; }
+    .case-headline { font-size: 12px; font-weight: 800; color: #4f46e5; margin-bottom: 4px; }
+    .case-brief { font-size: 12px; color: #1e293b; line-height: 1.5; margin-bottom: 6px; }
+    .case-relevance { font-size: 11px; color: #475569; font-style: italic; }
+    .leverage-card { padding: 14px; border-left: 3px solid #10b981; background: #f0fdf4; border-radius: 0 8px 8px 0; }
+    .leverage-title { font-size: 13px; font-weight: 800; color: #0f172a; margin-bottom: 6px; }
+    .leverage-examples { margin-top: 10px; font-size: 12px; color: #334155; }
+    .leverage-examples ul { padding-left: 18px; margin-top: 4px; }
+    .leverage-examples li { margin-bottom: 4px; }
+    .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid #e2e8f0;
+              color: #64748b; font-size: 11px; }
+    @media print {
+      body { background: #ffffff !important; color: #1e293b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .report { padding: 20px; }
+      .dim-card { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <div class="report">
+    <div class="header">
+      <div class="badge">CEO INTERVIEW — COMPETENCY ASSESSMENT REPORT</div>
+      <h1>${persona?.avatar || '👩‍💼'} ${persona?.name || 'CEO'} Assessment</h1>
+      <div class="subtitle">by ${persona?.name || 'CEO'} — ${persona?.title || ''}</div>
+    </div>
+
+    <div class="avg-card">
+      <span class="avg-label">Overall Competency Score</span>
+      <span class="avg-value">${avgScore}</span>
+      <span class="avg-scale">/10</span>
+    </div>
+
+    <div class="methodology">
+      <div>⚖️</div>
+      <div>Each dimension is scored from two sources: <strong>Performance</strong> (in-game decisions and outcomes across 10 rounds)
+      and <strong>Interview</strong> (how you articulated your reasoning in the CEO debrief).
+      These are blended <strong>50/50</strong> — reflective insight is valued equally to simulation outcomes.</div>
+    </div>
+
+    <div class="section">
+      <h2>📊 Competency Dimensions</h2>
+      ${dimHTML}
+    </div>
+
+    ${narrativeHTML ? `
+    <div class="section">
+      <h2>💬 Narrative Assessment</h2>
+      ${narrativeHTML}
+    </div>` : ''}
+
+    <div class="insights-grid">
+      ${strengthsHTML ? `<div class="insight-card"><div class="insight-title">🏆 Key Strengths</div>${strengthsHTML}</div>` : ''}
+      ${growthHTML ? `<div class="insight-card"><div class="insight-title">📈 Growth Areas</div>${growthHTML}</div>` : ''}
+    </div>
+
+    ${casesHTML ? `
+    <div class="section">
+      <h2>📚 Real-World Contextual Cases</h2>
+      <p class="section-desc">These case studies reflect the real-world equivalents of your strategic situations.</p>
+      ${casesHTML}
+    </div>` : ''}
+
+    ${leverageHTML}
+
+    <div class="footer">
+      <p>Muressons Global Command — CEO Interview Competency Assessment</p>
+      <p>Report generated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    </div>
+  </div>
+  <script>window.onload = function() { window.print(); }</script>
+</body>
+</html>`;
+
+                  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const printWindow = window.open(url, '_blank');
+                  if (printWindow) {
+                    printWindow.onafterprint = () => {
+                      URL.revokeObjectURL(url);
+                    };
+                  } else {
+                    // Fallback: direct download as HTML
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'CEO_Interview_Assessment.html';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }
+                }}
+              >
+                📥 Download PDF
+              </button>
               <button className={styles.btnPrimary} onClick={onClose}>
                 📊 Return to Results
               </button>

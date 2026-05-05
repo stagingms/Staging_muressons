@@ -122,7 +122,26 @@ export default function LeaderboardMatrix({
                                     <td className={styles.mono}>{sess.player_id || '–'}</td>
                                     <td className={styles.mono}>{sess.round_number}/10</td>
                                     <td className={styles.mono}>
-                                        ${(sess.terminal_value / 1_000_000).toFixed(1)}M
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            <span>${(sess.terminal_value / 1_000_000).toFixed(1)}M</span>
+                                            {sess.sparkline && sess.sparkline.length > 1 && (
+                                                <svg width="60" height="20" viewBox={`0 0 60 20`} style={{ overflow: 'visible' }}>
+                                                    <polyline
+                                                        fill="none"
+                                                        stroke={sess.sparkline[sess.sparkline.length - 1] >= sess.sparkline[0] ? "#10b981" : "#ef4444"}
+                                                        strokeWidth="1.5"
+                                                        points={sess.sparkline.map((val, idx) => {
+                                                            const min = Math.min(...sess.sparkline);
+                                                            const max = Math.max(...sess.sparkline);
+                                                            const range = max - min || 1;
+                                                            const x = (idx / (sess.sparkline.length - 1)) * 60;
+                                                            const y = 20 - ((val - min) / range) * 20;
+                                                            return `${x},${y}`;
+                                                        }).join(' ')}
+                                                    />
+                                                </svg>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className={styles.mono}>
                                         ${(sess.total_cash / 1_000_000).toFixed(1)}M

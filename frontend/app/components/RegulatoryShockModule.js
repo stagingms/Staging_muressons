@@ -90,10 +90,11 @@ function BarChart({ fee }) {
 
 // ── Main Component ─────────────────────────────────────────────
 export default function RegulatoryShockModule({ sessionId, businessUnits, onComplete }) {
-    const [phase, setPhase] = useState('news');      // 'news' | 'stress' | 'dilemma'
+    const [phase, setPhase] = useState('news');      // 'news' | 'stress' | 'dilemma' | 'done'
     const [fee, setFee] = useState(40);
     const [buChoices, setBuChoices] = useState({});  // bu_id → 'eat' | 'pass' | 'abate'
     const [submitting, setSubmitting] = useState(false);
+    const [result, setResult] = useState(null);      // server response summary
 
     const activeBUs = businessUnits?.length ? businessUnits : DEFAULT_BUS;
 
@@ -110,24 +111,99 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
     const handleSubmit = useCallback(async () => {
         setSubmitting(true);
         try {
-            await fetch(`${API}/api/admin/${sessionId}/mod4-crisis-choices`, {
+            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/mod4-crisis-choices`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ choices: buChoices, effective_fee: fee }),
             });
-        } catch { /* offline ok */ }
+            if (res.ok) {
+                const data = await res.json();
+                setResult(data);
+                setPhase('done');
+            }
+        } catch { /* offline ok — still advance */ setPhase('done'); }
         setSubmitting(false);
         onComplete?.();
     }, [buChoices, fee, sessionId, onComplete]);
 
     const allChosen = activeBUs.every(bu => (bu.emissions || bu.carbon_intensity * 1000) < 1000 || buChoices[bu.bu_id || bu.id]);
 
+    // ── Phase: Done (confirmation) ─────────────────────────────
+    if (phase === 'done') return (
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontFamily: "'DM Sans', sans-serif",
+        }}>
+            <div style={{
+                background: '#fff', maxWidth: 560, width: '90%', borderRadius: 12,
+                overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.4)',
+            }}>
+                <div style={{ background: '#16a34a', color: '#fff', padding: '1rem 1.5rem' }}>
+                    <div style={{ fontSize: '0.65rem', letterSpacing: '0.1em', opacity: 0.8, textTransform: 'uppercase' }}>Module 4 Complete</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 800, marginTop: 2 }}>✅ CBAM Crisis Response Recorded</div>
+                </div>
+                <div style={{ padding: '1.5rem 2rem' }}>
+                    {result && (
+                        <>
+                            <div style={{ display: 'flex', gap: '1.5rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Carbon Fee</div>
+                                    <div style={{ fontWeight: 800, color: '#dc2626', fontSize: '1.1rem' }}>${result.effective_fee}/t</div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Treasury Impact</div>
+                                    <div style={{ fontWeight: 800, color: result.total_treasury_delta < 0 ? '#ef4444' : '#16a34a', fontSize: '1.1rem' }}>
+                                        {result.total_treasury_delta >= 0 ? '+' : ''}{fmt(result.total_treasury_delta)}
+                                    </div>
+                                </div>
+                                <div style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '0.65rem', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>BUs Impacted</div>
+                                    <div style={{ fontWeight: 800, color: '#0f172a', fontSize: '1.1rem' }}>{Object.keys(result.applied_impacts || {}).length}</div>
+                                </div>
+                            </div>
+                            {Object.entries(result.applied_impacts || {}).map(([buId, imp]) => (
+                                <div key={buId} style={{
+                                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                    padding: '0.5rem 0.75rem', marginBottom: '0.4rem',
+                                    background: '#f8fafc', borderRadius: 6, border: '1px solid #e2e8f0',
+                                    fontSize: '0.8rem',
+                                }}>
+                                    <div style={{ fontWeight: 600, color: '#1e293b' }}>{buId}</div>
+                                    <div style={{ color: '#475569' }}>{imp.label}</div>
+                                    <div style={{ fontWeight: 700, color: '#ef4444' }}>{fmt(imp.treasury_delta)}</div>
+                                </div>
+                            ))}
+                        </>
+                    )}
+                    <div style={{
+                        marginTop: '1rem', background: '#fef3c7', border: '1px solid #fcd34d',
+                        borderRadius: 8, padding: '0.75rem 1rem', fontSize: '0.78rem', color: '#92400e', lineHeight: 1.6,
+                    }}>
+                        <strong>📚 Debrief Note:</strong> Your crisis response choices are now stamped in the simulation state.
+                        BUs that chose <em>Emergency Abatement</em> will show resilience improvements in future rounds,
+                        while <em>Pass to Consumers</em> choices have reduced Social License scores. These consequences
+                        carry forward into Round 5 (Climate Resilience) and Round 9 (Just Transition).
+                    </div>
+                    <button onClick={onComplete} style={{
+                        marginTop: '1.25rem', width: '100%', padding: '0.9rem',
+                        background: 'linear-gradient(135deg, #0f172a, #1e293b)',
+                        color: '#fff', border: 'none', borderRadius: 8,
+                        fontWeight: 700, fontSize: '0.9rem', cursor: 'pointer',
+                    }}>
+                        Continue to Round 5 →
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+
     // ── Phase 1: Breaking News ─────────────────────────────────
     if (phase === 'news') return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.85)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Inter', sans-serif",
+            fontFamily: "'DM Sans', sans-serif",
         }}>
             <div style={{
                 background: '#fff', maxWidth: 620, width: '90%', borderRadius: 12,
@@ -185,7 +261,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
         <div style={{
             position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Inter', sans-serif", padding: '1rem',
+            fontFamily: "'DM Sans', sans-serif", padding: '1rem',
         }}>
             <div style={{
                 background: '#f8fafc', maxWidth: 580, width: '100%', borderRadius: 12,
@@ -268,7 +344,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
 
     // ── Phase 3: Crisis Dilemma ────────────────────────────────
     const OPTIONS = [
-        { id: 'eat', label: '💸 Eat the Cost', desc: 'Miss quarterly targets. Board penalty applied to simulation score.', color: '#dc2626' },
+        { id: 'eat', label: '💸 Eat the Cost', desc: 'Miss period targets. Board penalty applied to simulation score.', color: '#dc2626' },
         { id: 'pass', label: '📈 Pass to Consumers', desc: '+15% price → -20% market share (elasticity penalty).', color: '#d97706' },
         { id: 'abate', label: '⚙️ Emergency Abatement', desc: 'CapEx ×1.3 premium (expedited supply chain). Debt financing unlocked.', color: '#0891b2' },
     ];
@@ -276,7 +352,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
         <div style={{
             position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Inter', sans-serif", padding: '1rem', overflowY: 'auto',
+            fontFamily: "'DM Sans', sans-serif", padding: '1rem', overflowY: 'auto',
         }}>
             <div style={{
                 background: '#fff', maxWidth: 660, width: '100%', borderRadius: 12,

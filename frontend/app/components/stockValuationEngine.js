@@ -15,7 +15,7 @@ import { roundToQuarter } from '../utils/roundToQuarter';
 // ── Constants ────────────────────────────────────────────────
 const IPO_PRICE = 50.00;            // Round 0 stock price
 const BASELINE_EBITDA = 19_200_000; // Sum of 4 BU EBITDA margins at seed
-const DAYS_PER_ROUND = 20;          // Interpolated daily ticks per round
+const DAYS_PER_ROUND = 40;          // Interpolated daily ticks per 6-month round
 
 // ── MACRO ENGINE ─────────────────────────────────────────────
 

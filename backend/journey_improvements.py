@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Journey Improvements (Phase 6)
+﻿"""
+Muressons Global Corporation — Journey Improvements (Phase 6)
 Pedagogical Review Implementation: R1 split, R6 climax redesign,
 R7-R8 mechanic variation, persona pain point removals.
 
@@ -42,7 +42,7 @@ R1_SPLIT_CONFIG = {
         "skip_decision": True,  # No A/B/C choice — just exploration
         "crisis": {
             "id": "r1a_orientation",
-            "title": "Welcome to Muressons Global Command",
+            "title": "Welcome to Muressons Global Corporation",
             "description": (
                 "You have been appointed to the Board of Muressons Group, "
                 "a multinational conglomerate with four business units: "

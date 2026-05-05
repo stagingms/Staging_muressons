@@ -1,0 +1,139 @@
+{
+  "consultant_fee_usd": 1200000,
+  "issues": [
+    {
+      "id": "financed_emissions",
+      "title": "Financed Emissions (Scope 3 Cat.15)",
+      "hover_description": "Largest carbon footprint \u2014 upstream lending portfolio. PCAF standard mandates measurement. At $250/tCO2, material. ESRS E1 + SFDR mandatory.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 5000000,
+      "esrs_topic": "E1",
+      "value_chain_scope": "upstream",
+      "time_horizon": "medium",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "ai_credit_discrimination",
+      "title": "AI Credit Scoring Discrimination",
+      "hover_description": "Algorithmic lending bias against ethnic minorities. EU AI Act High-Risk classification. CRD VI governance exposure. Fines + class action risk.",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 7000000,
+      "esrs_topic": "S4",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "climate_credit_risk",
+      "title": "Climate Credit Risk (Physical + Transition)",
+      "hover_description": "Mortgage book exposure to flood-prone assets. ECB climate stress test failure risk. Transition risk in fossil-heavy loan book. ESRS E1 + EBA guidelines.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 4000000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "medium",
+      "severity_score": 4,
+      "likelihood_score": 4,
+      "is_ambiguous": true
+    },
+    {
+      "id": "sfdr_greenwashing_risk",
+      "title": "SFDR Greenwashing in ESG Fund Labelling",
+      "hover_description": "Q1 ISSUE: EU SFDR Article 8/9 fund mislabelling. Regulator scrutiny escalating \u2014 fund outflows + fines up to 10% AUM. High financial AND societal (investor deception) materiality. ESRS G1 mandatory.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 3500000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "financial_inclusion",
+      "title": "Financial Inclusion for Unbanked Communities",
+      "hover_description": "17% of served regions lack access to basic accounts. High societal impact; low near-term financial return. ESRS S3 disclosure mandatory.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2000000,
+      "esrs_topic": "S3",
+      "value_chain_scope": "downstream",
+      "time_horizon": "long",
+      "severity_score": 3,
+      "likelihood_score": 3,
+      "is_ambiguous": false
+    },
+    {
+      "id": "cybersecurity_resilience",
+      "title": "Cybersecurity & Operational Resilience",
+      "hover_description": "DORA (Digital Operational Resilience Act) compliance mandatory by Jan 2025. High financial risk; societal impact moderate. ESRS G1.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 8000000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 4,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "fs_charity_gala",
+      "title": "Annual Charity Gala",
+      "hover_description": "PR event. Financially and materially immaterial. Classic greenwashing distractor.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 150000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    },
+    {
+      "id": "fs_ergonomic",
+      "title": "Ergonomic Workstations",
+      "hover_description": "Employee comfort. Not ESRS-material at group level.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 80000,
+      "esrs_topic": "S1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    }
+  ],
+  "interdependencies": [
+    {
+      "source": "climate_credit_risk",
+      "target": "financed_emissions",
+      "severity": "high",
+      "description": "Loan book stranded asset exposure amplifies Scope 3 Cat.15 financed emissions"
+    },
+    {
+      "source": "ai_credit_discrimination",
+      "target": "sfdr_greenwashing_risk",
+      "severity": "medium",
+      "description": "AI governance failures undermine ESG fund credibility"
+    }
+  ]
+}

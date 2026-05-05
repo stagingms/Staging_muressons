@@ -29,6 +29,7 @@ export default function useSimulation() {
     const [roundLocked, setRoundLocked] = useState(false);
     const [commitResults, setCommitResults] = useState(null); // Holds results after commit, before advance
     const [practiceReset, setPracticeReset] = useState(false); // True when practice round reset occurs
+    const commitInProgressRef = useRef(false); // Guard against double-submit
 
     // Track round to auto-open crisis modal
     const prevRoundRef = useRef(1);
@@ -123,6 +124,10 @@ export default function useSimulation() {
                     await fetchRoundConfig(1);
                     // Auto-clear transient error after 3s in demo mode
                     setTimeout(() => setError(null), 3000);
+                } else {
+                    // JOIN_REQUIRED: informational toast, auto-dismiss after 6s
+                    // so it never permanently overlays the cockpit or join modal
+                    setTimeout(() => setError(null), 6000);
                 }
                 return null;
             } finally {
@@ -130,6 +135,61 @@ export default function useSimulation() {
             }
         },
         [fetchRoundConfig]
+    );
+
+    // ── Start a solo/self-paced session ───────────────────────
+    const startSoloSession = useCallback(
+        async (playerName = 'Solo Player', decisionParadigm = 'legacy_abc') => {
+            setLoading(true);
+            setError(null);
+            setGameOver(false);
+            setFinalReport(null);
+            try {
+                const res = await fetch(`${API_BASE}/api/simulations/solo-start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        player_name: playerName,
+                        decision_paradigm: decisionParadigm,
+                    }),
+                });
+                if (!res.ok) throw new Error(`Solo start failed: ${res.status}`);
+                const data = await res.json();
+
+                setSessionId(data.session_id);
+                if (typeof window !== 'undefined') {
+                    localStorage.setItem('muressons_session_id', data.session_id);
+                    localStorage.setItem('muressons_is_solo', 'true');
+                }
+                setRoundNumber(data.round_number);
+                setGlobalState(data.global_state);
+                setBusinessUnits(data.business_units);
+                setHistory([]);
+                setEvents({});
+
+                prevRoundRef.current = 0;
+                setRoundChanged(true);
+
+                // Fetch the pre-seeded R1 config (from solo-round-configs or fallback)
+                try {
+                    const rcRes = await fetch(`${API_BASE}/api/simulations/${data.session_id}/solo-round-configs`);
+                    if (rcRes.ok) {
+                        const rcData = await rcRes.json();
+                        const r1cfg = rcData.round_configs?.['1'];
+                        if (r1cfg) setRoundConfig(r1cfg);
+                    }
+                } catch { /* fallback to standard fetch */ }
+                if (!roundConfig) await fetchRoundConfig(1, data.session_id);
+
+                return data;
+            } catch (err) {
+                setError(err.message);
+                return null;
+            } finally {
+                setLoading(false);
+            }
+        },
+        [fetchRoundConfig, roundConfig]
     );
 
     // ── Fetch dashboard state ─────────────────────────────────
@@ -277,6 +337,12 @@ export default function useSimulation() {
     const commitTurn = useCallback(
         async (payload) => {
             if (!sessionId) throw new Error('No active session');
+            // Guard: prevent double-submit (avoids backend 429 rate limit)
+            if (commitInProgressRef.current) {
+                console.warn('[commitTurn] Commit already in progress — ignoring duplicate call');
+                return null;
+            }
+            commitInProgressRef.current = true;
             setLoading(true);
             setError(null);
             try {
@@ -337,6 +403,14 @@ export default function useSimulation() {
                         setLoading(false);
                         return null;
                     }
+                    // Handle rate-limit (429) — auto-retry after cooldown
+                    if (res.status === 429) {
+                        console.warn('[commitTurn] Rate limited — retrying in 5s');
+                        commitInProgressRef.current = false;
+                        setLoading(false);
+                        await new Promise(r => setTimeout(r, 5200));
+                        return commitTurn(payload);
+                    }
                     const body = await res.json().catch(() => ({}));
                     const detail = typeof body.detail === 'string' ? body.detail
                         : body.detail ? JSON.stringify(body.detail) : `Commit failed: ${res.status}`;
@@ -388,6 +462,7 @@ export default function useSimulation() {
                 throw err;
             } finally {
                 setLoading(false);
+                commitInProgressRef.current = false;
             }
         },
         [sessionId, roundNumber, fetchRoundConfig, fetchDashboard]
@@ -464,6 +539,7 @@ export default function useSimulation() {
     // Poll dashboard every 10s to detect if the server auto-committed
     const [autoAdvanceDetected, setAutoAdvanceDetected] = useState(false);
     const autoAdvanceDismissRef = useRef(null);
+    const lastAutoAdvancedRoundRef = useRef(0); // Track which round was already flagged
 
     useEffect(() => {
         if (!sessionId || sessionId === 'demo' || gameOver) return;
@@ -477,18 +553,32 @@ export default function useSimulation() {
                 if (!res.ok || cancelled) return;
                 const data = await res.json();
 
-                // Server round is ahead of client round → auto-committed
+                // Server round is ahead of client round → facilitator or timer advanced
                 if (data.current_round > roundNumber && !commitResults) {
-                    console.log(`[AUTO-ADVANCE] Server round ${data.current_round} > client round ${roundNumber}`);
+                    const flags = data.global_state?.active_event_flags || {};
+                    const wasAutoCommitted = flags.auto_committed === true;
+
+                    console.log(`[AUTO-ADVANCE] Server round ${data.current_round} > client round ${roundNumber}, auto_committed=${wasAutoCommitted}`);
+
+                    // Update client state to match server
                     setRoundNumber(data.current_round);
                     setGlobalState(data.global_state);
                     setBusinessUnits(data.business_units);
                     setHistory(data.history || []);
-                    setAutoAdvanceDetected(true);
                     setRoundChanged(true);
 
+                    // Only show "Time expired" banner if the backend actually auto-committed
+                    // AND we haven't already shown it for this round
+                    if (wasAutoCommitted && lastAutoAdvancedRoundRef.current < data.current_round) {
+                        lastAutoAdvancedRoundRef.current = data.current_round;
+                        setAutoAdvanceDetected(true);
+
+                        // Clear the flag after 5s so the alert auto-dismisses
+                        if (autoAdvanceDismissRef.current) clearTimeout(autoAdvanceDismissRef.current);
+                        autoAdvanceDismissRef.current = setTimeout(() => setAutoAdvanceDetected(false), 5000);
+                    }
+
                     // Check for game over
-                    const flags = data.global_state?.active_event_flags || {};
                     if (data.current_round > 10 || (data.current_round === 10 && flags.profile)) {
                         setFinalReport(flags.profile ? flags : {
                             profile: 'completed',
@@ -499,13 +589,6 @@ export default function useSimulation() {
                     } else {
                         await fetchRoundConfig(data.current_round);
                     }
-
-                    // Clear the flag after 5s so the alert auto-dismisses.
-                    // Use a ref-based timer so it survives effect re-runs
-                    // (the effect re-runs because setRoundNumber triggers a
-                    // dependency change, which sets cancelled=true in cleanup).
-                    if (autoAdvanceDismissRef.current) clearTimeout(autoAdvanceDismissRef.current);
-                    autoAdvanceDismissRef.current = setTimeout(() => setAutoAdvanceDetected(false), 5000);
                 }
             } catch { /* silent */ }
         };
@@ -545,6 +628,7 @@ export default function useSimulation() {
             localStorage.removeItem('muressons_session_id');
             localStorage.removeItem('muressons_username');
             localStorage.removeItem('muressons_playerId');
+            localStorage.removeItem('muressons_is_solo');
         }
         // Reset all state to initial values
         setSessionId(null);
@@ -589,6 +673,7 @@ export default function useSimulation() {
         // Actions
         setUsername,
         startSession,
+        startSoloSession,
         joinSession,
         playerLogin,
         fetchActiveCohorts,
@@ -599,5 +684,8 @@ export default function useSimulation() {
         fetchRoundConfig,
         resumeSession,
         logout,
+
+        // Session type helpers
+        isSolo: typeof window !== 'undefined' && localStorage.getItem('muressons_is_solo') === 'true',
     };
 }

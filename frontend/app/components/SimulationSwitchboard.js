@@ -372,7 +372,7 @@ export default function SimulationSwitchboard() {
                             value={carbonFee}
                             onChange={e => setCarbonFee(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
                             <span>$20</span><span>$150</span>
                         </div>
                     </div>
@@ -393,7 +393,7 @@ export default function SimulationSwitchboard() {
                             value={hostility}
                             onChange={e => setHostility(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
                             <span>LOW</span><span>CRITICAL</span>
                         </div>
                     </div>
@@ -414,7 +414,7 @@ export default function SimulationSwitchboard() {
                             value={scope3}
                             onChange={e => setScope3(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.55rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
                             <span>1.0</span><span>5.0</span>
                         </div>
                     </div>
@@ -423,7 +423,7 @@ export default function SimulationSwitchboard() {
                 {/* ── Apply button ── */}
                 <div style={{ marginTop: 'auto' }}>
                     {saveMsg && (
-                        <div style={{ fontSize: '0.62rem', letterSpacing: '0.06em', color: '#00ff88', marginBottom: '0.75rem', opacity: 0.8 }}>
+                        <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', color: '#00ff88', marginBottom: '0.75rem', opacity: 0.8 }}>
                             {saveMsg}
                         </div>
                     )}
@@ -452,7 +452,7 @@ export default function SimulationSwitchboard() {
                     </button>
 
                     {/* Data state readout */}
-                    <div style={{ marginTop: '0.75rem', fontSize: '0.58rem', color: '#00ff88', opacity: 0.35, lineHeight: 1.8 }}>
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.68rem', color: '#00ff88', opacity: 0.35, lineHeight: 1.8 }}>
                         <div>timeline_branch: {advanced ? '"ADVANCED"' : '"STANDARD"'}</div>
                         <div>global_carbon_fee: {carbonFee}</div>
                         <div>market_hostility_index: {hostility}</div>
@@ -466,7 +466,7 @@ export default function SimulationSwitchboard() {
                 <div className={styles.rightHeader}>
                     Simulation Timeline Visualiser — Module Branch Map
                     {advanced && (
-                        <span style={{ marginLeft: 'auto', color: '#ff4444', fontSize: '0.58rem', letterSpacing: '0.1em' }}>
+                        <span style={{ marginLeft: 'auto', color: '#ff4444', fontSize: '0.68rem', letterSpacing: '0.1em' }}>
                             ⚡ ADVANCED CLIMATE ENGINE ACTIVE
                         </span>
                     )}

@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Healthcare Edition Round Configurations
+﻿"""
+Muressons Global Corporation — Healthcare Edition Round Configurations
 """
 
 from typing import Any

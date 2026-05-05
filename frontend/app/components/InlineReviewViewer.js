@@ -37,7 +37,7 @@ export default function InlineReviewViewer({ isOpen, onClose, title, content = '
       position: 'fixed', inset: 0, zIndex: 10000,
       background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(6px)',
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontFamily: "'Inter', sans-serif",
+      fontFamily: "'DM Sans', sans-serif",
     }} onClick={onClose}>
       <div style={{
         width: 620, maxHeight: '88vh', borderRadius: 20,

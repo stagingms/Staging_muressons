@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — FastAPI Application Entry Point
+﻿"""
+Muressons Global Corporation — FastAPI Application Entry Point
 
 Automatically detects whether PostgreSQL is available.
 If not, falls back to an in-memory database for zero-dependency deployment.

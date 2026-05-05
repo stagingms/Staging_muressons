@@ -219,8 +219,8 @@
 
 .quadrant {
     background: var(--bg-elevated, #16213e);
-    border: 2px dashed color-mix(in srgb, var(--q-color) 30%, transparent);
-    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--q-color) 40%, transparent);
+    border-radius: 8px;
     padding: 0.6rem;
     position: relative;
     transition: all 0.2s;
@@ -232,8 +232,7 @@
 .quadrantOver {
     background: color-mix(in srgb, var(--q-color) 10%, transparent);
     border-color: var(--q-color);
-    border-style: solid;
-    box-shadow: 0 0 15px color-mix(in srgb, var(--q-color) 15%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--q-color) 10%, transparent);
 }
 
 .quadrantLabel {
@@ -247,7 +246,7 @@
 
 .quadrantPower,
 .quadrantInterest {
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     color: var(--text-muted, #475569);
     font-weight: 600;
 }
@@ -264,12 +263,12 @@
     position: absolute;
     top: 6px;
     right: 8px;
-    background: color-mix(in srgb, var(--q-color) 20%, transparent);
+    background: color-mix(in srgb, var(--q-color) 15%, transparent);
     color: var(--q-color);
     font-size: 0.6rem;
-    font-weight: 800;
+    font-weight: 700;
     padding: 1px 6px;
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 /* ── Placed Chip (in quadrant) ── */

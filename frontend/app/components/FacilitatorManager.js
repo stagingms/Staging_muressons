@@ -1186,11 +1186,50 @@ export default function FacilitatorManager({ onNavigate }) {
                                         </td>
                                         {/* Actions */}
                                         <td>
-                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
+                                                {/* Role selector */}
+                                                <select
+                                                    value={fac.role || (fac.is_admin ? 'super_admin' : 'facilitator')}
+                                                    onChange={async (e) => {
+                                                        const newRole = e.target.value;
+                                                        try {
+                                                            const res = await fetch(`${API}/api/admin/facilitators/${fac.facilitator_id}/role`, {
+                                                                method: 'PUT',
+                                                                headers: { 'Content-Type': 'application/json' },
+                                                                body: JSON.stringify({ role: newRole }),
+                                                            });
+                                                            if (res.ok) {
+                                                                setFacilitators(prev => prev.map(f =>
+                                                                    f.facilitator_id === fac.facilitator_id
+                                                                        ? { ...f, role: newRole, is_admin: newRole === 'super_admin' }
+                                                                        : f
+                                                                ));
+                                                                showToast(`${fac.name} role changed to ${newRole.replace('_', ' ')}`);
+                                                            }
+                                                        } catch { showToast('Failed to update role', 'error'); }
+                                                    }}
+                                                    style={{
+                                                        fontSize: '0.68rem', padding: '2px 4px', borderRadius: '4px',
+                                                        border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
+                                                        color: 'var(--text-primary)', cursor: 'pointer',
+                                                    }}
+                                                    title="Change facilitator role"
+                                                >
+                                                    <option value="facilitator">🎓 Facilitator</option>
+                                                    <option value="lead_facilitator">⭐ Lead</option>
+                                                    <option value="super_admin">👑 Super Admin</option>
+                                                </select>
                                                 <button className={styles.actionBtn} onClick={() => openEditDrawer(fac)} title="Edit facilitator">✏️</button>
                                                 {onNavigate && (
                                                     <button className={styles.actionBtn} onClick={() => onNavigate('cohort_manager')} title="View cohorts">🗂️</button>
                                                 )}
+                                                {/* Open as Facilitator deep-link */}
+                                                <button
+                                                    className={styles.actionBtn}
+                                                    onClick={() => window.open(`/admin/facilitator`, '_blank')}
+                                                    title={`Open Facilitator dashboard for ${fac.name}`}
+                                                    style={{ color: '#60a5fa', borderColor: 'rgba(59,130,246,0.3)' }}
+                                                >🔗</button>
                                                 {(fac.permissions?.can_create_cohorts !== false) ? (
                                                     <button
                                                         className={styles.actionBtn}

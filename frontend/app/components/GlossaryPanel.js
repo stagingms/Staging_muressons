@@ -171,7 +171,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
                   }}>
                     <span style={{
                       background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                      color: '#fff', fontSize: '0.52rem',
+                      color: '#fff', fontSize: '0.68rem',
                       fontWeight: 800, padding: '2px 6px', borderRadius: 4,
                       letterSpacing: '0.05em',
                     }}>TERM</span>
@@ -194,7 +194,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
                     borderTop: '1px solid #e2e8f0',
                   }}>
                     <div style={{
-                      fontSize: '0.58rem', fontWeight: 700, color: '#94a3b8',
+                      fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8',
                       letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4,
                     }}>Related</div>
                     <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>

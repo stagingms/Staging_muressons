@@ -4,7 +4,7 @@
 
 .container {
   padding: 1rem;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
 }
 
 .loading {
@@ -210,7 +210,7 @@
 }
 
 .cellValue {
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
   font-family: var(--font-mono, monospace);

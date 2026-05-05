@@ -68,7 +68,7 @@
 }
 
 .trigger {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 600;
     color: var(--preset-color, var(--text-muted));
     text-transform: uppercase;
@@ -83,7 +83,7 @@
     position: absolute;
     top: 4px;
     right: 6px;
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     font-weight: 800;
     color: var(--gauge-green);
     animation: fadeInUp 0.2s ease-out;

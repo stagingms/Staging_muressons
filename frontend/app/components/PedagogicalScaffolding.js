@@ -66,7 +66,6 @@ export function PredictionGate({ roundNumber, choiceSelected, onSubmit, previous
             <div className={styles.pgHeader}>
                 <span className={styles.pgIcon}>🔮</span>
                 <h4>Pre-Decision Prediction</h4>
-                <span className={styles.pgTheory}>Klein (2007) Pre-Mortem</span>
             </div>
             <p className={styles.pgPrompt}>
                 Before you commit: <strong>What do you think will happen</strong> as a result of this decision?
@@ -147,7 +146,6 @@ export function BoardRoomMoment({ roundNumber, onSubmit, triggerReason = '' }) {
             <div className={styles.brHeader}>
                 <span className={styles.brIcon}>🏢</span>
                 <h4>Board Room Moment</h4>
-                <span className={styles.brTheory}>Moon (2004) Three-Stage Reflection</span>
             </div>
             {triggerReason && (
                 <div className={styles.brTrigger}>
@@ -568,7 +566,6 @@ export function DebriefProtocol() {
             <div className={styles.dbHeader}>
                 <span>🎭</span>
                 <h4>Structured Debrief Protocol</h4>
-                <span className={styles.dbTheory}>Thiagarajan (1993)</span>
             </div>
             <div className={styles.dbPhases}>
                 {phases.map(([key, phase], i) => (
@@ -606,7 +603,7 @@ export function DebriefProtocol() {
    Post-decision twist — whistleblower leak with micro-decisions.
    ═══════════════════════════════════════════════════════════════ */
 
-export function R6RevelationPanel({ onMicroDecision }) {
+export function R6RevelationPanel({ onMicroDecision, onVisible }) {
     const [revelation, setRevelation] = useState(null);
     const [selected, setSelected] = useState(null);
     const [submitted, setSubmitted] = useState(false);
@@ -614,7 +611,7 @@ export function R6RevelationPanel({ onMicroDecision }) {
     useEffect(() => {
         fetch(`${API}/api/admin/journey/r6-revelation`)
             .then(r => r.json())
-            .then(d => setRevelation(d.revelation))
+            .then(d => { setRevelation(d.revelation); if (d.revelation?.enabled) onVisible?.(); })
             .catch(() => {});
     }, []);
 
@@ -650,7 +647,6 @@ export function R6RevelationPanel({ onMicroDecision }) {
             <div className={styles.pgHeader}>
                 <span className={styles.pgIcon}>🚨</span>
                 <h4>{revelation.title}</h4>
-                <span className={styles.pgTheory}>Kolb (1984) Reflective Observation</span>
             </div>
             <p className={styles.pgPrompt}>{revelation.narrative}</p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -697,7 +693,7 @@ export function R6RevelationPanel({ onMicroDecision }) {
    Thiagarajan (2006): Slider-based trade-off instead of A/B/C.
    ═══════════════════════════════════════════════════════════════ */
 
-export function BudgetAllocationPanel({ onAllocate }) {
+export function BudgetAllocationPanel({ onAllocate, onVisible }) {
     const [variant, setVariant] = useState(null);
     const [allocs, setAllocs] = useState({});
     const [submitted, setSubmitted] = useState(false);
@@ -711,6 +707,7 @@ export function BudgetAllocationPanel({ onAllocate }) {
                     const init = {};
                     Object.keys(d.variant.initiatives).forEach(k => { init[k] = 5_000_000; });
                     setAllocs(init);
+                    onVisible?.();
                 }
             })
             .catch(() => {});
@@ -766,30 +763,31 @@ export function BudgetAllocationPanel({ onAllocate }) {
                 </span>
             </div>
             <p className={styles.mmPrompt}>{variant.instruction}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {Object.entries(variant.initiatives).map(([key, init]) => (
                     <div key={key} style={{
-                        padding: '12px 14px', borderRadius: 8,
-                        background: 'rgba(15, 23, 42, 0.6)',
-                        border: '1px solid var(--border-subtle, #334155)',
+                        padding: '14px 16px', borderRadius: 10,
+                        background: '#f8fafc',
+                        border: '1.5px solid #e2e8f0',
+                        transition: 'all 0.2s',
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                            <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>{init.icon} {init.label}</span>
-                            <span style={{ fontWeight: 800, color: '#10b981', fontFamily: 'JetBrains Mono, monospace' }}>
+                            <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{init.icon} {init.label}</span>
+                            <span style={{ fontWeight: 800, color: '#059669', fontFamily: 'JetBrains Mono, monospace', fontSize: '0.9rem' }}>
                                 ${(allocs[key] / 1_000_000).toFixed(1)}M
                             </span>
                         </div>
-                        <div style={{ fontSize: '0.76rem', color: 'var(--text-secondary, #94a3b8)', marginBottom: 8 }}>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginBottom: 10, lineHeight: 1.5 }}>
                             {init.description}
                         </div>
                         <input
                             type="range" min={0} max={totalBudget} step={500_000}
                             value={allocs[key]}
                             onChange={e => handleChange(key, Number(e.target.value))}
-                            style={{ width: '100%', accentColor: '#10b981' }}
+                            style={{ width: '100%', accentColor: '#10b981', height: 6 }}
                         />
                         {allocs[key] >= init.synergy_threshold && (
-                            <div style={{ fontSize: '0.68rem', color: '#f59e0b', marginTop: 4 }}>
+                            <div style={{ fontSize: '0.7rem', color: '#d97706', marginTop: 6, fontWeight: 600 }}>
                                 🎯 Synergy bonus threshold reached!
                             </div>
                         )}
@@ -815,7 +813,7 @@ export function BudgetAllocationPanel({ onAllocate }) {
    Freeman (1984): Sequential stakeholder challenges under pressure.
    ═══════════════════════════════════════════════════════════════ */
 
-export function StakeholderTribunal({ onResponses }) {
+export function StakeholderTribunal({ onResponses, onVisible }) {
     const [variant, setVariant] = useState(null);
     const [currentIdx, setCurrentIdx] = useState(0);
     const [responses, setResponses] = useState({});
@@ -824,7 +822,7 @@ export function StakeholderTribunal({ onResponses }) {
     useEffect(() => {
         fetch(`${API}/api/admin/journey/mechanic-variant/8`)
             .then(r => r.json())
-            .then(d => { if (d.variant?.enabled) setVariant(d.variant); })
+            .then(d => { if (d.variant?.enabled) { setVariant(d.variant); onVisible?.(); } })
             .catch(() => {});
     }, []);
 
@@ -886,7 +884,7 @@ export function StakeholderTribunal({ onResponses }) {
                 {challenges.map((ch, i) => (
                     <div key={i} className={`${styles.brProgressStep} ${i === currentIdx ? styles.brProgressActive : ''} ${i < currentIdx ? styles.brProgressDone : ''}`}>
                         <span>{ch.icon}</span>
-                        <span style={{ fontSize: '0.62rem' }}>{ch.stakeholder.split(' ')[0]}</span>
+                        <span style={{ fontSize: '0.68rem' }}>{ch.stakeholder.split(' ')[0]}</span>
                     </div>
                 ))}
             </div>
@@ -1103,7 +1101,7 @@ export function OrientationPanel({ onComplete, onOpenStakeholderMap, hasComplete
                 {allDone ? '✓ Ready to Make Your First Decision →' : `Complete ${tasks.length - completedCount} remaining task${tasks.length - completedCount !== 1 ? 's' : ''}`}
             </button>
 
-            <div style={{ fontSize: '0.62rem', color: 'var(--text-muted, #64748b)', marginTop: 8, fontStyle: 'italic', textAlign: 'center' }}>
+            <div style={{ fontSize: '0.68rem', color: 'var(--text-muted, #64748b)', marginTop: 8, fontStyle: 'italic', textAlign: 'center' }}>
                 {config.pedagogical_purpose}
             </div>
         </div>

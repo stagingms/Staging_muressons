@@ -14,6 +14,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
   const [loading, setLoading] = useState(true);
   const [selectedMetric, setSelectedMetric] = useState('treasury');
   const [showToPlayers, setShowToPlayers] = useState(isPlayerVisible);
+  const [saving, setSaving] = useState(false);
 
   const METRICS = [
     { key: 'treasury', label: 'Treasury', icon: '💰', format: v => `$${(v / 1_000_000).toFixed(1)}M` },
@@ -29,12 +30,18 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
 
   useEffect(() => {
     if (!cohortId) return;
+    let first = true;
     const fetchPulse = async () => {
       try {
         const res = await fetch(`${API}/api/admin/cohort-pulse/${cohortId}`);
         if (res.ok) {
           const data = await res.json();
           setTeams(data.teams || []);
+          // Seed toggle from server state on initial load
+          if (first && data.player_visible !== undefined) {
+            setShowToPlayers(!!data.player_visible);
+            first = false;
+          }
         }
       } catch {
         // Backend unreachable — show empty state
@@ -108,11 +115,25 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
             <input
               type="checkbox"
               checked={showToPlayers}
-              onChange={e => setShowToPlayers(e.target.checked)}
+              disabled={saving}
+              onChange={async (e) => {
+                const next = e.target.checked;
+                setShowToPlayers(next);
+                if (!cohortId) return;
+                setSaving(true);
+                try {
+                  await fetch(`${API}/api/admin/cohort-pulse/${cohortId}/visibility`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ player_visible: next }),
+                  });
+                } catch { /* degrade silently — local state still reflects intent */ }
+                setSaving(false);
+              }}
               className={styles.toggleInput}
             />
             <span className={styles.toggleText}>
-              {showToPlayers ? '👁️ Player-Visible' : '🔒 Facilitator Only'}
+              {saving ? '⏳ Saving...' : showToPlayers ? '👁️ Player-Visible' : '🔒 Facilitator Only'}
             </span>
           </label>
         </div>

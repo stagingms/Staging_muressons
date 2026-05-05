@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Side Track E2E Tests
+﻿"""
+Muressons Global Corporation — Side Track E2E Tests
 
 Comprehensive test suite covering:
   1. All 4 tracks: registry, configs, scoring, data bridges

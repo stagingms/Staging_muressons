@@ -6,7 +6,7 @@
     justify-content: center;
     background: linear-gradient(135deg, var(--bg-primary), var(--bg-secondary));
     padding: 2rem;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'DM Sans', system-ui, sans-serif;
 }
 
 .header {

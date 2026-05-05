@@ -1,0 +1,6 @@
+src = open('materiality_db.py', encoding='utf-8').read()
+count = src.count('"category": "economic"')
+src = src.replace('"category": "economic"', '"category": "governance"')
+open('materiality_db.py', 'w', encoding='utf-8').write(src)
+remaining = src.count('"category": "economic"')
+print("Fixed:", count, "| Remaining:", remaining)

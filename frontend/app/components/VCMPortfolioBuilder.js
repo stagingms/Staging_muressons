@@ -16,13 +16,12 @@ function DonutChart({ vols }) {
     const cx = 90, cy = 90, r = 68, strokeW = 26;
     const circ = 2 * Math.PI * r;
     let offset = 0;
-    const segments = vols.map((v, i) => {
+    const segments = vols.reduce((acc, v, i) => {
         const frac = v / total;
         const dash = frac * circ;
-        const seg = { frac, dash, offset, color: TIERS[i].color };
-        offset += dash;
-        return seg;
-    });
+        const offset = acc.length > 0 ? acc[acc.length - 1].offset + acc[acc.length - 1].dash : 0;
+        return [...acc, { frac, dash, offset, color: TIERS[i].color }];
+    }, []);
     return (
         <svg viewBox="0 0 180 180" style={{ width: 170, height: 170, display: 'block', margin: '0 auto' }}>
             {segments.map((seg, i) => (
@@ -138,7 +137,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
         <div style={{
             position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Inter', sans-serif",
+            fontFamily: "'DM Sans', sans-serif",
         }}>
             <div style={{ background: '#fff', maxWidth: 600, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#0f172a', color: '#fff', padding: '1rem 1.5rem' }}>
@@ -179,7 +178,7 @@ export default function VCMPortfolioBuilder({ sessionId, onComplete }) {
         <div style={{
             position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontFamily: "'Inter', sans-serif", padding: '1rem',
+            fontFamily: "'DM Sans', sans-serif", padding: '1rem',
         }}>
             <div style={{
                 background: '#f8fafc', maxWidth: 580, width: '100%', borderRadius: 12,

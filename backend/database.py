@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Async Database Service
+Muressons Global Corporation — Async Database Service
 Wraps asyncpg for all persistence operations.
 """
 
@@ -42,7 +42,7 @@ def _load_seed() -> dict:
     """Load the Round 1 seed JSON (relative to the backend directory)."""
     import pathlib
     seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / "seed_round1.json"
-    with open(seed_path, "r", encoding="utf-8") as f:
+    with open(seed_path, "r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 

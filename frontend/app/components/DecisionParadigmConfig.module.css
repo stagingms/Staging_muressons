@@ -209,7 +209,7 @@
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 700;
   letter-spacing: 0.08em;
   padding: 0.2rem 0.55rem;
@@ -434,7 +434,7 @@
 /* Sub-header row: "Default → Override" labels */
 .defaultHeaderRow th {
   padding: 0.25rem 0.75rem 0.4rem;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 600;
   color: #94a3b8;
   letter-spacing: 0.06em;
@@ -502,7 +502,7 @@
 }
 
 .optionId {
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   color: #94a3b8;
   font-family: 'SF Mono', 'Fira Code', monospace;
   letter-spacing: 0.02em;
@@ -808,7 +808,7 @@
 .sliderRange {
   display: flex;
   justify-content: space-between;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   color: #9ca3af;
   font-weight: 500;
 }

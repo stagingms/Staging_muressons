@@ -1,4 +1,4 @@
-"""
+﻿"""
 CEO Interview — Post-Game Competency Assessment Engine
 =====================================================
 
@@ -475,7 +475,7 @@ def blend_scores(
 CEO_PERSONAS = {
     "female": {
         "name": "Victoria Muressons",
-        "title": "CEO & Chair, Muressons Global Command",
+        "title": "CEO & Chair, Muressons Global Corporation",
         "avatar": "👩‍💼",
         "voice_description": "Professional, warm, direct. British accent. Speaks with authority but genuine curiosity.",
         "elevenlabs_voice_id": "21m00Tcm4TlvDq8ikWAM",  # Rachel
@@ -493,7 +493,7 @@ CEO_PERSONAS = {
     },
     "male": {
         "name": "Alexander Muressons",
-        "title": "CEO & Chair, Muressons Global Command",
+        "title": "CEO & Chair, Muressons Global Corporation",
         "avatar": "👨‍💼",
         "voice_description": "Authoritative, measured, analytical. Mid-Atlantic accent. Probing but respectful.",
         "elevenlabs_voice_id": "pNInz6obpgDQGcFmaJgB",  # Adam

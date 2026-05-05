@@ -1,0 +1,333 @@
+'use client';
+
+import { useState, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import styles from './StakeholderAgentPanel.module.css';
+
+/* ═════════════════════════════════════════════════════════════════
+ *  STAKEHOLDER AGENT PANEL
+ *
+ *  Displays the 5 autonomous stakeholder agents with:
+ *  - Live tolerance bars with escalation zone markers
+ *  - Stage badges (dormant → watching → agitated → hostile → triggered)
+ *  - Trend arrows & patience counters
+ *  - Agent dialogue / threat messages
+ *  - Cascade chain visualization
+ *  - Alert flashes on stage transitions
+ *
+ *  Props:
+ *   - agentSummary:   array from backend get_agent_summary()
+ *   - agentActions:   array from diagnostics.agent_actions
+ *   - cascadesFired:  array from diagnostics.cascades_fired
+ *   - roundNumber:    current round
+ * ═════════════════════════════════════════════════════════════════ */
+
+const STAGE_META = {
+  dormant:   { label: 'DORMANT',   color: '#10b981', bg: 'rgba(16,185,129,0.10)', icon: '😊', order: 0 },
+  watching:  { label: 'WATCHING',  color: '#f59e0b', bg: 'rgba(245,158,11,0.10)', icon: '👀', order: 1 },
+  agitated:  { label: 'AGITATED',  color: '#f97316', bg: 'rgba(249,115,22,0.10)', icon: '😠', order: 2 },
+  hostile:   { label: 'HOSTILE',   color: '#ef4444', bg: 'rgba(239,68,68,0.12)',  icon: '🔥', order: 3 },
+  triggered: { label: 'TRIGGERED', color: '#dc2626', bg: 'rgba(220,38,38,0.15)', icon: '💥', order: 4 },
+};
+
+const TREND_ICONS = {
+  improving:     { icon: '📈', label: 'Improving', color: '#10b981' },
+  stable:        { icon: '➡️', label: 'Stable',    color: '#64748b' },
+  deteriorating: { icon: '📉', label: 'Worsening', color: '#ef4444' },
+  'n/a':         { icon: '—',  label: 'N/A',       color: '#475569' },
+};
+
+function ToleranceBar({ tolerance, maxTolerance, thresholds, color, stage }) {
+  const pct = Math.max(0, Math.min(100, (tolerance / maxTolerance) * 100));
+  const stageMeta = STAGE_META[stage] || STAGE_META.dormant;
+
+  // Zone markers for escalation thresholds
+  const zones = Object.entries(thresholds).map(([name, val]) => ({
+    name,
+    pct: (val / maxTolerance) * 100,
+  }));
+
+  return (
+    <div className={styles.toleranceBarWrap}>
+      <div className={styles.toleranceTrack}>
+        {/* Zone markers */}
+        {zones.map((z) => (
+          <div
+            key={z.name}
+            className={styles.zoneMarker}
+            style={{ left: `${z.pct}%` }}
+            title={`${z.name}: ${z.pct.toFixed(0)}%`}
+          />
+        ))}
+        {/* Fill */}
+        <motion.div
+          className={styles.toleranceFill}
+          style={{ background: stageMeta.color }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.8, ease: 'easeOut' }}
+        />
+        {/* Tolerance label */}
+        <div className={styles.toleranceLabel}>
+          {tolerance.toFixed(0)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AgentCard({ agent, action, isExpanded, onToggle }) {
+  const stageMeta = STAGE_META[action?.stage || agent?.stage || 'dormant'];
+  const trendMeta = TREND_ICONS[action?.trend || agent?.trend || 'stable'];
+  const isTriggered = (action?.stage || agent?.stage) === 'triggered';
+  const stageChanged = action?.stage_changed;
+
+  return (
+    <motion.div
+      className={`${styles.agentCard} ${isTriggered ? styles.agentTriggered : ''} ${stageChanged ? styles.agentStageChanged : ''}`}
+      style={{ '--agent-color': action?.color || agent?.color || '#888' }}
+      layout
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
+      {/* Header row */}
+      <div className={styles.agentHeader} onClick={onToggle}>
+        <div className={styles.agentIdentity}>
+          <span className={styles.agentAvatar}>
+            {isTriggered ? '💥' : (action?.avatar_emoji || agent?.avatar_emoji || '•')}
+          </span>
+          <div className={styles.agentInfo}>
+            <div className={styles.agentName}>
+              {action?.icon || agent?.icon} {action?.name || agent?.name}
+            </div>
+            <div className={styles.agentTitle}>
+              {action?.title || agent?.title || ''}
+            </div>
+          </div>
+        </div>
+        <div className={styles.agentMeta}>
+          {/* Stage badge */}
+          <div
+            className={styles.stageBadge}
+            style={{ color: stageMeta.color, background: stageMeta.bg }}
+          >
+            <span className={styles.stageIcon}>{stageMeta.icon}</span>
+            {stageMeta.label}
+          </div>
+          {/* Trend */}
+          <div className={styles.trendBadge} style={{ color: trendMeta.color }}>
+            {trendMeta.icon}
+          </div>
+          {/* Expand arrow */}
+          <span className={styles.expandArrow}>
+            {isExpanded ? '▲' : '▼'}
+          </span>
+        </div>
+      </div>
+
+      {/* Tolerance bar */}
+      <ToleranceBar
+        tolerance={action?.tolerance ?? agent?.tolerance ?? 50}
+        maxTolerance={agent?.max_tolerance || 100}
+        thresholds={agent?.thresholds || {}}
+        color={action?.color || agent?.color || '#888'}
+        stage={action?.stage || agent?.stage || 'dormant'}
+      />
+
+      {/* Expanded details */}
+      <AnimatePresence>
+        {isExpanded && (
+          <motion.div
+            className={styles.agentDetails}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.25 }}
+          >
+            {/* Message / dialogue */}
+            {action?.message && (
+              <div className={styles.agentDialogue}>
+                <div className={styles.dialogueQuote}>"{action.message}"</div>
+              </div>
+            )}
+
+            {/* Violations */}
+            {action?.violations?.length > 0 && (
+              <div className={styles.violationsList}>
+                <div className={styles.violationsHeader}>⚠ Red Line Violations</div>
+                {action.violations.map((v, i) => (
+                  <div key={i} className={styles.violationRow}>
+                    <span className={styles.violationMetric}>
+                      {v.metric.replace(/_/g, ' ')}
+                    </span>
+                    <span className={styles.violationValue}>
+                      {typeof v.value === 'number' ? v.value.toFixed(1) : v.value}
+                    </span>
+                    <span className={styles.violationRedLine}>
+                      ({v.direction} {v.red_line})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Stats row */}
+            <div className={styles.statsRow}>
+              <div className={styles.statPill}>
+                <span className={styles.statLabel}>Patience</span>
+                <span className={styles.statValue}>
+                  {action?.patience_counter ?? agent?.patience_counter ?? 0} rounds
+                </span>
+              </div>
+              <div className={styles.statPill}>
+                <span className={styles.statLabel}>Tolerance Δ</span>
+                <span
+                  className={styles.statValue}
+                  style={{ color: (action?.tolerance_delta || 0) >= 0 ? '#10b981' : '#ef4444' }}
+                >
+                  {(action?.tolerance_delta || 0) >= 0 ? '+' : ''}
+                  {(action?.tolerance_delta || 0).toFixed(1)}
+                </span>
+              </div>
+              <div className={styles.statPill}>
+                <span className={styles.statLabel}>Trend</span>
+                <span className={styles.statValue} style={{ color: trendMeta.color }}>
+                  {trendMeta.label}
+                </span>
+              </div>
+            </div>
+
+            {/* Triggered event details */}
+            {action?.triggered_event && (
+              <div className={styles.triggeredEvent}>
+                <div className={styles.triggeredTitle}>{action.triggered_event.title}</div>
+                <div className={styles.triggeredNarrative}>{action.triggered_event.narrative}</div>
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+export default function StakeholderAgentPanel({
+  agentSummary = [],
+  agentActions = [],
+  cascadesFired = [],
+  roundNumber,
+}) {
+  const [expandedAgents, setExpandedAgents] = useState({});
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const toggleAgent = (id) => {
+    setExpandedAgents((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Merge summary + actions for display
+  const mergedAgents = useMemo(() => {
+    return agentSummary.map((agent) => {
+      const action = agentActions.find((a) => a.agent_id === agent.agent_id) || {};
+      return { ...agent, action };
+    });
+  }, [agentSummary, agentActions]);
+
+  // Sort by escalation severity (most critical first)
+  const sortedAgents = useMemo(() => {
+    return [...mergedAgents].sort((a, b) => {
+      const stageA = STAGE_META[a.action?.stage || a.stage]?.order || 0;
+      const stageB = STAGE_META[b.action?.stage || b.stage]?.order || 0;
+      return stageB - stageA;
+    });
+  }, [mergedAgents]);
+
+  // Counts
+  const triggeredCount = mergedAgents.filter(
+    (a) => (a.action?.stage || a.stage) === 'triggered'
+  ).length;
+  const hostileCount = mergedAgents.filter(
+    (a) => (a.action?.stage || a.stage) === 'hostile'
+  ).length;
+  const watchCount = mergedAgents.filter(
+    (a) => ['watching', 'agitated'].includes(a.action?.stage || a.stage)
+  ).length;
+
+  if (mergedAgents.length === 0) return null;
+
+  return (
+    <div className={styles.panel}>
+      {/* Panel Header */}
+      <div className={styles.panelHeader} onClick={() => setIsCollapsed(!isCollapsed)}>
+        <div className={styles.panelTitle}>
+          <span className={styles.panelIcon}>🎭</span>
+          <span>AUTONOMOUS STAKEHOLDERS</span>
+        </div>
+        <div className={styles.panelBadges}>
+          {triggeredCount > 0 && (
+            <span className={`${styles.countBadge} ${styles.badgeCritical}`}>
+              {triggeredCount} 💥
+            </span>
+          )}
+          {hostileCount > 0 && (
+            <span className={`${styles.countBadge} ${styles.badgeHostile}`}>
+              {hostileCount} 🔥
+            </span>
+          )}
+          {watchCount > 0 && (
+            <span className={`${styles.countBadge} ${styles.badgeWatch}`}>
+              {watchCount} 👀
+            </span>
+          )}
+          <span className={styles.collapseArrow}>
+            {isCollapsed ? '▼' : '▲'}
+          </span>
+        </div>
+      </div>
+
+      <AnimatePresence>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className={styles.panelBody}
+          >
+            {/* Agent cards */}
+            {sortedAgents.map((agent) => (
+              <AgentCard
+                key={agent.agent_id}
+                agent={agent}
+                action={agent.action}
+                isExpanded={!!expandedAgents[agent.agent_id]}
+                onToggle={() => toggleAgent(agent.agent_id)}
+              />
+            ))}
+
+            {/* Cascade chain log */}
+            {cascadesFired.length > 0 && (
+              <div className={styles.cascadeSection}>
+                <div className={styles.cascadeTitle}>⚡ Cascade Chain</div>
+                {cascadesFired.map((c, i) => (
+                  <div key={i} className={styles.cascadeRow}>
+                    <span className={styles.cascadeSource}>
+                      {c.source?.replace(/the_/g, '').replace(/_/g, ' ')}
+                    </span>
+                    <span className={styles.cascadeArrow}>→</span>
+                    <span className={styles.cascadeTarget}>
+                      {c.target?.replace(/the_/g, '').replace(/_/g, ' ')}
+                    </span>
+                    <span className={styles.cascadeHit}>
+                      −{c.tolerance_hit} tolerance
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}

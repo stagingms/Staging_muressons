@@ -15,7 +15,7 @@
     z-index: 1000;
     display: flex;
     flex-direction: column;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     color: var(--csrd-text, #e2e8f0);
     -webkit-font-smoothing: antialiased;
 }
@@ -62,7 +62,7 @@
     transition: all 0.2s ease;
     box-shadow: 0 2px 12px rgba(0, 229, 195, 0.25);
     letter-spacing: 0.04em;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     text-transform: uppercase;
 }
 
@@ -378,7 +378,7 @@
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
 }
 
 .consultantBtn:hover {
@@ -462,7 +462,7 @@
     font-size: 0.82rem;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
 }
 
 .cancelBtn:hover {
@@ -518,7 +518,7 @@
     border-radius: 5px;
     float: right;
     transition: all 0.15s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
 }
 
 .closeTabBtn:hover {
@@ -610,7 +610,7 @@
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s ease;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     letter-spacing: 0.02em;
 }
 
@@ -635,7 +635,7 @@
     border-radius: 6px;
     color: var(--csrd-text, #e2e8f0);
     font-size: 0.78rem;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     outline: none;
     transition: border-color 0.15s;
     box-sizing: border-box;
@@ -659,7 +659,7 @@
     border-radius: 5px;
     color: var(--csrd-text, #e2e8f0);
     font-size: 0.72rem;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     cursor: pointer;
 }
 
@@ -672,7 +672,7 @@
     font-weight: 700;
     font-size: 0.72rem;
     cursor: pointer;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     transition: opacity 0.15s;
 }
 
@@ -689,7 +689,7 @@
     color: var(--csrd-muted, #94a3b8);
     font-size: 0.72rem;
     cursor: pointer;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     transition: all 0.15s;
 }
 
@@ -710,7 +710,7 @@
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     animation: pulse-glow 2s ease-in-out infinite;
 }
 
@@ -825,7 +825,7 @@
     font-size: 0.88rem;
     cursor: pointer;
     transition: all 0.2s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     letter-spacing: 0.02em;
 }
 
@@ -845,7 +845,7 @@
     font-size: 0.75rem;
     cursor: pointer;
     transition: all 0.15s;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     display: flex;
     align-items: center;
     gap: 0.3rem;
@@ -896,7 +896,7 @@
 
 /* ── Cost Badge on Chips (Fix 7) ────────────────────────── */
 .costBadge {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 700;
     color: #f59e0b;
     background: rgba(245, 158, 11, 0.1);
@@ -914,7 +914,7 @@
     bottom: 6px;
     left: 50%;
     transform: translateX(-50%);
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     font-weight: 500;
     font-style: italic;
     color: rgba(148, 163, 184, 0.4);
@@ -956,7 +956,7 @@
 
 /* ── IRO Badge (Fix 10) ─────────────────────────────────── */
 .iroBadge {
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     font-weight: 800;
     padding: 0.08rem 0.3rem;
     border-radius: 3px;
@@ -1134,4 +1134,93 @@
 
 :global([data-theme="light"]) .cheatSheetPanel h4 {
     border-bottom-color: #3b82f6;
+}
+
+/* ── ESRS Spectrum Badges ────────────────────────────────── */
+/* Severity badge: H/M/L coloured dot */
+.severityBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 0.6rem;
+    font-weight: 800;
+    flex-shrink: 0;
+    letter-spacing: 0;
+}
+
+/* Time-horizon badge: ST / MT / LT */
+.horizonBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    height: 16px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    background: rgba(148, 163, 184, 0.12);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    letter-spacing: 0.04em;
+}
+
+/* ── R1 Blindspot Chip State ─────────────────────────────── */
+.chipBlindspot {
+    border-left-color: #f59e0b !important;
+    opacity: 0.78;
+    animation: blindspot-pulse 2.2s ease-in-out infinite;
+}
+
+@keyframes blindspot-pulse {
+    0%, 100% { box-shadow: 0 0 0 rgba(245, 158, 11, 0); }
+    50%       { box-shadow: 0 0 8px rgba(245, 158, 11, 0.25); }
+}
+
+.blindspotBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.72rem;
+    color: #f59e0b;
+    flex-shrink: 0;
+}
+
+/* ── Stakeholder Boost Badge ─────────────────────────────── */
+.chipBoosted {
+    border-left-color: #a78bfa !important;
+}
+
+.boostBadge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    color: #a78bfa;
+    flex-shrink: 0;
+}
+
+/* ── R1 Audit Gap Warning Pill ───────────────────────────── */
+.blindspotWarning {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    animation: blindspot-pulse 2.2s ease-in-out infinite;
+}
+
+/* ── Wider success modal for ESRS debrief card ───────────── */
+.successModal {
+    border-color: rgba(0, 229, 195, 0.3);
+    border-left: 4px solid #00e5c3;
+    max-width: 560px !important;
 }

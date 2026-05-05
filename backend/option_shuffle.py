@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Option Presentation Shuffle Engine
+﻿"""
+Muressons Global Corporation — Option Presentation Shuffle Engine
 
 ANTI-GAMING MEASURE: Randomizes the A/B/C label ordering per session
 and per round so that the letter labels carry no signal about option

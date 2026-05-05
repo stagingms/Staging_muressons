@@ -72,7 +72,7 @@ function DraggableChip({ stakeholder, isDragging }) {
         >
             <span className={styles.chipIcon}>{stakeholder.icon}</span>
             <span className={styles.chipName}>{stakeholder.name}</span>
-            {hasDossier && <span style={{ fontSize: '0.55rem', color: '#60a5fa', marginLeft: 'auto', flexShrink: 0 }}>📋</span>}
+            {hasDossier && <span style={{ fontSize: '0.68rem', color: '#60a5fa', marginLeft: 'auto', flexShrink: 0 }}>📋</span>}
             {/* C15: Intel Dossier Tooltip */}
             {showDossier && hasDossier && (
                 <div style={{
@@ -158,9 +158,12 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
         useSensor(KeyboardSensor)
     );
 
-    // Load stakeholder list
+    // Load stakeholder list (session-aware for vertical BU substitutions)
     useEffect(() => {
-        fetch(`${API}/api/simulations/stakeholder-map/stakeholders`)
+        const url = sessionId
+            ? `${API}/api/simulations/stakeholder-map/stakeholders?session_id=${sessionId}`
+            : `${API}/api/simulations/stakeholder-map/stakeholders`;
+        fetch(url)
             .then(r => r.json())
             .then(data => {
                 const list = data.stakeholders || FALLBACK_STAKEHOLDERS;
@@ -171,7 +174,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                 setStakeholders(FALLBACK_STAKEHOLDERS);
                 setBank(FALLBACK_STAKEHOLDERS.map(s => s.id));
             });
-    }, []);
+    }, [sessionId]);
 
     const getStakeholder = (id) => stakeholders.find(s => s.id === id);
 
@@ -340,21 +343,21 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.passed ? '#10b981' : '#ef4444' }}>
                                         {result.accuracy_percentage}%
                                     </div>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Accuracy</div>
+                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Accuracy</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
                                     <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.passed ? '#f59e0b' : '#94a3b8' }}>
                                         {result.correct_count}/{result.total_count}
                                     </div>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Correct</div>
+                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Correct</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
                                     <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.points_awarded > 0 ? '#6366f1' : '#94a3b8' }}>
                                         +{result.points_awarded}
                                     </div>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Bonus Pts</div>
+                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Bonus Pts</div>
                                 </div>
                             </div>
 
@@ -489,7 +492,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     <h3 style={{ margin: '0 0 0.4rem', fontSize: '0.78rem', color: '#a78bfa' }}>
                                         🔬 Stakeholder Salience Debrief <span style={{ fontSize: '0.6rem', fontWeight: 400, color: 'var(--text-muted)' }}>(Mitchell, Agle & Wood 1997)</span>
                                     </h3>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.35rem', lineHeight: 1.4 }}>
+                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.35rem', lineHeight: 1.4 }}>
                                         Beyond Power × Interest, real-world stakeholder analysis considers <strong>Urgency</strong> (time-sensitivity of claims) and <strong>Legitimacy</strong> (moral/legal standing).
                                     </div>
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
@@ -504,14 +507,14 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                     {u.name}
                                                 </span>
                                                 <span style={{
-                                                    fontSize: '0.58rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
+                                                    fontSize: '0.68rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
                                                     background: u.urgency === 'high' ? 'rgba(239,68,68,0.15)' : u.urgency === 'medium' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)',
                                                     color: u.urgency === 'high' ? '#f87171' : u.urgency === 'medium' ? '#fbbf24' : '#94a3b8',
                                                 }}>
                                                     ⏱ {u.urgency}
                                                 </span>
                                                 <span style={{
-                                                    fontSize: '0.58rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
+                                                    fontSize: '0.68rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
                                                     background: u.legitimacy === 'high' ? 'rgba(16,185,129,0.15)' : u.legitimacy === 'medium' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)',
                                                     color: u.legitimacy === 'high' ? '#4ade80' : u.legitimacy === 'medium' ? '#fbbf24' : '#94a3b8',
                                                 }}>
@@ -551,7 +554,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                     }}>
                                                         {q.label}
                                                         <span style={{
-                                                            fontSize: '0.58rem', fontWeight: 500,
+                                                            fontSize: '0.68rem', fontWeight: 500,
                                                             color: 'var(--text-muted)',
                                                             marginLeft: '6px',
                                                         }}>
@@ -591,7 +594,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     <h3 style={{ margin: '0 0 0.4rem', fontSize: '0.78rem', color: '#60a5fa' }}>
                                         🎯 Engagement Strategy — "Manage Closely" Stakeholders
                                     </h3>
-                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
+                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
                                         Classification is only step 1. For high-power, high-interest stakeholders, what engagement tactic would you deploy?
                                     </div>
                                     {result.engagement_tactics.map(et => (

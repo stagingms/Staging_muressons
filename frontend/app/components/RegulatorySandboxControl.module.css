@@ -1,0 +1,349 @@
+/* RegulatorySandboxControl.module.css
+   Dedicated styling for the Regulatory Sandbox facilitator panel.
+   Theme: institutional gravitas — dark steel with theory-colored accents.
+*/
+
+/* ── Panel Shell ── */
+.panel {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    background: var(--bg-card, #1e293b);
+    border: 1px solid var(--border-subtle, #334155);
+    border-radius: 16px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1, #f59e0b, #10b981, #3b82f6);
+    opacity: 0.7;
+}
+
+/* ── Header ── */
+.headerRow {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.headerIcon {
+    font-size: 2rem;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.headerText {
+    flex: 1;
+}
+
+.title {
+    margin: 0 0 0.2rem 0;
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--text-primary, #f1f5f9);
+    letter-spacing: -0.01em;
+}
+
+.subtitle {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted, #64748b);
+    line-height: 1.5;
+    max-width: 560px;
+}
+
+.sessionTag {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 700;
+    font-family: var(--font-mono, 'JetBrains Mono', monospace);
+    color: #94a3b8;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+/* ── Complexity Gauges ── */
+.gaugeRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle, #334155);
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+}
+
+.gauge {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.gaugeLabel {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+    font-weight: 700;
+    color: var(--text-muted, #64748b);
+}
+
+.gaugeBar {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 99px;
+    overflow: hidden;
+}
+
+.gaugeFill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gaugeVal {
+    font-size: 0.75rem;
+    font-weight: 800;
+    font-family: var(--font-mono, monospace);
+}
+
+/* ── Status Banner ── */
+.statusBanner {
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    font-size: 0.82rem;
+    font-weight: 600;
+    line-height: 1.5;
+    transition: all 0.3s;
+}
+
+.status_info    { background: rgba(59, 130, 246, 0.1);  color: #60a5fa; border: 1px solid rgba(59,130,246,0.25); }
+.status_success { background: rgba(16, 185, 129, 0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.25); }
+.status_error   { background: rgba(239, 68, 68, 0.1);  color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+.status_warn    { background: rgba(245, 158, 11, 0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.25); }
+
+/* ── Ostrom / Polycentric Hint ── */
+.ostromHint {
+    padding: 0.75rem 1rem;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: #a5b4fc;
+    line-height: 1.55;
+}
+
+.ostromHint strong {
+    color: #818cf8;
+}
+
+/* ── Instrument Grid ── */
+.instrumentGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1rem;
+}
+
+/* ── Instrument Card ── */
+.instrumentCard {
+    display: flex;
+    flex-direction: row;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-subtle, #334155);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.instrumentCard:hover {
+    border-color: rgba(var(--accent-rgb, 99, 102, 241), 0.3);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.cardAccentBar {
+    width: 4px;
+    flex-shrink: 0;
+    border-radius: 0;
+    transition: opacity 0.2s;
+}
+
+.cardBody {
+    flex: 1;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ── Card Header ── */
+.cardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.instName {
+    margin: 0 0 0.25rem 0;
+    font-size: 0.92rem;
+    font-weight: 800;
+    color: var(--text-primary, #f1f5f9);
+    line-height: 1.2;
+}
+
+.instDesc {
+    margin: 0;
+    font-size: 0.73rem;
+    color: var(--text-muted, #64748b);
+    line-height: 1.4;
+}
+
+.theoryPill {
+    flex-shrink: 0;
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    padding: 3px 7px;
+    border-radius: 5px;
+    border: 1px solid;
+    white-space: nowrap;
+}
+
+/* ── Parameters List ── */
+.paramsList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.paramRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.paramLabel {
+    font-size: 0.72rem;
+    color: #cbd5e1;
+    font-weight: 500;
+    text-transform: capitalize;
+    flex: 1;
+}
+
+.paramSelect {
+    background: rgba(0, 0, 0, 0.3);
+    color: #e2e8f0;
+    border: 1px solid #475569;
+    border-radius: 5px;
+    padding: 3px 6px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.15s;
+}
+
+.paramSelect:focus { border-color: #6366f1; }
+
+.numInput {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.paramNumber {
+    width: 64px;
+    background: rgba(0, 0, 0, 0.3);
+    color: #e2e8f0;
+    border: 1px solid #475569;
+    border-radius: 5px;
+    padding: 3px 6px;
+    font-size: 0.72rem;
+    text-align: right;
+    outline: none;
+    transition: border-color 0.15s;
+    font-family: var(--font-mono, monospace);
+}
+
+.paramNumber:focus { border-color: #6366f1; }
+
+.paramUnit {
+    font-size: 0.65rem;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+/* ── Card Footer ── */
+.cardFooter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    padding-top: 0.65rem;
+    margin-top: auto;
+}
+
+.theoryNote {
+    margin: 0;
+    font-size: 0.65rem;
+    color: #475569;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.activateBtn {
+    width: 100%;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px solid var(--btn-color, #6366f1);
+    color: var(--btn-color, #818cf8);
+    border-radius: 7px;
+    font-weight: 700;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.02em;
+}
+
+.activateBtn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--btn-color, #6366f1) 12%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--btn-color, #6366f1) 20%, transparent);
+}
+
+.activateBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* ── Empty / Loading States ── */
+.emptyState {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: var(--text-muted, #64748b);
+}
+
+.emptyIcon {
+    font-size: 3rem;
+    margin-bottom: 0.75rem;
+}
+
+.loadingPulse {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted, #64748b);
+    font-size: 0.85rem;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+}

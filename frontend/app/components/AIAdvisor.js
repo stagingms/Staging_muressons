@@ -44,7 +44,7 @@ export default function AIAdvisor({ roundNumber, globalState, roundConfig, isOpe
     const crisis = roundConfig?.crisis;
 
     if (q.includes('crisis') || q.includes('explain') || q.includes('round')) {
-      return `**Round ${roundNumber} Crisis:**\n\n${crisis?.description || crisis?.narrative || 'The board demands strategic action this quarter.'}\n\n**Key Considerations:**\n• Current Treasury: $${(treasury / 1_000_000).toFixed(1)}M\n• Reputation Score: ${reputation}/100\n• Weigh short-term costs vs long-term resilience`;
+      return `**Round ${roundNumber} Crisis:**\n\n${crisis?.description || crisis?.narrative || 'The board demands strategic action this period.'}\n\n**Key Considerations:**\n• Current Treasury: $${(treasury / 1_000_000).toFixed(1)}M\n• Reputation Score: ${reputation}/100\n• Weigh short-term costs vs long-term resilience`;
     }
 
     if (q.includes('compare') || q.includes('option') || q.includes('vs')) {

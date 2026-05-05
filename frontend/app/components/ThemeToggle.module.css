@@ -36,6 +36,14 @@
     height: 22px;
 }
 
+.dark {
+    /* Dark mode state — iconWrapper modifier */
+}
+
+.light {
+    /* Light mode state — iconWrapper modifier */
+}
+
 .icon {
     position: absolute;
     inset: 0;

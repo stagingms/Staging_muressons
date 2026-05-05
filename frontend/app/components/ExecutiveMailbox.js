@@ -20,7 +20,7 @@ import styles from './ExecutiveMailbox.module.css';
 
 const SAMPLE_ROUND_MESSAGES = {
     1: [
-        { id: 'm1-1', type: 'narrative', title: 'Board Briefing', body: 'Welcome to Muressons Corporation. The board expects a sustainable growth trajectory over the next 10 quarters. Initial capital position is strong — deploy wisely.', read: false },
+        { id: 'm1-1', type: 'narrative', title: 'Board Briefing', body: 'Welcome to Muressons Corporation. The board expects a sustainable growth trajectory over the next 10 semesters (5 years). Initial capital position is strong — deploy wisely.', read: false },
         { id: 'm1-2', type: 'report', title: 'ESG Baseline Report', body: 'All four business units are operational. Pharma and Electronics drive majority revenue. Note: Electronics carbon intensity is the highest across the group (72).', read: false },
         { id: 'm1-3', type: 'admin', title: '⚡ Facilitator Note', body: 'This is a learning simulation. Discuss trade-offs as a team before committing each round.', read: false },
     ],

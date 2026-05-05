@@ -12,7 +12,7 @@
 .groupCount { font-size: 0.68rem; color: var(--text-muted); background: var(--bg-secondary); padding: 2px 8px; border-radius: var(--radius-full); }
 .groupStats { display: flex; gap: 1rem; padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-subtle); }
 .groupStats > div { flex: 1; }
-.statLabel { display: block; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
+.statLabel { display: block; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; }
 .statVal { font-size: 0.9rem; font-weight: 800; color: var(--text-primary); font-family: var(--font-mono); }
 .sessionList { padding: 0.5rem; display: flex; flex-direction: column; gap: 0.25rem; }
 .sessionItem { display: flex; align-items: center; gap: 0.5rem; padding: 0.4rem 0.6rem; border-radius: var(--radius-md); font-size: 0.78rem; }
@@ -36,3 +36,16 @@
 .modalContent { background: var(--bg-body); border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); padding: 1.5rem; max-width: 600px; width: 100%; max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
 .closeBtn { position: absolute; top: 1rem; right: 1rem; background: transparent; border: none; color: var(--text-muted); font-size: 1.2rem; cursor: pointer; border-radius: 50%; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; transition: background 0.2s; }
 .closeBtn:hover { background: var(--bg-elevated); color: var(--text-primary); }
+
+/* Missing class stubs */
+.scheduleCell {
+  padding: 6px 8px;
+  font-size: 0.72rem;
+}
+.scheduleItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+

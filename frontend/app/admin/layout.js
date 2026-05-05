@@ -1,4 +1,5 @@
 import '../globals.css';
+import FetchInterceptor from '../components/FetchInterceptor';
 
 export const metadata = {
     title: 'Facilitator Dashboard -Muressons Simulation',
@@ -7,5 +8,10 @@ export const metadata = {
 };
 
 export default function AdminLayout({ children }) {
-    return children;
+    return (
+        <>
+            <FetchInterceptor />
+            {children}
+        </>
+    );
 }

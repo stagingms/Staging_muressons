@@ -1,5 +1,5 @@
-"""
-Muressons Global Command - Terminal Valuation Module
+﻿"""
+Muressons Global Corporation - Terminal Valuation Module
 Extracted from round_logic.py (STRAT-001) for independent testability,
 What-If mode (STRAT-003), and cross-pathway normalization (STRAT-004).
 Pure-function module: no I/O, no database access.

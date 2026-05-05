@@ -208,7 +208,7 @@
 
 /* ── BU Badge ─────────────────────────────────────────────────── */
 .buBadge {
-    font-size: 0.63rem;
+    font-size: 0.68rem;
     font-weight: 800;
     padding: 3px 10px;
     border-radius: 999px;
@@ -221,7 +221,7 @@
 /* ── Status badges ────────────────────────────────────────────── */
 .countWaiting,
 .countPlaying {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 700;
     padding: 2px 8px;
     border-radius: 999px;
@@ -400,7 +400,7 @@
 }
 
 .teamTag {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 600;
     color: #a5b4fc;
     background: rgba(99, 102, 241, 0.12);
@@ -417,7 +417,7 @@
 
 .sessionTag {
     font-family: var(--font-mono, monospace);
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     color: #64748b;
 }
 

@@ -58,7 +58,9 @@ export const BRIEFINGS = {
       { icon: '⚖️', label: 'Governance Risk' },
       { icon: '📈', label: 'Strategic Alignment' },
     ],
-    warning: null,
+    warning: {
+      text: '<strong>📊 CSRD Governance Premium:</strong> Achieving ≥80% Q1 accuracy AND choosing Option A/B governance unlocks <strong>+0.10 M_R</strong> at Round 10 (ESRS 1 §1.51). It also <strong>reduces your R3 Green Bond cost by $500K</strong>. Option C or poor accuracy triggers a $1M Green Bond risk premium.',
+    },
   },
 
   3: {
@@ -200,7 +202,7 @@ export const BRIEFINGS = {
     theme: 'Water Scarcity Emergency',
     stamp: 'EMERGENCY',
     narrative: [
-      'A multi-year drought has reached critical levels. The primary watershed serving your <strong>Pharma and Electronics</strong> facilities has been reclassified as "critically stressed" by the national water authority. Reservoir levels are at 18% capacity — the lowest in recorded history. Government water rationing is imminent, and industrial allocations will be cut by 40% within the next quarter.',
+      'A multi-year drought has reached critical levels. The primary watershed serving your <strong>Pharma and Electronics</strong> facilities has been reclassified as "critically stressed" by the national water authority. Reservoir levels are at 18% capacity — the lowest in recorded history. Government water rationing is imminent, and industrial allocations will be cut by 40% within the next period.',
       'Water is the invisible dependency of modern industry, and your exposure is severe. <strong>Pharma</strong> has the highest water dependency score (82) — ultra-pure water is essential for drug formulation and sterile manufacturing. <strong>Electronics</strong> (58) requires massive volumes for semiconductor wafer fabrication and cooling systems. <strong>Consumer Goods</strong> (65) depends on water for food and beverage processing lines. Only <strong>Software</strong> (12) has minimal direct water exposure.',
       'The equity dimension is critical. If you prioritise water allocation to your highest-margin division (Electronics), you are essentially sacrificing Pharma and Consumer Goods — communities and workers who depend on those facilities will face devastating layoffs. Their Social License scores will crater by 25 points, and the ripple effects will follow you into the final rounds.',
       'You must decide: invest $12M in water efficiency across all BUs (equitable but expensive), divert resources to Electronics at $4M (cheap but socially devastating), or commit to a $30M desalination mega-project that eliminates water dependency permanently — but at a cost that could strain your treasury to breaking point.',
@@ -271,7 +273,7 @@ export const BRIEFINGS = {
       { icon: '🏅', label: 'Regenerative Multiple' },
     ],
     warning: {
-      text: '<strong>🔒 Decision Gates:</strong> "Resist & Integrate" requires Synergy Score > 80 (unlocked by R7-C). Your M_R includes: Synergy Bonus (+0.30), Resilience Bonus (+0.20 if R5/R8 not bailed out), Truth Premium (+0.15 from R6-B), and Instability Discount (-0.40 if avg. Social License < 75).',
+      text: '<strong>🔒 Decision Gates:</strong> "Resist & Integrate" requires Synergy Score > 80 (unlocked by R7-C). Your M_R includes: <strong>CSRD Governance Premium (+0.10 from R2A)</strong>, Synergy Bonus (+0.30), Resilience Bonus (+0.20 if R5/R8 not bailed out), Truth Premium (+0.15 from R6-B), and Instability Discount (-0.40 if avg. Social License < 75).',
     },
   },
 };
@@ -774,6 +776,9 @@ const BUTTERFLY_HINTS = {
   community_fund: '🏘️ Community investment is generating goodwill and workforce stability...',
   waste_compliance_gap: '⚠️ Compliance shortcuts from earlier decisions may create exposure...',
   compliance_gap: '📋 Regulatory gaps from prior choices are attracting scrutiny...',
+  // CSRD materiality flags
+  materiality_aligned: '📊 Your R2 materiality governance (+0.10 M_R) — institutional investors are rewarding your CSRD posture...',
+  materiality_ignored: '⚠️ Your R2 materiality gaps may surface as financing friction in Green Bond pricing...',
 };
 
 // ── Theory Cards (academic frameworks per round) ───────────────
@@ -905,6 +910,16 @@ export default function RoundBriefing({
   const stochastic = getStochasticIndicator(roundNumber);
   const climateSupplement = isClimate ? CLIMATE_BRIEFING_SUPPLEMENTS[roundNumber] : null;
 
+  // ── CSRD / Industry Vertical context from globalState ──────────────────────
+  const flags = globalState?.active_event_flags || {};
+  const industryVerticalApplied = flags.industry_vertical_applied;
+  const industryVerticalLabel = globalState?.industry_vertical_label;
+  const industryVerticalIcon  = globalState?.industry_vertical_icon || '🏢';
+  const materialityAligned  = flags.materiality_aligned === true;
+  const materialityIgnored  = flags.materiality_ignored === true;
+  const materialityStatus   = globalState?.materiality_status; // 'aligned' | 'ignored' | undefined
+  const showMaterialityChip = roundNumber >= 3 && (materialityAligned || materialityIgnored);
+
   // Preliminary valuation estimate (after R5)
   const showValuation = roundNumber > 5 && globalState;
   let valuationEstimate = null;
@@ -912,11 +927,17 @@ export default function RoundBriefing({
     const treasury = globalState.corporate_treasury || 0;
     const synergy = globalState.synergy_multiplier || 1.0;
     const rep = globalState.group_reputation || 50;
-    // Rough estimate: (Treasury/10M) * synergy * (rep/50) range
-    const base = (treasury / 10_000_000) * synergy * (rep / 50);
-    const low = Math.round(base * 0.7);
-    const high = Math.round(base * 1.4);
-    valuationEstimate = { low: Math.max(low, 0), high: Math.max(high, 0) };
+    const ebitda = Math.abs(globalState.historical_ebitda || 0);
+    // Use EBITDA-based valuation: ebitda × exit_multiple × M_R_proxy
+    // M_R proxy = synergy × (rep / 60) × reputation premium
+    const mrProxy = Math.max(0.4, synergy * (rep / 60));
+    const exitMultiple = 12.0; // Matches R10 config
+    // If EBITDA is available, use it; otherwise fall back to treasury-based
+    const baseEbitda = ebitda > 0 ? ebitda : Math.max(treasury * 0.08, 2_000_000);
+    const terminalValue = baseEbitda * exitMultiple * mrProxy;
+    const low = Math.round(Math.max(terminalValue * 0.75, 0) / 1_000_000);
+    const high = Math.round(Math.max(terminalValue * 1.30, 0) / 1_000_000);
+    valuationEstimate = { low, high };
   }
 
   return (
@@ -933,6 +954,33 @@ export default function RoundBriefing({
                 fontSize: '0.6rem', fontWeight: 700, color: '#6ee7b7', letterSpacing: '0.06em', textTransform: 'uppercase',
               }}>
                 🌡️ Advanced Climate Engine
+              </div>
+            )}
+            {/* Industry Vertical Blueprint pill — shown on R2 when blueprint applied */}
+            {roundNumber === 2 && industryVerticalApplied && (
+              <div style={{
+                padding: '2px 10px', borderRadius: 4,
+                background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.4)',
+                fontSize: '0.6rem', fontWeight: 700, color: '#a5b4fc', letterSpacing: '0.06em', textTransform: 'uppercase',
+              }} title={`Industry Vertical Blueprint active: ${industryVerticalLabel}`}>
+                {industryVerticalIcon} {industryVerticalLabel || industryVerticalApplied} Blueprint
+              </div>
+            )}
+            {/* CSRD materiality status chip — shown R3 onwards */}
+            {showMaterialityChip && (
+              <div style={{
+                padding: '2px 10px', borderRadius: 4,
+                background: materialityAligned ? 'rgba(16,185,129,0.12)' : 'rgba(245,158,11,0.12)',
+                border: `1px solid ${materialityAligned ? 'rgba(16,185,129,0.35)' : 'rgba(245,158,11,0.4)'}`,
+                fontSize: '0.6rem', fontWeight: 700,
+                color: materialityAligned ? '#6ee7b7' : '#fcd34d',
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+              }} title={
+                materialityAligned
+                  ? 'R2 materiality aligned: +0.10 M_R at R10 · −$500K Green Bond (R3 Option B)'
+                  : 'R2 materiality gaps: +$1M Green Bond risk premium (R3 Option B)'
+              }>
+                {materialityAligned ? '✅ CSRD Aligned +0.10 M_R' : '⚠️ CSRD Gap — R3 Penalty'}
               </div>
             )}
           </div>
@@ -1066,81 +1114,90 @@ export default function RoundBriefing({
             </div>
           )}
 
-          {/* Strategic Objectives */}
-          <div className={styles.sectionTitle}>
-            <span className={styles.sectionIcon}>🎯</span>
-            Strategic Objectives
-          </div>
-          <ul className={styles.objectivesList}>
-            {b.objectives.map((obj, i) => (
-              <li key={i}>{obj}</li>
-            ))}
-          </ul>
-
-          {/* Key Metrics */}
-          <div className={styles.sectionTitle}>
-            <span className={styles.sectionIcon}>📊</span>
-            Key Metrics to Watch
-          </div>
-          <div className={styles.metricsRow}>
-            {b.metrics.map((m, i) => (
-              <div key={i} className={styles.metricChip}>
-                <span className={styles.metricIcon}>{m.icon}</span>
-                <span className={styles.metricLabel}>{m.label}</span>
+          {/* Two-column bottom grid: Left = objectives + metrics, Right = warning + theory + voices */}
+          <div className={styles.docBottomGrid}>
+            {/* Left Column */}
+            <div>
+              {/* Strategic Objectives */}
+              <div className={styles.sectionTitle}>
+                <span className={styles.sectionIcon}>🎯</span>
+                Strategic Objectives
               </div>
-            ))}
-          </div>
+              <ul className={styles.objectivesList}>
+                {b.objectives.map((obj, i) => (
+                  <li key={i}>{obj}</li>
+                ))}
+              </ul>
 
-          {/* Warning */}
-          {b.warning && (
-            <div className={styles.warningBox}>
-              <span className={styles.warningIcon}>⚠️</span>
-              <div
-                className={styles.warningText}
-                dangerouslySetInnerHTML={{ __html: b.warning.text }}
-              />
-            </div>
-          )}
-
-          {/* Theory Card */}
-          {theory && (
-            <div className={styles.theoryCard}>
-              <div className={styles.theoryHeader}>
-                <span>📚</span> Academic Framework
+              {/* Key Metrics */}
+              <div className={styles.sectionTitle}>
+                <span className={styles.sectionIcon}>📊</span>
+                Key Metrics to Watch
               </div>
-              <div className={styles.theoryTitle}>{theory.title}</div>
-              <p className={styles.theoryDesc}>{theory.desc}</p>
-            </div>
-          )}
+              <div className={styles.metricsRow}>
+                {b.metrics.map((m, i) => (
+                  <div key={i} className={styles.metricChip}>
+                    <span className={styles.metricIcon}>{m.icon}</span>
+                    <span className={styles.metricLabel}>{m.label}</span>
+                  </div>
+                ))}
+              </div>
 
-          {/* Stakeholder Voices */}
-          {voices.length > 0 && (
-            <div className={styles.voicesPanel}>
-              <div className={styles.voicesTitle}>💬 Stakeholder Voices</div>
-              {voices.map((v, i) => (
-                <div key={i} className={styles.voiceQuote}>
-                  <span className={styles.voiceAvatar}>{v.avatar}</span>
-                  <div className={styles.voiceContent}>
-                    <p className={styles.voiceText}>{v.text}</p>
-                    <div className={styles.voiceRole}>— {v.role}</div>
+              {/* Warning */}
+              {b.warning && (
+                <div className={styles.warningBox}>
+                  <span className={styles.warningIcon}>⚠️</span>
+                  <div
+                    className={styles.warningText}
+                    dangerouslySetInnerHTML={{ __html: b.warning.text }}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Right Column */}
+            <div>
+              {/* Theory Card */}
+              {theory && (
+                <div className={styles.theoryCard}>
+                  <div className={styles.theoryHeader}>
+                    <span>📚</span> Academic Framework
+                  </div>
+                  <div className={styles.theoryTitle}>{theory.title}</div>
+                  <p className={styles.theoryDesc}>{theory.desc}</p>
+                </div>
+              )}
+
+              {/* Stakeholder Voices */}
+              {voices.length > 0 && (
+                <div className={styles.voicesPanel}>
+                  <div className={styles.voicesTitle}>💬 Stakeholder Voices</div>
+                  {voices.map((v, i) => (
+                    <div key={i} className={styles.voiceQuote}>
+                      <span className={styles.voiceAvatar}>{v.avatar}</span>
+                      <div className={styles.voiceContent}>
+                        <p className={styles.voiceText}>{v.text}</p>
+                        <div className={styles.voiceRole}>— {v.role}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Preliminary Valuation (after R5) */}
+              {valuationEstimate && (
+                <div className={styles.valuationCard}>
+                  <div className={styles.valuationHeader}>📈 Mid-Game Valuation Estimate</div>
+                  <div className={styles.valuationRange}>
+                    ${valuationEstimate.low}M — ${valuationEstimate.high}M
+                  </div>
+                  <div className={styles.valuationNote}>
+                    Estimated terminal value based on current trajectory. Subject to remaining decisions.
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-          )}
-
-          {/* Preliminary Valuation (after R5) */}
-          {valuationEstimate && (
-            <div className={styles.valuationCard}>
-              <div className={styles.valuationHeader}>📈 Mid-Game Valuation Estimate</div>
-              <div className={styles.valuationRange}>
-                ${valuationEstimate.low}M — ${valuationEstimate.high}M
-              </div>
-              <div className={styles.valuationNote}>
-                Estimated terminal value based on current trajectory. Subject to remaining decisions.
-              </div>
-            </div>
-          )}
+          </div>
         </div>
 
         {/* ── Proceed Button ── */}

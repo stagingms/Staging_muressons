@@ -12,7 +12,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'DM Sans', system-ui, sans-serif;
   animation: overlayFadeIn 0.25s ease;
 }
 
@@ -210,7 +210,7 @@
   text-align: left;
   color: #64748b;
   font-weight: 700;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -267,7 +267,7 @@
 }
 
 .youBadge {
-  font-size: 0.55rem;
+  font-size: 0.68rem;
   background: #2dd4bf;
   color: #0a0e1a;
   padding: 1px 5px;

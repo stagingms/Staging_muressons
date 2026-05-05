@@ -152,7 +152,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
 
                     {/* Scope badge */}
                     <span style={{
-                        fontSize: '0.58rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
+                        fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase',
                         padding: '2px 7px', borderRadius: '3px',
                         background: scopeStyle.bg, color: scopeStyle.color,
                         border: `1px solid ${scopeStyle.color}33`,
@@ -162,7 +162,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
 
                     {/* Boundary */}
                     <span style={{
-                        marginLeft: 'auto', fontSize: '0.62rem', fontFamily: 'var(--font-mono,monospace)',
+                        marginLeft: 'auto', fontSize: '0.68rem', fontFamily: 'var(--font-mono,monospace)',
                         color: 'var(--text-muted,#64748b)', padding: '2px 7px',
                         background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle,#334155)',
                         borderRadius: '3px',
@@ -209,7 +209,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                                 {v.defaultDisplay}
                             </span>
                             <span style={{
-                                fontSize: '0.55rem', fontWeight: 700, letterSpacing: '0.08em',
+                                fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em',
                                 color: 'var(--text-muted,#475569)', textTransform: 'uppercase',
                             }}>
                                 Read-only
@@ -247,7 +247,7 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                     {v.logic.length > 100 && (
                         <button style={{
                             background: 'none', border: 'none', padding: '4px 0 0', cursor: 'pointer',
-                            fontSize: '0.62rem', fontWeight: 700, color: sectionColor,
+                            fontSize: '0.68rem', fontWeight: 700, color: sectionColor,
                             letterSpacing: '0.06em', textTransform: 'uppercase',
                         }}>
                             {expanded ? '▲ Less' : '▼ More'}
@@ -258,12 +258,12 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
                 {/* Row 6: Cross-reference tags */}
                 {v.refs && v.refs.length > 0 && (
                     <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.55rem', color: 'var(--text-muted,#475569)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', alignSelf: 'center', marginRight: '2px' }}>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted,#475569)', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', alignSelf: 'center', marginRight: '2px' }}>
                             Refs:
                         </span>
                         {v.refs.map(r => (
                             <span key={r} style={{
-                                fontSize: '0.58rem', fontFamily: 'var(--font-mono,monospace)',
+                                fontSize: '0.68rem', fontFamily: 'var(--font-mono,monospace)',
                                 padding: '1px 6px', borderRadius: '3px',
                                 background: 'rgba(255,255,255,0.04)', border: '1px solid var(--border-subtle,#334155)',
                                 color: 'var(--text-muted,#64748b)',
@@ -385,7 +385,7 @@ export default function MasterVariableEditor() {
                     </div>
                     {/* Stats */}
                     <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
-                        <span style={{ fontSize: '0.62rem', fontWeight: 700, color: 'var(--text-muted,#475569)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--text-muted,#475569)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                             {totalVars} Variables · {editableCount} Editable · {SECTIONS.length} Sections
                         </span>
                     </div>
@@ -451,7 +451,7 @@ export default function MasterVariableEditor() {
                                 {style.label}
                             </span>
                             <span style={{
-                                marginLeft: 'auto', fontSize: '0.58rem', fontFamily: 'var(--font-mono,monospace)',
+                                marginLeft: 'auto', fontSize: '0.68rem', fontFamily: 'var(--font-mono,monospace)',
                                 color: 'var(--text-muted,#64748b)', padding: '1px 8px',
                                 background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border-subtle,#334155)',
                                 borderRadius: '3px',

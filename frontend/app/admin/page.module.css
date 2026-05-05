@@ -84,7 +84,7 @@
 .godBadge {
     display: inline-block;
     margin-top: 8px;
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.2em;
     text-transform: uppercase;
@@ -303,7 +303,7 @@
 
 .selectedTag strong {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -322,7 +322,7 @@
 
 .clock {
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: var(--text-muted, #475569);
 }
 
@@ -357,7 +357,7 @@
 .logCount {
     margin-left: auto;
     font-family: 'IBM Plex Mono', monospace;
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     color: var(--text-muted, #64748b);
     background: rgba(255, 255, 255, 0.04);
     padding: 2px 8px;
@@ -388,12 +388,12 @@
 .logTime {
     font-family: 'IBM Plex Mono', monospace;
     color: var(--text-muted, #475569);
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     min-width: 70px;
 }
 
 .logType {
-    font-size: 0.52rem;
+    font-size: 0.68rem;
     font-weight: 700;
     font-family: 'IBM Plex Mono', monospace;
     text-transform: uppercase;

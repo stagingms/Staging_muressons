@@ -1,5 +1,5 @@
 """
-Muressons Global Command â€” Round-Specific State Mutation Logic
+Muressons Global Corporation â€” Round-Specific State Mutation Logic
 Dispatches to per-round handlers that apply conditional mutations
 BEFORE and AFTER the generic tick engine runs.
 
@@ -191,6 +191,15 @@ def post_tick(
     """
     extra_events: dict[str, Any] = {}
 
+    # Invalidate forecast cache for this session on round commit
+    try:
+        from engine import invalidate_forecast_cache
+        _session_id = global_state.get("session_id", "")
+        if _session_id:
+            invalidate_forecast_cache(_session_id)
+    except ImportError:
+        pass
+
     # FIX AUDIT-014: Apply the CFO override reputation penalty here
     # rather than mutating the input state directly in pre_tick.
     if events.get("cfo_override_used"):
@@ -254,6 +263,405 @@ def post_tick(
             extra_events["compliance_risk_index"] = calc_compliance_risk_index(bu_states, global_state)
 
     return extra_events
+
+
+# ═══════════════════════════════════════════════════════════════
+#  NEW ENGINES POST-TICK PROCESSOR
+#  Runs AFTER the core post_tick, wrapped for resilience.
+#  Called from router.py commit_turn after post_tick returns.
+# ═══════════════════════════════════════════════════════════════
+
+def run_new_engines(
+    round_number: int,
+    global_state: dict,
+    bu_states: list[dict],
+    events: dict,
+) -> dict[str, Any]:
+    """
+    Process all new engine modules for this round.
+    Toggle-gated via pedagogical toggles.
+    Returns extra_events dict to merge into events.
+
+    ARCHITECTURE NOTE: This is separated from post_tick to maintain
+    strict decoupling — new engines cannot break the core simulation.
+    Each engine is wrapped in try/except: failure is logged, never fatal.
+    """
+    extra: dict[str, Any] = {}
+
+    # Read pedagogical toggles for this session
+    try:
+        from pedagogical_engine import get_pedagogical_toggles
+        _ped_overrides = global_state.get("pedagogical_overrides", {})
+        _toggles = get_pedagogical_toggles(_ped_overrides)
+    except Exception:
+        _toggles = {}
+
+    # ── SE-4: Biodiversity Engine ──────────────────────────────
+    if _toggles.get("biodiversity_engine_enabled", True):
+        try:
+            from biodiversity_engine import (
+                create_initial_biodiversity_state,
+                process_biodiversity_tick,
+            )
+            if "biodiversity_state" not in global_state:
+                global_state["biodiversity_state"] = create_initial_biodiversity_state()
+
+            bio_state = global_state["biodiversity_state"]
+            bio_events = {
+                "natural_capital_debt_delta": events.get("natural_capital_debt_delta", 0),
+                "active_event_flags": global_state.get("active_event_flags", {}),
+            }
+            bio_state, bio_diag = process_biodiversity_tick(
+                bio_state, global_state, bu_states, bio_events, round_number
+            )
+            global_state["biodiversity_state"] = bio_state
+            extra["biodiversity"] = bio_diag
+
+            # Apply M_R bonus from TNFD disclosure
+            tnfd_mr = bio_diag.get("tnfd_mr_bonus", 0)
+            if tnfd_mr > 0:
+                extra["tnfd_mr_bonus"] = tnfd_mr
+        except Exception as exc:
+            print(f"[WARN] Biodiversity engine failed: {exc}")
+
+    # ── SE-6: Balance Sheet Engine ────────────────────────────
+    if _toggles.get("balance_sheet_enabled", True):
+        try:
+            from balance_sheet import (
+                create_initial_balance_sheet,
+                process_balance_sheet_tick,
+            )
+            if "balance_sheet" not in global_state:
+                global_state["balance_sheet"] = create_initial_balance_sheet(bu_states)
+                # Wire difficulty-tier covenant trigger ratio
+                try:
+                    from black_swan_registry import get_difficulty_config
+                    _diff_tier = global_state.get("active_event_flags", {}).get("difficulty_tier", "standard")
+                    _diff_cfg = get_difficulty_config(_diff_tier)
+                    global_state["balance_sheet"]["covenant_trigger_ratio"] = _diff_cfg.get("covenant_trigger_ratio", 3.5)
+                except Exception:
+                    pass  # Graceful fallback to default 3.5×
+            bs = global_state["balance_sheet"]
+            # Compute total CAPEX allocated by the player this round
+            _total_capex = sum(
+                d.get("capex_allocated", 0)
+                for d in (events.get("decisions_raw", []) or [])
+            )
+            bs_events = {
+                "csf_this_round": events.get("csf_delta", 0),
+                "total_capex_allocated": _total_capex,
+                "dividends_paid": events.get("dividends_paid", 0),
+                "remediation_events": [],
+                "tipping_tier": global_state.get("tipping_tier", "none"),
+            }
+            bs, bs_diag = process_balance_sheet_tick(
+                bs, global_state, bu_states, bs_events, round_number
+            )
+            global_state["balance_sheet"] = bs
+            extra["balance_sheet"] = bs_diag
+
+            # Covenant breach consequences — real treasury impact
+            covenant_st = bs.get("covenant_status", "green")
+            if covenant_st in ("amber", "red", "breached"):
+                extra["covenant_warning"] = bs_diag.get("covenants", {}).get("message", "")
+            if covenant_st in ("red", "breached"):
+                # Interest surcharge: lenders charge penalty rate on net debt
+                net_debt = bs_diag.get("covenants", {}).get("net_debt", 0)
+                surcharge_rate = 0.02 if covenant_st == "red" else 0.05
+                surcharge = round(max(0, net_debt) * surcharge_rate / 2, 2)  # 6-month period
+                if surcharge > 0:
+                    global_state["corporate_treasury"] = round(
+                        global_state.get("corporate_treasury", 0) - surcharge, 2
+                    )
+                    extra["covenant_surcharge"] = surcharge
+                    extra["covenant_surcharge_rate"] = surcharge_rate
+        except Exception as exc:
+            print(f"[WARN] Balance sheet engine failed: {exc}")
+
+    # ── SE-1: Board Governance ────────────────────────────────
+    if _toggles.get("board_governance_enabled", True):
+        try:
+            from board_governance import (
+                create_initial_board_state,
+                process_board_tick,
+                get_resolutions_for_round,
+            )
+            if "board_governance" not in global_state:
+                global_state["board_governance"] = create_initial_board_state()
+
+            board = global_state["board_governance"]
+            board, board_diag = process_board_tick(
+                board, global_state, bu_states, round_number
+            )
+            global_state["board_governance"] = board
+            extra["board_governance"] = board_diag
+
+            # Inject pending resolutions for voting rounds
+            resolutions = get_resolutions_for_round(round_number)
+            if resolutions:
+                extra["pending_shareholder_resolutions"] = resolutions
+        except Exception as exc:
+            print(f"[WARN] Board governance engine failed: {exc}")
+
+    # ── SI-5: Organisational Politics ─────────────────────────
+    if _toggles.get("org_politics_enabled", True):
+        try:
+            from org_politics import (
+                create_initial_org_politics_state,
+                process_org_politics_tick,
+            )
+            if "org_politics" not in global_state:
+                global_state["org_politics"] = create_initial_org_politics_state()
+
+            org = global_state["org_politics"]
+            org, org_diag = process_org_politics_tick(
+                org, global_state, bu_states, events, round_number
+            )
+            global_state["org_politics"] = org
+            extra["org_politics"] = org_diag
+        except Exception as exc:
+            print(f"[WARN] Org politics engine failed: {exc}")
+
+    # ── SE-2: Supply Chain Network ────────────────────────────
+    if _toggles.get("supply_chain_network_enabled", True):
+        try:
+            from supply_chain_network import (
+                create_initial_supply_chain,
+                process_supply_chain_tick,
+            )
+            if "supply_chain" not in global_state:
+                global_state["supply_chain"] = create_initial_supply_chain()
+
+            sc = global_state["supply_chain"]
+            sc, sc_diag = process_supply_chain_tick(
+                sc, global_state, bu_states, events, round_number
+            )
+            global_state["supply_chain"] = sc
+            extra["supply_chain"] = sc_diag
+        except Exception as exc:
+            print(f"[WARN] Supply chain engine failed: {exc}")
+
+    # ── SI-2: NPC Stakeholders ────────────────────────────────
+    if _toggles.get("npc_stakeholders_enabled", True):
+        try:
+            from npc_stakeholders import (
+                create_initial_npc_state,
+                process_npc_tick,
+            )
+            if "npc_stakeholders" not in global_state:
+                global_state["npc_stakeholders"] = create_initial_npc_state()
+
+            npc = global_state["npc_stakeholders"]
+            npc, npc_diag = process_npc_tick(
+                npc, global_state, bu_states, events, round_number
+            )
+            global_state["npc_stakeholders"] = npc
+            extra["npc_stakeholders"] = npc_diag
+
+            # ── PHASE-1: NPC Cascading Reactions (evaluate_npc_cascades) ──
+            # After NPC satisfaction is computed, check if any NPCs cross
+            # cascade thresholds (divestment, enforcement, injunction, resignation)
+            try:
+                from systemic_risk_engine import evaluate_npc_cascades
+                npc_sats = {}
+                for nid, ndata in npc.get("npcs", {}).items():
+                    npc_sats[nid] = ndata.get("satisfaction", 50)
+                active_cascades = events.get("active_npc_cascades", [])
+                cascades = evaluate_npc_cascades(npc_sats, round_number, active_cascades)
+                if cascades:
+                    extra["npc_cascade_events"] = cascades
+                    extra["active_npc_cascades"] = cascades
+                    for cascade in cascades:
+                        eff = cascade.get("effects", {})
+                        # Treasury percentage hit
+                        if eff.get("treasury_pct_hit"):
+                            t_hit = round(global_state.get("corporate_treasury", 0) * abs(eff["treasury_pct_hit"]), 2)
+                            global_state["corporate_treasury"] = round(global_state.get("corporate_treasury", 0) - t_hit, 2)
+                            extra[f"npc_cascade_treasury_{cascade['npc_id']}"] = t_hit
+                        # Treasury flat hit
+                        if eff.get("treasury_flat_hit"):
+                            global_state["corporate_treasury"] = round(
+                                global_state.get("corporate_treasury", 0) + eff["treasury_flat_hit"], 2
+                            )
+                        # Reputation delta
+                        if eff.get("reputation_delta"):
+                            global_state["group_reputation"] = max(0, min(100, round(
+                                global_state.get("group_reputation", 50) + eff["reputation_delta"], 2
+                            )))
+                        # Social license delta
+                        if eff.get("social_license_delta"):
+                            for bu in bu_states:
+                                bu["social_license_score"] = max(0, min(100, round(
+                                    bu.get("social_license_score", 50) + eff["social_license_delta"], 2
+                                )))
+                        # Burnout delta
+                        if eff.get("burnout_delta"):
+                            for bu in bu_states:
+                                bu["staff_burnout_index"] = max(0, min(100, round(
+                                    bu.get("staff_burnout_index", 0) + eff["burnout_delta"], 2
+                                )))
+                        # OPEX percentage increase
+                        if eff.get("opex_pct_increase"):
+                            for bu in bu_states:
+                                bu["opex_base"] = round(bu["opex_base"] * (1 + eff["opex_pct_increase"]), 2)
+                        # Surface narrative as custom black swan
+                        events.setdefault("custom_black_swans", []).append({
+                            "title": f"NPC CASCADE — {cascade['npc_id'].replace('_', ' ').title()}",
+                            "narrative": cascade["narrative"],
+                            "icon": "⚡",
+                            "severity": "critical",
+                        })
+            except Exception as exc:
+                print(f"[WARN] NPC cascade evaluation failed: {exc}")
+
+        except Exception as exc:
+            print(f"[WARN] NPC stakeholders engine failed: {exc}")
+
+    # ── SI-2+: Autonomous Stakeholder Agents ──────────────────
+    if _toggles.get("npc_stakeholders_enabled", True):
+        try:
+            from autonomous_agents import (
+                create_initial_agent_state,
+                process_agent_tick,
+                get_agent_summary,
+            )
+            if "autonomous_agents" not in global_state:
+                global_state["autonomous_agents"] = create_initial_agent_state()
+
+            aa = global_state["autonomous_agents"]
+            aa, aa_diag = process_agent_tick(
+                aa, global_state, bu_states, events, round_number
+            )
+            global_state["autonomous_agents"] = aa
+            extra["autonomous_agents"] = aa_diag
+            extra["agent_summary"] = get_agent_summary(aa)
+        except Exception as exc:
+            print(f"[WARN] Autonomous agents engine failed: {exc}")
+
+    # ── PHASE-1: Systemic Tipping Point Penalty Application ──────
+    # After all engines run, apply irreversibility penalties from
+    # tipping state computed in engine.py process_tick
+    try:
+        tipping_state = events.get("systemic_tipping", {}).get("tipping_state", {})
+        if tipping_state.get("climate_tipped"):
+            # NCD interest multiplier: double NCD accrual
+            for bu in bu_states:
+                ncd = bu.get("natural_capital_debt", 0)
+                extra_ncd = round(ncd * 0.5, 2)  # +50% on top of existing accrual
+                bu["natural_capital_debt"] = round(ncd + extra_ncd, 2)
+            # Reputation ceiling: cap at 60
+            if global_state.get("group_reputation", 50) > 60:
+                global_state["group_reputation"] = 60.0
+            extra["climate_tipping_penalties_applied"] = True
+
+        if tipping_state.get("social_tipped"):
+            # Permanent OPEX surcharge: +5%
+            for bu in bu_states:
+                bu["opex_base"] = round(bu["opex_base"] * 1.05, 2)
+            # Social license ceiling: cap at 50
+            for bu in bu_states:
+                if bu.get("social_license_score", 50) > 50:
+                    bu["social_license_score"] = 50.0
+            extra["social_tipping_penalties_applied"] = True
+
+        if tipping_state.get("financial_tipped"):
+            # Borrowing premium: +4% to cost of capital
+            coc = global_state.get("cost_of_capital", 0.05)
+            global_state["cost_of_capital"] = round(coc + 0.04, 4)
+            # CapEx cap: 50% reduction
+            events["capex_cap_multiplier"] = 0.50
+            events["dividend_suspended"] = True
+            extra["financial_tipping_penalties_applied"] = True
+
+        # Persist tipping state for next round
+        if tipping_state:
+            events["systemic_tipping_state"] = tipping_state
+    except Exception as exc:
+        print(f"[WARN] Tipping penalty application failed: {exc}")
+
+    # ── SI-1: Non-Linear Branching (R5 checkpoint) ────────────
+    if _toggles.get("branching_enabled", True) and round_number == 5:
+        try:
+            from branching_engine import classify_player_archetype
+            decision_history = global_state.get("decision_history", [])
+            archetype_result = classify_player_archetype(
+                global_state, bu_states, decision_history
+            )
+            global_state["player_archetype"] = archetype_result["archetype_id"]
+            global_state["archetype_detail"] = archetype_result
+            extra["archetype_classification"] = archetype_result
+        except Exception as exc:
+            print(f"[WARN] Branching engine failed: {exc}")
+
+    # ── SE-3: Adaptive Crisis Severity (R6+ with archetype) ───
+    if _toggles.get("branching_enabled", True) and round_number > 5:
+        try:
+            from branching_engine import calc_adaptive_crisis_severity
+            archetype_id = global_state.get("player_archetype", "pragmatic_optimizer")
+            base_severity = events.get("crisis_severity_effective", 40)
+            adj_severity, sev_diag = calc_adaptive_crisis_severity(
+                base_severity, archetype_id, global_state, bu_states, round_number
+            )
+            extra["adaptive_crisis_severity"] = sev_diag
+        except Exception as exc:
+            print(f"[WARN] Adaptive crisis severity failed: {exc}")
+
+    # ── SE-8: Dynamic Case Injection ──────────────────────────
+    if _toggles.get("dynamic_cases_enabled", True):
+        try:
+            from dynamic_cases import select_contextual_cases
+            cases = select_contextual_cases(
+                global_state, bu_states, round_number, max_cases=2
+            )
+            if cases:
+                extra["contextual_cases"] = cases
+        except Exception as exc:
+            print(f"[WARN] Dynamic cases engine failed: {exc}")
+
+    # ── QW-5: Peer Learning Prompts (R5, R6) ──────────────────
+    if _toggles.get("peer_learning_prompts_enabled", True):
+        try:
+            from pedagogical_engine import get_peer_prompts_for_round
+            prompts = get_peer_prompts_for_round(round_number, _toggles)
+            if prompts:
+                extra["peer_learning_prompts"] = prompts
+        except Exception as exc:
+            print(f"[WARN] Peer learning prompts failed: {exc}")
+
+    # ── QW-1: Decision Timer Config ───────────────────────────
+    if _toggles.get("decision_timer_enabled", False):
+        try:
+            from pedagogical_engine import get_timer_config
+            extra["decision_timer"] = get_timer_config(_toggles)
+        except Exception as exc:
+            print(f"[WARN] Decision timer config failed: {exc}")
+
+    # ── Meadows / Senge: System Archetypes Detection ──────────
+    if _toggles.get("system_archetypes_enabled", True):
+        try:
+            from meadows_leverage import detect_archetypes
+            flags = global_state.get("active_event_flags", {})
+            archetypes = detect_archetypes(global_state, bu_states, flags)
+            if archetypes:
+                extra["system_archetypes_detected"] = archetypes
+        except Exception as exc:
+            print(f"[WARN] System archetypes detection failed: {exc}")
+
+    # ── SE-7: Regulatory Sandbox Effects ──────────────────────
+    if _toggles.get("regulatory_sandbox_enabled", False):
+        try:
+            from regulatory_sandbox import apply_sandbox_effects
+            sandbox = global_state.get("regulatory_sandbox", {})
+            if sandbox.get("sandbox_mode") and sandbox.get("active_regulations"):
+                sandbox_diag = apply_sandbox_effects(
+                    sandbox, global_state, bu_states, round_number
+                )
+                if sandbox_diag:
+                    extra["regulatory_sandbox"] = sandbox_diag
+        except Exception as exc:
+            print(f"[WARN] Regulatory sandbox engine failed: {exc}")
+
+    return extra
 
 
 from healthcare_configs import get_healthcare_round_options

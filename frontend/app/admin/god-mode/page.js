@@ -25,10 +25,14 @@ import ArchetypeEditor from '../../components/ArchetypeEditor';
 import MasterVariableEditor from '../../components/MasterVariableEditor';
 import SimulationManager from '../../components/SimulationManager';
 import EconomicEngineTunables from '../../components/EconomicEngineTunables';
+import SystemicRiskControls from '../../components/SystemicRiskControls';
 import SessionHealthDashboard from '../../components/SessionHealthDashboard';
 import ComplexityEventFeed from '../../components/ComplexityEventFeed';
 import DecisionTimeline from '../../components/DecisionTimeline';
+import DebriefReport from '../../components/DebriefReport';
 import SimulationReference from '../../components/SimulationReference';
+import { GOD_MODE_SIDEBAR, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
+import OnboardingWizard from '../../components/OnboardingWizard';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -59,13 +63,12 @@ function GodModeLoginGate({ onLogin }) {
             });
             if (res.ok) {
                 const data = await res.json();
-                if (!data.is_admin) {
-                    setError('Unauthorized: God Mode requires Super Administrator privileges.');
+                if (data.role !== 'super_admin' && !data.is_admin) {
+                    setError('Unauthorized: God Mode requires Super Administrator privileges. Contact your system administrator to request God Mode access, or use the Facilitator dashboard instead.');
                     return;
                 }
-                sessionStorage.setItem('godmode_auth', JSON.stringify(data));
-                onLogin(data);
-            } else {
+                localStorage.setItem('godmode_auth', JSON.stringify(data));
+                onLogin(data);            } else {
                 const err = await res.json();
                 setError(err.detail || 'Login failed');
             }
@@ -229,6 +232,16 @@ function GodModeLoginGate({ onLogin }) {
                         ← Back to Admin Portal
                     </Link>
                 </div>
+                <div style={{
+                    marginTop: '1rem', padding: '0.7rem 0.9rem', borderRadius: '8px',
+                    background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)',
+                    fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.5,
+                }}>
+                    <strong style={{ color: '#818cf8' }}>ℹ️ Who has God Mode?</strong><br/>
+                    Only Super Administrators can access God Mode. If you are a Facilitator or Lead Facilitator, use the{' '}
+                    <Link href="/admin/facilitator" style={{ color: '#60a5fa', textDecoration: 'underline' }}>Facilitator Dashboard</Link> instead.
+                    Your role is assigned by the system administrator.
+                </div>
             </div>
         </div>
     );
@@ -364,14 +377,14 @@ export default function GodModePage() {
 
     useEffect(() => {
         try {
-            const stored = sessionStorage.getItem('godmode_auth');
+            const stored = localStorage.getItem('godmode_auth');
             if (stored) setAuthData(JSON.parse(stored));
         } catch { /* ignore */ }
         setChecked(true);
     }, []);
 
     const handleLogout = () => {
-        sessionStorage.removeItem('godmode_auth');
+        localStorage.removeItem('godmode_auth');
         setAuthData(null);
     };
 
@@ -419,21 +432,48 @@ function SystemContextBar() {
             padding: '8px 24px', fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)',
             position: 'sticky', top: 0, zIndex: 10
         }}>
+            <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes heartbeatPulse {
+                    0% { transform: scale(1); opacity: 1; }
+                    15% { transform: scale(1.15); opacity: 0.8; }
+                    30% { transform: scale(1); opacity: 1; }
+                    45% { transform: scale(1.15); opacity: 0.8; }
+                    60% { transform: scale(1); opacity: 1; }
+                }
+            `}} />
             <div style={{ display: 'flex', gap: '1.5rem' }}>
                 <span style={{ color: '#38bdf8' }}>📡 COMMAND UPLINK</span>
                 <span>Live Cohorts: <span style={{ color: 'var(--text-primary)' }}>{activeCohorts}</span></span>
                 <span>Active Players: <span style={{ color: 'var(--text-primary)' }}>{activePlayers}</span></span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                System Health: {isOptimal ? <span style={{ color: '#10b981' }}>🟢 Optimal</span> : <span style={{ color: '#ef4444' }}>🔴 Warning</span>}
+                System Health: 
+                <span style={{
+                    color: isOptimal ? '#10b981' : '#ef4444',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    background: isOptimal ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'
+                }}>
+                    <span style={{ 
+                        display: 'inline-block',
+                        animation: 'heartbeatPulse 2.5s infinite'
+                    }}>
+                        {isOptimal ? '🟢' : '🔴'}
+                    </span> 
+                    {isOptimal ? 'Optimal' : 'Warning'}
+                </span>
             </div>
         </div>
     );
 }
 
 function GodModeDashboard({ authData, onLogout }) {
-        const [activeTab, setActiveTab] = useState('system_overview');
+    const [activeTab, setActiveTab] = useState('system_overview');
     const [showChangePw, setShowChangePw] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(true);
     const [openCategories, setOpenCategories] = useState({
         command_center: true,
         orchestration: true,
@@ -441,73 +481,53 @@ function GodModeDashboard({ authData, onLogout }) {
         content: false,
         danger: false,
     });
+    // Global leaderboard — used by DecisionTimeline, DebriefReport, SimulationManager
+    const [leaderboard, setLeaderboard] = useState([]);
+    const [selectedSession, setSelectedSession] = useState(null);
+
+    useEffect(() => {
+        const fetchLb = () => fetch(`${API}/api/admin/leaderboard`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => d?.leaderboard && setLeaderboard(d.leaderboard))
+            .catch(() => {});
+        fetchLb();
+        const t = setInterval(fetchLb, 30000);
+        return () => clearInterval(t);
+    }, []);
 
     const toggleCategory = (catId) => {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
     };
 
-        const SIDEBAR_CONFIG = [
-        {
-            category: 'Command Center',
-            icon: '📡',
-            id: 'command_center',
-            items: [
-                { id: 'system_overview',     label: 'System Overview',       icon: '📊', tooltip: 'Unified dashboard of system status and session health' },
-                { id: 'platform_analytics',  label: 'Platform Analytics',  icon: '📈', tooltip: 'Aggregated macro statistics across all active cohorts' },
-                { id: 'activity_log',         label: 'Activity & Complexity', icon: '📋', tooltip: 'Immutable record and live firehose of systemic interactions' },
-            ]
-        },
-        {
-            category: 'Cohort Orchestration',
-            icon: '🎓',
-            id: 'orchestration',
-            items: [
-                { id: 'cohort_orchestration', label: 'Cohort Manager',  icon: '🗂️', tooltip: 'Provision cohorts and manage facilitator access' },
-                { id: 'session_controls',    label: 'Session Controls',      icon: '🎛️', tooltip: 'Round pacing, broadcasts, and visibility controls' },
-                { id: 'master_interventions', label: 'Team Interventions', icon: '🚀', tooltip: 'Directly inject capital or penalties into target teams' },
-                { id: 'crisis_overrides',      label: 'Crisis Overrides',    icon: '🚨', tooltip: 'Manually activate crises or deploy Black Swans' },
-            ]
-        },
-        {
-            category: 'Engine Configuration',
-            icon: '⚙️',
-            id: 'engine_core',
-            items: [
-                { id: 'macro_economics',     label: 'Macro Economics',      icon: '🔧', tooltip: 'Adjust global economic baselines and override master variables' },
-                { id: 'materiality_config',  label: 'Materiality Matrix',   icon: '🦭', tooltip: 'Configure double materiality weightings and impact/financial axes' },
-                { id: 'archetype_editor',    label: 'Profile Archetypes',   icon: '🏆', tooltip: 'Define Year 3 outcome profiles based on Regenerative Multiple (M_R)' },
-                { id: 'scorecard_evaluator', label: 'Scorecard Evaluator',  icon: '📊', tooltip: 'Audit calculation logic for the Balanced Scorecard' },
-            ]
-        },
-        {
-            category: 'Resources & Content',
-            icon: '📚',
-            id: 'content',
-            items: [
-                { id: 'resources',          label: 'Resource Library',    icon: '📁', tooltip: 'Manage unlockable swipe files and PDFs for teams' },
-                { id: 'glossary_editor',    label: 'Glossary Editor',     icon: '📖', tooltip: 'Edit the in-game definitions and term glossary' },
-                { id: 'doc_reference',      label: 'Documentation', icon: '📑', tooltip: 'Developer documentation and live simulation reference' },
-            ]
-        },
-        {
-            category: 'Danger Zone',
-            icon: '☢️',
-            id: 'danger',
-            items: [
-                { id: 'system_export',  label: 'Backup & Export', icon: '💾', tooltip: 'Download comprehensive simulation snapshots as CSV' },
-                { id: 'session_reset', label: 'Factory Reset', icon: '💥', tooltip: 'Hard wipe databases and permanently destroy cohort data' },
-            ]
-        }
-    ];
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                const categoryKeys = ['command_center', 'orchestration', 'engine_core', 'content', 'danger'];
+                if (e.key >= '1' && e.key <= '5') {
+                    e.preventDefault();
+                    const idx = parseInt(e.key) - 1;
+                    if (categoryKeys[idx]) {
+                        setOpenCategories(prev => {
+                            const newState = {};
+                            categoryKeys.forEach(k => { newState[k] = false; });
+                            newState[categoryKeys[idx]] = true;
+                            return newState;
+                        });
+                    }
+                }
+                if (e.key === 'b' || e.key === 'B') {
+                    e.preventDefault();
+                    setActiveTab('session_controls');
+                }
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
 
-    // Breadcrumb helper — maps activeTab → { label, category, categoryIcon }
-    const getTabMeta = (tabId) => {
-        for (const group of SIDEBAR_CONFIG) {
-            const item = group.items.find(i => i.id === tabId);
-            if (item) return { label: item.label, category: group.category, categoryIcon: group.icon };
-        }
-        return { label: 'Overview', category: 'Command Center', categoryIcon: '📡' };
-    };
+    const SIDEBAR_CONFIG = GOD_MODE_SIDEBAR;
+    const getTabMeta = (tabId) => _getTabMeta(SIDEBAR_CONFIG, tabId);
 
 
         const renderActiveComponent = () => {
@@ -515,7 +535,7 @@ function GodModeDashboard({ authData, onLogout }) {
             case 'system_overview':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <GodModeStatus />
+                        <GodModeStatus facilitatorId={authData?.facilitator_id} />
                         <SessionHealthDashboard />
                     </div>
                 );
@@ -529,10 +549,14 @@ function GodModeDashboard({ authData, onLogout }) {
             case 'platform_analytics':
                 return <PlatformAnalytics />;
                 
+            case 'facilitator_registry':
+                return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />;
+            case 'cohort_provisioning':
+                return <SimulationManager fetchInternal={true} leaderboard={leaderboard} />;
             case 'cohort_orchestration':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <SimulationManager fetchInternal={true} leaderboard={[]} />
+                        <SimulationManager fetchInternal={true} leaderboard={leaderboard} />
                         <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />
                     </div>
                 );
@@ -560,14 +584,21 @@ function GodModeDashboard({ authData, onLogout }) {
                     </div>
                 );
             case 'materiality_config':
-                return <MaterialityConfig />;
+                return <MaterialityConfig sessionId={selectedSession} isFacilitator={false} />;
+            case 'systemic_risk_controls':
+                return <SystemicRiskControls />;
             case 'archetype_editor':
                 return <ArchetypeEditor />;
             case 'scorecard_evaluator':
                 return <div style={{padding:'1.5rem'}}><BalancedScorecardEvaluator /></div>;
                 
             case 'resources':
-                return <ResourceManager />;
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <ResourceManager />
+                        <GlossaryManager />
+                    </div>
+                );
             case 'glossary_editor':
                 return <GlossaryManager />;
             case 'doc_reference':
@@ -583,6 +614,30 @@ function GodModeDashboard({ authData, onLogout }) {
             case 'session_reset':
                 return <DangerZonePanel apiBase={API} />;
                 
+            case 'decision_timeline':
+                return <DecisionTimeline sessionId={selectedSession} leaderboard={leaderboard} />;
+            case 'debrief_view': {
+                const cohortSessions = leaderboard.filter(s => !s.player_id);
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {cohortSessions.length > 0 && (
+                            <div style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>📋 Select Cohort:</span>
+                                <select
+                                    value={selectedSession || ''}
+                                    onChange={e => setSelectedSession(e.target.value || null)}
+                                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+                                >
+                                    <option value=''>— Choose a cohort —</option>
+                                    {cohortSessions.map(s => <option key={s.session_id} value={s.session_id}>{s.cohort_name || s.session_id}</option>)}
+                                </select>
+                            </div>
+                        )}
+                        <DebriefReport sessionId={selectedSession} />
+                    </div>
+                );
+            }
+
             default:
                 return (
                     <div className={styles.placeholder}>
@@ -602,11 +657,14 @@ function GodModeDashboard({ authData, onLogout }) {
                 />
             )}
 
+            {/* ── Onboarding Wizard (first-time only) ── */}
+            <OnboardingWizard mode="god_mode" userId={authData.facilitator_id} onStepChange={(tab) => setActiveTab(tab)} />
+
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
                     <h1>👑 God Mode</h1>
-                    <div className={styles.godBadge}>Global Command</div>
+                    <div className={styles.godBadge}>Global Corporation</div>
                     {authData && (
                         <div style={{
                             display: 'flex',
@@ -738,7 +796,7 @@ function DangerZonePanel({ apiBase }) {
     const [resetPhrase, setResetPhrase] = useState('');
     const [resetCountdown, setResetCountdown] = useState(0);
     const [resetResult, setResetResult] = useState('');
-    const REQUIRED_PHRASE = 'WIPE ALL DATA';
+    const REQUIRED_PHRASE = 'DELETE ALL DATA';
 
     useEffect(() => {
         fetch(`${apiBase}/api/admin/sessions`)
@@ -832,6 +890,14 @@ function DangerZonePanel({ apiBase }) {
             <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>
                 <h2 style={{ marginBottom: '0.5rem', color: '#ef4444' }}>☢️ Danger Zone</h2>
                 <p style={{ color: 'var(--text-muted)' }}>Perform destructive operations on the simulation database. These actions cannot be undone.</p>
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem',
+                    padding: '0.5rem 0.75rem', borderRadius: '6px',
+                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                    fontSize: '0.78rem', color: '#ef4444', fontWeight: 600,
+                }}>
+                    ⚠️ Active cohorts: {topLevelCohorts.length} · Total sessions (incl. players): {sessions.length}
+                </div>
             </div>
 
             {/* Targeted Deletion Panel */}
@@ -973,7 +1039,7 @@ function DangerZonePanel({ apiBase }) {
                 ) : (
                     <button
                         disabled={resetPhrase !== REQUIRED_PHRASE}
-                        onClick={() => { if (resetPhrase === REQUIRED_PHRASE) setResetCountdown(10); }}
+                        onClick={() => { if (resetPhrase === REQUIRED_PHRASE) setResetCountdown(15); }}
                         style={{
                             width: '100%', padding: '0.7rem', borderRadius: '6px', border: 'none',
                             background: resetPhrase === REQUIRED_PHRASE ? '#ef4444' : 'rgba(239,68,68,0.15)',

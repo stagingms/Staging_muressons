@@ -102,7 +102,13 @@ export default function InvestmentMatrix({
         businessUnits.forEach(bu => {
             const el = sliderRefs.current[bu.bu_id];
             if (!el) return;
-            const handler = (e) => handleSlider(bu.bu_id, e.target.value);
+            const handler = (e) => {
+                // Only handle programmatic dispatches — real user events are
+                // already handled by React's onChange to avoid double-firing
+                // which causes stale-closure overwrites of other BU allocations.
+                if (e.isTrusted) return;
+                handleSlider(bu.bu_id, e.target.value);
+            };
             handlers[bu.bu_id] = handler;
             el.addEventListener('input', handler);
         });
@@ -195,7 +201,7 @@ export default function InvestmentMatrix({
                 {decisionParadigm === 'advanced_climate' && (globalState?.green_transition_fund || 0) > 0 && (
                     <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '4px 0', fontSize: '0.62rem',
+                        padding: '4px 0', fontSize: '0.68rem',
                     }}>
                         <span style={{ color: '#4ade80', display: 'flex', alignItems: 'center', gap: 4 }}>
                             🌱 Green Fund Coverage
@@ -278,7 +284,7 @@ export default function InvestmentMatrix({
                             </div>
 
                             {/* P1: Context Scorecard */}
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', borderTop: '1px solid rgba(226, 232, 240, 0.1)', paddingTop: '0.4rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', borderTop: '1px solid var(--border-subtle)', paddingTop: '0.4rem' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Opex Base</span>
                                     <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', fontFamily: 'JetBrains Mono, monospace' }}>{sym}{(bu.opex_base / 1_000_000).toFixed(1)}M</span>

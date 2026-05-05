@@ -381,3 +381,13 @@
     border: 1px solid #fecaca;
     color: #991b1b;
 }
+
+/* Missing class stub */
+.statusItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #94a3b8);
+}
+

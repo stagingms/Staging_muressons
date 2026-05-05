@@ -126,7 +126,7 @@ class TestPillarBypassFlags:
         assert extra.get("r4_pillar_bypass") is True
 
     def test_r5_bypass_flag(self):
-        from round_logic import _post_r5_climate
+        from impact_engine import _post_r5_climate
         gs, bus = _make_state()
         events = {"pillar_cost_applied": -8_000_000, "pillar_aggregate_impacts": {"resilience_factor": 0.85}}
         extra = {}
@@ -159,7 +159,7 @@ class TestPillarBypassFlags:
         assert extra.get("r8_pillar_bypass") is True
 
     def test_r9_bypass_flag(self):
-        from round_logic import _post_r9_just_transition
+        from impact_engine import _post_r9_just_transition
         gs, bus = _make_state()
         events = {"pillar_cost_applied": -20_000_000, "pillar_flags": ["community_fund"]}
         extra = {}
@@ -195,7 +195,7 @@ class TestTreasuryDoubleApplication:
         assert gs["corporate_treasury"] == initial_treasury - 10_000_000
 
     def test_r9_no_double_treasury(self):
-        from round_logic import _post_r9_just_transition
+        from impact_engine import _post_r9_just_transition
         gs, bus = _make_state()
         initial_treasury = gs["corporate_treasury"]
         gs["corporate_treasury"] -= 20_000_000
@@ -277,7 +277,7 @@ class TestR5PillarResilience:
         assert result["impacts"].get("resilience_factor") == 0.0
 
     def test_pillar_r5_defers_resilience(self):
-        from round_logic import _post_r5_climate
+        from impact_engine import _post_r5_climate
         gs, bus = _make_state()
         events = {
             "pillar_cost_applied": -15_000_000,
@@ -357,7 +357,7 @@ class TestR9StrikePillarMode:
     """Verify strike mechanic triggers via pillar flags."""
 
     def test_strike_risk_from_pillar_flags(self):
-        from round_logic import _post_r9_just_transition
+        from impact_engine import _post_r9_just_transition
         gs, bus = _make_state()
         # Set low SLO to trigger strike
         for bu in bus:

@@ -102,7 +102,7 @@ export default function MarketTicker({ roundNumber = 1 }) {
             {/* Pill badge for change */}
             <span style={{
               color: item.up ? '#4ade80' : '#f87171',
-              fontSize: '0.58rem',
+              fontSize: '0.68rem',
               fontWeight: 700,
               background: item.up ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)',
               border: `1px solid ${item.up ? 'rgba(74, 222, 128, 0.25)' : 'rgba(248, 113, 113, 0.25)'}`,

@@ -10,7 +10,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
   animation: flashIn 0.4s ease-out;
   padding: 2rem;
 }
@@ -65,7 +65,7 @@
 
 .alertBadge {
   display: inline-block;
-  font-size: 0.58rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;

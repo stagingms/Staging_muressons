@@ -36,6 +36,11 @@ import DecisionTimeline from '../../components/DecisionTimeline';
 import FacilitatorTeleprompter from '../../components/FacilitatorTeleprompter';
 import FacilitatorAnnotations from '../../components/FacilitatorAnnotations';
 import TechnicalGlossary from '../../components/TechnicalGlossary';
+import RegulatorySandboxControl from '../../components/RegulatorySandboxControl';
+import { FACILITATOR_SIDEBAR, filterSidebarForRole, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
+import NotificationBell from '../../components/NotificationBell';
+import OnboardingWizard from '../../components/OnboardingWizard';
+import CohortPulse from '../../components/CohortPulse';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:8000'}`;
@@ -98,7 +103,7 @@ function FacilitatorLoginGate({ onLogin }) {
             });
             if (res.ok) {
                 const data = await res.json();
-                sessionStorage.setItem('facilitator_auth', JSON.stringify(data));
+                localStorage.setItem('facilitator_auth', JSON.stringify(data));
                 onLogin(data);
             } else {
                 const err = await res.json();
@@ -276,14 +281,14 @@ export default function FacilitatorPage() {
 
     useEffect(() => {
         try {
-            const stored = sessionStorage.getItem('facilitator_auth');
+            const stored = localStorage.getItem('facilitator_auth');
             if (stored) setAuthData(JSON.parse(stored));
         } catch { /* ignore */ }
         setChecked(true);
     }, []);
 
     const handleLogout = () => {
-        sessionStorage.removeItem('facilitator_auth');
+        localStorage.removeItem('facilitator_auth');
         setAuthData(null);
     };
 
@@ -299,18 +304,59 @@ export default function FacilitatorPage() {
 
 function FacilitatorDashboard({ authData, onLogout }) {
     const [leaderboard, setLeaderboard] = useState([]);
-    const [selectedSession, setSelectedSession] = useState(null);
+    const [selectedSession, _setSelectedSession] = useState(null);
     const [activityLog, setActivityLog] = useState([]);
     const [clockTime, setClockTime] = useState('');
     const wsRef = useRef(null);
     const [showChangePw, setShowChangePw] = useState(false);
 
-    // God Mode visibility controls — drives which tabs are shown
-    const [godVisibility, setGodVisibility] = useState({ materiality_matrix: true, technical_reference: true });
+    // SessionContext persistence — persists selected session across tab switches
+    const setSelectedSession = useCallback((sid) => {
+        _setSelectedSession(sid);
+        try {
+            if (sid) localStorage.setItem('fac_selected_session', sid);
+            else localStorage.removeItem('fac_selected_session');
+        } catch { /* ignore */ }
+    }, []);
+
+    // Restore persisted session on mount
+    useEffect(() => {
+        try {
+            const stored = localStorage.getItem('fac_selected_session');
+            if (stored) _setSelectedSession(stored);
+        } catch { /* ignore */ }
+    }, []);
+
+    // Role-based tab filtering — allowed_tabs from login API response
+    const allowedTabs = authData?.allowed_tabs || ['*'];
+    const canAccessTab = (tabId) => allowedTabs.includes('*') || allowedTabs.includes(tabId);
+
+    // Scaffolding status fetched from God Mode for read-only visibility
+    const [scaffoldingStatus, setScaffoldingStatus] = useState(null);
+    useEffect(() => {
+        fetch(`${API}/api/admin/scaffolding-status`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setScaffoldingStatus(d); })
+            .catch(() => {});
+        const interval = setInterval(() => {
+            fetch(`${API}/api/admin/scaffolding-status`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (d) setScaffoldingStatus(d); })
+                .catch(() => {});
+        }, 30000);
+        return () => clearInterval(interval);
+    }, []);
+
+    // God Mode analytics visibility state — controls which sections are shown to facilitators
+    const [godVisibility, setGodVisibility] = useState({
+        materiality_matrix: true,
+        technical_reference: true,
+    });
 
     // New state for Sidebar UI
     const [activeTab, setActiveTab] = useState('dashboard_home');
     const [createCohortOpen, setCreateCohortOpen] = useState(false);
+    const [sidebarOpen, setSidebarOpen] = useState(true); // Mobile sidebar toggle
     const [openCategories, setOpenCategories] = useState({
         command: true,
         classroom: false,
@@ -321,6 +367,33 @@ function FacilitatorDashboard({ authData, onLogout }) {
     const toggleCategory = (catId) => {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
     };
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handler = (e) => {
+            if (e.ctrlKey || e.metaKey) {
+                const categoryKeys = ['command', 'classroom', 'analytics', 'config'];
+                if (e.key >= '1' && e.key <= '4') {
+                    e.preventDefault();
+                    const idx = parseInt(e.key) - 1;
+                    if (categoryKeys[idx]) {
+                        setOpenCategories(prev => {
+                            const newState = {};
+                            categoryKeys.forEach(k => { newState[k] = false; });
+                            newState[categoryKeys[idx]] = true;
+                            return newState;
+                        });
+                    }
+                }
+                if (e.key === 'b' || e.key === 'B') {
+                    e.preventDefault();
+                    setActiveTab('broadcast');
+                }
+            }
+        };
+        window.addEventListener('keydown', handler);
+        return () => window.removeEventListener('keydown', handler);
+    }, []);
 
     /* ── Client-only clock ── */
     useEffect(() => {
@@ -353,6 +426,27 @@ function FacilitatorDashboard({ authData, onLogout }) {
                 const data = JSON.parse(evt.data);
                 if (data.type === 'sessions_refresh' || data.type === 'sessions_refresh_trigger') {
                     fetchLeaderboard();
+                } else if (data.type === 'settings_changed') {
+                    // God Mode Event Bus: refresh scaffolding strip immediately
+                    fetch(`${API}/api/admin/scaffolding-status`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(d => { if (d) setScaffoldingStatus(d); })
+                        .catch(() => {});
+                    addLog({ type: 'god_mode', message: `⚙️ God Mode updated: ${(data.changed_keys || []).join(', ')}` });
+                } else if (data.type === 'pacing_override') {
+                    addLog({ type: 'god_mode', message: `⏱️ Pacing changed to "${data.new_mode}" on session ${data.session_id}`, severity: 'warning' });
+                    fetchLeaderboard();
+                } else if (data.type === 'system_freeze') {
+                    // Refresh scaffolding to pick up freeze state
+                    fetch(`${API}/api/admin/scaffolding-status`)
+                        .then(r => r.ok ? r.json() : null)
+                        .then(d => { if (d) setScaffoldingStatus(d); })
+                        .catch(() => {});
+                    addLog({ type: 'god_mode', message: data.frozen ? '❄️ System FROZEN by God Mode' : '🟢 System UNFROZEN', severity: data.frozen ? 'critical' : 'info' });
+                } else if (data.type === 'universal_broadcast') {
+                    // Facilitators also see God Mode broadcasts in their activity log
+                    const icon = data.priority === 'critical' ? '🚨' : data.priority === 'warning' ? '⚠️' : '📢';
+                    addLog({ type: 'god_mode', message: `${icon} Broadcast: "${data.title}" — ${data.message}`, severity: data.priority || 'info' });
                 } else {
                     addLog(data);
                 }
@@ -458,87 +552,16 @@ function FacilitatorDashboard({ authData, onLogout }) {
         } catch { addLog({ type: 'system', message: 'Reset all failed' }); }
     }, [addLog]);
 
-    const SIDEBAR_CONFIG = [
-        {
-            category: 'Command Center',
-            icon: '🎯',
-            id: 'command',
-            items: [
-                { id: 'dashboard_home', label: 'Dashboard Home',      icon: '🏠', tooltip: 'At-a-glance overview: active cohort count, enrolled players, average round progression, and KPI health alerts (lagging teams, low treasury, low reputation). Includes quick-action buttons and the current round\'s Teleprompter briefing card. Answers: "What\'s the overall state of my simulation right now?"' },
-                { id: 'timeline',       label: 'Round Timeline',       icon: '📅', tooltip: 'Visual timeline of round progression across all cohorts. Includes quiz controls for setting difficulty (easy/medium/hard) and enabling/disabling quizzes per cohort. Answers: "Which cohorts are ahead or behind, and are quizzes active?"' },
-                { id: 'teleprompter',   label: 'Teleprompter',         icon: '🎤', tooltip: 'Full-screen teleprompter with round-by-round facilitator briefing scripts: talking points to deliver, engines likely to fire, discussion prompts for class debate, and key themes. Answers: "What should I say to the class before this round?"' },
-                { id: 'leaderboard',    label: 'Leaderboard',          icon: '🏆', tooltip: 'Ranked matrix of all cohorts and players showing Treasury, Reputation, Synergy, EBITDA, round progress, and terminal value scores. Sortable and searchable with delete/reset controls per session. Answers: "Who\'s winning and who needs help?"' },
-            ]
-        },
-        {
-            category: 'Live Classroom',
-            icon: '👥',
-            id: 'classroom',
-            items: [
-                { id: 'registry',       label: 'Player Registry',      icon: '📋', tooltip: 'Full registry of all enrolled players with session IDs, parent cohort assignment, player names, join timestamps, and active/inactive connection status. Answers: "Who has joined and which cohort are they in?"' },
-                { id: 'session_viewer', label: 'Session Viewer',        icon: '👁️', tooltip: 'Deep-dive inspector for any individual session: full KPI breakdown (Treasury, Reputation, Synergy, EBITDA, CO₂), complete round history with decisions made, and real-time state. Answers: "What exactly is happening inside this specific session?"' },
-                { id: 'impersonate',    label: 'Team Impersonation',   icon: '🎭', tooltip: 'View the simulation cockpit exactly as a specific player sees it — their dashboard, mailbox, decision interface, and KPI readouts. Useful for live debugging, classroom walkthroughs, or demonstrating the player experience. Answers: "What does this player\'s screen look like right now?"' },
-                { id: 'swipe_file',     label: 'Swipe File / Inbox',   icon: '📬', tooltip: 'Send pre-written narrative swipe files or compose custom in-game messages to individual teams. Messages appear in the player\'s mailbox as stakeholder communications, board directives, or crisis alerts. Answers: "How do I inject narrative events into a specific team\'s experience?"' },
-                { id: 'broadcast',      label: 'Bulk Messaging',        icon: '📢', tooltip: 'Send announcements, narrative events, or system messages to all cohorts simultaneously or to selected cohort groups. Supports both pre-written templates and custom messages. Answers: "How do I communicate with all teams at once?"' },
-                { id: 'manual_override',label: 'Manual Overrides',      icon: '⚡', tooltip: 'Directly modify a session\'s KPIs (Treasury, Reputation, Synergy) with absolute or delta values, or force-advance rounds. Used for live interventions, correcting data errors, or simulating external shocks. Answers: "How do I manually change a team\'s numbers?"' },
-                { id: 'intervention_config', label: 'Interventions',    icon: '🎮', tooltip: 'Configure which master interventions (manual overrides and narrative swipe files) are available for each cohort. Controls the intervention toolkit available during live facilitation. Answers: "Which intervention tools should this cohort have access to?"' },
-            ]
-        },
-        {
-            category: 'Analytics & Assessment',
-            icon: '📊',
-            id: 'analytics',
-            items: [
-                { id: 'platform_analytics',  label: 'Cohort Analytics',      icon: '📈', tooltip: 'Full analytics suite with 6 tabbed modules: Decision Heatmap (choice distributions), Time-to-Decision (speed analytics), Cohort Comparison (KPI trajectories), Convergence Analysis (strategy similarity), Learning Outcomes (badges & engagement), and Risk Exposure (ESG risk tracking). Answers: "What patterns are emerging across all my cohorts?"' },
-                { id: 'cohort_comparison',   label: 'Cohort Comparison',     icon: '📊', tooltip: 'Side-by-side KPI trajectory comparison across cohorts plotted on SVG line charts. Toggle between Treasury, Reputation, Synergy, and EBITDA metrics with colour-coded lines per cohort. Answers: "How do different cohorts perform against each other over time?"' },
-                { id: 'complexity_feed',     label: 'Complexity Feed',        icon: '📡', tooltip: 'Real-time chronological feed of complexity events fired across all sessions: engine triggers (Contagion, Talent/Burnout, NCD), system-generated narrative injections, and math engine outputs. Answers: "What complexity events are unfolding in real-time?"' },
-                { id: 'decision_replay',     label: 'Decision History',       icon: '🕰️', tooltip: 'Chronological audit trail of every player decision across all sessions: timestamps, round numbers, choices selected, CapEx allocations, and resulting KPI deltas. Filterable by cohort and player. Answers: "What decisions has each team made and when?"' },
-                { id: 'debrief',             label: 'Round Debrief',          icon: '📝', tooltip: 'Post-round debrief summary reports: key decisions made across cohorts, aggregate outcomes, notable outliers, and suggested discussion points for classroom review. Answers: "What should I highlight in the post-round discussion?"' },
-                { id: 'scorecard_evaluator', label: 'Scorecard Sandbox',      icon: '🧲', tooltip: 'Interactive whiteboard for demonstrating the Triple Bottom Line scorecard weighting formula. Adjust sliders for Financial, Social, and Environmental weights to show students how terminal value is calculated. Teaching tool only — does not affect live session data. Answers: "How does the scoring formula work?"' },
-                { id: 'bonuses',             label: 'Student Bonuses',        icon: '🎁', tooltip: 'Award manual bonuses or grade adjustments to individual players or teams: participation rewards, presentation bonuses, or custom facilitator-assigned points. Tracks all bonus history by category. Answers: "How do I reward exceptional student performance?"' },
-                { id: 'peer_eval',           label: 'Peer Evaluations',       icon: '🔄', tooltip: 'Manage and review peer evaluation submissions where students anonymously rate team members on collaboration, contribution, and communication. Aggregates scores for grading integration. Answers: "How are students rating each other\'s teamwork?"' },
-                { id: 'reports',             label: 'Export Reports',          icon: '📤', tooltip: 'Generate and download CSV/PDF reports of session data, full leaderboard snapshots, per-student decision trails, analytics summaries, and grading-ready spreadsheets. Answers: "How do I export data for grading or record-keeping?"' },
-            ]
-        },
-        {
-            category: 'Configuration',
-            icon: '⚙️',
-            id: 'config',
-            items: [
-                { id: 'auto_pause',          label: 'Auto-Pause Triggers',   icon: '⏸️', tooltip: 'Configure automatic pause conditions that halt round progression for facilitator intervention: low treasury thresholds, reputation floor breaches, bankruptcy detection, or custom KPI triggers. Answers: "When should the simulation automatically pause for my attention?"' },
-                { id: 'undo_round',          label: 'Undo Round',             icon: '↩️', tooltip: 'Roll back the last completed round for a selected session, restoring all KPIs to their previous state. Useful for correcting data entry errors or re-running a round after a teaching moment. Requires confirmation. Answers: "How do I reverse a round that went wrong?"' },
-                { id: 'materiality',         label: 'Materiality Matrix',    icon: '🧩', tooltip: 'Mendelow\'s Materiality Matrix — interactive drag-and-drop issue mapping grid with financial impact (x-axis) vs. societal impact (y-axis). Upload custom issue dictionaries via CSV or use global defaults. Used for teaching ESG stakeholder analysis and materiality assessment. Answers: "How do I configure the materiality framework?"' },
-                { id: 'notes',               label: 'Facilitator Notes',      icon: '📓', tooltip: 'Private notes workspace for the facilitator — jot down observations, reminders, per-cohort commentary, or debrief preparation notes. Persisted across sessions and only visible to the facilitator. Answers: "Where can I keep my private teaching notes?"' },
-                { id: 'annotations',         label: 'Annotations',            icon: '📌', tooltip: 'Add timestamped annotations to specific sessions or rounds: flag interesting decisions, mark teaching moments, or tag sessions for post-simulation review and debrief preparation. Answers: "How do I bookmark key moments for later discussion?"' },
-                { id: 'technical_glossary',  label: 'Technical Reference',   icon: '📐', tooltip: 'Comprehensive reference guide explaining simulation terminology, engine mechanics (Contagion, Talent/Burnout, NCD, Governance), KPI calculation formulas, scorecard weighting, and decision paradigm differences. Answers: "How do the simulation engines and calculations actually work?"' },
-                { id: 'activity_log',        label: 'Activity Logs & Resets', icon: '📋', tooltip: 'Facilitator activity audit log showing all actions taken (overrides, messages, resets) with timestamps. Includes session management controls for soft/hard deleting cohorts, removing individual players, or performing a full system reset. Answers: "What actions have been taken and how do I clean up sessions?"' },
-            ]
-        },
-    ];
 
-    // Apply God Mode visibility filtering
-    const FILTERED_SIDEBAR = SIDEBAR_CONFIG.map(group => ({
-        ...group,
-        items: group.items.filter(item => {
-            if (item.id === 'materiality' && !godVisibility.materiality_matrix) return false;
-            if (item.id === 'technical_glossary' && !godVisibility.technical_reference) return false;
-            return true;
-        }),
-    }));
+    // Apply role-based tab filtering using shared config
+    const FILTERED_SIDEBAR = filterSidebarForRole(FACILITATOR_SIDEBAR, authData.role || 'facilitator', authData.allowed_tabs || ['*']);
 
-    // Breadcrumb helper
-    const getTabMeta = (tabId) => {
-        for (const group of FILTERED_SIDEBAR) {
-            const item = group.items.find(i => i.id === tabId);
-            if (item) return { label: item.label, category: group.category, categoryIcon: group.icon };
-        }
-        return { label: 'Dashboard', category: 'Command Center', categoryIcon: '🎯' };
-    };
+    const getTabMeta = (tabId) => _getTabMeta(FILTERED_SIDEBAR, tabId);
 
     const renderActiveComponent = () => {
         // Only top-level cohort sessions (no player sub-sessions) owned by this facilitator
         const ownCohorts = leaderboard.filter(
-            s => !s.player_id && (!s.facilitator_id || s.facilitator_id === authData.facilitator_id)
+            s => !s.player_id && s.facilitator_id === authData.facilitator_id
         );
 
         switch (activeTab) {
@@ -546,6 +569,35 @@ function FacilitatorDashboard({ authData, onLogout }) {
             case 'dashboard_home':
                 return (
                     <>
+                        {/* Scaffolding Status Strip — read-only view of God Mode settings */}
+                        {scaffoldingStatus && (
+                            <div style={{
+                                display: 'flex', flexWrap: 'wrap', gap: '0.4rem', padding: '0.75rem 1rem',
+                                background: 'var(--bg-elevated)', borderRadius: '10px',
+                                border: '1px solid var(--border-subtle)', marginBottom: '1rem',
+                                alignItems: 'center',
+                            }}>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.5rem' }}>
+                                    🔧 Active Scaffolding:
+                                </span>
+                                {scaffoldingStatus.features.map(f => (
+                                    <span key={f.key} style={{
+                                        fontSize: '0.7rem', padding: '0.2rem 0.5rem',
+                                        borderRadius: '6px', fontWeight: 600,
+                                        background: f.enabled ? 'rgba(34,197,94,0.15)' : 'rgba(107,114,128,0.12)',
+                                        color: f.enabled ? '#22c55e' : 'var(--text-muted)',
+                                        border: `1px solid ${f.enabled ? 'rgba(34,197,94,0.3)' : 'rgba(107,114,128,0.2)'}`,
+                                    }}>
+                                        {f.enabled ? '●' : '○'} {f.label}
+                                    </span>
+                                ))}
+                                {scaffoldingStatus.system_frozen && (
+                                    <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 700, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
+                                        🧊 SYSTEM FROZEN
+                                    </span>
+                                )}
+                            </div>
+                        )}
                         <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} onCreateCohort={() => setCreateCohortOpen(true)} />
                         <CreateCohortModal
                             isOpen={createCohortOpen}
@@ -616,7 +668,20 @@ function FacilitatorDashboard({ authData, onLogout }) {
             case 'debrief':
                 return <DebriefReport sessionId={selectedSession} />;
             case 'impersonate':
-                return <TeamImpersonation leaderboard={leaderboard} selectedSession={selectedSession} />;
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                        <TeamImpersonation leaderboard={leaderboard} selectedSession={selectedSession} />
+                        {!selectedSession && (
+                            <div style={{ padding: '2rem', background: 'var(--bg-elevated)', borderRadius: '12px', border: '1px dashed var(--border-subtle)', textAlign: 'center' }}>
+                                <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.5 }}>🎭</div>
+                                <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Select a team to see their simulation exactly as they do</h3>
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '500px', margin: '0 auto' }}>
+                                    Useful for: live debugging, screen-sharing during debrief, demonstrating the player experience, or verifying a student's reported issue.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                );
             case 'undo_round':
                 const fullSession = leaderboard.find(s => s.session_id === selectedSession);
                 return <UndoRound session={fullSession} />;
@@ -667,9 +732,19 @@ function FacilitatorDashboard({ authData, onLogout }) {
             case 'peer_eval':
                 return <PeerEvaluation sessionId={selectedSession} />;
 
+            case 'teaching_journal':
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <FacilitatorNotes sessionId={selectedSession} />
+                        <FacilitatorAnnotations sessionId={selectedSession} leaderboard={leaderboard} />
+                    </div>
+                );
+
             // ── Config & System tabs ──
+            case 'regulatory_sandbox':
+                return <RegulatorySandboxControl sessionId={selectedSession} />;
             case 'materiality':
-                return <MaterialityConfig sessionId={selectedSession} isFacilitator={true} />;
+                return <MaterialityConfig sessionId={selectedSession} isFacilitator={true} readOnly={authData?.role === 'facilitator'} />;
             case 'technical_glossary':
                 return (
                     <div style={{ padding: '1.5rem' }}>
@@ -677,7 +752,14 @@ function FacilitatorDashboard({ authData, onLogout }) {
                     </div>
                 );
             case 'platform_analytics':
-                return <PlatformAnalytics visibility={null} />;
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                        <PlatformAnalytics visibility={null} leaderboard={leaderboard} onNavigate={setActiveTab} onSelectSession={setSelectedSession} />
+                        {/* Cohort Pulse heatmap — shows live KPI grid across all teams in selected cohort */}
+                        <CohortPulse cohortId={selectedSession} />
+                    </div>
+                );
+
             case 'activity_log':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -726,7 +808,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                         role="facilitator"
                         onComplete={(newUsername) => {
                             const updated = { ...authData, username: newUsername };
-                            sessionStorage.setItem('facilitator_auth', JSON.stringify(updated));
+                            localStorage.setItem('facilitator_auth', JSON.stringify(updated));
                             window.location.reload(); 
                         }}
                     />
@@ -740,6 +822,9 @@ function FacilitatorDashboard({ authData, onLogout }) {
                     onClose={() => setShowChangePw(false)}
                 />
             )}
+
+            {/* ── Onboarding Wizard (first-time only) ── */}
+            <OnboardingWizard mode="facilitator" userId={authData.facilitator_id} onStepChange={(tab) => setActiveTab(tab)} />
 
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>
@@ -772,7 +857,8 @@ function FacilitatorDashboard({ authData, onLogout }) {
                             }}>
                                 👤 {authData.username ? authData.username.toUpperCase() : authData.name} ({authData.facilitator_id})
                             </span>
-                            <div style={{ display: 'flex', gap: '4px' }}>
+                            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                <NotificationBell activityLog={activityLog} />
                                 <button
                                     onClick={() => setShowChangePw(true)}
                                     style={{
@@ -870,6 +956,119 @@ function FacilitatorDashboard({ authData, onLogout }) {
                     {renderActiveComponent()}
                 </div>
             </main>
+
+            {/* ── Floating Action Bar ── */}
+            <div style={{
+                position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1200,
+                display: 'flex', alignItems: 'center', gap: '1rem',
+                padding: '0.6rem 1.5rem',
+                background: 'rgba(17,24,39,0.95)', backdropFilter: 'blur(12px)',
+                borderTop: '1px solid var(--border-subtle)',
+                fontSize: '0.78rem',
+            }}>
+                {/* Role badge */}
+                <span style={{
+                    padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 700, fontSize: '0.68rem',
+                    textTransform: 'uppercase', letterSpacing: '0.05em',
+                    background: authData?.role === 'super_admin' ? 'rgba(245,158,11,0.15)' :
+                                authData?.role === 'lead_facilitator' ? 'rgba(99,102,241,0.15)' : 'rgba(59,130,246,0.15)',
+                    color: authData?.role === 'super_admin' ? '#f59e0b' :
+                           authData?.role === 'lead_facilitator' ? '#818cf8' : '#60a5fa',
+                    border: `1px solid ${authData?.role === 'super_admin' ? 'rgba(245,158,11,0.3)' :
+                                          authData?.role === 'lead_facilitator' ? 'rgba(99,102,241,0.3)' : 'rgba(59,130,246,0.3)'}`,
+                }}>
+                    {authData?.role === 'super_admin' ? '👑 Super Admin' :
+                     authData?.role === 'lead_facilitator' ? '⭐ Lead' : '🎓 Facilitator'}
+                </span>
+
+                {/* Selected session context */}
+                <span style={{ color: 'var(--text-muted)', flex: 1 }}>
+                    {selectedSession ? (
+                        <>
+                            <span style={{ color: '#22c55e', fontWeight: 600 }}>●</span>{' '}
+                            {leaderboard.find(s => s.session_id === selectedSession)?.cohort_name || selectedSession.slice(0, 12)}
+                            {' — R'}
+                            {leaderboard.find(s => s.session_id === selectedSession)?.round_number || '?'}
+                        </>
+                    ) : (
+                        <span style={{ opacity: 0.5 }}>No session selected</span>
+                    )}
+                </span>
+
+                {/* Quick action buttons */}
+                <button
+                    onClick={() => setActiveTab('manual_override')}
+                    disabled={!selectedSession || !canAccessTab('manual_override')}
+                    style={{
+                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
+                        fontWeight: 600, border: '1px solid rgba(245,158,11,0.3)',
+                        background: 'rgba(245,158,11,0.1)', color: '#f59e0b',
+                        cursor: selectedSession && canAccessTab('manual_override') ? 'pointer' : 'not-allowed',
+                        opacity: selectedSession && canAccessTab('manual_override') ? 1 : 0.4,
+                    }}
+                >⚡ Override</button>
+                <button
+                    onClick={() => setActiveTab('swipe_file')}
+                    disabled={!selectedSession}
+                    style={{
+                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
+                        fontWeight: 600, border: '1px solid rgba(59,130,246,0.3)',
+                        background: 'rgba(59,130,246,0.1)', color: '#60a5fa',
+                        cursor: selectedSession ? 'pointer' : 'not-allowed',
+                        opacity: selectedSession ? 1 : 0.4,
+                    }}
+                >📬 Message</button>
+                <button
+                    onClick={() => setActiveTab('undo_round')}
+                    disabled={!selectedSession || !canAccessTab('undo_round')}
+                    style={{
+                        padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
+                        fontWeight: 600, border: '1px solid rgba(107,114,128,0.3)',
+                        background: 'rgba(107,114,128,0.1)', color: 'var(--text-muted)',
+                        cursor: selectedSession && canAccessTab('undo_round') ? 'pointer' : 'not-allowed',
+                        opacity: selectedSession && canAccessTab('undo_round') ? 1 : 0.4,
+                    }}
+                >↩️ Undo</button>
+
+                {/* Keyboard shortcut hints */}
+                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
+                    Ctrl+1-4: categories · Ctrl+B: broadcast
+                </span>
+            </div>
+
+            {/* ── Mobile Sidebar Toggle ── */}
+            <button
+                onClick={() => setSidebarOpen(prev => !prev)}
+                style={{
+                    display: 'none', position: 'fixed', bottom: '4rem', right: '1rem', zIndex: 1300,
+                    width: '48px', height: '48px', borderRadius: '50%',
+                    background: 'var(--accent-blue)', color: '#fff', border: 'none',
+                    fontSize: '1.3rem', cursor: 'pointer',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                }}
+                className="mobile-sidebar-toggle"
+            >
+                {sidebarOpen ? '✕' : '☰'}
+            </button>
+
+            {/* Mobile responsive CSS */}
+            <style>{`
+                @media (max-width: 768px) {
+                    .mobile-sidebar-toggle { display: flex !important; align-items: center; justify-content: center; }
+                    .${styles.sidebar} {
+                        position: fixed !important;
+                        left: ${sidebarOpen ? '0' : '-280px'} !important;
+                        top: 0 !important;
+                        z-index: 1250 !important;
+                        transition: left 0.3s ease !important;
+                        box-shadow: ${sidebarOpen ? '4px 0 24px rgba(0,0,0,0.5)' : 'none'} !important;
+                    }
+                    .${styles.mainPanel} {
+                        margin-left: 0 !important;
+                        padding-bottom: 4rem !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

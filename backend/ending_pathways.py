@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Ending Pathway Configurations
+﻿"""
+Muressons Global Corporation — Ending Pathway Configurations
 Defines alternate R10 crisis scenarios, options, M_R modifiers,
 foreshadowing events, and archetype overrides per pathway.
 

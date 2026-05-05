@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — ESG Industry Benchmarks
+﻿"""
+Muressons Global Corporation — ESG Industry Benchmarks
 Static FTSE 100 ESG benchmark data for percentile comparisons.
 Sources: MSCI ESG Ratings, Sustainalytics, CDP Climate Disclosure.
 """

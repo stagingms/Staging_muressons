@@ -3,7 +3,7 @@
    Inspired by military/intelligence terminal interfaces
    ═══════════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&display=swap');
+/* RF-1: Fonts loaded via globals.css — no duplicate @import needed */
 
 /* ── Overlay ─────────────────────────────────────────────── */
 .overlay {
@@ -18,7 +18,7 @@
     align-items: center;
     justify-content: center;
     padding: 2rem;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     overflow: hidden;
 }
 
@@ -181,7 +181,7 @@
 }
 
 .label {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.18em;
@@ -375,7 +375,7 @@
     justify-content: center;
     gap: 0.5rem;
     margin-top: 1.2rem;
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     font-weight: 600;
     letter-spacing: 0.15em;
     text-transform: uppercase;
@@ -421,7 +421,7 @@
 }
 
 .bottomHash {
-    font-size: 0.5rem;
+    font-size: 0.65rem;
     color: rgba(100, 116, 139, 0.25);
     letter-spacing: 0.1em;
     overflow: hidden;
@@ -436,14 +436,14 @@
 }
 
 .bottomLabel {
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.1em;
     color: #f5b942;
 }
 
 .bottomTime {
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     color: #64748b;
     font-variant-numeric: tabular-nums;
 }

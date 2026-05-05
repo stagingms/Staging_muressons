@@ -8,19 +8,20 @@ import styles from './ThemeToggle.module.css';
  * Persists selection to localStorage and syncs `data-theme` on <html>.
  */
 export default function ThemeToggle() {
-    const [theme, setTheme] = useState('dark');
+    const [theme, setTheme] = useState(() => {
+        if (typeof window === 'undefined') return 'dark';
+        return localStorage.getItem('muressons-theme') ||
+            (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    });
     const [mounted, setMounted] = useState(false);
 
-    // Read persisted preference on mount
+    // Sync DOM attribute and mark as mounted on first client render
     useEffect(() => {
-        const saved = localStorage.getItem('muressons-theme');
-        const preferred = saved || (
-            window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-        );
-        setTheme(preferred);
-        document.documentElement.setAttribute('data-theme', preferred);
+        document.documentElement.setAttribute('data-theme', theme);
         setMounted(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
 
     const toggle = useCallback(() => {
         setTheme((prev) => {

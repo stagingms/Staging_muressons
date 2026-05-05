@@ -1,0 +1,139 @@
+{
+  "consultant_fee_usd": 1000000,
+  "issues": [
+    {
+      "id": "tnfd_nature_disclosure",
+      "title": "TNFD Nature-Related Financial Disclosure",
+      "hover_description": "Agriculture IS the nature risk. TNFD (Taskforce on Nature-related Financial Disclosures) framework requires disclosure of dependencies on pollinators, soil health, and freshwater. Nature loss = production collapse. Q1 because financial AND societal impact are both existential. ESRS E4 mandatory.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 3000000,
+      "esrs_topic": "E4",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "long",
+      "severity_score": 4,
+      "likelihood_score": 3,
+      "is_ambiguous": false
+    },
+    {
+      "id": "soil_degradation",
+      "title": "Soil Degradation & Carbon Sequestration",
+      "hover_description": "Topsoil lost at 10x regeneration rate. Each 1% drop in organic matter = 8% yield reduction. Regenerative agriculture investment protects long-term asset value. ESRS E4.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 5000000,
+      "esrs_topic": "E4",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "medium",
+      "severity_score": 4,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "water_depletion",
+      "title": "Water Depletion & Nitrate Runoff",
+      "hover_description": "Aquifer over-extraction + nitrogen runoff causing algal blooms. EU Nitrates Directive violation risk. Water is both the biggest cost AND the biggest impact. ESRS E3 mandatory.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 4000000,
+      "esrs_topic": "E3",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "smallholder_livelihoods",
+      "title": "Smallholder Farmer Livelihoods",
+      "hover_description": "3,200 contract smallholders earning below living income. Cascading supply risk + ESRS S2 mandatory disclosure. Long-term sourcing security depends on farmer viability.",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2500000,
+      "esrs_topic": "S2",
+      "value_chain_scope": "upstream",
+      "time_horizon": "medium",
+      "severity_score": 4,
+      "likelihood_score": 3,
+      "is_ambiguous": true
+    },
+    {
+      "id": "biodiversity_loss",
+      "title": "Biodiversity Restoration Commitments",
+      "hover_description": "30x30 target (CBD Kunming-Montreal). High societal impact \u2014 pollinator collapse threatens food security. Financial impact: medium (regulatory + market access). ESRS E4.",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2000000,
+      "esrs_topic": "E4",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "long",
+      "severity_score": 4,
+      "likelihood_score": 3,
+      "is_ambiguous": true
+    },
+    {
+      "id": "pesticide_competitor",
+      "title": "Competitor Crop Protection Technology",
+      "hover_description": "New biopesticide entrants threatening market share. Pure financial risk. No direct ESG harm. ESRS 2 SBM-3.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 800000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 2,
+      "likelihood_score": 2,
+      "is_ambiguous": false
+    },
+    {
+      "id": "ag_led_offices",
+      "title": "LED Retrofits in Admin Buildings",
+      "hover_description": "Saves 12 tCO2/yr. Negligible at farm scale. Classic immaterial distractor.",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 35000,
+      "esrs_topic": "E1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    },
+    {
+      "id": "ag_exec_offsets",
+      "title": "Executive Carbon Offset Purchases",
+      "hover_description": "Symbolic. Farm Scope 1 emissions are orders of magnitude larger. Greenwashing risk.",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 40000,
+      "esrs_topic": "E1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    }
+  ],
+  "interdependencies": [
+    {
+      "source": "tnfd_nature_disclosure",
+      "target": "soil_degradation",
+      "severity": "high",
+      "description": "TNFD assessment reveals soil depletion as primary nature dependency"
+    },
+    {
+      "source": "water_depletion",
+      "target": "smallholder_livelihoods",
+      "severity": "medium",
+      "description": "Water scarcity hits smallholder farmers hardest \u2014 cascading S2 risk"
+    }
+  ]
+}

@@ -8,7 +8,7 @@ export const DETAILED_DESCRIPTIONS = {
     "2": {
       "option_a": "Strictly filter all capital expenditures through the Double Materiality lens. Divest immediately from high-return but toxic ESG assets, sacrificing short-term revenue to slash structural governance risk permanently.",
       "option_b": "Formally adopt the Materiality framework but lobby the board to grant \"strategic exceptions\" to keep highly profitable, dirty legacy operations running a bit longer. Checks the box while stalling the pain.",
-      "option_c": "Reject the CFO\u2019s framework entirely. Greenlight lucrative, high-carbon expansion projects to aggressively pump quarterly earnings, severely antagonizing regulators and exposing the firm to future compliance slaughter."
+      "option_c": "Reject the CFO\u2019s framework entirely. Greenlight lucrative, high-carbon expansion projects to aggressively pump short-term earnings, severely antagonizing regulators and exposing the firm to future compliance slaughter."
     },
     "3": {
       "option_a": "Terminate legacy mega-suppliers and forcefully migrate 100% of sourcing to low-carbon vendors overnight. Instantly slashes carbon but triggers violent supply shock, missing quotas and plummeting revenue.",
@@ -214,7 +214,7 @@ export const DETAILED_DESCRIPTIONS = {
       },
       "operations": {
         "option_1": "Universally throttle production and deploy strict, egalitarian water-efficiency mandates across *all* business units so no single BU bears the brunt of the rationing.",
-        "option_2": "Cut the water lines to the Pharma and Consumer Goods BUs entirely. Route 100% of the remaining rationing to the high-margin Electronics BU to save quarterly profits.",
+        "option_2": "Cut the water lines to the Pharma and Consumer Goods BUs entirely. Route 100% of the remaining rationing to the high-margin Electronics BU to save profits.",
         "option_3": "Do the impossible. Circumvent the local government completely by spending $30M to construct a private, massive ocean desalination plant to guarantee corporate water security forever."
       },
       "supply_chain": {

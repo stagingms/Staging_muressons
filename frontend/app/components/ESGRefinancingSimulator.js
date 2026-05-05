@@ -110,7 +110,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
     }, [score, rate, totalCost, tier, sessionId, onComplete]);
 
     if (phase === 'intro') return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif" }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
             <div style={{ background: '#fff', maxWidth: 580, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#1e3a5f', color: '#fff', padding: '1rem 1.5rem' }}>
                     <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 9 — CFO Directive</div>
@@ -118,8 +118,8 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
                 </div>
                 <div style={{ padding: '1.5rem 2rem' }}>
                     <blockquote style={{ borderLeft: '3px solid #3b82f6', paddingLeft: '1rem', margin: '0 0 1.25rem', color: '#334155', fontSize: '0.87rem', lineHeight: 1.75, fontStyle: 'italic' }}>
-                        "Muressons has a <strong>$1,000,000,000 corporate bond maturing this quarter</strong>. Institutional demand — and your interest rate — will be
-                        dictated by your aggregate ESG Rating, which reflects every decision you have made over the last 8 quarters."
+                        "Muressons has a <strong>$1,000,000,000 corporate bond maturing this period</strong>. Institutional demand — and your interest rate — will be
+                        dictated by your aggregate ESG Rating, which reflects every decision you have made over the last 8 semesters."
                     </blockquote>
                     <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8, padding: '0.85rem 1rem', marginBottom: '1.25rem', fontSize: '0.82rem', lineHeight: 1.75 }}>
                         <strong>Greenium (score ≥80):</strong> −75bp below market · <strong>Standard (40–79):</strong> Base rate · <strong>Brown Penalty (&lt;40):</strong> +150bp premium
@@ -133,7 +133,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
     );
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif", padding: '1rem', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif", padding: '1rem', overflowY: 'auto' }}>
             <div style={{ background: '#f8fafc', maxWidth: 580, width: '100%', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
                 {/* Header */}
                 <div style={{ background: '#fff', padding: '0.9rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
@@ -142,7 +142,7 @@ export default function ESGRefinancingSimulator({ sessionId, onComplete, initial
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
                             {[['BOND PRINCIPAL', '$1.0B'], ['NEW RATE', `${(rate * 100).toFixed(2)}%`], ['10Y IMPACT', `${saved ? '-' : '+'}$${Math.abs(Number(impact10y)).toFixed(1)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.62rem' }}>{k}</div>
+                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: k === '10Y IMPACT' ? (saved ? '#16a34a' : '#dc2626') : '#0f172a' }}>{v}</div>
                                 </div>
                             ))}

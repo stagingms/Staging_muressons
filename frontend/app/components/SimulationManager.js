@@ -14,12 +14,21 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
     const [analyticsModalSession, setAnalyticsModalSession] = useState(null);
     const [expandedConfigRow, setExpandedConfigRow] = useState(null);
 
-    useEffect(() => {
+    const [refreshing, setRefreshing] = useState(false);
+
+    const refreshData = () => {
         if (!fetchInternal) return;
+        setRefreshing(true);
         fetch(`${API}/api/admin/leaderboard`)
             .then(r => r.json())
-            .then(d => setInternalData(d.leaderboard || []))
-            .catch(() => {});
+            .then(d => setInternalData(d.leaderboard || d.sessions || []))
+            .catch(() => {})
+            .finally(() => setRefreshing(false));
+    };
+
+    useEffect(() => {
+        if (!fetchInternal) return;
+        refreshData();
     }, [fetchInternal]);
 
     const displayData = fetchInternal ? internalData : leaderboard;
@@ -40,8 +49,10 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
 
     const handleCreated = (newSession) => {
         setCreateOpen(false);
+        // Re-fetch full leaderboard so the new cohort appears with all correct fields
+        // (appending the raw /simulations/start response would show blank rows)
         if (fetchInternal) {
-            setInternalData(prev => [...prev, newSession]);
+            refreshData();
         }
         onSessionCreated?.(newSession);
     };
@@ -154,9 +165,31 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                     <h2 className={styles.title}>Simulation Manager</h2>
                     <p className={styles.subtitle}>Manage and compare multiple simulation instances grouped by facilitator.</p>
                 </div>
-                {!hideCreate && (
-                    <button className={styles.createBtn} onClick={() => setCreateOpen(true)}>+ Set Up Cohort</button>
-                )}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {fetchInternal && (
+                        <button
+                            onClick={refreshData}
+                            disabled={refreshing}
+                            title="Refresh cohort list"
+                            style={{
+                                padding: '0 14px', height: '38px', borderRadius: '8px',
+                                border: '1px solid var(--border-subtle)',
+                                background: 'var(--bg-elevated)', color: 'var(--text-muted)',
+                                cursor: refreshing ? 'not-allowed' : 'pointer',
+                                fontSize: '0.8rem', fontWeight: 600,
+                                display: 'flex', alignItems: 'center', gap: '5px',
+                                transition: 'all 0.15s',
+                                opacity: refreshing ? 0.6 : 1,
+                            }}
+                        >
+                            <span style={{ display: 'inline-block', animation: refreshing ? 'spin 0.8s linear infinite' : 'none' }}>↻</span>
+                            {refreshing ? 'Refreshing…' : 'Refresh'}
+                        </button>
+                    )}
+                    {!hideCreate && (
+                        <button className={styles.createBtn} onClick={() => setCreateOpen(true)}>+ Set Up Cohort</button>
+                    )}
+                </div>
             </div>
 
             <CreateCohortModal
@@ -241,7 +274,18 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                                 );
                                                             })()}
                                                         </td>
-                                                        <td style={{ textAlign: 'center' }}>
+                                                        <td style={{ textAlign: 'center', display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                                                            <button 
+                                                                className={styles.pacingBtn} 
+                                                                onClick={() => {
+                                                                    localStorage.setItem('fac_selected_session', s.session_id);
+                                                                    window.open('/admin/facilitator', '_blank');
+                                                                }}
+                                                                title="Open Cohort as Facilitator"
+                                                                style={{ color: '#10b981', borderColor: 'rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.05)' }}
+                                                            >
+                                                                🚀 Open
+                                                            </button>
                                                             <button 
                                                                 className={styles.pacingBtn} 
                                                                 onClick={() => setAnalyticsModalSession(s)}

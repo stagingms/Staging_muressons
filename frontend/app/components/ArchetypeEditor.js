@@ -317,14 +317,14 @@ export default function ArchetypeEditor() {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                             <input style={inputSm} placeholder="Title" value={editData.title}
                               onChange={e => setEditData(d => ({ ...d, title: e.target.value }))} />
-                            <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.62rem' }}
+                            <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.68rem' }}
                               placeholder="key_slug" value={editData.key}
                               onChange={e => setEditData(d => ({ ...d, key: e.target.value.replace(/\s+/g, '_').toLowerCase() }))} />
                           </div>
                         ) : (
                           <>
                             <div style={{ fontWeight: 700, color: '#1e293b' }}>{a.title}</div>
-                            <div style={{ fontFamily: 'monospace', fontSize: '0.62rem', color: '#94a3b8' }}>{a.key}</div>
+                            <div style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: '#94a3b8' }}>{a.key}</div>
                           </>
                         )}
                       </td>
@@ -354,12 +354,12 @@ export default function ArchetypeEditor() {
                         {a.is_default ? (
                           <span style={{
                             background: '#f1f5f9', color: '#64748b', borderRadius: 5,
-                            padding: '0.15rem 0.5rem', fontSize: '0.62rem', fontWeight: 600,
+                            padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 600,
                           }}>Default</span>
                         ) : (
                           <span style={{
                             background: 'rgba(16,185,129,0.1)', color: '#065f46', borderRadius: 5,
-                            padding: '0.15rem 0.5rem', fontSize: '0.62rem', fontWeight: 600,
+                            padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 600,
                           }}>Custom</span>
                         )}
                       </td>
@@ -550,14 +550,14 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         <input style={inputSm} placeholder="Title" value={editData.title}
                           onChange={e => setEditData(d => ({ ...d, title: e.target.value }))} />
-                        <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.62rem' }}
+                        <input style={{ ...inputSm, fontFamily: 'monospace', fontSize: '0.68rem' }}
                           placeholder="key_slug" value={editData.key}
                           onChange={e => setEditData(d => ({ ...d, key: e.target.value.replace(/\s+/g, '_').toLowerCase() }))} />
                       </div>
                     ) : (
                       <>
                         <div style={{ fontWeight: 700, color: '#1e293b' }}>{a.title}</div>
-                        <div style={{ fontFamily: 'monospace', fontSize: '0.62rem', color: '#94a3b8' }}>{a.key}</div>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.68rem', color: '#94a3b8' }}>{a.key}</div>
                       </>
                     )}
                   </td>
@@ -582,7 +582,7 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
                   <td style={{ ...tblCell, textAlign: 'center' }}>
                     <span style={{
                       background: '#f1f5f9', color: '#64748b', borderRadius: 5,
-                      padding: '0.15rem 0.5rem', fontSize: '0.62rem', fontWeight: 600,
+                      padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 600,
                     }}>Default</span>
                   </td>
                   <td style={{ ...tblCell, textAlign: 'center' }}>

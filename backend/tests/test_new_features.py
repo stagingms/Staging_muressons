@@ -1,5 +1,5 @@
 """
-Muressons Global Command — New Feature Tests
+Muressons Global Corporation — New Feature Tests
 Tests for Features 24-28 (Expert Recommendations)
 Run: pytest tests/test_new_features.py -v
 """
@@ -46,7 +46,7 @@ SEED_GLOBAL = {
     "group_reputation": 50,
     "synergy_multiplier": 1.0,
     "cost_of_capital": 0.05,
-    "inflation_index": 0.025,
+    "inflation_index": 0.05,
     "competitor_ebitda": 13_200_000,
     "active_event_flags": {},
 }
@@ -65,11 +65,11 @@ class TestMacroNoise:
         assert "noise_message" in result
 
     def test_noise_within_bounds(self):
-        """Inflation noise must be within ±0.2%."""
+        """Inflation noise must be within ±0.4% (6-month period)."""
         for _ in range(100):
             result = calc_macro_noise(5)
-            assert -0.002 <= result["inflation_noise"] <= 0.002
-            assert -0.05 <= result["carbon_price_noise_pct"] <= 0.05
+            assert -0.004 <= result["inflation_noise"] <= 0.004
+            assert -0.07 <= result["carbon_price_noise_pct"] <= 0.07
 
     def test_seeded_determinism(self):
         """Same seed produces same noise."""
@@ -102,8 +102,8 @@ class TestTurnaroundPathway:
         assert result["survival_mode"] is False
 
     def test_too_early_for_distress(self):
-        """Distress detection disabled before Round 3."""
-        result = detect_distress(-5_000_000, 20, round_number=2)
+        """Distress detection disabled before Round 2 (1 year grace)."""
+        result = detect_distress(-5_000_000, 20, round_number=1)
         assert result["distress_detected"] is False
 
     def test_distress_triggers_bailout(self):

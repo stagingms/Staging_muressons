@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Ethics & Sustainability Round Configs
+﻿"""
+Muressons Global Corporation — Ethics & Sustainability Round Configs
 
 5 rounds of crisis-driven ethical decision-making:
   ES-R1: Ethical AI Governance

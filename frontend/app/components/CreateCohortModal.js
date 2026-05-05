@@ -31,7 +31,38 @@ const PEDAGOGICAL_TOGGLES = [
     { key: 'self_learning_mode', label: 'Self-Learning Mode', icon: '🎓', tooltip: 'Enables ALL pedagogical scaffolding automatically. Designed for facilitator-absent cohorts where the simulation must self-teach.', default: false },
 ];
 
-// DIFFICULTY_TIERS removed — now bundled into scenario presets from backend
+const ENGINE_MODULE_TOGGLES = [
+    { key: 'biodiversity_engine_enabled', label: 'Biodiversity', icon: '🌿', tooltip: 'TNFD-aligned ecosystem health tracking: EHI index, deforestation risk, water stress, and pollinator dependency.', default: true },
+    { key: 'balance_sheet_enabled', label: 'Balance Sheet', icon: '📊', tooltip: 'Full double-entry balance sheet with assets, liabilities, D/E ratio, covenant monitoring, and working capital analysis.', default: true },
+    { key: 'board_governance_enabled', label: 'Board Governance', icon: '🏛️', tooltip: 'Board of Directors simulation: director profiles, ESG alignment, voting resolutions, and activist investor pressure.', default: true },
+    { key: 'supply_chain_network_enabled', label: 'Supply Chain', icon: '🔗', tooltip: '3-tier supply chain network with Scope 3 emissions estimation, supplier audit trails, and cascading risk.', default: true },
+    { key: 'npc_stakeholders_enabled', label: 'NPC Agents', icon: '👥', tooltip: 'AI-ready NPC stakeholders (activist investor, regulator, community leader, media) reacting to player decisions.', default: true },
+    { key: 'org_politics_enabled', label: 'Org Politics', icon: '🤝', tooltip: 'C-suite coalition dynamics: political capital, departmental resistance, and change management friction.', default: true },
+    { key: 'branching_enabled', label: 'Branching (R5)', icon: '🔀', tooltip: 'Non-linear R5 branching: classifies players into archetypes with adaptive crisis severity.', default: true },
+    { key: 'dynamic_cases_enabled', label: 'Case Injection', icon: '📰', tooltip: 'Contextual real-world case studies (BP, VW, Danone, Patagonia) triggered by matching game conditions.', default: true },
+    { key: 'tcfd_scenarios_enabled', label: 'TCFD Analysis', icon: '🌡️', tooltip: 'TCFD-aligned climate scenario projections: orderly 1.5°C, disorderly 2°C, hothouse 4°C pathways.', default: true },
+    { key: 'meadows_leverage_enabled', label: 'Leverage Points', icon: '🎯', tooltip: 'Donella Meadows leverage point analysis for post-game debrief and systemic intervention identification.', default: true },
+    { key: 'system_archetypes_enabled', label: 'System Archetypes', icon: '🔄', tooltip: 'Peter Senge archetype detection: shifting the burden, fixes that fail, limits to growth.', default: true },
+    { key: 'peer_learning_prompts_enabled', label: 'Peer Prompts', icon: '💬', tooltip: 'Mid-game (R5) and post-game (R10) peer reflection prompts for collaborative sense-making.', default: true },
+    { key: 'decision_timer_enabled', label: 'Decision Timer', icon: '⏱️', tooltip: 'Cognitive pressure timer forcing decisions within a time limit. Simulates boardroom urgency.', default: false },
+    { key: 'market_dynamics_enabled', label: 'Market Dynamics', icon: '📈', tooltip: 'Cross-player market: shared carbon credit pool, competitive talent hiring, scarcity pricing. Multiplayer only.', default: false },
+    { key: 'regulatory_sandbox_enabled', label: 'Reg Sandbox', icon: '⚖️', tooltip: 'Expert-tier: students design carbon taxes, ETS, disclosure mandates with configurable parameters.', default: false },
+];
+
+const AccordionItem = ({ id, title, summary, children, isOpen, onToggle }) => {
+    return (
+        <div className={`${styles.accordionItem} ${isOpen ? styles.open : ''}`}>
+            <button type="button" className={styles.accordionHeader} onClick={() => onToggle(id)}>
+                <div className={styles.accHeaderContent}>
+                    <span className={styles.accTitle}>{title}</span>
+                    {!isOpen && summary && <span className={styles.accSummary}>{summary}</span>}
+                </div>
+                <span className={styles.accIcon}>{isOpen ? '▼' : '▶'}</span>
+            </button>
+            {isOpen && <div className={styles.accordionBody}>{children}</div>}
+        </div>
+    );
+};
 
 export default function CreateCohortModal({ isOpen, onClose, onCreated, currentFacilitatorId }) {
     const [cohortName, setCohortName] = useState('');
@@ -75,6 +106,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // Round Pacing
     const [pacingMode, setPacingMode] = useState('free_play');
     const [maxUnlockedRound, setMaxUnlockedRound] = useState(10);
+    const [roundSchedules, setRoundSchedules] = useState({});
+
+    // Industry Vertical BU Substitution (cohort-formation-time)
+    const [buSubstitutions, setBuSubstitutions] = useState({});
 
     // Analytics visibility per-cohort overrides
     const [visibilityDefaults, setVisibilityDefaults] = useState(null);
@@ -85,6 +120,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
     const [pedagogicalToggles, setPedagogicalToggles] = useState(
         Object.fromEntries(PEDAGOGICAL_TOGGLES.map(t => [t.key, t.default]))
+    );
+    const [engineModuleToggles, setEngineModuleToggles] = useState(
+        Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, t.default]))
     );
     // difficultyTier is now derived from selectedExperienceLevel
     const [openTab, setOpenTab] = useState('core');
@@ -100,6 +138,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         setPedagogyCustomised(false);
         setSelectedCurrency('INR');
         setSelectedParadigm('legacy_abc');
+        setBuSubstitutions({});
         setCreatedBy('');
         setCreatedWhen(new Date().toISOString().slice(0, 10)); // default to today
         setStartDate(new Date().toISOString().slice(0, 10)); // default to today
@@ -177,13 +216,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 setSelectedOverrides(data.overrides?.map(o => o.id) || []);
                 setSelectedSwipes(data.swipes?.map(s => s.id) || []);
             })
-            .catch(err => setError("Failed to load master interventions: " + err.message));
+            .catch(() => {});
 
         // Fetch facilitators
         fetch(`${API}/api/admin/facilitators`)
             .then(res => res.json())
             .then(data => setAvailableFacilitators(data.facilitators || []))
-            .catch(err => console.error("Failed to fetch facilitators", err));
+            .catch(() => {});
 
         if (currentFacilitatorId) {
             setFacilitatorId(currentFacilitatorId);
@@ -275,22 +314,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         return false;
     };
 
-    const AccordionItem = ({ id, title, summary, children }) => {
-        const isOpen = openTab === id;
-        return (
-            <div className={`${styles.accordionItem} ${isOpen ? styles.open : ''}`}>
-                <button type="button" className={styles.accordionHeader} onClick={() => setOpenTab(isOpen ? null : id)}>
-                    <div className={styles.accHeaderContent}>
-                        <span className={styles.accTitle}>{title}</span>
-                        {!isOpen && summary && <span className={styles.accSummary}>{summary}</span>}
-                    </div>
-                    <span className={styles.accIcon}>{isOpen ? '▼' : '▶'}</span>
-                </button>
-                {isOpen && <div className={styles.accordionBody}>{children}</div>}
-            </div>
-        );
-    };
-
     const handleCreate = async (e) => {
         e.preventDefault();
         setError(null);
@@ -357,6 +380,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                             experience_level: selectedExperienceLevel,
                             difficulty_tier: (scenarioPresets.find(p => p.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
                             ...pedagogicalToggles,
+                            ...engineModuleToggles,
                         }),
                     });
                 } catch { /* non-critical */ }
@@ -396,7 +420,19 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         body: JSON.stringify({
                             pacing_mode: pacingMode,
                             max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
+                            round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
                         }),
+                    });
+                } catch { /* non-critical */ }
+            }
+
+            // Apply BU vertical substitutions (at cohort formation time)
+            if (newSession.session_id && Object.keys(buSubstitutions).length > 0) {
+                try {
+                    await fetch(`${API}/api/admin/${newSession.session_id}/bu-composition`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ substitutions: buSubstitutions }),
                     });
                 } catch { /* non-critical */ }
             }
@@ -439,7 +475,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         
 
                         
-                        <AccordionItem id="core" title="1. Core Configuration" summary="Cohort Name, Facilitator, Scenario, & Currency">
+                        <AccordionItem id="core" title="1. Core Configuration" summary="Cohort Name, Facilitator, Scenario, & Currency" isOpen={openTab === 'core'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 1: Core Details ── */}
                                 <section className={styles.configSection}>
                                     <h3>1. Core Details</h3>
@@ -669,7 +705,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         </section>
                         </AccordionItem>
 
-                        <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway">
+                        <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway" isOpen={openTab === 'engine'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 2: Decision Paradigm ── */}
                                 <section className={styles.configSection}>
                                     <div className={styles.sectionHeader}>
@@ -786,7 +822,207 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         )}
                         </AccordionItem>
 
-                        <AccordionItem id="modules" title="3. Optional Modules" summary="Side Tracks & CEO Interview">
+                        <AccordionItem id="verticals" title="2b. Industry Verticals" summary="Optional: Replace default BUs with industry-specific units" isOpen={openTab === 'verticals'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+{/* ── BU Vertical Substitution (selected at cohort creation) ── */}
+                        <section className={styles.configSection}>
+                            <div className={styles.sectionHeader}>
+                                <h3>🏭 Industry Vertical Selection</h3>
+                                <p>
+                                    Optionally replace default Muressons business units with industry-specific verticals.
+                                    This changes the stakeholder map, materiality matrix, and engine parameters.
+                                    <strong> Cannot be changed after the simulation begins.</strong>
+                                </p>
+                            </div>
+                            {[
+                                {
+                                    slot: 'pharma', slotLabel: 'Pharma', slotIcon: '💊',
+                                    alternatives: [
+                                        { id: 'oil_gas', label: 'Oil & Gas', icon: '🛢️', desc: 'Fossil fuel extraction, refining, and transition risk. High carbon intensity and regulatory exposure.' },
+                                    ],
+                                },
+                                {
+                                    slot: 'software', slotLabel: 'Software', slotIcon: '💻',
+                                    alternatives: [
+                                        { id: 'technology', label: 'Technology', icon: '🧠', desc: 'Platform tech, AI ethics, data privacy, and talent competition. High innovation velocity.' },
+                                        { id: 'banking_financial_services', label: 'Banking & Financial Services', icon: '🏦', desc: 'Systemic risk, prudential regulation, ESG lending, and digital banking disruption.' },
+                                    ],
+                                },
+                                {
+                                    slot: 'consumer_goods', slotLabel: 'Consumer Goods', slotIcon: '🛒',
+                                    alternatives: [
+                                        { id: 'retail_fmcg', label: 'Retail / FMCG', icon: '🛍️', desc: 'Fast-moving consumer goods, supply chain sustainability, packaging waste, and fair trade.' },
+                                        { id: 'agriculture', label: 'Agriculture', icon: '🌾', desc: 'Food systems, water stewardship, biodiversity, and smallholder farmer welfare.' },
+                                    ],
+                                },
+                            ].map(slotConfig => {
+                                const currentSub = buSubstitutions[slotConfig.slot];
+                                return (
+                                    <div key={slotConfig.slot} style={{
+                                        marginBottom: 12, padding: '12px 14px', borderRadius: 10,
+                                        background: currentSub ? 'rgba(99,102,241,0.06)' : 'rgba(15,23,42,0.4)',
+                                        border: currentSub ? '1.5px solid rgba(99,102,241,0.3)' : '1.5px solid rgba(100,116,139,0.2)',
+                                        transition: 'all 0.2s',
+                                    }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                            <span style={{ fontSize: '1.2rem' }}>{slotConfig.slotIcon}</span>
+                                            <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#e2e8f0' }}>
+                                                Slot: {slotConfig.slotLabel}
+                                            </span>
+                                            {currentSub && (
+                                                <span style={{
+                                                    fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px',
+                                                    borderRadius: 999, background: 'rgba(99,102,241,0.15)',
+                                                    color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)',
+                                                }}>SUBSTITUTED</span>
+                                            )}
+                                        </div>
+                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                            {/* Default option */}
+                                            <button
+                                                type="button"
+                                                onClick={() => setBuSubstitutions(prev => {
+                                                    const next = { ...prev };
+                                                    delete next[slotConfig.slot];
+                                                    return next;
+                                                })}
+                                                style={{
+                                                    display: 'flex', alignItems: 'center', gap: 6,
+                                                    padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                                                    border: !currentSub ? '2px solid rgba(16,185,129,0.5)' : '1.5px solid rgba(100,116,139,0.25)',
+                                                    background: !currentSub ? 'rgba(16,185,129,0.08)' : 'transparent',
+                                                    transition: 'all 0.15s', flex: '1 1 auto', minWidth: 120,
+                                                }}
+                                            >
+                                                <span style={{ fontSize: '1rem' }}>{slotConfig.slotIcon}</span>
+                                                <span style={{
+                                                    fontSize: '0.72rem', fontWeight: 700,
+                                                    color: !currentSub ? '#4ade80' : '#94a3b8',
+                                                }}>
+                                                    {slotConfig.slotLabel} (Default)
+                                                </span>
+                                                {!currentSub && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />}
+                                            </button>
+                                            {/* Vertical alternatives */}
+                                            {slotConfig.alternatives.map(alt => {
+                                                const isSelected = currentSub === alt.id;
+                                                return (
+                                                    <button
+                                                        key={alt.id}
+                                                        type="button"
+                                                        title={alt.desc}
+                                                        onClick={() => setBuSubstitutions(prev => ({
+                                                            ...prev,
+                                                            [slotConfig.slot]: alt.id,
+                                                        }))}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: 6,
+                                                            padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                                                            border: isSelected ? '2px solid rgba(99,102,241,0.5)' : '1.5px solid rgba(100,116,139,0.25)',
+                                                            background: isSelected ? 'rgba(99,102,241,0.1)' : 'transparent',
+                                                            transition: 'all 0.15s', flex: '1 1 auto', minWidth: 120,
+                                                        }}
+                                                    >
+                                                        <span style={{ fontSize: '1rem' }}>{alt.icon}</span>
+                                                        <span style={{
+                                                            fontSize: '0.72rem', fontWeight: 700,
+                                                            color: isSelected ? '#818cf8' : '#94a3b8',
+                                                        }}>
+                                                            {alt.label}
+                                                        </span>
+                                                        {isSelected && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                        {currentSub && (() => {
+                                            const alt = slotConfig.alternatives.find(a => a.id === currentSub);
+                                            return alt ? (
+                                                <div style={{
+                                                    marginTop: 6, fontSize: '0.68rem', color: '#94a3b8',
+                                                    padding: '4px 8px', borderRadius: 6,
+                                                    background: 'rgba(15,23,42,0.5)',
+                                                }}>
+                                                    {alt.icon} {alt.desc}
+                                                </div>
+                                            ) : null;
+                                        })()}
+                                    </div>
+                                );
+                            })}
+                            {Object.keys(buSubstitutions).length > 0 && (
+                                <div style={{
+                                    marginTop: 8, padding: '8px 12px', borderRadius: 8,
+                                    background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
+                                    fontSize: '0.7rem', color: '#a5b4fc',
+                                }}>
+                                    <strong>Active Substitutions:</strong>{' '}
+                                    {Object.entries(buSubstitutions).map(([slot, vid]) => (
+                                        <span key={slot} style={{ marginRight: 10 }}>
+                                            {slot} → <strong>{vid.replace(/_/g, ' ')}</strong>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </section>
+                        </AccordionItem>
+
+                        <AccordionItem id="modules" title="3. Optional Modules" summary="Engine Modules, Side Tracks & CEO" isOpen={openTab === 'modules'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+{/* ── Engine Module Toggles ── */}
+                        <section className={styles.configSection}>
+                            <div className={styles.sectionHeader}>
+                                <h3>🔬 System Engine Modules</h3>
+                                <p>Toggle high-fidelity engines ON/OFF for this cohort. Disabled engines are safely skipped — no crash risk.</p>
+                            </div>
+                            <div style={{
+                                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
+                            }}>
+                                {ENGINE_MODULE_TOGGLES.map(t => {
+                                    const isOn = engineModuleToggles[t.key];
+                                    return (
+                                        <button
+                                            key={t.key}
+                                            type="button"
+                                            title={t.tooltip}
+                                            onClick={() => setEngineModuleToggles(prev => ({ ...prev, [t.key]: !prev[t.key] }))}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 6,
+                                                padding: '7px 10px', borderRadius: 8, cursor: 'pointer',
+                                                border: isOn ? '1.5px solid rgba(16,185,129,0.4)' : '1.5px solid rgba(100,116,139,0.2)',
+                                                background: isOn ? 'rgba(16,185,129,0.08)' : 'rgba(15,23,42,0.3)',
+                                                transition: 'all 0.15s', textAlign: 'left',
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '1rem', flexShrink: 0 }}>{t.icon}</span>
+                                            <span style={{
+                                                flex: 1, fontSize: '0.72rem', fontWeight: 700,
+                                                color: isOn ? '#4ade80' : '#64748b',
+                                            }}>
+                                                {t.label}
+                                            </span>
+                                            <span style={{
+                                                width: 8, height: 8, borderRadius: '50%',
+                                                background: isOn ? '#10b981' : '#334155',
+                                                flexShrink: 0,
+                                            }} />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                            <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
+                                <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, true])))}
+                                    style={{ fontSize: '0.65rem', color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                    ● Enable All
+                                </button>
+                                <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, false])))}
+                                    style={{ fontSize: '0.65rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                    ○ Disable All
+                                </button>
+                                <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, t.default])))}
+                                    style={{ fontSize: '0.65rem', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                    ↺ Reset Defaults
+                                </button>
+                            </div>
+                        </section>
 {/* ── Section 3.9: Side Tracks ── */}
                         {sideTrackCatalog.length > 0 && (
                             <section className={styles.configSection}>
@@ -917,7 +1153,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <option value="female">👩‍💼 Victoria Muressons (Female)</option>
                                             <option value="male">👨‍💼 Alexander Muressons (Male)</option>
                                         </select>
-                                        <span style={{ fontSize: '0.62rem', color: '#64748b' }}>
+                                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
                                             5 questions · 6-dimension spider diagram · narrative feedback
                                         </span>
                                     </div>
@@ -952,7 +1188,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         </section>
                         </AccordionItem>
 
-                        <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing">
+                        <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing" isOpen={openTab === 'interventions'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 4: Team Interventions ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
@@ -1054,12 +1290,34 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     </span>
                                 </div>
                             )}
+
+                            {pacingMode === 'scheduled' && (
+                                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                    <label style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Round Unlock Schedule</label>
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', maxHeight: '200px', overflowY: 'auto', paddingRight: '4px' }}>
+                                        {[...Array(10)].map((_, i) => (
+                                            <div key={i + 1} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--bg-card)', padding: '6px 10px', borderRadius: '6px', border: '1px solid var(--border-subtle)' }}>
+                                                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', width: '60px' }}>Round {i + 1}</span>
+                                                <input
+                                                    type="datetime-local"
+                                                    value={roundSchedules[i + 1] || ''}
+                                                    onChange={e => setRoundSchedules(prev => ({ ...prev, [i + 1]: e.target.value }))}
+                                                    style={{ flex: 1, padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.75rem' }}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                        Rounds will automatically unlock for players at the specified times.
+                                    </span>
+                                </div>
+                            )}
                         </section>
 
                         
                         </AccordionItem>
 
-                        <AccordionItem id="pedagogy" title="5. Pedagogy &amp; Analytics" summary="Toggles and Visibility">
+                        <AccordionItem id="pedagogy" title="5. Pedagogy &amp; Analytics" summary="Toggles and Visibility" isOpen={openTab === 'pedagogy'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 5: Pedagogical Scaffolding ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
@@ -1156,7 +1414,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                         </AccordionItem>
 
-                        <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort">
+                        <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTab === 'lock'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
                             <div style={{ padding: '0.5rem 0' }}>
                                 <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '12px 16px', borderRadius: 8, color: '#fcd34d', fontSize: '0.85rem', display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '1rem' }}>
                                     <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>⚠️</span>

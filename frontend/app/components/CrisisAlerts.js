@@ -48,7 +48,7 @@ const DEFAULT_CONFIG = {
       '• Board members questioning capital allocation competence\n\n' +
       'Every dollar spent from this point forward must demonstrate clear ROI. ' +
       'Non-essential sustainability investments should be reviewed for deferral.\n\n' +
-      'The board expects a treasury recovery plan by end of quarter.',
+      'The board expects a treasury recovery plan by end of period.',
   },
 };
 

@@ -112,7 +112,7 @@
 
 .selectorRound {
     font-family: var(--font-mono);
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: var(--accent-cyan);
     font-weight: 700;
 }
@@ -198,7 +198,7 @@
 }
 
 .cardStatus {
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     font-weight: 800;
     letter-spacing: 0.06em;
     text-transform: uppercase;
@@ -263,7 +263,7 @@
 }
 
 .metricLabel {
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -296,7 +296,7 @@
 }
 
 .buSectionTitle {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -318,7 +318,7 @@
 }
 
 .buName {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: capitalize;
     color: var(--accent-cyan);
@@ -330,7 +330,7 @@
     display: flex;
     gap: var(--space-sm);
     font-family: var(--font-mono);
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     color: var(--text-secondary);
 }
 
@@ -343,7 +343,7 @@
 }
 
 .flagTag {
-    font-size: 0.52rem;
+    font-size: 0.68rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
@@ -355,7 +355,7 @@
 }
 
 .flagMore {
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     font-weight: 600;
     color: var(--text-muted);
     padding: 2px 6px;
@@ -370,7 +370,7 @@
 
 .sessionIdCode {
     font-family: var(--font-mono);
-    font-size: 0.55rem;
+    font-size: 0.68rem;
     color: var(--text-muted);
     opacity: 0.6;
 }

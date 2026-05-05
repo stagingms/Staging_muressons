@@ -1,0 +1,113 @@
+/* ConsequencePreview.module.css */
+
+.previewContainer {
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 16px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+.previewContainer::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(245,158,11,0.4), transparent);
+}
+.emptyState {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; padding: 30px 20px; color: #64748b;
+  font-size: 13px; text-align: center;
+}
+.emptyIcon { font-size: 28px; opacity: 0.5; }
+.previewHeader {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 14px;
+}
+.previewTitle {
+  font-size: 14px; font-weight: 600; color: #e2e8f0; margin: 0;
+}
+.optionBadge {
+  padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
+  background: rgba(99,102,241,0.2); color: #818cf8; border: 1px solid rgba(99,102,241,0.3);
+}
+.section { margin-bottom: 14px; }
+.sectionTitle {
+  font-size: 11px; font-weight: 600; color: #94a3b8; margin: 0 0 8px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.impactRow {
+  display: flex; align-items: center; gap: 8px; padding: 3px 0;
+}
+.impactLabel {
+  font-size: 11px; color: #94a3b8; width: 120px; flex-shrink: 0;
+  text-transform: capitalize; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.impactBarTrack {
+  flex: 1; height: 8px; background: rgba(148,163,184,0.08);
+  border-radius: 4px; position: relative; overflow: hidden;
+}
+.impactBarFill {
+  position: absolute; top: 0; height: 100%; border-radius: 4px;
+  transition: width 0.4s ease;
+}
+.impactBarCenter {
+  position: absolute; left: 50%; top: 0; width: 1px; height: 100%;
+  background: rgba(148,163,184,0.3);
+}
+.impactValue {
+  font-size: 11px; font-weight: 700; width: 60px; text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.reactionRow {
+  display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+  border-radius: 6px; font-size: 12px; margin-bottom: 4px;
+}
+.severity_critical { background: rgba(239,68,68,0.1); border-left: 3px solid #ef4444; }
+.severity_high { background: rgba(245,158,11,0.1); border-left: 3px solid #f59e0b; }
+.severity_medium { background: rgba(59,130,246,0.1); border-left: 3px solid #3b82f6; }
+.reactionNpc { color: #e2e8f0; font-weight: 600; }
+.reactionAction { color: #94a3b8; margin-left: auto; }
+.tippingRow {
+  display: flex; align-items: center; gap: 8px; padding: 3px 0;
+}
+.tippingLabel {
+  font-size: 11px; color: #94a3b8; width: 70px; text-transform: capitalize;
+}
+.tippingTrack {
+  flex: 1; height: 6px; background: rgba(148,163,184,0.1);
+  border-radius: 3px; overflow: hidden;
+}
+.tippingFill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.5s ease, background 0.3s ease;
+}
+.tippingTier {
+  font-size: 10px; font-weight: 700; width: 55px; text-align: right;
+  text-transform: capitalize;
+}
+.mrProjection {
+  background: rgba(30,41,59,0.5); border-radius: 8px; padding: 10px 12px;
+}
+.mrRow {
+  display: flex; justify-content: space-between; padding: 3px 0;
+  font-size: 12px; color: #94a3b8;
+}
+.mrValue { font-weight: 700; color: #e2e8f0; }
+.mrDelta { font-weight: 700; font-size: 14px; }
+.framingBadge {
+  margin-top: 10px; padding: 6px 10px; border-radius: 6px;
+  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);
+  font-size: 11px; color: #fcd34d; text-align: center;
+}
+
+/* Light mode */
+@media (prefers-color-scheme: light) {
+  .previewContainer { background: rgba(255,255,255,0.85); border-color: rgba(148,163,184,0.25); }
+  .previewTitle { color: #1e293b; }
+  .impactLabel { color: #64748b; }
+  .reactionNpc { color: #1e293b; }
+  .mrProjection { background: rgba(241,245,249,0.6); }
+  .mrValue { color: #1e293b; }
+}

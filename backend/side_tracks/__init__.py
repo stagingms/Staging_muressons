@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Side Track Registry & Dispatcher
+﻿"""
+Muressons Global Corporation — Side Track Registry & Dispatcher
 
 Central registry for all side simulation tracks.
 God Mode controls which tracks are globally available.

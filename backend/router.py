@@ -1,5 +1,5 @@
 """
-Muressons Global Command — API Router
+Muressons Global Corporation — API Router
 Simulation endpoints: start, dashboard, commit-turn, round-config.
 """
 
@@ -12,7 +12,7 @@ import copy
 import database as db
 import materiality_db as mat_db
 from engine import process_tick
-from round_logic import pre_tick, post_tick
+from round_logic import pre_tick, post_tick, run_new_engines
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
 from config import MASTER_PASSWORD
@@ -83,6 +83,18 @@ _session_players: dict[str, list[dict]] = {}
 
 # ── ITEM 4: Per-session commit rate limiter ──
 _commit_timestamps: dict[str, float] = {}
+
+# ── FIX-QA-003: Per-session async lock to prevent race conditions ──
+# When two players in the same session submit simultaneously, the lock
+# ensures they are serialized and the second commit sees the first's state.
+import asyncio as _asyncio
+_commit_locks: dict[str, _asyncio.Lock] = {}
+
+def _get_commit_lock(session_id: str) -> _asyncio.Lock:
+    """Get or create a per-session asyncio lock for commit serialization."""
+    if session_id not in _commit_locks:
+        _commit_locks[session_id] = _asyncio.Lock()
+    return _commit_locks[session_id]
 
 @router.get("/public/sessions", summary="List active public sessions")
 async def get_active_sessions():
@@ -508,7 +520,160 @@ async def start_simulation(body: StartSessionRequest):
 
 
 # ─────────────────────────────────────────────────────────────────
-# GET /api/simulations/{session_id}/session-info
+# POST /api/simulations/solo-start
+# Creates a self-contained solo/demo session for self-paced study.
+# Bypasses facilitator gating and auto-seeds all 10 round configs.
+# ─────────────────────────────────────────────────────────────────
+
+class SoloStartRequest(BaseModel):
+    player_name: str = "Solo Player"
+    decision_paradigm: str = "legacy_abc"
+    currency_symbol: str = "$"
+
+@router.post(
+    "/solo-start",
+    response_model=StartSessionResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Start a self-contained solo/demo session (no facilitator required)",
+)
+async def solo_start_simulation(body: SoloStartRequest):
+    """
+    Creates a fully self-contained solo session for self-paced learners.
+
+    Key differences from /start:
+    - No facilitator_id required — bypasses all facilitator gating.
+    - No cohort-count limit check.
+    - All 10 rounds are pre-unlocked (free pacing).
+    - Round options are auto-seeded so the Strategic Options panel is never empty.
+    - Session is tagged is_solo=True and expires in 24 hours.
+    """
+    from datetime import date, timedelta
+
+    _req_paradigm = (body.decision_paradigm or "legacy_abc").strip()
+    _VALID_PARADIGMS = {"legacy_abc", "multi_toggles", "advanced_climate", "healthcare", "un_sdg"}
+    if _req_paradigm not in _VALID_PARADIGMS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid decision_paradigm '{_req_paradigm}'. Valid: {sorted(_VALID_PARADIGMS)}",
+        )
+
+    # Use a unique name so duplicate-name guard doesn't block repeated solo starts
+    import uuid as _uuid
+    cohort_name = f"Solo — {body.player_name} ({_uuid.uuid4().hex[:6].upper()})"
+    end_date_str = (date.today() + timedelta(days=1)).isoformat()
+
+    try:
+        result = await db.create_session(
+            cohort_name=cohort_name,
+            facilitator_id=None,          # No facilitator required
+            loan_interest_rate=0.12,
+            player_id=None,
+            parent_cohort_id=None,
+            decision_paradigm=_req_paradigm,
+            currency_symbol=body.currency_symbol or "$",
+            end_date=end_date_str,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create solo session: {exc}",
+        )
+
+    session_id = str(result["session_id"])
+
+    # ── Tag session as solo + set free-play pacing (all rounds unlocked) ──
+    import database_memory as _dm
+    sess = _dm._sessions.get(session_id)
+    if sess:
+        sess["is_solo"] = True
+        sess["pacing_mode"] = "free_play"
+        sess["player_name"] = body.player_name
+        _dm._persist()
+
+    # ── Pre-unlock all rounds for this solo session ──
+    from admin_shared import _round_pacing
+    _round_pacing[session_id] = {
+        "mode": "free",
+        "unlocked_round": 999,
+        "interval_seconds": 0,
+        "next_unlock_at": None,
+        "schedule": [],
+        "_timer_tasks": [],
+        "_timer_task": None,
+        "set_by": None,
+    }
+
+    # ── Pre-seed round configs so the Strategic Options panel is never empty ──
+    # We fetch all 10 rounds and store them on the session for the frontend
+    # to retrieve via GET /api/simulations/{session_id}/solo-round-configs
+    try:
+        all_round_configs = {}
+        for rnum in range(1, 11):
+            if _req_paradigm == "un_sdg":
+                from sdg_configs import get_sdg_round_config
+                rcfg = get_sdg_round_config(rnum)
+            elif _req_paradigm == "healthcare":
+                from healthcare_configs import get_healthcare_round_config
+                rcfg = get_healthcare_round_config(rnum)
+            elif _req_paradigm == "multi_toggles":
+                from pillar_configs import get_pillar_config
+                rcfg = get_pillar_config(rnum) or get_round_config(rnum)
+            else:
+                rcfg = get_round_config(rnum)
+            if rcfg:
+                all_round_configs[str(rnum)] = {
+                    "round_number": rnum,
+                    "title": rcfg.get("title"),
+                    "theme": rcfg.get("theme"),
+                    "crisis": rcfg.get("crisis"),
+                    "options": rcfg.get("options"),
+                    "special_rules": rcfg.get("special_rules", {}),
+                    "paradigm": _req_paradigm,
+                }
+        if sess:
+            sess["_solo_round_configs"] = all_round_configs
+            _dm._persist()
+    except Exception as rc_exc:
+        print(f"[WARN] solo-start: failed to pre-seed round configs: {rc_exc}")
+
+    print(f"[solo-start] Created solo session {session_id} for '{body.player_name}' paradigm={_req_paradigm}")
+
+    return StartSessionResponse(
+        session_id=session_id,
+        round_number=1,
+        global_state=GlobalStateOut(**result["global_state"]),
+        business_units=[_bu_out(bu) for bu in result["business_units"]],
+    )
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/solo-round-configs
+# Returns all pre-seeded round configs for a solo session
+# ─────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/solo-round-configs",
+    summary="Get all pre-seeded round configs for a solo session",
+)
+async def get_solo_round_configs(session_id: str):
+    """
+    Returns all 10 rounds' option sets pre-seeded at solo session creation.
+    Used by the player cockpit to populate DecisionModal without extra fetches.
+    """
+    import database_memory as _dm
+    sess = _dm._sessions.get(session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if not sess.get("is_solo"):
+        raise HTTPException(status_code=400, detail="Not a solo session")
+    return {
+        "session_id": session_id,
+        "round_configs": sess.get("_solo_round_configs", {}),
+        "is_solo": True,
+    }
+
+
+
 # Returns per-session metadata: currency_symbol, scenario_preset, paradigm
 # ─────────────────────────────────────────────────────────────────
 
@@ -548,6 +713,7 @@ async def get_session_info(session_id: str):
         "difficulty_tier": session.get("difficulty_tier", "advanced"),
         "parent_cohort_id": parent_id,
         "ending_pathway": ending_pathway,
+        "pacing_mode": (parent.get("pacing_mode", "free_play") if parent_id and parent else session.get("pacing_mode", "free_play")),
     }
 
 
@@ -611,11 +777,21 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     6. Persists the new immutable state and audit log.
     7. Returns the next-round state.
     """
+    # ── FIX-QA-003: Per-session commit mutex (prevents race conditions) ──
+    # Reject concurrent commits for the same session outright.
+    commit_lock = _get_commit_lock(session_id)
+    if commit_lock.locked():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Another commit is in progress for this session. Please wait.",
+        )
+    await commit_lock.acquire()
     # ── ITEM 4: Per-session rate limiting (5s cooldown) ───────
     import time as _time
     now = _time.time()
     last_commit = _commit_timestamps.get(session_id, 0)
     if now - last_commit < 5.0:
+        commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Rate limited. Wait 5 seconds between commits.",
@@ -796,6 +972,9 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     else:
         _crisis_source = "baseline"
         _crisis_label = "✅ Baseline — Full audit completed"
+    # ── PHASE-1: Inject difficulty tier into engine input ─────
+    _session_difficulty = (session_info or {}).get("difficulty_tier", "standard")
+    current_global.setdefault("active_event_flags", {})["difficulty_tier"] = _session_difficulty
     # ── Run the tick engine ──────────────────────────────────
     tick_result = process_tick(
         current_global=current_global,
@@ -924,6 +1103,21 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         previous_flags=current_global.get("active_event_flags", {}),
     )
     events.update(post_events)
+
+    # ── NEW ENGINES: Process all improvement modules ──────────
+    # Inject data needed by balance sheet engine (CAPEX & dividends)
+    events["decisions_raw"] = decisions_raw
+    events["dividends_paid"] = body.dividends_paid
+    try:
+        new_engine_events = run_new_engines(
+            round_number=current_round,
+            global_state=new_global,
+            bu_states=new_bus,
+            events=events,
+        )
+        events.update(new_engine_events)
+    except Exception as exc:
+        print(f"[WARN] New engines batch failed: {exc}")
 
     # Ensure active_event_flags contains everything
     new_global["active_event_flags"] = events
@@ -1098,7 +1292,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
                     "message": (
                         f"⚠️ BOARD WARNING: EBITDA (${current_ebitda:,.0f}) is "
                         f"{shortfall_pct}% below the board's target of ${target_ebitda:,.0f}. "
-                        f"The Chairman expects a credible improvement plan by next quarter. "
+                        f"The Chairman expects a credible improvement plan by next period. "
                         f"Failure to deliver may result in a leadership review."
                     ),
                     "reputation_penalty": -3,
@@ -1179,6 +1373,9 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
                     parent_sess["commit_notifications"] = commit_log[-100:]
     except Exception as exc:
         print(f"[WARN] Facilitator notification failed: {exc}")
+
+    # ── FIX-QA-003: Release commit lock after all processing ──
+    commit_lock.release()
 
     return CommitTurnResponse(
         session_id=session_id,
@@ -1531,8 +1728,7 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
 
     # ── Stakeholder Panel Survey Fee (tiered pricing) ──────────────────────────
     if body.consultant_used:
-        panel_issue_count = getattr(body, "panel_issue_count", 4)  # default 4 for backward compat
-        panel_issue_count = max(1, min(8, panel_issue_count))
+        panel_issue_count = max(1, min(8, body.panel_issue_count))
         tier_break = panel_config.get("tier_break", 4)
         base_fee = panel_config.get("base_fee_per_issue_usd", 250_000)
         extended_fee = panel_config.get("extended_fee_per_issue_usd", 500_000)
@@ -1659,6 +1855,23 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
     # Unlock the module gate
     global_state["csrd_completed"] = True
 
+    # ── Set materiality_aligned / materiality_ignored flags ────────────────────
+    # These are read by:
+    #   - _post_r10_grand_finale  → +0.10 M_R bonus for materiality_aligned
+    #   - _post_r3_scope3         → Green Bond pricing (-$500K / +$1M)
+    # Aligned = ≥80% Q1 accuracy AND did not choose Option C governance posture
+    r2_gov = global_state.get("r2_governance_choice", "")
+    is_aligned = (full_accuracy >= 0.80) and (r2_gov != "option_c")
+    flags = global_state.setdefault("active_event_flags", {})
+    if is_aligned:
+        flags["materiality_aligned"] = True
+        flags.pop("materiality_ignored", None)
+        global_state["materiality_status"] = "aligned"
+    else:
+        flags["materiality_ignored"] = True
+        flags.pop("materiality_aligned", None)
+        global_state["materiality_status"] = "ignored"
+
     # ── ESRS Debrief Card ─────────────────────────────────────────────────────
     # Post-submission regulatory literacy card explaining the scoring rationale.
     q1_correct_ids = list(q1_submission.intersection(q1_target_issue_ids))
@@ -1705,9 +1918,11 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
         msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,}.")
 
     return MaterialitySubmissionResponse(
+        success=True,
         allocated_budget=allocated_budget,
         corporate_treasury=global_state["corporate_treasury"],
-        message=" ".join(msg_parts)
+        message=" ".join(msg_parts),
+        debrief=global_state["r2_esrs_debrief"],
     )
 
 
@@ -1730,7 +1945,7 @@ def _collect_flags_from_state(flags_dict: dict) -> set:
 # Stakeholder Power-Interest Grid (Round 1 Minigame)
 # ─────────────────────────────────────────────────────────────────
 
-from stakeholder_map import evaluate_stakeholder_map, get_stakeholder_list, get_master_config
+from stakeholder_map import evaluate_stakeholder_map, get_stakeholder_list, get_master_config, evaluate_stakeholder_map_for_session, get_stakeholders_for_session
 
 
 class StakeholderMapSubmission(BaseModel):
@@ -1743,7 +1958,22 @@ class StakeholderMapSubmission(BaseModel):
     tags=["Simulation"],
     summary="Get stakeholder list for the drag-and-drop bank",
 )
-async def get_stakeholders():
+async def get_stakeholders(session_id: str = None):
+    """Returns the stakeholder bank. If session_id is provided and has
+    BU substitutions, returns the vertical-specific stakeholder set."""
+    if session_id:
+        latest = await db.fetch_latest_state(session_id)
+        if latest:
+            gs = latest["global_state"]
+            stakeholders = get_stakeholders_for_session(gs)
+            return {"stakeholders": [
+                {
+                    "id": s["id"], "name": s["name"], "icon": s["icon"],
+                    "description": s["description"],
+                    "intel_dossier": s.get("intel_dossier", []),
+                }
+                for s in stakeholders
+            ]}
     return {"stakeholders": get_stakeholder_list()}
 
 
@@ -1754,7 +1984,14 @@ async def get_stakeholders():
 )
 async def submit_stakeholder_map(session_id: str, body: StakeholderMapSubmission):
     # Evaluate against master (C4: graduated scoring, C12: treasury penalty)
-    result = evaluate_stakeholder_map(body.mapping)
+    # Session-aware: uses vertical stakeholders if BU substitutions are active
+    latest_for_eval = await db.fetch_latest_state(session_id)
+    if latest_for_eval:
+        result = evaluate_stakeholder_map_for_session(
+            body.mapping, latest_for_eval["global_state"]
+        )
+    else:
+        result = evaluate_stakeholder_map(body.mapping)
 
     latest = await db.fetch_latest_state(session_id)
     if latest:
@@ -2132,7 +2369,7 @@ async def get_peer_leaderboard(session_id: str):
     """
     Returns an anonymized leaderboard of all players in the same cohort.
     The requesting player is highlighted with isYou=True.
-    For solo/demo sessions, returns empty list.
+    For solo/demo sessions, generates AI benchmark players for comparison.
     """
     # Get session info to find parent cohort
     session_info = await db.get_session_info(session_id)
@@ -2140,10 +2377,74 @@ async def get_peer_leaderboard(session_id: str):
         return {"leaderboard": [], "message": "Session not found"}
 
     parent_id = session_info.get("parent_cohort_id")
-    if not parent_id:
-        # Solo session — no peers
-        return {"leaderboard": [], "message": "Solo session — no peers to compare"}
 
+    # ── Solo session: Generate AI benchmark players ──────────────
+    if not parent_id:
+        latest = await db.fetch_latest_state(session_id)
+        if not latest:
+            return {"leaderboard": [], "message": "No simulation data yet"}
+        gs = latest["global_state"]
+        player_treasury = float(gs.get("corporate_treasury", 25_000_000))
+        player_rep = float(gs.get("group_reputation", 50))
+        player_round = gs.get("round_number", 1)
+        player_carbon = int(gs.get("tco2e_emissions", 0))
+        player_synergy = float(gs.get("synergy_multiplier", 1.0))
+        player_bonus = gs.get("bonus_score", 0)
+        player_name = session_info.get("player_name", "Your Team") if session_info else "Your Team"
+
+        import random as _rng
+        # Seed with session_id hash so AI players are consistent across refreshes
+        seed = hash(session_id) & 0xFFFFFFFF
+        _rng.seed(seed + player_round)
+
+        # Generate 3 AI benchmark players with varied strategies
+        ai_profiles = [
+            {"name": "🤖 AI Strategist (Balanced)", "treasury_mult": 1.08, "rep_mult": 0.95, "carbon_mult": 0.85, "synergy_mult": 1.05},
+            {"name": "🤖 AI Optimizer (Growth)", "treasury_mult": 1.20, "rep_mult": 0.80, "carbon_mult": 1.15, "synergy_mult": 0.90},
+            {"name": "🤖 AI Guardian (ESG)", "treasury_mult": 0.85, "rep_mult": 1.15, "carbon_mult": 0.70, "synergy_mult": 1.10},
+        ]
+
+        leaderboard = []
+        # Add player first
+        leaderboard.append({
+            "rank": 0,
+            "name": player_name or "Your Team",
+            "treasury": player_treasury,
+            "reputation": player_rep,
+            "co2": player_carbon,
+            "bonus_score": player_bonus,
+            "trend": "→",
+            "isYou": True,
+        })
+
+        for prof in ai_profiles:
+            noise_t = _rng.uniform(-0.05, 0.05)
+            noise_r = _rng.uniform(-3, 3)
+            ai_treasury = round(player_treasury * prof["treasury_mult"] + noise_t * player_treasury, 2)
+            ai_rep = round(min(100, max(5, player_rep * prof["rep_mult"] + noise_r)), 1)
+            ai_carbon = max(0, int(player_carbon * prof["carbon_mult"] + _rng.randint(-50, 50)))
+            ai_bonus = max(0, player_bonus + _rng.randint(-500, 500))
+
+            leaderboard.append({
+                "rank": 0,
+                "name": prof["name"],
+                "treasury": ai_treasury,
+                "reputation": ai_rep,
+                "co2": ai_carbon,
+                "bonus_score": ai_bonus,
+                "trend": _rng.choice(["↑", "→", "↓"]),
+                "isYou": False,
+                "isAI": True,
+            })
+
+        # Sort by treasury descending and assign ranks
+        leaderboard.sort(key=lambda x: x["treasury"], reverse=True)
+        for i, entry in enumerate(leaderboard):
+            entry["rank"] = i + 1
+
+        return {"leaderboard": leaderboard, "ai_benchmark": True}
+
+    # ── Multiplayer: Real peer leaderboard ──────────────────────
     # Find all sibling sessions (same parent)
     try:
         from database_memory import _sessions, _global_states
@@ -3154,3 +3455,450 @@ async def get_commit_notifications(session_id: str):
         "notifications": notifications[-20:],  # Last 20
         "total": len(notifications),
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  NEW ENGINE ENDPOINTS
+#  API surface for the improvement modules implemented in Batch 1-3.
+# ═══════════════════════════════════════════════════════════════
+
+# ── SI-4: TCFD Scenario Analysis ──────────────────────────────
+
+@router.get(
+    "/{session_id}/tcfd-scenarios",
+    summary="Run TCFD climate scenario analysis on current portfolio",
+)
+async def get_tcfd_scenarios(session_id: str, scenario_id: str = None):
+    """
+    Run TCFD-aligned climate scenario analysis.
+    If scenario_id is provided, run that single scenario.
+    Otherwise, run all three and return a comparison matrix.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+    bio_state = gs.get("biodiversity_state")
+
+    from tcfd_scenarios import run_scenario_analysis, get_scenario_comparison
+
+    if scenario_id:
+        result = run_scenario_analysis(scenario_id, bus, gs, bio_state)
+        if "error" in result:
+            raise HTTPException(status_code=400, detail=result["error"])
+        return result
+    else:
+        return get_scenario_comparison(bus, gs, bio_state)
+
+
+# ── SE-1: Board Governance — Vote on Resolution ──────────────
+
+@router.post(
+    "/{session_id}/board-vote",
+    summary="Submit a board vote on a shareholder resolution",
+)
+async def board_vote(session_id: str, body: dict):
+    """
+    Vote on a pending shareholder resolution.
+    Body: { "resolution_id": "...", "recommendation": "support" | "oppose" }
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+    board = gs.get("board_governance")
+    if not board:
+        raise HTTPException(status_code=400, detail="Board governance not initialised")
+
+    resolution_id = body.get("resolution_id")
+    recommendation = body.get("recommendation", "support")
+
+    from board_governance import simulate_board_vote, SHAREHOLDER_RESOLUTIONS
+
+    resolution = next((r for r in SHAREHOLDER_RESOLUTIONS if r["id"] == resolution_id), None)
+    if not resolution:
+        raise HTTPException(status_code=404, detail=f"Resolution '{resolution_id}' not found")
+
+    result = simulate_board_vote(board, resolution, recommendation, gs)
+
+    # Apply impacts if passed
+    if result["passed"]:
+        impacts = result.get("impact", {})
+        if "reputation" in impacts:
+            gs["group_reputation"] = min(100, round(gs.get("group_reputation", 50) + impacts["reputation"], 2))
+        if "esg_linked_compensation_pct" in impacts:
+            board["esg_linked_compensation_pct"] = impacts["esg_linked_compensation_pct"]
+        if "tnfd_level" in impacts:
+            bio = gs.get("biodiversity_state", {})
+            bio["tnfd_disclosure_level"] = impacts["tnfd_level"]
+
+        gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) - result.get("cost", 0), 2)
+
+    # Persist
+    gs["board_governance"] = board
+    await db.update_latest_global_state(session_id, gs, bus)
+
+    return result
+
+
+# ── SE-2: Supply Chain — Conduct Audit ────────────────────────
+
+@router.post(
+    "/{session_id}/supply-chain-audit",
+    summary="Conduct a supply chain due diligence audit",
+)
+async def supply_chain_audit(session_id: str, body: dict):
+    """
+    Conduct a supply chain audit.
+    Body: { "audit_depth": 1 | 2 | 3 }
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+    sc = gs.get("supply_chain")
+    if not sc:
+        raise HTTPException(status_code=400, detail="Supply chain not initialised")
+
+    audit_depth = body.get("audit_depth", 1)
+    if audit_depth not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="audit_depth must be 1, 2, or 3")
+
+    from supply_chain_network import conduct_supply_chain_audit
+
+    result = conduct_supply_chain_audit(sc, audit_depth, gs)
+    gs["supply_chain"] = sc
+    await db.update_latest_global_state(session_id, gs, bus)
+
+    return result
+
+
+# ── SI-5: Org Politics — Coalition Check ──────────────────────
+
+@router.post(
+    "/{session_id}/coalition-check",
+    summary="Check C-suite coalition support for a decision",
+)
+async def coalition_check(session_id: str, body: dict):
+    """
+    Check which C-suite members support or oppose a proposed decision.
+    Body: { "decision_tags": ["cost_reduction", "science_based_targets"], "estimated_cost": 5000000 }
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    org = gs.get("org_politics")
+    if not org:
+        raise HTTPException(status_code=400, detail="Org politics not initialised")
+
+    from org_politics import evaluate_csuite_support
+
+    result = evaluate_csuite_support(
+        org,
+        body.get("decision_tags", []),
+        body.get("estimated_cost", 0),
+        gs,
+    )
+    return result
+
+
+# ── Meadows Leverage Points — Full Session Analysis ──────────
+
+@router.get(
+    "/{session_id}/leverage-analysis",
+    summary="Meadows leverage points analysis for debrief",
+)
+async def leverage_analysis(session_id: str):
+    """
+    Analyse the full session against Meadows' 12 Leverage Points.
+    Best used post-game for debrief.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+
+    from meadows_leverage import (
+        analyse_session_leverage_points,
+        detect_archetypes,
+        classify_learning_loop,
+    )
+
+    decision_history = gs.get("decision_history", [])
+    leverage = analyse_session_leverage_points(decision_history, gs, bus)
+
+    flags = gs.get("active_event_flags", {})
+    archetypes = detect_archetypes(gs, bus, flags)
+
+    mental_model_history = gs.get("mental_model_history", [])
+    learning_loop = classify_learning_loop(mental_model_history, decision_history)
+
+    return {
+        "leverage_analysis": leverage,
+        "system_archetypes": archetypes,
+        "learning_loop_classification": learning_loop,
+        "theory_reference": "Meadows, D. (2008). Thinking in Systems: A Primer.",
+    }
+
+
+# ── SE-8: Dynamic Cases ──────────────────────────────────────
+
+@router.get(
+    "/{session_id}/contextual-cases",
+    summary="Get context-aware real-world case studies",
+)
+async def get_contextual_cases(session_id: str, max_cases: int = 3):
+    """Return real-world case studies relevant to the player's current state."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+    round_number = latest.get("round_number", 1)
+
+    from dynamic_cases import select_contextual_cases
+
+    cases = select_contextual_cases(gs, bus, round_number, max_cases=max_cases)
+    return {"cases": cases, "round": round_number}
+
+
+# ── SE-7: Regulatory Sandbox — Activate Regulation ───────────
+
+@router.post(
+    "/{session_id}/regulatory-sandbox/activate",
+    summary="Activate a regulatory instrument in sandbox mode",
+)
+async def activate_regulation(session_id: str, body: dict):
+    """
+    Activate a regulation in the sandbox.
+    Body: { "instrument_id": "carbon_tax", "parameters": {"rate_per_tonne": 75} }
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+
+    from regulatory_sandbox import create_sandbox_state, activate_regulation as _activate, REGULATORY_INSTRUMENTS
+
+    if "regulatory_sandbox" not in gs:
+        gs["regulatory_sandbox"] = create_sandbox_state()
+        gs["regulatory_sandbox"]["sandbox_mode"] = True
+
+    sandbox = gs["regulatory_sandbox"]
+    instrument_id = body.get("instrument_id")
+    custom_params = body.get("parameters", {})
+    round_number = latest.get("round_number", 1)
+
+    result = _activate(sandbox, instrument_id, custom_params, round_number)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    gs["regulatory_sandbox"] = sandbox
+    await db.update_latest_global_state(session_id, gs, bus)
+
+    # Audit log — captured in GodModeAuditLog under 🧪 Sandbox filter
+    try:
+        from admin_router import _audit as _god_audit
+        _god_audit(
+            "regulatory_sandbox_activated",
+            actor="facilitator",
+            details={
+                "session_id": session_id,
+                "instrument_id": instrument_id,
+                "parameters": custom_params,
+                "round": round_number,
+                "complexity_index": result.get("complexity_index"),
+                "capture_risk": result.get("capture_risk"),
+            },
+        )
+    except Exception:
+        pass  # Non-critical — don't let audit failure break the activation
+
+    return result
+
+
+
+@router.get(
+    "/{session_id}/regulatory-sandbox/instruments",
+    summary="List available regulatory instruments",
+)
+async def list_instruments(session_id: str):
+    """Return all available regulatory instruments and their parameters."""
+    from regulatory_sandbox import REGULATORY_INSTRUMENTS
+    return {"instruments": REGULATORY_INSTRUMENTS}
+
+
+# ── Biodiversity & Balance Sheet Data ─────────────────────────
+
+@router.get(
+    "/{session_id}/biodiversity",
+    summary="Get biodiversity state and history",
+)
+async def get_biodiversity(session_id: str):
+    """Return the current biodiversity state for the session."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+    bio = latest["global_state"].get("biodiversity_state", {})
+    return {"biodiversity": bio}
+
+
+@router.get(
+    "/{session_id}/balance-sheet",
+    summary="Get balance sheet state and history",
+)
+async def get_balance_sheet(session_id: str):
+    """Return the current balance sheet for the session.
+    Auto-initializes from BU states if not yet created by engine tick."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+    gs = latest["global_state"]
+    bs = gs.get("balance_sheet")
+    if not bs or not bs.get("total_assets"):
+        # Initialize balance sheet from current BU states so dashboard shows data pre-commit
+        try:
+            from balance_sheet import create_initial_balance_sheet, process_balance_sheet_tick
+            bus = latest["bu_states"]
+            bs = create_initial_balance_sheet(bus)
+            # Sync cash from treasury
+            bs["current_assets"]["cash_and_equivalents"] = gs.get("corporate_treasury", 0)
+            # Run one tick to populate totals
+            bs, _ = process_balance_sheet_tick(
+                bs, gs, bus,
+                {"csf_this_round": 0, "total_capex_allocated": 0, "dividends_paid": 0,
+                 "remediation_events": [], "tipping_tier": "none"},
+                latest.get("round_number", 1),
+            )
+            gs["balance_sheet"] = bs
+            await db.update_latest_global_state(session_id, gs, bus)
+        except Exception:
+            bs = {}
+    return {"balance_sheet": bs}
+
+
+@router.get(
+    "/{session_id}/board-governance",
+    summary="Get board governance state",
+)
+async def get_board_governance(session_id: str):
+    """Return board composition, effectiveness, and governance history."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+    board = latest["global_state"].get("board_governance", {})
+    return {"board_governance": board}
+
+
+@router.get(
+    "/{session_id}/supply-chain",
+    summary="Get supply chain network state",
+)
+async def get_supply_chain(session_id: str):
+    """Return the 3-tier supply chain network state."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+    sc = latest["global_state"].get("supply_chain", {})
+    return {"supply_chain": sc}
+
+
+@router.get(
+    "/{session_id}/npc-stakeholders",
+    summary="Get NPC stakeholder states",
+)
+async def get_npc_stakeholders(session_id: str):
+    """Return all NPC stakeholder satisfaction and actions."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+    npc = latest["global_state"].get("npc_stakeholders", {})
+    return {"npc_stakeholders": npc}
+
+
+
+# ── Extended Horizon Mode (SI-3) ────────────────────────────────
+
+@router.post(
+    "/{session_id}/extend",
+    summary="Activate Extended Horizon Mode (Rounds 11–20)",
+)
+async def activate_extended_mode(session_id: str):
+    """
+    Activates Extended Horizon Mode (SI-3).
+    Sets extended_horizon_mode=True, clears game_over, and advances
+    round_number to 11 so the simulation loop continues seamlessly.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+
+    gs["extended_horizon_mode"] = True
+    gs["game_over"] = False
+    gs["game_over_reason"] = None
+
+    await db.update_latest_global_state(session_id, gs, bus)
+
+    # Advance to round 11 — reuse the existing advance-round mechanism
+    from branching_engine import get_extended_round_config
+    r11 = get_extended_round_config(11) or {}
+    await db.advance_round(session_id, 11)
+
+    return {
+        "ok": True,
+        "extended_horizon_mode": True,
+        "new_round": 11,
+        "round_title": r11.get("title", "Year 3 Q3: Extended Horizon"),
+        "round_theme": r11.get("theme", ""),
+        "message": "Extended Horizon activated. Rounds 11–20 are now unlocked.",
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  PLAYER-FACING ANNOTATIONS — Facilitator notes visible to students
+#  Visibility controlled by facilitator via admin toggle.
+# ═════════════════════════════════════════════════════════════════
+
+@router.get("/{session_id}/annotations", summary="Get annotations visible to the player")
+async def get_player_annotations(session_id: str):
+    """Returns annotations for this session that the facilitator has
+    marked as visible to students. Respects the session-level visibility toggle."""
+    import database_memory as db_mem
+    from admin_router import _annotations
+
+    # Find the parent cohort session to check visibility toggle
+    sess = db_mem._sessions.get(session_id, {})
+    parent_id = sess.get("parent_cohort_id", session_id)
+    parent_sess = db_mem._sessions.get(parent_id, sess)
+
+    # Check if facilitator has enabled annotations visibility for students
+    if not parent_sess.get("annotations_player_visible", False):
+        return {"annotations": []}
+
+    # Get annotations for the parent cohort (not the player sub-session)
+    all_annotations = _annotations.get(parent_id, [])
+
+    # Filter to those explicitly marked as visible_to_students (or all if the toggle is on)
+    visible = [
+        a for a in all_annotations
+        if a.get("visible_to_students", True)  # Default to visible when toggle is on
+    ]
+
+    return {"annotations": visible}
+

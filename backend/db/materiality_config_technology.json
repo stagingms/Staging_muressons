@@ -1,0 +1,133 @@
+{
+  "consultant_fee_usd": 1200000,
+  "issues": [
+    {
+      "id": "eu_ai_act_compliance",
+      "title": "EU AI Act Compliance (High-Risk Systems)",
+      "hover_description": "EU AI Act in force from Aug 2024, phased enforcement through 2026-2027. High-risk AI systems (recruitment, credit, biometrics) require conformity assessment, human oversight, and transparency documentation. Fines up to \u20ac30M or 3% global revenue. Both high financial AND high societal (fundamental rights) materiality. ESRS S1 + EU AI Act Art. 9.",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 6000000,
+      "esrs_topic": "S4",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "data_privacy_surveillance",
+      "title": "Data Privacy & Surveillance Risk",
+      "hover_description": "GDPR mega-fines (up to 4% global revenue). User data harvesting for ad targeting. EU Data Act 2025 creates additional portability obligations. ESRS S4 + G1 mandatory.",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 4500000,
+      "esrs_topic": "S4",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "cloud_energy_scope2",
+      "title": "Cloud Infrastructure Energy & Scope 2",
+      "hover_description": "Data centres consume 1-2% of global electricity. Hyperscaler dependency creates Scope 2 exposure. RE100 commitments require 100% renewable matching. Carbon tax at $250/ton makes this financially material. ESRS E1.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 8000000,
+      "esrs_topic": "E1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "medium",
+      "severity_score": 4,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "digital_divide",
+      "title": "Digital Divide & Accessibility Gap",
+      "hover_description": "Product inaccessibility for 1.3B disabled users globally. EU Web Accessibility Directive + EAA (European Accessibility Act) enforcement. High societal; medium financial. ESRS S4.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 1500000,
+      "esrs_topic": "S4",
+      "value_chain_scope": "downstream",
+      "time_horizon": "medium",
+      "severity_score": 4,
+      "likelihood_score": 3,
+      "is_ambiguous": true
+    },
+    {
+      "id": "cybersecurity_resilience_tech",
+      "title": "Cybersecurity & Operational Resilience",
+      "hover_description": "NIS2 Directive mandatory from Oct 2024. Ransomware exposure. High financial risk (operational disruption + fines). Societal impact: moderate. ESRS G1.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 5000000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 4,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "competitor_ai_platform",
+      "title": "Competitor AI Platform Market Share",
+      "hover_description": "Pure competitive/financial risk. No direct ESG harm. Rapid AI commoditisation. ESRS 2 SBM-3.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 2000000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 2,
+      "likelihood_score": 2,
+      "is_ambiguous": false
+    },
+    {
+      "id": "tech_social_media",
+      "title": "Annual Social Media ESG Campaign",
+      "hover_description": "Marketing spend. No material ESG outcome. Greenwashing risk if structural issues unresolved.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 15000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    },
+    {
+      "id": "tech_exec_travel",
+      "title": "Executive Travel Carbon Offsets",
+      "hover_description": "Symbolic. Cloud energy is orders of magnitude larger. Greenwashing red flag.",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 25000,
+      "esrs_topic": "E1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    }
+  ],
+  "interdependencies": [
+    {
+      "source": "eu_ai_act_compliance",
+      "target": "data_privacy_surveillance",
+      "severity": "high",
+      "description": "AI Act high-risk classification amplifies GDPR data processing obligations"
+    }
+  ]
+}

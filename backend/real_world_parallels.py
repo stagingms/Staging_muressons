@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Real World Parallel Cards
+﻿"""
+Muressons Global Corporation — Real World Parallel Cards
 Case briefs linking each round to a real corporate event.
 Bridges simulation-reality transfer gap (Baldwin & Ford, 1988).
 

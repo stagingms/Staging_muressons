@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Engine Unit Tests
+Muressons Global Corporation — Engine Unit Tests
 Run: pytest tests/test_engine.py -v
 """
 
@@ -94,7 +94,7 @@ SEED_GLOBAL = {
     "group_reputation": 50,
     "synergy_multiplier": 1.0,
     "cost_of_capital": 0.05,
-    "inflation_index": 0.025,
+    "inflation_index": 0.05,
     "competitor_ebitda": 13_200_000,
     "active_event_flags": {},
 }
@@ -240,8 +240,8 @@ class TestNaturalDecay:
 
     def test_decay_when_not_invested(self):
         rep, sl = apply_natural_decay(50, 60, invested=False)
-        assert rep == round(50 * 0.98, 2)
-        assert sl == round(60 * 0.98, 2)
+        assert rep == round(50 * 0.96, 2)
+        assert sl == round(60 * 0.96, 2)
 
 
 # ── Integration: process_tick ───────────────────────────────────
@@ -317,9 +317,9 @@ class TestInflation:
         result = process_tick(SEED_GLOBAL, SEED_BUS, decisions)
         # Macro noise adds ±0.2% to inflation, so check approximate value
         applied = result["events"]["inflation_index_applied"]
-        assert abs(applied - 0.025) < 0.003  # ±0.2% noise band
+        assert abs(applied - 0.05) < 0.005  # ±0.4% noise band (6-month period)
         # Check inflation_index is persisted in new global state
-        assert abs(result["global_state"]["inflation_index"] - 0.025) < 0.003
+        assert abs(result["global_state"]["inflation_index"] - 0.05) < 0.005
 
 
 # ── FEATURE 2: Diminishing Returns ─────────────────────────────
@@ -536,15 +536,15 @@ class TestSupplyChainContagion:
 class TestCompetitorPressure:
     def test_competitor_grows(self):
         new_comp, _ = calc_competitor_pressure(10_000_000, 10_000_000)
-        assert new_comp == 10_300_000  # 3% growth
+        assert new_comp == 10_600_000  # 6% growth (6-month period)
 
     def test_relative_advantage_equal(self):
-        _, advantage = calc_competitor_pressure(10_000_000, 10_300_000)
+        _, advantage = calc_competitor_pressure(10_000_000, 10_600_000)
         assert advantage == 1.0  # player matches competitor growth
 
     def test_player_falling_behind(self):
         _, advantage = calc_competitor_pressure(10_000_000, 8_000_000)
-        new_comp = round(10_000_000 * 1.03, 2)
+        new_comp = round(10_000_000 * 1.06, 2)
         assert advantage == round(8_000_000 / new_comp, 4)
         assert advantage < 1.0
 

@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Supply Chain Side Track
+﻿"""
+Muressons Global Corporation — Supply Chain Side Track
 
 7-round deep dive into supply chain management:
   SC-R1: Supplier Mapping & Tier Analysis

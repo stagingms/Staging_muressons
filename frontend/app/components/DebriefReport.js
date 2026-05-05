@@ -180,6 +180,7 @@ export default function DebriefReport({ sessionId }) {
     const trendHistory = data?.trend_history || [];
     const latestTrend = trendHistory.length > 0 ? trendHistory[trendHistory.length - 1] : null;
     const analysis = useMemo(() => generateCriticalAnalysis(latestTrend, trendHistory), [latestTrend, trendHistory]);
+    const regulatoryInstruments = data?.regulatory_instruments || [];
 
     if (!sessionId) {
         return (
@@ -269,7 +270,7 @@ export default function DebriefReport({ sessionId }) {
 
                 {/* ──── Tab: Critical Analysis ──── */}
                 {activeTab === 'analysis' && (
-                    <AnalysisSection analysis={analysis} trendHistory={trendHistory} />
+                    <AnalysisSection analysis={analysis} trendHistory={trendHistory} regulatoryInstruments={regulatoryInstruments} />
                 )}
             </div>
         </div>
@@ -492,7 +493,7 @@ function TrendsSection({ trendHistory }) {
 // ═══════════════════════════════════════════════════════
 //  CRITICAL ANALYSIS SECTION
 // ═══════════════════════════════════════════════════════
-function AnalysisSection({ analysis, trendHistory }) {
+function AnalysisSection({ analysis, trendHistory, regulatoryInstruments = [] }) {
     if (!analysis || analysis.length === 0) {
         return (
             <div className={styles.empty}>
@@ -560,6 +561,34 @@ function AnalysisSection({ analysis, trendHistory }) {
                             <tr><td>Synergy</td><td className={styles.summaryValue}>{latest.synergy.toFixed(2)}×</td></tr>
                             <tr><td>NCD</td><td className={styles.summaryValue}>{latest.ncd.toFixed(1)}</td></tr>
                             <tr><td>Social License</td><td className={styles.summaryValue} style={{ color: healthColor(latest.social_license >= 75 ? 'good' : latest.social_license >= 50 ? 'warn' : 'bad') }}>{latest.social_license.toFixed(1)}</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            )}
+            {/* Regulatory Sandbox Instruments */}
+            {regulatoryInstruments.length > 0 && (
+                <div className={styles.summaryTable} style={{ marginTop: '1.5rem' }}>
+                    <h4>⚖️ Active Regulatory Sandbox Instruments</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <td><strong>Instrument</strong></td>
+                                <td><strong>Theory</strong></td>
+                                <td><strong>Activated</strong></td>
+                                <td className={styles.summaryValue}><strong>Treasury Impact</strong></td>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {regulatoryInstruments.map((reg) => (
+                                <tr key={reg.id}>
+                                    <td>{reg.name || reg.id}</td>
+                                    <td style={{ fontSize: '0.78rem', color: '#64748b', fontStyle: 'italic' }}>{reg.theory}</td>
+                                    <td>{reg.activated_round != null ? `Round ${reg.activated_round}` : '—'}</td>
+                                    <td className={styles.summaryValue} style={{ color: reg.treasury_impact < 0 ? '#ef4444' : '#10b981' }}>
+                                        {reg.treasury_impact !== 0 ? `$${(reg.treasury_impact / 1e6).toFixed(1)}M` : '—'}
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>

@@ -250,7 +250,7 @@
 /* ── Status chip ─────────────────────────────────────────────── */
 .statusChip {
     margin-top: 0.75rem;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-align: center;
     padding: 0.3rem 0;
@@ -260,7 +260,7 @@
 }
 .statusChipOn {
     margin-top: 0.75rem;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     letter-spacing: 0.1em;
     text-align: center;
     padding: 0.3rem 0;
@@ -311,7 +311,7 @@
 }
 
 .sliderName {
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: #00ff88;
@@ -426,7 +426,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 
 .terminal::before {
     content: 'SYSTEM_OUTPUT v2.4.1 > ';
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     color: #00ff88;
     opacity: 0.35;
     display: block;

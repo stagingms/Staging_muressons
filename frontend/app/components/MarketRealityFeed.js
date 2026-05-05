@@ -11,9 +11,11 @@ import styles from './ExecutiveCockpit.module.css';
  *  - traceConsequence: (text) => { round, decision, roundTitle } | null  — consequence tracing
  *  - traceTooltipIdx: number | null — which item tooltip is showing
  *  - onTraceHover: (idx | null) => void — hover handler
+ *  - roundTier: 'foundation'|'crisis'|'integration'|'finale' — for default filter
  *
  * DV-04: Items are click-to-expand for full text.
  * PED-01: Consequence traceability — hover shows causal decision link.
+ * #6: Contextual Market Feed Filtering — severity filter chips.
  */
 
 const SEVERITY_META = {
@@ -22,14 +24,25 @@ const SEVERITY_META = {
   foreshadow: { icon: '📰', badge: 'BREAKING', badgeColor: '#f59e0b', badgeBg: 'rgba(245,158,11,0.1)' },
 };
 
+const FILTER_CHIPS = [
+  { id: 'all', label: 'All', icon: '📋' },
+  { id: 'alerts', label: 'Alerts', icon: '⚠️' },
+  { id: 'data', label: 'Data', icon: '📊' },
+];
+
 export default function MarketRealityFeed({
   items = [],
   activeAlert = null,
   traceConsequence = null,
   traceTooltipIdx = null,
   onTraceHover = null,
+  roundTier = 'foundation',
 }) {
   const [expandedItems, setExpandedItems] = useState({});
+  // #6: Default filter — ALL for early rounds, ALERTS for late rounds
+  const [feedFilter, setFeedFilter] = useState(
+    roundTier === 'integration' || roundTier === 'finale' ? 'alerts' : 'all'
+  );
 
   const toggleExpand = (idx) => {
     setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -71,10 +84,47 @@ export default function MarketRealityFeed({
     );
   }
 
+  // #6: Filter items based on selected chip
+  const filteredItems = feedFilter === 'all'
+    ? items
+    : feedFilter === 'alerts'
+      ? items.filter(item => item.type === 'alert' || item.isForeshadow)
+      : items.filter(item => item.type === 'info' && !item.isForeshadow);
+
+  const alertCount = items.filter(i => i.type === 'alert' || i.isForeshadow).length;
+  const dataCount = items.filter(i => i.type === 'info' && !i.isForeshadow).length;
+
   return (
     <div className={styles.feedContainer}>
-      <div className={styles.feedTitle}>📰 Market Reality Feed</div>
-      {items.map((item, i) => {
+      <div className={styles.feedTitle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span>📰 Market Reality Feed</span>
+        {/* #6: Severity Filter Chips */}
+        {items.length > 2 && (
+          <div style={{ display: 'flex', gap: 3 }}>
+            {FILTER_CHIPS.map(chip => {
+              const count = chip.id === 'all' ? items.length : chip.id === 'alerts' ? alertCount : dataCount;
+              return (
+                <button
+                  key={chip.id}
+                  onClick={() => setFeedFilter(chip.id)}
+                  style={{
+                    padding: '1px 6px', borderRadius: 4, fontSize: '0.48rem', fontWeight: 700,
+                    border: feedFilter === chip.id ? '1px solid rgba(94,234,212,0.4)' : '1px solid rgba(148,163,184,0.12)',
+                    background: feedFilter === chip.id ? 'rgba(94,234,212,0.08)' : 'transparent',
+                    color: feedFilter === chip.id ? '#5eead4' : '#64748b',
+                    cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase',
+                    letterSpacing: '0.04em', transition: 'all 0.15s ease',
+                    display: 'flex', alignItems: 'center', gap: 3,
+                  }}
+                >
+                  {chip.icon} {chip.label} <span style={{ opacity: 0.6 }}>({count})</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      {filteredItems.map((item, i) => {
         const effectiveType = item.isForeshadow ? 'foreshadow' : item.type;
         const meta = SEVERITY_META[effectiveType] || SEVERITY_META.info;
         const isExpanded = !!expandedItems[i];
@@ -165,6 +215,17 @@ export default function MarketRealityFeed({
           </div>
         );
       })}
+      {filteredItems.length === 0 && items.length > 0 && (
+        <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center', fontSize: '0.65rem' }}>
+          No {feedFilter === 'alerts' ? 'alerts' : 'data items'} this round
+          <button
+            onClick={() => setFeedFilter('all')}
+            style={{ display: 'block', margin: '6px auto 0', padding: '3px 10px', borderRadius: 4, border: '1px solid rgba(148,163,184,0.15)', background: 'transparent', color: '#5eead4', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}
+          >
+            Show All ({items.length})
+          </button>
+        </div>
+      )}
       {items.length === 0 && (
         <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center' }}>
           <span style={{ fontSize: '1.2rem', display: 'block', marginBottom: 4 }}>📭</span>
@@ -174,4 +235,3 @@ export default function MarketRealityFeed({
     </div>
   );
 }
-

@@ -22,6 +22,7 @@ export default function StochasticDiceRoll({
   damageAmount = 12000000,
   fmtCurrency = (v) => `$${(v / 1e6).toFixed(1)}M`,
   onDismiss,
+  eventName = 'CLIMATE EVENT',  // Override for specific event type (e.g. 'TYPHOON', 'DROUGHT')
 }) {
   const [phase, setPhase] = useState('rolling'); // rolling → revealing → done
   const [displayNumber, setDisplayNumber] = useState(0);
@@ -78,7 +79,7 @@ export default function StochasticDiceRoll({
           fontSize: '0.8rem', fontWeight: 800, textTransform: 'uppercase',
           letterSpacing: '0.12em', color: '#94a3b8', marginBottom: 12,
         }}>
-          🎲 STOCHASTIC CLIMATE EVENT
+          🎲 STOCHASTIC {eventName}
         </div>
 
         {/* Dice Display */}
@@ -164,7 +165,7 @@ export default function StochasticDiceRoll({
               color: outcome ? '#f87171' : '#4ade80',
               marginBottom: 4,
             }}>
-              {outcome ? '🌪️ CYCLONE HITS' : '🌤️ CYCLONE MISSES'}
+              {outcome ? `🌪️ ${eventName} HITS` : `🌤️ ${eventName} MISSES`}
             </div>
             <div style={{
               fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.5,

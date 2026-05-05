@@ -26,7 +26,7 @@
     letter-spacing: 0.08em;
     color: #e2e8f0;
     text-transform: uppercase;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
 }
 
 .poolIcon {
@@ -179,7 +179,7 @@
 
 .buRevenue {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: #475569;
 }
 
@@ -247,7 +247,7 @@
 
 .footerLabel {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.58rem;
+    font-size: 0.68rem;
     color: #475569;
 }
 
@@ -280,7 +280,7 @@
 }
 
 :global([data-theme="light"]) .statLabel {
-    color: #94a3b8;
+    color: #64748b;
 }
 
 :global([data-theme="light"]) .statValue {
@@ -324,7 +324,7 @@
 }
 
 :global([data-theme="light"]) .buRevenue {
-    color: #94a3b8;
+    color: #64748b;
 }
 
 :global([data-theme="light"]) .allocAmount {
@@ -346,5 +346,5 @@
 }
 
 :global([data-theme="light"]) .footerLabel {
-    color: #94a3b8;
+    color: #64748b;
 }

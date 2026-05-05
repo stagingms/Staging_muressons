@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Hardening Integration Tests
+Muressons Global Corporation — Hardening Integration Tests
 Tests for the 25 audit-driven improvements implemented in the hardening phase.
 
 Test Categories:
@@ -80,7 +80,7 @@ class TestMacroRateEnvironment:
         from engine import calc_macro_rate_environment
         result = calc_macro_rate_environment(10)
         assert result["regime"] == "crisis"
-        assert result["coc_modifier"] == 0.01
+        assert result["coc_modifier"] == 0.02  # 2% crisis premium for 6-month round
 
 
 class TestFXImpact:
@@ -101,7 +101,7 @@ class TestFXImpact:
         from engine import calc_fx_impact
         bus = [{"bu_id": "pharma", "revenue_base": 100_000_000}]
         result = calc_fx_impact(bus, round_number=5)
-        assert -0.06 <= result["fx_index"] <= 0.06
+        assert -0.08 <= result["fx_index"] <= 0.08  # 7% band for 6-month period
 
 
 class TestDSOLag:

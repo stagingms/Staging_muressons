@@ -1,5 +1,5 @@
 """
-Muressons Global Command — COMPREHENSIVE SIMULATION TEST
+Muressons Global Corporation — COMPREHENSIVE SIMULATION TEST
 =========================================================
 Tests EVERY strategic option (A, B, C) for EVERY round (1-10)
 across ALL paradigms: legacy_abc, multi_toggles, advanced_climate, healthcare.
@@ -184,7 +184,10 @@ def advance_to_round(sid: str, paradigm: str, target_round: int) -> bool:
         result = commit_one_round(sid, paradigm, "option_b")
         if result is None:
             return False
+        # Respect the 5-second per-session rate limiter
+        time.sleep(5.2)
     return True
+
 
 
 def validate_kpis(gs: dict, bus: list[dict], paradigm: str, round_num: int, option: str) -> list[str]:

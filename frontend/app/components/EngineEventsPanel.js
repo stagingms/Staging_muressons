@@ -350,7 +350,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
     const bp = roundEvents.board_pressure_event;
     events.push({
       icon: '🏛️', color: '#f59e0b',
-      text: bp.message || 'Board of Directors is exerting strategic pressure this quarter.',
+      text: bp.message || 'Board of Directors is exerting strategic pressure this period.',
       tooltip: EVENT_TOOLTIPS.board_pressure,
     });
   }
@@ -365,6 +365,140 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
         icon: '⚡', color: '#ef4444',
         text: `DEFINITIVE stakeholders (high power + legitimacy + urgency): ${names}. Immediate engagement required.`,
         tooltip: EVENT_TOOLTIPS.stakeholder_salience,
+      });
+    }
+  }
+
+  // ── BALANCE SHEET ENGINE EVENTS (42-44) ──────────────────────
+
+  // 42. Covenant Status Warning
+  if (roundEvents?.covenant_warning || flags.covenant_warning) {
+    const warning = roundEvents?.covenant_warning || flags.covenant_warning;
+    const bs = globalState?.balance_sheet || {};
+    const cStatus = bs.covenant_status || 'green';
+    const ndEbitda = bs.net_debt_to_ebitda;
+    if (cStatus === 'amber') {
+      events.push({
+        icon: '📊', color: '#f59e0b',
+        text: `Debt covenant WATCH LIST — Net Debt/EBITDA at ${ndEbitda?.toFixed(2) || '?'}× (threshold: 3.5×). ${typeof warning === 'string' ? warning : 'Review leverage before committing further.'}`,
+        tooltip: 'Your Net Debt / EBITDA ratio is approaching the lender covenant ceiling. If breached, your cost of capital will increase and the revolving credit facility may be restricted.',
+      });
+    } else if (cStatus === 'red') {
+      events.push({
+        icon: '🔴', color: '#ef4444',
+        text: `Debt covenant BREACH — 30-day cure period. Net Debt/EBITDA at ${ndEbitda?.toFixed(2) || '?'}× (limit: 4.5×). Interest surcharge applied.`,
+        tooltip: 'Your debt covenants are breached. Lenders have activated a 30-day cure period with a +2% interest surcharge. Reduce leverage by selling assets, cutting dividends, or paying down debt.',
+      });
+    } else if (cStatus === 'breached') {
+      events.push({
+        icon: '🚨', color: '#dc2626',
+        text: `COVENANT ACCELERATION — Lenders may demand full repayment. Net Debt/EBITDA: ${ndEbitda?.toFixed(2) || '?'}× (>4.5×). Severe treasury penalty.`,
+        tooltip: 'Your debt covenants are severely breached. Under standard LMA terms, lenders can accelerate the full revolving credit facility, demanding immediate repayment. This is a solvency crisis.',
+      });
+    }
+  }
+
+  // 43. Goodwill Impairment
+  if (roundEvents?.balance_sheet?.goodwill_impairment > 0) {
+    const impairment = (roundEvents.balance_sheet.goodwill_impairment / 1_000_000).toFixed(1);
+    events.push({
+      icon: '📉', color: '#ef4444',
+      text: `Goodwill impairment: $${impairment}M written off. Low reputation has eroded brand goodwill.`,
+      tooltip: 'IAS 36 requires annual goodwill impairment testing. When group reputation drops below 40, goodwill is reduced — this reflects investor loss of confidence in the acquisition premium.',
+    });
+  }
+
+  // 44. Stranded Asset Exposure (from BS engine)
+  if (globalState?.balance_sheet?.stranded_asset_exposure > 0) {
+    const bs = globalState.balance_sheet;
+    const exposurePct = ((bs.stranded_asset_exposure / (bs.total_assets || 1)) * 100).toFixed(1);
+    if (parseFloat(exposurePct) > 5) {
+      events.push({
+        icon: '🏚️', color: '#f59e0b',
+        text: `Stranded asset exposure: ${exposurePct}% of total assets at climate transition risk.`,
+        tooltip: 'Based on Carbon Tracker methodology, assets with high carbon intensity face write-down risk as the economy transitions. Reduce carbon intensity to lower exposure.',
+      });
+    }
+  }
+
+  // 45. Covenant Surcharge (treasury penalty)
+  if (roundEvents?.covenant_surcharge > 0) {
+    const surcharge = (roundEvents.covenant_surcharge / 1_000_000).toFixed(2);
+    const rate = ((roundEvents.covenant_surcharge_rate || 0) * 100).toFixed(0);
+    events.push({
+      icon: '🏦', color: '#ef4444',
+      text: `Covenant penalty: $${surcharge}M interest surcharge (+${rate}% annualised on net debt).`,
+      tooltip: 'When debt covenants are breached, lenders impose a penalty interest rate surcharge. This directly reduces your treasury. Reduce leverage to avoid ongoing penalties.',
+    });
+  }
+
+  // ── SYSTEMIC RISK ENGINE EVENTS (46-50) ──────────────────────
+
+  // 46. ESG-Adjusted WACC
+  const waccDiag = flags.esg_adjusted_wacc;
+  if (waccDiag && typeof waccDiag === 'object' && waccDiag.adjusted_wacc) {
+    const adjusted = (waccDiag.adjusted_wacc * 100).toFixed(2);
+    const base = (waccDiag.base_wacc * 100).toFixed(2);
+    const carbonPrem = waccDiag.carbon_premium ? (waccDiag.carbon_premium * 100).toFixed(2) : '0.00';
+    const govPrem = waccDiag.gov_premium ? (waccDiag.gov_premium * 100).toFixed(2) : '0.00';
+    const sloDiscount = waccDiag.slo_discount ? (waccDiag.slo_discount * 100).toFixed(2) : '0.00';
+    const isStressed = waccDiag.adjusted_wacc > 0.08;
+    events.push({
+      icon: isStressed ? '📊' : '📈',
+      color: isStressed ? '#ef4444' : waccDiag.adjusted_wacc > 0.06 ? '#f59e0b' : '#10b981',
+      text: `ESG-Adjusted WACC: ${adjusted}% (base ${base}% + carbon ${carbonPrem}% + governance ${govPrem}% − SLO discount ${sloDiscount}%).${isStressed ? ' ⚠️ WACC above 8% — lender covenant triggers tightening.' : ''}`,
+      tooltip: 'Your cost of capital is dynamically adjusted based on ESG performance (El Ghoul et al., 2011). High carbon intensity and governance risk increase WACC; strong social license reduces it. When WACC exceeds 8%, lenders automatically tighten covenant triggers.',
+    });
+  }
+
+  // 47. Employer Brand OPEX Penalty
+  const ebPenalty = roundEvents?.employer_brand_opex_penalty || flags.employer_brand_opex_penalty;
+  if (ebPenalty && typeof ebPenalty === 'object') {
+    const totalPenalty = (ebPenalty.total_penalty / 1_000_000).toFixed(1);
+    const ebScore = ebPenalty.employer_brand_score?.toFixed(0) || '?';
+    const multPct = ((ebPenalty.multiplier || 0) * 100).toFixed(1);
+    events.push({
+      icon: '👥', color: '#ef4444',
+      text: ebPenalty.narrative || `Talent crisis — employer brand at ${ebScore}/100. Recruitment cost surcharge of $${totalPenalty}M (+${multPct}% OPEX across all ${ebPenalty.affected_bus || '?'} BUs).`,
+      tooltip: 'When your employer brand score drops below 40 (driven by reputation, burnout, and workforce readiness), ALL business units face escalating recruitment and retention costs. This models the real-world "talent flight spiral" where poor conditions compound into organisation-wide OPEX inflation.',
+    });
+  }
+
+  // 48. Systemic Tipping Point Transitions
+  const tipping = roundEvents?.systemic_tipping || flags.systemic_tipping;
+  if (tipping && tipping.transitions && tipping.transitions.length > 0) {
+    for (const trans of tipping.transitions) {
+      events.push({
+        icon: '⚠️', color: '#dc2626',
+        text: `SYSTEMIC TIPPING — ${(trans.dimension || '').toUpperCase()}: ${trans.message || 'Irreversible threshold crossed.'}`,
+        tooltip: 'Systemic tipping points are irreversible. Once crossed, permanent penalty multipliers apply for the remainder of the simulation. This models real systemic collapse where trust and ecosystem services, once lost, cannot be fully rebuilt within business-relevant timescales (Rockström et al., 2009).',
+      });
+    }
+  }
+
+  // 49. NPC Cascading Reactions
+  const cascades = roundEvents?.npc_cascades || flags.npc_cascades;
+  if (cascades && Array.isArray(cascades) && cascades.length > 0) {
+    for (const cascade of cascades) {
+      const actionLabel = (cascade.action || '').replace(/_/g, ' ');
+      events.push({
+        icon: '🔗', color: '#f97316',
+        text: `NPC CASCADE — ${cascade.npc?.replace(/_/g, ' ') || 'Stakeholder'}: ${actionLabel}. ${cascade.narrative || ''}`,
+        tooltip: 'Stakeholder reactions trigger other stakeholders — a journalist exposé can embolden activist investors, who then trigger regulator investigations. This "stakeholder spiral" models the interconnected nature of real stakeholder ecosystems.',
+      });
+    }
+  }
+
+  // 50. Foreshadowing Signals
+  const foreshadowing = roundEvents?.foreshadowing_signals || flags.foreshadowing_signals;
+  if (foreshadowing && Array.isArray(foreshadowing) && foreshadowing.length > 0) {
+    for (const signal of foreshadowing) {
+      const isPositive = signal.category === 'positive';
+      events.push({
+        icon: isPositive ? '🔮' : '⚡',
+        color: isPositive ? '#10b981' : '#f59e0b',
+        text: signal.message || `${signal.signal_id}: ${signal.category} signal detected.`,
+        tooltip: 'Foreshadowing signals indicate that a decision you made in an earlier round will have consequences in a later round. Positive signals indicate protective measures; warning signals suggest emerging vulnerabilities.',
       });
     }
   }
@@ -401,7 +535,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
         background: isOpen ? '#111827' : '#0f1729',
         borderLeft: `3px solid ${accentColor}`,
         cursor: 'pointer', transition: 'all 0.2s',
-        fontFamily: "'Inter', 'Segoe UI', sans-serif",
+        fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
       }}
     >
       <span style={{ fontSize: '1rem', flexShrink: 0 }}>{icon}</span>
@@ -428,7 +562,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
   );
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: "'Inter', 'Segoe UI', sans-serif" }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
       {/* ═══ What Happened This Round ═══ */}
       {events.length > 0 && (
         <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #1e293b' }}>

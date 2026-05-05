@@ -164,12 +164,12 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
 
     // ── Phase 1: CEO Memo ──────────────────────────────────────
     if (phase === 'memo') return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif" }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
             <div style={{ background: '#fff', maxWidth: 580, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.4)' }}>
                 {/* Letterhead */}
                 <div style={{ background: 'linear-gradient(135deg,#0f172a,#1e293b)', color: '#fff', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                        <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.5, textTransform: 'uppercase' }}>MURESSONS GLOBAL COMMAND — BOARD OF DIRECTORS</div>
+                        <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.5, textTransform: 'uppercase' }}>Muressons Global Corporation — BOARD OF DIRECTORS</div>
                         <h2 style={{ margin: '0.2rem 0 0', fontSize: '1rem', fontWeight: 800 }}>MEMORANDUM — CONFIDENTIAL</h2>
                     </div>
                     <div style={{ fontSize: '0.72rem', opacity: 0.5 }}>MODULE 3 · Q3</div>
@@ -180,7 +180,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                     </div>
                     <blockquote style={{ margin: '0 0 1.25rem', padding: '1rem 1.25rem', background: '#f8fafc', borderLeft: '4px solid #6366f1', fontSize: '0.9rem', lineHeight: 1.85, color: '#1e293b', borderRadius: '0 8px 8px 0' }}>
                         <p style={{ margin: '0 0 0.75rem' }}>
-                            <strong>The grace period is over.</strong> As of this quarter, our <strong>$40/tonne shadow price is now a levied fee</strong>.
+                            <strong>The grace period is over.</strong> As of this period, our <strong>$40/tonne shadow price is now a levied fee</strong>.
                             We have deducted this fee from the retained earnings of every business unit and pooled it into a central{' '}
                             <strong style={{ color: '#16a34a' }}>$5,000,000 Green Fund</strong>.
                         </p>
@@ -203,7 +203,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
 
     // ── Phase 2: Project Bidding ───────────────────────────────
     if (phase === 'bidding') return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif", padding: '1rem', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif", padding: '1rem', overflowY: 'auto' }}>
             <div style={{ background: '#f8fafc', maxWidth: 620, width: '100%', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
                 {/* Header bar */}
                 <div style={{ background: '#0f172a', color: '#fff', padding: '0.9rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -270,7 +270,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
 
     // ── Phase 3: MAC Curve Visual + Submit ────────────────────
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif", padding: '1rem', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.78)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif", padding: '1rem', overflowY: 'auto' }}>
             <div style={{ background: '#f8fafc', maxWidth: 580, width: '100%', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.35)', overflow: 'hidden' }}>
                 <div style={{ background: '#0f172a', color: '#fff', padding: '0.9rem 1.5rem' }}>
                     <h2 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 800 }}>Marginal Abatement Cost Curve — Board Allocation View</h2>

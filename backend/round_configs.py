@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Round Configuration Registry
+Muressons Global Corporation — Round Configuration Registry
 Centralized definitions for all 10 rounds: crisis scenarios,
 decision options, flag triggers, and validation rules.
 """
@@ -50,6 +50,9 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation": -2,
                     "carbon_intensity_delta": +2,
                     "revenue_delta": +500_000,
+                    "social_license_delta": -3,
+                    "governance_risk_delta": +5,
+                    "natural_capital_debt_delta": 0,
                 },
             },
             "option_b": {
@@ -65,6 +68,9 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation": +5,
                     "carbon_intensity_delta": -5,
                     "revenue_delta": -200_000,
+                    "social_license_delta": +5,
+                    "governance_risk_delta": -5,
+                    "natural_capital_debt_delta": 0,
                 },
             },
             "option_c": {
@@ -72,7 +78,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Phased Audit Rollout",
                 "description": (
                     "Audit Pharma and Consumer Goods now; defer Electronics "
-                    "and Software to next quarter. Balanced cost, but "
+                    "and Software to next period. Balanced cost, but "
                     "partial blind spots remain."
                 ),
                 "flags_set": ["deferred_audit"],
@@ -81,6 +87,9 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation": +2,
                     "carbon_intensity_delta": -2,
                     "revenue_delta": 0,
+                    "social_license_delta": +2,
+                    "governance_risk_delta": 0,
+                    "natural_capital_debt_delta": 0,
                 },
             },
         },
@@ -127,12 +136,13 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "flags_set": ["materiality_aligned"],
                 "ac_bonus": {"ncd_forgiveness_multiplier": 1.25, "note": "CSRD climate materiality alignment"},
                 "impacts": {
+                    "treasury": -2_500_000,
                     "reputation": +5,
                     "governance_risk_delta": -5,
                     "carbon_intensity_delta": -3,
-                    # Raised from -$300K to -$2.5M: genuine compliance cost friction
-                    # (ESRS assurance, stakeholder engagement, reporting infrastructure)
                     "revenue_delta": -2_500_000,
+                    "social_license_delta": +5,
+                    "natural_capital_debt_delta": -3,
                 },
             },
             "option_b": {
@@ -140,21 +150,24 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Strategic Exceptions",
                 "description": "Allow limited off-quadrant spending with CFO approval. Partial compliance.",
                 "flags_set": ["materiality_exceptions"],
-                "impacts": {"reputation": +2, "governance_risk_delta": -2, "carbon_intensity_delta": -1, "revenue_delta": 0},
+                "impacts": {"treasury": 0, "reputation": +2, "governance_risk_delta": -2, "carbon_intensity_delta": -1, "revenue_delta": 0, "social_license_delta": +2, "natural_capital_debt_delta": 0},
             },
             "option_c": {
                 "label": "C",
-                "title": "Ignore Materiality Framework",
+                "title": "CEO-Only Sign-Off (No Board Committee Oversight)",
                 "description": (
-                    "Business-as-usual. No materiality filter applied to capital allocation. "
-                    "⚠️ CFO Warning: 40% of materiality budget unlocked this round will be "
-                    "clawed back — governance posture must match investment rationale."
+                    "CEO approves capital allocation without board committee review or endorsement. "
+                    "⚠️ ESRS 1 §1.51 Violation: The standard requires the management body (board level) "
+                    "to oversee and endorse the materiality assessment process. CEO-only sign-off breaches "
+                    "this requirement. Institutional investors apply a risk premium to your Green Bond — "
+                    "40% of your materiality budget will be clawed back. Governance posture must match "
+                    "investment rationale under ESRS 2 GOV-1."
                 ),
                 "flags_set": ["materiality_ignored"],
                 # budget_clawback_pct is read by submit_materiality_matrix in router.py
                 # to retroactively reduce the materiality capital released this round.
                 "budget_clawback_pct": 0.40,
-                "impacts": {"reputation": -5, "governance_risk_delta": +10, "carbon_intensity_delta": +3, "revenue_delta": +400_000},
+                "impacts": {"treasury": 0, "reputation": -5, "governance_risk_delta": +10, "carbon_intensity_delta": +3, "revenue_delta": +400_000, "social_license_delta": -5, "natural_capital_debt_delta": +3},
             },
         },
     },
@@ -188,6 +201,10 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "carbon_intensity_delta": -15,
                     "supply_chain_disruption": True,
                     "revenue_delta": -800_000,
+                    "reputation": +3,
+                    "social_license_delta": +4,
+                    "governance_risk_delta": -3,
+                    "natural_capital_debt_delta": -10,
                 },
             },
             "option_b": {
@@ -203,6 +220,9 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "natural_capital_debt_delta": -15,
                     "carbon_intensity_delta": -8,
                     "revenue_delta": +300_000,
+                    "reputation": +4,
+                    "social_license_delta": +3,
+                    "governance_risk_delta": -2,
                 },
             },
             "option_c": {
@@ -216,6 +236,8 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation": -3,
                     "carbon_intensity_delta": -1,
                     "revenue_delta": +100_000,
+                    "social_license_delta": -4,
+                    "governance_risk_delta": +3,
                 },
             },
         },
@@ -245,21 +267,21 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "title": "Full Transparency & Remediation",
                 "description": "Public disclosure, factory audits, worker compensation.",
                 "flags_set": ["remediation_active"],
-                "impacts": {"treasury": -6_000_000, "reputation": +10, "social_license": +8, "carbon_intensity_delta": -4, "revenue_delta": -500_000},
+                "impacts": {"treasury": -6_000_000, "reputation": +10, "social_license": +8, "carbon_intensity_delta": -4, "revenue_delta": -500_000, "governance_risk_delta": -5, "natural_capital_debt_delta": 0},
             },
             "option_b": {
                 "label": "B",
                 "title": "Damage Control PR",
                 "description": "Hire crisis PR firm. Contains narrative but doesn't fix root cause.",
                 "flags_set": ["pr_containment"],
-                "impacts": {"treasury": -2_000_000, "reputation": +2, "social_license": -3, "carbon_intensity_delta": -1, "revenue_delta": 0},
+                "impacts": {"treasury": -2_000_000, "reputation": +2, "social_license": -3, "carbon_intensity_delta": -1, "revenue_delta": 0, "governance_risk_delta": +3, "natural_capital_debt_delta": 0},
             },
             "option_c": {
                 "label": "C",
                 "title": "Deny & Deflect",
                 "description": "Issue a denial. Cheapest option but highest contagion risk.",
                 "flags_set": ["deny_and_deflect"],
-                "impacts": {"treasury": 0, "reputation": -15, "social_license": -10, "carbon_intensity_delta": +4, "revenue_delta": -1_000_000},
+                "impacts": {"treasury": 0, "reputation": -15, "social_license": -10, "carbon_intensity_delta": +4, "revenue_delta": -1_000_000, "governance_risk_delta": +8, "natural_capital_debt_delta": +5},
             },
         },
     },
@@ -304,6 +326,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": -8_000_000,
                     "carbon_intensity_delta": +3,
                     "revenue_delta": -600_000,
+                    "reputation": +3,
                 },
             },
             "option_b": {
@@ -323,6 +346,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": -5_000_000,
                     "carbon_intensity_delta": -6,
                     "revenue_delta": +500_000,
+                    "reputation": +6,
                 },
             },
             "option_c": {
@@ -341,6 +365,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": -2_000_000,
                     "carbon_intensity_delta": +1,
                     "revenue_delta": 0,
+                    "reputation": -5,
                 },
             },
         },
@@ -374,6 +399,9 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation_delta": -20,
                     "contagion_spike": True,
                     "carbon_intensity_delta": +2,
+                    "social_license_delta": -15,
+                    "governance_risk_delta": +8,
+                    "natural_capital_debt_delta": 0,
                 },
             },
             "option_b": {
@@ -390,6 +418,8 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation_delta": +5,
                     "carbon_intensity_delta": -4,
                     "revenue_delta": +800_000,
+                    "governance_risk_delta": -5,
+                    "natural_capital_debt_delta": 0,
                 },
             },
             "option_c": {
@@ -403,6 +433,8 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "governance_risk_delta": +10,
                     "carbon_intensity_delta": 0,
                     "revenue_delta": -200_000,
+                    "social_license_delta": -3,
+                    "natural_capital_debt_delta": 0,
                 },
             },
         },
@@ -433,6 +465,8 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation": +8,
                     "carbon_intensity_delta": -8,
                     "revenue_delta": +1_000_000,
+                    "social_license_delta": +6,
+                    "governance_risk_delta": -3,
                 },
             },
             "option_b": {
@@ -446,6 +480,8 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "reputation": +4,
                     "carbon_intensity_delta": -5,
                     "revenue_delta": +600_000,
+                    "social_license_delta": +3,
+                    "governance_risk_delta": -2,
                 },
             },
             "option_c": {
@@ -494,6 +530,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "social_license_delta": +5,
                     "carbon_intensity_delta": -3,
                     "revenue_delta": +700_000,
+                    "reputation": +5,
                 },
             },
             "option_b": {
@@ -512,6 +549,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "social_license_drop_amount": -25,
                     "carbon_intensity_delta": +2,
                     "revenue_delta": -400_000,
+                    "reputation": -8,
                 },
             },
             "option_c": {
@@ -534,6 +572,7 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "revenue_delta": +300_000,
                     "generates_revenue": 5_000_000,
                     "payback_rounds": 3,
+                    "reputation": +3,
                 },
             },
 
@@ -652,6 +691,10 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": -5_000_000,
                     "carbon_intensity_delta": -3,
                     "revenue_delta": +1_000_000,
+                    "reputation": +5,
+                    "social_license_delta": +3,
+                    "governance_risk_delta": -3,
+                    "natural_capital_debt_delta": 0,
                 },
             },
             "option_b": {
@@ -667,6 +710,10 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "treasury": +10_000_000,
                     "carbon_intensity_delta": -1,
                     "revenue_delta": -500_000,
+                    "reputation": +2,
+                    "social_license_delta": -5,
+                    "governance_risk_delta": +3,
+                    "natural_capital_debt_delta": 0,
                 },
             },
             "option_c": {
@@ -683,6 +730,10 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                     "synergy_wipe": True,
                     "carbon_intensity_delta": +2,
                     "revenue_delta": -2_000_000,
+                    "reputation": -10,
+                    "social_license_delta": -12,
+                    "governance_risk_delta": +5,
+                    "natural_capital_debt_delta": +8,
                 },
             },
         },

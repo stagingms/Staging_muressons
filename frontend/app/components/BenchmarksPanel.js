@@ -44,7 +44,7 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
         }}
       >
         <span style={{
-          fontSize: '0.62rem', fontWeight: 800, color: '#38bdf8',
+          fontSize: '0.68rem', fontWeight: 800, color: '#38bdf8',
           letterSpacing: '0.08em', textTransform: 'uppercase',
           display: 'flex', alignItems: 'center', gap: 5,
         }}>
@@ -86,10 +86,10 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
                         display: 'flex', justifyContent: 'space-between',
                         alignItems: 'center', marginBottom: 3,
                       }}>
-                        <span style={{ fontSize: '0.58rem', fontWeight: 700, color: '#94a3b8' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8' }}>
                           {bm.label}
                         </span>
-                        <span style={{ fontSize: '0.55rem', fontWeight: 800, color: badgeColors[bm.badge] || '#94a3b8' }}>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: badgeColors[bm.badge] || '#94a3b8' }}>
                           {bm.badge} {bm.percentile_label}
                         </span>
                       </div>
@@ -108,7 +108,7 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
                       </div>
                       <div style={{
                         display: 'flex', justifyContent: 'space-between',
-                        fontSize: '0.55rem', color: '#64748b',
+                        fontSize: '0.68rem', color: '#64748b',
                       }}>
                         <span>Your value: <strong style={{ color: '#e2e8f0' }}>{bm.your_value} {bm.unit}</strong></span>
                         <span>{bm.insight?.split('—')[0]}</span>

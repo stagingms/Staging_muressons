@@ -186,7 +186,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
                         {label}
                     </div>
                     {/* Machine key */}
-                    <code style={{ fontSize: '0.62rem', color: 'var(--text-muted,#64748b)', fontFamily: 'var(--font-mono,monospace)', letterSpacing: '0.04em' }}>
+                    <code style={{ fontSize: '0.68rem', color: 'var(--text-muted,#64748b)', fontFamily: 'var(--font-mono,monospace)', letterSpacing: '0.04em' }}>
                         {varKey}
                     </code>
                 </div>

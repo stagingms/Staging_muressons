@@ -1,5 +1,5 @@
 """
-Muressons Global Command — Supply Chain Track: Round Configurations
+Muressons Global Corporation — Supply Chain Track: Round Configurations
 
 7 rounds of crisis scenarios covering the full supply chain management lifecycle.
 Each round follows the same ABC option structure as the main simulation,
@@ -40,7 +40,7 @@ SUPPLY_CHAIN_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
                 "A leaked audit report reveals that 60% of your Tier-2 and Tier-3 "
                 "suppliers have never been assessed for ESG compliance. An investigative "
                 "journalist is asking questions, and the EU Corporate Sustainability "
-                "Due Diligence Directive (CSDDD) enforcement begins next quarter. "
+                "Due Diligence Directive (CSDDD) enforcement begins next period. "
                 "Your current supply chain visibility extends only to direct (Tier-1) "
                 "suppliers — leaving massive blind spots in conflict minerals, forced "
                 "labour risk, and environmental impact."

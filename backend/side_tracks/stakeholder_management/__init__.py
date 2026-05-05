@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Stakeholder Management Side Track
+﻿"""
+Muressons Global Corporation — Stakeholder Management Side Track
 
 4-round deep dive into stakeholder engagement:
   SM-R1: Stakeholder Salience Mapping & Power Analysis

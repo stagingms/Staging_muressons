@@ -37,12 +37,13 @@ export default function JoinCohortModal({ sim }) {
         setJoining(true);
         setError(null);
         try {
-            await sim.startSession('Solo Session');
+            await sim.startSoloSession('Solo Player', 'legacy_abc');
         } catch (err) {
             setError(err.message || 'Failed to start solo session.');
             setJoining(false);
         }
     };
+
 
     return (
         <div className={styles.overlay}>
@@ -69,7 +70,7 @@ export default function JoinCohortModal({ sim }) {
                     <div className={styles.brandName}>
                         MURESSONS <span className={styles.brandAccent}>GLOBAL</span>
                     </div>
-                    <div className={styles.brandSubtitle}>SOVEREIGN INTELLIGENCE SYSTEMS</div>
+                    <div className={styles.brandSubtitle}>MURESSONS GLOBAL CORPORATION</div>
                 </div>
 
                 {/* Form Section */}
@@ -141,6 +142,14 @@ export default function JoinCohortModal({ sim }) {
                     >
                         {joining ? '⟳ INITIALIZING...' : 'START SOLO SESSION'}
                     </button>
+
+                    <p style={{
+                        marginTop: '1rem', fontSize: '0.68rem', color: '#475569',
+                        textAlign: 'center', lineHeight: 1.5, letterSpacing: '0.02em'
+                    }}>
+                        Your Executive Identifier (e.g. MUR-001) and Clearance Cipher are provided by your facilitator.
+                        Enter your cohort session code to join a live session.
+                    </p>
                 </div>
 
                 {/* Footer status */}

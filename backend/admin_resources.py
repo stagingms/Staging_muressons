@@ -1,5 +1,5 @@
-"""
-Muressons Global Command - Admin Resources Sub-Router (ARCH-002)
+﻿"""
+Muressons Global Corporation - Admin Resources Sub-Router (ARCH-002)
 Extracted from admin_router.py to reduce monolith size.
 
 Contains:

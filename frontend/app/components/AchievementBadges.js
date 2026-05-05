@@ -73,7 +73,7 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
                 }}>
                   <div style={{ fontSize: '1.5rem', marginBottom: 4 }}>{a.icon}</div>
                   <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#0f172a' }}>{a.title}</div>
-                  <div style={{ fontSize: '0.62rem', color: '#16a34a' }}>{a.desc}</div>
+                  <div style={{ fontSize: '0.68rem', color: '#16a34a' }}>{a.desc}</div>
                 </div>
               ))}
             </div>
@@ -95,7 +95,7 @@ export default function AchievementBadges({ globalState, roundNumber, isOpen, on
                 }}>
                   <div style={{ fontSize: '1.5rem', marginBottom: 4, filter: 'grayscale(1)' }}>{a.icon}</div>
                   <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b' }}>{a.title}</div>
-                  <div style={{ fontSize: '0.62rem', color: '#94a3b8' }}>{a.desc}</div>
+                  <div style={{ fontSize: '0.68rem', color: '#94a3b8' }}>{a.desc}</div>
                 </div>
               ))}
             </div>

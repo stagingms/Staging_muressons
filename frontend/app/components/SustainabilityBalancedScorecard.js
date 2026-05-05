@@ -220,7 +220,7 @@ const PERSPECTIVE_COLORS = {
  *  - history: array of round snapshots for review
  *  - onProceed: () => void — proceed to Boardroom Showdown
  */
-export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose, onLogout }) {
+export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose, onLogout, sessionId, onExtend }) {
     const d = data || {};
     const bus = businessUnits;
     const theme = PROFILES[d.profile] || PROFILES.fragile_giant;
@@ -233,6 +233,25 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'analysis' | 'trends' | 'tbl_matrix' | 'rounds' | 'stock' | 'leaderboard' | 'report'
     const printRef = useRef(null);
     const [leaderboard, setLeaderboard] = useState([]);
+    const [extendLoading, setExtendLoading] = useState(false);
+    const [extendError, setExtendError] = useState(null);
+
+    const handleExtendMode = async () => {
+        if (!sessionId) return;
+        setExtendLoading(true);
+        setExtendError(null);
+        try {
+            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sessionId}/extend`, {
+                method: 'POST',
+            });
+            if (!res.ok) throw new Error(await res.text());
+            onExtend?.();
+        } catch (e) {
+            setExtendError('Could not activate extended mode. Please try again.');
+        } finally {
+            setExtendLoading(false);
+        }
+    };
 
     // Compute derived KPIs
     const kpis = useMemo(() => {
@@ -497,7 +516,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muressons Global Command — Sustainability Report (Year 3)</title>
+    <title>Muressons Global Corporation — Sustainability Report (Year 3)</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; padding: 0; }
@@ -623,7 +642,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
         <!-- Footer -->
         <div class="footer">
-            <p>Muressons Global Command — Sustainability Strategy Simulation</p>
+            <p>Muressons Global Corporation — Sustainability Strategy Simulation</p>
             <p>Report generated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
         </div>
     </div>
@@ -1160,7 +1179,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     const memo = generateBoardMemo(kpis, d);
                     return (
                         <section className={styles.reportSection}>
-                            <h2 className={styles.sectionTitle}>📋 Muressons Global Command — Final Report (Year 3)</h2>
+                            <h2 className={styles.sectionTitle}>📋 Muressons Global Corporation — Final Report (Year 3)</h2>
 
                             {/* Top KPIs */}
                             <div className={styles.reportKpis}>
@@ -1273,15 +1292,53 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 })()}
 
                 {/* ── Footer ── */}
-                <div className={styles.closeRow} style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-                    <button className={styles.closeBtn} onClick={proceedAction} style={{ background: theme.gradient }}>
-                        {onProceed ? '⚖️ Proceed to Boardroom Showdown →' : 'Close Balanced Scorecard'}
-                    </button>
-                    {onLogout && !onProceed && (
-                        <button className={styles.closeBtn} onClick={onLogout} style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
-                            👋 Logout & Exit
-                        </button>
+                <div className={styles.closeRow} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'center' }}>
+
+                    {/* Extended Mode offer */}
+                    {sessionId && (
+                        <div style={{
+                            width: '100%', maxWidth: 520,
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.08))',
+                            border: '1px solid rgba(99,102,241,0.3)',
+                            borderRadius: 12, padding: '1rem 1.2rem',
+                            display: 'flex', flexDirection: 'column', gap: '0.5rem',
+                        }}>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#818cf8' }}>
+                                🚀 Extended Horizon Mode — Rounds 11–20
+                            </div>
+                            <div style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.5 }}>
+                                Continue beyond Year 3 into a full 5-year strategic horizon. Face CBAM enforcement, AI disruption waves, shareholder revolutions, and the legacy decision. Your current state carries forward.
+                            </div>
+                            {extendError && (
+                                <div style={{ fontSize: '0.72rem', color: '#f87171' }}>{extendError}</div>
+                            )}
+                            <button
+                                onClick={handleExtendMode}
+                                disabled={extendLoading}
+                                style={{
+                                    padding: '0.65rem 1.4rem', borderRadius: 8, border: 'none',
+                                    background: extendLoading ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                                    color: '#fff', fontWeight: 800, fontSize: '0.78rem',
+                                    cursor: extendLoading ? 'not-allowed' : 'pointer',
+                                    letterSpacing: '0.04em', alignSelf: 'flex-start',
+                                    boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
+                                }}
+                            >
+                                {extendLoading ? '⏳ Activating…' : '🚀 Enter Extended Mode (Rounds 11–20)'}
+                            </button>
+                        </div>
                     )}
+
+                    <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+                        <button className={styles.closeBtn} onClick={proceedAction} style={{ background: theme.gradient }}>
+                            {onProceed ? '⚖️ Proceed to Boardroom Showdown →' : 'Close Balanced Scorecard'}
+                        </button>
+                        {onLogout && !onProceed && (
+                            <button className={styles.closeBtn} onClick={onLogout} style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                                👋 Logout & Exit
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

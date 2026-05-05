@@ -98,7 +98,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
     }, [stance, spend, prob, marketShare, sessionId, onComplete]);
 
     if (phase === 'intro') return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif" }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif" }}>
             <div style={{ background: '#fff', maxWidth: 580, width: '90%', borderRadius: 12, overflow: 'hidden', boxShadow: '0 30px 80px rgba(0,0,0,0.35)' }}>
                 <div style={{ background: '#1e3a5f', color: '#fff', padding: '1rem 1.5rem' }}>
                     <div style={{ fontSize: '0.6rem', letterSpacing: '0.15em', opacity: 0.6, textTransform: 'uppercase' }}>Module 8 — VP Government Affairs</div>
@@ -118,7 +118,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
     );
 
     return (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'Inter',sans-serif", padding: '1rem', overflowY: 'auto' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 20000, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans',sans-serif", padding: '1rem', overflowY: 'auto' }}>
             <div style={{ background: '#f8fafc', maxWidth: 580, width: '100%', borderRadius: 12, boxShadow: '0 30px 80px rgba(0,0,0,0.3)', overflow: 'hidden' }}>
                 <div style={{ background: '#fff', padding: '0.9rem 1.5rem', borderBottom: '1px solid #e2e8f0' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
@@ -126,7 +126,7 @@ export default function PolicyWarRoom({ sessionId, onComplete }) {
                         <div style={{ display: 'flex', gap: '1.2rem', fontSize: '0.72rem' }}>
                             {[['LEGISLATIVE PROBABILITY', `${prob}%`], ['PROJECTED OUTCOME', outcome], ['REMAINING BUDGET', `$${(remaining / 1e6).toFixed(2)}M`]].map(([k, v]) => (
                                 <div key={k} style={{ textAlign: 'center' }}>
-                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.62rem' }}>{k}</div>
+                                    <div style={{ color: '#94a3b8', fontWeight: 600, letterSpacing: '0.06em', fontSize: '0.68rem' }}>{k}</div>
                                     <div style={{ fontWeight: 800, color: '#0f172a', fontSize: k === 'PROJECTED OUTCOME' ? '0.75rem' : 'inherit' }}>{v}</div>
                                 </div>
                             ))}

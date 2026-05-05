@@ -1,5 +1,5 @@
-"""
-Muressons Global Command — Ethics & Sustainability Track Implementation
+﻿"""
+Muressons Global Corporation — Ethics & Sustainability Track Implementation
 
 5-round deep dive: AI governance, modern slavery, greenwashing,
 biodiversity, and just transition.

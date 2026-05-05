@@ -1,0 +1,139 @@
+{
+  "consultant_fee_usd": 1000000,
+  "issues": [
+    {
+      "id": "eudr_deforestation",
+      "title": "Palm Oil & Deforestation (EUDR)",
+      "hover_description": "EU Deforestation Regulation (EUDR) enforcement from Dec 2024. Palm oil, cocoa, soy supply chains must prove deforestation-free. Non-compliance = market access ban. ESRS E4 mandatory.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 4500000,
+      "esrs_topic": "E4",
+      "value_chain_scope": "upstream",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "epr_plastic",
+      "title": "End-of-Life Plastic Packaging (EPR)",
+      "hover_description": "15% EPR levy on non-recyclable packaging. 4,200 tonnes/yr exposure. Ocean microplastics reputational risk. ESRS E5 mandatory.",
+      "category": "ecological",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 3200000,
+      "esrs_topic": "E5",
+      "value_chain_scope": "downstream",
+      "time_horizon": "short",
+      "severity_score": 4,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "child_labour_cocoa",
+      "title": "Child Labour in Cocoa/Cotton Supply Chains",
+      "hover_description": "ILO estimates 1.56M children in cocoa farming. EU CSDDD civil liability. Boycott risk is existential. Severity: HIGH. ESRS S2 mandatory.",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 6000000,
+      "esrs_topic": "S2",
+      "value_chain_scope": "upstream",
+      "time_horizon": "medium",
+      "severity_score": 5,
+      "likelihood_score": 3,
+      "is_ambiguous": false
+    },
+    {
+      "id": "product_safety_reach",
+      "title": "Product Safety & Chemical Compliance (REACH)",
+      "hover_description": "SVHC substances in personal care and household products. Recall risk + regulatory fines. ESRS E2 + consumer safety disclosure.",
+      "category": "social",
+      "financial_impact": "high",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 2800000,
+      "esrs_topic": "S4",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 5,
+      "likelihood_score": 3,
+      "is_ambiguous": false
+    },
+    {
+      "id": "living_wage_tier4",
+      "title": "Living Wage for Tier-4 Agricultural Workers",
+      "hover_description": "Gap between minimum and living wage affects 80,000+ workers in sourcing regions. High societal impact. ESRS S2 disclosure mandatory.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "high",
+      "mitigation_cost_usd": 3000000,
+      "esrs_topic": "S2",
+      "value_chain_scope": "upstream",
+      "time_horizon": "medium",
+      "severity_score": 4,
+      "likelihood_score": 4,
+      "is_ambiguous": false
+    },
+    {
+      "id": "consumer_spending_risk",
+      "title": "Consumer Spending Power / Inflation",
+      "hover_description": "Pure financial risk \u2014 macroeconomic demand compression. No direct ESG harm. ESRS 2 SBM-3 financial risk disclosure.",
+      "category": "governance",
+      "financial_impact": "high",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 1000000,
+      "esrs_topic": "G1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 3,
+      "likelihood_score": 3,
+      "is_ambiguous": false
+    },
+    {
+      "id": "retail_seasonal_csr",
+      "title": "Seasonal CSR Campaigns",
+      "hover_description": "Christmas food bank donations. Good PR; immaterial at group scale. Greenwashing risk if material issues unaddressed.",
+      "category": "social",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 100000,
+      "esrs_topic": "S1",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    },
+    {
+      "id": "retail_composting",
+      "title": "Office Composting Programme",
+      "hover_description": "Diverts ~2 tonnes of food waste/yr from landfill. Immaterial at group scale. Not ESRS-material.",
+      "category": "ecological",
+      "financial_impact": "low",
+      "societal_impact": "low",
+      "mitigation_cost_usd": 20000,
+      "esrs_topic": "E5",
+      "value_chain_scope": "own_ops",
+      "time_horizon": "short",
+      "severity_score": 1,
+      "likelihood_score": 1,
+      "is_ambiguous": false
+    }
+  ],
+  "interdependencies": [
+    {
+      "source": "eudr_deforestation",
+      "target": "child_labour_cocoa",
+      "severity": "high",
+      "description": "Same W.Africa/SE Asia sourcing regions concentrate E4 deforestation and S2 child labour risk"
+    },
+    {
+      "source": "epr_plastic",
+      "target": "product_safety_reach",
+      "severity": "medium",
+      "description": "Packaging changes expose product formulation REACH compliance gaps"
+    }
+  ]
+}

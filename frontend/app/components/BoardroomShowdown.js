@@ -6,7 +6,7 @@ import styles from './BoardroomShowdown.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 /**
- * BoardroomShowdown — The Round 10 Grand Finale modal.
+ * BoardroomShowdown � The Round 10 Grand Finale modal.
  *
  * Setting: A formal Board of Directors meeting. An activist rep from
  * "FutureFirst" tables a motion to break up Muressons.
@@ -14,7 +14,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
  * Props:
  *  - data: R10 finalReport data (extra_events from post_tick)
  *  - sessionId: current session ID
- *  - onComplete: () => void — called after submission to transition to SBSC
+ *  - onComplete: () => void � called after submission to transition to SBSC
  */
 export default function BoardroomShowdown({ data, sessionId, onComplete, onLogout }) {
     const [selectedOption, setSelectedOption] = useState(null);
@@ -30,7 +30,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
         {
             id: 'resist_integrate',
             title: 'Resist & Integrate',
-            icon: '🛡️',
+            icon: '???',
             subtitle: 'Argue that Industrial Symbiosis makes the group more resilient together.',
             description:
                 'Defend the conglomerate structure. Present evidence that cross-BU circular supply chains ' +
@@ -42,14 +42,14 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                 'Signals long-term commitment to stakeholders',
             ],
             disabled: isResistDisabled,
-            disabledReason: `Blocked: Synergy Score (${synergyScore.toFixed(0)}) ≤ 80 — insufficient integration to justify this argument.`,
+            disabledReason: `Blocked: Synergy Score (${synergyScore.toFixed(0)}) = 80 � insufficient integration to justify this argument.`,
             color: '#10b981',
             gradient: 'linear-gradient(135deg, #10b981, #059669)',
         },
         {
             id: 'strategic_spinoff',
             title: 'Strategic Spin-off',
-            icon: '🔀',
+            icon: '??',
             subtitle: 'Sell the high-carbon Electronics division to focus on Life Sciences & Software.',
             description:
                 'Accept that the Electronics division\'s carbon intensity is dragging down the group\'s ESG rating. ' +
@@ -67,14 +67,14 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
         {
             id: 'aggressive_divestment',
             title: 'Aggressive Divestment',
-            icon: '💥',
-            subtitle: 'Agree with activists — break the company into four separate entities.',
+            icon: '??',
+            subtitle: 'Agree with activists � break the company into four separate entities.',
             description:
                 'The activist argument is compelling. The market would value four pure-play companies higher ' +
                 'than one bloated conglomerate. Maximize short-term stock buyback value, even if it wipes out ' +
                 'all synergy benefits and cross-BU resilience.',
             impacts: [
-                'Synergy multiplier reset to 1.0×',
+                'Synergy multiplier reset to 1.0�',
                 'Short-term stock bump from breakup premium',
                 'Destroys all cross-BU circularity gains',
             ],
@@ -98,7 +98,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
             });
             onComplete?.();
         } catch {
-            // Backend unreachable — still proceed to SBSC
+            // Backend unreachable � still proceed to SBSC
             onComplete?.();
         } finally {
             setSubmitting(false);
@@ -116,28 +116,28 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                         background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)',
                         border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8,
                         color: '#fca5a5', fontSize: '0.72rem', fontWeight: 700,
-                        fontFamily: "'Inter', system-ui, sans-serif",
+                        fontFamily: "'DM Sans', system-ui, sans-serif",
                         cursor: 'pointer', transition: 'all 0.2s ease',
                         boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
                     }}
                     title="Logout & Exit Simulation"
                 >
-                    🚪 Logout
+                    ?? Logout
                 </button>
             )}
             <div className={styles.modal}>
-                {/* ── Header ── */}
+                {/* -- Header -- */}
                 <header className={styles.header}>
-                    <div className={styles.headerBadge}>ROUND 10 • GRAND FINALE</div>
-                    <h1 className={styles.title}>⚖️ The Boardroom Showdown</h1>
-                    <p className={styles.subtitle}>Muressons Global Command — Board of Directors Meeting, Year 3</p>
+                    <div className={styles.headerBadge}>ROUND 10 � GRAND FINALE</div>
+                    <h1 className={styles.title}>?? The Boardroom Showdown</h1>
+                    <p className={styles.subtitle}>Muressons Global Corporation � Board of Directors Meeting, Year 3</p>
                 </header>
 
-                {/* ── Phase 1: Briefing ── */}
+                {/* -- Phase 1: Briefing -- */}
                 {phase === 'briefing' && (
                     <section className={styles.briefing}>
                         <div className={styles.narrativeCard}>
-                            <div className={styles.narrativeIcon}>📢</div>
+                            <div className={styles.narrativeIcon}>??</div>
                             <div className={styles.narrativeContent}>
                                 <h2>The FutureFirst Motion</h2>
                                 <p>
@@ -146,8 +146,8 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                                 </p>
                                 <blockquote className={styles.quote}>
                                     "Distinguished board members, I table a formal motion to <em>dissolve the Muressons
-                                        conglomerate structure</em>. Our four business units — Pharmaceuticals, Electronics,
-                                    Software, and Food & Beverage — are too fundamentally different to be managed
+                                        conglomerate structure</em>. Our four business units � Pharmaceuticals, Electronics,
+                                    Software, and Food & Beverage � are too fundamentally different to be managed
                                     sustainably under one roof.
                                     <br /><br />
                                     The evidence is clear: cross-subsidisation of high-carbon assets by green divisions
@@ -195,12 +195,12 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                             className={styles.proceedBtn}
                             onClick={() => setPhase('decision')}
                         >
-                            Present Your Recommendation →
+                            Present Your Recommendation ?
                         </button>
                     </section>
                 )}
 
-                {/* ── Phase 2: Decision ── */}
+                {/* -- Phase 2: Decision -- */}
                 {phase === 'decision' && (
                     <section className={styles.decisionPhase}>
                         <h2 className={styles.phaseTitle}>Choose Your Strategic Recommendation</h2>
@@ -233,7 +233,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                                         <div className={styles.disabledNote}>{opt.disabledReason}</div>
                                     )}
                                     {selectedOption === opt.id && (
-                                        <div className={styles.selectedBadge}>✓ Selected</div>
+                                        <div className={styles.selectedBadge}>? Selected</div>
                                     )}
                                 </button>
                             ))}
@@ -244,17 +244,17 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                                 className={styles.proceedBtn}
                                 onClick={() => setPhase('plan')}
                             >
-                                Draft Your Decade Forward Plan →
+                                Draft Your Decade Forward Plan ?
                             </button>
                         )}
                     </section>
                 )}
 
-                {/* ── Phase 3: Decade Forward Plan ── */}
+                {/* -- Phase 3: Decade Forward Plan -- */}
                 {phase === 'plan' && (
                     <section className={styles.planPhase}>
                         <div className={styles.planHeader}>
-                            <h2 className={styles.phaseTitle}>📝 Recommendation & Forward Plan (Next Decade)</h2>
+                            <h2 className={styles.phaseTitle}>?? Recommendation & Forward Plan (Next Decade)</h2>
                             <div className={styles.selectedChoice}>
                                 Strategy: <strong>{OPTIONS.find(o => o.id === selectedOption)?.title}</strong>
                             </div>
@@ -272,7 +272,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                             value={decadePlan}
                             onChange={(e) => setDecadePlan(e.target.value)}
                             placeholder={
-                                "✏️ Click here and type your strategic plan...\n\n" +
+                                "?? Click here and type your strategic plan...\n\n" +
                                 "Dear Board Members,\n\n" +
                                 "Based on our 10-round simulation performance, I recommend...\n\n" +
                                 "Key evidence supporting this recommendation:\n" +
@@ -289,20 +289,20 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                                 className={styles.backBtn}
                                 onClick={() => setPhase('decision')}
                             >
-                                ← Change Selection
+                                ? Change Selection
                             </button>
                             <button
                                 className={styles.submitBtn}
                                 onClick={handleSubmit}
                                 disabled={!decadePlan.trim() || submitting}
                             >
-                                {submitting ? '⏳ Submitting...' : '📋 Submit to the Board'}
+                                {submitting ? '? Submitting...' : '?? Submit to the Board'}
                             </button>
                         </div>
 
                         {!decadePlan.trim() && (
                             <div className={styles.planWarning}>
-                                ⚠️ You must draft a strategic plan before submitting to the Board.
+                                ?? You must draft a strategic plan before submitting to the Board.
                             </div>
                         )}
                     </section>

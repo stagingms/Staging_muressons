@@ -82,7 +82,7 @@ export default function BalancedScorecardEvaluator({ scores: propScores, readOnl
     const tier = TIERS.find(t => weighted >= t.min) || TIERS[TIERS.length - 1];
 
     return (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden', fontFamily: "'Inter',sans-serif", maxWidth: 560 }}>
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden', fontFamily: "'DM Sans',sans-serif", maxWidth: 560 }}>
             {/* Header */}
             <div style={{ padding: '0.9rem 1.25rem', borderBottom: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                 <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: '#0f172a' }}>Board Assessment Scorecard</h2>

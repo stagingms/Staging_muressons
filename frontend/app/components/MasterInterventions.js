@@ -11,9 +11,25 @@ const MEDIA_TYPES = [
 
 const MEDIA_BADGE = { text: '📝', audio: '🎵', video: '🎬' };
 
+const SEED_OVERRIDES = [
+    { id: 'carbon_tax', icon: '🌍', title: 'Global Macro Shift', description: 'Toggle Year 3 Carbon Tax from $250/ton → $400/ton mid-game.', color: '#3b82f6', dangerLevel: 'HIGH', params: { new_rate: 400 }, scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'omni_tech_poach', icon: '🧲', title: 'Omni-Tech Poach', description: 'Raise Rep Threshold 65 → 75, forcing sudden Brain-Drain OPEX spike for Software BU.', color: '#f59e0b', dangerLevel: 'HIGH', params: { new_threshold: 75 }, scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'force_strike', icon: '🪧', title: 'Force Strike', description: 'Override probability engine. Guarantee a labor strike — zeroes all BU revenue.', color: '#ef4444', dangerLevel: 'CRITICAL', params: {}, scheduled_round: null, media_type: 'text', media_url: '' },
+];
+const SEED_SWIPES = [
+    { id: 'activist_threat', icon: '🗡️', label: '🗡️ The Activist Threat', trigger: 'Hoarding Cash', title: '⚠️ Activist Investor Notice', body: 'An activist fund has acquired 8% of outstanding shares. They are publicly demanding a special dividend or strategic acquisition. The board is meeting in 48 hours.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'cfo_liquidity_panic', icon: '💸', label: '💸 CFO Liquidity Panic', trigger: 'Draining Cash', title: '🏦 CFO Emergency Briefing', body: 'Our credit facility covenant requires maintaining a 1.5x coverage ratio. Current projections show breach within 2 periods. Immediate cost reduction or capital raise required.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'chro_resignation', icon: '🚪', label: '🚪 CHRO Resignation', trigger: 'Low Reputation', title: '📋 CHRO Resignation Letter', body: 'The Chief Human Resources Officer has submitted their resignation, citing \'irreconcilable differences in people strategy.\' Talent pipelines across all BUs are at risk.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'regulatory_probe', icon: '🔍', label: '🔍 Regulatory Probe', trigger: 'High Governance Risk', title: '⚖️ Regulatory Investigation Notice', body: 'The Competition Authority has opened a formal investigation into pricing practices in the Electronics division. Legal costs are estimated at $3M–$7M.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'media_expose', icon: '📰', label: '📰 Media Exposé', trigger: 'Low Social License', title: '📡 Breaking: Investigative Report', body: 'A major newspaper is running a Sunday front-page exposé on working conditions in your supply chain. Social media sentiment has turned sharply negative.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'partnership_offer', icon: '🤝', label: '🤝 Strategic Partnership', trigger: 'God Mode Positive', title: '🌍 UN Global Compact Invitation', body: 'The UN has invited Muressons to join the Global Compact Leadership Circle. Acceptance would boost reputation by +10 but requires a public commitment to science-based targets.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'black_swan_pandemic', icon: '🦠', label: '🦠 Black Swan: Pandemic', trigger: 'God Mode Chaos', title: '🦠 Pandemic Supply Shock', body: 'A novel pathogen has triggered port closures across SE Asia. Pharma revenue may spike +20% but Electronics supply chain is disrupted. Consumer Goods logistics frozen for 1 round.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'whistleblower', icon: '🔔', label: '🔔 Whistleblower', trigger: 'Ethics Violation', title: '🔔 Anonymous Whistleblower Report', body: 'An internal whistleblower has filed a report alleging systematic underreporting of Scope 1 emissions at the Electronics facility. External auditors have been notified.', color: '#6366f1', scheduled_round: null, media_type: 'text', media_url: '' },
+];
+
 export default function MasterInterventions() {
-    const [overrides, setOverrides] = useState([]);
-    const [swipes, setSwipes] = useState([]);
+    const [overrides, setOverrides] = useState(SEED_OVERRIDES);
+    const [swipes, setSwipes] = useState(SEED_SWIPES);
     const [loading, setLoading] = useState(true);
 
     const [editingType, setEditingType] = useState(null); // 'override' or 'swipe'
@@ -33,11 +49,11 @@ export default function MasterInterventions() {
             const res = await fetch(`${API}/api/admin/interventions/master`);
             if (res.ok) {
                 const data = await res.json();
-                setOverrides(data.overrides || []);
-                setSwipes(data.swipes || []);
+                setOverrides(data.overrides || SEED_OVERRIDES);
+                setSwipes(data.swipes || SEED_SWIPES);
             }
-        } catch (err) {
-            console.error("Failed to fetch master interventions", err);
+        } catch {
+            // Silent — use seed data when backend is offline
         } finally {
             setLoading(false);
         }
