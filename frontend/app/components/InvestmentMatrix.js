@@ -291,7 +291,7 @@ export default function InvestmentMatrix({
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                     <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Margin</span>
-                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: bu.revenue_base > bu.opex_base ? '#10b981' : '#ef4444', fontFamily: 'JetBrains Mono, monospace' }}>
+                                    <span style={{ fontSize: '0.65rem', fontWeight: 600, color: bu.revenue_base > bu.opex_base ? 'var(--gauge-green, #059669)' : 'var(--gauge-red, #ef4444)', fontFamily: 'JetBrains Mono, monospace' }}>
                                         {((bu.revenue_base - bu.opex_base) / bu.revenue_base * 100).toFixed(1)}%
                                     </span>
                                 </div>

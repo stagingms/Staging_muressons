@@ -12,7 +12,7 @@ const MEDIA_TYPES = [
 const MEDIA_BADGE = { text: '📝', audio: '🎵', video: '🎬' };
 
 const SEED_OVERRIDES = [
-    { id: 'carbon_tax', icon: '🌍', title: 'Global Macro Shift', description: 'Toggle Year 3 Carbon Tax from $250/ton → $400/ton mid-game.', color: '#3b82f6', dangerLevel: 'HIGH', params: { new_rate: 400 }, scheduled_round: null, media_type: 'text', media_url: '' },
+    { id: 'carbon_tax', icon: '🌍', title: 'Global Macro Shift', description: 'Toggle Year 5 Carbon Tax from $250/ton → $400/ton mid-game.', color: '#3b82f6', dangerLevel: 'HIGH', params: { new_rate: 400 }, scheduled_round: null, media_type: 'text', media_url: '' },
     { id: 'omni_tech_poach', icon: '🧲', title: 'Omni-Tech Poach', description: 'Raise Rep Threshold 65 → 75, forcing sudden Brain-Drain OPEX spike for Software BU.', color: '#f59e0b', dangerLevel: 'HIGH', params: { new_threshold: 75 }, scheduled_round: null, media_type: 'text', media_url: '' },
     { id: 'force_strike', icon: '🪧', title: 'Force Strike', description: 'Override probability engine. Guarantee a labor strike — zeroes all BU revenue.', color: '#ef4444', dangerLevel: 'CRITICAL', params: {}, scheduled_round: null, media_type: 'text', media_url: '' },
 ];

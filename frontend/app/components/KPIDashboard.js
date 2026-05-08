@@ -152,6 +152,63 @@ export default function KPIDashboard({
               </ResponsiveContainer>
             </div>
           </div>
+
+          {/* CAROIC Card — Carbon-Adjusted Return on Invested Capital */}
+          {events?.caroic && (
+            <div className={styles.kpiCard}>
+              <div className={styles.kpiTitle}>🌿 CAROIC — Carbon-Adjusted Return</div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
+                <div className={styles.kpiValue} style={{
+                  color: events.caroic.grade === 'A+' || events.caroic.grade === 'A'
+                    ? '#22c55e'
+                    : events.caroic.grade === 'B' || events.caroic.grade === 'C'
+                      ? '#f59e0b'
+                      : '#ef4444',
+                }}>
+                  {events.caroic.caroic_pct}%
+                </div>
+                <span style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: 4,
+                  background: events.caroic.grade === 'A+' || events.caroic.grade === 'A'
+                    ? 'rgba(34,197,94,0.15)'
+                    : events.caroic.grade === 'B' || events.caroic.grade === 'C'
+                      ? 'rgba(245,158,11,0.15)'
+                      : 'rgba(239,68,68,0.15)',
+                  color: events.caroic.grade === 'A+' || events.caroic.grade === 'A'
+                    ? '#4ade80'
+                    : events.caroic.grade === 'B' || events.caroic.grade === 'C'
+                      ? '#fcd34d'
+                      : '#fca5a5',
+                  letterSpacing: '0.05em',
+                }}>
+                  Grade {events.caroic.grade}
+                </span>
+              </div>
+              <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: 4, lineHeight: 1.4 }}>
+                {events.caroic.interpretation}
+              </div>
+              <div style={{
+                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginTop: 8,
+                fontSize: '0.6rem', color: '#64748b',
+              }}>
+                <div style={{ textAlign: 'center', padding: '4px 0', background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
+                  <div style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>NOPAT</div>
+                  <div style={{ color: '#e2e8f0', fontWeight: 600 }}>{fmtM(events.caroic.nopat)}</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '4px 0', background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
+                  <div style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Carbon Charge</div>
+                  <div style={{ color: '#fbbf24', fontWeight: 600 }}>{fmtM(events.caroic.carbon_capital_charge)}</div>
+                </div>
+                <div style={{ textAlign: 'center', padding: '4px 0', background: 'rgba(255,255,255,0.03)', borderRadius: 4 }}>
+                  <div style={{ color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>Adj. Capital</div>
+                  <div style={{ color: '#e2e8f0', fontWeight: 600 }}>{fmtM(events.caroic.adjusted_capital)}</div>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
 

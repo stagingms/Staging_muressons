@@ -71,7 +71,7 @@ export const BRIEFINGS = {
     narrative: [
       'Breaking news from Brussels: <strong>mandatory Scope 3 disclosure</strong> is now on the regulatory horizon. The International Sustainability Standards Board (ISSB) has finalised standards requiring full value-chain emissions reporting. Preliminary analysis shows that your supply chain carbon footprint is <em>four times</em> your direct emissions — and investors are watching.',
       'Your supply chain spans raw material extraction in Southeast Asia, chip fabrication in Taiwan, pharmaceutical ingredients from India, and consumer goods manufacturing across three continents. Each link in this chain carries embedded carbon that will soon appear on your balance sheet. The Electronics division alone accounts for 40% of your total Scope 3 footprint, driven by energy-intensive semiconductor fabrication and rare earth mineral extraction.',
-      'The financial stakes are real. Scope 3 emissions will eventually feed into your <strong>Natural Capital Debt (NCD)</strong> — a running tally of your environmental liability that compounds over rounds and directly affects your Year 3 Terminal Valuation. Ignoring it now means paying more later.',
+      'The financial stakes are real. Scope 3 emissions will eventually feed into your <strong>Natural Capital Debt (NCD)</strong> — a running tally of your environmental liability that compounds over rounds and directly affects your Year 5 Terminal Valuation. Ignoring it now means paying more later.',
       'The clock is ticking. You can switch suppliers immediately (fast but disruptive, with risk of operational downtime in Electronics and Pharma), issue a green bond for gradual transition (moderate cost, lower NCD), or buy carbon offsets and defer the hard decisions. Each path has very different consequences for your carbon intensity trajectory and treasury.',
     ],
     objectives: [
@@ -124,7 +124,7 @@ export const BRIEFINGS = {
       'Meteorological services have issued a <strong>Category 4 cyclone warning</strong> for the coastal corridor housing your primary manufacturing facilities. Satellite imagery shows a massive storm system forming in the Indian Ocean, projected to make landfall within 72 hours. Projected base damage: <em>$12 million</em>.',
       'This is not a strategic choice — it\'s a force of nature. A <strong>stochastic dice roll</strong> (75% probability of landfall) will determine whether the cyclone strikes your facilities. You cannot prevent the storm, but you can choose how to prepare: build hard engineering defences (flood walls, reinforced infrastructure), invest in nature-based solutions (mangrove restoration, natural buffers), or rely solely on insurance coverage.',
       'Each option carries a different <strong>Resilience Factor</strong> — the percentage of damage you can mitigate if the storm hits. Hard engineering offers 85% mitigation but adds to your Natural Capital Debt through concrete and steel. Nature-based solutions offer 60% mitigation while actually <em>reducing</em> your NCD. Insurance provides zero mitigation but is the cheapest upfront option.',
-      'The implications extend beyond this round. Your resilience strategy here feeds into your <strong>Year 3 Regenerative Multiple</strong>. Choosing the insurance-only path signals to investors that you are not building genuine climate resilience — and it will block a critical +0.20 bonus in your final valuation.',
+      'The implications extend beyond this round. Your resilience strategy here feeds into your <strong>Year 5 Regenerative Multiple</strong>. Choosing the insurance-only path signals to investors that you are not building genuine climate resilience — and it will block a critical +0.20 bonus in your final valuation.',
     ],
     objectives: [
       'Prepare for a physical climate event with real financial consequences',
@@ -151,7 +151,7 @@ export const BRIEFINGS = {
       'An internal audit of your Software BU\'s AI-powered recruitment tool has revealed <strong>systematic discrimination</strong> against minority applicants. The algorithm, trained on a decade of historical hiring data, has been rejecting qualified minority candidates at 3× the rate of non-minority applicants. The bias is embedded in the training data itself — reflecting decades of structural inequality that the AI has learned to perpetuate.',
       'The story has reached mainstream media. Civil rights organisations are mobilising class-action lawsuits. Your Software BU\'s lucrative government contracts — worth $3M annually — are now under formal review. The EU AI Act compliance team is demanding an immediate impact assessment, and the European Data Protection Board has opened a preliminary investigation.',
       'Ironically, the biased algorithm is also commercially valuable. Several Fortune 500 companies have expressed interest in licensing it as a "workforce optimisation tool." Monetising it would generate $5M in immediate revenue for the Software division but could trigger a contagion spike across all BUs if the story gains further traction.',
-      'You face a profound ethical crossroads. A full <strong>Ethical AI Overhaul</strong> costs $8M but builds genuine social capital and unlocks the coveted <em>Truth Premium</em> at Round 10 — a +0.15 bonus to your Regenerative Multiple. A quiet patch costs only $1M but increases governance risk by 10 points. Your choice here will echo through your Year 3 Terminal Valuation and define what kind of company Muressons truly is.',
+      'You face a profound ethical crossroads. A full <strong>Ethical AI Overhaul</strong> costs $8M but builds genuine social capital and unlocks the coveted <em>Truth Premium</em> at Round 10 — a +0.15 bonus to your Regenerative Multiple. A quiet patch costs only $1M but increases governance risk by 10 points. Your choice here will echo through your Year 5 Terminal Valuation and define what kind of company Muressons truly is.',
     ],
     objectives: [
       'Respond to the AI bias scandal in Software BU',
@@ -253,17 +253,17 @@ export const BRIEFINGS = {
   10: {
     icon: '🏛️',
     title: 'Grand Finale',
-    theme: 'Year 3 Activist Ultimatum & Terminal Valuation',
+    theme: 'Year 5 Activist Ultimatum & Terminal Valuation',
     stamp: 'FINAL ROUND',
     narrative: [
-      '<strong>Three years</strong> have passed. An activist investor consortium — the <em>FutureFirst Alliance</em> — has acquired a blocking stake in Muressons Global. Led by Dr. Amara Osei, a former climate scientist turned institutional investor, the Alliance tables a formal motion to <strong>dissolve the conglomerate structure</strong> at a special Board meeting.',
+      '<strong>Five years</strong> have passed. An activist investor consortium — the <em>FutureFirst Alliance</em> — has acquired a blocking stake in Muressons Global. Led by Dr. Amara Osei, a former climate scientist turned institutional investor, the Alliance tables a formal motion to <strong>dissolve the conglomerate structure</strong> at a special Board meeting.',
       'Dr. Osei\'s argument is compelling: "Your four business units — Pharmaceuticals, Electronics, Software, and Consumer Goods — are too fundamentally different to be managed sustainably under one roof. Cross-subsidisation of high-carbon assets by green divisions is a form of corporate greenwashing. Each unit deserves its own sustainability mandate, its own carbon budget, and its own accountability structure."',
       'As Chief Sustainability Officer, you must now present your recommendation to the Board. Your evidence is the performance data from 9 rounds of strategic crisis management. Did you build genuine cross-BU synergies that justify the conglomerate? Or did you paper over structural weaknesses?',
       'This is your final decision. Your <strong>Terminal Valuation</strong> will be calculated as: <em>Terminal EBITDA × Exit Multiple (12×) × Regenerative Multiple (M_R)</em>. The Regenerative Multiple captures every strategic choice you\'ve made — synergy investments, climate resilience, ethical AI decisions, social license preservation. It determines whether Muressons is remembered as a <strong>Regenerative Titan</strong>, a <strong>De-risked Safe-Haven</strong>, a <strong>Fragile Giant</strong>, or a <strong>Stranded Relic</strong>.',
     ],
     objectives: [
       'Respond to the activist ultimatum: Resist, Spin-off, or Divest',
-      'This round determines your Year 3 Profile Archetype and Terminal Valuation',
+      'This round determines your Year 5 Profile Archetype and Terminal Valuation',
       'Draft a Decade Forward Plan justifying your recommendation to the Board',
       'Your Regenerative Multiple (M_R) reflects the cumulative impact of all prior decisions',
     ],
@@ -385,7 +385,7 @@ export const HEALTHCARE_BRIEFINGS = {
     narrative: [
       'A Category 4 cyclone is currently on a trajectory to strike the coastal corridor housing your densest network of Hospitals and Specialised Care centers. Base projected damage to infrastructure is estimated at $18 million.',
       'This is a <strong>stochastic dice roll</strong>. You cannot prevent the storm, but your choice of resilience posture will dictate the outcome if it makes landfall. You can rely purely on insurance, execute pre-emptive patient evacuations (saving lives but incurring operational chaos), or invest heavily in hardened microgrids to keep the power on through the worst of the disaster.',
-      'Your choice directly impacts your final Regenerative Multiple in Year 3. A system that cannot withstand the weather cannot be called sustainable.',
+      'Your choice directly impacts your final Regenerative Multiple in Year 5. A system that cannot withstand the weather cannot be called sustainable.',
     ],
     objectives: [
       'Prepare clinical infrastructure for a devastating extreme weather event',
@@ -504,7 +504,7 @@ export const HEALTHCARE_BRIEFINGS = {
     theme: 'Terminal Valuation & Outcome Legacy',
     stamp: 'FINAL ROUND',
     narrative: [
-      '<strong>Three years</strong> of relentless crisis management culminate today. A dominant, health-focused activist investor consortium—the <em>FutureFirst Alliance</em>—has acquired a controlling stake in Muressons Healthcare.',
+      '<strong>Five years</strong> of relentless crisis management culminate today. A dominant, health-focused activist investor consortium—the <em>FutureFirst Alliance</em>—has acquired a controlling stake in Muressons Healthcare.',
       'The board requires a definitive choice on our final market posture before going public with a sweeping reorganization. The activists argue that a pure-profit driven consolidation destroys patient outcomes. Your track record of ESG alignment, resilience, and clinical burnout management will be tested.',
       'As Chief Sustainability Officer, you must recommend the terminal trajectory. Do you execute aggressive financial consolidation to pad EBITDA? Do you divest the weakest primary-care clinics to artificially boost group margins? Or do you encode a Universal Care Mandate into the corporate charter, protecting your long-term valuation multiples?',
       'Your <strong>Terminal Valuation</strong> will be judged by your Regenerative Multiple (M_R), tracking synergy, reputation, and clinical excellence. What kind of health system have you built? A <strong>Regenerative Titan</strong> or a <strong>Fragile Giant</strong>?',

@@ -48,7 +48,7 @@ const MR_LABELS = {
 };
 
 /**
- * FinalReport — The Year 3 Annual Report.
+ * FinalReport — The Year 5 Annual Report.
  * Displays Terminal Value, Terminal_EBITDA, Regenerative Multiple breakdown,
  * profile archetype, and the Activist Ultimatum decision.
  *
@@ -112,7 +112,7 @@ export default function FinalReport({ data = null, onClose }) {
                     <div className={styles.heroContent}>
                         <span className={styles.heroIcon}>{theme.icon}</span>
                         <div>
-                            <div className={styles.year}>MURESSONS GLOBAL — YEAR 3 ANNUAL REPORT</div>
+                            <div className={styles.year}>MURESSONS GLOBAL — YEAR 5 ANNUAL REPORT</div>
                             <h1 className={styles.profileTitle}>{d.profile_title}</h1>
                             <span className={styles.rankBadge} style={{ background: 'rgba(0,0,0,0.3)' }}>
                                 {theme.rank}
@@ -284,7 +284,7 @@ export default function FinalReport({ data = null, onClose }) {
                     </h2>
                     <div className={styles.formula}>
                         <div className={styles.formulaLine}>
-                            V<sub>T</sub> = EBITDA<sub>Year 3</sub> × Exit Multiple × M<sub>R</sub>
+                            V<sub>T</sub> = EBITDA<sub>Year 5</sub> × Exit Multiple × M<sub>R</sub>
                         </div>
                         <div className={styles.formulaLine}>
                             V<sub>T</sub> = ${(d.terminal_ebitda / 1_000_000).toFixed(2)}M × {d.exit_multiple}×

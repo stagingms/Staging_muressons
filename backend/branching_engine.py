@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Non-Linear Round Branching Engine (SI-1)
 After R5, the simulation can diverge based on player archetype,
 providing different crisis scenarios for different strategic profiles.
@@ -275,12 +275,12 @@ def calc_adaptive_crisis_severity(
 
 EXTENDED_ROUNDS = {
     11: {
-        "title": "Year 3 Q3: Green Bond Maturity",
+        "title": "Year 5 Q3: Green Bond Maturity",
         "theme": "Financial sustainability of the transition",
         "crisis": "Green bonds issued in R3 are maturing. Can you refinance at favourable rates?",
     },
     12: {
-        "title": "Year 3 Q4: Biodiversity Reckoning",
+        "title": "Year 5 Q4: Biodiversity Reckoning",
         "theme": "TNFD compliance deadline",
         "crisis": "TNFD disclosure is now mandatory. Your biodiversity track record determines compliance.",
     },

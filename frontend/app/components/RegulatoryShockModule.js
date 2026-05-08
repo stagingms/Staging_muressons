@@ -123,8 +123,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
             }
         } catch { /* offline ok — still advance */ setPhase('done'); }
         setSubmitting(false);
-        onComplete?.();
-    }, [buChoices, fee, sessionId, onComplete]);
+    }, [buChoices, fee, sessionId]);
 
     const allChosen = activeBUs.every(bu => (bu.emissions || bu.carbon_intensity * 1000) < 1000 || buChoices[bu.bu_id || bu.id]);
 

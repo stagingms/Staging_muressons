@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation - Admin Analytics Sub-Router (ARCH-002)
 Extracted from admin_router.py to reduce monolith size.
 
@@ -545,6 +545,7 @@ _glossary_terms: list = [
     {"id": "circular_economy", "term": "Circular Economy", "definition": "Economic model eliminating waste through lifecycle redesign. R7 operationalises via Industrial Symbiosis (Option C: Waste-to-Energy), boosting synergy +0.35 and earning +0.30 M_R, the highest single bonus.", "tags": ["environment", "circularity", "waste", "strategy"], "weblink": "https://ellenmacarthurfoundation.org/topics/circular-economy-introduction/overview"},
     {"id": "ai_ethics", "term": "AI Ethics & Algorithmic Bias", "definition": "R6 crisis: algorithmic bias in recruitment AI. Option B (Ethical AI Overhaul, -$8M) earns Truth Premium (+0.15 M_R). Option C (Monetise) triggers EU AI Act costs. Models the EU AI Act (2024).", "tags": ["governance", "ai", "ethics", "regulation", "bias"], "weblink": "https://artificialintelligenceact.eu/"},
     {"id": "dynamic_capabilities", "term": "Dynamic Capabilities", "definition": "Teece (1997): ability to integrate, build, and reconfigure competencies to address changing environments. Modelled via synergy multiplier and VRIO decay. Continuous reinvestment required.", "tags": ["strategy", "theory", "competitive advantage", "capabilities"], "weblink": "https://doi.org/10.1002/(SICI)1097-0266(199708)18:7<509::AID-SMJ882>3.0.CO;2-Z"},
+    {"id": "caroic", "term": "CAROIC (Carbon-Adjusted Return on Invested Capital)", "definition": "CAROIC = EBITDA × (1 − Tax Rate) / (Invested Capital + Carbon Tonnage × Shadow Carbon Price). Extends traditional ROIC by adding a shadow carbon cost to the denominator, penalising carbon-intensive firms. Grade scale: A+ (≥25%), A (≥15%), B (≥10%), C (≥5%), D (≥0%), F (<0%). Displayed per-round on both player and facilitator dashboards.", "tags": ["finance", "carbon", "esg", "sustainability", "roic", "metric"], "weblink": ""},
 ]
 
 

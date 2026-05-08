@@ -189,6 +189,67 @@ export default function FacilitatorManager({ onNavigate }) {
     const [showCohortModal, setShowCohortModal] = useState(false);
     const [cohortFacilitatorId, setCohortFacilitatorId] = useState(null);
 
+    // ── Role Change Verification Modal ──────────────────────────────
+    const [roleChangeModal, setRoleChangeModal] = useState(null); // { facId, facName, newRole, currentRole } | null
+    const [roleVerifyFacId, setRoleVerifyFacId] = useState('');
+    const [roleVerifyPassword, setRoleVerifyPassword] = useState('');
+    const [roleVerifyError, setRoleVerifyError] = useState('');
+    const [roleVerifyLoading, setRoleVerifyLoading] = useState(false);
+
+    const openRoleChangeModal = (facId, facName, newRole, currentRole) => {
+        setRoleChangeModal({ facId, facName, newRole, currentRole });
+        setRoleVerifyFacId('');
+        setRoleVerifyPassword('');
+        setRoleVerifyError('');
+        setRoleVerifyLoading(false);
+    };
+
+    const closeRoleChangeModal = () => {
+        setRoleChangeModal(null);
+        setRoleVerifyFacId('');
+        setRoleVerifyPassword('');
+        setRoleVerifyError('');
+        setRoleVerifyLoading(false);
+    };
+
+    const handleRoleChangeVerified = async () => {
+        if (!roleChangeModal) return;
+        const { facId, facName, newRole } = roleChangeModal;
+        if (!roleVerifyFacId.trim() || !roleVerifyPassword.trim()) {
+            setRoleVerifyError('Please enter your God Mode Facilitator ID and password.');
+            return;
+        }
+        setRoleVerifyLoading(true);
+        setRoleVerifyError('');
+        try {
+            const res = await fetch(`${API}/api/admin/facilitators/${facId}/role`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    role: newRole,
+                    god_mode_fac_id: roleVerifyFacId.trim(),
+                    god_mode_password: roleVerifyPassword.trim(),
+                }),
+            });
+            if (res.ok) {
+                setFacilitators(prev => prev.map(f =>
+                    f.facilitator_id === facId
+                        ? { ...f, role: newRole, is_admin: newRole === 'super_admin' }
+                        : f
+                ));
+                showToast(`${facName} role changed to ${newRole.replace(/_/g, ' ')}`);
+                closeRoleChangeModal();
+            } else {
+                const err = await res.json().catch(() => ({}));
+                setRoleVerifyError(err.detail || 'Verification failed. Check your credentials.');
+            }
+        } catch {
+            setRoleVerifyError('Network error — could not reach server.');
+        } finally {
+            setRoleVerifyLoading(false);
+        }
+    };
+
     const handleOpenNewCohort = (facId) => {
         setCohortFacilitatorId(facId || (facilitators[0]?.facilitator_id ?? null));
         setShowCohortModal(true);
@@ -1087,10 +1148,7 @@ export default function FacilitatorManager({ onNavigate }) {
                                 <th onClick={() => toggleSort('cohorts_created')} className={styles.sortable}>
                                     Cohorts <SortIcon col="cohorts_created" />
                                 </th>
-                                <th onClick={() => toggleSort('created_at')} className={styles.sortable}>
-                                    Created <SortIcon col="created_at" />
-                                </th>
-                                <th>Created By</th>
+
                                 <th style={{ textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
@@ -1167,53 +1225,28 @@ export default function FacilitatorManager({ onNavigate }) {
                                                 </div>
                                             </div>
                                         </td>
-                                        {/* Created — real date + relative */}
-                                        <td className={styles.date}>
-                                            {createdDate.display !== '—' ? (
-                                                <span title={createdDate.relative} style={{ cursor: 'default' }}>
-                                                    {createdDate.display}
-                                                    {createdDate.relative && (
-                                                        <span style={{ display: 'block', fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '1px' }}>
-                                                            {createdDate.relative}
-                                                        </span>
-                                                    )}
-                                                </span>
-                                            ) : '—'}
-                                        </td>
-                                        {/* Created By */}
-                                        <td className={styles.date}>
-                                            {fac.created_by || <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>}
-                                        </td>
+
                                         {/* Actions */}
                                         <td>
                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
                                                 {/* Role selector */}
                                                 <select
                                                     value={fac.role || (fac.is_admin ? 'super_admin' : 'facilitator')}
-                                                    onChange={async (e) => {
+                                                    onChange={(e) => {
                                                         const newRole = e.target.value;
-                                                        try {
-                                                            const res = await fetch(`${API}/api/admin/facilitators/${fac.facilitator_id}/role`, {
-                                                                method: 'PUT',
-                                                                headers: { 'Content-Type': 'application/json' },
-                                                                body: JSON.stringify({ role: newRole }),
-                                                            });
-                                                            if (res.ok) {
-                                                                setFacilitators(prev => prev.map(f =>
-                                                                    f.facilitator_id === fac.facilitator_id
-                                                                        ? { ...f, role: newRole, is_admin: newRole === 'super_admin' }
-                                                                        : f
-                                                                ));
-                                                                showToast(`${fac.name} role changed to ${newRole.replace('_', ' ')}`);
-                                                            }
-                                                        } catch { showToast('Failed to update role', 'error'); }
+                                                        const currentRole = fac.role || (fac.is_admin ? 'super_admin' : 'facilitator');
+                                                        if (newRole !== currentRole) {
+                                                            openRoleChangeModal(fac.facilitator_id, fac.name, newRole, currentRole);
+                                                            // Reset the select to current value — the modal will apply the change
+                                                            e.target.value = currentRole;
+                                                        }
                                                     }}
                                                     style={{
                                                         fontSize: '0.68rem', padding: '2px 4px', borderRadius: '4px',
                                                         border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
                                                         color: 'var(--text-primary)', cursor: 'pointer',
                                                     }}
-                                                    title="Change facilitator role"
+                                                    title="Change facilitator role (requires God Mode verification)"
                                                 >
                                                     <option value="facilitator">🎓 Facilitator</option>
                                                     <option value="lead_facilitator">⭐ Lead</option>
@@ -1391,6 +1424,149 @@ export default function FacilitatorManager({ onNavigate }) {
                                 }}
                             >
                                 Delete Permanently
+                            </button>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {/* ── Role Change Verification Modal ── */}
+            {roleChangeModal && (
+                <>
+                    <div
+                        onClick={closeRoleChangeModal}
+                        style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+                            zIndex: 9998, backdropFilter: 'blur(4px)',
+                        }}
+                    />
+                    <div style={{
+                        position: 'fixed', top: '50%', left: '50%',
+                        transform: 'translate(-50%,-50%)',
+                        zIndex: 9999,
+                        background: 'var(--bg-card, #1e293b)',
+                        border: '1px solid rgba(245,158,11,0.35)',
+                        borderRadius: 14,
+                        padding: '28px 32px',
+                        width: 420,
+                        boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                            <span style={{ fontSize: '1.6rem' }}>👑</span>
+                            <div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem', color: '#f59e0b' }}>God Mode Verification</div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>Role changes require Super Administrator credentials.</div>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            padding: '12px 14px', borderRadius: 8, marginBottom: 16,
+                            background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)',
+                        }}>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: 4 }}>Requested change:</div>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                                <span style={{ color: 'var(--text-muted)' }}>{roleChangeModal.facName}</span>
+                                {' '}
+                                <span style={{ color: '#94a3b8' }}>→</span>
+                                {' '}
+                                <span style={{
+                                    color: roleChangeModal.newRole === 'super_admin' ? '#f59e0b'
+                                        : roleChangeModal.newRole === 'lead_facilitator' ? '#6366f1'
+                                        : '#22c55e',
+                                    fontWeight: 700,
+                                }}>
+                                    {roleChangeModal.newRole === 'super_admin' ? '👑 Super Admin'
+                                        : roleChangeModal.newRole === 'lead_facilitator' ? '⭐ Lead Facilitator'
+                                        : '🎓 Facilitator'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: 16 }}>
+                            <div>
+                                <label style={{
+                                    display: 'block', fontSize: '0.7rem', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '0.1em',
+                                    color: 'var(--text-muted)', marginBottom: '0.35rem',
+                                }}>God Mode Facilitator ID</label>
+                                <input
+                                    autoFocus
+                                    value={roleVerifyFacId}
+                                    onChange={e => setRoleVerifyFacId(e.target.value)}
+                                    placeholder="e.g. FAC-001"
+                                    onKeyDown={e => { if (e.key === 'Enter') document.getElementById('role-verify-pw')?.focus(); }}
+                                    disabled={roleVerifyLoading}
+                                    style={{
+                                        width: '100%', padding: '9px 12px', borderRadius: 8,
+                                        border: '1px solid var(--border-subtle)',
+                                        background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                                        fontFamily: 'var(--font-mono)', fontSize: '0.88rem',
+                                        outline: 'none', transition: 'border 0.15s',
+                                        boxSizing: 'border-box',
+                                    }}
+                                />
+                            </div>
+                            <div>
+                                <label style={{
+                                    display: 'block', fontSize: '0.7rem', fontWeight: 700,
+                                    textTransform: 'uppercase', letterSpacing: '0.1em',
+                                    color: 'var(--text-muted)', marginBottom: '0.35rem',
+                                }}>Password</label>
+                                <input
+                                    id="role-verify-pw"
+                                    type="password"
+                                    value={roleVerifyPassword}
+                                    onChange={e => setRoleVerifyPassword(e.target.value)}
+                                    placeholder="Enter God Mode password"
+                                    onKeyDown={e => { if (e.key === 'Enter' && roleVerifyFacId.trim() && roleVerifyPassword.trim()) handleRoleChangeVerified(); }}
+                                    disabled={roleVerifyLoading}
+                                    style={{
+                                        width: '100%', padding: '9px 12px', borderRadius: 8,
+                                        border: '1px solid var(--border-subtle)',
+                                        background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                                        fontSize: '0.88rem',
+                                        outline: 'none', transition: 'border 0.15s',
+                                        boxSizing: 'border-box',
+                                    }}
+                                />
+                            </div>
+                        </div>
+
+                        {roleVerifyError && (
+                            <div style={{
+                                padding: '8px 12px', borderRadius: 8, marginBottom: 14,
+                                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                                color: '#ef4444', fontSize: '0.8rem', fontWeight: 600,
+                            }}>{roleVerifyError}</div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={closeRoleChangeModal}
+                                disabled={roleVerifyLoading}
+                                style={{
+                                    padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border-subtle)',
+                                    background: 'transparent', color: 'var(--text-secondary)',
+                                    cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                                }}
+                            >Cancel</button>
+                            <button
+                                onClick={handleRoleChangeVerified}
+                                disabled={roleVerifyLoading || !roleVerifyFacId.trim() || !roleVerifyPassword.trim()}
+                                style={{
+                                    padding: '8px 18px', borderRadius: 8, border: 'none',
+                                    background: (roleVerifyFacId.trim() && roleVerifyPassword.trim() && !roleVerifyLoading)
+                                        ? 'linear-gradient(135deg, #f59e0b, #ef4444)' : 'rgba(245,158,11,0.2)',
+                                    color: (roleVerifyFacId.trim() && roleVerifyPassword.trim() && !roleVerifyLoading)
+                                        ? '#fff' : 'rgba(245,158,11,0.4)',
+                                    cursor: (roleVerifyFacId.trim() && roleVerifyPassword.trim() && !roleVerifyLoading)
+                                        ? 'pointer' : 'not-allowed',
+                                    fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.15s',
+                                    boxShadow: (roleVerifyFacId.trim() && roleVerifyPassword.trim() && !roleVerifyLoading)
+                                        ? '0 4px 16px rgba(245,158,11,0.3)' : 'none',
+                                }}
+                            >
+                                {roleVerifyLoading ? '⏳ Verifying…' : '👑 Verify & Apply'}
                             </button>
                         </div>
                     </div>

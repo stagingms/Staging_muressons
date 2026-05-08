@@ -216,6 +216,10 @@ async def create_session(
     # Generate a friendly short code for top-level cohort sessions
     short_code = _generate_short_code() if not parent_cohort_id else None
 
+    # ── Anti-gaming: generate per-session option shuffle seed ──
+    from option_shuffle import generate_shuffle_seed
+    _shuffle_seed = generate_shuffle_seed()
+
     _sessions[session_id] = {
         "session_id": session_id,
         "short_code": short_code,
@@ -235,6 +239,7 @@ async def create_session(
         "created_when": created_when,
         "start_date": start_date,
         "end_date": end_date,
+        "shuffle_seed": _shuffle_seed,
     }
 
     bus = seed["business_units"]
@@ -434,6 +439,8 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "global_emissions_intensity": float(grs.get("global_emissions_intensity", 0.0)),
             # BU Substitution state (vertical industry selection)
             "bu_substitutions": grs.get("bu_substitutions", {}),
+            # Autonomous stakeholder agent state
+            "autonomous_agents": grs.get("autonomous_agents"),
         },
         "bu_states": [
             {
@@ -562,6 +569,8 @@ async def insert_next_round(
         "global_emissions_intensity": global_state.get("global_emissions_intensity", 0.0),
         # BU Substitution state (vertical industry selection)
         "bu_substitutions": global_state.get("bu_substitutions", {}),
+        # Autonomous stakeholder agent state
+        "autonomous_agents": global_state.get("autonomous_agents"),
     }
 
     if session_id not in _global_states:
@@ -722,6 +731,8 @@ async def update_latest_global_state(
     latest["global_emissions_intensity"] = global_state.get("global_emissions_intensity", latest.get("global_emissions_intensity", 0.0))
     # BU Substitution state (vertical industry selection)
     latest["bu_substitutions"] = global_state.get("bu_substitutions", latest.get("bu_substitutions", {}))
+    # Autonomous stakeholder agent state
+    latest["autonomous_agents"] = global_state.get("autonomous_agents", latest.get("autonomous_agents"))
 
     rn = latest["round_number"]
     if session_id in _bu_states:

@@ -32,6 +32,8 @@ export default function RegulatorySandboxControl({ sessionId }) {
     const [complexityIndex, setComplexityIndex] = useState(0);
     const [captureRisk, setCaptureRisk]   = useState(0);
     const [activeCount, setActiveCount]   = useState(0);
+    const [exoEvents, setExoEvents]       = useState([]);
+    const [triggeringEvent, setTriggeringEvent] = useState(null);
 
     const fetchInstruments = useCallback(() => {
         if (!sessionId) return;
@@ -55,7 +57,15 @@ export default function RegulatorySandboxControl({ sessionId }) {
             .finally(() => setLoading(false));
     }, [sessionId]);
 
-    useEffect(() => { fetchInstruments(); }, [fetchInstruments]);
+    const fetchExoEvents = useCallback(() => {
+        if (!sessionId) return;
+        fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/exogenous-events`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => { if (data?.exogenous_events) setExoEvents(data.exogenous_events); })
+            .catch(() => {});
+    }, [sessionId]);
+
+    useEffect(() => { fetchInstruments(); fetchExoEvents(); }, [fetchInstruments, fetchExoEvents]);
 
     const handleParamChange = (instId, paramName, value, type) => {
         let val = value;
@@ -97,6 +107,7 @@ export default function RegulatorySandboxControl({ sessionId }) {
             setTimeout(() => setActionStatus(''), 5000);
         } finally {
             setActivating(null);
+            fetchExoEvents();
         }
     };
 
@@ -259,6 +270,86 @@ export default function RegulatorySandboxControl({ sessionId }) {
                     );
                 })}
             </div>
+
+            {/* ── Exogenous Crisis Events ── */}
+            {exoEvents.length > 0 && (
+                <div className={styles.exoSection}>
+                    <div className={styles.exoHeader}>
+                        <span className={styles.exoIcon}>💥</span>
+                        <div>
+                            <h3 className={styles.exoTitle}>Exogenous Crisis Events</h3>
+                            <p className={styles.exoSubtitle}>Force-trigger policy shocks (R7–R9). Bypasses natural trigger conditions.</p>
+                        </div>
+                    </div>
+                    <div className={styles.exoGrid}>
+                        {exoEvents.map(evt => {
+                            const fired = !!evt.already_fired;
+                            const severityColor = evt.severity === 'critical' ? '#ef4444' : '#f59e0b';
+                            return (
+                                <div key={evt.event_id} className={`${styles.exoCard} ${fired ? styles.exoFired : ''}`}>
+                                    <div className={styles.exoCardHeader}>
+                                        <span className={styles.exoCardIcon}>{evt.icon}</span>
+                                        <div style={{ flex: 1 }}>
+                                            <h4 className={styles.exoCardName}>{evt.name}</h4>
+                                            <p className={styles.exoCardDesc}>{evt.description}</p>
+                                        </div>
+                                        <span className={styles.exoSeverity} style={{ color: severityColor, borderColor: `${severityColor}40`, background: `${severityColor}12` }}>
+                                            {evt.severity}
+                                        </span>
+                                    </div>
+                                    <div className={styles.exoMeta}>
+                                        <span>Rounds: {evt.trigger_rounds.join(', ')}</span>
+                                        <span>•</span>
+                                        <span style={{ fontSize: '0.65rem', fontStyle: 'italic', color: '#64748b' }}>{(evt.theory || '').split('—')[0].trim()}</span>
+                                    </div>
+                                    <div className={styles.exoEffects}>
+                                        {Object.entries(evt.effects || {}).map(([k, v]) => (
+                                            <span key={k} className={styles.exoEffectPill}>
+                                                {k.replace(/_/g, ' ')}: {typeof v === 'number' ? (v >= 1000000 ? `$${(v/1e6).toFixed(0)}M` : v > 0 ? `+${v}` : v) : String(v)}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <button
+                                        className={styles.exoTriggerBtn}
+                                        disabled={fired || !!triggeringEvent}
+                                        onClick={async () => {
+                                            if (!confirm(`⚠️ FORCE TRIGGER: "${evt.name}"?\n\nThis will immediately apply all effects to the session. This action cannot be undone.`)) return;
+                                            setTriggeringEvent(evt.event_id);
+                                            setActionStatus(`Triggering ${evt.name}...`);
+                                            setStatusType('info');
+                                            try {
+                                                const res = await fetch(`${API}/api/simulations/${sessionId}/regulatory-sandbox/trigger-event`, {
+                                                    method: 'POST',
+                                                    headers: { 'Content-Type': 'application/json' },
+                                                    body: JSON.stringify({ event_id: evt.event_id }),
+                                                });
+                                                if (res.ok) {
+                                                    const data = await res.json();
+                                                    setActionStatus(`${evt.icon} ${evt.name} triggered successfully`);
+                                                    setStatusType('success');
+                                                    fetchExoEvents();
+                                                } else {
+                                                    const err = await res.json().catch(() => ({}));
+                                                    setActionStatus(`Failed: ${err.detail || 'Trigger error'}`);
+                                                    setStatusType('error');
+                                                }
+                                            } catch {
+                                                setActionStatus('Network error');
+                                                setStatusType('error');
+                                            } finally {
+                                                setTriggeringEvent(null);
+                                                setTimeout(() => setActionStatus(''), 7000);
+                                            }
+                                        }}
+                                    >
+                                        {fired ? `✓ Fired in R${evt.already_fired}` : triggeringEvent === evt.event_id ? '⏳ Triggering…' : `${evt.icon} Force Trigger`}
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </section>
     );
 }

@@ -19,6 +19,7 @@ const ACTION_ICONS = {
     password_reset: '🔑',
     regulatory_sandbox_activated: '🧪',
     regulatory_sandbox_deactivated: '📋',
+    exogenous_event_triggered: '💥',
 };
 
 // Quick filter chips

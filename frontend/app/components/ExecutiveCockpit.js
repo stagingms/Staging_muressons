@@ -23,6 +23,7 @@ import FocusOverlay, { KPIStrip } from './FocusOverlay';
 import DecisionTile, { PillarTile } from './DecisionTile';
 // Phase 3: Progressive Disclosure components
 import ConsequenceDNA from './ConsequenceDNA';
+import ConsequenceDNAVisualizer, { ConsequenceDNATrigger } from './ConsequenceDNAVisualizer';
 import TerminalValuationCalc from './TerminalValuationCalc';
 import PredictionComparison from './PredictionComparison';
 import StochasticDiceRoll from './StochasticDiceRoll';
@@ -44,6 +45,7 @@ import StakeholderAgentPanel from './StakeholderAgentPanel';
 import EBITDAWaterfall from './EBITDAWaterfall';
 import PlayerAnnotations from './PlayerAnnotations';
 import WhatIfSandbox from './WhatIfSandbox';
+import ShadowBoardAudit from './ShadowBoardAudit';
 
 // AI Board Member Personas (Improvement #4.2)
 const BOARD_PERSONAS = {
@@ -505,8 +507,7 @@ export default function ExecutiveCockpit({
     : roundNumber === 2 ? hasSubmittedMatrix
     : true; // R3-R10: no special prerequisite
   const roundPrerequisiteMet = hasSecondStage ? secondStageDone : true;
-  // For strategic decision gating: briefing must be read, and second stage (if any) must be done
-  const canAccessStrategy = hasReadBriefing && roundPrerequisiteMet;
+  // canAccessStrategy is computed below after shadowBoardCompleted state is declared
 
   // Logout confirmation (2-click to prevent accidents)
   const [logoutConfirm, setLogoutConfirm] = useState(false);
@@ -559,6 +560,48 @@ export default function ExecutiveCockpit({
   }, [viewMode, businessUnits, enterDeepDive, exitDeepDive]);
 
   const investigatedBUData = isDeepDive ? businessUnits?.find(bu => (bu.id || bu.bu_id) === investigatedBU) : null;
+
+  // ── Shadow Board Audit (R5) ─────────────────────────────
+  const [showShadowBoardAudit, setShowShadowBoardAudit] = useState(false);
+  const [shadowBoardCompleted, setShadowBoardCompleted] = useState(
+    () => !!globalState?.active_event_flags?.shadow_board_completed
+  );
+
+  // ── Consequence DNA Visualizer (pop-out) ─────────────────
+  const [showDNAVisualizer, setShowDNAVisualizer] = useState(false);
+  const dnaIgnited = shadowBoardCompleted || !!globalState?.active_event_flags?.shadow_board_completed;
+
+  // Trigger shadow board when R5 briefing is dismissed
+  useEffect(() => {
+    if (roundNumber === 5 && hasReadBriefing && !shadowBoardCompleted && !sim?.gameOver) {
+      // Check if already completed from globalState (session resume)
+      const alreadyDone = globalState?.active_event_flags?.shadow_board_completed;
+      if (alreadyDone) {
+        setShadowBoardCompleted(true);
+      } else {
+        setShowShadowBoardAudit(true);
+      }
+    }
+  }, [roundNumber, hasReadBriefing, shadowBoardCompleted, sim?.gameOver]);
+
+  // Reset shadow board state on round change
+  useEffect(() => {
+    if (roundNumber !== 5) {
+      setShowShadowBoardAudit(false);
+      // Don't reset shadowBoardCompleted — it persists across round navigation
+    }
+  }, [roundNumber]);
+
+  const handleShadowBoardComplete = useCallback((result) => {
+    setShowShadowBoardAudit(false);
+    setShadowBoardCompleted(true);
+    console.log('[ShadowBoard] Audit completed:', result);
+  }, []);
+
+  // For strategic decision gating: briefing must be read, second stage (if any) must be done,
+  // AND for R5 the Shadow Board Audit must be completed before strategy access
+  const r5AuditGate = roundNumber === 5 ? (!!globalState?.active_event_flags?.shadow_board_completed || shadowBoardCompleted) : true;
+  const canAccessStrategy = hasReadBriefing && roundPrerequisiteMet && r5AuditGate;
 
   // Journey pedagogy gate: track when R6/R7/R8 minigames load and are submitted
   const [r6Pending, setR6Pending] = useState(false);
@@ -1189,6 +1232,14 @@ export default function ExecutiveCockpit({
 
   return (
     <div className={`${styles.cockpit} ${uiStateClass} ${roundTierClass} ${boardMoodClass}`}>
+      {/* ═══ SHADOW BOARD AUDIT — R5 Mandatory Middleware ═══ */}
+      {showShadowBoardAudit && (
+        <ShadowBoardAudit
+          sessionId={sim?.sessionId}
+          onComplete={handleShadowBoardComplete}
+          globalState={globalState}
+        />
+      )}
       {/* ═══ GLOBAL HEADER ═══ */}
       <header className={styles.header}>
         <div className={styles.headerLogo}>
@@ -2008,7 +2059,7 @@ export default function ExecutiveCockpit({
                           return (
                           <tr key={optId} style={{ borderBottom: '1px solid rgba(0,0,0,0.05)' }}>
                             <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
-                            <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#16a34a' : imp.treasury > 0 ? '#ef4444' : muted }}>
+                            <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#ef4444' : imp.treasury > 0 ? '#16a34a' : muted }}>
                               {imp.treasury != null ? fmtCurrency(imp.treasury) : '—'}
                             </td>
                             <td style={{ textAlign: 'center', color: rev > 0 ? '#16a34a' : rev < 0 ? '#ef4444' : muted }}>
@@ -2049,6 +2100,22 @@ export default function ExecutiveCockpit({
               roundNumber={roundNumber}
               globalState={globalState}
               events={events}
+            />
+
+            {/* Consequence DNA Visualizer Trigger (Sankey pop-out) */}
+            {roundNumber >= 4 && (
+              <ConsequenceDNATrigger
+                ignited={dnaIgnited}
+                onClick={() => setShowDNAVisualizer(true)}
+              />
+            )}
+
+            {/* Consequence DNA Visualizer Pop-Out */}
+            <ConsequenceDNAVisualizer
+              sessionId={sim?.sessionId}
+              isOpen={showDNAVisualizer}
+              onClose={() => setShowDNAVisualizer(false)}
+              frozen={false}
             />
 
             {/* Phase 3.7: Terminal Valuation Calculator (R9-10 Finale tier) */}
@@ -2266,7 +2333,6 @@ export default function ExecutiveCockpit({
               >
                 📜 My Decisions
               </button>
-              {isDeepDive && (
               <button
                 onClick={() => setRightPanelTab('engines')}
                 style={{
@@ -2281,7 +2347,6 @@ export default function ExecutiveCockpit({
               >
                 🌎 Engines
               </button>
-              )}
             </div>
 
             {/* Tab Content */}
@@ -2368,6 +2433,7 @@ export default function ExecutiveCockpit({
                     agentSummary={aaSummary}
                     agentActions={aaDiag.agent_actions || []}
                     cascadesFired={aaDiag.cascades_fired || []}
+                    interferenceActive={aaDiag.interference_active || []}
                     roundNumber={roundNumber}
                   />
                 );
@@ -2761,7 +2827,7 @@ export default function ExecutiveCockpit({
                       {costVal ? (
                         <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6rem' }}>
                           <span style={{ color: '#64748b', fontWeight: 600 }}>💰 Cost</span>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: costVal < 0 ? '#16a34a' : '#ef4444' }}>{fmtCurrency(costVal)}</span>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: costVal < 0 ? '#ef4444' : '#16a34a' }}>{fmtCurrency(costVal)}</span>
                         </div>
                       ) : (
                         <div style={{ marginTop: 6, fontSize: '0.6rem', fontWeight: 700, color: '#f59e0b' }}>⚠️ $0 CapEx — deferred risk</div>
@@ -2769,7 +2835,7 @@ export default function ExecutiveCockpit({
                       {isActive && opt.impacts && (
                         <div style={{ marginTop: 6, padding: '4px 6px', background: 'rgba(0,229,195,0.04)', borderRadius: 4, fontSize: '0.68rem', lineHeight: 1.6, border: '1px solid rgba(0,229,195,0.08)' }}>
                           {opt.impacts.treasury && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.treasury < 0 ? '#4ade80' : '#f87171' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.treasury < 0 ? '#f87171' : '#4ade80' }}>
                               <span>💰 Treasury</span>
                               <span style={{ fontWeight: 700 }}>{fmtCurrency(treasury)} → {fmtCurrency(treasury + (opt.impacts.treasury || 0))}</span>
                             </div>
@@ -2818,7 +2884,7 @@ export default function ExecutiveCockpit({
                       return (
                       <tr key={optId} style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f1f5f9' }}>
                         <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
-                        <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#4ade80' : imp.treasury > 0 ? '#f87171' : muted }}>
+                        <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#f87171' : imp.treasury > 0 ? '#4ade80' : muted }}>
                           {imp.treasury != null ? fmtCurrency(imp.treasury) : '—'}
                         </td>
                         <td style={{ textAlign: 'center', color: rev > 0 ? '#4ade80' : rev < 0 ? '#f87171' : muted }}>

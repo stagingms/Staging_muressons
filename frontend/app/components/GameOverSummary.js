@@ -883,7 +883,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 {/* Footer */}
                 <div className={styles.footer}>
                     <p>Muressons Global Corporation — Sustainability Strategy Simulation</p>
-                    <p>© Year 3 Board of Directors Meeting</p>
+                    <p>© Year 5 Board of Directors Meeting</p>
                 </div>
             </div>
         </div>

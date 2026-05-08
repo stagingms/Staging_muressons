@@ -5,6 +5,7 @@ import {
     LineChart, Line, AreaChart, Area,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
+import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
 import styles from './DebriefReport.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -141,7 +142,8 @@ export default function DebriefReport({ sessionId }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [expandedRounds, setExpandedRounds] = useState(new Set());
-    const [activeTab, setActiveTab] = useState('rounds'); // 'rounds' | 'trends' | 'analysis'
+    const [activeTab, setActiveTab] = useState('rounds'); // 'rounds' | 'trends' | 'analysis' | 'dna'
+    const [dnaData, setDnaData] = useState(null);
 
     const fetchDebrief = useCallback(async () => {
         if (!sessionId) return;
@@ -168,6 +170,15 @@ export default function DebriefReport({ sessionId }) {
         const interval = setInterval(fetchDebrief, 20000);
         return () => clearInterval(interval);
     }, [fetchDebrief]);
+
+    // Fetch DNA data for the DNA tab
+    useEffect(() => {
+        if (!sessionId) return;
+        fetch(`${API}/api/simulations/${sessionId}/consequence-dna-data`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setDnaData(d); })
+            .catch(() => {});
+    }, [sessionId]);
 
     const toggleRound = (rn) => {
         setExpandedRounds(prev => {
@@ -241,6 +252,14 @@ export default function DebriefReport({ sessionId }) {
                 >
                     🔍 Critical Analysis
                 </button>
+                {dnaData?.ignited && (
+                    <button
+                        className={`${styles.tab} ${activeTab === 'dna' ? styles.tabActive : ''}`}
+                        onClick={() => setActiveTab('dna')}
+                    >
+                        🧬 DNA Map
+                    </button>
+                )}
             </nav>
 
             <div className={styles.body}>
@@ -271,6 +290,52 @@ export default function DebriefReport({ sessionId }) {
                 {/* ──── Tab: Critical Analysis ──── */}
                 {activeTab === 'analysis' && (
                     <AnalysisSection analysis={analysis} trendHistory={trendHistory} regulatoryInstruments={regulatoryInstruments} />
+                )}
+
+                {/* ──── Tab: DNA Map ──── */}
+                {activeTab === 'dna' && dnaData && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {/* Leverage summary strip */}
+                        <div style={{
+                            display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem',
+                            padding: '0.75rem', borderRadius: '10px',
+                            background: 'var(--bg-elevated, #1e293b)', border: '1px solid var(--border-subtle, #334155)',
+                        }}>
+                            {[
+                                { label: 'M_R', value: (dnaData.mr_projection?.mr || 1.0).toFixed(2),
+                                  color: (dnaData.mr_projection?.mr || 0) >= 1.2 ? '#10b981' : '#f59e0b' },
+                                { label: 'Deep', value: dnaData.leverage_summary?.deep_intervention_count || 0, color: '#10b981' },
+                                { label: 'Shallow', value: dnaData.leverage_summary?.shallow_intervention_count || 0, color: '#f59e0b' },
+                                { label: 'Conflicts', value: (dnaData.agents || []).filter(a => ['agitated','hostile','triggered'].includes(a.stage)).length, color: '#ef4444' },
+                                { label: 'Effectiveness', value: `${((dnaData.leverage_summary?.effectiveness_score || 0) * 100).toFixed(0)}%`, color: '#3b82f6' },
+                            ].map((s, i) => (
+                                <div key={i} style={{ textAlign: 'center' }}>
+                                    <div style={{ fontSize: '1.1rem', fontWeight: 800, color: s.color, fontFamily: 'var(--font-mono, monospace)' }}>{s.value}</div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{s.label}</div>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Archetype badge */}
+                        {dnaData.mr_projection?.archetype && (
+                            <div style={{
+                                padding: '0.5rem 0.75rem', borderRadius: '8px', display: 'inline-flex', alignItems: 'center', gap: '0.5rem',
+                                background: dnaData.mr_projection.archetype.gradient || 'rgba(99,102,241,0.1)',
+                                color: '#fff', fontWeight: 700, fontSize: '0.82rem', alignSelf: 'flex-start',
+                            }}>
+                                {dnaData.mr_projection.archetype.icon} {dnaData.mr_projection.archetype.title}
+                            </div>
+                        )}
+
+                        {/* Inline Sankey */}
+                        <ConsequenceDNAVisualizer
+                            isOpen={true}
+                            frozen={true}
+                            inline={true}
+                            snapshotData={dnaData}
+                            onClose={() => setActiveTab('analysis')}
+                        />
+                    </div>
                 )}
             </div>
         </div>

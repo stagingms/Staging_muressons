@@ -216,6 +216,7 @@ export default function StakeholderAgentPanel({
   agentSummary = [],
   agentActions = [],
   cascadesFired = [],
+  interferenceActive = [],
   roundNumber,
 }) {
   const [expandedAgents, setExpandedAgents] = useState({});
@@ -279,6 +280,12 @@ export default function StakeholderAgentPanel({
               {watchCount} 👀
             </span>
           )}
+          {interferenceActive.length > 0 && (
+            <span className={`${styles.countBadge} ${styles.badgeWatch}`}
+              style={{ background: 'rgba(139,92,246,0.12)', color: '#c4b5fd', borderColor: 'rgba(139,92,246,0.25)' }}>
+              {interferenceActive.length} 📡
+            </span>
+          )}
           <span className={styles.collapseArrow}>
             {isCollapsed ? '▼' : '▲'}
           </span>
@@ -304,6 +311,38 @@ export default function StakeholderAgentPanel({
                 onToggle={() => toggleAgent(agent.agent_id)}
               />
             ))}
+
+            {/* Inter-Agent Interference alerts */}
+            {interferenceActive.length > 0 && (
+              <div className={styles.interferenceSection}>
+                <div className={styles.interferenceTitle}>
+                  <span>📡</span> Feedback Loops Active
+                </div>
+                {interferenceActive.map((ie, i) => {
+                  const agentA = ie.agents?.[0]?.replace(/the_/g, '').replace(/_/g, ' ') || '?';
+                  const agentB = ie.agents?.[1]?.replace(/the_/g, '').replace(/_/g, ' ') || '?';
+                  const pct = Math.round((ie.multiplier - 1) * 100);
+                  return (
+                    <div key={i} className={styles.interferenceCard}>
+                      <div className={styles.interferenceAgents}>
+                        <span style={{ textTransform: 'capitalize' }}>{agentA}</span>
+                        <span className={styles.interferenceLink}>⇄</span>
+                        <span style={{ textTransform: 'capitalize' }}>{agentB}</span>
+                        <span className={styles.interferenceMultiplier}>
+                          ×{ie.multiplier} ({pct}% faster)
+                        </span>
+                      </div>
+                      {ie.narrative && (
+                        <div className={styles.interferenceNarrative}>{ie.narrative}</div>
+                      )}
+                      {ie.theory && (
+                        <div className={styles.interferenceTheory}>🎓 {ie.theory}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Cascade chain log */}
             {cascadesFired.length > 0 && (

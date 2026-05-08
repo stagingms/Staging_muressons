@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import styles from './SustainabilityBalancedScorecard.module.css';
 import StockPerformanceChart from './StockPerformanceChart';
+import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
 import { roundToQuarter } from '../utils/roundToQuarter';
 
 // ═══════════════════════════════════════════════════════════════
@@ -104,7 +105,7 @@ function generateCriticalAnalysis(kpis, d, bus) {
         missed.push("Allocating CSF to OPEX Circularity and collaborative R&D across BUs would have unlocked cross-divisional symbiosis.");
     }
 
-    if (kpis.carbonTonnage < 150) strengths.push("Carbon footprint reduced to manageable levels, minimising the Year 3 carbon tax liability.");
+    if (kpis.carbonTonnage < 150) strengths.push("Carbon footprint reduced to manageable levels, minimising the Year 5 carbon tax liability.");
     else weaknesses.push("Carbon tonnage remained dangerously high, resulting in a heavy tax burden that eroded terminal value.");
 
     // Learning
@@ -156,7 +157,7 @@ function generateBoardMemo(kpis, d) {
     // Rule 3: Carbon liability
     if (carbon > 200 && ebitda > 0) {
         sentences.push(
-            "Despite positive operating margins, the carbon tonnage exposes the group to material regulatory risk under Year 3 carbon border adjustments."
+            "Despite positive operating margins, the carbon tonnage exposes the group to material regulatory risk under Year 5 carbon border adjustments."
         );
     }
     // Rule 4: SLO collapse
@@ -198,6 +199,22 @@ const PROFILES = {
     stranded_relic: { icon: '💀', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', rank: 'TERMINAL' },
 };
 
+const MR_TOOLTIPS = {
+    base: 'Starting multiplier of 1.00 — the baseline before any bonuses or penalties are applied.',
+    synergy_bonus: 'Earned +0.30 by achieving a Synergy Score ≥ 80 through circular economy integration in R7 (waste-to-energy pipeline).',
+    resilience_bonus: 'Earned +0.20 by surviving R5 Cyclone and R8 Water Crisis without choosing bailout/insurance-only options.',
+    truth_premium: 'Earned +0.15 by choosing the Ethical AI Overhaul (Option B) in R6, demonstrating governance transparency.',
+    community_champion_bonus: 'Earned +0.18 by investing $20M into the community resilience fund in R9.',
+    just_transition_bonus: 'Earned +0.12 by choosing managed workforce transition (Option A or C) in R9 instead of mass layoffs.',
+    workforce_bonus: 'Earned +0.08 by maintaining Workforce Readiness ≥ 75 at terminal — reflects sustained HR investment.',
+    wellbeing_bonus: 'Earned +0.05 by keeping average Burnout Index < 20 across all BUs at terminal.',
+    instability_discount: 'Penalty of −0.40 triggered when average Social License across all BUs falls below 75 — reflects stakeholder destabilisation.',
+    max_achievable_mr: 'Theoretical ceiling — the maximum M_R attainable if every bonus is earned and no penalties apply.',
+    csrd_governance_premium: 'Earned +0.10 by choosing CSRD-aligned governance in R2 (Option A).',
+    green_bond_premium: 'Earned via green bond issuance — lower cost of capital from verified ESG credentials.',
+    climate_resilience_bonus: 'Earned by maintaining high climate resilience factor through proactive infrastructure investments.',
+};
+
 const PERSPECTIVE_ICONS = {
     financial: '💰',
     stakeholder: '🤝',
@@ -230,11 +247,30 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     console.log('[SCORECARD] profile:', d.profile, '| terminal_ebitda:', d.terminal_ebitda, '| terminal_value:', d.terminal_value);
     console.log('[SCORECARD] bus:', bus.length, '| globalState keys:', Object.keys(globalState));
     console.log('[SCORECARD] history:', history.length, 'rounds');
-    const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'analysis' | 'trends' | 'tbl_matrix' | 'rounds' | 'stock' | 'leaderboard' | 'report'
+    const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'analysis' | 'trends' | 'tbl_matrix' | 'rounds' | 'stock' | 'leaderboard' | 'report' | 'dna_map'
     const printRef = useRef(null);
     const [leaderboard, setLeaderboard] = useState([]);
     const [extendLoading, setExtendLoading] = useState(false);
     const [extendError, setExtendError] = useState(null);
+
+    // Fallback state for older sessions that didn't capture the snapshot at R10
+    const [fetchedDnaSnapshot, setFetchedDnaSnapshot] = useState(null);
+
+    // Consequence DNA snapshot from live fetch (prioritized during dev/updates) or fallback to frozen state
+    const dnaSnapshot = useMemo(() => {
+        return fetchedDnaSnapshot || globalState?.active_event_flags?.consequence_dna_snapshot || null;
+    }, [globalState, fetchedDnaSnapshot]);
+
+    useEffect(() => {
+        if (sessionId) {
+            fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sessionId}/consequence-dna-data`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data && !data.error) setFetchedDnaSnapshot(data);
+                })
+                .catch(err => console.error("Failed to fetch DNA snapshot fallback:", err));
+        }
+    }, [sessionId]);
 
     const handleExtendMode = async () => {
         if (!sessionId) return;
@@ -295,7 +331,11 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     const mrBreakdown = d.mr_breakdown || {};
     const mrItems = Object.entries(mrBreakdown)
         .filter(([, val]) => val != null && val !== 0)
-        .map(([key, val]) => ({ key, value: Number(val) || 0 }));
+        .map(([key, val]) => ({
+            key,
+            value: Number(val) || 0,
+            tooltip: MR_TOOLTIPS[key] || `${key.replace(/_/g, ' ')} component of the Regenerative Multiple.`,
+        }));
 
 
     const PERSPECTIVES = [
@@ -304,7 +344,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
             title: 'Financial Perspective',
             metrics: [
                 {
-                    label: 'Adjusted EBITDA (Year 3)',
+                    label: 'Adjusted EBITDA (Year 5)',
                     value: `$${(kpis.ebitda / 1_000_000).toFixed(2)}M`,
                     note: `After $${(d.carbon_tax_per_ton || 250)}/ton carbon tax`,
                     diagnostic: diagnoseEBITDA(kpis.ebitda),
@@ -516,7 +556,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Muressons Global Corporation — Sustainability Report (Year 3)</title>
+    <title>Muressons Global Corporation — Sustainability Report (Year 5)</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: #0f172a; color: #e2e8f0; line-height: 1.6; padding: 0; }
@@ -570,7 +610,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     <div class="report">
         <!-- Header -->
         <div class="header">
-            <div class="badge">MURESSONS GLOBAL — SUSTAINABILITY BALANCED SCORECARD (YEAR 3)</div>
+            <div class="badge">MURESSONS GLOBAL — SUSTAINABILITY BALANCED SCORECARD (YEAR 5)</div>
             <h1>${theme.icon} ${d.profile_title || 'Final Assessment'}</h1>
             <p>${d.profile_description || ''}</p>
         </div>
@@ -716,6 +756,14 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     >
                         📋 Final Report
                     </button>
+                    {dnaSnapshot && (
+                      <button
+                          className={`${styles.tab} ${activeTab === 'dna_map' ? styles.tabActive : ''}`}
+                          onClick={() => setActiveTab('dna_map')}
+                      >
+                          🧬 DNA Map
+                      </button>
+                    )}
                     <button className={styles.downloadBtn} onClick={handleDownload}>
                         📥 Download Report
                     </button>
@@ -764,7 +812,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         key={item.key}
                                         className={`${styles.mrSegment} ${item.value >= 0 ? styles.mrPositive : styles.mrNegative}`}
                                         style={{ flex: Math.abs(item.value) }}
-                                        title={`${item.key}: ${item.value > 0 ? '+' : ''}${item.value.toFixed(2)}`}
+                                        title={`${item.key.replace(/_/g, ' ')}: ${item.value > 0 ? '+' : ''}${item.value.toFixed(2)} — ${item.tooltip}`}
                                     >
                                         <span>{item.value > 0 ? '+' : ''}{item.value.toFixed(2)}</span>
                                     </div>
@@ -772,8 +820,9 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                             </div>
                             <div className={styles.mrLegend}>
                                 {mrItems.map(item => (
-                                    <span key={item.key} className={item.value >= 0 ? styles.legendPositive : styles.legendNegative}>
+                                    <span key={item.key} className={`${item.value >= 0 ? styles.legendPositive : styles.legendNegative} ${styles.mrTooltipWrap}`}>
                                         {item.key.replace(/_/g, ' ')}: {item.value > 0 ? '+' : ''}{item.value.toFixed(2)}
+                                        <span className={styles.mrTooltip}>{item.tooltip}</span>
                                     </span>
                                 ))}
                             </div>
@@ -1179,7 +1228,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     const memo = generateBoardMemo(kpis, d);
                     return (
                         <section className={styles.reportSection}>
-                            <h2 className={styles.sectionTitle}>📋 Muressons Global Corporation — Final Report (Year 3)</h2>
+                            <h2 className={styles.sectionTitle}>📋 Muressons Global Corporation — Final Report (Year 5)</h2>
 
                             {/* Top KPIs */}
                             <div className={styles.reportKpis}>
@@ -1257,7 +1306,12 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                             <tbody>
                                                 {mrItems.map((item, i) => (
                                                     <tr key={item.key} className={i % 2 === 0 ? styles.evenRow : ''}>
-                                                        <td style={{ textAlign: 'left' }}>{item.key.replace(/_/g, ' ')}</td>
+                                                        <td style={{ textAlign: 'left' }}>
+                                                            <span className={styles.mrTooltipWrap}>
+                                                                {item.key.replace(/_/g, ' ')}
+                                                                <span className={styles.mrTooltip}>{item.tooltip}</span>
+                                                            </span>
+                                                        </td>
                                                         <td className={styles.mono} style={{ color: item.value >= 0 ? '#10b981' : '#ef4444' }}>
                                                             {item.value > 0 ? '+' : ''}{item.value.toFixed(2)}
                                                         </td>
@@ -1307,7 +1361,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                 🚀 Extended Horizon Mode — Rounds 11–20
                             </div>
                             <div style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.5 }}>
-                                Continue beyond Year 3 into a full 5-year strategic horizon. Face CBAM enforcement, AI disruption waves, shareholder revolutions, and the legacy decision. Your current state carries forward.
+                                Continue beyond Year 5 into a full 10-year strategic horizon. Face CBAM enforcement, AI disruption waves, shareholder revolutions, and the legacy decision. Your current state carries forward.
                             </div>
                             {extendError && (
                                 <div style={{ fontSize: '0.72rem', color: '#f87171' }}>{extendError}</div>
@@ -1327,6 +1381,60 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                 {extendLoading ? '⏳ Activating…' : '🚀 Enter Extended Mode (Rounds 11–20)'}
                             </button>
                         </div>
+                    )}
+
+                    {/* ──────── TAB: DNA Map (frozen Sankey) ──────── */}
+                    {activeTab === 'dna_map' && dnaSnapshot && (
+                      <section style={{ padding: '20px 0' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                          <h2 className={styles.sectionTitle} style={{ marginBottom: 0 }}>🧬 Consequence DNA Map — System Freeze</h2>
+                          <button
+                            onClick={() => {
+                              const svgEl = document.querySelector('[class*="sankeySvg"]');
+                              if (!svgEl) return;
+                              const svgData = new XMLSerializer().serializeToString(svgEl);
+                              const canvas = document.createElement('canvas');
+                              const bbox = svgEl.getBoundingClientRect();
+                              canvas.width = bbox.width * 2;
+                              canvas.height = bbox.height * 2;
+                              const ctx = canvas.getContext('2d');
+                              ctx.scale(2, 2);
+                              const img = new Image();
+                              img.onload = () => {
+                                ctx.fillStyle = '#0f172a';
+                                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                ctx.drawImage(img, 0, 0, bbox.width, bbox.height);
+                                const link = document.createElement('a');
+                                link.download = `consequence-dna-${new Date().toISOString().slice(0,10)}.png`;
+                                link.href = canvas.toDataURL('image/png');
+                                link.click();
+                              };
+                              img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+                            }}
+                            style={{
+                              background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)',
+                              borderRadius: 8, color: '#818cf8', cursor: 'pointer', padding: '6px 14px',
+                              fontSize: '0.72rem', fontWeight: 600, transition: 'all 0.2s',
+                            }}
+                          >
+                            📸 Export PNG
+                          </button>
+                        </div>
+                        <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginBottom: 16, lineHeight: 1.6 }}>
+                          This frozen Sankey diagram captures the complete causal chain of your decisions from Round 1 through Round 10.
+                          Each path traces how a strategic choice propagated through flags, stakeholder conflicts, and metric shifts
+                          to impact your final Regenerative Multiple. Hover over paths to see impact scores.
+                        </p>
+                        <div style={{ border: '1px solid rgba(99,102,241,0.2)', borderRadius: 12, overflow: 'hidden' }}>
+                          <ConsequenceDNAVisualizer
+                            isOpen={true}
+                            frozen={true}
+                            inline={true}
+                            snapshotData={dnaSnapshot}
+                            onClose={() => setActiveTab('scorecard')}
+                          />
+                        </div>
+                      </section>
                     )}
 
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>

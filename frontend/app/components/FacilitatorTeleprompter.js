@@ -160,6 +160,385 @@ function SystemicRiskIntel({ sessionId, sectionLabel }) {
     );
 }
 
+/* ── Live Autonomous Agent Intelligence Sub-Component ── */
+function LiveAgentIntel({ sessionId, sectionLabel }) {
+    const [agentData, setAgentData] = useState(null);
+    useEffect(() => {
+        if (!sessionId) return;
+        const fetchAgents = () => {
+            fetch(`${API}/api/admin/teleprompter/agents/${sessionId}`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (d && d.agents) setAgentData(d); })
+                .catch(() => {});
+        };
+        fetchAgents();
+        const t = setInterval(fetchAgents, 15000);
+        return () => clearInterval(t);
+    }, [sessionId]);
+
+    if (!agentData || !agentData.agents) return null;
+
+    const STAGE_COLORS = {
+        dormant:   { color: '#10b981', bg: 'rgba(16,185,129,0.10)' },
+        watching:  { color: '#f59e0b', bg: 'rgba(245,158,11,0.10)' },
+        agitated:  { color: '#f97316', bg: 'rgba(249,115,22,0.10)' },
+        hostile:   { color: '#ef4444', bg: 'rgba(239,68,68,0.12)' },
+        triggered: { color: '#dc2626', bg: 'rgba(220,38,38,0.15)' },
+    };
+
+    const STAGE_ICONS = { dormant: '😊', watching: '👀', agitated: '😠', hostile: '🔥', triggered: '💥' };
+
+    return (
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(139,92,246,0.06))',
+            border: '1px solid rgba(6,182,212,0.2)',
+            borderRadius: '10px', padding: '1rem',
+            borderLeft: '3px solid #06b6d4',
+        }}>
+            {sectionLabel('📡', `Live Agent State — ${agentData.facilitator_alert || 'Active'}`, '#06b6d4')}
+
+            {/* Agent Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                {agentData.agents.map(agent => {
+                    const sc = STAGE_COLORS[agent.stage] || STAGE_COLORS.dormant;
+                    const pct = agent.tolerance_pct || 0;
+                    return (
+                        <div key={agent.agent_id} style={{
+                            padding: '0.6rem 0.7rem', borderRadius: '8px',
+                            background: 'rgba(0,0,0,0.15)',
+                            border: `1px solid ${sc.color}30`,
+                            ...(agent.stage === 'triggered' ? { animation: 'pulse 2s infinite' } : {}),
+                        }}>
+                            {/* Agent header */}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.35rem' }}>
+                                <span style={{ fontSize: '0.85rem' }}>{agent.icon}</span>
+                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    {agent.name}
+                                </span>
+                                <span style={{
+                                    fontSize: '0.5rem', fontWeight: 800, padding: '1px 5px',
+                                    borderRadius: '3px', background: sc.bg, color: sc.color,
+                                    fontFamily: 'var(--font-mono, monospace)',
+                                    letterSpacing: '0.06em',
+                                }}>
+                                    {STAGE_ICONS[agent.stage]} {agent.stage?.toUpperCase()}
+                                </span>
+                            </div>
+
+                            {/* Tolerance bar */}
+                            <div style={{
+                                height: '4px', borderRadius: '2px',
+                                background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
+                                marginBottom: '0.25rem',
+                            }}>
+                                <div style={{
+                                    height: '100%', borderRadius: '2px',
+                                    width: `${pct}%`, background: sc.color,
+                                    transition: 'width 0.8s ease-out',
+                                    boxShadow: `0 0 6px ${sc.color}`,
+                                }} />
+                            </div>
+
+                            {/* Stats */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.58rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono, monospace)' }}>
+                                <span>TOL: {agent.tolerance}/{agent.max_tolerance}</span>
+                                <span style={{ color: agent.trend === 'deteriorating' ? '#ef4444' : agent.trend === 'improving' ? '#10b981' : '#64748b' }}>
+                                    {agent.trend === 'deteriorating' ? '📉' : agent.trend === 'improving' ? '📈' : '➡️'} {agent.trend}
+                                </span>
+                            </div>
+
+                            {/* Dialogue snippet */}
+                            {agent.dialogue && (
+                                <div style={{
+                                    marginTop: '0.3rem', fontSize: '0.62rem', color: '#94a3b8',
+                                    fontStyle: 'italic', lineHeight: 1.4,
+                                    borderLeft: `2px solid ${sc.color}40`, paddingLeft: '0.4rem',
+                                    maxHeight: '2.8em', overflow: 'hidden',
+                                }}>
+                                    &ldquo;{agent.dialogue}&rdquo;
+                                </div>
+                            )}
+
+                            {/* Triggered round */}
+                            {agent.triggered_round && (
+                                <div style={{
+                                    marginTop: '0.25rem', fontSize: '0.55rem', fontWeight: 700,
+                                    color: '#fca5a5', fontFamily: 'var(--font-mono, monospace)',
+                                }}>
+                                    💥 TRIGGERED R{agent.triggered_round}
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Interference alerts */}
+            {agentData.agents && (() => {
+                // Check for interference from the cascade log patterns
+                const interferencePairs = [];
+                const stages = {};
+                agentData.agents.forEach(a => { stages[a.agent_id] = a.stage; });
+                const escalated = new Set(['agitated', 'hostile', 'triggered']);
+                // Journalist + Regulator
+                if (escalated.has(stages.the_journalist) && escalated.has(stages.the_regulator)) {
+                    interferencePairs.push({ a: 'Journalist', b: 'Regulator', icon: '📡', mult: '×1.4', label: 'Media-Regulator Feedback Loop' });
+                }
+                // Gen Z + Community
+                if (escalated.has(stages.the_gen_z_employee) && escalated.has(stages.the_community_activist)) {
+                    interferencePairs.push({ a: 'Gen Z', b: 'Community', icon: '✊', mult: '×1.25', label: 'Solidarity Amplification' });
+                }
+                // Investor + Regulator (hostile+)
+                const hostile = new Set(['hostile', 'triggered']);
+                if (hostile.has(stages.the_institutional_investor) && hostile.has(stages.the_regulator)) {
+                    interferencePairs.push({ a: 'Investor', b: 'Regulator', icon: '📉', mult: '×1.3', label: 'Regulatory-Market Vortex' });
+                }
+                if (interferencePairs.length === 0) return null;
+                return (
+                    <div style={{
+                        padding: '0.6rem 0.7rem', borderRadius: '8px',
+                        background: 'linear-gradient(135deg, rgba(139,92,246,0.06), rgba(6,182,212,0.04))',
+                        border: '1px solid rgba(139,92,246,0.18)',
+                        marginBottom: '0.75rem',
+                    }}>
+                        <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                            📡 Active Inter-Agent Interference
+                        </div>
+                        {interferencePairs.map((p, i) => (
+                            <div key={i} style={{
+                                display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                padding: '0.3rem 0.5rem', borderRadius: '5px',
+                                background: 'rgba(139,92,246,0.05)',
+                                border: '1px solid rgba(139,92,246,0.12)',
+                                marginBottom: '0.25rem', fontSize: '0.72rem',
+                            }}>
+                                <span>{p.icon}</span>
+                                <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{p.a}</span>
+                                <span style={{ color: '#64748b' }}>⇄</span>
+                                <span style={{ color: '#c4b5fd', fontWeight: 700 }}>{p.b}</span>
+                                <span style={{
+                                    marginLeft: 'auto', fontSize: '0.58rem', fontWeight: 800,
+                                    color: '#f472b6', background: 'rgba(244,114,182,0.10)',
+                                    padding: '1px 5px', borderRadius: '4px',
+                                    border: '1px solid rgba(244,114,182,0.2)',
+                                    fontFamily: 'var(--font-mono, monospace)',
+                                }}>{p.mult}</span>
+                                <span style={{ fontSize: '0.6rem', color: '#94a3b8', fontStyle: 'italic' }}>{p.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                );
+            })()}
+
+            {/* Contextual debrief questions */}
+            {agentData.contextual_debrief_questions?.length > 0 && (
+                <div style={{
+                    padding: '0.6rem 0.7rem', borderRadius: '8px',
+                    background: 'rgba(0,0,0,0.1)',
+                    border: '1px solid rgba(255,255,255,0.04)',
+                }}>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#06b6d4', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                        🗣️ Contextual Debrief Questions (Stage: {agentData.worst_stage?.toUpperCase()})
+                    </div>
+                    {agentData.contextual_debrief_questions.map((q, i) => (
+                        <div key={i} style={{
+                            padding: '0.4rem 0.6rem', borderRadius: '6px',
+                            background: q.startsWith('★') ? 'rgba(201,168,76,0.06)' : 'rgba(6,182,212,0.04)',
+                            borderLeft: `2px solid ${q.startsWith('★') ? 'rgba(201,168,76,0.4)' : 'rgba(6,182,212,0.3)'}`,
+                            fontSize: '0.75rem',
+                            color: q.startsWith('★') ? '#fde68a' : 'var(--text-secondary, #94a3b8)',
+                            fontStyle: 'italic', lineHeight: 1.5, marginBottom: '0.25rem',
+                            fontWeight: q.startsWith('★') ? 600 : 400,
+                        }}>
+                            &ldquo;{q}&rdquo;
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Cascade log */}
+            {agentData.cascade_log?.length > 0 && (
+                <div style={{ marginTop: '0.5rem' }}>
+                    <div style={{ fontSize: '0.58rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                        ⚡ Recent Cascade Events ({agentData.cascade_log.length})
+                    </div>
+                    {agentData.cascade_log.slice(-5).map((c, i) => (
+                        <div key={i} style={{
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                            fontSize: '0.65rem', color: '#94a3b8',
+                            fontFamily: 'var(--font-mono, monospace)', padding: '0.15rem 0',
+                        }}>
+                            <span style={{ color: '#fbbf24', fontWeight: 700 }}>{c.source?.replace(/the_/g, '').replace(/_/g, ' ')}</span>
+                            <span style={{ color: '#475569' }}>→</span>
+                            <span style={{ color: '#f59e0b' }}>{c.target?.replace(/the_/g, '').replace(/_/g, ' ')}</span>
+                            <span style={{ color: '#ef4444', fontWeight: 700, marginLeft: 'auto' }}>−{c.tolerance_hit}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+}
+
+/* ── Consequence DNA Insight Card (R5+ only) ── */
+function LiveDNAInsight({ sessionId, activeRound, sectionLabel }) {
+    const [dna, setDna] = useState(null);
+    useEffect(() => {
+        if (!sessionId) return;
+        const fetchDNA = () => {
+            fetch(`${API}/api/simulations/${sessionId}/consequence-dna-data`)
+                .then(r => r.ok ? r.json() : null)
+                .then(d => { if (d) setDna(d); })
+                .catch(() => {});
+        };
+        fetchDNA();
+        const t = setInterval(fetchDNA, 20000);
+        return () => clearInterval(t);
+    }, [sessionId]);
+
+    if (!dna || !dna.ignited) return null;
+
+    const mr = dna.mr_projection || {};
+    const ls = dna.leverage_summary || {};
+    const agents = dna.agents || [];
+    const activeConflicts = agents.filter(a => ['agitated', 'hostile', 'triggered'].includes(a.stage));
+    const triggeredAgents = agents.filter(a => a.stage === 'triggered');
+
+    // Round-specific DNA debrief prompts
+    const DNA_DEBRIEF = {
+        5: [
+            'The Shadow Board Audit just ignited the DNA Visualizer. Ask: "What causal chains can you already see forming from Rounds 1-4?"',
+            'Point teams to the constriction nodes — which stakeholders are already narrowing their capital flow?',
+        ],
+        6: [
+            'The Ethical AI decision in this round sets the Truth Premium flag. Ask: "How does this choice ripple through your DNA map?"',
+            'Compare teams with deep vs shallow interventions — which have thicker Sankey paths?',
+        ],
+        7: [
+            'Waste-to-Energy unlocks the largest synergy boost. Ask teams to trace the R7→Synergy→M_R path in their DNA.',
+            'Look for interference pair activation — Journalist + Regulator feedback loops often ignite here.',
+        ],
+        8: [
+            'Desalination vs alternative water solutions — trace the cost/benefit through the DNA to show long-term NCD impact.',
+            'How many teams have triggered agents? The constriction factor directly reduces capital available for R9-R10.',
+        ],
+        9: [
+            'Strike probability is visible in the DNA as a leak node. Ask: "Can you see where your workforce capital is being siphoned?"',
+            'Teams approaching R10 should study their full causal chain — the System Freeze will capture everything.',
+        ],
+        10: [
+            'SYSTEM FREEZE activated. The DNA Visualizer is now capturing the final snapshot for the debrief report.',
+            'Direct teams to their DNA Map tab in the final scorecard — every decision from R1-R10 is now traced.',
+            'Ask: "Looking at your complete DNA map, which single decision had the deepest systemic impact?"',
+        ],
+    };
+
+    const prompts = DNA_DEBRIEF[activeRound] || [];
+
+    return (
+        <div style={{
+            background: 'linear-gradient(135deg, rgba(16,185,129,0.06), rgba(6,182,212,0.04))',
+            border: '1px solid rgba(16,185,129,0.2)',
+            borderRadius: '10px', padding: '1rem',
+            borderLeft: '3px solid #10b981',
+        }}>
+            {sectionLabel('🧬', `Consequence DNA Insight — R${activeRound}`, '#10b981')}
+
+            {/* Quick stats row */}
+            <div style={{
+                display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem',
+                marginBottom: '0.75rem',
+            }}>
+                {[
+                    { label: 'M_R', value: (mr.mr || 1.0).toFixed(2),
+                      color: mr.mr >= 1.8 ? '#10b981' : mr.mr >= 1.2 ? '#3b82f6' : mr.mr >= 0.8 ? '#f59e0b' : '#ef4444' },
+                    { label: 'Deep', value: ls.deep_intervention_count || 0, color: '#10b981' },
+                    { label: 'Shallow', value: ls.shallow_intervention_count || 0, color: '#f59e0b' },
+                    { label: 'Conflicts', value: activeConflicts.length, color: activeConflicts.length > 2 ? '#ef4444' : '#f59e0b' },
+                ].map((s, i) => (
+                    <div key={i} style={{
+                        padding: '0.5rem', borderRadius: '7px',
+                        background: 'rgba(0,0,0,0.15)', textAlign: 'center',
+                        border: `1px solid ${s.color}25`,
+                    }}>
+                        <div style={{ fontSize: '1rem', fontWeight: 800, color: s.color, fontFamily: 'var(--font-mono, monospace)' }}>
+                            {s.value}
+                        </div>
+                        <div style={{ fontSize: '0.58rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                            {s.label}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Archetype projection */}
+            {mr.archetype && (
+                <div style={{
+                    padding: '0.4rem 0.65rem', borderRadius: '6px',
+                    background: mr.archetype.gradient || 'rgba(99,102,241,0.1)',
+                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                    fontSize: '0.72rem', fontWeight: 700, color: '#fff',
+                    marginBottom: '0.75rem',
+                }}>
+                    {mr.archetype.icon} {mr.archetype.title}
+                </div>
+            )}
+
+            {/* Triggered agents alert */}
+            {triggeredAgents.length > 0 && (
+                <div style={{
+                    padding: '0.5rem 0.7rem', borderRadius: '6px',
+                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                    marginBottom: '0.75rem',
+                }}>
+                    <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.3rem' }}>
+                        💥 Triggered Agents — Capital Leaking
+                    </div>
+                    {triggeredAgents.map(a => (
+                        <div key={a.agent_id} style={{
+                            fontSize: '0.72rem', color: '#fca5a5', padding: '0.15rem 0',
+                            display: 'flex', alignItems: 'center', gap: '0.4rem',
+                        }}>
+                            <span>{a.icon}</span>
+                            <span style={{ fontWeight: 700 }}>{a.name}</span>
+                            <span style={{ marginLeft: 'auto', fontSize: '0.62rem', color: '#ef4444', fontFamily: 'var(--font-mono, monospace)' }}>
+                                CF: {((a.constriction_factor || 0) * 100).toFixed(0)}%
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Round-specific debrief prompts */}
+            {prompts.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    {prompts.map((prompt, i) => (
+                        <div key={i} style={{
+                            padding: '0.45rem 0.65rem', borderRadius: '6px',
+                            background: 'rgba(16,185,129,0.04)',
+                            borderLeft: '2px solid rgba(16,185,129,0.3)',
+                            fontSize: '0.78rem', color: '#a7f3d0', fontStyle: 'italic', lineHeight: 1.5,
+                        }}>
+                            {prompt}
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Effectiveness score */}
+            {ls.effectiveness_score != null && (
+                <div style={{
+                    marginTop: '0.5rem', fontSize: '0.68rem', color: 'var(--text-muted)',
+                    fontFamily: 'var(--font-mono, monospace)',
+                }}>
+                    System Effectiveness: {(ls.effectiveness_score * 100).toFixed(0)}% · 
+                    Leverage Depth: {ls.deep_intervention_count || 0} deep / {ls.shallow_intervention_count || 0} shallow
+                </div>
+            )}
+        </div>
+    );
+}
+
 /* Hover-tooltip descriptions for every simulation engine flag */
 const ENGINE_TOOLTIPS = {
     // ── Financial engines ──
@@ -647,6 +1026,11 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 );
             })()}
 
+            {/* ── Consequence DNA Insight Card (R5+) ── */}
+            {activeRound >= 5 && sessionId && (() => {
+                return <LiveDNAInsight sessionId={sessionId} activeRound={activeRound} sectionLabel={sectionLabel} />;
+            })()}
+
             {/* ── Reflection Pause Points ── */}
             {(() => {
                 const PAUSE_PROMPTS = {
@@ -939,6 +1323,98 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
 
             {/* ── Systemic Risk Intelligence (Live Session Data) ── */}
             {sessionId && <SystemicRiskIntel sessionId={sessionId} sectionLabel={sectionLabel} />}
+
+            {/* ── Autonomous Stakeholder Agent Intelligence ── */}
+            {(() => {
+                const aad = script.autonomous_agents_debrief;
+                if (!aad) return null;
+                // Collect all debrief question arrays
+                const debriefKeys = Object.keys(aad).filter(k => k.startsWith('debrief_'));
+                return (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(139,92,246,0.08), rgba(6,182,212,0.04))',
+                        border: '1px solid rgba(139,92,246,0.2)',
+                        borderRadius: '10px', padding: '1rem',
+                        borderLeft: '3px solid #a78bfa',
+                    }}>
+                        {sectionLabel('🎭', 'Autonomous Stakeholder Agents — Debrief Intelligence', '#a78bfa')}
+
+                        {/* Stage indicator */}
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            marginBottom: '0.75rem',
+                        }}>
+                            <span style={{
+                                padding: '0.2rem 0.6rem', borderRadius: '5px', fontSize: '0.68rem',
+                                fontWeight: 800, fontFamily: 'var(--font-mono, monospace)',
+                                background: 'rgba(139,92,246,0.12)', color: '#c4b5fd',
+                                border: '1px solid rgba(139,92,246,0.25)',
+                                letterSpacing: '0.06em',
+                            }}>
+                                LIKELY STAGE: {aad.likely_stage}
+                            </span>
+                        </div>
+
+                        {/* Facilitator note */}
+                        {aad.facilitator_note && (
+                            <div style={{
+                                padding: '0.5rem 0.7rem', borderRadius: '7px',
+                                background: 'rgba(245,158,11,0.06)',
+                                border: '1px solid rgba(245,158,11,0.15)',
+                                borderLeft: '2px solid rgba(245,158,11,0.4)',
+                                fontSize: '0.78rem', color: '#fde68a',
+                                lineHeight: 1.5, marginBottom: '0.75rem',
+                            }}>
+                                ⚠️ {aad.facilitator_note}
+                            </div>
+                        )}
+
+                        {/* Debrief questions by category */}
+                        {debriefKeys.map(key => {
+                            const questions = aad[key] || [];
+                            if (questions.length === 0) return null;
+                            const label = key
+                                .replace('debrief_', '')
+                                .replace(/_/g, ' ')
+                                .replace(/\b\w/g, m => m.toUpperCase());
+                            return (
+                                <details key={key} open style={{
+                                    background: 'rgba(0,0,0,0.12)', borderRadius: '8px',
+                                    border: '1px solid rgba(255,255,255,0.04)',
+                                    overflow: 'hidden', marginBottom: '0.5rem',
+                                }}>
+                                    <summary style={{
+                                        padding: '0.55rem 0.85rem', cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                        fontSize: '0.75rem', fontWeight: 700, color: '#c4b5fd',
+                                        listStyle: 'none', letterSpacing: '0.04em',
+                                    }}>
+                                        🗣️ {label} ({questions.length} questions)
+                                    </summary>
+                                    <div style={{ padding: '0 0.85rem 0.75rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                        {questions.map((q, qi) => (
+                                            <div key={qi} style={{
+                                                padding: '0.45rem 0.65rem', borderRadius: '6px',
+                                                background: q.startsWith('★') ? 'rgba(201,168,76,0.06)' : 'rgba(139,92,246,0.04)',
+                                                borderLeft: `2px solid ${q.startsWith('★') ? 'rgba(201,168,76,0.4)' : 'rgba(139,92,246,0.3)'}`,
+                                                fontSize: '0.78rem',
+                                                color: q.startsWith('★') ? '#fde68a' : 'var(--text-secondary, #94a3b8)',
+                                                fontStyle: 'italic', lineHeight: 1.5,
+                                                fontWeight: q.startsWith('★') ? 600 : 400,
+                                            }}>
+                                                &ldquo;{q}&rdquo;
+                                            </div>
+                                        ))}
+                                    </div>
+                                </details>
+                            );
+                        })}
+                    </div>
+                );
+            })()}
+
+            {/* ── Live Agent State (Session-Aware) ── */}
+            {sessionId && <LiveAgentIntel sessionId={sessionId} sectionLabel={sectionLabel} />}
 
             {/* ── Facilitator Notes ── */}
             <div style={{

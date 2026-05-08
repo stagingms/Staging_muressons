@@ -19,6 +19,7 @@ from config import MASTER_PASSWORD
 from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions
 from admin_resources import check_hidden_resource_triggers
 from admin_shared import check_and_increment_cohort_count, is_practice_mode
+from option_shuffle import shuffle_options_for_display, deshuffle_choice, strip_canonical_metadata
 from models import (
     BUStateOut,
     CommitTurnRequest,
@@ -621,12 +622,19 @@ async def solo_start_simulation(body: SoloStartRequest):
             else:
                 rcfg = get_round_config(rnum)
             if rcfg:
+                # Apply option shuffle for solo sessions too
+                _solo_options = rcfg.get("options", {})
+                if sess and _req_paradigm in ("legacy_abc", "advanced_climate"):
+                    _solo_seed = sess.get("shuffle_seed")
+                    if _solo_seed:
+                        _solo_options = shuffle_options_for_display(_solo_options, _solo_seed, rnum)
+                        _solo_options = strip_canonical_metadata(_solo_options)
                 all_round_configs[str(rnum)] = {
                     "round_number": rnum,
                     "title": rcfg.get("title"),
                     "theme": rcfg.get("theme"),
                     "crisis": rcfg.get("crisis"),
-                    "options": rcfg.get("options"),
+                    "options": _solo_options,
                     "special_rules": rcfg.get("special_rules", {}),
                     "paradigm": _req_paradigm,
                 }
@@ -896,6 +904,17 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         else:
             # Fallback: no pillar_decisions provided, treat as legacy
             paradigm = "legacy_abc"
+
+    # ── ANTI-GAMING: Deshuffle displayed choice → canonical key ──
+    # The frontend sends back option_a/b/c based on the shuffled
+    # display order. We reverse-map to the real canonical key here
+    # so all downstream logic (engine, round_logic, flags) is unaffected.
+    _shuffle_seed = (session_info or {}).get("shuffle_seed")
+    if _shuffle_seed and paradigm == "legacy_abc":
+        for d in decisions_raw:
+            raw_choice = d.get("choice_selected", "")
+            if raw_choice:
+                d["choice_selected"] = deshuffle_choice(raw_choice, _shuffle_seed, current_round)
 
     # ── FIX VULN-005/008/009: Input validation ────────────────
     valid_choices = {"option_a", "option_b", "option_c", ""}
@@ -1167,6 +1186,25 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             d["player_id"] = audit_player_id
 
     # ── Persist ──────────────────────────────────────────────
+    # ── R10 SYSTEM FREEZE: Capture DNA snapshot ──────────────
+    if current_round == 10:
+        try:
+            from consequence_dna_api import build_consequence_dna_data
+            history_raw = await db.fetch_round_history(session_id)
+            history_for_dna = [
+                {"round_number": h["round_number"], "global_state": h["global_state"], "decisions": h.get("decisions", [])}
+                for h in history_raw
+            ]
+            dna_snapshot = build_consequence_dna_data(
+                session_id=session_id,
+                global_state=new_global,
+                bu_states=new_bus,
+                history=history_for_dna,
+            )
+            new_global.setdefault("active_event_flags", {})["consequence_dna_snapshot"] = dna_snapshot
+        except Exception as exc:
+            print(f"[WARN] Consequence DNA snapshot capture failed: {exc}")
+
     try:
         if current_round == 10:
             # R10: Update existing state in-place (don't insert new round 11)
@@ -1420,6 +1458,168 @@ async def save_decisions(session_id: str, body: SaveDecisionsRequest):
 
 
 # ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/consequence-dna-data
+# Consequence DNA Visualizer — full Sankey diagram data model
+# ─────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/consequence-dna-data",
+    summary="Get Consequence DNA Sankey data for the visualizer",
+)
+async def get_consequence_dna_data(session_id: str):
+    """
+    Returns the complete data model for the Consequence DNA Visualizer:
+    decision nodes, causal flags, metric shifts, M_R projections,
+    agent conflict/constriction nodes, cascade events, and Senge badges.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found.",
+        )
+
+    history_raw = await db.fetch_round_history(session_id)
+    history = [
+        {"round_number": h["round_number"], "global_state": h["global_state"], "decisions": h.get("decisions", [])}
+        for h in history_raw
+    ]
+
+    from consequence_dna_api import build_consequence_dna_data
+    dna_data = build_consequence_dna_data(
+        session_id=session_id,
+        global_state=latest["global_state"],
+        bu_states=latest["bu_states"],
+        history=history,
+    )
+    return dna_data
+
+
+# ─────────────────────────────────────────────────────────────────
+# SHADOW BOARD AUDIT — Round 5 Reflective Middleware
+# ─────────────────────────────────────────────────────────────────
+
+class ShadowBoardRejectionRequest(BaseModel):
+    rejection_target: str  # 'shareholder' | 'activist' | 'auditor'
+
+@router.get(
+    "/{session_id}/shadow-board-audit",
+    summary="Get Shadow Board Audit personas and state (R5 middleware)",
+)
+async def get_shadow_board_audit(session_id: str):
+    """
+    Returns the three Shadow Board personas with their scripts and the
+    current audit state for this session. Called when Round 5 briefing
+    is dismissed to determine if the audit modal should be shown.
+    """
+    from shadow_board_audit import (
+        get_shadow_board_personas,
+        get_shadow_board_state,
+        check_shadow_board_required,
+    )
+
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found.",
+        )
+
+    gs = latest["global_state"]
+    round_number = latest["round_number"]
+
+    return {
+        "session_id": session_id,
+        "round_number": round_number,
+        "audit_required": check_shadow_board_required(round_number, gs),
+        "audit_state": get_shadow_board_state(gs),
+        "personas": get_shadow_board_personas(),
+    }
+
+
+@router.post(
+    "/{session_id}/shadow-board-audit/reject",
+    status_code=status.HTTP_200_OK,
+    summary="Submit Shadow Board public rejection (R5 middleware)",
+)
+async def submit_shadow_board_rejection(
+    session_id: str, body: ShadowBoardRejectionRequest
+):
+    """
+    Records the player's public rejection of one of the three Shadow Board
+    personas. This:
+    1. Sets hidden flags evaluated at Round 10 for ending pathway cascades
+    2. Adjusts the corresponding stakeholder agent's tolerance (-10)
+    3. Classifies the firm's strategic archetype
+    4. Returns consequence DNA chain for UI traceability
+    """
+    from shadow_board_audit import process_rejection
+    from autonomous_agents import AGENT_PROFILES
+
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found.",
+        )
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+
+    # Check if already completed
+    flags = gs.get("active_event_flags", {})
+    if flags.get("shadow_board_completed"):
+        return {
+            "status": "already_completed",
+            "message": "Shadow Board Audit has already been completed for this session.",
+            "rejection_target": flags.get("shadow_board_rejection"),
+            "archetype": flags.get("shadow_board_archetype"),
+        }
+
+    # Validate rejection target
+    valid_targets = {"shareholder", "activist", "auditor"}
+    if body.rejection_target not in valid_targets:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid rejection_target '{body.rejection_target}'. "
+                   f"Must be one of: {sorted(valid_targets)}",
+        )
+
+    # Load autonomous agent state from global_state
+    agent_state = gs.get("autonomous_agents")
+    if not agent_state:
+        # Try to initialize if missing
+        try:
+            from autonomous_agents import create_initial_agent_state
+            agent_state = create_initial_agent_state()
+        except Exception:
+            agent_state = None
+
+    # Process the rejection
+    result = process_rejection(
+        rejection_target=body.rejection_target,
+        global_state=gs,
+        agent_master_state=agent_state,
+    )
+
+    # Persist agent state back
+    if agent_state:
+        gs["autonomous_agents"] = agent_state
+
+    # Persist updated global state
+    await db.update_latest_global_state(session_id, gs, bus)
+
+    print(
+        f"[shadow-board] Session {session_id}: "
+        f"Rejected '{body.rejection_target}' -> "
+        f"flag='{result['hidden_flag']['name']}', "
+        f"archetype='{result['strategic_archetype']['archetype']}'"
+    )
+
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────
 # GET /api/simulations/round-config/{round_number}
 # ─────────────────────────────────────────────────────────────────
 
@@ -1485,10 +1685,42 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
             detail=f"No configuration for round {round_number}.",
         )
 
+    # ── ANTI-GAMING: Shuffle option presentation order ────────
+    # Randomizes A/B/C labels per session so the letter carries no
+    # signal about option quality. Backend logic is unaffected.
+    options_out = cfg.get("options", {})
+    if session_id and (paradigm or "legacy_abc") in ("legacy_abc", "advanced_climate"):
+        try:
+            sess_meta = await db.get_session_info(session_id)
+            _shuffle_seed = (sess_meta or {}).get("shuffle_seed")
+            if _shuffle_seed:
+                options_out = shuffle_options_for_display(options_out, _shuffle_seed, round_number)
+                options_out = strip_canonical_metadata(options_out)
+
+                # R10 synergy gate: apply disabled state to whichever display
+                # position now holds the "Resist & Integrate" option
+                if round_number == 10:
+                    try:
+                        latest_state = await db.fetch_latest_state(session_id)
+                        if latest_state:
+                            _synergy = latest_state["global_state"].get("synergy_multiplier", 1.0) * 100
+                            for opt_key, opt_val in options_out.items():
+                                ui_c = opt_val.get("ui_constraints", {})
+                                threshold = ui_c.get("require_synergy_above")
+                                if threshold is not None and _synergy <= threshold:
+                                    opt_val["disabled"] = True
+                                    opt_val["disabled_reason"] = (
+                                        f"Requires Synergy Score > {threshold} (current: {_synergy:.0f})"
+                                    )
+                    except Exception as e:
+                        print(f"[WARN] R10 synergy gate check failed: {e}")
+        except Exception as e:
+            print(f"[WARN] Option shuffle failed, serving unshuffled: {e}")
+
     # Build UI constraints from options for frontend gating
     ui_constraints = {}
-    for opt_key, opt_val in cfg.get("options", {}).items():
-        if opt_val.get("ui_constraint"):
+    for opt_key, opt_val in options_out.items():
+        if isinstance(opt_val, dict) and opt_val.get("ui_constraint"):
             ui_constraints[opt_key] = opt_val["ui_constraint"]
 
     return {
@@ -1496,11 +1728,12 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
         "title": cfg.get("title"),
         "theme": cfg.get("theme"),
         "crisis": cfg.get("crisis"),
-        "options": cfg.get("options"),
+        "options": options_out,
         "special_rules": cfg.get("special_rules", {}),
         "ui_constraints": ui_constraints,
         "paradigm": paradigm or "legacy_abc",
         "ending_pathway": ending_pathway,
+        "options_shuffled": bool(session_id),
     }
 
 
@@ -3741,6 +3974,93 @@ async def list_instruments(session_id: str):
     return {"instruments": REGULATORY_INSTRUMENTS}
 
 
+@router.get(
+    "/{session_id}/regulatory-sandbox/exogenous-events",
+    summary="List available exogenous crisis events",
+)
+async def list_exogenous_events(session_id: str):
+    """Return all configurable exogenous events with trigger conditions."""
+    from regulatory_sandbox import EXOGENOUS_EVENTS
+    latest = await db.fetch_latest_state(session_id)
+    sandbox = {}
+    if latest:
+        sandbox = latest["global_state"].get("regulatory_sandbox", {})
+    events_out = []
+    for eid, cfg in EXOGENOUS_EVENTS.items():
+        fired_key = f"exogenous_{eid}_fired"
+        events_out.append({
+            "event_id": eid,
+            "name": cfg["name"],
+            "description": cfg["description"],
+            "trigger_rounds": cfg["trigger_rounds"],
+            "trigger_conditions": cfg["trigger_conditions"],
+            "effects": cfg["effects"],
+            "theory": cfg["theory"],
+            "icon": cfg["icon"],
+            "severity": cfg["severity"],
+            "already_fired": sandbox.get(fired_key),
+        })
+    return {"exogenous_events": events_out}
+
+
+@router.post(
+    "/{session_id}/regulatory-sandbox/trigger-event",
+    summary="God Mode: Force-trigger an exogenous crisis event",
+)
+async def trigger_exogenous(session_id: str, body: dict):
+    """
+    Facilitator God Mode — manually fire an exogenous event.
+    Body: { "event_id": "carbon_minsky_moment" }
+    Bypasses trigger conditions. Requires sandbox to be active.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+    round_number = latest.get("round_number", 1)
+
+    from regulatory_sandbox import (
+        create_sandbox_state, trigger_exogenous_event,
+    )
+
+    if "regulatory_sandbox" not in gs:
+        gs["regulatory_sandbox"] = create_sandbox_state()
+        gs["regulatory_sandbox"]["sandbox_mode"] = True
+
+    sandbox = gs["regulatory_sandbox"]
+    event_id = body.get("event_id")
+    events = {}
+
+    result = trigger_exogenous_event(
+        event_id, sandbox, gs, bus, events, round_number
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+
+    gs["regulatory_sandbox"] = sandbox
+    await db.update_latest_global_state(session_id, gs, bus)
+
+    # Audit log
+    try:
+        from admin_router import _audit as _god_audit
+        _god_audit(
+            "exogenous_event_triggered",
+            actor="facilitator",
+            details={
+                "session_id": session_id,
+                "event_id": event_id,
+                "round": round_number,
+                "result": result,
+            },
+        )
+    except Exception:
+        pass
+
+    return result
+
+
 # ── Biodiversity & Balance Sheet Data ─────────────────────────
 
 @router.get(
@@ -3864,7 +4184,7 @@ async def activate_extended_mode(session_id: str):
         "ok": True,
         "extended_horizon_mode": True,
         "new_round": 11,
-        "round_title": r11.get("title", "Year 3 Q3: Extended Horizon"),
+        "round_title": r11.get("title", "Year 5 Q3: Extended Horizon"),
         "round_theme": r11.get("theme", ""),
         "message": "Extended Horizon activated. Rounds 11–20 are now unlocked.",
     }

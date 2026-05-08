@@ -1311,6 +1311,108 @@ def calc_sdg_impact(bus: list[dict], flags: dict) -> dict:
     }
 
 
+# ── 30. Carbon-Adjusted Return on Invested Capital (CAROIC) ─────
+def calc_caroic(
+    ebitda: float,
+    invested_capital: float,
+    carbon_tonnage: float,
+    tax_rate: float = 0.25,
+    shadow_carbon_price: float = 250.0,
+) -> dict:
+    """
+    CAROIC = EBITDA × (1 − Tax Rate) / (Invested Capital + (Carbon Tonnage × Shadow Carbon Price))
+
+    Measures not just return on capital, but the *efficiency* of carbon usage.
+    Carbon-heavy companies face a higher effective capital base, reducing their
+    CAROIC score — a pedagogical bridge between financial and environmental KPIs.
+
+    Parameters
+    ----------
+    ebitda : float
+        Group-level EBITDA (Revenue - OPEX across all BUs).
+    invested_capital : float
+        Total capital deployed (corporate treasury as proxy for total capital base).
+        Floored at 0 to prevent sign-flip distortions.
+    carbon_tonnage : float
+        Group carbon tonnage: Σ(carbon_intensity × revenue / 1M) across BUs.
+    tax_rate : float
+        Effective corporate tax rate, clamped to [0.0, 1.0]. Default 25%.
+    shadow_carbon_price : float
+        Internal shadow price of carbon per ton, default $250
+        (aligned with terminal valuation carbon_tax_per_ton).
+
+    Returns
+    -------
+    dict with keys:
+        "caroic"               : float — the CAROIC ratio (0.0 if denominator ≤ 0)
+        "caroic_pct"           : float — CAROIC as percentage
+        "nopat"                : float — Net Operating Profit After Tax
+        "carbon_capital_charge": float — Carbon Tonnage × Shadow Carbon Price
+        "adjusted_capital"     : float — Invested Capital + Carbon Capital Charge
+        "grade"                : str   — Letter grade (A+ to F)
+        "interpretation"       : str   — Human-readable interpretation
+    """
+    # Clamp tax_rate to valid range
+    tax_rate = max(0.0, min(1.0, tax_rate))
+
+    # NOPAT: Net Operating Profit After Tax
+    nopat = ebitda * (1.0 - tax_rate)
+
+    # Carbon capital charge: tonnage × shadow price
+    carbon_tonnage = max(0.0, carbon_tonnage)
+    shadow_carbon_price = max(0.0, shadow_carbon_price)
+    carbon_capital_charge = carbon_tonnage * shadow_carbon_price
+
+    # Adjusted capital base: invested capital + carbon capital charge
+    # Floor invested_capital at 0 (negative treasury means company is insolvent,
+    # but we still want a meaningful ratio from the carbon charge alone)
+    invested_capital_floored = max(0.0, invested_capital)
+    adjusted_capital = invested_capital_floored + carbon_capital_charge
+
+    # Guard against division by zero
+    if adjusted_capital <= 0:
+        caroic = 0.0
+    else:
+        caroic = nopat / adjusted_capital
+
+    caroic = round(caroic, 6)
+    caroic_pct = round(caroic * 100, 2)
+
+    # Grade based on CAROIC percentage (pedagogical thresholds)
+    if caroic_pct >= 25:
+        grade = "A+"
+        interpretation = "Exceptional capital-carbon efficiency. Minimal carbon drag on returns."
+    elif caroic_pct >= 15:
+        grade = "A"
+        interpretation = "Strong carbon-adjusted returns. Carbon transition well-managed."
+    elif caroic_pct >= 10:
+        grade = "B"
+        interpretation = "Solid returns despite carbon drag. Room for decarbonisation gains."
+    elif caroic_pct >= 5:
+        grade = "C"
+        interpretation = "Moderate returns eroded by carbon intensity. Transition urgency rising."
+    elif caroic_pct >= 0:
+        grade = "D"
+        interpretation = "Carbon burden severely depresses returns. Stranded asset risk."
+    else:
+        grade = "F"
+        interpretation = "Negative CAROIC: operating losses compounded by carbon liability."
+
+    return {
+        "caroic": caroic,
+        "caroic_pct": caroic_pct,
+        "nopat": round(nopat, 2),
+        "carbon_capital_charge": round(carbon_capital_charge, 2),
+        "adjusted_capital": round(adjusted_capital, 2),
+        "invested_capital_raw": round(invested_capital, 2),
+        "carbon_tonnage": round(carbon_tonnage, 2),
+        "shadow_carbon_price": shadow_carbon_price,
+        "tax_rate": tax_rate,
+        "grade": grade,
+        "interpretation": interpretation,
+    }
+
+
 # ═════════════════════════════════════════════════════════════════
 #  TICK ORCHESTRATOR
 # ═════════════════════════════════════════════════════════════════
@@ -1513,7 +1615,7 @@ def process_tick(
     inflation_index = round(inflation_index + macro_noise["inflation_noise"], 4)
     events["macro_noise"] = macro_noise
     # Apply micro-strike: random BU gets a 5% OPEX spike
-    if macro_noise["micro_strike_triggered"]:
+    if macro_noise["micro_strike_triggered"] and new_bus:
         strike_idx = macro_noise["micro_strike_bu_idx"] % len(new_bus)
         target_bu = new_bus[strike_idx]
         micro_penalty = round(target_bu["opex_base"] * 0.05, 2)
@@ -2263,6 +2365,22 @@ def process_tick(
             for bu in new_bus
         ), 1
     )
+
+    # ── CAROIC: Carbon-Adjusted Return on Invested Capital ───────
+    # Uses the same carbon tonnage as terminal valuation for consistency.
+    # Shadow carbon price defaults to $250/ton (aligned with R10 carbon tax).
+    _shadow_carbon_price = current_global.get("active_event_flags", {}).get(
+        "carbon_tax_per_ton",
+        current_global.get("active_event_flags", {}).get("shadow_carbon_price", 250.0),
+    )
+    caroic_result = calc_caroic(
+        ebitda=historical_ebitda,
+        invested_capital=new_treasury,
+        carbon_tonnage=tco2e_emissions,
+        tax_rate=0.25,
+        shadow_carbon_price=_shadow_carbon_price,
+    )
+    events["caroic"] = caroic_result
 
     # HARD CLAMP on all BU sub-scores to prevent math logic from breaking in edge cases
     for bu in new_bus:

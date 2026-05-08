@@ -1,4 +1,4 @@
-﻿"""
+"""
 Generate comprehensive Word document with all Muressons simulation briefings,
 teleprompter scripts, side tracks, and alternate ending pathways.
 """
@@ -970,6 +970,94 @@ for sc in [('Baseline (Fragile Giant)', '1.05', '~$478M', '--'),
     for i2, val in enumerate(sc):
         row[i2].text = val
 
+doc.add_page_break()
+
+# ── 11.24 CAROIC: Carbon-Adjusted Return on Invested Capital ──
+add_styled_heading(doc, '11.24 Carbon-Adjusted Return on Invested Capital (CAROIC)', level=2)
+add_body(doc, (
+    'CAROIC measures not just the return on capital, but the efficiency of carbon usage. '
+    'It extends traditional ROIC by incorporating a shadow carbon cost into the capital base, '
+    'making it impossible to achieve a high CAROIC while maintaining high carbon intensity. '
+    'This bridges the gap between financial and environmental KPIs — a key pedagogical innovation.'
+))
+
+p = doc.add_paragraph()
+run = p.add_run('Formula: ')
+run.bold = True
+run.font.size = Pt(11)
+run = p.add_run('CAROIC = EBITDA × (1 − Tax Rate) / (Invested Capital + (Carbon Tonnage × Shadow Carbon Price))')
+run.font.name = 'Consolas'
+run.font.size = Pt(10)
+
+add_body(doc, 'Component Definitions:', bold=True)
+add_bullet(doc, 'EBITDA: Group-level Earnings Before Interest, Tax, Depreciation & Amortisation = Σ(Revenue_i − OPEX_i)')
+add_bullet(doc, 'Tax Rate: Effective corporate tax rate (default 25%, clamped to [0%, 100%])')
+add_bullet(doc, 'NOPAT: Net Operating Profit After Tax = EBITDA × (1 − Tax Rate)')
+add_bullet(doc, 'Invested Capital: Corporate Treasury (proxy for total capital deployed). Floored at $0 to prevent sign-flip distortions')
+add_bullet(doc, 'Carbon Tonnage: Σ(BU_Carbon_Intensity × BU_Revenue / 1,000,000) — same formula as terminal valuation')
+add_bullet(doc, 'Shadow Carbon Price: Internal carbon price per ton (default $250, aligned with R10 carbon_tax_per_ton)')
+add_bullet(doc, 'Carbon Capital Charge: Carbon Tonnage × Shadow Carbon Price — the "carbon penalty" on the denominator')
+add_bullet(doc, 'Adjusted Capital: Invested Capital + Carbon Capital Charge')
+
+add_body(doc, 'Pedagogical Significance:', bold=True)
+add_body(doc, (
+    'Traditional ROIC rewards pure financial efficiency without regard for environmental externalities. '
+    'CAROIC introduces a shadow carbon cost that inflates the effective capital base of carbon-intensive '
+    'firms, revealing the true cost of carbon dependence. A company achieving 15% ROIC but carrying '
+    'significant carbon exposure will see its CAROIC compressed dramatically — making visible the '
+    '"hidden tax" of carbon intensity before regulatory enforcement materialises.'
+))
+
+add_body(doc, 'Edge Case Handling:', bold=True)
+add_bullet(doc, 'Zero invested capital + zero carbon: CAROIC returns 0.0 (avoids division by zero)')
+add_bullet(doc, 'Negative EBITDA: CAROIC returns a negative value with grade "F"')
+add_bullet(doc, 'Zero carbon tonnage: Carbon Capital Charge = $0, CAROIC = pure ROIC')
+add_bullet(doc, 'Negative treasury: Invested capital floored at $0 — carbon charge alone forms the denominator')
+
+add_body(doc, 'Worked Example 1 — Strong Performer:', bold=True)
+add_bullet(doc, 'Given: EBITDA = $33M, Treasury = $50M, Carbon Tonnage = 2,850t, Shadow Price = $250/t')
+add_bullet(doc, 'NOPAT = $33M × (1 − 0.25) = $24.75M')
+add_bullet(doc, 'Carbon Capital Charge = 2,850 × $250 = $712,500')
+add_bullet(doc, 'Adjusted Capital = $50M + $0.7125M = $50.7125M')
+add_bullet(doc, 'CAROIC = $24.75M / $50.7125M = 0.4881 = 48.81% → Grade A+')
+
+add_body(doc, 'Worked Example 2 — Carbon-Heavy Company:', bold=True)
+add_bullet(doc, 'Given: EBITDA = $33M, Treasury = $50M, Carbon Tonnage = 12,000t, Shadow Price = $250/t')
+add_bullet(doc, 'NOPAT = $24.75M')
+add_bullet(doc, 'Carbon Capital Charge = 12,000 × $250 = $3,000,000')
+add_bullet(doc, 'Adjusted Capital = $50M + $3M = $53M')
+add_bullet(doc, 'CAROIC = $24.75M / $53M = 0.4670 = 46.70% → Grade A+')
+add_bullet(doc, 'Note: Despite same EBITDA, higher carbon tonnage compresses CAROIC by ~2.1 percentage points')
+
+add_body(doc, '', bold=False)
+
+# Grading table
+caroic_table = doc.add_table(rows=1, cols=3)
+caroic_table.style = 'Light Grid Accent 1'
+hdr = caroic_table.rows[0].cells
+for i, label in enumerate(['Grade', 'CAROIC %', 'Interpretation']):
+    hdr[i].text = label
+    for p2 in hdr[i].paragraphs:
+        for run2 in p2.runs:
+            run2.bold = True
+            run2.font.size = Pt(9)
+
+for grade_row in [
+    ('A+', '≥ 25%', 'Exceptional capital-carbon efficiency. Minimal carbon drag on returns.'),
+    ('A', '≥ 15%', 'Strong carbon-adjusted returns. Carbon transition well-managed.'),
+    ('B', '≥ 10%', 'Solid returns despite carbon drag. Room for decarbonisation gains.'),
+    ('C', '≥ 5%', 'Moderate returns eroded by carbon intensity. Transition urgency rising.'),
+    ('D', '≥ 0%', 'Carbon burden severely depresses returns. Stranded asset risk.'),
+    ('F', '< 0%', 'Negative CAROIC: operating losses compounded by carbon liability.'),
+]:
+    row = caroic_table.add_row().cells
+    for i2, val in enumerate(grade_row):
+        row[i2].text = val
+        for p2 in row[i2].paragraphs:
+            for run2 in p2.runs:
+                run2.font.size = Pt(9)
+
+doc.add_paragraph()
 doc.add_page_break()
 
 # ═══════════════════════════════════════════════════════════════

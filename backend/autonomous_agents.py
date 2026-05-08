@@ -272,6 +272,98 @@ AGENT_PROFILES = {
 
 
 # ═══════════════════════════════════════════════════════════════
+#  INTER-AGENT INTERFERENCE PAIRS
+#  When BOTH agents in a pair are at 'agitated' or higher,
+#  they multiply each other's tolerance decay rate.
+#  Theory: Journalist coverage triggers regulatory probes,
+#          regulatory probes generate more news stories.
+# ═══════════════════════════════════════════════════════════════
+
+_ESCALATED_STAGES = frozenset({"agitated", "hostile", "triggered"})
+
+INTERFERENCE_PAIRS: list[dict] = [
+    {
+        "agents": ("the_journalist", "the_regulator"),
+        "decay_multiplier": 1.4,           # 40% faster decay when both agitated+
+        "min_stage": "agitated",            # activation threshold
+        "narrative": (
+            "📡 MEDIA-REGULATOR FEEDBACK LOOP: Jay Buffet's investigative reporting "
+            "has prompted Commissioner Carson to accelerate her inquiry. Carson's "
+            "subpoena requests are, in turn, generating fresh headline material for "
+            "Buffet. Both agents' tolerance is decaying {pct}% faster."
+        ),
+        "theory": "Herman & Chomsky (1988) Manufacturing Consent — media and "
+                  "regulatory agendas co-amplify through institutional feedback.",
+    },
+    {
+        "agents": ("the_gen_z_employee", "the_community_activist"),
+        "decay_multiplier": 1.25,           # 25% faster decay
+        "min_stage": "agitated",
+        "narrative": (
+            "✊🏘️ SOLIDARITY AMPLIFICATION: Greta Berg's employee collective and "
+            "Megha Patrike's community coalition are coordinating. Internal "
+            "walkout threats are reinforcing external protests. Both agents' "
+            "tolerance is decaying {pct}% faster."
+        ),
+        "theory": "Tarrow (1998) Power in Movement — contentious politics "
+                  "accelerates when internal and external grievances converge.",
+    },
+    {
+        "agents": ("the_institutional_investor", "the_regulator"),
+        "decay_multiplier": 1.3,            # 30% faster decay
+        "min_stage": "hostile",             # only at hostile+ (higher bar)
+        "narrative": (
+            "📉🏛️ REGULATORY-MARKET VORTEX: Marcus Chen-Hoffmann's divestment "
+            "signals are accelerating Commissioner Carson's enforcement timeline. "
+            "Regulatory action is, in turn, validating the Investor's exit thesis. "
+            "Both agents' tolerance is decaying {pct}% faster."
+        ),
+        "theory": "Admati & Hellwig (2013) The Bankers' New Clothes — "
+                  "market discipline and regulatory discipline are complements.",
+    },
+]
+
+
+def _compute_interference_multipliers(
+    agents: dict[str, dict],
+) -> dict[str, float]:
+    """
+    Pre-pass: for each agent, compute a combined decay multiplier
+    from all active interference pairs it belongs to.
+    Returns {agent_id: combined_multiplier} (1.0 = no interference).
+    """
+    multipliers: dict[str, float] = {}
+    active_pairs: list[dict] = []
+
+    for pair in INTERFERENCE_PAIRS:
+        a_id, b_id = pair["agents"]
+        a_state = agents.get(a_id, {})
+        b_state = agents.get(b_id, {})
+
+        # Skip if either is already triggered (permanently) or not yet at min_stage
+        if a_state.get("triggered_round") is not None:
+            continue
+        if b_state.get("triggered_round") is not None:
+            continue
+
+        a_stage = a_state.get("escalation_stage", "dormant")
+        b_stage = b_state.get("escalation_stage", "dormant")
+
+        min_stage = pair.get("min_stage", "agitated")
+        required = _ESCALATED_STAGES
+        if min_stage == "hostile":
+            required = frozenset({"hostile", "triggered"})
+
+        if a_stage in required and b_stage in required:
+            m = pair["decay_multiplier"]
+            multipliers[a_id] = multipliers.get(a_id, 1.0) * m
+            multipliers[b_id] = multipliers.get(b_id, 1.0) * m
+            active_pairs.append(pair)
+
+    return multipliers, active_pairs
+
+
+# ═══════════════════════════════════════════════════════════════
 #  STATE MANAGEMENT
 # ═══════════════════════════════════════════════════════════════
 
@@ -393,8 +485,24 @@ def process_agent_tick(
     Returns (updated_state, diagnostics).
     """
     metrics = _compute_agent_metrics(gs, bus)
-    diagnostics: dict[str, Any] = {"agent_actions": [], "cascades_fired": []}
+    diagnostics: dict[str, Any] = {
+        "agent_actions": [], "cascades_fired": [], "interference_active": [],
+    }
     triggered_agents = []
+
+    # Phase 0: Compute inter-agent interference multipliers
+    interference_mults, active_pairs = _compute_interference_multipliers(
+        agent_master_state["agents"]
+    )
+    for pair in active_pairs:
+        a_id, b_id = pair["agents"]
+        pct = round((pair["decay_multiplier"] - 1) * 100)
+        diagnostics["interference_active"].append({
+            "agents": [a_id, b_id],
+            "multiplier": pair["decay_multiplier"],
+            "narrative": pair["narrative"].format(pct=pct),
+            "theory": pair["theory"],
+        })
 
     # Phase 1: Evaluate each agent independently
     for agent_id, agent_state in agent_master_state["agents"].items():
@@ -430,7 +538,10 @@ def process_agent_tick(
         old_tolerance = agent_state["tolerance"]
         if violations:
             # Severity-weighted decay: more violations = faster decay
-            decay = profile["patience_decay_rate"] * (1 + severity)
+            base_decay = profile["patience_decay_rate"] * (1 + severity)
+            # Apply inter-agent interference multiplier (1.0 if none active)
+            interference_mult = interference_mults.get(agent_id, 1.0)
+            decay = base_decay * interference_mult
             agent_state["tolerance"] = max(0, round(old_tolerance - decay, 1))
             agent_state["patience_counter"] += 1
             agent_state["recovery_counter"] = 0

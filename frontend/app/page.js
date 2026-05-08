@@ -102,7 +102,7 @@ const PODCAST_TRANSCRIPTS = {
     { speaker: 'Prof. James Walker', text: 'The Activist Ultimatum in Round 10 is based on Engine No. 1\'s campaign against ExxonMobil and Follow This\' shareholder resolutions at Shell. Activists now have the financial sophistication to enforce transition plans — not just demand them.' },
     { speaker: 'Dr. Priya Sharma', text: 'The Regenerative Multiple is your terminal valuation metric. M_R above 1.2 puts you in the Regenerative Titan archetype — companies whose ESG strategy generated more social and environmental value than they consumed. That\'s the new benchmark for corporate leadership.' },
     { speaker: 'Prof. James Walker', text: 'As you head into the CEO Interview, remember the 50/50 scoring split: half from your in-game decisions, half from how articulately you can explain your reasoning. The debrief isn\'t a formality — it\'s where leaders are separated from managers.' },
-    { speaker: 'Dr. Priya Sharma', text: 'Ten rounds. Ten years of corporate history compressed into a few hours. Whatever your archetype, the most important outcome is this: you now understand that sustainability isn\'t a constraint on financial performance — it\'s the system within which financial performance is possible.' },
+    { speaker: 'Dr. Priya Sharma', text: 'Ten rounds. Five years of corporate history compressed into a few hours. Whatever your archetype, the most important outcome is this: you now understand that sustainability isn\'t a constraint on financial performance — it\'s the system within which financial performance is possible.' },
   ],
 };
 

@@ -10,11 +10,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
  * Reads/writes to the God Mode settings blob via the admin API.
  */
 
-const DIFFICULTY_TIERS = [
-    { id: 'easy',     label: 'Introductory',  icon: '🟢', desc: '0.5× event probability, 0.7× impact, forgiving treasury floor', color: '#22c55e' },
-    { id: 'standard', label: 'Professional',  icon: '🟡', desc: '1.0× baseline probabilities and impacts', color: '#eab308' },
-    { id: 'expert',   label: 'Executive',     icon: '🔴', desc: '1.5× event probability, 1.3× impact, no bailout, tight covenants', color: '#ef4444' },
-];
+
 
 const TOGGLE_SWITCHES = [
     { key: 'systemic_risk_enabled',       label: 'ESG-Adjusted WACC + Tipping Points', icon: '⚙️',  desc: 'Dynamic cost-of-capital that responds to carbon intensity, governance risk, and social license. Enables irreversible systemic tipping gates.' },
@@ -104,55 +100,31 @@ export default function SystemicRiskControls() {
                 </div>
             </div>
 
-            {/* ── Difficulty Tier Selector ── */}
+            {/* ── Difficulty Tier Info ── */}
             <div style={{
                 background: 'var(--bg-card)', border: '1px solid var(--border-subtle)',
                 borderRadius: '12px', padding: '1.25rem',
             }}>
                 {sectionLabel('⚡', 'Difficulty Tier', '#f59e0b')}
-                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: '1rem', lineHeight: 1.5 }}>
-                    Controls Black Swan event probability multipliers, impact severity scaling,
-                    treasury floor leniency, and NPC fine caps. Applies globally to all new sessions.
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.75rem' }}>
-                    {DIFFICULTY_TIERS.map(tier => {
-                        const isActive = (settings?.difficulty_tier || 'standard') === tier.id;
-                        return (
-                            <button
-                                key={tier.id}
-                                onClick={() => updateSetting('difficulty_tier', tier.id)}
-                                style={{
-                                    padding: '1rem', borderRadius: '10px', cursor: 'pointer',
-                                    background: isActive
-                                        ? `linear-gradient(135deg, ${tier.color}15, ${tier.color}08)`
-                                        : 'rgba(0,0,0,0.08)',
-                                    border: isActive
-                                        ? `2px solid ${tier.color}`
-                                        : '2px solid transparent',
-                                    transition: 'all 0.2s',
-                                    textAlign: 'left',
-                                    display: 'flex', flexDirection: 'column', gap: '0.4rem',
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                                    <span style={{ fontSize: '1.2rem' }}>{tier.icon}</span>
-                                    <span style={{
-                                        fontSize: '0.85rem', fontWeight: 700,
-                                        color: isActive ? tier.color : 'var(--text-primary)',
-                                    }}>{tier.label}</span>
-                                </div>
-                                <div style={{
-                                    fontSize: '0.7rem', color: 'var(--text-muted)', lineHeight: 1.4,
-                                }}>{tier.desc}</div>
-                                {isActive && (
-                                    <div style={{
-                                        marginTop: '0.25rem', fontSize: '0.68rem', fontWeight: 700,
-                                        color: tier.color, textTransform: 'uppercase', letterSpacing: '0.1em',
-                                    }}>● ACTIVE</div>
-                                )}
-                            </button>
-                        );
-                    })}
+                <div style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+                    padding: '0.85rem 1rem', borderRadius: '8px',
+                    background: 'linear-gradient(135deg, rgba(245,158,11,0.06), rgba(245,158,11,0.02))',
+                    border: '1px solid rgba(245,158,11,0.15)',
+                }}>
+                    <span style={{ fontSize: '1.1rem', marginTop: '1px' }}>🔒</span>
+                    <div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.3rem' }}>
+                            Set Per-Cohort at Creation
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', lineHeight: 1.6 }}>
+                            Difficulty tier (Introductory / Professional / Executive) is configured per-cohort
+                            via the <strong style={{ color: 'var(--text-secondary)' }}>Experience Level</strong> preset
+                            when creating a new cohort. This ensures each cohort&apos;s Black Swan probability
+                            multipliers, impact severity, treasury floor, and NPC fine caps are locked to
+                            the facilitator&apos;s original pedagogical intent.
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -235,19 +207,10 @@ export default function SystemicRiskControls() {
                 {sectionLabel('📖', 'Pedagogical Notes', '#10b981')}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.6 }}>
                     <p style={{ margin: 0 }}>
-                        <strong style={{ color: '#22c55e' }}>Introductory Tier:</strong> Recommended for undergraduate
-                        or first-time simulation users. Black Swan events are rare and forgiving. Treasury floor allows
-                        significant deficit before insolvency.
-                    </p>
-                    <p style={{ margin: 0 }}>
-                        <strong style={{ color: '#eab308' }}>Professional Tier:</strong> Default for MBA programs.
-                        Balanced event frequencies with meaningful consequences. Students experience realistic risk-reward
-                        trade-offs without overwhelming complexity.
-                    </p>
-                    <p style={{ margin: 0 }}>
-                        <strong style={{ color: '#ef4444' }}>Executive Tier:</strong> For experienced executive education
-                        cohorts. High-frequency disruptions, amplified impacts, zero bailout safety nets, and tight
-                        covenant triggers. Designed to stress-test strategic resilience.
+                        <strong style={{ color: '#818cf8' }}>Difficulty Tier Ownership:</strong> Each cohort&apos;s difficulty
+                        tier is locked at creation via the Experience Level preset (Classroom → Foundation,
+                        Workshop → Advanced, Executive → Expert). This prevents runtime drift between
+                        God Mode global settings and per-cohort pedagogical intent.
                     </p>
                     <p style={{ margin: 0, marginTop: '0.5rem', padding: '0.6rem', borderRadius: '6px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.1)' }}>
                         💡 <strong>Tip:</strong> Disable foreshadowing signals for expert-tier cohorts to remove

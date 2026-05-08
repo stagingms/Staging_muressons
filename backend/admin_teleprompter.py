@@ -334,6 +334,21 @@ _TELEPROMPTER_SCRIPTS = {
                 "doesn't benefit from it. Insurance (Option C) is fragile — it transfers "
                 "risk but creates moral hazard."
             ),
+            "agency_theory": (
+                "📚 JENSEN & MECKLING (1976) AGENCY THEORY: The Shareholder persona "
+                "argues managers must maximise shareholder value and cash retention. "
+                "This is the primary fiduciary duty under traditional agency theory."
+            ),
+            "natural_capital": (
+                "🌿 COSTANZA ET AL. (1997) NATURAL CAPITAL: The Activist persona "
+                "argues for the value of ecosystem services. Nature-based solutions outperform "
+                "grey infrastructure over 30-year horizons."
+            ),
+            "ifc_standards": (
+                "⚖️ IFC PERFORMANCE STANDARD 1 (2012): The Auditor persona "
+                "argues fiduciary duty extends to physical climate risk preparedness and "
+                "assessment/management of environmental and social risks."
+            ),
         },
         "reflection_sensitisation": (
             "🪞 MIDPOINT BOARD ROOM MOMENT: Round 5 always triggers a reflection prompt. "
@@ -506,6 +521,32 @@ _TELEPROMPTER_SCRIPTS = {
                 "Compare your team's agent states with another team. What strategic choices explain the difference?",
             ],
         },
+        "sandbox_cascade_multiplier": {
+            "box_title": "💥 CASCADE MULTIPLIER — Regulatory Leak to Press (Sandbox)",
+            "when_to_surface": "Surface this IF the Regulatory Sandbox is enabled AND Eleanor Carson's crosswire has fired this round.",
+            "narrative_setup": (
+                "Commissioner Carson's regulatory probe has leaked to the press. "
+                "Jay Buffet's tolerance has been reduced by 10 points — he is now closer "
+                "to publishing a full exposé. This is the Cascade Multiplier: a reinforcing "
+                "feedback loop where regulation → media attention → further corporate damage."
+            ),
+            "theory": (
+                "Herman & Chomsky (1988) Manufacturing Consent: Media and regulatory agendas "
+                "co-amplify through institutional feedback. A regulatory probe generates "
+                "headline material; headlines create political pressure for stronger enforcement. "
+                "The loop is self-reinforcing until the company either reforms or collapses."
+            ),
+            "debrief_prompts": [
+                "The Regulator's probe has leaked to the Journalist. In real-world terms, name a company where a regulatory investigation was amplified by media coverage. (Examples: Enron/Arthur Andersen, Volkswagen Dieselgate, Wirecard)",
+                "Jay Buffet's tolerance just dropped by 10. If he triggers, his cascade hits 3 OTHER agents. Can you map the full domino chain on the whiteboard?",
+                "★ CRITICAL: If both the Regulator AND the Journalist trigger in the same session, you are on the path to Total Corporate Collapse. What would a real board do at this point?",
+            ],
+            "facilitator_action": (
+                "Draw the cascade chain on the board: "
+                "🏛️ Carson (Regulator) → 📰 Buffet (Journalist) → [📉 Investor, ✊ Activist, 👩‍💻 Gen Z]. "
+                "Ask: 'How many dominoes are left standing?'"
+            ),
+        },
     },
     8: {
         "title": "Round 8: Blue Stress — Water Scarcity & Equitable Resource Allocation",
@@ -572,6 +613,16 @@ _TELEPROMPTER_SCRIPTS = {
                 "If Patrike triggered a Community Blockade: 'Muressons has destroyed our water table.' How does this connect to your R5 climate infrastructure choice?",
                 "The cascade from Community Activist hits the Journalist AND the Gen Z Employee. Why does community anger amplify through these specific channels?",
             ],
+            "cascade_multiplier_warning": (
+                "⚠️ CASCADE MULTIPLIER CHECK: If the Regulatory Sandbox fired Carson's crosswire in R7, "
+                "Jay Buffet entered R8 with reduced tolerance. Combined with the R8 water crisis "
+                "and the journalist's natural decay, Buffet may now be at HOSTILE or TRIGGERED. "
+                "If Buffet triggers, his cascade chain hits 3 agents simultaneously: the Regulator "
+                "(reinforcing loop), the Investor (capital flight), and the Community Activist "
+                "(social license collapse). This is the Total Corporate Collapse scenario — "
+                "all 5 agents trigger within 1-2 rounds. Ask: 'Is your company still recoverable, "
+                "or has the feedback loop passed the point of no return?'"
+            ),
         },
     },
     9: {
@@ -667,7 +718,7 @@ _TELEPROMPTER_SCRIPTS = {
         "capstone_discussion": {
             "titan_vs_relic": "Display the highest and lowest terminal values in the cohort. Ask: 'What decisions separated the Regenerative Titan from the Stranded Relic?' Walk through the M_R breakdown for both.",
             "key_decision_audit": "Ask each team: 'Which single round had the biggest impact on your terminal value?' Most will point to R1 (audit), R4 (crisis), R7 (synergy), or R9 (transition).",
-            "real_world_parallel": "The simulation compressed 3 years of corporate ESG strategy into 10 decisions. In reality, these decisions play out over decades — but the compounding dynamics are identical.",
+            "real_world_parallel": "The simulation compressed 5 years of corporate ESG strategy into 10 decisions. In reality, these decisions play out over decades — but the compounding dynamics are identical.",
         },
         "connection_to_theory": {
             "kolb_experiential_cycle": (
@@ -822,13 +873,13 @@ _AGENT_DEBRIEF_BANK = {
 async def get_agent_teleprompter(session_id: str):
     """Reads live agent state from a session and returns contextual debrief questions."""
     try:
-        from persistence import load_state
-        state = load_state(session_id)
-        if not state:
+        import database_memory as _db
+        rounds = _db._global_states.get(session_id, [])
+        if not rounds:
             return {"session_id": session_id, "agents": None, "message": "Session not found"}
 
-        gs = state.get("global_state", {})
-        aa_state = gs.get("autonomous_agents", {})
+        gs = rounds[-1]
+        aa_state = gs.get("autonomous_agents") or {}
         agents_raw = aa_state.get("agents", {})
 
         if not agents_raw:
@@ -872,7 +923,7 @@ async def get_agent_teleprompter(session_id: str):
 
         return {
             "session_id": session_id,
-            "round_number": state.get("round_number", 1),
+            "round_number": gs.get("round_number", 1),
             "worst_stage": worst_stage,
             "total_triggers": total_triggers,
             "agents": agent_alerts,

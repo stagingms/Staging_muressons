@@ -74,7 +74,7 @@ const SECTIONS = [
               logic: 'Accrues via internal taxation. Every round: green_fund += tco2e_emissions × carbon_fee_per_ton. Can explicitly offset R7, R8, R9 systemic CapEx requirements.',
               formula: 'green_fund += tCO₂e × carbon_fee', refs: ['carbon_fee_per_ton'] },
             { key: 'carbon_fee_per_ton',  formKey: 'global_carbon_fee',          scope: 'Global', boundary: '[0, 1000]', editable: true, step: 10,
-              logic: 'Internal tax rate parameter. Spikes to $250 automatically at R10 (Year 3) Terminal Valuation calculation.',
+              logic: 'Internal tax rate parameter. Spikes to $250 automatically at R10 (Year 5) Terminal Valuation calculation.',
               refs: ['green_transition_fund'] },
             { key: 'resilience_factor',   formKey: null,                         scope: 'Event Toggle', boundary: '[0.0, 1.0]', editable: false, defaultDisplay: '0.0',
               logic: 'Stored in the pending_capex_projects array. When R5 Hard-Engineering completes after a 2-round delay, it is extracted as active_resilience_factor (usually 0.85) mitigating stochastic cyclone damage.',

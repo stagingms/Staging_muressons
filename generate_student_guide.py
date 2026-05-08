@@ -1,4 +1,4 @@
-﻿"""Generate Student/Player Guide for Muressons Simulation."""
+"""Generate Student/Player Guide for Muressons Simulation."""
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -55,7 +55,7 @@ H("1. Welcome to Muressons Global Corporation")
 doc.add_paragraph(
     "You are the newly appointed CEO of Muressons Corporation, a multinational conglomerate "
     "operating across four business units: Pharmaceuticals, Electronics, Consumer Goods, and Software. "
-    "Over 10 rounds (representing 3 strategic years), you will navigate ESG crises, allocate capital, "
+    "Over 10 rounds (representing 5 strategic years), you will navigate ESG crises, allocate capital, "
     "and make decisions that shape your company's terminal valuation and legacy."
 )
 doc.add_paragraph(

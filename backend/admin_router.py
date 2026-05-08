@@ -130,7 +130,8 @@ async def get_global_settings():
         "ceo_interview_question_count": _god_mode_settings.get("ceo_interview_question_count", 5),
         "ceo_interview_pathway_question": _god_mode_settings.get("ceo_interview_pathway_question", True),
         # Pedagogical Scaffolding
-        "difficulty_tier": _god_mode_settings.get("difficulty_tier", "advanced"),
+        # NOTE: difficulty_tier is per-cohort (set via Experience Level at creation), not global.
+        # Kept in response for backward compatibility but God Mode no longer owns this value.
         "prediction_gates_enabled": _god_mode_settings.get("prediction_gates_enabled", False),
         "board_room_moments_enabled": _god_mode_settings.get("board_room_moments_enabled", True),
         "mental_model_tracker_enabled": _god_mode_settings.get("mental_model_tracker_enabled", True),
@@ -318,8 +319,21 @@ async def get_facilitator_role_info(fac_id: str):
 
 
 @admin_router.put("/facilitators/{fac_id}/role", summary="Change a facilitator's role (God Mode only)")
-async def update_facilitator_role(fac_id: str, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
-    """Change a facilitator's role. Only super_admin can promote/demote roles."""
+async def update_facilitator_role(fac_id: str, body: dict = Body(...)):
+    """Change a facilitator's role. Requires God Mode password verification.
+    Body must include: role, god_mode_fac_id, god_mode_password."""
+    # ── God Mode password verification ──────────────────────
+    gm_fac_id = (body.get("god_mode_fac_id") or "").strip()
+    gm_password = (body.get("god_mode_password") or "").strip()
+    if not gm_fac_id or not gm_password:
+        raise HTTPException(403, "God Mode credentials required to change roles")
+    gm_fac = next((f for f in _facilitator_registry if f["facilitator_id"] == gm_fac_id), None)
+    master_ok = bool(MASTER_PASSWORD) and gm_password == MASTER_PASSWORD
+    if not gm_fac or (gm_fac["password"] != gm_password and not master_ok):
+        raise HTTPException(403, "Invalid God Mode credentials")
+    if get_role(gm_fac) != "super_admin":
+        raise HTTPException(403, "Only Super Administrators can change facilitator roles")
+    # ── Apply role change ───────────────────────────────────
     new_role = body.get("role", "").strip()
     if new_role not in ROLE_HIERARCHY:
         raise HTTPException(400, f"Invalid role '{new_role}'. Must be one of: {list(ROLE_HIERARCHY.keys())}")
@@ -329,7 +343,7 @@ async def update_facilitator_role(fac_id: str, body: dict = Body(...), _guard: N
     fac["role"] = new_role
     fac["is_admin"] = new_role == "super_admin"  # backward compat
     _persist_facilitators()
-    _audit("facilitator_role_changed", details={"facilitator_id": fac_id, "new_role": new_role})
+    _audit("facilitator_role_changed", details={"facilitator_id": fac_id, "new_role": new_role, "changed_by": gm_fac_id})
     return {"status": "ok", "facilitator_id": fac_id, "role": new_role}
 
 # ── Simulation Master Reference (read-only, live values) ────────
@@ -1733,6 +1747,10 @@ async def list_players():
         if not p.get("deleted_at"):
             p_dict = dict(p)
             p_dict["is_orphan"] = p_dict.get("session_id") not in active_ids
+            # ── Resolve display name from multiple sources ──
+            # Priority: name (from induct/login) → username (from set-username) → player_name
+            if not p_dict.get("name"):
+                p_dict["name"] = p_dict.get("username") or p_dict.get("player_name") or ""
             active_players.append(p_dict)
             
     return {"players": active_players}
@@ -2094,7 +2112,7 @@ OVERRIDE_HANDLERS: dict[str, Any] = {}
 
 
 def _apply_carbon_tax_override(global_state: dict, params: dict) -> dict[str, Any]:
-    """Toggle Year 3 Carbon Tax from $250/ton to $400/ton."""
+    """Toggle Year 5 Carbon Tax from $250/ton to $400/ton."""
     new_rate = params.get("new_rate", 400)
     flags = global_state.get("active_event_flags", {})
     flags["carbon_tax_per_ton"] = new_rate
@@ -3609,7 +3627,7 @@ _master_overrides: list[dict] = [
         "id": "carbon_tax",
         "icon": "🌍",
         "title": "Global Macro Shift",
-        "description": "Toggle Year 3 Carbon Tax from $250/ton → $400/ton mid-game.",
+        "description": "Toggle Year 5 Carbon Tax from $250/ton → $400/ton mid-game.",
         "color": "#3b82f6",
         "dangerLevel": "HIGH",
         "params": {"new_rate": 400},
@@ -5082,6 +5100,7 @@ async def get_session_health():
             "inflation": round(inflation, 4),
             "active_crises": crisis_count,
             "relative_advantage": relative_advantage,
+            "caroic": flags.get("caroic", {}),
         })
 
     # Sort: critical first, then by round
@@ -5425,6 +5444,8 @@ async def get_cohort_comparison(facilitator_id: str = None):
             "greenwashing": bool(flags.get("greenwashing_scandal")),
             "lockin": bool(flags.get("technology_lockin_penalty")),
             "fog": bool(flags.get("fog_of_war_active")),
+            "caroic_pct": float(flags.get("caroic", {}).get("caroic_pct", 0)),
+            "caroic_grade": flags.get("caroic", {}).get("grade", "—"),
         })
 
     comparisons.sort(key=lambda c: -c["treasury_m"])

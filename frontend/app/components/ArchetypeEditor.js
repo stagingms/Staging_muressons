@@ -188,7 +188,7 @@ export default function ArchetypeEditor() {
             🏆 Profile Archetype Editor
           </h2>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.78rem', color: '#64748b' }}>
-            Define the Year 3 outcome profiles that players receive based on their Regenerative Multiple (M_R).
+            Define the Year 5 outcome profiles that players receive based on their Regenerative Multiple (M_R).
             {usingCustom && <strong style={{ color: '#059669' }}> Custom archetypes are active.</strong>}
             {!usingCustom && <span style={{ color: '#94a3b8' }}> Currently using system defaults.</span>}
           </p>

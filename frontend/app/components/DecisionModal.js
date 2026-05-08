@@ -140,11 +140,17 @@ export default function DecisionModal({
         [roundConfig, roundNumber]
     );
 
-    // R10 synergy gate: disable Option A if synergy <= 80
+    // R10 synergy gate: The backend now applies disabled/disabledReason
+    // server-side (accounting for option shuffle), so the frontend just
+    // needs to respect the `disabled` flag from the API response.
+    // Fallback: if backend hasn't set it, apply the legacy check for
+    // any option with a ui_constraints.require_synergy_above threshold.
     const processedOptions = useMemo(() => {
-        if (roundNumber !== 10) return options;
         return options.map((opt) => {
-            if (opt.id === 'option_a' && synergyScore <= 80) {
+            // Already disabled by backend — preserve as-is
+            if (opt.disabled) return opt;
+            // Legacy fallback for R10: check ui_constraints
+            if (roundNumber === 10 && opt.impacts?.synergy_bonus && synergyScore <= 80) {
                 return {
                     ...opt,
                     disabled: true,

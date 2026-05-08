@@ -59,6 +59,22 @@ const FLAG_CHAINS = {
     effect: { label: 'Governance credibility +', type: 'effect' },
     future: { label: '+0.10 M_R at R10', type: 'future' },
   },
+  // ── Shadow Board Audit (R5) — Value Judgment Cascades ──
+  shareholder_alienated: {
+    source: { round: 5, label: 'R5: Rejected Shareholder Logic', type: 'decision' },
+    effect: { label: 'Investor confidence eroded', type: 'effect' },
+    future: { label: 'R10 Hostile Takeover risk ↑', type: 'future' },
+  },
+  planet_expendable: {
+    source: { round: 5, label: 'R5: Rejected Environmental Logic', type: 'decision' },
+    effect: { label: 'Ecosystem resilience undermined', type: 'effect' },
+    future: { label: 'R10 Climate/Revolt risk ↑', type: 'future' },
+  },
+  governance_fragility: {
+    source: { round: 5, label: 'R5: Rejected Governance Logic', type: 'decision' },
+    effect: { label: 'Regulatory scrutiny increased', type: 'effect' },
+    future: { label: 'R10 Regulatory Shutdown risk ↑', type: 'future' },
+  },
 };
 
 export default function ConsequenceDNA({ history, roundNumber, globalState, events }) {

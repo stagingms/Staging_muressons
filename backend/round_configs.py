@@ -655,14 +655,14 @@ ROUND_CONFIGS: dict[int, dict[str, Any]] = {
     # ── Round 10: Grand Finale — Activist Ultimatum ───────────────
     10: {
         "title": "Grand Finale",
-        "theme": "Year 3 Activist Ultimatum & Terminal Valuation",
+        "theme": "Year 5 Activist Ultimatum & Terminal Valuation",
         "crisis": {
             "id": "r10_grand_finale",
             "title": "Activist Ultimatum",
             "description": (
                 "An activist investor consortium has acquired a blocking "
                 "stake. They are demanding a strategic restructuring. The "
-                "board must decide the company's Year 3 trajectory."
+                "board must decide the company's Year 5 trajectory."
             ),
             "icon": "🏛️",
         },

@@ -29,8 +29,10 @@ import SystemicRiskControls from '../../components/SystemicRiskControls';
 import SessionHealthDashboard from '../../components/SessionHealthDashboard';
 import ComplexityEventFeed from '../../components/ComplexityEventFeed';
 import DecisionTimeline from '../../components/DecisionTimeline';
+import DNAComparison from '../../components/DNAComparison';
 import DebriefReport from '../../components/DebriefReport';
 import SimulationReference from '../../components/SimulationReference';
+import RegulatorySandboxControl from '../../components/RegulatorySandboxControl';
 import { GOD_MODE_SIDEBAR, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
 import OnboardingWizard from '../../components/OnboardingWizard';
 
@@ -591,6 +593,27 @@ function GodModeDashboard({ authData, onLogout }) {
                 return <ArchetypeEditor />;
             case 'scorecard_evaluator':
                 return <div style={{padding:'1.5rem'}}><BalancedScorecardEvaluator /></div>;
+            case 'regulatory_sandbox': {
+                const sandboxSessions = leaderboard.filter(s => !s.player_id);
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {sandboxSessions.length > 0 && (
+                            <div style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>⚖️ Target Cohort:</span>
+                                <select
+                                    value={selectedSession || ''}
+                                    onChange={e => setSelectedSession(e.target.value || null)}
+                                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
+                                >
+                                    <option value=''>— Select a cohort —</option>
+                                    {sandboxSessions.map(s => <option key={s.session_id} value={s.session_id}>{s.cohort_name || s.session_id}</option>)}
+                                </select>
+                            </div>
+                        )}
+                        <RegulatorySandboxControl sessionId={selectedSession} />
+                    </div>
+                );
+            }
                 
             case 'resources':
                 return (
@@ -616,6 +639,8 @@ function GodModeDashboard({ authData, onLogout }) {
                 
             case 'decision_timeline':
                 return <DecisionTimeline sessionId={selectedSession} leaderboard={leaderboard} />;
+            case 'dna_comparison':
+                return <DNAComparison sessionId={selectedSession} leaderboard={leaderboard} />;
             case 'debrief_view': {
                 const cohortSessions = leaderboard.filter(s => !s.player_id);
                 return (

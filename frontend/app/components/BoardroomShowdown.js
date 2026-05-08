@@ -6,7 +6,7 @@ import styles from './BoardroomShowdown.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 /**
- * BoardroomShowdown — The Round 10 Grand Finale modal.
+ * BoardroomShowdown â€” The Round 10 Grand Finale modal.
  *
  * Setting: A formal Board of Directors meeting. An activist rep from
  * "FutureFirst" tables a motion to break up Muressons.
@@ -14,7 +14,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
  * Props:
  *  - data: R10 finalReport data (extra_events from post_tick)
  *  - sessionId: current session ID
- *  - onComplete: () => void — called after submission to transition to SBSC
+ *  - onComplete: () => void â€” called after submission to transition to SBSC
  */
 export default function BoardroomShowdown({ data, sessionId, onComplete, onLogout }) {
     const [selectedOption, setSelectedOption] = useState(null);
@@ -42,7 +42,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                 'Signals long-term commitment to stakeholders',
             ],
             disabled: isResistDisabled,
-            disabledReason: `Blocked: Synergy Score (${synergyScore.toFixed(0)}) = 80 — insufficient integration to justify this argument.`,
+            disabledReason: `Blocked: Synergy Score (${synergyScore.toFixed(0)}) = 80 â€” insufficient integration to justify this argument.`,
             color: '#10b981',
             gradient: 'linear-gradient(135deg, #10b981, #059669)',
         },
@@ -68,13 +68,13 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
             id: 'aggressive_divestment',
             title: 'Aggressive Divestment',
             icon: '??',
-            subtitle: 'Agree with activists — break the company into four separate entities.',
+            subtitle: 'Agree with activists â€” break the company into four separate entities.',
             description:
                 'The activist argument is compelling. The market would value four pure-play companies higher ' +
                 'than one bloated conglomerate. Maximize short-term stock buyback value, even if it wipes out ' +
                 'all synergy benefits and cross-BU resilience.',
             impacts: [
-                'Synergy multiplier reset to 1.0×',
+                'Synergy multiplier reset to 1.0Ã—',
                 'Short-term stock bump from breakup premium',
                 'Destroys all cross-BU circularity gains',
             ],
@@ -98,7 +98,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
             });
             onComplete?.();
         } catch {
-            // Backend unreachable — still proceed to SBSC
+            // Backend unreachable â€” still proceed to SBSC
             onComplete?.();
         } finally {
             setSubmitting(false);
@@ -128,9 +128,9 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
             <div className={styles.modal}>
                 {/* -- Header -- */}
                 <header className={styles.header}>
-                    <div className={styles.headerBadge}>ROUND 10 • GRAND FINALE</div>
+                    <div className={styles.headerBadge}>ROUND 10 â€¢ GRAND FINALE</div>
                     <h1 className={styles.title}>?? The Boardroom Showdown</h1>
-                    <p className={styles.subtitle}>Muressons Global Corporation — Board of Directors Meeting, Year 3</p>
+                    <p className={styles.subtitle}>Muressons Global Corporation â€” Board of Directors Meeting, Year 5</p>
                 </header>
 
                 {/* -- Phase 1: Briefing -- */}
@@ -146,8 +146,8 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                                 </p>
                                 <blockquote className={styles.quote}>
                                     "Distinguished board members, I table a formal motion to <em>dissolve the Muressons
-                                        conglomerate structure</em>. Our four business units — Pharmaceuticals, Electronics,
-                                    Software, and Food & Beverage — are too fundamentally different to be managed
+                                        conglomerate structure</em>. Our four business units â€” Pharmaceuticals, Electronics,
+                                    Software, and Food & Beverage â€” are too fundamentally different to be managed
                                     sustainably under one roof.
                                     <br /><br />
                                     The evidence is clear: cross-subsidisation of high-carbon assets by green divisions

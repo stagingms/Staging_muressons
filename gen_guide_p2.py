@@ -42,7 +42,7 @@ doc.add_page_break()
 # ═══ 8. ROUND-BY-ROUND ═══
 H("8. The 10-Round Journey — Detailed Guide")
 img("roadmap.png", Inches(5.5))
-cap("Figure 8.1 — The Simulation Roadmap: 10 Rounds Across 3 Strategic Years")
+cap("Figure 8.1 — The Simulation Roadmap: 10 Rounds Across 5 Strategic Years")
 doc.add_paragraph()
 rounds = [
     ("1","Foundations — ESG Baseline Assessment","📋",

@@ -31,7 +31,7 @@ ROLE_ALLOWED_TABS = {
         "dashboard_home", "timeline", "teleprompter", "leaderboard",
         "registry", "session_viewer", "impersonate", "swipe_file",
         "broadcast", "platform_analytics", "cohort_comparison",
-        "complexity_feed", "decision_replay", "debrief",
+        "complexity_feed", "decision_replay", "debrief", "dna_comparison",
         "scorecard_evaluator", "bonuses", "peer_eval", "reports",
         "notes", "annotations", "teaching_journal", "technical_glossary",
     ],
@@ -136,7 +136,8 @@ _god_mode_settings: dict = {
     "ceo_interview_question_count": 5,
     "ceo_interview_pathway_question": True,
     # PHASE-1: Systemic Risk & Black Swan settings
-    "difficulty_tier": "standard",               # standard | advanced | expert
+    # NOTE: difficulty_tier is set per-cohort via Experience Level (see admin_router._scenario_presets).
+    # Removed from global settings to prevent drift between God Mode and cohort-level ownership.
     "systemic_risk_enabled": True,                # Enable ESG-adjusted WACC + tipping points
     "black_swan_events_enabled": True,            # Enable stochastic Black Swan disruptions
     "npc_cascading_enabled": True,                # Enable NPC stakeholder cascade reactions

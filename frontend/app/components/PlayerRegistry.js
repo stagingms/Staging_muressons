@@ -103,6 +103,7 @@ export default function PlayerRegistry({ leaderboard }) {
     });
     
     // Then, merge any session-level registered_players not already in the list
+    // and enrich names from player sub-session data (cohort_name = "Player (username)")
     sessions.forEach(session => {
         const existing = playersBySession[session.session_id] || [];
         const existingIds = new Set(existing.map(p => p.player_id));
@@ -110,6 +111,12 @@ export default function PlayerRegistry({ leaderboard }) {
             if (!existingIds.has(rp.player_id)) {
                 existing.push(rp);
                 existingIds.add(rp.player_id);
+            }
+        });
+        // Enrich names: if any existing player still has empty name, look for username
+        existing.forEach(p => {
+            if (!p.name && (p.username || p.player_name)) {
+                p.name = p.username || p.player_name;
             }
         });
         if (existing.length > 0) playersBySession[session.session_id] = existing;
@@ -411,7 +418,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                 {sessionPlayers.map(p => (
                                                     <tr key={p.player_id}>
                                                         <td className={styles.nameCell}>
-                                                            <strong>{p.name || '—'}</strong>
+                                                            <strong>{p.name || p.username || p.player_name || p.player_id}</strong>
                                                             {p.email && <><br /><span className={styles.emailText}>{p.email}</span></>}
                                                         </td>
                                                         <td>

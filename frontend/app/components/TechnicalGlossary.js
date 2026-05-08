@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 
 /**
- * TechnicalGlossary — Full interactive simulation glossary.
+ * TechnicalGlossary â€” Full interactive simulation glossary.
  * Embeds directly inside God Mode and Facilitator dashboards.
  * Renders LaTeX via MathJax 3 (loaded once on mount).
  *
@@ -29,10 +29,10 @@ const CLUSTERS = [
         abbr: 'CSF / Treasury',
         keywords: 'corporate strategic fund treasury csf opex revenue dividends loan capital',
         definition: 'The master liquidity pool of the conglomerate, representing the net accumulated surplus after all revenue, operational expenditures, capital deployments, and dividend payments have been settled. It is the primary resource constraint governing every subsequent round decision.',
-        logic: 'Computed in engine.py ? calc_csf() and persisted to global_round_states.corporate_treasury. A short-term loan is auto-triggered if total CAPEX exceeds 20% of the opening treasury, at an interest rate of 12%. Dividends are clamped to the treasury balance (VULN-001) and total CAPEX is capped at 2× treasury (VULN-006).',
+        logic: 'Computed in engine.py ? calc_csf() and persisted to global_round_states.corporate_treasury. A short-term loan is auto-triggered if total CAPEX exceeds 20% of the opening treasury, at an interest rate of 12%. Dividends are clamped to the treasury balance (VULN-001) and total CAPEX is capped at 2Ã— treasury (VULN-006).',
         formula: `$$\\text{CSF}_{t+1} = \\text{Treasury}_t + \\sum_{i=1}^{n}\\left(\\text{Revenue}_i - \\text{OPEX}_i\\right) - \\text{Dividends}$$
 $$\\text{If } \\text{CAPEX}_{\\Sigma} > 0.20 \\cdot \\text{Treasury}_t:\\quad \\text{Loan} = \\text{CAPEX}_{\\Sigma} - 0.20\\cdot\\text{Treasury}_t,\\quad \\text{Penalty} = \\text{Loan} \\times 0.12$$`,
-        significance: 'For a CFO or CEO, the CSF is the only permissive gate for all decisions. Teams that over-invest early trigger forced loans that compound as hidden OPEX drains in subsequent rounds. The 20% rule simulates real-world capital discipline: firms that deploy >20% of liquidity into single periods face escalating cost-of-capital penalties. Managing treasury velocity—not just its absolute level—is the defining financial skill of the simulation.',
+        significance: 'For a CFO or CEO, the CSF is the only permissive gate for all decisions. Teams that over-invest early trigger forced loans that compound as hidden OPEX drains in subsequent rounds. The 20% rule simulates real-world capital discipline: firms that deploy >20% of liquidity into single periods face escalating cost-of-capital penalties. Managing treasury velocityâ€”not just its absolute levelâ€”is the defining financial skill of the simulation.',
       },
       {
         id: 'ebitda',
@@ -40,7 +40,7 @@ $$\\text{If } \\text{CAPEX}_{\\Sigma} > 0.20 \\cdot \\text{Treasury}_t:\\quad \\
         abbr: 'EBITDA_{T0+5}',
         keywords: 'ebitda terminal earnings revenue opex carbon tax year T0 plus 5 horizon',
         definition: 'The conglomerate\'s normalised earnings before interest, taxes, depreciation, and amortisation projected at the end of the 5-year strategic cycle (starting year + 5). It synthesises ten rounds of revenue growth, OPEX evolution, and carbon liability into a single profitability figure used to anchor the exit valuation.',
-        logic: 'Calculated in round_logic.py ? _post_r10_grand_finale(). Carbon tonnage is computed as carbon_intensity × revenue_base / 1,000,000 per BU (AUDIT-027 formula). A carbon tax of $250/tonne (god-mode overridable) is then deducted. The result feeds directly into the terminal value equation as the base earnings figure.',
+        logic: 'Calculated in round_logic.py ? _post_r10_grand_finale(). Carbon tonnage is computed as carbon_intensity Ã— revenue_base / 1,000,000 per BU (AUDIT-027 formula). A carbon tax of $250/tonne (god-mode overridable) is then deducted. The result feeds directly into the terminal value equation as the base earnings figure.',
         formula: `$$\\text{EBITDA}_{T_0+5} = \\sum_{i=1}^{n}\\left(\\text{Revenue}_i - \\text{OPEX}_i\\right) - \\underbrace{\\left(\\sum_{i=1}^{n} \\frac{\\text{CarbonIntensity}_i \\times \\text{Revenue}_i}{10^6}\\right) \\times \\tau_C}_{\\text{Carbon Cost}}$$
 $$\\text{where } \\tau_C = \\$250 \\text{ per tonne CO}_2\\text{-e (default)}$$`,
         significance: 'The carbon deduction creates a direct, non-linear feedback between environmental decisions (Rounds 3, 5, 7) and financial outcomes. A $1M carbon saving in EBITDA translates to up to ~$20M in terminal value under optimal M_R conditions. This teaches the exponential cost of climate procrastination.',
@@ -50,21 +50,21 @@ $$\\text{where } \\tau_C = \\$250 \\text{ per tonne CO}_2\\text{-e (default)}$$`
         name: 'Natural Capital Debt (NCD)',
         abbr: 'NCD',
         keywords: 'natural capital debt ncd interest rate compounding ecological tipping point',
-        definition: 'A BU-level liability representing accumulated environmental degradation—water depletion, soil toxicity, biodiversity loss—that the biosphere has not yet invoiced. In the simulation, it accrues an interest rate that compounds every round, modelling ecological tipping points and escalating remediation costs.',
+        definition: 'A BU-level liability representing accumulated environmental degradationâ€”water depletion, soil toxicity, biodiversity lossâ€”that the biosphere has not yet invoiced. In the simulation, it accrues an interest rate that compounds every round, modelling ecological tipping points and escalating remediation costs.',
         logic: 'Computed in engine.py ? calc_natural_capital_interest(). The interest rate rises linearly with NCD size, creating exponential compounding for high-debt BUs. NCD is floored at 0 (VULN-004) and capped at 1,000,000 (VULN-007). Reductions available via R3-B (Green Bond, -15), R7-A (Circular Redesign, -12), and R8-C (Desalination, -30).',
         formula: `$$r_{\\text{NCD}} = r_{\\text{base}} + \\left(\\text{NCD} \\times 0.0005\\right)$$
 $$\\text{NCD}_{t+1} = \\text{NCD}_t \\times \\left(1 + r_{\\text{NCD}}\\right), \\quad r_{\\text{base}} = 0.05$$`,
-        significance: 'NCD operationalises the concept of planetary boundaries as financial risk. A Pharma BU with NCD = 5,200 faces an effective interest rate of 2.65, meaning its debt will increase 3.65× in one round. Teams often ignore NCD in early rounds; the simulation is designed to punish that myopia with runaway compounding that becomes impossible to remediate by Round 8.',
+        significance: 'NCD operationalises the concept of planetary boundaries as financial risk. A Pharma BU with NCD = 5,200 faces an effective interest rate of 2.65, meaning its debt will increase 3.65Ã— in one round. Teams often ignore NCD in early rounds; the simulation is designed to punish that myopia with runaway compounding that becomes impossible to remediate by Round 8.',
       },
       {
         id: 'tv',
         name: 'Terminal Value',
         abbr: 'TV',
         keywords: 'terminal value exit multiple 12x M_R regenerative valuation enterprise',
-        definition: 'The simulated market capitalisation of the Muressons Group at the end of the 5-year strategic cycle (Year T0+5). It represents what a sophisticated institutional investor—integrating ESG risk premia, carbon liability, and social licence—would pay to acquire the conglomerate at the simulation\'s conclusion.',
-        logic: 'Anchored by a 12× exit EBITDA multiple (industry-standard manufacturing/tech composite), then scaled by the Regenerative Multiple M_R. The resulting archetype profiles range from "Stranded Relic" (M_R < 0.8) to "Regenerative Titan" (M_R = 1.8), with up to a $273M terminal value gap between worst and best strategies.',
+        definition: 'The simulated market capitalisation of the Muressons Group at the end of the 5-year strategic cycle (Year T0+5). It represents what a sophisticated institutional investorâ€”integrating ESG risk premia, carbon liability, and social licenceâ€”would pay to acquire the conglomerate at the simulation\'s conclusion.',
+        logic: 'Anchored by a 12Ã— exit EBITDA multiple (industry-standard manufacturing/tech composite), then scaled by the Regenerative Multiple M_R. The resulting archetype profiles range from "Stranded Relic" (M_R < 0.8) to "Regenerative Titan" (M_R = 1.8), with up to a $273M terminal value gap between worst and best strategies.',
         formula: `$$\\text{TV} = \\text{EBITDA}_{T_0+5} \\times \\underbrace{12}_{\\text{Exit Multiple}} \\times M_R$$`,
-        significance: 'The M_R modifier—which can range from 0.6 to 1.65—means that the how of running the business matters as much as the what. A 0.6-point difference in M_R translates to roughly $91M in enterprise value. This teaches C-suite participants that governance and social licence are accretive to valuation, not merely compliance costs.',
+        significance: 'The M_R modifierâ€”which can range from 0.6 to 1.65â€”means that the how of running the business matters as much as the what. A 0.6-point difference in M_R translates to roughly $91M in enterprise value. This teaches C-suite participants that governance and social licence are accretive to valuation, not merely compliance costs.',
       },
       {
         id: 'synergy',
@@ -75,7 +75,7 @@ $$\\text{NCD}_{t+1} = \\text{NCD}_t \\times \\left(1 + r_{\\text{NCD}}\\right), 
         logic: 'Computed in engine.py ? calc_synergy_opex(). Investment Ratio (CAPEX/Revenue) is clamped to [0, 1.0] (VULN-002). A round-7 Waste-to-Energy decision (Option C) boosts the Synergy Multiplier by +0.35, making future CAPEX dramatically more efficient and unlocking Round 10\'s "Resist & Integrate" option.',
         formula: `$$\\text{OPEX}_{t+1} = \\text{OPEX}_t \\times \\left(1 - \\text{InvRatio} \\times \\phi_{\\text{syn}}\\right)$$
 $$\\text{InvRatio} = \\frac{\\text{CAPEX}_i}{\\text{Revenue}_i} \\in [0,\\;1.0], \\quad \\phi_{\\text{syn}} \\in [1.0,\\; 1.35]$$`,
-        significance: 'Synergy is the simulation\'s analogue to dynamic capabilities theory: the ability to reconfigure internal competencies faster than competitors. A synergy multiplier of 1.35 vs 1.0 makes each reinvestment dollar 35% more productive—a structural advantage that cannot be replicated by late-stage spending.',
+        significance: 'Synergy is the simulation\'s analogue to dynamic capabilities theory: the ability to reconfigure internal competencies faster than competitors. A synergy multiplier of 1.35 vs 1.0 makes each reinvestment dollar 35% more productiveâ€”a structural advantage that cannot be replicated by late-stage spending.',
       },
       {
         id: 'gcod',
@@ -93,7 +93,7 @@ $$\\text{InvRatio} = \\frac{\\text{CAPEX}_i}{\\text{Revenue}_i} \\in [0,\\;1.0],
         abbr: 'Div Ratchet',
         keywords: 'dividend ratchet board pressure distribution cut reputation investor expectations',
         definition: 'A governance mechanism that penalises teams who cut dividends by more than 20% relative to the previous round. Cutting dividends triggers a -5 Group Reputation hit, modelling real-world investor expectations for distribution consistency and the board accountability pressure that accompanies it.',
-        logic: 'Evaluated in engine.py ? calc_dividend_ratchet(). Compares current_dividends against previous_round_dividends × 0.80. If below threshold, applies reputation penalty. Dividends are clamped to available treasury (VULN-001). This creates a strategic tension: reducing dividends frees cash for CAPEX but damages stakeholder confidence.',
+        logic: 'Evaluated in engine.py ? calc_dividend_ratchet(). Compares current_dividends against previous_round_dividends Ã— 0.80. If below threshold, applies reputation penalty. Dividends are clamped to available treasury (VULN-001). This creates a strategic tension: reducing dividends frees cash for CAPEX but damages stakeholder confidence.',
         formula: `$$\\text{If Dividends}_t < 0.80 \\times \\text{Dividends}_{t-1}: \\quad \\text{Rep}_{t+1} = \\text{Rep}_t - 5$$`,
         significance: 'Ref: Lintner, J. (1956). "Distribution of Incomes of Corporations Among Dividends, Retained Earnings, and Taxes." American Economic Review, 46(2), 97-113. The Dividend Ratchet operationalises Lintner\'s partial adjustment model: managers smooth dividends because cuts signal negative private information to markets.',
       },
@@ -106,7 +106,19 @@ $$\\text{InvRatio} = \\frac{\\text{CAPEX}_i}{\\text{Revenue}_i} \\in [0,\\;1.0],
         logic: 'Applied in engine.py ? calc_synergy_opex(). If investment_ratio > 0.10, the effective_ratio for the current round is set to 0 (benefit deferred). The pending benefit is stored in global_round_states.pending_capex_projects with rounds_remaining = 1. R5-A Hard Engineering uses a 2-round delay for resilience protection.',
         formula: `$$\\text{If InvRatio}_i > 0.10: \\quad \\text{Effective}_{t} = 0, \\quad \\text{Effective}_{t+1} = \\sqrt{\\text{InvRatio}} \\times 0.7$$
 $$\\text{Pending Project: }\\{\\tau_{\\text{rem}} = 1, \\; \\text{effect}: \\Delta\\text{OPEX}\\}$$`,
-        significance: 'Ref: Dixit, A.K. & Pindyck, R.S. (1994). "Investment under Uncertainty." Princeton University Press. The implementation lag teaches that real options have gestation periods—teams who spend heavily in R1 expecting immediate OPEX savings are forced to absorb a full round of costs before benefits materialise, creating the classic J-curve payoff profile.',
+        significance: 'Ref: Dixit, A.K. & Pindyck, R.S. (1994). "Investment under Uncertainty." Princeton University Press. The implementation lag teaches that real options have gestation periodsâ€”teams who spend heavily in R1 expecting immediate OPEX savings are forced to absorb a full round of costs before benefits materialise, creating the classic J-curve payoff profile.',
+      },
+      {
+        id: 'caroic',
+        name: 'Carbon-Adjusted Return on Invested Capital (CAROIC)',
+        abbr: 'CAROIC',
+        keywords: 'caroic carbon adjusted return invested capital roic nopat shadow carbon price tax rate carbon efficiency',
+        definition: 'A carbon-aware extension of traditional ROIC that inflates the effective capital base by a shadow carbon cost, penalising carbon-intensive firms and rewarding decarbonisation. CAROIC makes it impossible to achieve a high return rating while carrying heavy carbon exposureâ€”bridging the gap between financial and environmental KPIs.',
+        logic: 'Computed in engine.py â†’ calc_caroic(). Called every tick after EBITDA and tCOâ‚‚e are calculated. Uses corporate treasury as invested capital proxy (floored at $0 for insolvent firms). Shadow carbon price defaults to $250/ton (aligned with R10 carbon_tax_per_ton, god-mode overridable). Tax rate defaults to 25%. Grade scale: A+ (â‰¥25%), A (â‰¥15%), B (â‰¥10%), C (â‰¥5%), D (â‰¥0%), F (<0%). Results displayed on both player Financial tab and facilitator Session Health Monitor.',
+        formula: `$$\\text{CAROIC} = \\frac{\\text{EBITDA} \\times (1 - \\tau)}{\\text{Invested Capital} + \\text{Carbon Tonnage} \\times P_{\\text{shadow}}}$$
+$$\\text{where } \\tau = 0.25, \\quad P_{\\text{shadow}} = \\$250/\\text{tCO}_2\\text{e}$$
+$$\\text{NOPAT} = \\text{EBITDA} \\times (1 - \\tau), \\quad \\text{Carbon Tonnage} = \\sum_{i=1}^{n} \\frac{\\text{CI}_i \\times \\text{Rev}_i}{10^6}$$`,
+        significance: 'Traditional ROIC rewards pure financial efficiency without regard for environmental externalities. CAROIC introduces a shadow carbon cost that inflates the effective capital base of carbon-intensive firms, revealing the true cost of carbon dependence. Example: EBITDA=$33M, Treasury=$50M, Carbon=2,850t â†’ NOPAT=$24.75M, Carbon Charge=$712K, Adj. Capital=$50.7M â†’ CAROIC=48.8% (A+). If carbon rises to 12,000t â†’ CAROIC=46.7%, a 2.1ppt compression from carbon drag alone.',
       },
 
     ],
@@ -116,7 +128,7 @@ $$\\text{Pending Project: }\\{\\tau_{\\text{rem}} = 1, \\; \\text{effect}: \\Del
     number: '02',
     tag: 'Cluster II',
     title: 'Sustainability & ESG',
-    desc: 'The ecological, social, and governance variables that drive non-financial risk and unlock—or destroy—the firm\'s Regenerative Multiple.',
+    desc: 'The ecological, social, and governance variables that drive non-financial risk and unlockâ€”or destroyâ€”the firm\'s Regenerative Multiple.',
     accentColor: '#6dbf87',
     terms: [
       {
@@ -124,7 +136,7 @@ $$\\text{Pending Project: }\\{\\tau_{\\text{rem}} = 1, \\; \\text{effect}: \\Del
         name: 'Group Reputation & Contagion Engine',
         abbr: 'Rep / Contagion',
         keywords: 'group reputation contagion crisis severity BU cascade electronics',
-        definition: 'A composite [0–100] score representing how stakeholders—media, regulators, investors, NGOs—perceive the Muressons Group. The Contagion Engine is the mechanism by which a single BU\'s reputational damage cascades to the entire group score.',
+        definition: 'A composite [0â€“100] score representing how stakeholdersâ€”media, regulators, investors, NGOsâ€”perceive the Muressons Group. The Contagion Engine is the mechanism by which a single BU\'s reputational damage cascades to the entire group score.',
         logic: 'Computed in engine.py ? calc_contagion(). Crisis severity is set by pre_tick (R4 = 40 base; doubled to 80 if electronics_blindspot flag is active from an R1-A/C choice). Clamped to [0, 100]. A drop below 65 triggers the Talent Brain-Drain penalty on the Software BU.',
         formula: `$$\\text{GroupRep}_{t+1} = \\left(\\frac{1}{n}\\sum_{i=1}^{n}\\text{Rep}_i\\right) - \\left(\\sigma_{\\text{crisis}} \\times 0.4\\right)$$
 $$\\text{R4: }\\sigma_{\\text{crisis}} = \\begin{cases} 80 & \\text{if electronics\\_blindspot active} \\\\ 40 & \\text{otherwise}\\end{cases}$$`,
@@ -135,7 +147,7 @@ $$\\text{R4: }\\sigma_{\\text{crisis}} = \\begin{cases} 80 & \\text{if electroni
         name: 'Social Licence to Operate (SLO)',
         abbr: 'SLO',
         keywords: 'social license SLO operate strike probability stakeholder community worker',
-        definition: 'A BU-level score [0–100] that quantifies community and worker acceptance of the BU\'s operations. Derived from political economy theory, it represents the ongoing legitimacy granted by host communities—distinct from legal permission—earned through inclusive stakeholder engagement.',
+        definition: 'A BU-level score [0â€“100] that quantifies community and worker acceptance of the BU\'s operations. Derived from political economy theory, it represents the ongoing legitimacy granted by host communitiesâ€”distinct from legal permissionâ€”earned through inclusive stakeholder engagement.',
         logic: 'Directly feeds the Strike Probability Engine in engine.py ? calc_strike_probability(). The instability discount in M_R (-0.40) is triggered when the average SLO falls below 75. R9-A (Immediate Closure) drops SLO by 20 and creates a 75% strike probability if already below 50.',
         formula: `$$P_{\\text{strike}} = \\frac{\\text{GovRisk}_i}{100} + \\left(1 - \\frac{\\text{SLO}_i}{100}\\right) \\times 0.4, \\quad P_{\\text{strike}} \\in [0,\\;1]$$
 $$\\text{Instability Discount: }\\Delta M_R = -0.40 \\text{ if }\\overline{\\text{SLO}} < 75$$`,
@@ -146,7 +158,7 @@ $$\\text{Instability Discount: }\\Delta M_R = -0.40 \\text{ if }\\overline{\\tex
         name: 'Double Materiality Framework',
         abbr: 'CSRD / DM',
         keywords: 'double materiality CSRD financial impact societal quadrant CFO gate',
-        definition: 'Requires players to classify ESG issues on two axes: Financial Materiality (does it affect the firm\'s value?) and Impact Materiality (does the firm affect society/environment?). An issue is doubly material if it scores high on both axes—these are the mandatory first-priority investments per CSRD Article 19a.',
+        definition: 'Requires players to classify ESG issues on two axes: Financial Materiality (does it affect the firm\'s value?) and Impact Materiality (does the firm affect society/environment?). An issue is doubly material if it scores high on both axesâ€”these are the mandatory first-priority investments per CSRD Article 19a.',
         logic: 'Validated in round_logic.py ? _pre_r2_materiality_gate(). If CAPEX is allocated to a non-Quadrant 1 issue without a CFO Override, the transaction is rejected. The CFO Override bypass reduces Group Reputation by -5. Six issues sit in Quadrant 1: Water Scarcity, E-Waste, Tier-3 Labour, AI Bias, Scope 3 Carbon, and Plastic Packaging.',
         formula: `$$\\text{Quadrant 1: }\\text{FinancialImpact} = \\text{High},\\;\\text{SocietalImpact} = \\text{High}$$
 $$\\text{CFO Override Penalty: }\\text{Rep}_{t+1} = \\text{Rep}_t - 5$$`,
@@ -157,11 +169,11 @@ $$\\text{CFO Override Penalty: }\\text{Rep}_{t+1} = \\text{Rep}_t - 5$$`,
         name: 'Carbon Intensity & Scope 3 Emissions',
         abbr: 'Carbon / Scope 3',
         keywords: 'carbon intensity scope 3 emissions supply chain decarbonisation tax SBTi',
-        definition: 'Carbon Intensity is a BU-level metric (tCO2-e per $M revenue) representing embedded emissions normalised to economic output. Scope 3 includes all indirect emissions in the value chain—the simulation specifies that Muressons\' supply chain footprint is 4× its direct operational emissions.',
-        logic: 'Modified by R3 decisions: Option A (Rapid Supplier Switch) reduces intensity by -15; Option B (Green Bond) reduces by -8 and drops NCD by -15. Carbon tonnage is calculated at R10 as the revenue-scaled product, then taxed at $250/tonne. The UN SDG pathway adds a Carbon Retribution Multiplier (up to ×3) applied to R5 climate damage.',
+        definition: 'Carbon Intensity is a BU-level metric (tCO2-e per $M revenue) representing embedded emissions normalised to economic output. Scope 3 includes all indirect emissions in the value chainâ€”the simulation specifies that Muressons\' supply chain footprint is 4Ã— its direct operational emissions.',
+        logic: 'Modified by R3 decisions: Option A (Rapid Supplier Switch) reduces intensity by -15; Option B (Green Bond) reduces by -8 and drops NCD by -15. Carbon tonnage is calculated at R10 as the revenue-scaled product, then taxed at $250/tonne. The UN SDG pathway adds a Carbon Retribution Multiplier (up to Ã—3) applied to R5 climate damage.',
         formula: `$$\\text{CarbonTonnage}_{\\Sigma} = \\sum_{i=1}^{n} \\frac{\\text{CarbonIntensity}_i \\times \\text{Revenue}_i}{10^6}$$
 $$\\text{R5 Retribution: }\\text{ClimateDamage}^* = \\text{ClimateDamage} \\times \\lambda,\\;\\lambda \\in [1,\\;3]$$`,
-        significance: 'Deferring Scope 3 reductions to R7 or later saves short-term cash but allows carbon intensity to compound across three BU revenue bases. By R10, a modest 5-unit intensity differential translates to hundreds of thousands in additional carbon cost—then amplified by the 12× exit multiple.',
+        significance: 'Deferring Scope 3 reductions to R7 or later saves short-term cash but allows carbon intensity to compound across three BU revenue bases. By R10, a modest 5-unit intensity differential translates to hundreds of thousands in additional carbon costâ€”then amplified by the 12Ã— exit multiple.',
       },
       {
         id: 'talent',
@@ -172,15 +184,15 @@ $$\\text{R5 Retribution: }\\text{ClimateDamage}^* = \\text{ClimateDamage} \\time
         logic: 'Computed in engine.py ? calc_talent_braindrain(). The penalty multiplier is applied as a direct inflation of the Software BU\'s opex_base. In the worked example: Group Rep = 54.59 ? 15.6% OPEX inflation. The penalty persists until reputation recovers above 65.',
         formula: `$$\\text{Penalty}_{\\text{talent}} = 1 + \\max\\!\\left(0,\\; \\frac{65 - \\text{GroupRep}}{100}\\right) \\times 1.5$$
 $$\\text{OPEX}_{\\text{software},\\;t+1} = \\text{OPEX}_{\\text{software},\\;t} \\times \\text{Penalty}_{\\text{talent}}$$`,
-        significance: 'A 15% OPEX inflation on an $8M base is a $1.2M annual drag—material enough to erode the entire advantage of a well-timed CAPEX investment. This models the ESG-driven employee exodus phenomenon where >70% of tech workers factor company values into job choices.',
+        significance: 'A 15% OPEX inflation on an $8M base is a $1.2M annual dragâ€”material enough to erode the entire advantage of a well-timed CAPEX investment. This models the ESG-driven employee exodus phenomenon where >70% of tech workers factor company values into job choices.',
       },
       {
         id: 'entropy',
         name: 'Natural Decay (Entropy Engine)',
         abbr: 'Entropy',
         keywords: 'natural decay entropy zero investment reputation SLO degradation neglect',
-        definition: 'Models the thermodynamic reality that stakeholder goodwill and socio-ecological systems erode over time without active investment. A BU receiving zero capital in any given round loses 2% of its reputation score and 2% of its social licence score automatically—the "standing still is falling behind" principle.',
-        logic: 'Applied in engine.py ? apply_natural_decay(). If a BU\'s capex_allocated is 0.0, both reputation and SLO are multiplied by 0.98. Over 5 rounds of neglect, a BU starting at Rep = 80 decays to 72.3—below the instability discount threshold if SLO follows the same trajectory.',
+        definition: 'Models the thermodynamic reality that stakeholder goodwill and socio-ecological systems erode over time without active investment. A BU receiving zero capital in any given round loses 2% of its reputation score and 2% of its social licence score automaticallyâ€”the "standing still is falling behind" principle.',
+        logic: 'Applied in engine.py ? apply_natural_decay(). If a BU\'s capex_allocated is 0.0, both reputation and SLO are multiplied by 0.98. Over 5 rounds of neglect, a BU starting at Rep = 80 decays to 72.3â€”below the instability discount threshold if SLO follows the same trajectory.',
         formula: `$$\\text{If CAPEX}_i = 0:\\quad \\text{Rep}_{t+1} = \\text{Rep}_t \\times 0.98,\\quad \\text{SLO}_{t+1} = \\text{SLO}_t \\times 0.98$$
 $$\\text{Compound: }\\text{Rep}_{t+k} = \\text{Rep}_t \\times (0.98)^k$$`,
         significance: 'Entropy teaches portfolio management discipline. Teams instinctively concentrate investment in their highest-revenue BUs, leaving lower-margin units to decay. A BU neglected for 5 rounds loses ~10% of its scores, which can cross the SLO threshold (75) and trigger the M_R instability discount that devalues the entire group.',
@@ -190,7 +202,7 @@ $$\\text{Compound: }\\text{Rep}_{t+k} = \\text{Rep}_t \\times (0.98)^k$$`,
         name: 'Water Dependency Index',
         abbr: 'Water Dep',
         keywords: 'water dependency blue stress watershed depletion scarcity physical risk TCFD',
-        definition: 'A BU-level [0–1] score representing the proportion of a BU\'s operational continuity that is contingent on stable freshwater access. A score of 0.8 (Electronics baseline) means 80% of that BU\'s operations would be impaired under water stress scenarios, creating a stranded asset risk analogous to TCFD\'s physical climate risk exposures.',
+        definition: 'A BU-level [0â€“1] score representing the proportion of a BU\'s operational continuity that is contingent on stable freshwater access. A score of 0.8 (Electronics baseline) means 80% of that BU\'s operations would be impaired under water stress scenarios, creating a stranded asset risk analogous to TCFD\'s physical climate risk exposures.',
         logic: 'Modified exclusively in Round 8 (Blue Stress). Option A (Water Efficiency, -20 to all BUs), Option C (Desalination, -40 delayed by 2 rounds via pending CAPEX project). High water dependency increases exposure to R8\'s watershed depletion crisis, which applies social licence penalties and blocks the M_R resilience bonus if Option B is chosen.',
         formula: `$$\\text{WaterDep}_{t+1} = \\max\\left(0,\\; \\text{WaterDep}_t + \\Delta_{\\text{WD}}\\right)$$
 $$\\Delta_{\\text{WD}} = \\begin{cases} -0.20 & \\text{R8 Option A (immediate)} \\\\ -0.40 & \\text{R8 Option C (delayed, }\\tau = 2\\text{ rounds)} \\end{cases}$$`,
@@ -201,8 +213,8 @@ $$\\Delta_{\\text{WD}} = \\begin{cases} -0.20 & \\text{R8 Option A (immediate)} 
         name: 'Staff Burnout & Workforce Wellbeing',
         abbr: 'Burnout',
         keywords: 'staff burnout wellbeing workforce WHO ICD-11 hr opex penalty fatigue exhaustion',
-        definition: 'A global workforce metric [0–100] representing cumulative occupational exhaustion across all business units. Recognised by WHO in ICD-11 (2019) as an occupational phenomenon. In the simulation, burnout compounds OPEX penalties and blocks the +0.05 M_R Wellbeing Champion bonus if above 20 at R10.',
-        logic: 'Modified by HR investment decisions in the Strategic Pillars paradigm. High HR: -10, Medium: -4, None: +3 drift per round. OPEX penalty activates above 20: penalty = ((burnout-20)²) × 0.000028. Critical threshold at 70 triggers additional governance risk increases.',
+        definition: 'A global workforce metric [0â€“100] representing cumulative occupational exhaustion across all business units. Recognised by WHO in ICD-11 (2019) as an occupational phenomenon. In the simulation, burnout compounds OPEX penalties and blocks the +0.05 M_R Wellbeing Champion bonus if above 20 at R10.',
+        logic: 'Modified by HR investment decisions in the Strategic Pillars paradigm. High HR: -10, Medium: -4, None: +3 drift per round. OPEX penalty activates above 20: penalty = ((burnout-20)Â²) Ã— 0.000028. Critical threshold at 70 triggers additional governance risk increases.',
         formula: `$$\\text{Burnout}_{t+1} = \\text{Burnout}_t + \\Delta_{\\text{HR}} + 3_{\\text{drift}}$$
 $$\\text{OPEX Penalty} = \\left(\\max(0, \\text{Burnout} - 20)\\right)^2 \\times 0.000028$$
 $$\\text{Wellbeing Bonus: }+0.05\\;M_R \\text{ iff }\\overline{\\text{Burnout}} < 20 \\text{ at R10}$$`,
@@ -213,7 +225,7 @@ $$\\text{Wellbeing Bonus: }+0.05\\;M_R \\text{ iff }\\overline{\\text{Burnout}} 
         name: 'Workforce Readiness Index',
         abbr: 'WRI',
         keywords: 'workforce readiness competence training learning organisational capacity HR human capital',
-        definition: 'A global competence score [0–100, starting at 50] that measures the organisation\'s collective ability to execute strategic initiatives. Low readiness (<40) reduces the effectiveness of all pillar decisions by 20%. High readiness (=75) earns a +0.10 M_R bonus at terminal valuation.',
+        definition: 'A global competence score [0â€“100, starting at 50] that measures the organisation\'s collective ability to execute strategic initiatives. Low readiness (<40) reduces the effectiveness of all pillar decisions by 20%. High readiness (=75) earns a +0.10 M_R bonus at terminal valuation.',
         logic: 'Modified by HR investment in Strategic Pillars. High HR: +8, Medium: +4, None: -5 per round. Feeds into pillar_effectiveness_multiplier = 0.80 if readiness < 40, else 1.0. The readiness score is a proxy for organisational learning capacity (Senge, 1990).',
         formula: `$$\\text{WRI}_{t+1} = \\text{WRI}_t + \\Delta_{\\text{HR}}, \\quad \\Delta \\in \\{-5, +4, +8\\}$$
 $$\\text{Pillar Effectiveness} = \\begin{cases} 0.80 & \\text{WRI} < 40 \\\\ 1.00 & \\text{otherwise} \\end{cases}$$
@@ -238,7 +250,7 @@ $$\\text{M_R Bonus: }+0.10 \\text{ iff WRI} \\geq 75 \\text{ at R10}$$`,
     number: '03',
     tag: 'Cluster III',
     title: 'Strategic Positioning',
-    desc: 'The competitive architecture variables—VRIO, flag dependencies, archetypes, and the Regenerative Multiple—that determine how strategic choices compound into long-run advantages.',
+    desc: 'The competitive architecture variablesâ€”VRIO, flag dependencies, archetypes, and the Regenerative Multipleâ€”that determine how strategic choices compound into long-run advantages.',
     accentColor: '#bf7c6d',
     terms: [
       {
@@ -246,8 +258,8 @@ $$\\text{M_R Bonus: }+0.10 \\text{ iff WRI} \\geq 75 \\text{ at R10}$$`,
         name: 'VRIO Competitive Advantage & Decay',
         abbr: 'VRIO',
         keywords: 'VRIO competitive advantage imitation decay synergy multiplier resource-based view dynamic capabilities',
-        definition: 'The VRIO framework (Value, Rarity, Inimitability, Organisation) is implemented as a continuous decay function on the Synergy Multiplier—the simulation\'s proxy for accumulated competitive advantage. Decay models real-world erosion of proprietary positions through competitor imitation or regulatory commoditisation.',
-        logic: 'Computed in engine.py ? calc_vrio_decay(). The imitation decay rate defaults to 5% per round. The resulting Synergy Multiplier is stored in global_round_states.synergy_multiplier. The R7-C Waste-to-Energy choice adds +0.35, which must then survive subsequent decay—making timing critical for R10 terminal valuation.',
+        definition: 'The VRIO framework (Value, Rarity, Inimitability, Organisation) is implemented as a continuous decay function on the Synergy Multiplierâ€”the simulation\'s proxy for accumulated competitive advantage. Decay models real-world erosion of proprietary positions through competitor imitation or regulatory commoditisation.',
+        logic: 'Computed in engine.py ? calc_vrio_decay(). The imitation decay rate defaults to 5% per round. The resulting Synergy Multiplier is stored in global_round_states.synergy_multiplier. The R7-C Waste-to-Energy choice adds +0.35, which must then survive subsequent decayâ€”making timing critical for R10 terminal valuation.',
         formula: `$$\\phi_{\\text{syn},\\;t+1} = \\phi_{\\text{syn},\\;t} \\times \\left(1 - \\delta_{\\text{imitation}}\\right), \\quad \\delta_{\\text{imitation}} = 0.05$$
 $$\\text{R7-C Boost: }\\phi_{\\text{syn}} \\mathrel{+}= 0.35 \\quad | \\quad \\text{R10 Gate: }\\phi_{\\text{syn}} \\times 100 > 80$$`,
         significance: 'VRIO decay ensures that competitive advantage is not a stock but a flow that must be continuously replenished. A Chief Strategy Officer who "wins" early rounds must continue to defend that position through subsequent CAPEX, or watch the multiplier erode below the R10 Option A gate (threshold 80). This directly models Teece\'s dynamic capabilities.',
@@ -261,7 +273,7 @@ $$\\text{R7-C Boost: }\\phi_{\\text{syn}} \\mathrel{+}= 0.35 \\quad | \\quad \\t
         logic: 'Built from four independent conditions: +0.30 Synergy (R7-C synergy_unlock flag), +0.20 Resilience (no R5-C/R8-B bailouts), +0.15 Truth Premium (R6-B ethical_ai_overhaul), -0.40 Instability Discount (avg SLO < 75). Maximum M_R = 1.65 (Regenerative Titan). Minimum in practice = 0.6 (Stranded Relic).',
         formula: `$$M_R = 1.0 + 0.30\\cdot\\mathbb{1}[\\text{synergy}] + 0.20\\cdot\\mathbb{1}[\\neg\\text{bailout}] + 0.15\\cdot\\mathbb{1}[\\text{ethical\\_ai}] - 0.40\\cdot\\mathbb{1}[\\overline{\\text{SLO}} < 75]$$
 $$M_R \\in [0.60,\\;1.65]$$`,
-        significance: 'Each M_R component maps to a real-world investor framework: Synergy?Circular Economy premiums, Resilience?TCFD risk reduction, Truth Premium?ESG governance index premium, Instability?activist investor impairment pricing (Danone 2021, Exxon 2021). The M_R swing of 1.05× EBITDA is the most powerful single learning in the simulation.',
+        significance: 'Each M_R component maps to a real-world investor framework: Synergy?Circular Economy premiums, Resilience?TCFD risk reduction, Truth Premium?ESG governance index premium, Instability?activist investor impairment pricing (Danone 2021, Exxon 2021). The M_R swing of 1.05Ã— EBITDA is the most powerful single learning in the simulation.',
       },
       {
         id: 'flags',
@@ -273,7 +285,7 @@ $$M_R \\in [0.60,\\;1.65]$$`,
         formula: `$$\\text{R1: A/C}\\xrightarrow{\\text{sets}}\\texttt{electronics\\_blindspot}\\xrightarrow{\\text{doubles}}\\sigma_{\\text{crisis,R4}} = 80$$
 $$\\text{R6: B}\\xrightarrow{\\text{sets}}\\texttt{ethical\\_ai\\_overhaul}\\xrightarrow{\\text{unlocks}}\\Delta M_R^{\\text{truth}} = +0.15$$
 $$\\text{R7: C}\\xrightarrow{\\text{sets}}\\texttt{synergy\\_unlock}\\xrightarrow{\\text{unlocks}}\\Delta M_R^{\\text{syn}} = +0.30 \\;\\&\\;\\text{R10 Option A}$$`,
-        significance: 'Strategy is not a series of isolated decisions but an interconnected system. The flags create switching costs—teams who chose R1-A cannot undo the electronics blindspot by spending more in R2. Governance architecture (audit depth, AI ethics, circular economy commitments) must be embedded early, before crises make them purely reactive and costly.',
+        significance: 'Strategy is not a series of isolated decisions but an interconnected system. The flags create switching costsâ€”teams who chose R1-A cannot undo the electronics blindspot by spending more in R2. Governance architecture (audit depth, AI ethics, circular economy commitments) must be embedded early, before crises make them purely reactive and costly.',
       },
       {
         id: 'archetypes',
@@ -283,26 +295,26 @@ $$\\text{R7: C}\\xrightarrow{\\text{sets}}\\texttt{synergy\\_unlock}\\xrightarro
         definition: 'Qualitative-quant profiles assigned to simulation teams at Round 10 based on their Regenerative Multiple. Each archetype represents a distinct strategic posture with real-world corporate analogues, providing a memorable and emotionally resonant synthesis of the team\'s ten-round performance.',
         logic: 'Assigned in round_logic.py ? _post_r10_grand_finale(). Custom archetypes from God Mode take priority. Thresholds are configured in round_configs.py\'s special rules for Round 10. Facilitators can define alternative archetypes with custom icons, gradient colours, and narrative descriptions.',
         formula: `$$\\text{Profile} = \\begin{cases} \\text{?? Regenerative Titan} & M_R \\geq 1.8 \\\\ \\text{?? De-risked Safe-Haven} & 1.2 \\leq M_R < 1.8 \\\\ \\text{?? Fragile Giant} & 0.8 \\leq M_R < 1.2 \\\\ \\text{?? Stranded Relic} & M_R < 0.8 \\end{cases}$$`,
-        significance: 'The archetypes map to real-world 2024–2025 corporate categories. The "Stranded Relic" evokes BP or Volkswagen post-dieselgate. The "Regenerative Titan" evokes Ørsted (former oil company, now world\'s largest offshore wind developer). The archetypes make the abstract M_R number emotionally legible and create competitive debrief dynamics.',
+        significance: 'The archetypes map to real-world 2024â€“2025 corporate categories. The "Stranded Relic" evokes BP or Volkswagen post-dieselgate. The "Regenerative Titan" evokes Ã˜rsted (former oil company, now world\'s largest offshore wind developer). The archetypes make the abstract M_R number emotionally legible and create competitive debrief dynamics.',
       },
       {
         id: 'climate',
         name: 'Stochastic Physical Climate Event',
         abbr: 'R5 / Climate Risk',
         keywords: 'stochastic roll climate event cyclone dice damage resilience physical risk TCFD',
-        definition: 'Models a Category-4 cyclone whose occurrence is probabilistically determined by a random draw against a fixed threshold. The base damage is $12M, modulated by the team\'s prior investment in resilience infrastructure—a direct analogue to TCFD\'s scenario analysis requirements for physical risk.',
+        definition: 'Models a Category-4 cyclone whose occurrence is probabilistically determined by a random draw against a fixed threshold. The base damage is $12M, modulated by the team\'s prior investment in resilience infrastructureâ€”a direct analogue to TCFD\'s scenario analysis requirements for physical risk.',
         logic: 'Governed by round_logic.py ? _post_r5_climate(). A random roll ? ~ U[0,1] strikes if ? < 0.75. Resilience from previously completed pending CAPEX projects mitigates damage (Hard Engineering resilience is delayed 2 rounds and does NOT protect the current round). Choice of R5-C (Insurance Only) blocks the M_R +0.20 resilience bonus.',
         formula: `$$\\xi \\sim \\mathcal{U}[0,\\;1],\\quad \\text{Event strikes iff }\\xi < 0.75$$
 $$\\text{ActualDamage} = D_{\\text{base}} \\times \\left(1 - \\rho_{\\text{res}}\\right) \\times \\lambda_{\\text{ret}}$$
 $$\\rho_{\\text{res}} \\in \\{0.0,\\;0.60,\\;0.85\\},\\quad \\lambda_{\\text{ret}} \\in [1,\\;3]$$`,
-        significance: 'The EV of Option C (Insurance Only) is -$2M + 0.75×(-$12M) = -$11M vs. Option B (Nature-Based): -$5M + 0.75×(-0.40×$12M) = -$8.6M. The hidden cost of R5-C is the forfeited M_R +0.20, worth $28.8M in terminal value at median EBITDA. Expected value calculation with tail-risk accounting is the CFO skill being tested here.',
+        significance: 'The EV of Option C (Insurance Only) is -$2M + 0.75Ã—(-$12M) = -$11M vs. Option B (Nature-Based): -$5M + 0.75Ã—(-0.40Ã—$12M) = -$8.6M. The hidden cost of R5-C is the forfeited M_R +0.20, worth $28.8M in terminal value at median EBITDA. Expected value calculation with tail-risk accounting is the CFO skill being tested here.',
       },
       {
         id: 'just',
         name: 'Just Transition & Strike Mechanics',
         abbr: 'Just Transition',
         keywords: 'just transition workforce strike factory closure R9 social license community',
-        definition: 'Models the human cost of decarbonisation: the closure of three legacy factories requires redistribution of economic value to displaced workers and affected communities. Operationalises the ILO/UN definition of just transition—ensuring the shift to a sustainable economy does not leave workers and communities behind.',
+        definition: 'Models the human cost of decarbonisation: the closure of three legacy factories requires redistribution of economic value to displaced workers and affected communities. Operationalises the ILO/UN definition of just transitionâ€”ensuring the shift to a sustainable economy does not leave workers and communities behind.',
         logic: 'Strike probability evaluated in round_logic.py ? _post_r9_just_transition(). If average SLO < 50, a random roll is compared to a 75% strike probability. A successful strike converts all BU revenue for the round into a treasury deduction (AUDIT-003 fix). The Regulatory Friction variable models compliance overhead from SLO impairment.',
         formula: `$$\\text{RegulatoryFriction} = \\frac{1}{\\max(1,\\;\\overline{\\text{SLO}})}$$
 $$\\text{If }\\overline{\\text{SLO}} < 50:\\quad \\zeta \\sim \\mathcal{U}[0,1],\\quad \\text{Strike iff }\\zeta < 0.75$$
@@ -314,11 +326,11 @@ $$\\text{StrikeCost} = \\sum_{i=1}^{n} \\text{Revenue}_i \\text{ (deducted from 
         name: 'Green Transition Fund (GTF)',
         abbr: 'GTF',
         keywords: 'green transition fund ring-fenced capital sustainability budget green bond ICMA',
-        definition: 'A ring-fenced capital reserve established by specific early-round decisions, analogous to a corporate green bond issuance. It is drawn down first before the corporate treasury is tapped for sustainable transition costs in Rounds 7, 8, and 9—providing a capital allocation buffer that rewards early strategic commitment to sustainability.',
+        definition: 'A ring-fenced capital reserve established by specific early-round decisions, analogous to a corporate green bond issuance. It is drawn down first before the corporate treasury is tapped for sustainable transition costs in Rounds 7, 8, and 9â€”providing a capital allocation buffer that rewards early strategic commitment to sustainability.',
         logic: 'Managed in round_logic.py ? _post_r7_circularity() and _post_r8_blue_stress(). The fund acts as a priority spending pool: the engine first checks if green_transition_fund = cost, depletes it, and only draws from corporate treasury for any remainder. An exhausted fund leaves the full cost exposed on the treasury.',
         formula: `$$\\text{NetTreasuryCost} = \\max\\!\\left(0,\\; \\text{Cost} - \\text{GTF}_t\\right)$$
 $$\\text{GTF}_{t+1} = \\max\\!\\left(0,\\; \\text{GTF}_t - \\text{Cost}\\right)$$`,
-        significance: 'Green bonds now represent over $500B annual issuance globally. A CFO who establishes a GTF early gains a structural advantage—transition costs in later rounds draw from the dedicated pool rather than competing with operational investments for treasury. It also signals to lenders that sustainability costs are provisioned, aligning with ICMA Green Bond Principles.',
+        significance: 'Green bonds now represent over $500B annual issuance globally. A CFO who establishes a GTF early gains a structural advantageâ€”transition costs in later rounds draw from the dedicated pool rather than competing with operational investments for treasury. It also signals to lenders that sustainability costs are provisioned, aligning with ICMA Green Bond Principles.',
       },
       {
         id: 'capex',
@@ -329,7 +341,7 @@ $$\\text{GTF}_{t+1} = \\max\\!\\left(0,\\; \\text{GTF}_t - \\text{Cost}\\right)$
         logic: 'Stored as a list in global_round_states.pending_capex_projects. Each project has a rounds_remaining counter, decremented each tick. When it reaches 0, the project\'s effect (resilience_boost, ncd_drop, education multiplier) is applied to BU states. R5-A (Hard Engineering) purchases resilience protection in Round 7, not Round 5.',
         formula: `$$\\text{Project: }\\{t_{\\text{complete}} = t_{\\text{decision}} + \\tau,\\;\\text{effect}: \\Delta X_{\\text{target}}\\}$$
 $$\\text{Active iff }\\tau_{\\text{rem}} = 0:\\quad X_{\\text{BU}} \\mathrel{+}= \\Delta X,\\quad \\tau = 2\\text{ rounds (default)}$$`,
-        significance: 'Delayed returns expose a critical gap in executive thinking: the tendency to demand immediate returns conflicts with the reality that resilience, education, and infrastructure investments have J-curve payoff profiles. Teams that choose Hard Engineering in R5 believing it protects them immediately discover the 2-round lag the hard way—a lesson that maps directly to infrastructure project management and regulatory capital planning.',
+        significance: 'Delayed returns expose a critical gap in executive thinking: the tendency to demand immediate returns conflicts with the reality that resilience, education, and infrastructure investments have J-curve payoff profiles. Teams that choose Hard Engineering in R5 believing it protects them immediately discover the 2-round lag the hard wayâ€”a lesson that maps directly to infrastructure project management and regulatory capital planning.',
       },
       {
         id: 'circular',
@@ -347,12 +359,12 @@ $$\\text{M_R Component: }\\Delta M_R^{\\text{syn}} = +0.30 \\text{ iff synergy\\
         name: 'Just Transition & ILO Framework',
         abbr: 'Just Trans.',
         keywords: 'just transition ILO Paris Agreement workforce displacement community fund managed closure',
-        definition: 'Operationalises the ILO/UN definition of just transition—ensuring the shift to a sustainable economy does not leave workers and communities behind. R9 presents three pathways with fundamentally different financial and social outcomes, from immediate closure (strike risk) to community fund (M_R bonus).',
+        definition: 'Operationalises the ILO/UN definition of just transitionâ€”ensuring the shift to a sustainable economy does not leave workers and communities behind. R9 presents three pathways with fundamentally different financial and social outcomes, from immediate closure (strike risk) to community fund (M_R bonus).',
         logic: 'R9-A (Immediate Closure): SLO -20, strike probability engine activates. R9-B (Managed Transition, -$12M): SLO neutral, +0.12 M_R. R9-C (Community Fund, -$20M): SLO +0.18 M_R, strike prevented. Strike probability is evaluated via engine.py ? calc_strike_probability() using SLO and governance risk.',
         formula: `$$\\text{R9-A: }P_{\\text{strike}} = \\frac{\\text{GovRisk}}{100} + \\left(1 - \\frac{\\text{SLO}}{100}\\right) \\times 0.4$$
 $$\\text{R9-C: }\\Delta M_R^{\\text{community}} = +0.18 \\times \\text{JT\\_scaling}$$
 $$\\text{StrikeCost} = \\sum_{i=1}^{n} \\text{Revenue}_i \\quad (\\text{deducted from treasury})$$`,
-        significance: 'Ref: ILO (2015). "Guidelines for a Just Transition." Paris Agreement, Article 4(1). Rosemberg, A. (2010). "Building a Just Transition." ITUC. The R9 calculation reveals that the Community Fund (-$20M) has a positive expected value vs. Immediate Closure when strike probability exceeds 40%—making the ethical choice also the financially rational one.',
+        significance: 'Ref: ILO (2015). "Guidelines for a Just Transition." Paris Agreement, Article 4(1). Rosemberg, A. (2010). "Building a Just Transition." ITUC. The R9 calculation reveals that the Community Fund (-$20M) has a positive expected value vs. Immediate Closure when strike probability exceeds 40%â€”making the ethical choice also the financially rational one.',
       },
       {
         id: 'aiethics',
@@ -364,7 +376,7 @@ $$\\text{StrikeCost} = \\sum_{i=1}^{n} \\text{Revenue}_i \\quad (\\text{deducted
         formula: `$$\\text{R6-B: }\\Delta M_R^{\\text{truth}} = +0.15, \\quad \\text{TV Impact} \\approx +\\$54M$$
 $$\\text{R6-C: }\\text{EU AI Act Cost} = -\\$2M/\\text{round from R7} \\quad (\\text{3 rounds} = -\\$6M)$$
 $$\\text{Net R6-B vs R6-C: }\\$54M - \\$8M \\text{ vs } \\$3M - \\$6M = +\\$46M\\text{ vs }-\\$3M$$`,
-        significance: 'Ref: EU AI Act (Regulation 2024/1689). Jobin, A. et al. (2019). "The Global Landscape of AI Ethics Guidelines." Nature Machine Intelligence, 1, 389-399. The Truth Premium teaches that ethical AI governance is not a cost centre but a value-accretive investment. The $8M overhaul generates $54M in terminal value—a 6.75× return.',
+        significance: 'Ref: EU AI Act (Regulation 2024/1689). Jobin, A. et al. (2019). "The Global Landscape of AI Ethics Guidelines." Nature Machine Intelligence, 1, 389-399. The Truth Premium teaches that ethical AI governance is not a cost centre but a value-accretive investment. The $8M overhaul generates $54M in terminal valueâ€”a 6.75Ã— return.',
       },
 
     ],
@@ -429,7 +441,7 @@ function useMathJax() {
 
 function typesetEl(el) {
   if (!el) return;
-  // Explicit typeset for a specific element — with retry for CDN loading
+  // Explicit typeset for a specific element â€” with retry for CDN loading
   const attempt = (retries) => {
     if (window.MathJax?.typesetPromise) {
       if (window.MathJax.typesetClear) window.MathJax.typesetClear([el]);
@@ -548,7 +560,7 @@ function TermCard({ term, clusterAccent, searchQuery }) {
             <p style={{ fontSize: '0.85rem', lineHeight: 1.75, color: 'var(--text-primary)', margin: 0, fontWeight: 400 }}>{term.logic}</p>
           </div>
 
-          {/* Formula — full width */}
+          {/* Formula â€” full width */}
           <div style={{ gridColumn: '1 / -1' }}>
             <div style={sectionLabelStyle}>Mathematical Formula <span style={dividerStyle} /></div>
             <div style={formulaBoxStyle}>
@@ -556,7 +568,7 @@ function TermCard({ term, clusterAccent, searchQuery }) {
             </div>
           </div>
 
-          {/* Strategic Significance — full width */}
+          {/* Strategic Significance â€” full width */}
           <div style={{ gridColumn: '1 / -1' }}>
             <div style={sectionLabelStyle}>Strategic Significance <span style={dividerStyle} /></div>
             <div style={sigBoxStyle}>
@@ -613,7 +625,7 @@ export default function TechnicalGlossary() {
                 textTransform: 'uppercase', padding: '3px 8px', borderRadius: '4px',
                 background: 'linear-gradient(135deg, #c9a84c22, #c9a84c11)',
                 border: '1px solid #c9a84c44', color: '#c9a84c',
-              }}>30 Terms · 3 Clusters</span>
+              }}>30 Terms Â· 3 Clusters</span>
             </div>
             <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-muted)', maxWidth: '600px', lineHeight: 1.6 }}>
               Senior-level reference for every quantitative variable, formula, and strategic lever in the Muressons simulation engine.
@@ -626,7 +638,7 @@ export default function TechnicalGlossary() {
             <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontSize: '14px', color: 'var(--text-muted,#94a3b8)', pointerEvents: 'none' }}>??</span>
             <input
               type="search"
-              placeholder="Search terms, formulas, concepts…"
+              placeholder="Search terms, formulas, conceptsâ€¦"
               value={search}
               onChange={e => setSearch(e.target.value)}
               style={{
@@ -718,7 +730,7 @@ export default function TechnicalGlossary() {
         fontSize: '0.7rem', color: 'var(--text-muted)', fontFamily: 'var(--font-mono,monospace)',
         letterSpacing: '0.04em',
       }}>
-        ?? Verified against engine.py, round_logic.py, round2_csrd.py · Muressons Global Corporation — Build 2026-R10
+        ?? Verified against engine.py, round_logic.py, round2_csrd.py Â· Muressons Global Corporation â€” Build 2026-R10
       </div>
     </div>
   );

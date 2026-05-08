@@ -160,7 +160,7 @@ REPORTING_ROUND_CONFIGS: dict = {
                 "title": "Limited Assurance with Roadmap",
                 "description": (
                     "Obtain limited assurance on climate metrics, publish "
-                    "a roadmap to reasonable assurance by Year 3, and "
+                    "a roadmap to reasonable assurance by Year 5, and "
                     "implement basic data quality checks."
                 ),
                 "impacts": {"treasury": -2_500_000, "reputation": 5, "governance_risk_delta": -3},

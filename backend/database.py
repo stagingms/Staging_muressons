@@ -292,6 +292,15 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                 """,
                 grs["state_id"],
             )
+            decs = await conn.fetch(
+                """
+                SELECT bu_id, decision_node_id, choice_selected, capex_allocated,
+                       time_to_decision_seconds, team_consensus
+                FROM decision_audit_log
+                WHERE session_id = $1 AND round_number = $2
+                """,
+                uuid.UUID(session_id), grs["round_number"],
+            )
             history.append({
                 "round_number": grs["round_number"],
                 "global_state": {
@@ -315,6 +324,17 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                         "risk_factors": row["risk_factors"] or {},
                     }
                     for row in bus
+                ],
+                "decisions": [
+                    {
+                        "bu_id": row["bu_id"],
+                        "decision_node_id": row["decision_node_id"],
+                        "choice_selected": row["choice_selected"],
+                        "capex": float(row["capex_allocated"] or 0),
+                        "time_to_decision_seconds": row["time_to_decision_seconds"],
+                        "team_consensus": row["team_consensus"],
+                    }
+                    for row in decs
                 ],
             })
         return history

@@ -1,0 +1,449 @@
+"""
+Consequence DNA Visualizer — Backend Data Aggregation
+Builds the complete Sankey diagram data model by combining:
+  - FLAG_DEPENDENCY_GRAPH (terminal_valuation.py)
+  - Meadows leverage point analysis (meadows_leverage.py)
+  - Autonomous agent state (autonomous_agents.py)
+  - Shadow board audit state
+  - Live M_R projection
+"""
+from __future__ import annotations
+from typing import Any
+
+from terminal_valuation import (
+    FLAG_DEPENDENCY_GRAPH,
+    calculate_mr,
+    determine_archetype,
+    get_flag_dependency_graph,
+)
+
+
+# ── Decision labels per round (human-readable for Sankey Col 1) ──
+DECISION_LABELS = {
+    1: {"option_a": "R1: Comprehensive Audit", "option_b": "R1: Deep Supply Chain Audit", "option_c": "R1: Surface Scan (Phased)"},
+    2: {"option_a": "R2: Full Double Materiality", "option_b": "R2: Partial CSRD Compliance", "option_c": "R2: Minimal Compliance"},
+    3: {"option_a": "R3: Internal Decarbonisation", "option_b": "R3: Green Bond Financing", "option_c": "R3: Carbon Offsets Only"},
+    4: {"option_a": "R4: Industry Coalition", "option_b": "R4: Solo Recovery", "option_c": "R4: Aggressive Cost Cut"},
+    5: {"option_a": "R5: Hard Engineering", "option_b": "R5: Nature-Based Solutions", "option_c": "R5: Insurance Only"},
+    6: {"option_a": "R6: Monetise AI Data", "option_b": "R6: Ethical AI Overhaul", "option_c": "R6: Hybrid AI Approach"},
+    7: {"option_a": "R7: Full Circular Economy", "option_b": "R7: Industrial Symbiosis", "option_c": "R7: Waste-to-Energy"},
+    8: {"option_a": "R8: Community Water Priority", "option_b": "R8: Factory Water Priority", "option_c": "R8: Balanced Water Strategy"},
+    9: {"option_a": "R9: Immediate Closure", "option_b": "R9: Managed Transition", "option_c": "R9: Community Trust Fund"},
+    10: {"option_a": "R10: Universal Care Mandate", "option_b": "R10: Targeted Restructure", "option_c": "R10: Status Quo"},
+}
+
+# Leverage point levels per decision (from meadows_leverage.py round_lp_map)
+DECISION_LP_MAP = {
+    1: {"option_a": 5, "option_b": 5, "option_c": 12},
+    2: {"option_a": 3, "option_b": 5, "option_c": 12},
+    3: {"option_a": 8, "option_b": 5, "option_c": 12},
+    5: {"option_a": 10, "option_b": 4, "option_c": 11},
+    7: {"option_a": 7, "option_b": 10, "option_c": 7},
+    9: {"option_a": 12, "option_b": 2, "option_c": 2},
+}
+
+# ── Metric shift descriptors for Sankey Col 3 ──
+FLAG_METRIC_SHIFTS = {
+    "electronics_blindspot": [{"metric": "crisis_severity", "label": "Crisis Severity ×2", "delta": 40}],
+    "materiality_aligned": [{"metric": "governance", "label": "Governance Credibility ↑", "delta": 10}],
+    "greenwash_risk": [{"metric": "reputation", "label": "Greenwash Vulnerability", "delta": -8}],
+    "early_decarboniser": [{"metric": "carbon_intensity", "label": "Carbon Intensity < 35", "delta": -15}],
+    "insurance_only": [{"metric": "resilience", "label": "Resilience Locked Out", "delta": -20}],
+    "ethical_ai_overhaul": [{"metric": "governance", "label": "AI Governance ↑", "delta": 15}],
+    "ai_monetised": [{"metric": "compliance", "label": "EU AI Act Costs ↑", "delta": -10}],
+    "synergy_unlock": [{"metric": "synergy", "label": "Synergy Excellence", "delta": 30}],
+    "community_fund": [{"metric": "social_license", "label": "Community SLO ↑", "delta": 18}],
+    "managed_transition": [{"metric": "social_license", "label": "Just Transition SLO ↑", "delta": 12}],
+    "shareholder_alienated": [{"metric": "investor_confidence", "label": "Investor Confidence ↓", "delta": -15}],
+    "planet_expendable": [{"metric": "ecosystem", "label": "Ecosystem Resilience ↓", "delta": -12}],
+    "governance_fragility": [{"metric": "regulatory", "label": "Regulatory Scrutiny ↑", "delta": -10}],
+    "civil_water_priority": [{"metric": "social_license", "label": "Social License Protected", "delta": 10}],
+    "electronics_water_priority": [{"metric": "production", "label": "Production Continuity", "delta": 5}],
+    "blockchain_traceability": [{"metric": "supply_chain", "label": "Supply Chain Transparency", "delta": 10}],
+}
+
+# Agent → flow mapping for constriction nodes
+AGENT_FLOW_MAP = {
+    "the_regulator": {"flow_source": "governance", "flow_target": "treasury", "leak_label": "⚖️ Regulatory Fine: 4% Revenue"},
+    "the_journalist": {"flow_source": "strategy", "flow_target": "revenue", "leak_label": "📰 Viral Exposé: Reputation Drain"},
+    "the_institutional_investor": {"flow_source": "financial", "flow_target": "terminal_value", "leak_label": "📉 Divestment: CoC Increase"},
+    "the_community_activist": {"flow_source": "social_license", "flow_target": "operations", "leak_label": "🏘️ Court Injunction: $3M Treasury"},
+    "the_gen_z_employee": {"flow_source": "hr", "flow_target": "productivity", "leak_label": "✊ Talent Exodus: 15% OPEX Surge"},
+}
+
+
+def compute_per_decision_impact(decision_history: list[dict]) -> list[dict]:
+    """
+    For each decision, compute:
+      Impact = Base_Decision_Value × (13 - Leverage_Point_Level)
+
+    Shallow (LP 12–10): 'Tweaking Parameters'
+    Medium  (LP 9–4):   'Adjusting Feedback Loops'
+    Deep    (LP 3–1):   'Shifting Organizational Goals'
+    """
+    results = []
+    for decision in decision_history:
+        rnum = decision.get("round_number", 0)
+        choice = decision.get("primary_choice", "")
+        if not choice or rnum not in DECISION_LP_MAP:
+            lp_level = 12
+        else:
+            lp_level = DECISION_LP_MAP.get(rnum, {}).get(choice, 12)
+
+        base_value = decision.get("capex_total", 1_000_000) / 1_000_000
+        impact = round(base_value * (13 - lp_level), 2)
+
+        if lp_level <= 3:
+            category = "deep"
+            category_label = "Shifting Organizational Goals"
+        elif lp_level <= 9:
+            category = "medium"
+            category_label = "Adjusting Feedback Loops"
+        else:
+            category = "shallow"
+            category_label = "Tweaking Parameters"
+
+        label = DECISION_LABELS.get(rnum, {}).get(choice, f"R{rnum}: {choice}")
+
+        results.append({
+            "round": rnum,
+            "choice": choice,
+            "label": label,
+            "leverage_level": lp_level,
+            "impact_score": impact,
+            "category": category,
+            "category_label": category_label,
+        })
+    return results
+
+
+def _extract_decision_history(global_state: dict, history: list[dict]) -> list[dict]:
+    """Extract decision history from round snapshots."""
+    decisions = []
+    flags = global_state.get("active_event_flags", {})
+
+    for snap in history:
+        rnum = snap.get("round_number", 0)
+        snap_decs = snap.get("decisions", [])
+        choice = ""
+        capex = 1_000_000
+        
+        if snap_decs:
+            choice = snap_decs[0].get("choice_selected", "")
+            capex = sum(d.get("capex", 0) for d in snap_decs)
+
+        if not choice:
+            gs = snap.get("global_state", {})
+            snap_flags = gs.get("active_event_flags", {})
+            choice = snap_flags.get(f"r{rnum}_choice", "")
+            capex = snap_flags.get(f"r{rnum}_total_capex", 1_000_000)
+
+        decisions.append({
+            "round_number": rnum,
+            "primary_choice": choice,
+            "capex_total": capex,
+        })
+    return decisions
+
+
+def build_consequence_dna_data(
+    session_id: str,
+    global_state: dict,
+    bu_states: list[dict],
+    history: list[dict],
+) -> dict[str, Any]:
+    """
+    Build the complete Sankey diagram data model.
+    Returns JSON-serializable dict for the frontend.
+    """
+    flags = global_state.get("active_event_flags", {})
+    current_round = global_state.get("round_number", 1)
+
+    # ── 1. Ignition check (Shadow Board Audit) ──
+    shadow_board_completed = bool(flags.get("shadow_board_completed"))
+    ignited = shadow_board_completed and current_round >= 5
+
+    # ── 2. Decision history → leverage impact scores ──
+    decision_history = _extract_decision_history(global_state, history)
+    impact_data = compute_per_decision_impact(decision_history)
+
+    # ── 3. Build Sankey nodes ──
+    decision_nodes = []
+    for imp in impact_data:
+        decision_nodes.append({
+            "id": f"r{imp['round']}_decision",
+            "round": imp["round"],
+            "label": imp["label"],
+            "leverage_level": imp["leverage_level"],
+            "impact_score": imp["impact_score"],
+            "category": imp["category"],
+            "category_label": imp["category_label"],
+            "type": "decision",
+        })
+
+    # Flag nodes from FLAG_DEPENDENCY_GRAPH
+    dep_graph = get_flag_dependency_graph(flags)
+    flag_nodes = []
+    for dep in dep_graph["dependencies"]:
+        if dep["source_round"] <= current_round:
+            flag_nodes.append({
+                "id": dep["flag"],
+                "label": dep["flag"].replace("_", " ").title(),
+                "active": dep.get("status") == "active",
+                "category": dep.get("category", "other"),
+                "source_round": dep["source_round"],
+                "target_round": dep["target_round"],
+                "effect": dep["effect"],
+                "type": "flag",
+            })
+
+    # Metric shift nodes
+    metric_nodes = []
+    for flag_id, shifts in FLAG_METRIC_SHIFTS.items():
+        if any(f["id"] == flag_id for f in flag_nodes):
+            for shift in shifts:
+                metric_nodes.append({
+                    "id": f"{flag_id}_{shift['metric']}",
+                    "label": shift["label"],
+                    "metric": shift["metric"],
+                    "delta": shift["delta"],
+                    "source_flag": flag_id,
+                    "type": "metric",
+                })
+
+    # Projection nodes (M_R components)
+    avg_slo = sum(bu.get("social_license_score", 50) for bu in bu_states) / max(len(bu_states), 1)
+    avg_burnout = sum(bu.get("staff_burnout_index", 0) for bu in bu_states) / max(len(bu_states), 1)
+    workforce_readiness = global_state.get("workforce_readiness", 50)
+    synergy = global_state.get("synergy_multiplier", 1.0)
+    hr_rounds = global_state.get("hr_investment_rounds", 0)
+
+    mr_result = calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness, synergy, hr_rounds)
+    projection_nodes = []
+    for key, value in mr_result["breakdown"].items():
+        if key == "base":
+            continue
+        projection_nodes.append({
+            "id": f"proj_{key}",
+            "label": key.replace("_", " ").title(),
+            "mr_delta": value,
+            "active": True,
+            "type": "projection",
+        })
+
+    # ── 4. Conflict nodes (agent constriction/leak) ──
+    conflict_nodes = []
+    agent_summaries = []
+    cascade_events = []
+
+    aa_state = global_state.get("autonomous_agents", {})
+    if aa_state:
+        try:
+            from autonomous_agents import get_agent_summary, AGENT_PROFILES, INTERFERENCE_PAIRS
+            summary_raw = get_agent_summary(aa_state)
+            # get_agent_summary returns a list of agent dicts (or a dict with 'agents')
+            agents_list = summary_raw if isinstance(summary_raw, list) else summary_raw.get("agents", [])
+            for agent in agents_list:
+                aid = agent["agent_id"]
+                profile = AGENT_PROFILES.get(aid, {})
+                initial_tol = profile.get("initial_tolerance", 75)
+                current_tol = agent.get("tolerance", initial_tol)
+                constriction = round(1 - (current_tol / max(initial_tol, 1)), 4)
+                stage = agent.get("stage", "dormant")
+                flow_map = AGENT_FLOW_MAP.get(aid, {})
+
+                conflict_nodes.append({
+                    "agent_id": aid,
+                    "name": agent.get("name", aid),
+                    "icon": profile.get("icon", ""),
+                    "color": profile.get("color", "#666"),
+                    "stage": stage,
+                    "constriction_factor": max(0, constriction),
+                    "leak_active": stage == "triggered",
+                    "leak_label": flow_map.get("leak_label", ""),
+                    "flow_source": flow_map.get("flow_source", ""),
+                    "flow_target": flow_map.get("flow_target", ""),
+                })
+
+                agent_summaries.append({
+                    "agent_id": aid,
+                    "name": agent.get("name", aid),
+                    "icon": profile.get("icon", ""),
+                    "tolerance": current_tol,
+                    "max_tolerance": initial_tol,
+                    "stage": stage,
+                    "trend": agent.get("trend", "stable"),
+                    "triggered_round": agent.get("triggered_round"),
+                })
+
+            # Cascade events from interference pairs
+            cascade_log = aa_state.get("cascade_log", [])
+            for entry in cascade_log:
+                cascade_events.append({
+                    "source": entry.get("source_agent", ""),
+                    "target": entry.get("target_agent", ""),
+                    "round": entry.get("round", 0),
+                    "tolerance_hit": entry.get("tolerance_hit", 0),
+                })
+
+            # Interference pairs for visualization
+            interference_pairs = []
+            for pair in INTERFERENCE_PAIRS:
+                interference_pairs.append({
+                    "agent_a": pair.get("agent_a", ""),
+                    "agent_b": pair.get("agent_b", ""),
+                    "label": pair.get("label", ""),
+                    "threshold": pair.get("activation_threshold", "agitated"),
+                })
+        except Exception as exc:
+            print(f"[WARN] Consequence DNA agent data failed: {exc}")
+            interference_pairs = []
+    else:
+        interference_pairs = []
+
+    # ── 5. Build Sankey links ──
+    links = []
+    for dep in dep_graph["dependencies"]:
+        if dep["source_round"] > current_round:
+            continue
+        is_active = dep.get("status") == "active"
+        # Decision → Flag link
+        imp_match = next((i for i in impact_data if i["round"] == dep["source_round"]), None)
+        impact_val = imp_match["impact_score"] if imp_match else 1
+        lp_level = imp_match["leverage_level"] if imp_match else 12
+
+        links.append({
+            "source": f"r{dep['source_round']}_decision",
+            "target": dep["flag"],
+            "value": impact_val,
+            "leverage_level": lp_level,
+            "active": is_active,
+        })
+
+        # Flag → Metric link
+        if dep["flag"] in FLAG_METRIC_SHIFTS:
+            for shift in FLAG_METRIC_SHIFTS[dep["flag"]]:
+                links.append({
+                    "source": dep["flag"],
+                    "target": f"{dep['flag']}_{shift['metric']}",
+                    "value": impact_val * 0.8,
+                    "leverage_level": lp_level,
+                    "active": is_active,
+                })
+
+        # Flag → Projection link
+        flag_to_proj = _get_flag_projection_mapping(dep["flag"])
+        if flag_to_proj:
+            links.append({
+                "source": dep["flag"],
+                "target": flag_to_proj,
+                "value": impact_val * 0.6,
+                "leverage_level": lp_level,
+                "active": is_active,
+            })
+
+    # Agent Links
+    for agent_node in conflict_nodes:
+        source_flags = [f for f in flag_nodes if f["active"] and (f["category"] == agent_node["flow_source"] or f["effect"] == agent_node["flow_source"])]
+        if not source_flags:
+            source_flags = [f for f in flag_nodes if f["active"]]
+        if not source_flags:
+            source_flags = [f for f in flag_nodes if f["category"] == agent_node["flow_source"] or f["effect"] == agent_node["flow_source"]]
+        if not source_flags:
+            source_flags = flag_nodes
+            
+        is_agent_active = agent_node["stage"] != "dormant"
+        
+        for src in source_flags[:2]:
+            links.append({
+                "source": src["id"],
+                "target": agent_node["agent_id"],
+                "value": 0.8,
+                "leverage_level": 8,
+                "active": is_agent_active,
+                "is_leak": agent_node["leak_active"]
+            })
+            
+        target_proj = f"proj_{agent_node['flow_target']}"
+        if any(p["id"] == target_proj for p in projection_nodes):
+            links.append({
+                "source": agent_node["agent_id"],
+                "target": target_proj,
+                "value": 0.8,
+                "leverage_level": 8,
+                "active": is_agent_active,
+                "is_leak": agent_node["leak_active"]
+            })
+
+    # ── 6. Senge archetype badges ──
+    archetype_badges = []
+    try:
+        from meadows_leverage import detect_archetypes
+        archetypes = detect_archetypes(global_state, bu_states, flags)
+        for arch in (archetypes or []):
+            archetype_badges.append({
+                "id": arch.get("id", ""),
+                "name": arch.get("name", ""),
+                "description": arch.get("description", ""),
+                "related_flags": arch.get("related_flags", []),
+                "severity": arch.get("severity", "warning"),
+            })
+    except Exception:
+        pass
+
+    # ── 7. Leverage summary ──
+    deep_count = sum(1 for i in impact_data if i["category"] == "deep")
+    shallow_count = sum(1 for i in impact_data if i["category"] == "shallow")
+
+    try:
+        from meadows_leverage import analyse_session_leverage_points
+        lp_analysis = analyse_session_leverage_points(decision_history)
+    except Exception:
+        lp_analysis = {"effectiveness_score": 0, "dominant_leverage_point": 12}
+
+    archetype_result = determine_archetype(mr_result["mr"])
+
+    return {
+        "ignited": ignited,
+        "ignition_round": 5 if ignited else None,
+        "shadow_board_completed": shadow_board_completed,
+        "current_round": current_round,
+        "sankey_nodes": {
+            "decisions": decision_nodes,
+            "flags": flag_nodes,
+            "metrics": metric_nodes,
+            "projections": projection_nodes,
+            "conflict_nodes": conflict_nodes,
+        },
+        "sankey_links": links,
+        "cascade_events": cascade_events,
+        "interference_pairs": interference_pairs,
+        "agents": agent_summaries,
+        "mr_projection": {
+            "mr": mr_result["mr"],
+            "breakdown": mr_result["breakdown"],
+            "bonuses_earned": mr_result["bonuses_earned"],
+            "archetype": archetype_result,
+        },
+        "leverage_summary": {
+            "dominant_level": lp_analysis.get("dominant_leverage_point", 12),
+            "effectiveness_score": lp_analysis.get("effectiveness_score", 0),
+            "deep_intervention_count": deep_count,
+            "shallow_intervention_count": shallow_count,
+        },
+        "archetype_badges": archetype_badges,
+    }
+
+
+def _get_flag_projection_mapping(flag: str) -> str | None:
+    """Map a flag to its M_R projection node ID."""
+    mapping = {
+        "materiality_aligned": "proj_materiality_governance",
+        "synergy_unlock": "proj_synergy_bonus",
+        "ethical_ai_overhaul": "proj_truth_premium",
+        "community_fund": "proj_community_champion_bonus",
+        "managed_transition": "proj_just_transition_bonus",
+        "insurance_only": "proj_resilience_bonus",
+        "electronics_water_priority": "proj_resilience_bonus",
+    }
+    return mapping.get(flag)

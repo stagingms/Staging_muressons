@@ -418,18 +418,89 @@
   margin-left: auto;
 }
 
+/* ── Interference Section ──────────────────────────────────── */
+.interferenceSection {
+  margin-top: 2px;
+  padding: 6px 8px;
+  border-top: 1px solid rgba(139, 92, 246, 0.12);
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.04), rgba(168, 85, 247, 0.04));
+}
+
+.interferenceTitle {
+  font-size: 0.5rem;
+  font-weight: 800;
+  color: #a78bfa;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.interferenceCard {
+  padding: 5px 7px;
+  margin-bottom: 4px;
+  border-radius: 6px;
+  background: rgba(139, 92, 246, 0.06);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  animation: interferenceGlow 2.5s ease-in-out infinite alternate;
+}
+
+.interferenceAgents {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #c4b5fd;
+  margin-bottom: 3px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.interferenceLink {
+  color: #a78bfa;
+  font-size: 0.7rem;
+}
+
+.interferenceMultiplier {
+  margin-left: auto;
+  font-size: 0.52rem;
+  font-weight: 800;
+  color: #f472b6;
+  background: rgba(244, 114, 182, 0.10);
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid rgba(244, 114, 182, 0.2);
+}
+
+.interferenceNarrative {
+  font-size: 0.6rem;
+  color: #94a3b8;
+  line-height: 1.45;
+  font-style: italic;
+}
+
+.interferenceTheory {
+  font-size: 0.48rem;
+  color: #64748b;
+  margin-top: 3px;
+  padding-top: 3px;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+}
+
 /* ── Animations ─────────────────────────────────────────────── */
 @keyframes criticalPulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
+  50% { opacity: 0.75; }
 }
 
 @keyframes triggeredGlow {
   from {
-    box-shadow: 0 0 8px rgba(220, 38, 38, 0.1);
+    box-shadow: 0 0 4px rgba(220, 38, 38, 0.05);
   }
   to {
-    box-shadow: 0 0 20px rgba(220, 38, 38, 0.25);
+    box-shadow: 0 0 12px rgba(220, 38, 38, 0.15);
   }
 }
 
@@ -439,6 +510,17 @@
   }
   100% {
     background: transparent;
+  }
+}
+
+@keyframes interferenceGlow {
+  from {
+    box-shadow: 0 0 2px rgba(139, 92, 246, 0.02);
+    border-color: rgba(139, 92, 246, 0.08);
+  }
+  to {
+    box-shadow: 0 0 8px rgba(139, 92, 246, 0.1);
+    border-color: rgba(139, 92, 246, 0.15);
   }
 }
 

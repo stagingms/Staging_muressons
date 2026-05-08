@@ -43,10 +43,11 @@ export const GOD_MODE_SIDEBAR = [
         id: 'engine_core',
         items: [
             { id: 'macro_economics',     label: 'Macro Economics',      icon: '🔧', tooltip: 'Adjust global economic baselines, scenario presets, and override master variables' },
-            { id: 'systemic_risk_controls', label: 'Systemic Risk',      icon: '🌡️', tooltip: 'Configure difficulty tier, toggle Black Swan events, NPC cascades, tipping points, and foreshadowing signals' },
+            { id: 'systemic_risk_controls', label: 'Systemic Risk',      icon: '🌡️', tooltip: 'Toggle Black Swan events, NPC cascades, tipping points, and foreshadowing signals. Difficulty tier is set per-cohort via Experience Level.' },
             { id: 'materiality_config',  label: 'Materiality Matrix',   icon: '🦭', tooltip: 'Configure double materiality weightings — global defaults that facilitators inherit' },
-            { id: 'archetype_editor',    label: 'Profile Archetypes',   icon: '🏆', tooltip: 'Define Year 3 outcome profiles based on Regenerative Multiple (M_R) thresholds' },
+            { id: 'archetype_editor',    label: 'Profile Archetypes',   icon: '🏆', tooltip: 'Define Year 5 outcome profiles based on Regenerative Multiple (M_R) thresholds' },
             { id: 'scorecard_evaluator', label: 'Scorecard Evaluator',  icon: '📊', tooltip: 'Interactive whiteboard for demonstrating the Triple Bottom Line scorecard weighting formula' },
+            { id: 'regulatory_sandbox',  label: 'Regulatory Sandbox',   icon: '⚖️', tooltip: 'Inject Pigou taxes, Coase bargaining, and Ostrom governance instruments into live sessions to test systemic resilience' },
         ]
     },
     {
@@ -109,6 +110,7 @@ export const FACILITATOR_SIDEBAR = [
             { id: 'cohort_comparison',   label: 'Cohort Comparison',     icon: '📊', tooltip: 'Side-by-side KPI trajectory comparison across cohorts plotted on SVG line charts. Toggle between Treasury, Reputation, Synergy, and EBITDA metrics with colour-coded lines per cohort. Answers: "How do different cohorts perform against each other over time?"' },
             { id: 'complexity_feed',     label: 'Complexity Feed',        icon: '📡', tooltip: 'Real-time chronological feed of complexity events fired across all sessions: engine triggers (Contagion, Talent/Burnout, NCD), system-generated narrative injections, and math engine outputs. Answers: "What complexity events are unfolding in real-time?"' },
             { id: 'decision_replay',     label: 'Decision History',       icon: '🕰️', tooltip: 'Chronological audit trail of every player decision across all sessions: timestamps, round numbers, choices selected, CapEx allocations, and resulting KPI deltas. Filterable by cohort and player. Answers: "What decisions has each team made and when?"' },
+            { id: 'dna_comparison',       label: 'DNA Comparison',         icon: '🧬', tooltip: 'Consequence DNA Sankey diagram comparison across selected cohorts. Visualizes how different strategic paths led to divergent systemic outcomes, agent conflicts, and M_R trajectories. Answers: "How did different teams\' causal chains diverge?"' },
             { id: 'debrief',             label: 'Round Debrief',          icon: '📝', tooltip: 'Post-round debrief summary reports: key decisions made across cohorts, aggregate outcomes, notable outliers, and suggested discussion points for classroom review. Answers: "What should I highlight in the post-round discussion?"' },
             { id: 'scorecard_evaluator', label: 'Scorecard Sandbox',      icon: '🧲', tooltip: 'Interactive whiteboard for demonstrating the Triple Bottom Line scorecard weighting formula. Adjust sliders for Financial, Social, and Environmental weights to show students how terminal value is calculated. Teaching tool only — does not affect live session data. Answers: "How does the scoring formula work?"' },
             { id: 'bonuses',             label: 'Student Bonuses',        icon: '🎁', tooltip: 'Award manual bonuses or grade adjustments to individual players or teams: participation rewards, presentation bonuses, or custom facilitator-assigned points. Tracks all bonus history by category. Answers: "How do I reward exceptional student performance?"' },

@@ -92,20 +92,6 @@ export default function GodModeStatus({ facilitatorId }) {
                 </div>
             </div>
 
-            <div className={styles.gaugeRow}>
-                <div className={styles.gauge}>
-                    <span>💰 Avg Treasury</span>
-                    <strong>${status.avg_treasury}M</strong>
-                    <div className={styles.bar}><div className={styles.barFill} style={{ width: `${Math.min(status.avg_treasury, 100)}%`, background: '#10b981' }} /></div>
-                    {status.avg_treasury === 0 && <span style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic' }}>No rounds committed yet</span>}
-                </div>
-                <div className={styles.gauge}>
-                    <span>⭐ Avg Reputation</span>
-                    <strong>{status.avg_reputation}</strong>
-                    <div className={styles.bar}><div className={styles.barFill} style={{ width: `${Math.min(status.avg_reputation, 100)}%`, background: '#f59e0b' }} /></div>
-                    {status.avg_reputation === 0 && <span style={{ fontSize: '0.68rem', color: '#64748b', fontStyle: 'italic' }}>No rounds committed yet</span>}
-                </div>
-            </div>
 
             {/* ── Platform Controls (merged from GlobalSettings) ── */}
             {settings && (

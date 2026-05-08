@@ -334,5 +334,63 @@ class TestForecastCaching(unittest.TestCase):
         self.assertEqual(len(_forecast_cache), 0)
 
 
+class TestAgentTeleprompterAPI(unittest.TestCase):
+    """Verify that the agent teleprompter endpoint returns the correct structure."""
+
+    def setUp(self):
+        import database_memory as _db
+        _db._sessions.clear()
+        _db._global_states.clear()
+        _db._bu_states.clear()
+        _db._decision_log.clear()
+
+    def test_agent_teleprompter_endpoint_payload(self):
+        import os
+        os.environ["USE_MEMORY_DB"] = "true"
+        from fastapi.testclient import TestClient
+        from main import app
+        import time
+
+        client = TestClient(app)
+        
+        # 1. Create a session
+        resp = client.post("/api/simulations/start", json={
+            "cohort_name": f"TestAgentAPI_{int(time.time())}",
+            "decision_paradigm": "legacy_abc"
+        })
+        if resp.status_code != 201:
+            print("API Error:", resp.text)
+        self.assertEqual(resp.status_code, 201)
+        session_id = resp.json()["session_id"]
+
+        # 2. Inject autonomous agents directly to bypass rate limits and multi-round commits
+        import database_memory as _db
+        from autonomous_agents import create_initial_agent_state
+        
+        # Ensure session exists and has a round
+        self.assertIn(session_id, _db._global_states)
+        _db._global_states[session_id][-1]["autonomous_agents"] = create_initial_agent_state()
+
+        # 3. Query the agent teleprompter endpoint directly
+        resp2 = client.get(f"/api/admin/teleprompter/agents/{session_id}")
+        self.assertEqual(resp2.status_code, 200)
+        
+        data = resp2.json()
+        
+        # 4. Assert the critical schema fields exist
+        self.assertIn("worst_stage", data)
+        self.assertIn("total_triggers", data)
+        self.assertIn("agents", data)
+        self.assertIn("cascade_log", data)
+        
+        # 5. Assert agent structure
+        self.assertGreater(len(data["agents"]), 0, "Should return the initialized agents")
+        agent_0 = data["agents"][0]
+        self.assertIn("agent_id", agent_0)
+        self.assertIn("name", agent_0)
+        self.assertIn("tolerance_pct", agent_0)
+        self.assertIn("stage", agent_0)
+
+
 if __name__ == "__main__":
     unittest.main()

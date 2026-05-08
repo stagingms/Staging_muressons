@@ -1,4 +1,4 @@
-﻿"""Muressons Student Guide v2 — Part 1: Setup + Sections 1-6."""
+"""Muressons Student Guide v2 — Part 1: Setup + Sections 1-6."""
 from docx import Document
 from docx.shared import Pt, Inches, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -125,7 +125,7 @@ doc.add_paragraph(
     "business units spanning Pharmaceuticals, Electronics, Consumer Goods, and Software."
 )
 doc.add_paragraph(
-    "Over 10 strategic rounds — representing approximately 3 years of corporate stewardship — "
+    "Over 10 strategic rounds — representing approximately 5 years of corporate stewardship — "
     "you will face escalating ESG (Environmental, Social, and Governance) crises, make capital "
     "allocation decisions under uncertainty, and navigate the tension between short-term financial "
     "performance and long-term enterprise sustainability. Every decision you make creates ripple "

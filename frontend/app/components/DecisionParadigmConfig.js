@@ -913,7 +913,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
               label: '🏁 R10 — Grand Finale Terminal EBITDA',
               desc: 'Terminal valuation engine parameters',
               rows: [
-                { key: 'r10_carbon_tax_per_ton', label: 'Carbon Tax per Tonne (Year 3)', unit: '$/tonne', min: 50, max: 1000, step: 10, default: 250, hint: 'Terminal_EBITDA = Σ(Rev−OPEX) − (CarbonTonnage × this rate)' },
+                { key: 'r10_carbon_tax_per_ton', label: 'Carbon Tax per Tonne (Year 5)', unit: '$/tonne', min: 50, max: 1000, step: 10, default: 250, hint: 'Terminal_EBITDA = Σ(Rev−OPEX) − (CarbonTonnage × this rate)' },
                 { key: 'r10_exit_multiple', label: 'Exit Multiple', unit: '×', min: 5, max: 25, step: 0.5, default: 12.0, hint: 'Terminal Value = Terminal_EBITDA × Exit Multiple × M_R' },
               ],
             },
@@ -929,7 +929,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
             },
             {
               label: '📊 Profile Archetype Thresholds',
-              desc: 'M_R score boundaries for the four Year 3 outcome profiles',
+              desc: 'M_R score boundaries for the four Year 5 outcome profiles',
               rows: [
                 { key: 'profile_regenerative_titan', label: 'Regenerative Titan (M_R ≥)', unit: '', min: 1.0, max: 3.0, step: 0.05, default: 1.8, hint: 'Players at or above this M_R score earn "The Regenerative Titan"' },
                 { key: 'profile_derisked_safe_haven', label: 'De-risked Safe-Haven (M_R ≥)', unit: '', min: 0.5, max: 2.0, step: 0.05, default: 1.2, hint: 'Players between this and the Titan threshold' },

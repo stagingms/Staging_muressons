@@ -300,7 +300,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                         fontFamily: 'JetBrains Mono, monospace', fontSize: '0.85rem',
                                         fontWeight: 800, padding: '3px 10px', borderRadius: '6px',
                                         color: timeLeft < 60 ? '#ef4444' : timeLeft < 120 ? '#f59e0b' : '#10b981',
-                                        background: timeLeft < 60 ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.08)',
+                                        background: 'transparent',
                                         border: `1px solid ${timeLeft < 60 ? 'rgba(239,68,68,0.3)' : 'rgba(16,185,129,0.2)'}`,
                                     }}>
                                         ⏱ {timerMins}:{String(timerSecs).padStart(2, '0')}
@@ -335,7 +335,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             <div style={{
                                 display: 'flex', justifyContent: 'center', gap: '1rem',
                                 margin: '0.5rem 0', padding: '0.5rem',
-                                background: result.passed ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)',
+                                background: 'transparent',
                                 borderRadius: '10px',
                                 border: `1px solid ${result.passed ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
                             }}>
@@ -396,9 +396,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                 const s = getStakeholder(d.id);
                                                 return (
                                                     <tr key={d.id} style={{
-                                                        background: d.is_correct
-                                                            ? (idx % 2 === 0 ? 'rgba(16,185,129,0.06)' : 'rgba(16,185,129,0.03)')
-                                                            : (idx % 2 === 0 ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.03)'),
+                                                        background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
                                                         borderRadius: '6px',
                                                     }}>
                                                         <td style={{ padding: '5px 6px', fontSize: '0.9rem', textAlign: 'center' }}>
@@ -409,24 +407,16 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                         </td>
                                                         <td style={{ padding: '5px 6px', textAlign: 'center' }}>
                                                             <span style={{
-                                                                display: 'inline-block',
-                                                                padding: '2px 8px', borderRadius: '4px',
                                                                 fontWeight: 600, fontSize: '0.7rem',
-                                                                color: d.is_correct ? (playerQ?.color || '#10b981') : '#fff',
-                                                                background: d.is_correct
-                                                                    ? `${playerQ?.color || '#10b981'}18`
-                                                                    : '#ef4444',
+                                                                color: d.is_correct ? (playerQ?.color || '#10b981') : '#ef4444',
                                                             }}>
                                                                 {playerQ?.label || '—'}
                                                             </span>
                                                         </td>
                                                         <td style={{ padding: '5px 6px', textAlign: 'center' }}>
                                                             <span style={{
-                                                                display: 'inline-block',
-                                                                padding: '2px 8px', borderRadius: '4px',
                                                                 fontWeight: 600, fontSize: '0.7rem',
                                                                 color: correctQ?.color || '#6366f1',
-                                                                background: `${correctQ?.color || '#6366f1'}18`,
                                                             }}>
                                                                 {correctQ?.label || '—'}
                                                             </span>
@@ -443,7 +433,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {result.details?.filter(d => d.alternate_quadrant).map(d => (
                                 <div key={`amb-${d.id}`} style={{
                                     marginTop: '0.4rem', padding: '0.5rem 0.65rem',
-                                    background: 'rgba(245,158,11,0.06)', borderRadius: '8px',
+                                    background: 'transparent', borderRadius: '8px',
                                     border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b',
                                 }}>
                                     <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24', marginBottom: '0.25rem' }}>
@@ -459,7 +449,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {(result.scoring_tier || result.treasury_penalty || result.reputation_penalty) && (
                                 <div style={{
                                     marginTop: '0.4rem', padding: '0.5rem 0.65rem',
-                                    background: result.passed ? 'rgba(16,185,129,0.04)' : 'rgba(239,68,68,0.04)',
+                                    background: 'transparent',
                                     borderRadius: '8px', border: `1px solid ${result.passed ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`,
                                     display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center',
                                 }}>
@@ -485,7 +475,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {result.urgency_debrief?.length > 0 && (
                                 <div style={{
                                     marginTop: '0.5rem', padding: '0.5rem',
-                                    background: 'rgba(139,92,246,0.04)',
+                                    background: 'transparent',
                                     border: '1px solid rgba(139,92,246,0.12)',
                                     borderRadius: '8px',
                                 }}>
@@ -498,24 +488,20 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                                         {result.urgency_debrief.map(u => (
                                             <div key={u.id} style={{
-                                                padding: '4px 8px', borderRadius: '5px',
-                                                background: 'rgba(255,255,255,0.02)',
-                                                border: '1px solid rgba(255,255,255,0.04)',
+                                                padding: '4px 8px',
                                                 display: 'flex', alignItems: 'center', gap: '6px',
                                             }}>
                                                 <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
                                                     {u.name}
                                                 </span>
                                                 <span style={{
-                                                    fontSize: '0.68rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
-                                                    background: u.urgency === 'high' ? 'rgba(239,68,68,0.15)' : u.urgency === 'medium' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)',
+                                                    fontSize: '0.68rem', fontWeight: 700,
                                                     color: u.urgency === 'high' ? '#f87171' : u.urgency === 'medium' ? '#fbbf24' : '#94a3b8',
                                                 }}>
                                                     ⏱ {u.urgency}
                                                 </span>
                                                 <span style={{
-                                                    fontSize: '0.68rem', padding: '1px 5px', borderRadius: '3px', fontWeight: 700,
-                                                    background: u.legitimacy === 'high' ? 'rgba(16,185,129,0.15)' : u.legitimacy === 'medium' ? 'rgba(245,158,11,0.15)' : 'rgba(100,116,139,0.15)',
+                                                    fontSize: '0.68rem', fontWeight: 700,
                                                     color: u.legitimacy === 'high' ? '#4ade80' : u.legitimacy === 'medium' ? '#fbbf24' : '#94a3b8',
                                                 }}>
                                                     ⚖ {u.legitimacy}
@@ -530,7 +516,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {result.details && (
                                 <div style={{
                                     marginTop: '0.5rem', padding: '0.5rem',
-                                    background: 'rgba(99,102,241,0.04)',
+                                    background: 'transparent',
                                     border: '1px solid rgba(99,102,241,0.12)',
                                     borderRadius: '8px',
                                 }}>
@@ -587,7 +573,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {result.engagement_tactics?.length > 0 && (
                                 <div style={{
                                     marginTop: '0.5rem', padding: '0.5rem',
-                                    background: 'rgba(59,130,246,0.04)',
+                                    background: 'transparent',
                                     border: '1px solid rgba(59,130,246,0.12)',
                                     borderRadius: '8px',
                                 }}>
@@ -606,8 +592,8 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                 {et.tactics.map(t => (
                                                     <div key={t.id} style={{
                                                         padding: '5px 8px', borderRadius: '5px',
-                                                        background: t.correct ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.04)',
-                                                        border: `1px solid ${t.correct ? 'rgba(16,185,129,0.2)' : 'rgba(255,255,255,0.04)'}`,
+                                                        background: 'rgba(255,255,255,0.02)',
+                                                        border: '1px solid rgba(255,255,255,0.04)',
                                                     }}>
                                                         <div style={{ fontSize: '0.68rem', fontWeight: 600, color: t.correct ? '#10b981' : 'var(--text-secondary)' }}>
                                                             {t.correct ? '✅' : '❌'} {t.label}
@@ -626,7 +612,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {/* ── C19: Executive Rationale Prompt ── */}
                             <div style={{
                                 marginTop: '0.5rem', padding: '0.5rem',
-                                background: 'rgba(245,158,11,0.04)',
+                                background: 'transparent',
                                 border: '1px solid rgba(245,158,11,0.12)',
                                 borderRadius: '8px',
                             }}>

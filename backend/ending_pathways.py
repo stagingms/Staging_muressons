@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Ending Pathway Configurations
 Defines alternate R10 crisis scenarios, options, M_R modifiers,
 foreshadowing events, and archetype overrides per pathway.
@@ -568,6 +568,15 @@ def calc_climate_black_swan_mr(
         extra["mr_stranded_asset_penalty"] = True
         extra["mr_stranded_asset_avg_ci"] = round(avg_ci, 2)
 
+    # −0.20: Shadow Board — planet_expendable flag (R5 rejection)
+    if "planet_expendable" in all_flags:
+        mr_delta -= 0.20
+        extra["mr_shadow_board_planet_expendable"] = True
+        extra["mr_shadow_board_penalty_note"] = (
+            "Ecosystem resilience undermined: R5 Shadow Board rejection of "
+            "environmental logic increased climate vulnerability cascade."
+        )
+
     extra["pathway_mr_delta"] = round(mr_delta, 4)
     extra["pathway_avg_ci"] = round(avg_ci, 2)
     return round(mr_delta, 4)
@@ -656,6 +665,15 @@ def calc_hostile_takeover_mr(
         mr_delta -= 0.40
         extra["mr_vulnerable_target_penalty"] = True
 
+    # −0.20: Shadow Board — shareholder_alienated flag (R5 rejection)
+    if "shareholder_alienated" in all_flags:
+        mr_delta -= 0.20
+        extra["mr_shadow_board_shareholder_alienated"] = True
+        extra["mr_shadow_board_penalty_note"] = (
+            "Investor confidence eroded: R5 Shadow Board rejection of "
+            "shareholder logic accelerated hostile acquisition thesis."
+        )
+
     extra["pathway_mr_delta"] = round(mr_delta, 4)
     extra["pathway_synergy"] = round(synergy, 3)
     extra["pathway_ebitda_margin"] = round(ebitda_margin * 100, 1)
@@ -697,6 +715,15 @@ def calc_regulatory_shutdown_mr(
     if ethical_score < 4:
         mr_delta -= 0.45
         extra["mr_regulatory_failure_penalty"] = True
+
+    # −0.25: Shadow Board — governance_fragility flag (R5 rejection)
+    if "governance_fragility" in all_flags:
+        mr_delta -= 0.25
+        extra["mr_shadow_board_governance_fragility"] = True
+        extra["mr_shadow_board_penalty_note"] = (
+            "Governance risk amplified: R5 Shadow Board rejection of "
+            "governance logic increased regulatory scrutiny cascade."
+        )
 
     extra["pathway_mr_delta"] = round(mr_delta, 4)
     extra["pathway_avg_ci"] = round(avg_ci, 2)

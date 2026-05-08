@@ -475,3 +475,678 @@ def apply_sandbox_effects(
         )
 
     return diagnostics
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MIDDLEWARE INTERCEPT CONTROLLER
+#  Intercepts the state-transition loop BEFORE values are
+#  finalized in global_state.  Applies custom modifier functions
+#  representing sudden, exogenous policy shifts.
+#
+#  Called from round_logic.run_new_engines() BEFORE the sandbox
+#  effects are applied, so it can inject or modify regulations
+#  on-the-fly based on current state conditions.
+# ═══════════════════════════════════════════════════════════════
+
+# ── Exogenous Event Registry ─────────────────────────────────
+
+EXOGENOUS_EVENTS: dict[str, dict] = {
+    "carbon_minsky_moment": {
+        "name": "The Carbon Minsky Moment",
+        "description": (
+            "High Natural Capital Debt combined with sandbox carbon taxation "
+            "creates a compounding interest spiral that makes debt unmanageable, "
+            "forcing immediate divestment or turnaround mode."
+        ),
+        "trigger_rounds": [7, 8, 9],
+        "trigger_conditions": {
+            "min_ncd_threshold": 200,
+            "requires_sandbox_tax": True,
+        },
+        "effects": {
+            "ncd_interest_rate_bps_increase": 200,
+            "treasury_pct_hit": -0.05,
+            "reputation_delta": -8,
+            "forced_divestment_mode": True,
+        },
+        "theory": (
+            "Carney (2015): 'Tragedy of the Horizon' — financial assets become "
+            "stranded when climate externalities are suddenly priced in."
+        ),
+        "icon": "💥",
+        "severity": "critical",
+    },
+    "csddd_enforcement": {
+        "name": "CSDDD Enforcement Action",
+        "description": (
+            "Corporate Sustainability Due Diligence Directive enforcement. "
+            "A whistleblower triggers a €30M+ fine or operational suspension "
+            "for the worst-performing Business Unit."
+        ),
+        "trigger_rounds": [7, 8, 9],
+        "trigger_conditions": {
+            "max_reputation_threshold": 40,
+            "whistleblower_probability": 0.6,
+        },
+        "effects": {
+            "fine_amount": 30_000_000,
+            "worst_bu_suspension_rounds": 1,
+            "governance_risk_delta": 15,
+            "reputation_delta": -12,
+        },
+        "theory": (
+            "EU CS3D (2024): Mandatory human-rights and environmental due "
+            "diligence with civil liability for non-compliance."
+        ),
+        "icon": "⚖️",
+        "severity": "critical",
+    },
+    "polycentric_water_shock": {
+        "name": "Polycentric Water Shock",
+        "description": (
+            "Community activists (Megha Patrike) obtain a court injunction "
+            "blocking facility access due to critical water stress, "
+            "increasing OPEX by 15%."
+        ),
+        "trigger_rounds": [8],
+        "trigger_conditions": {
+            "min_water_stress": 0.6,
+            "requires_community_agent": True,
+        },
+        "effects": {
+            "opex_pct_increase": 0.15,
+            "social_license_delta": -15,
+            "reputation_delta": -10,
+            "facility_injunction": True,
+            "legal_costs": 5_000_000,
+        },
+        "theory": (
+            "Coase (1960): When property rights over common-pool resources "
+            "(water) are legally contested, operational friction increases. "
+            "Ostrom (2009): Polycentric governance allows local actors to "
+            "enforce resource boundaries."
+        ),
+        "icon": "🌊",
+        "severity": "critical",
+    },
+}
+
+
+def calc_pigouvian_penalty_per_bu(
+    bu: dict,
+    tax_rate_per_ton: float,
+) -> tuple[float, dict]:
+    """
+    Pigouvian Penalty (Expert Tier):
+      Penalty = BU_Carbon_Emissions × Custom_Tax_Rate_Per_Ton
+
+    Carbon emissions proxy = carbon_intensity × revenue_base / 1_000_000
+    (tonnes CO2e estimated from CI score and revenue scale).
+    """
+    ci = bu.get("carbon_intensity", 50)
+    revenue = bu.get("revenue_base", 0)
+    # Proxy: CI × revenue / 1M → estimated tonnes CO2e
+    estimated_tonnes = round(ci * revenue / 1_000_000, 2)
+    penalty = round(estimated_tonnes * tax_rate_per_ton, 2)
+
+    return penalty, {
+        "bu_id": bu.get("bu_id", "unknown"),
+        "carbon_intensity": ci,
+        "estimated_tonnes_co2e": estimated_tonnes,
+        "tax_rate_per_ton": tax_rate_per_ton,
+        "penalty": penalty,
+        "formula": "Penalty = BU_Carbon_Emissions × Tax_Rate_Per_Ton",
+        "theory": "Pigou (1920): Direct levy on 'bads' to internalise externalities.",
+    }
+
+
+def check_carbon_minsky_moment(
+    bu: dict,
+    ncd_threshold: float = 200,
+    bps_increase: int = 200,
+) -> tuple[bool, dict]:
+    """
+    Carbon Minsky Moment trigger:
+    If BU's Natural Capital Debt exceeds threshold, increase the
+    NCD interest rate by an additional `bps_increase` basis points.
+
+    Carney (2015): Once NCD spirals past a critical threshold,
+    compounding interest makes the debt unmanageable.
+    """
+    ncd = bu.get("natural_capital_debt", 0)
+    triggered = ncd > ncd_threshold
+    rate_increase = bps_increase / 10_000 if triggered else 0.0
+
+    return triggered, {
+        "bu_id": bu.get("bu_id", "unknown"),
+        "natural_capital_debt": ncd,
+        "threshold": ncd_threshold,
+        "triggered": triggered,
+        "interest_rate_increase": rate_increase,
+        "bps_increase": bps_increase if triggered else 0,
+        "theory": (
+            "Carbon Minsky Moment: NCD exceeds critical threshold → "
+            "compounding interest spiral. Carney (2015)."
+        ),
+    }
+
+
+def calc_coasian_friction(
+    bu: dict,
+    water_stress: float,
+    legal_dispute_active: bool = False,
+) -> tuple[float, dict]:
+    """
+    Coasian Property Rights friction:
+    When stakeholders claim property rights over common-pool resources
+    (e.g., water), legal costs and operational friction increase.
+
+    Friction = base_friction × (1 + water_dependency × water_stress)
+    If legal_dispute_active: friction doubles (court costs, delays).
+    """
+    water_dep = bu.get("water_dependency", 0.3)
+    base_friction = 0.02  # 2% baseline operational friction
+    friction = base_friction * (1 + water_dep * water_stress)
+    if legal_dispute_active:
+        friction *= 2.0
+    friction = round(min(friction, 0.20), 4)  # Cap at 20%
+
+    opex_increase = round(bu.get("opex_base", 0) * friction, 2)
+
+    return opex_increase, {
+        "bu_id": bu.get("bu_id", "unknown"),
+        "water_dependency": water_dep,
+        "water_stress": water_stress,
+        "legal_dispute_active": legal_dispute_active,
+        "friction_rate": friction,
+        "opex_increase": opex_increase,
+        "theory": "Coase (1960): Property rights disputes increase transaction costs.",
+    }
+
+
+def calc_polycentric_burden(
+    bu: dict,
+    event_config: dict,
+) -> tuple[float, dict]:
+    """
+    Polycentric Governance (Ostrom 2009):
+    Asymmetrical regulatory burden based on BU industrial footprint.
+    High-CI BUs face carbon-weighted burdens.
+    High water-dependency BUs face water-weighted burdens.
+    """
+    ci = bu.get("carbon_intensity", 50)
+    water_dep = bu.get("water_dependency", 0.3)
+    revenue = bu.get("revenue_base", 0)
+
+    # Carbon-weighted burden: 0-5% of revenue based on CI
+    carbon_weight = min(ci / 100, 1.0) * 0.05
+    # Water-weighted burden: 0-3% of revenue based on water dependency
+    water_weight = min(water_dep, 1.0) * 0.03
+
+    total_burden_rate = round(carbon_weight + water_weight, 4)
+    burden_cost = round(revenue * total_burden_rate, 2)
+
+    return burden_cost, {
+        "bu_id": bu.get("bu_id", "unknown"),
+        "carbon_weight": round(carbon_weight, 4),
+        "water_weight": round(water_weight, 4),
+        "total_burden_rate": total_burden_rate,
+        "burden_cost": burden_cost,
+        "theory": (
+            "Ostrom (2009): Polycentric governance allows asymmetric "
+            "regulation matched to local industrial/geographic footprint."
+        ),
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  MIDDLEWARE INTERCEPT — called before values finalize
+# ═══════════════════════════════════════════════════════════════
+
+def intercept_state_transition(
+    sandbox_state: dict,
+    gs: dict,
+    bus: list[dict],
+    events: dict,
+    round_number: int,
+) -> dict:
+    """
+    Regulatory Sandbox Middleware Intercept.
+
+    Called BEFORE sandbox effects are applied and BEFORE values
+    are finalized in global_state.  Evaluates exogenous event
+    trigger conditions and injects crisis modifiers.
+
+    Returns diagnostics dict with all intercepted actions.
+    """
+    if not sandbox_state.get("sandbox_mode"):
+        return {}
+
+    diag: dict[str, Any] = {
+        "intercept_round": round_number,
+        "pigouvian_penalties": [],
+        "minsky_triggers": [],
+        "coasian_frictions": [],
+        "polycentric_burdens": [],
+        "exogenous_events_fired": [],
+    }
+
+    # ── 1. Per-BU Pigouvian Penalty ──────────────────────────
+    active_carbon_tax = None
+    for reg in sandbox_state.get("active_regulations", []):
+        if reg["instrument_id"] == "carbon_tax":
+            active_carbon_tax = reg
+            break
+
+    if active_carbon_tax:
+        rate = active_carbon_tax["parameters"].get("rate_per_tonne", 50)
+        rounds_active = max(0, round_number - active_carbon_tax.get("activated_round", round_number))
+        escalation = active_carbon_tax["parameters"].get("annual_escalation_pct", 5) / 100
+        current_rate = rate * (1 + escalation) ** rounds_active
+
+        for bu in bus:
+            penalty, pen_diag = calc_pigouvian_penalty_per_bu(bu, current_rate)
+            diag["pigouvian_penalties"].append(pen_diag)
+
+            # Apply penalty to BU OPEX (not treasury — this is a direct cost)
+            bu["opex_base"] = round(bu["opex_base"] + penalty, 2)
+
+            # ── 2. Carbon Minsky Moment check ────────────────
+            triggered, minsky_diag = check_carbon_minsky_moment(
+                bu,
+                ncd_threshold=sandbox_state.get("minsky_ncd_threshold", 200),
+                bps_increase=sandbox_state.get("minsky_bps_increase", 200),
+            )
+            diag["minsky_triggers"].append(minsky_diag)
+
+            if triggered:
+                # Increase NCD interest accrual for this BU
+                ncd = bu.get("natural_capital_debt", 0)
+                rate_bump = minsky_diag["interest_rate_increase"]
+                extra_interest = round(ncd * rate_bump, 2)
+                bu["natural_capital_debt"] = round(ncd + extra_interest, 2)
+
+    # ── 3. Coasian Property Rights Friction ──────────────────
+    bio = gs.get("biodiversity_state", {})
+    water_stress = bio.get("water_stress_index", 0.4)
+    legal_dispute = sandbox_state.get("coasian_legal_dispute_active", False)
+
+    if water_stress > 0.4 or legal_dispute:
+        for bu in bus:
+            cost, coase_diag = calc_coasian_friction(bu, water_stress, legal_dispute)
+            diag["coasian_frictions"].append(coase_diag)
+            if cost > 0:
+                bu["opex_base"] = round(bu["opex_base"] + cost, 2)
+
+    # ── 4. Polycentric Asymmetric Burdens ────────────────────
+    if len(sandbox_state.get("active_regulations", [])) >= 2:
+        for bu in bus:
+            burden, poly_diag = calc_polycentric_burden(bu, {})
+            diag["polycentric_burdens"].append(poly_diag)
+            gs["corporate_treasury"] = round(
+                gs.get("corporate_treasury", 0) - burden, 2
+            )
+
+    # ── 5. Exogenous Event Evaluation (R7-R9) ────────────────
+    for event_id, event_cfg in EXOGENOUS_EVENTS.items():
+        if round_number not in event_cfg["trigger_rounds"]:
+            continue
+        # Skip if already fired this session
+        fired_key = f"exogenous_{event_id}_fired"
+        if sandbox_state.get(fired_key):
+            continue
+
+        fired = _evaluate_exogenous_trigger(
+            event_id, event_cfg, sandbox_state, gs, bus, events, round_number
+        )
+        if fired:
+            diag["exogenous_events_fired"].append(fired)
+            sandbox_state[fired_key] = round_number
+
+    # Persist diagnostics
+    sandbox_state.setdefault("intercept_log", []).append(diag)
+    return diag
+
+
+def _evaluate_exogenous_trigger(
+    event_id: str,
+    event_cfg: dict,
+    sandbox_state: dict,
+    gs: dict,
+    bus: list[dict],
+    events: dict,
+    round_number: int,
+) -> dict | None:
+    """Evaluate whether an exogenous event's trigger conditions are met."""
+    conds = event_cfg["trigger_conditions"]
+    effects = event_cfg["effects"]
+
+    if event_id == "carbon_minsky_moment":
+        # Requires sandbox carbon tax active + any BU NCD > threshold
+        has_tax = any(
+            r["instrument_id"] == "carbon_tax"
+            for r in sandbox_state.get("active_regulations", [])
+        )
+        if not has_tax and conds.get("requires_sandbox_tax"):
+            return None
+        threshold = conds.get("min_ncd_threshold", 200)
+        breaching_bus = [
+            bu for bu in bus
+            if bu.get("natural_capital_debt", 0) > threshold
+        ]
+        if not breaching_bus:
+            return None
+
+        # Fire: apply compounding interest spike + treasury hit
+        for bu in breaching_bus:
+            ncd = bu.get("natural_capital_debt", 0)
+            rate_bump = effects["ncd_interest_rate_bps_increase"] / 10_000
+            bu["natural_capital_debt"] = round(ncd * (1 + rate_bump), 2)
+
+        treasury_hit = round(
+            gs.get("corporate_treasury", 0) * abs(effects.get("treasury_pct_hit", 0)), 2
+        )
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - treasury_hit, 2)
+        gs["group_reputation"] = max(0, round(
+            gs.get("group_reputation", 50) + effects.get("reputation_delta", 0), 2
+        ))
+
+        # Surface as crisis event
+        events.setdefault("custom_black_swans", []).append({
+            "title": f"{event_cfg['icon']} {event_cfg['name']}",
+            "narrative": event_cfg["description"],
+            "icon": event_cfg["icon"],
+            "severity": event_cfg["severity"],
+        })
+        return {
+            "event_id": event_id,
+            "name": event_cfg["name"],
+            "round": round_number,
+            "treasury_hit": treasury_hit,
+            "breaching_bus": [bu["bu_id"] for bu in breaching_bus],
+            "theory": event_cfg["theory"],
+        }
+
+    elif event_id == "csddd_enforcement":
+        rep = gs.get("group_reputation", 50)
+        if rep > conds.get("max_reputation_threshold", 40):
+            return None
+        import random
+        if random.random() > conds.get("whistleblower_probability", 0.6):
+            return None
+
+        fine = effects.get("fine_amount", 30_000_000)
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - fine, 2)
+        gs["group_reputation"] = max(0, round(
+            gs.get("group_reputation", 50) + effects.get("reputation_delta", 0), 2
+        ))
+        # Worst BU gets governance risk spike
+        worst_bu = min(bus, key=lambda b: b.get("social_license_score", 50))
+        worst_bu["governance_risk_score"] = min(100, round(
+            worst_bu.get("governance_risk_score", 20) + effects.get("governance_risk_delta", 0), 2
+        ))
+
+        events.setdefault("custom_black_swans", []).append({
+            "title": f"{event_cfg['icon']} {event_cfg['name']}",
+            "narrative": event_cfg["description"],
+            "icon": event_cfg["icon"],
+            "severity": event_cfg["severity"],
+        })
+        return {
+            "event_id": event_id,
+            "name": event_cfg["name"],
+            "round": round_number,
+            "fine": fine,
+            "worst_bu": worst_bu.get("bu_id", "unknown"),
+            "theory": event_cfg["theory"],
+        }
+
+    elif event_id == "polycentric_water_shock":
+        bio = gs.get("biodiversity_state", {})
+        water_stress = bio.get("water_stress_index", 0.4)
+        if water_stress < conds.get("min_water_stress", 0.6):
+            return None
+
+        # Apply: +15% OPEX across all BUs
+        for bu in bus:
+            bu["opex_base"] = round(
+                bu["opex_base"] * (1 + effects.get("opex_pct_increase", 0.15)), 2
+            )
+            bu["social_license_score"] = max(0, round(
+                bu.get("social_license_score", 50) + effects.get("social_license_delta", 0), 2
+            ))
+        gs["group_reputation"] = max(0, round(
+            gs.get("group_reputation", 50) + effects.get("reputation_delta", 0), 2
+        ))
+        legal = effects.get("legal_costs", 5_000_000)
+        gs["corporate_treasury"] = round(gs["corporate_treasury"] - legal, 2)
+
+        # Activate Coasian legal dispute flag for subsequent rounds
+        sandbox_state["coasian_legal_dispute_active"] = True
+
+        events.setdefault("custom_black_swans", []).append({
+            "title": f"{event_cfg['icon']} {event_cfg['name']}",
+            "narrative": event_cfg["description"],
+            "icon": event_cfg["icon"],
+            "severity": event_cfg["severity"],
+        })
+        return {
+            "event_id": event_id,
+            "name": event_cfg["name"],
+            "round": round_number,
+            "water_stress": water_stress,
+            "legal_costs": legal,
+            "theory": event_cfg["theory"],
+        }
+
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════
+#  AGENT CROSS-WIRING
+#  When sandbox shocks push autonomous agent tolerance below
+#  their 'triggered' threshold, execute cascade chain immediately.
+# ═══════════════════════════════════════════════════════════════
+
+def crosswire_sandbox_to_agents(
+    sandbox_state: dict,
+    gs: dict,
+    bus: list[dict],
+    events: dict,
+    round_number: int,
+) -> dict:
+    """
+    Cross-wire sandbox injections to autonomous stakeholder agents.
+    Checks if sandbox-induced state changes push any agent below
+    their trigger thresholds.
+
+    Agent mapping:
+      - Eleanor Carson (the_regulator): governance_risk > 55 → 4% revenue fine
+      - Marcus Chen-Hoffmann (the_institutional_investor): EBITDA < 0 → 8% treasury hit
+      - Megha Patrike (the_community_activist): water stress → cascade
+
+    Returns diagnostics of any agent triggers fired.
+    """
+    if not sandbox_state.get("sandbox_mode"):
+        return {}
+
+    diag: dict[str, Any] = {"agent_crosswire_triggers": []}
+
+    # Read autonomous agent state
+    aa = gs.get("autonomous_agents", {})
+    if not aa.get("agents"):
+        return diag
+
+    # ── Eleanor Carson: Governance Risk breach ───────────────
+    avg_gov = sum(bu.get("governance_risk_score", 20) for bu in bus) / max(len(bus), 1)
+    regulator = aa["agents"].get("the_regulator", {})
+    if (
+        avg_gov > 55
+        and regulator.get("triggered_round") is None
+        and regulator.get("tolerance", 75) > 0
+    ):
+        # Push tolerance below triggered threshold
+        regulator["tolerance"] = max(0, regulator["tolerance"] - 20)
+        total_revenue = sum(bu.get("revenue_base", 0) for bu in bus)
+        fine = round(total_revenue * 0.04, 2)
+        gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) - fine, 2)
+        diag["agent_crosswire_triggers"].append({
+            "agent": "the_regulator",
+            "name": "Commissioner Eleanor Carson",
+            "trigger": f"Governance Risk ({avg_gov:.1f}) > 55",
+            "action": "4% revenue fine",
+            "fine": fine,
+            "new_tolerance": regulator["tolerance"],
+        })
+        events.setdefault("custom_black_swans", []).append({
+            "title": "🏛️ REGULATORY FINE — Eleanor Carson",
+            "narrative": (
+                f"Commissioner Carson imposes emergency 4% revenue fine "
+                f"(${fine:,.0f}) due to governance risk breach ({avg_gov:.1f}/100). "
+                f"'Persistent governance failures will not be tolerated.'"
+            ),
+            "icon": "🏛️",
+            "severity": "critical",
+        })
+
+        # ── CASCADE MULTIPLIER: Regulator → Journalist ──────────
+        # When a regulatory probe fires, leaked subpoena documents
+        # reduce the Journalist's tolerance — simulating a real-world
+        # regulatory probe leaking to the press (domino effect).
+        journalist = aa["agents"].get("the_journalist", {})
+        if (
+            journalist.get("triggered_round") is None
+            and journalist.get("tolerance", 72) > 0
+        ):
+            old_tol = journalist.get("tolerance", 72)
+            journalist["tolerance"] = max(0, old_tol - 10)
+            diag["agent_crosswire_triggers"].append({
+                "agent": "the_journalist",
+                "name": "Jay Buffet (Cascade Multiplier)",
+                "trigger": "Carson regulatory probe leaked to press",
+                "action": "Tolerance −10 (Regulatory Leak → Media Amplification)",
+                "old_tolerance": old_tol,
+                "new_tolerance": journalist["tolerance"],
+                "cascade_source": "the_regulator",
+                "theory": (
+                    "Cascade Multiplier — Herman & Chomsky (1988): "
+                    "regulatory probes generate headline material, "
+                    "creating a reinforcing feedback loop."
+                ),
+            })
+            events.setdefault("custom_black_swans", []).append({
+                "title": "📰 REGULATORY LEAK — Press Cascade",
+                "narrative": (
+                    f"Leaked subpoena documents from Commissioner Carson's investigation "
+                    f"reach Jay Buffet's desk. Buffet begins drafting a 3-part exposé. "
+                    f"Journalist tolerance drops from {old_tol} → {journalist['tolerance']}. "
+                    f"'When the regulator knocks, the press follows.'"
+                ),
+                "icon": "📰",
+                "severity": "warning",
+            })
+
+    # ── Marcus Chen-Hoffmann: Negative EBITDA ────────────────
+    ebitda = sum(bu.get("revenue_base", 0) - bu.get("opex_base", 0) for bu in bus)
+    investor = aa["agents"].get("the_institutional_investor", {})
+    if (
+        ebitda < 0
+        and investor.get("triggered_round") is None
+        and investor.get("tolerance", 80) > 0
+    ):
+        investor["tolerance"] = max(0, investor["tolerance"] - 25)
+        treasury_hit = round(gs.get("corporate_treasury", 0) * 0.08, 2)
+        gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) - treasury_hit, 2)
+        diag["agent_crosswire_triggers"].append({
+            "agent": "the_institutional_investor",
+            "name": "Marcus Chen-Hoffmann",
+            "trigger": f"EBITDA negative (${ebitda:,.0f})",
+            "action": "Divestment fire sale — 8% treasury hit",
+            "treasury_hit": treasury_hit,
+            "new_tolerance": investor["tolerance"],
+        })
+        events.setdefault("custom_black_swans", []).append({
+            "title": "📉 DIVESTMENT FIRE SALE — Marcus Chen-Hoffmann",
+            "narrative": (
+                f"Nordic Pension Alliance triggers full divestment. "
+                f"'EBITDA is negative (${ebitda:,.0f}). We can no longer "
+                f"justify this allocation.' Treasury hit: ${treasury_hit:,.0f}."
+            ),
+            "icon": "📉",
+            "severity": "critical",
+        })
+
+    # Persist updated agent state
+    gs["autonomous_agents"] = aa
+    return diag
+
+
+# ═══════════════════════════════════════════════════════════════
+#  GOD MODE: TRIGGER EXOGENOUS EVENT MANUALLY
+# ═══════════════════════════════════════════════════════════════
+
+def trigger_exogenous_event(
+    event_id: str,
+    sandbox_state: dict,
+    gs: dict,
+    bus: list[dict],
+    events: dict,
+    round_number: int,
+) -> dict:
+    """
+    Facilitator 'God Mode' — manually trigger an exogenous event
+    regardless of whether conditions are met.
+    """
+    event_cfg = EXOGENOUS_EVENTS.get(event_id)
+    if not event_cfg:
+        return {"error": f"Unknown exogenous event: {event_id}"}
+
+    # Force-fire the event (bypass condition checks)
+    sandbox_state["sandbox_mode"] = True
+    fired_key = f"exogenous_{event_id}_fired"
+
+    if sandbox_state.get(fired_key):
+        return {
+            "error": f"Event '{event_id}' already fired in R{sandbox_state[fired_key]}",
+            "already_fired_round": sandbox_state[fired_key],
+        }
+
+    result = _evaluate_exogenous_trigger(
+        event_id, event_cfg, sandbox_state, gs, bus, events, round_number
+    )
+
+    if not result:
+        # Force-apply effects directly since conditions weren't met
+        efx = event_cfg["effects"]
+        if efx.get("fine_amount"):
+            gs["corporate_treasury"] = round(
+                gs["corporate_treasury"] - efx["fine_amount"], 2
+            )
+        if efx.get("treasury_pct_hit"):
+            hit = round(gs["corporate_treasury"] * abs(efx["treasury_pct_hit"]), 2)
+            gs["corporate_treasury"] = round(gs["corporate_treasury"] - hit, 2)
+        if efx.get("reputation_delta"):
+            gs["group_reputation"] = max(0, round(
+                gs.get("group_reputation", 50) + efx["reputation_delta"], 2
+            ))
+        if efx.get("opex_pct_increase"):
+            for bu in bus:
+                bu["opex_base"] = round(
+                    bu["opex_base"] * (1 + efx["opex_pct_increase"]), 2
+                )
+        events.setdefault("custom_black_swans", []).append({
+            "title": f"{event_cfg['icon']} {event_cfg['name']} (FORCED)",
+            "narrative": event_cfg["description"],
+            "icon": event_cfg["icon"],
+            "severity": event_cfg["severity"],
+        })
+        result = {
+            "event_id": event_id,
+            "name": event_cfg["name"],
+            "round": round_number,
+            "forced": True,
+            "theory": event_cfg["theory"],
+        }
+
+    sandbox_state[fired_key] = round_number
+    return result

@@ -33,6 +33,7 @@ import ComplexityEventFeed from '../../components/ComplexityEventFeed';
 import CohortComparison from '../../components/CohortComparison';
 import AutoPauseConfig from '../../components/AutoPauseConfig';
 import DecisionTimeline from '../../components/DecisionTimeline';
+import DNAComparison from '../../components/DNAComparison';
 import FacilitatorTeleprompter from '../../components/FacilitatorTeleprompter';
 import FacilitatorAnnotations from '../../components/FacilitatorAnnotations';
 import TechnicalGlossary from '../../components/TechnicalGlossary';
@@ -554,7 +555,17 @@ function FacilitatorDashboard({ authData, onLogout }) {
 
 
     // Apply role-based tab filtering using shared config
-    const FILTERED_SIDEBAR = filterSidebarForRole(FACILITATOR_SIDEBAR, authData.role || 'facilitator', authData.allowed_tabs || ['*']);
+    // Also gate the Regulatory Sandbox behind God Mode's regulatory_sandbox_enabled toggle
+    const sandboxEnabledByGodMode = scaffoldingStatus?.features?.find(f => f.key === 'regulatory_sandbox_enabled')?.enabled ?? false;
+    const FILTERED_SIDEBAR = filterSidebarForRole(FACILITATOR_SIDEBAR, authData.role || 'facilitator', authData.allowed_tabs || ['*'])
+        .map(group => ({
+            ...group,
+            items: group.items.filter(item => {
+                if (item.id === 'regulatory_sandbox' && !sandboxEnabledByGodMode) return false;
+                return true;
+            }),
+        }))
+        .filter(group => group.items.length > 0);
 
     const getTabMeta = (tabId) => _getTabMeta(FILTERED_SIDEBAR, tabId);
 
@@ -723,6 +734,8 @@ function FacilitatorDashboard({ authData, onLogout }) {
                 return <ComplexityEventFeed sessionId={selectedSession} />;
             case 'decision_replay':
                 return <DecisionTimeline sessionId={selectedSession} leaderboard={leaderboard} />;
+            case 'dna_comparison':
+                return <DNAComparison sessionId={selectedSession} leaderboard={leaderboard} />;
             case 'annotations':
                 return <FacilitatorAnnotations sessionId={selectedSession} leaderboard={leaderboard} />;
 
@@ -741,8 +754,25 @@ function FacilitatorDashboard({ authData, onLogout }) {
                 );
 
             // ── Config & System tabs ──
-            case 'regulatory_sandbox':
+            case 'regulatory_sandbox': {
+                if (!sandboxEnabledByGodMode) {
+                    return (
+                        <div style={{
+                            padding: '3rem 2rem', textAlign: 'center',
+                            background: 'var(--bg-card)', borderRadius: '12px',
+                            border: '1px solid var(--border-subtle)',
+                        }}>
+                            <div style={{ fontSize: '3rem', marginBottom: '1rem', opacity: 0.4 }}>🔒</div>
+                            <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Regulatory Sandbox Locked</h3>
+                            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '500px', margin: '0 auto' }}>
+                                This feature must be enabled by the Super Administrator in God Mode before it becomes available.
+                                Contact your system administrator to enable the Regulatory Sandbox engine.
+                            </p>
+                        </div>
+                    );
+                }
                 return <RegulatorySandboxControl sessionId={selectedSession} />;
+            }
             case 'materiality':
                 return <MaterialityConfig sessionId={selectedSession} isFacilitator={true} readOnly={authData?.role === 'facilitator'} />;
             case 'technical_glossary':

@@ -81,7 +81,7 @@ export default function SessionHealthDashboard() {
                                 </div>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.5rem' }}>
                                 {[
                                     { label: 'Round', value: `${s.round}/10`, color: '#3b82f6' },
                                     { label: 'Treasury', value: `$${s.treasury_m}M`, color: s.treasury_m < 0 ? '#ef4444' : '#22c55e' },
@@ -89,6 +89,8 @@ export default function SessionHealthDashboard() {
                                     { label: 'EBITDA', value: `$${s.ebitda_m}M`, color: '#8b5cf6' },
                                     { label: 'Synergy', value: `${s.synergy}x`, color: '#06b6d4' },
                                     { label: 'Crises', value: s.active_crises, color: s.active_crises > 2 ? '#ef4444' : '#64748b' },
+                                    { label: 'CAROIC', value: s.caroic?.caroic_pct != null ? `${s.caroic.caroic_pct}%` : '—', color: (s.caroic?.grade === 'A+' || s.caroic?.grade === 'A') ? '#22c55e' : (s.caroic?.grade === 'B' || s.caroic?.grade === 'C') ? '#f59e0b' : '#ef4444' },
+                                    { label: 'Grade', value: s.caroic?.grade || '—', color: (s.caroic?.grade === 'A+' || s.caroic?.grade === 'A') ? '#22c55e' : (s.caroic?.grade === 'B' || s.caroic?.grade === 'C') ? '#f59e0b' : '#ef4444' },
                                 ].map((m, i) => (
                                     <div key={i} style={{ padding: '0.4rem', borderRadius: '6px', background: 'var(--bg-body)', textAlign: 'center' }}>
                                         <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{m.label}</div>

@@ -1,4 +1,4 @@
-﻿"""Muressons Global Corporation — Strategic Pillars Configuration
+"""Muressons Global Corporation — Strategic Pillars Configuration
 Defines the 5-area decision options per round for the "multi_toggles" paradigm.
 Each round has options for: Energy, Operations, Supply Chain, Offsetting,
 and Human Resources.
@@ -1309,7 +1309,7 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
     },
 
     10: {
-        "title": "Year 3 Corporate Destiny",
+        "title": "Year 5 Corporate Destiny",
         "description": "Activist investors demand restructuring. Choose your final trajectory.",
         "areas": {
             "energy": {
@@ -1325,7 +1325,7 @@ PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
                     },
                     "low_carbon": {
                         "title": "Low-Carbon Pathway",
-                        "description": "Commit to 80% carbon reduction by Year 3.",
+                        "description": "Commit to 80% carbon reduction by Year 5.",
                         "cost": -3_000_000,
                         "impacts": {"carbon_intensity_delta": -10, "reputation": +3},
                         "flags_set": ["low_carbon_path"],

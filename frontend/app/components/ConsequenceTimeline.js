@@ -122,33 +122,35 @@ export default function ConsequenceTimeline({ currentRound = 1, activeFlags = {}
             const tx = roundX(dep.target_round);
             const isActive = dep.status === 'active';
             const colors = CATEGORY_COLORS[dep.category] || CATEGORY_COLORS.governance;
-            const arcHeight = 30 + (i % 3) * 15;
+            const arcHeight = 30 + (i % 4) * 18;
             const isAbove = i % 2 === 0;
             const cy = isAbove ? TIMELINE_Y - arcHeight : TIMELINE_Y + arcHeight + 20;
             const my = isAbove ? TIMELINE_Y - arcHeight - 10 : TIMELINE_Y + arcHeight + 30;
 
             return (
-              <g key={`${dep.flag}-${i}`} opacity={isActive ? 1 : 0.25}>
+              <g key={`${dep.flag}-${i}`} opacity={1}>
                 {/* Arc path */}
                 <path
                   d={`M ${sx} ${TIMELINE_Y} Q ${(sx + tx) / 2} ${my} ${tx} ${TIMELINE_Y}`}
                   fill="none"
-                  stroke={isActive ? colors.stroke : 'rgba(148,163,184,0.3)'}
-                  strokeWidth={isActive ? 2 : 1}
-                  strokeDasharray={isActive ? 'none' : '4 3'}
+                  stroke={colors.stroke}
+                  strokeWidth={isActive ? 2 : 1.5}
+                  strokeDasharray={isActive ? 'none' : '4 4'}
                   className={isActive ? styles.activeArc : ''}
+                  opacity={isActive ? 1 : 0.35}
                 />
                 {/* Source dot */}
                 <circle cx={sx} cy={TIMELINE_Y} r={4}
-                  fill={isActive ? colors.dot : 'rgba(148,163,184,0.3)'} />
+                  fill={colors.dot} opacity={isActive ? 1 : 0.35} />
                 {/* Target dot */}
                 <circle cx={tx} cy={TIMELINE_Y} r={4}
-                  fill={isActive ? colors.dot : 'rgba(148,163,184,0.3)'} />
+                  fill={colors.dot} opacity={isActive ? 1 : 0.35} />
                 {/* Label */}
                 <text x={(sx + tx) / 2} y={my + (isAbove ? -4 : 12)}
-                  textAnchor="middle" fontSize="9"
-                  fill={isActive ? colors.stroke : 'rgba(148,163,184,0.4)'}
-                  fontFamily="Inter, sans-serif" fontWeight={isActive ? '600' : '400'}>
+                  textAnchor="middle" fontSize="10"
+                  fill={colors.stroke}
+                  fontFamily="Inter, sans-serif" fontWeight={isActive ? '800' : '500'}
+                  opacity={isActive ? 1 : 0.85}>
                   {dep.label}
                 </text>
               </g>

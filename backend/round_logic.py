@@ -648,16 +648,46 @@ def run_new_engines(
             print(f"[WARN] System archetypes detection failed: {exc}")
 
     # ── SE-7: Regulatory Sandbox Effects ──────────────────────
+    # ARCHITECTURE: Middleware intercept runs FIRST (before values
+    # finalize), then standard instrument effects, then agent cross-wiring.
     if _toggles.get("regulatory_sandbox_enabled", False):
         try:
-            from regulatory_sandbox import apply_sandbox_effects
-            sandbox = global_state.get("regulatory_sandbox", {})
+            from regulatory_sandbox import (
+                apply_sandbox_effects,
+                intercept_state_transition,
+                crosswire_sandbox_to_agents,
+                create_sandbox_state,
+            )
+            if "regulatory_sandbox" not in global_state:
+                global_state["regulatory_sandbox"] = create_sandbox_state()
+            sandbox = global_state["regulatory_sandbox"]
+
+            # Phase 1: Middleware intercept (Pigouvian per-BU penalties,
+            # Carbon Minsky Moment, Coasian friction, polycentric burdens,
+            # exogenous event evaluation for R7-R9)
+            if sandbox.get("sandbox_mode"):
+                intercept_diag = intercept_state_transition(
+                    sandbox, global_state, bu_states, events, round_number
+                )
+                if intercept_diag:
+                    extra["regulatory_sandbox_intercept"] = intercept_diag
+
+            # Phase 2: Standard instrument effects (carbon tax, ETS, etc.)
             if sandbox.get("sandbox_mode") and sandbox.get("active_regulations"):
                 sandbox_diag = apply_sandbox_effects(
                     sandbox, global_state, bu_states, round_number
                 )
                 if sandbox_diag:
                     extra["regulatory_sandbox"] = sandbox_diag
+
+            # Phase 3: Agent cross-wiring — check if sandbox shocks
+            # push Eleanor Carson or Marcus Chen-Hoffmann past thresholds
+            if sandbox.get("sandbox_mode") and _toggles.get("npc_stakeholders_enabled", True):
+                agent_diag = crosswire_sandbox_to_agents(
+                    sandbox, global_state, bu_states, events, round_number
+                )
+                if agent_diag.get("agent_crosswire_triggers"):
+                    extra["regulatory_sandbox_agent_crosswire"] = agent_diag
         except Exception as exc:
             print(f"[WARN] Regulatory sandbox engine failed: {exc}")
 
@@ -1961,7 +1991,7 @@ def _post_r10_grand_finale(
     terminal_value = round((terminal_ebitda + green_fund_terminal_bonus) * exit_multiple * mr, 2)
 
     # ===================================================
-    #  Year 3 PROFILE ARCHETYPE
+    #  Year 5 PROFILE ARCHETYPE
     #  Custom archetypes from god-mode take priority
     # ===================================================
     try:
@@ -1991,7 +2021,7 @@ def _post_r10_grand_finale(
             profile_desc = (
                 "A truly regenerative enterprise. Muressons has rebuilt "
                 "natural capital, earned deep social trust, and delivered "
-                "superior financial returns. This is the gold standard of Year 3."
+                "superior financial returns. This is the gold standard of Year 5."
             )
             profile_icon = "\U0001f331"
             profile_gradient = "linear-gradient(135deg, #10b981, #059669)"
@@ -2020,7 +2050,7 @@ def _post_r10_grand_finale(
             profile_title = "The Stranded Relic"
             profile_desc = (
                 "A cautionary tale. Stranded assets, depleted social capital, "
-                "and a brand synonymous with extraction. The Year 3 market has "
+                "and a brand synonymous with extraction. The Year 5 market has "
                 "moved on. Terminal decline is imminent."
             )
             profile_icon = "\U0001f480"
