@@ -17,7 +17,7 @@ RUN npm run build
 FROM python:3.12-slim AS production
 WORKDIR /app
 
-# Install Node.js for Next.js server
+# Install Node.js + curl (curl needed for backend health-check in startup)
 RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
     apt-get install -y --no-install-recommends nodejs && \
@@ -38,7 +38,9 @@ COPY --from=frontend-build /app/frontend/public /app/frontend/public
 COPY docker-start.sh /app/docker-start.sh
 RUN chmod +x /app/docker-start.sh
 
+# Railway injects PORT env at runtime; default to 3000
 ENV USE_MEMORY_DB=true
-EXPOSE 8000 3000
+ENV PORT=3000
+EXPOSE 3000
 
 CMD ["/app/docker-start.sh"]

@@ -1,9 +1,52 @@
+# Dependencies & build artifacts
 node_modules/
 .next/
 __pycache__/
 *.pyc
-.env
+
+# Git & environment
 .git/
+.env
+
+# Documentation (not needed at runtime — saves ~20MB+)
 *.md
+*.docx
+docs/
+guide_images/
+
+# Utility/generator scripts (root level only — preserve backend/)
+/append_section17.py
+/apply_ux_refactor.py
+/clean_frontend_sdg.js
+/clean_sdg.py
+/clean_sdg_round.py
+/clean_sdg_terminal.py
+/combine_guide.py
+/extract_briefings.py
+/gen_guide_p2.py
+/gen_guide_p3.py
+/generate_benchmark_docx.py
+/generate_briefings_doc.py
+/generate_glossary.py
+/generate_student_guide.py
+/generate_student_guide_v2_part1.py
+/generate_student_manual.py
+/patch_glossary.py
+/patch_tech_glossary.py
+/reorder.py
+/section14_walkthrough.py
+/student_manual_helpers.py
+/student_manual_part1.py
+/student_manual_part2.py
+/verify_glossary.py
+
+# Test files
 test_*.py
 test_*.js
+*.bat
+
+# Misc
+flowchart.html
+skills-lock.json
+.agents/
+.claude/

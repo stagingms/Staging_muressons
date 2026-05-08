@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — FastAPI Application Entry Point
 
 Automatically detects whether PostgreSQL is available.
@@ -59,9 +59,15 @@ app = FastAPI(
 
 # FIX AUDIT-011: CORS — use explicit origins instead of wildcard + credentials.
 # Set CORS_ORIGINS env var to a comma-separated list for production.
+# Railway auto-injects RAILWAY_PUBLIC_DOMAIN when a public domain is assigned.
 import os as _os
 _cors_origins = _os.getenv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001").split(",")
 _cors_origins = [o.strip() for o in _cors_origins if o.strip()]
+
+# Auto-detect Railway public domain
+_railway_domain = _os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
+if _railway_domain:
+    _cors_origins.append(f"https://{_railway_domain}")
 
 app.add_middleware(
     CORSMiddleware,
