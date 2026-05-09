@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — ESG Industry Benchmarks
 Static FTSE 100 ESG benchmark data for percentile comparisons.
 Sources: MSCI ESG Ratings, Sustainalytics, CDP Climate Disclosure.
@@ -15,7 +15,7 @@ import bisect
 #  Data approximated from public MSCI/Sustainalytics reports (2024-2025)
 # ═══════════════════════════════════════════════════════════════
 
-BENCHMARKS: dict[str, dict[str, Any]] = {
+BENCHMARKS = {
     "carbon_intensity": {
         "label": "Carbon Intensity (tCO2e/$M Revenue)",
         "unit": "tCO2e/$M",

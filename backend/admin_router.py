@@ -2004,7 +2004,7 @@ async def set_player_password(body: dict = Body(...)):
 #  SWIPE FILE PRESETS
 # ═════════════════════════════════════════════════════════════════
 
-SWIPE_FILE_PRESETS: list[dict[str, Any]] = [
+SWIPE_FILE_PRESETS = [
     {
         "id": "activist_threat",
         "label": "🗡️ The Activist Threat",
@@ -2108,7 +2108,7 @@ SWIPE_FILE_PRESETS: list[dict[str, Any]] = [
 #  OVERRIDE LOGIC
 # ═════════════════════════════════════════════════════════════════
 
-OVERRIDE_HANDLERS: dict[str, Any] = {}
+OVERRIDE_HANDLERS = {}
 
 
 def _apply_carbon_tax_override(global_state: dict, params: dict) -> dict[str, Any]:
@@ -2599,7 +2599,7 @@ class CustomBlackSwanRequest(BaseModel):
     natural_debt_impact: float = 0        # Natural Capital Debt delta
 
 # In-memory history of injected custom events
-_custom_black_swan_log: list[dict] = []
+_custom_black_swan_log = []
 
 
 @admin_router.post(
@@ -3622,7 +3622,7 @@ async def reset_all_sessions():
 # ═════════════════════════════════════════════════════════════════
 
 
-_master_overrides: list[dict] = [
+_master_overrides = [
     {
         "id": "carbon_tax",
         "icon": "🌍",
@@ -3661,7 +3661,7 @@ _master_overrides: list[dict] = [
     },
 ]
 
-_master_swipes: list[dict] = [
+_master_swipes = [
     {
         **preset,
         "icon": preset["label"].split(" ")[0] if preset["label"] else "📢",
@@ -3893,7 +3893,7 @@ async def undo_round(session_id: str, cohort_wide: bool = False, target_round: i
 #  FACILITATOR NOTES / COMMENTS
 # ═════════════════════════════════════════════════════════════════
 
-_facilitator_notes: dict[str, list[dict]] = {}  # session_id → notes
+_facilitator_notes = {}  # session_id → notes
 _next_note_id: int = 1
 
 
@@ -3954,7 +3954,7 @@ async def delete_note(session_id: str, note_id: str):
 #  STUDENT BONUSES / AWARDS
 # ═════════════════════════════════════════════════════════════════
 
-_student_bonuses: dict[str, list[dict]] = {}  # session_id → bonus records
+_student_bonuses = {}  # session_id → bonus records
 _next_bonus_id: int = 1
 
 BADGE_PRESETS = {
@@ -4030,7 +4030,7 @@ async def revoke_bonus(session_id: str, bonus_id: str):
 #  PEER EVALUATIONS
 # ═════════════════════════════════════════════════════════════════
 
-_peer_evaluations: dict[str, list[dict]] = {}  # session_id → evaluations
+_peer_evaluations = {}  # session_id → evaluations
 _next_eval_id: int = 1
 
 
@@ -4116,9 +4116,9 @@ async def delete_peer_evaluation(session_id: str, eval_id: str):
 #  BULK MESSAGING / BROADCAST
 # ═════════════════════════════════════════════════════════════════
 
-_broadcast_history: list[dict] = []
+_broadcast_history = []
 _next_broadcast_id: int = 1
-_scheduled_broadcasts: dict[int, dict] = {}  # round_number → broadcast to send
+_scheduled_broadcasts = {}  # round_number → broadcast to send
 
 
 class BroadcastRequest(BaseModel):
@@ -4676,7 +4676,7 @@ async def update_engine_tunables(body: dict = Body(...)):
 #  SCENARIO PRESETS — Pre-configured difficulty templates
 # ═════════════════════════════════════════════════════════════════
 
-_scenario_presets: list[dict] = [
+_scenario_presets = [
     {
         "id": "classroom_easy",
         "name": "Classroom",
@@ -5284,7 +5284,7 @@ async def get_decision_history(session_id: str):
 #  FACILITATOR ANNOTATIONS — Tag sessions with teaching notes
 # ═════════════════════════════════════════════════════════════════
 
-_annotations: dict[str, list[dict]] = {}  # session_id → [annotation dicts]
+_annotations = {}  # session_id → [annotation dicts]
 
 
 @admin_router.get("/annotations/{session_id}", summary="Get annotations for a session")

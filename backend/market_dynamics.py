@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Cross-Player Market Dynamics (SE-5)
 Shared market environment for multiplayer sessions: industry
 reputation, talent pool, competitive carbon pricing, and market

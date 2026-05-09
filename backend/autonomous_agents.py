@@ -281,7 +281,7 @@ AGENT_PROFILES = {
 
 _ESCALATED_STAGES = frozenset({"agitated", "hostile", "triggered"})
 
-INTERFERENCE_PAIRS: list[dict] = [
+INTERFERENCE_PAIRS = [
     {
         "agents": ("the_journalist", "the_regulator"),
         "decay_multiplier": 1.4,           # 40% faster decay when both agitated+

@@ -1,4 +1,5 @@
-﻿"""
+from __future__ import annotations
+"""
 Muressons Global Corporation — TCFD Scenario Analysis Tool (SI-4)
 Allows players to run climate scenario analysis on their portfolio
 across 1.5°C, 2°C, and 4°C pathways.

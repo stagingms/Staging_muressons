@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Supply Chain Network Model (SE-2)
 Replaces toggle-based supply chain decisions with a 3-tier visual
 network model with cascading failure mechanics.

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation - Admin Resources Sub-Router (ARCH-002)
 Extracted from admin_router.py to reduce monolith size.
 
@@ -62,7 +62,7 @@ class ResourceUnlockRequest(BaseModel):
 
 # â”€â”€ In-memory stores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-_resource_library: list[dict] = [
+_resource_library = [
     # â”€â”€ Standard Resources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     {
         "id": "RES_001",
@@ -236,7 +236,7 @@ _resource_library: list[dict] = [
 ]
 
 # session_id â†’ list of {resource_id, unlocked_at_round, unlocked_at_time, is_strategic_drop, trigger}
-_session_resource_state: dict[str, list[dict]] = {}
+_session_resource_state = {}
 
 
 # â”€â”€ Hidden Resource Trigger Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -575,7 +575,7 @@ from quiz_banks import (
     NLM_003_REVIEW, NLM_003_QUESTIONS,
 )
 
-_notebooklm_notebooks: list[dict] = [
+_notebooklm_notebooks = [
     {
         "id": "NLM_001",
         "title": "ESG Fundamentals Deep Dive",
@@ -679,7 +679,7 @@ async def set_quiz_difficulty(body: dict = Body(...)):
 
 # â”€â”€ Per-Cohort Quiz Enabled State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-_quiz_enabled: dict[str, bool] = {}  # session_id â†’ enabled (default True)
+_quiz_enabled = {}  # session_id â†’ enabled (default True)
 
 
 @resources_router.get("/quiz-enabled/{session_id}", summary="Check if quiz is enabled for a cohort")
@@ -697,7 +697,7 @@ async def set_quiz_enabled(session_id: str, body: dict = Body(...)):
 
 # â”€â”€ Per-Cohort Consultant Allowed State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-_consultant_allowed: dict[str, bool] = {}  # session_id â†’ allowed (default True)
+_consultant_allowed = {}  # session_id â†’ allowed (default True)
 
 
 @resources_router.get("/consultant-allowed/{session_id}", summary="Check if ESG consultant is allowed for a cohort")

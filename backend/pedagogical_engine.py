@@ -1,4 +1,5 @@
-﻿"""
+from __future__ import annotations
+"""
 Muressons Global Corporation — Pedagogical Engine
 Pure-function module for metacognitive scaffolding, engine disclosure,
 formative assessment, and learner journey support.

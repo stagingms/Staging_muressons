@@ -81,7 +81,7 @@ def _save_bu_registry(registry: list[dict]) -> None:
     os.replace(tmp, BU_REGISTRY_FILE)
 
 # In-memory registry cache
-_bu_registry: list[dict] = _load_bu_registry()
+_bu_registry = _load_bu_registry()
 
 def get_bu_registry() -> list[dict]:
     """Returns the full BU registry list."""
@@ -490,7 +490,7 @@ def update_current_config(new_config: dict) -> None:
 # BU-SPECIFIC CONFIG FUNCTIONS
 # ═══════════════════════════════════════════════════════════════
 
-_cached_bu_configs: dict[str, dict | None] = {b["id"]: None for b in _bu_registry}
+_cached_bu_configs = {b["id"]: None for b in _bu_registry}  # type: dict
 
 def load_bu_config(bu_id: str) -> dict:
     """Reads the BU-specific JSON config. Creates default if it doesn't exist."""

@@ -80,16 +80,16 @@ def _bu_out(bu: dict) -> BUStateOut:
 # PUBLIC SESSIONS: Fetch and Join
 # ─────────────────────────────────────────────────────────────────
 
-_session_players: dict[str, list[dict]] = {}
+_session_players = {}
 
 # ── ITEM 4: Per-session commit rate limiter ──
-_commit_timestamps: dict[str, float] = {}
+_commit_timestamps = {}
 
 # ── FIX-QA-003: Per-session async lock to prevent race conditions ──
 # When two players in the same session submit simultaneously, the lock
 # ensures they are serialized and the second commit sees the first's state.
 import asyncio as _asyncio
-_commit_locks: dict[str, _asyncio.Lock] = {}
+_commit_locks = {}
 
 def _get_commit_lock(session_id: str) -> _asyncio.Lock:
     """Get or create a per-session asyncio lock for commit serialization."""

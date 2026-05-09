@@ -1,11 +1,12 @@
-﻿"""
+from __future__ import annotations
+"""
 Muressons Global Corporation — Healthcare Edition Round Configurations
 """
 
 from typing import Any
 import copy
 
-HEALTHCARE_ROUND_CONFIGS: dict[int, dict[str, Any]] = {
+HEALTHCARE_ROUND_CONFIGS = {
     # ── Round 1: Foundations ────────────────────────────────────
     1: {
         "title": "Foundations",

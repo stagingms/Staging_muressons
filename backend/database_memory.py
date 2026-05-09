@@ -36,10 +36,10 @@ def _load_seed(industry: str = "generic") -> dict:
 
 # ── In-Memory Stores ────────────────────────────────────────────
 
-_sessions: dict[str, dict] = {}
-_global_states: dict[str, list[dict]] = {}      # session_id → [round_states]
-_bu_states: dict[str, dict[int, list[dict]]] = {} # session_id → {round_num → [bu_dicts]}
-_decision_log: list[dict] = []
+_sessions = {}
+_global_states = {}      # session_id → [round_states]
+_bu_states = {} # session_id → {round_num → [bu_dicts]}
+_decision_log = []
 
 
 # ── Persistence Helpers ─────────────────────────────────────────

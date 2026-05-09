@@ -148,7 +148,7 @@ def create_sandbox_state() -> dict[str, Any]:
 #     increasing real permit cost pressure per round.
 # ═══════════════════════════════════════════════════════════════
 
-DECAY_FACTORS: dict[str, dict[str, float]] = {
+DECAY_FACTORS = {
     # carbon_tax: NO decay — escalation encoded directly in rate formula
     "carbon_tax": {},
 
@@ -490,7 +490,7 @@ def apply_sandbox_effects(
 
 # ── Exogenous Event Registry ─────────────────────────────────
 
-EXOGENOUS_EVENTS: dict[str, dict] = {
+EXOGENOUS_EVENTS = {
     "carbon_minsky_moment": {
         "name": "The Carbon Minsky Moment",
         "description": (

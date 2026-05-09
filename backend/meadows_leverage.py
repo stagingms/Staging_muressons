@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Meadows Leverage Points Framework
 Pedagogical overlay that maps every player decision to Donella Meadows'
 (2008) 12 Leverage Points for systems intervention.

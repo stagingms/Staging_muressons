@@ -21,7 +21,7 @@ OVERRIDES_FILE = Path(__file__).parent / "decision_overrides.json"
 #  flags_set (for round_logic compatibility).
 # ═════════════════════════════════════════════════════════════════
 
-PILLAR_OPTIONS: dict[int, dict[str, Any]] = {
+PILLAR_OPTIONS = {
 
     # ── Round 1: Foundations ────────────────────────────────────
     1: {

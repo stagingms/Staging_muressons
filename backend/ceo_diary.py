@@ -15,7 +15,7 @@ from typing import Any
 # Each entry: (opening_sentence, closing_sentence)
 # Opening = player's agency. Closing = consequence/emotion.
 
-_ROUND_NARRATIVES: dict[int, dict[str, tuple[str, str]]] = {
+_ROUND_NARRATIVES = {
     1: {
         "option_a": (
             "I decided to keep the ESG audit light — a surface-level scan that wouldn't disrupt operations.",
@@ -200,7 +200,7 @@ _ROUND_NARRATIVES: dict[int, dict[str, tuple[str, str]]] = {
 
 # ── Event-conditional overlays ──────────────────────────────────
 # If a specific event flag is present, append additional context
-_EVENT_OVERLAYS: dict[str, str] = {
+_EVENT_OVERLAYS = {
     "greenwashing_scandal": " The greenwashing scandal made every promise ring hollow.",
     "tipping_point_reached": " The climate tipping point changed everything. There's no going back.",
     "insolvency_active": " Credit downgrade. The CFO's face said it all.",

@@ -256,7 +256,7 @@ from verticals import (
     AGRICULTURE_CSRD_ISSUES,
 )
 
-VERTICAL_CSRD_ISSUES: dict[str, dict] = {
+VERTICAL_CSRD_ISSUES = {
     "technology": TECHNOLOGY_CSRD_ISSUES,
     "oil_gas": OIL_GAS_CSRD_ISSUES,
     "banking_financial_services": BANKING_FS_CSRD_ISSUES,

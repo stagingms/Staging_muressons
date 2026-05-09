@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — New Engines Integration Tests
 Tests that all new engine modules are correctly wired into:
 1. round_logic.py (run_new_engines)

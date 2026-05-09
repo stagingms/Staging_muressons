@@ -260,7 +260,7 @@ STAKEHOLDERS = [
 ]
 
 # Quick lookup: stakeholder_id → correct_quadrant
-MASTER_MAP: dict[str, str] = {s["id"]: s["correct_quadrant"] for s in STAKEHOLDERS}
+MASTER_MAP = {s["id"]: s["correct_quadrant"] for s in STAKEHOLDERS}
 
 # ═══════════════════════════════════════════════════════════════
 #  VERTICAL-AWARE HELPERS
@@ -401,7 +401,7 @@ def _evaluate_against(submission: dict[str, str], stakeholders: list[dict]) -> d
     }
 
 
-ALTERNATE_MAP: dict[str, str] = {
+ALTERNATE_MAP = {
     s["id"]: s["alternate_quadrant"]
     for s in STAKEHOLDERS
     if s.get("alternate_quadrant")
@@ -569,7 +569,7 @@ def get_master_config() -> dict:
 #    - theory_note: academic reference for the facilitator
 # ═══════════════════════════════════════════════════════════════
 
-SALIENCE_MIGRATIONS: list[dict[str, Any]] = [
+SALIENCE_MIGRATIONS = [
     # ── Round 4: Contagion Crisis ──────────────────────────────
     # The crisis event makes previously low-salience stakeholders
     # suddenly high-interest or high-power.

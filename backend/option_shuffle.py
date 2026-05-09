@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Option Presentation Shuffle Engine
 
 ANTI-GAMING MEASURE: Randomizes the A/B/C label ordering per session

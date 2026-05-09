@@ -20,7 +20,7 @@ OVERRIDES_FILE = Path(__file__).parent / "decision_overrides.json"
 #    and optional validation_rules.
 # ═════════════════════════════════════════════════════════════════
 
-ROUND_CONFIGS: dict[int, dict[str, Any]] = {
+ROUND_CONFIGS = {
 
     # ── Round 1: Foundations ────────────────────────────────────
     1: {

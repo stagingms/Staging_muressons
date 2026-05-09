@@ -1,3 +1,4 @@
+from __future__ import annotations
 """
 Muressons Global Corporation — Real World Parallel Cards
 Case briefs linking each round to a real corporate event.
@@ -6,9 +7,7 @@ Bridges simulation-reality transfer gap (Baldwin & Ford, 1988).
 Visibility: Always in teleprompter. Player-visible only if facilitator enables.
 """
 
-from __future__ import annotations
-
-REAL_WORLD_PARALLELS: dict[int, dict] = {
+REAL_WORLD_PARALLELS = {
     1: {
         "round": 1,
         "title": "Volkswagen Dieselgate (2015)",

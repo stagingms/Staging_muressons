@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — AI-Driven NPC Stakeholders (SI-2)
 LLM-powered non-player characters that react dynamically to player
 decisions: activist investor, regulator, community leader, journalist.

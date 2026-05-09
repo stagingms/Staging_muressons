@@ -31,7 +31,7 @@ PARADIGMS = ["legacy_abc", "multi_toggles", "advanced_climate", "healthcare"]
 
 ALL_OPTIONS = ["option_a", "option_b", "option_c"]
 
-RESULTS: list[dict] = []  # collects pass/fail rows
+RESULTS = []  # collects pass/fail rows
 
 
 def api(method, path, data=None, silent=False):

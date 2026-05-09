@@ -1,4 +1,5 @@
-﻿"""
+from __future__ import annotations
+"""
 Muressons Global Corporation — Journey Improvements (Phase 6)
 Pedagogical Review Implementation: R1 split, R6 climax redesign,
 R7-R8 mechanic variation, persona pain point removals.

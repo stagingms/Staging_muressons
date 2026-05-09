@@ -17,7 +17,7 @@ from typing import Any
 #  All monetary values in USD.
 # ═══════════════════════════════════════════════════════════════
 
-BU_PROFILES: dict[str, dict[str, Any]] = {
+BU_PROFILES = {
     # ── Default 4 ──────────────────────────────────────────────
     "pharma": {
         "label": "Muressons Pharma",
@@ -173,7 +173,7 @@ BU_PROFILES: dict[str, dict[str, Any]] = {
 #  sharing industry characteristics.
 # ═══════════════════════════════════════════════════════════════
 
-SLOT_FIT_MAP: dict[str, list[str]] = {
+SLOT_FIT_MAP = {
     "pharma":         ["oil_gas"],                      # Heavy industry, physical assets, regulatory
     "electronics":    ["oil_gas"],                      # High carbon, complex supply chain
     "consumer_goods": ["retail_fmcg", "agriculture"],   # Supply chain, natural resources, packaging
@@ -181,7 +181,7 @@ SLOT_FIT_MAP: dict[str, list[str]] = {
 }
 
 # Reverse lookup: vertical_id → list of compatible slots
-VERTICAL_SLOT_COMPATIBILITY: dict[str, list[str]] = {}
+VERTICAL_SLOT_COMPATIBILITY = {}
 for _slot, _verticals in SLOT_FIT_MAP.items():
     for _v in _verticals:
         VERTICAL_SLOT_COMPATIBILITY.setdefault(_v, []).append(_slot)
@@ -199,7 +199,7 @@ DEFAULT_SLOTS = ["pharma", "electronics", "consumer_goods", "software"]
 #  0.0 = no overlap, 1.0 = full overlap
 # ═══════════════════════════════════════════════════════════════
 
-VERTICAL_MARKET_OVERLAP: dict[tuple[str, str], float] = {
+VERTICAL_MARKET_OVERLAP = {
     # Oil & Gas overlaps
     ("oil_gas", "agriculture"): 0.30,      # Energy inputs, fertiliser feedstock
     ("oil_gas", "electronics"): 0.20,      # Petrochemicals for plastics
@@ -233,7 +233,7 @@ VERTICAL_MARKET_OVERLAP: dict[tuple[str, str], float] = {
 #  electronics_blindspot in the default narrative.
 # ═══════════════════════════════════════════════════════════════
 
-VERTICAL_BLINDSPOT_FLAGS: dict[str, str] = {
+VERTICAL_BLINDSPOT_FLAGS = {
     "pharma": "electronics_blindspot",             # Default uses electronics
     "electronics": "electronics_blindspot",        # Default
     "consumer_goods": "electronics_blindspot",     # Default

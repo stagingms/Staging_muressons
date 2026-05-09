@@ -194,7 +194,7 @@ def _persist_facilitators():
         print(f"[persistence] Failed to save facilitator registry: {e}")
 
 
-_facilitator_registry: list[dict] = _load_facilitator_registry()
+_facilitator_registry = _load_facilitator_registry()
 _next_facilitator_id: int = 1
 
 
@@ -202,7 +202,7 @@ _next_facilitator_id: int = 1
 #  PLAYER REGISTRY
 # ═════════════════════════════════════════════════════════════════
 
-_player_registry: list[dict] = []
+_player_registry = []
 _next_player_id: int = 1
 
 
@@ -210,23 +210,23 @@ _next_player_id: int = 1
 #  SESSION MESSAGES & INTERVENTIONS
 # ═════════════════════════════════════════════════════════════════
 
-_session_messages: dict[str, list[dict]] = {}
-_session_interventions: dict[str, dict] = {}
+_session_messages = {}
+_session_interventions = {}
 
 
 # ═════════════════════════════════════════════════════════════════
 #  AUDIT LOG & CRISIS HISTORY
 # ═════════════════════════════════════════════════════════════════
 
-_god_mode_audit_log: list[dict] = []
-_crisis_trigger_history: list[dict] = []
+_god_mode_audit_log = []
+_crisis_trigger_history = []
 
 
 # ═════════════════════════════════════════════════════════════════
 #  PRACTICE MODE
 # ═════════════════════════════════════════════════════════════════
 
-_practice_mode: dict[str, bool] = {}
+_practice_mode = {}
 
 
 def is_practice_mode(session_id: str) -> bool:
@@ -238,7 +238,7 @@ def is_practice_mode(session_id: str) -> bool:
 #  ROUND PACING (with facilitator ownership protection)
 # ═════════════════════════════════════════════════════════════════
 
-_round_pacing: dict[str, dict] = {}
+_round_pacing = {}
 
 
 def _get_pacing(session_id: str) -> dict:

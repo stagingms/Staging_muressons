@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Biodiversity Engine (SE-4)
 Tracks ecosystem health, species risk, habitat integrity, and
 ecosystem services as a dimension SEPARATE from Natural Capital Debt.

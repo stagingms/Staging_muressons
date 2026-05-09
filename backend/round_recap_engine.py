@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Round Recap Engine
 "What Just Happened?" causal chain narrator.
 Generates a 3-item narrative recap of the most impactful engine interactions.
@@ -14,7 +14,7 @@ from typing import Any
 #  THREE-WORD ANCHORS (Facilitator Teleprompter Enhancement)
 # ═══════════════════════════════════════════════════════════════
 
-THREE_WORD_ANCHORS: dict[int, dict[str, str]] = {
+THREE_WORD_ANCHORS = {
     1: {
         "option_a": "Surface. Blindspot. Ticking.",
         "option_b": "Deep. Revealed. Protected.",

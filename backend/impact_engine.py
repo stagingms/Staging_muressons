@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Impact Engine (ARCH-001)
 Physically extracted from round_logic.py to reduce monolith size.
 

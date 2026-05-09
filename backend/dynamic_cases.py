@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Dynamic Case Injection (SE-8)
 LLM-generated real-world case briefs contextual to the player's
 current state, replacing static case parallels with adaptive content.

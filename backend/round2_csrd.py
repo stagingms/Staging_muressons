@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Round 2 Data Dictionary
 20 CSRD Materiality Issues configured for the Double Materiality Matrix
 

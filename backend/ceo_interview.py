@@ -1,4 +1,4 @@
-﻿"""
+"""
 CEO Interview — Post-Game Competency Assessment Engine
 =====================================================
 

@@ -34,7 +34,7 @@ IMPLEMENTED_PATHWAYS = [
     "regulatory_shutdown",
 ]
 
-PATHWAY_DESCRIPTIONS: dict[str, dict[str, str]] = {
+PATHWAY_DESCRIPTIONS = {
     "activist_ultimatum": {
         "name": "Activist Ultimatum",
         "description": "An activist consortium acquires a blocking stake and forces a strategic review. The board must choose between integration, spin-off, or full divestiture.",
@@ -73,7 +73,7 @@ def resolve_pathway(pathway_id: str) -> str:
 #  Each entry: round → list of news items.
 # ═══════════════════════════════════════════════════════════════
 
-FORESHADOWING: dict[str, dict[int, list[dict]]] = {
+FORESHADOWING = {
 
     "activist_ultimatum": {
         6: [{"type": "market_intel", "headline": "Activist Fund Files 13D — 4.9% Stake Acquired",
@@ -136,7 +136,7 @@ FORESHADOWING: dict[str, dict[int, list[dict]]] = {
 #  R10 CRISIS & OPTIONS PER PATHWAY
 # ═══════════════════════════════════════════════════════════════
 
-PATHWAY_R10_CONFIGS: dict[str, dict[str, Any]] = {
+PATHWAY_R10_CONFIGS = {
 
     # ── Climate Black Swan ──────────────────────────────────────
     "climate_black_swan": {

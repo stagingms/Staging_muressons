@@ -10,7 +10,7 @@ from typing import Any
 #  TECHNOLOGY VERTICAL STAKEHOLDERS
 # ═══════════════════════════════════════════════════════════════
 
-TECHNOLOGY_STAKEHOLDERS: list[dict[str, Any]] = [
+TECHNOLOGY_STAKEHOLDERS = [
     # Q1 — Manage Closely (High Power / High Interest)
     {
         "id": "data_protection_authority",
@@ -223,7 +223,7 @@ TECHNOLOGY_STAKEHOLDERS: list[dict[str, Any]] = [
 ]
 
 # Technology salience migrations (equivalent to default R4/R6/R9 shifts)
-TECHNOLOGY_SALIENCE_MIGRATIONS: list[dict[str, Any]] = [
+TECHNOLOGY_SALIENCE_MIGRATIONS = [
     {
         "round": 4, "stakeholder": "tech_general_public",
         "from_quadrant": "monitor", "to_quadrant": "manage_closely",
@@ -309,7 +309,7 @@ from verticals import (
     AGRICULTURE_STAKEHOLDERS, AGRICULTURE_SALIENCE_MIGRATIONS,
 )
 
-VERTICAL_STAKEHOLDER_SETS: dict[str, list[dict]] = {
+VERTICAL_STAKEHOLDER_SETS = {
     "technology": TECHNOLOGY_STAKEHOLDERS,
     "oil_gas": OIL_GAS_STAKEHOLDERS,
     "banking_financial_services": BANKING_FS_STAKEHOLDERS,
@@ -317,7 +317,7 @@ VERTICAL_STAKEHOLDER_SETS: dict[str, list[dict]] = {
     "agriculture": AGRICULTURE_STAKEHOLDERS,
 }
 
-VERTICAL_SALIENCE_MIGRATIONS: dict[str, list[dict]] = {
+VERTICAL_SALIENCE_MIGRATIONS = {
     "technology": TECHNOLOGY_SALIENCE_MIGRATIONS,
     "oil_gas": OIL_GAS_SALIENCE_MIGRATIONS,
     "banking_financial_services": BANKING_FS_SALIENCE_MIGRATIONS,

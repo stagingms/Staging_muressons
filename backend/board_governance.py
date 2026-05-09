@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Board Governance Minigame (SE-1)
 Simulates corporate board dynamics: composition, voting, executive
 compensation, ESG committee mandate, and shareholder resolutions.

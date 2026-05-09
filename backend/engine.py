@@ -315,7 +315,7 @@ def calc_technical_debt(
 
 # Market overlap matrix: 0.0 = no overlap, 1.0 = full overlap
 # Derived from customer segment similarity + shared distribution channels
-_MARKET_OVERLAP: dict[tuple[str, str], float] = {
+_MARKET_OVERLAP = {
     ("software", "electronics"): 0.65,       # Shared tech customers
     ("software", "consumer_goods"): 0.15,    # Some digital retail
     ("consumer_goods", "pharma"): 0.40,      # OTC/wellness overlap
@@ -630,7 +630,7 @@ def calc_macro_rate_environment(round_number: int) -> dict:
 # ── 22. FX Risk Engine ──────────────────────────────────────────
 
 # Geographic revenue exposure (% of revenue from foreign markets)
-_BU_FX_EXPOSURE: dict[str, float] = {
+_BU_FX_EXPOSURE = {
     "pharma": 0.60,           # 60% export (global clinical trials + API exports)
     "electronics": 0.75,      # 75% (global supply chain, Asian manufacturing)
     "consumer_goods": 0.40,   # 40% (domestic-heavy but growing exports)
@@ -1024,7 +1024,7 @@ def calc_momentum_score(
 # ── Forecast Caching Layer ──────────────────────────────────────
 # calc_forecast is called on every dashboard render. Since it's pure
 # (deterministic given the same gs/bus), we cache by session+round.
-_forecast_cache: dict[str, dict] = {}
+_forecast_cache = {}
 
 def calc_forecast_cached(
     session_id: str,

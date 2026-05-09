@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Application Configuration
 Reads settings from environment variables / .env file.
 """
