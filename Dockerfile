@@ -28,6 +28,9 @@ COPY --from=backend /usr/local/lib/python3.12/site-packages /usr/local/lib/pytho
 COPY --from=backend /usr/local/bin/uvicorn /usr/local/bin/uvicorn
 COPY backend/ /app/backend/
 
+# Seed data (db/seed_round1.json etc.)
+COPY db/ /app/db/
+
 # Frontend (built)
 COPY --from=frontend-build /app/frontend/.next /app/frontend/.next
 COPY --from=frontend-build /app/frontend/node_modules /app/frontend/node_modules

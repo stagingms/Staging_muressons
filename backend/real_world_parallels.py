@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Real World Parallel Cards
 Case briefs linking each round to a real corporate event.
 Bridges simulation-reality transfer gap (Baldwin & Ford, 1988).
@@ -34,6 +34,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "The cost of not knowing always exceeds the cost of finding out.",
         "theory_link": "Argyris (1977) Double-Loop Learning: VW's culture suppressed the 'governing variables' that should have triggered alarm.",
+        "reference": "United States Environmental Protection Agency. (2015). Notice of Violation to Volkswagen AG. https://www.epa.gov/enforcement/volkswagen-clean-air-act-civil-settlement",
     },
     2: {
         "round": 2,
@@ -59,6 +60,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Double materiality is a lens, not a religion. Align ESG with financial performance or lose your mandate.",
         "theory_link": "Freeman (1984) Stakeholder Theory: Balancing purpose and profit requires managing competing stakeholder expectations simultaneously.",
+        "reference": "Danone SA. (2020). Danone Becomes the First Listed Company to Adopt the Entreprise à Mission Model. https://www.danone.com/media/news-list/danone-becomes-first-listed-company-to-adopt-entreprise-a-mission.html",
     },
     3: {
         "round": 3,
@@ -84,6 +86,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Genuine decarbonisation creates shareholder value. Carbon offsets (Option C) are not a substitute for structural change.",
         "theory_link": "Teece (2007) Dynamic Capabilities: Ørsted's sensing, seizing, and transforming of its business model exemplifies strategic agility.",
+        "reference": "Ørsted A/S. (2023). Our Green Transformation. https://orsted.com/en/who-we-are/our-purpose/our-green-transformation",
     },
     4: {
         "round": 4,
@@ -110,6 +113,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Reputation contagion follows a sigmoid curve: slow start, rapid middle, saturating end. Early transparency flattens the curve.",
         "theory_link": "Kahneman (2011) System 1/2: Nike's initial denial was a System 1 (fast, defensive) response. Effective crisis management requires System 2 (slow, analytical) thinking.",
+        "reference": "Locke, R.M. (2003). The Promise and Perils of Globalization: The Case of Nike. MIT Working Paper. https://doi.org/10.2139/ssrn.427500",
     },
     5: {
         "round": 5,
@@ -135,6 +139,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Nature-based solutions provide resilience AND reduce natural capital debt. Hard engineering protects assets; ecosystems protect systems.",
         "theory_link": "Taleb (2012) Antifragility: Unilever's ecosystem approach gets stronger from stress, unlike hard infrastructure which degrades.",
+        "reference": "Unilever PLC. (2020). Unilever Sustainable Living Plan 2010-2020: Summary of 10 Years' Progress. https://www.unilever.com/planet-and-society/sustainability-reporting-centre/",
     },
     6: {
         "round": 6,
@@ -160,6 +165,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Algorithmic bias is a leadership problem, not a technical one. The training data reflects the culture that created it.",
         "theory_link": "Argyris (1977): Amazon's bias was embedded in 'governing variables' — the historical hiring patterns that the AI internalised as 'normal'.",
+        "reference": "Dastin, J. (2018). Amazon Scraps Secret AI Recruiting Tool That Showed Bias Against Women. Reuters. https://www.reuters.com/article/us-amazon-com-jobs-automation-insight-idUSKCN1MK08G",
     },
     7: {
         "round": 7,
@@ -185,6 +191,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Circular economy is not a cost — it's a competitive moat. First-movers set the standards that followers must meet.",
         "theory_link": "Barney (1991) VRIO: Interface's circular capabilities are Valuable, Rare, Inimitable, and Organisation-embedded — a textbook sustainable competitive advantage.",
+        "reference": "Anderson, R.C. (2009). Confessions of a Radical Industrialist. St. Martin's Press. https://www.interface.com/us/en/about/mission-zero",
     },
     8: {
         "round": 8,
@@ -210,6 +217,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Water is a human right before it is a production input. Social license is revoked faster than it is earned.",
         "theory_link": "Freeman (1984): The Plachimada community shifted from 'Monitor' to 'Manage Closely' overnight — stakeholder salience migration in action.",
+        "reference": "Hills, J. & Welford, R. (2005). Coca-Cola and Water in India. Corporate Social Responsibility and Environmental Management, 12(3), 168-177. https://doi.org/10.1002/csr.97",
     },
     9: {
         "round": 9,
@@ -236,6 +244,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Just Transition is not charity — it's risk management. Companies that abandon communities create future regulatory and social liabilities.",
         "theory_link": "Rawls (1971) Veil of Ignorance + Sen (1999) Capabilities: Would you choose mass layoffs if you didn't know whether you were the CEO or the coal worker?",
+        "reference": "Enel SpA. (2022). Just Transition Report 2022. https://www.enel.com/company/stories/articles/2022/09/just-transition",
     },
     10: {
         "round": 10,
@@ -262,6 +271,7 @@ REAL_WORLD_PARALLELS: dict[int, dict] = {
         ),
         "key_lesson": "Terminal value = EBITDA × Exit Multiple × M_R. All three matter. Purpose without profit is unsustainable; profit without purpose is vulnerable.",
         "theory_link": "Barney (1991) VRIO + Porter (1985) Value Chain: Synergy is a defensive weapon — conglomerate premium makes break-up less attractive.",
+        "reference": "Bluebell Capital Partners. (2021). Open Letter to the Board of Directors of Danone SA. https://www.ft.com/content/cf31353f-19b1-4c89-8a66-d4c36ccd0ed6",
     },
 }
 

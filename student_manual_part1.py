@@ -30,7 +30,7 @@ def build_part1(doc):
     spacer(doc)
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = p.add_run('Version 2.0 | 2026')
+    r = p.add_run('Version 3.0 | 2026')
     r.font.size = Pt(12); r.font.color.rgb = TEAL
     page_break(doc)
 
@@ -52,13 +52,15 @@ def build_part1(doc):
         '  10. Scoring & Terminal Valuation',
         '  11. Flag Dependencies & Cascades',
         'Part IV: Reference',
-        '  12. Strategic Tips & Common Mistakes',
-        '  13. Glossary of Key Terms',
-        '  14. Quick Reference Card',
+        '  12. Real-World Case Studies',
+        '  13. Strategic Tips & Common Mistakes',
+        '  14. Glossary of Key Terms (50 Terms)',
+        '  15. Quick Reference Card',
         'Appendices',
         '  A. Decision Paradigm Comparison',
         '  B. Industry Vertical Profiles',
         '  C. Minigames & Side Activities',
+        '  D. Further Reading & Academic References',
     ]
     for item in toc:
         p = doc.add_paragraph(item)

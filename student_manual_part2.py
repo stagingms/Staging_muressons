@@ -4,6 +4,7 @@ Sections 8-14: Math Engines, KPIs, Scoring, Glossary, Appendices
 """
 import os
 from student_manual_helpers import *
+from student_manual_additions import build_case_studies, build_expanded_glossary, build_appendix_d
 
 IMG = os.path.join(os.path.dirname(__file__), 'guide_images')
 
@@ -191,9 +192,12 @@ def build_part2(doc):
     t = h(doc, 'PART IV: REFERENCE', 1, TEAL)
     page_break(doc)
 
-    # ══════════════════ § 12: STRATEGIC TIPS ══════════════════
-    h(doc, '12. Strategic Tips & Common Mistakes', 1)
-    h(doc, '12.1 Top 5 Strategic Tips', 2)
+    # ══════════════════ § 12: CASE STUDIES (NEW) ══════════════════
+    build_case_studies(doc)
+
+    # ══════════════════ § 13: STRATEGIC TIPS (renumbered from §12) ══════════════════
+    h(doc, '13. Strategic Tips & Common Mistakes', 1)
+    h(doc, '13.1 Top 5 Strategic Tips', 2)
     tips = [
         ('Invest in R1 Deep Audit (Option B)', 'Spending $3M in R1 halves R4 crisis damage. This is the highest-ROI decision in the entire simulation — it prevents $6M+ in downstream losses.'),
         ('Never ignore a BU for 2+ rounds', 'Technical Debt engine adds 4% OPEX compounding. Combined with Natural Decay (2% reputation/SLO loss), neglect spirals quickly.'),
@@ -205,7 +209,7 @@ def build_part2(doc):
         body(doc, f"Tip {i}: {title}", bold=True)
         body(doc, desc)
 
-    h(doc, '12.2 Common Mistakes', 2)
+    h(doc, '13.2 Common Mistakes', 2)
     mistakes = [
         'Over-investing in one BU — triggers Technology Lock-In and Revenue Cannibalization engines',
         'Choosing "cheap" options without considering flag consequences (R1A saves money but costs $6M+ at R4)',
@@ -218,49 +222,11 @@ def build_part2(doc):
         bullet(doc, m)
     page_break(doc)
 
-    # ══════════════════ § 13: GLOSSARY ══════════════════
-    h(doc, '13. Glossary of Key Terms', 1)
-    glossary = [
-        ('Business Unit (BU)', 'One of four operational divisions of Muressons Global Corporation. Default: Pharma, Electronics, Consumer Goods, Software.'),
-        ('CAPEX', 'Capital Expenditure — investment allocated to each BU per round from the CSF pool.'),
-        ('Carbon Intensity (CI)', 'Measure of CO₂ emissions relative to economic activity (0-100). Determines carbon tax at terminal valuation.'),
-        ('Contagion Engine', 'Mathematical model propagating reputational damage across BUs using a sigmoid function.'),
-        ('Corporate Strategic Fund (CSF)', 'Total capital pool available for investment each round = gross profit minus dividends.'),
-        ('CSRD', 'Corporate Sustainability Reporting Directive — EU regulation requiring ESG impact reporting.'),
-        ('Decision Paradigm', 'Mode of strategic decision-making: Narrative Crisis (A/B/C), Strategic Pillars, Advanced Climate, or Healthcare.'),
-        ('Double Materiality', 'Framework considering both financial materiality (risks to company) and impact materiality (company impact on society).'),
-        ('EBITDA', 'Earnings Before Interest, Taxes, Depreciation, and Amortisation — primary profitability metric.'),
-        ('ESG', 'Environmental, Social, and Governance — the three pillars of sustainable business practice.'),
-        ('Exit Multiple', 'Valuation multiplier applied to terminal EBITDA (default: 12×). Represents investor confidence.'),
-        ('Flag', 'Game-state marker set by decisions that carries forward to affect future rounds (e.g., electronics_blindspot).'),
-        ('Foreshadowing', 'Subtle news hints injected during R5-R8 indicating which R10 ending pathway is approaching.'),
-        ('Governance Risk', 'Score (0-100) reflecting corporate governance quality. High values reduce cash efficiency.'),
-        ('Greenwashing Engine', 'Detects green rhetoric without investment (avg ratio < 15%), triggering social licence penalty.'),
-        ('Investment Ratio', 'Proportion of CSF allocated to a BU (0.0-1.0). Higher ratios = more OPEX reduction.'),
-        ('M_R (Regenerative Multiple)', 'Sustainability-adjusted valuation multiplier (range: ~0.0 to 2.08). Directly multiplies terminal value.'),
-        ("Mendelow's Matrix", '2×2 Power-Interest stakeholder mapping framework used in the R1 minigame.'),
-        ('Natural Capital Debt (NCD)', 'Liability representing unpriced environmental externalities. Compounds each round via interest.'),
-        ('OPEX', 'Operating Expenditure — ongoing cost of running each BU. Reduced by investment and synergy.'),
-        ('Scope 3 Emissions', 'Indirect value chain emissions (upstream suppliers, downstream customers). Typically 4× direct emissions.'),
-        ('Sigmoid Function', 'S-curve mathematical function used in the Contagion Engine for damage propagation.'),
-        ('Social License to Operate (SLO)', 'Score (0-100) reflecting community and stakeholder consent. Below 75 triggers Instability Discount.'),
-        ('Stochastic Event', 'Probabilistic game event with outcomes determined by random roll (e.g., R5 cyclone).'),
-        ('Synergy Multiplier', 'Factor (0.5-2.0+) amplifying CAPEX effectiveness in reducing OPEX.'),
-        ('Terminal Value (TV)', 'Final corporation valuation: EBITDA × Exit Multiple × M_R.'),
-        ('VRIO Decay', 'Mechanism eroding competitive advantage over time (5% per round).'),
-        ('Workforce Readiness', 'Global competence score (0-100). Below 40: -20% pillar effectiveness. Above 75: +0.10 M_R.'),
-    ]
-    for term, defn in sorted(glossary, key=lambda x: x[0].lower()):
-        p = doc.add_paragraph()
-        r = p.add_run(f"{term}: ")
-        r.bold = True
-        r.font.size = Pt(11)
-        r = p.add_run(defn)
-        r.font.size = Pt(11)
-    page_break(doc)
+    # ══════════════════ § 14: EXPANDED GLOSSARY (NEW) ══════════════════
+    build_expanded_glossary(doc)
 
-    # ══════════════════ § 14: QUICK REFERENCE ══════════════════
-    h(doc, '14. Quick Reference Card', 1)
+    # ══════════════════ § 15: QUICK REFERENCE ══════════════════
+    h(doc, '15. Quick Reference Card', 1)
     body(doc, 'Print this page as a one-page reference during gameplay.', italic=True)
 
     body(doc, 'Round Progression:', bold=True)
@@ -322,6 +288,9 @@ def build_part2(doc):
     for title, desc in minigames:
         body(doc, title, bold=True)
         body(doc, desc)
+
+    # ══════════════════ APPENDIX D (NEW) ══════════════════
+    build_appendix_d(doc)
 
     # ── Footer ──
     page_break(doc)

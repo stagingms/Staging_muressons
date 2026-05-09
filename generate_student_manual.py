@@ -9,7 +9,7 @@ from student_manual_helpers import create_doc
 from student_manual_part1 import build_part1
 from student_manual_part2 import build_part2
 
-OUTPUT = os.path.join(os.path.dirname(__file__), 'Muressons_Student_Manual_v2.docx')
+OUTPUT = os.path.join(os.path.dirname(__file__), 'Muressons_Student_Manual_v3.docx')
 
 def main():
     print("=" * 60)
