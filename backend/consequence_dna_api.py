@@ -32,6 +32,37 @@ DECISION_LABELS = {
     10: {"option_a": "R10: Universal Care Mandate", "option_b": "R10: Targeted Restructure", "option_c": "R10: Status Quo"},
 }
 
+# SDG Side Track decision labels
+SDG_DECISION_LABELS = {
+    1: {"option_a": "ST1: Forensic PAI Audit", "option_b": "ST1: Materiality Review", "option_c": "ST1: Standard Disclosure"},
+    2: {"option_a": "ST2: Living Wage Commitment", "option_b": "ST2: Phased Parity", "option_c": "ST2: Operational Hardball"},
+    3: {"option_a": "ST3: Full Circular Transform", "option_b": "ST3: Targeted Sourcing", "option_c": "ST3: Spot-Market Compliance"},
+    4: {"option_a": "ST4: Nature-Positive Transform", "option_b": "ST4: Targeted Conservation", "option_c": "ST4: Market Deferral"},
+    5: {"option_a": "ST5: Integrated Value Creation", "option_b": "ST5: Strategic Integration", "option_c": "ST5: Separate Supplement"},
+}
+
+
+# ── Red DNA: Option C Consequence Nodes (Constriction/Leak) ──
+# These create visually distinct red nodes in the Consequence DNA visualizer
+# when players choose Option C paths that create material risk.
+OPTION_C_RED_DNA = {
+    # Core simulation Option C consequences
+    "electronics_blindspot": {"type": "constriction", "label": "⛔ Audit Blindspot", "icon": "⛔"},
+    "materiality_ignored":   {"type": "leak", "label": "💧 Budget Clawback", "icon": "💧"},
+    "greenwash_risk":        {"type": "leak", "label": "💧 Greenwash Exposure", "icon": "💧"},
+    "deny_and_deflect":      {"type": "constriction", "label": "⛔ Brain Drain", "icon": "⛔"},
+    "insurance_only":        {"type": "constriction", "label": "⛔ Resilience Void", "icon": "⛔"},
+    "ai_monetised":          {"type": "leak", "label": "💧 AI Monetisation Risk", "icon": "💧"},
+    "immediate_closure":     {"type": "constriction", "label": "⛔ Community Revolt", "icon": "⛔"},
+    # SDG Side Track Option C consequences
+    "pai_blindspot":         {"type": "constriction", "label": "⛔ PAI Blindspot", "icon": "⛔"},
+    "operational_hardball":   {"type": "constriction", "label": "⛔ Strike Risk Spike", "icon": "⛔"},
+    "credibility_gap_penalty": {"type": "leak", "label": "💧 Credibility Gap", "icon": "💧"},
+    # BRSR Side Track Option C consequences
+    "governance_fragility":  {"type": "constriction", "label": "⛔ Governance Fragility", "icon": "⛔"},
+    "brsr_greenwash_risk":   {"type": "leak", "label": "💧 Value Chain Risk Write-down", "icon": "💧"},
+}
+
 # Leverage point levels per decision (from meadows_leverage.py round_lp_map)
 DECISION_LP_MAP = {
     1: {"option_a": 5, "option_b": 5, "option_c": 12},
@@ -60,6 +91,23 @@ FLAG_METRIC_SHIFTS = {
     "civil_water_priority": [{"metric": "social_license", "label": "Social License Protected", "delta": 10}],
     "electronics_water_priority": [{"metric": "production", "label": "Production Continuity", "delta": 5}],
     "blockchain_traceability": [{"metric": "supply_chain", "label": "Supply Chain Transparency", "delta": 10}],
+    # SDG Side Track flags
+    "sdg_integrity_unlocked": [{"metric": "governance", "label": "SDG Integrity Verified", "delta": 10}],
+    "pai_blindspot": [{"metric": "crisis_severity", "label": "PAI Blindspot → R2 Severity ×2", "delta": 40}],
+    "sdg_living_wage": [{"metric": "social_license", "label": "Living Wage SLO ↑", "delta": 15}],
+    "circular_leader": [{"metric": "natural_capital", "label": "Circular Economy Leader", "delta": -15}],
+    "nature_positive": [{"metric": "natural_capital", "label": "Nature-Positive Commitment", "delta": -15}],
+    "operational_hardball": [{"metric": "workforce", "label": "Strike Risk ↑ / Burnout ↑", "delta": -20}],
+    "sdg_integrated_reporting": [{"metric": "governance", "label": "Integrated Reporting (+0.35 M_R)", "delta": 35}],
+    "credibility_gap_penalty": [{"metric": "reputation", "label": "ESG Credibility Gap", "delta": -8}],
+    # BRSR Track flags
+    "brsr_pioneer": [{"metric": "governance", "label": "BRSR Governance ↑", "delta": 15}],
+    "brsr_core_assured": [{"metric": "supply_chain", "label": "Supply Visibility +40", "delta": 40}],
+    "brsr_living_wage": [{"metric": "social_license", "label": "Living Wage SLO ↑", "delta": 20}],
+    "sdg_12_leadership": [{"metric": "natural_capital", "label": "NCD ↓", "delta": -15}],
+    "brsr_circular_symbiosis": [{"metric": "natural_capital", "label": "ZLD Implemented", "delta": -20}],
+    # Shadow Board SDG-enhanced penalties
+    "planet_expendable": [{"metric": "ecosystem", "label": "Ecosystem Resilience ↓ (M_R -0.20)", "delta": -20}],
 }
 
 # Agent → flow mapping for constriction nodes
@@ -183,9 +231,32 @@ def build_consequence_dna_data(
 
     # Flag nodes from FLAG_DEPENDENCY_GRAPH
     dep_graph = get_flag_dependency_graph(flags)
+    
+    # Inject BRSR side track flags into dep_graph for visualizer
+    brsr_flags = [
+        ("brsr_pioneer", "BRSR-R1", "governance"),
+        ("governance_fragility", "BRSR-R1", "risk"),
+        ("brsr_living_wage", "BRSR-R2", "social_license"),
+        ("brsr_circular_symbiosis", "BRSR-R3", "natural_capital"),
+        ("sdg_12_leadership", "BRSR-R3", "natural_capital"),
+        ("brsr_core_assured", "BRSR-R4", "supply_chain"),
+        ("brsr_greenwash_risk", "BRSR-R4", "risk"),
+        ("brsr_integrated_report", "BRSR-R5", "governance"),
+    ]
+    for flag_id, src_rnd, cat in brsr_flags:
+        if flags.get(flag_id):
+            dep_graph["dependencies"].append({
+                "flag": flag_id,
+                "status": "active",
+                "category": cat,
+                "source_round": 5, # Treat as mid-game
+                "target_round": 5,
+                "effect": f"{flag_id} active"
+            })
+
     flag_nodes = []
     for dep in dep_graph["dependencies"]:
-        if dep["source_round"] <= current_round:
+        if dep["source_round"] <= current_round or "BRSR" in str(dep.get("source_round", "")):
             flag_nodes.append({
                 "id": dep["flag"],
                 "label": dep["flag"].replace("_", " ").title(),
@@ -231,7 +302,37 @@ def build_consequence_dna_data(
             "type": "projection",
         })
 
-    # ── 4. Conflict nodes (agent constriction/leak) ──
+    # ── 4a. Red DNA nodes (Option C consequences) ──
+    red_dna_nodes = []
+    for flag_key, red_info in OPTION_C_RED_DNA.items():
+        if flags.get(flag_key):
+            red_dna_nodes.append({
+                "id": f"red_dna_{flag_key}",
+                "label": red_info["label"],
+                "type": "red_dna",
+                "subtype": red_info["type"],  # "constriction" or "leak"
+                "risk_flag": flag_key,
+                "icon": red_info["icon"],
+                "color": "#ef4444",  # Red
+            })
+
+    # ── 4b. SDG projection node ──
+    sdg_score = flags.get("sdg_impact_score", 0)
+    sdg_track_active = flags.get("sdg_track_completed", False)
+    sdg_projection = None
+    if sdg_track_active or sdg_score != 0:
+        from terminal_valuation import calculate_sdg_multiplier
+        sdg_result = calculate_sdg_multiplier(sdg_score)
+        sdg_projection = {
+            "id": "proj_sdg_multiplier",
+            "label": f"M_SDG: {sdg_result['m_sdg']:.4f}",
+            "m_sdg": sdg_result["m_sdg"],
+            "sdg_impact_score": sdg_score,
+            "type": "projection",
+        }
+        projection_nodes.append(sdg_projection)
+
+    # ── 4c. Conflict nodes (agent constriction/leak) ──
     conflict_nodes = []
     agent_summaries = []
     cascade_events = []
@@ -311,13 +412,19 @@ def build_consequence_dna_data(
         imp_match = next((i for i in impact_data if i["round"] == dep["source_round"]), None)
         impact_val = imp_match["impact_score"] if imp_match else 1
         lp_level = imp_match["leverage_level"] if imp_match else 12
+        
+        color_override = None
+        if dep["flag"] in ["brsr_pioneer", "brsr_living_wage", "brsr_circular_symbiosis", "sdg_12_leadership", "brsr_core_assured", "brsr_integrated_report"]:
+            color_override = "#10b981"
 
         links.append({
-            "source": f"r{dep['source_round']}_decision",
+            "source": f"r{dep['source_round']}_decision" if isinstance(dep["source_round"], int) else f"r5_decision",
             "target": dep["flag"],
             "value": impact_val,
             "leverage_level": lp_level,
             "active": is_active,
+            "color_override": color_override,
+            "brsr_indicator": "leadership" if color_override else None,
         })
 
         # Flag → Metric link
@@ -432,6 +539,9 @@ def build_consequence_dna_data(
             "shallow_intervention_count": shallow_count,
         },
         "archetype_badges": archetype_badges,
+        "red_dna_nodes": red_dna_nodes,
+        "sdg_projection": sdg_projection,
+        "sdg_track_active": sdg_track_active,
     }
 
 
@@ -445,5 +555,11 @@ def _get_flag_projection_mapping(flag: str) -> str | None:
         "managed_transition": "proj_just_transition_bonus",
         "insurance_only": "proj_resilience_bonus",
         "electronics_water_priority": "proj_resilience_bonus",
+        "planet_expendable": "proj_planet_expendable_penalty",
+        "sdg_integrated_reporting": "proj_sdg_multiplier",
+        "circular_leader": "proj_sdg_multiplier",
+        "nature_positive": "proj_sdg_multiplier",
+        "brsr_net_positive_dividend": "proj_brsr_dividend",
+        "brsr_integrated_report": "proj_brsr_dividend",
     }
     return mapping.get(flag)

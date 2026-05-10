@@ -1496,6 +1496,139 @@ async def get_consequence_dna_data(session_id: str):
 
 
 # ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/sdg-dashboard
+# SDG Alignment Radar — Chief Strategic Orchestrator Dashboard
+# ─────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/sdg-dashboard",
+    summary="Get SDG alignment dashboard data for the radar visualizer",
+)
+async def get_sdg_dashboard(session_id: str):
+    """
+    Returns the complete SDG dashboard data:
+    - Per-BU SDG alignment scores with material SDG details
+    - Group-level SDG composite score
+    - SDG heatmap (per-SDG normalized scores)
+    - Material gap alerts
+    - Materiality mapping metadata
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session {session_id} not found.",
+        )
+
+    gs = latest["global_state"]
+    bus = latest["bu_states"]
+    flags = gs.get("active_event_flags", {})
+
+    # Import the SDG linkage engine
+    try:
+        from sdg_linkage_engine import calc_group_sdg_score, SDG_BU_MATERIALITY
+    except ImportError:
+        return {"error": "SDG linkage engine not available", "bu_scores": {}, "group_sdg_score": 0, "sdg_heatmap": {}, "alerts": [], "gap_count": 0}
+
+    # Compute group SDG score
+    sdg_result = calc_group_sdg_score(bus, gs)
+
+    # Build per-BU detailed scores
+    SDG_ICONS = {3: '💊', 6: '💧', 8: '⚡', 9: '💻', 10: '⚖️', 12: '♻️', 15: '🌿'}
+    SDG_COLORS = {3: '#4C9F38', 6: '#26BDE2', 8: '#A21942', 9: '#FD6925', 10: '#DD1367', 12: '#BF8B2E', 15: '#56C02B'}
+    BU_LABELS = {'pharma': 'Pharma', 'electronics': 'Electronics', 'consumer_goods': 'Consumer Goods', 'software': 'Software'}
+
+    bu_scores = {}
+    all_sdg_scores = {}  # sdg_num -> list of scores for heatmap
+    all_gaps = []
+
+    for bu in bus:
+        bu_id = bu.get("name", "").lower().replace(" ", "_")
+        mat = SDG_BU_MATERIALITY.get(bu_id, {})
+        sdgs = mat.get("sdgs", [])
+        metric_keys = mat.get("metric_keys", [])
+        linkage_rule = mat.get("linkage_rule", "")
+
+        sdg_details = []
+        bu_total = 0
+        for i, sdg_num in enumerate(sdgs):
+            mk = metric_keys[i] if i < len(metric_keys) else None
+            raw_val = bu.get(mk, 50.0) if mk else 50.0
+
+            # Normalize: higher is better for most metrics, invert for negative ones
+            if mk in ("carbon_intensity", "staff_burnout_index", "natural_capital_debt"):
+                normalized = max(0, min(100, 100 - raw_val))
+            elif mk in ("water_dependency",):
+                normalized = max(0, min(100, 100 - raw_val))
+            else:
+                normalized = max(0, min(100, raw_val))
+
+            sdg_details.append({
+                "sdg": sdg_num,
+                "icon": SDG_ICONS.get(sdg_num, "🎯"),
+                "color": SDG_COLORS.get(sdg_num, "#888"),
+                "raw_metric": round(raw_val, 2),
+                "metric_key": mk,
+                "normalized_score": round(normalized, 1),
+            })
+            bu_total += normalized
+
+            if sdg_num not in all_sdg_scores:
+                all_sdg_scores[sdg_num] = []
+            all_sdg_scores[sdg_num].append(normalized)
+
+        bu_avg = bu_total / max(len(sdgs), 1)
+        bu_color = '#10b981' if bu_avg >= 60 else '#f59e0b' if bu_avg >= 40 else '#ef4444'
+
+        # Detect gaps (SDGs scoring below 40)
+        gaps = [
+            {"sdg": sd["sdg"], "gap_magnitude": round(40 - sd["normalized_score"], 1)}
+            for sd in sdg_details if sd["normalized_score"] < 40
+        ]
+        all_gaps.extend(gaps)
+
+        bu_scores[bu_id] = {
+            "sdg_score": round(bu_avg, 1),
+            "color": bu_color,
+            "sdg_details": sdg_details,
+            "gaps": gaps,
+            "linkage_rule": linkage_rule,
+        }
+
+    # Build SDG heatmap (average score per SDG across all BUs)
+    sdg_heatmap = {}
+    for sdg_num, scores in all_sdg_scores.items():
+        sdg_heatmap[sdg_num] = round(sum(scores) / len(scores), 1) if scores else 0
+
+    # Build alerts
+    alerts = []
+    for gap in all_gaps:
+        severity = "critical" if gap["gap_magnitude"] > 25 else "warning"
+        alerts.append({
+            "severity": severity,
+            "message": f"SDG {gap['sdg']} is {gap['gap_magnitude']:.0f} points below alignment threshold",
+        })
+
+    # Materiality map for UI cross-referencing
+    materiality_map = {
+        bu_id: {"sdgs": mat.get("sdgs", []), "label": BU_LABELS.get(bu_id, bu_id)}
+        for bu_id, mat in SDG_BU_MATERIALITY.items()
+    }
+
+    return {
+        "session_id": session_id,
+        "group_sdg_score": sdg_result.get("group_sdg_score", 0),
+        "bu_scores": bu_scores,
+        "sdg_heatmap": sdg_heatmap,
+        "alerts": alerts,
+        "gap_count": len(all_gaps),
+        "materiality_map": materiality_map,
+        "sdg_track_active": bool(flags.get("sdg_track_completed")),
+        "sdg_impact_score": flags.get("sdg_impact_score"),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
 # SHADOW BOARD AUDIT — Round 5 Reflective Middleware
 # ─────────────────────────────────────────────────────────────────
 

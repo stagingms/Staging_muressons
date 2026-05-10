@@ -790,6 +790,84 @@ _TELEPROMPTER_SCRIPTS = {
     },
 }
 
+# ── BRSR NGRBC Teleprompter Overlays ─────────────────────────────
+# Injected into the standard teleprompter when the BRSR NGRBC track is enabled.
+# Keyed by main simulation round number where the BRSR content is most relevant.
+_BRSR_TELEPROMPTER_OVERLAYS = {
+    1: {
+        "brsr_round": "BRSR R1 — Governance & Ethics (NGRBC Principles 1 & 7)",
+        "banner": "🇮🇳 BRSR TRACK ACTIVE: SEBI's NGRBC-aligned deep-dive begins this round.",
+        "facilitator_guidance": [
+            "The BRSR track opens with Governance & Ethics — SEBI's Essential Indicators for board-level responsible conduct.",
+            "Option A (Radical Transparency) sets the 'brsr_pioneer' flag — this is the Leadership Indicator path and unlocks the +0.05 ESG Alpha Dividend at terminal valuation.",
+            "Option C (Reactive Disclosure) sets 'governance_fragility' — this will trigger a Whistleblower Governance Leak crisis in BRSR Round 5, draining $2.5M from corporate treasury.",
+            "KEY TEACHING MOMENT: Ask teams — 'What is the difference between Essential and Leadership indicators under SEBI BRSR? Why does SEBI distinguish them?'",
+        ],
+        "debrief_prompts": [
+            "Under NGRBC Principle 1, what does 'responsible business conduct' mean beyond legal compliance?",
+            "SEBI mandates BRSR for the top 1,000 listed companies. Why 1,000? What market signal does this threshold create?",
+            "If you chose Reactive Disclosure: you fulfilled Essential Indicators but skipped Leadership. Is that acceptable to institutional investors?",
+        ],
+    },
+    3: {
+        "brsr_round": "BRSR R2 — Workforce Well-being (NGRBC Principles 3 & 5)",
+        "banner": "🇮🇳 BRSR TRACK: Workforce well-being and living wage decisions.",
+        "facilitator_guidance": [
+            "This round tests whether teams adopt a living wage across tier-1 suppliers — a Leadership Indicator under NGRBC Principle 3.",
+            "The living wage decision connects directly to the main simulation's HR tracking — teams who neglect HR here AND in the core loop compound their workforce fragility.",
+            "Essential vs. Leadership: minimum wage compliance is Essential; living wage adoption is Leadership. The distinction mirrors SEBI's actual BRSR framework.",
+        ],
+        "debrief_prompts": [
+            "What is the difference between 'minimum wage' and 'living wage'? Why does BRSR distinguish them?",
+            "How does your BRSR workforce decision align with your core simulation HR investment strategy?",
+        ],
+    },
+    5: {
+        "brsr_round": "BRSR R3 — Environmental Footprint (NGRBC Principles 2 & 6)",
+        "banner": "🇮🇳 BRSR TRACK: Environmental stewardship and circular procurement.",
+        "facilitator_guidance": [
+            "NGRBC Principle 6 (Environment) is the most data-intensive BRSR section — circular procurement requires Scope 3 tracking infrastructure.",
+            "Teams who chose deep audit data in the core simulation (R1 Option B) will find this round easier — the data infrastructure carries over.",
+            "The 'brsr_circular_symbiosis' flag unlocks additional environmental scoring at terminal valuation.",
+        ],
+        "debrief_prompts": [
+            "How does your Scope 3 emissions strategy from the main simulation affect your BRSR environmental score?",
+            "NGRBC Principle 2 requires 'sustainability in products and services.' How do you measure that?",
+        ],
+    },
+    7: {
+        "brsr_round": "BRSR R4 — Value Chain Assurance (NGRBC Principles 4, 8 & 9)",
+        "banner": "⚠️ BRSR CRISIS WINDOW: Greenwash risk assessment. SEBI show-cause notice may trigger.",
+        "facilitator_guidance": [
+            "★ CRITICAL: If teams accumulated the 'brsr_greenwash_risk' flag in earlier rounds, the engine will autonomously inject a 'SEBI Show-Cause Notice' crisis this round.",
+            "The show-cause notice reduces Group Reputation by -12 — a severe penalty representing SEBI regulatory enforcement.",
+            "This teaches that greenwashing in BRSR disclosures has real regulatory consequences — SEBI actively monitors Leadership vs. Essential indicator mismatch.",
+            "For teams WITHOUT greenwash risk: this round rewards consistent integrity. Their value chain assurance is credible.",
+        ],
+        "debrief_prompts": [
+            "A SEBI show-cause notice is a formal regulatory escalation. What are the real-world consequences for listed companies?",
+            "How does value chain greenwashing differ from product greenwashing? Which is harder to detect?",
+            "NGRBC Principle 8 (Inclusive Growth) requires addressing community impacts. How does your supply chain affect local communities?",
+        ],
+    },
+    9: {
+        "brsr_round": "BRSR R5 — Integrated Reporting & BRSR Core (Final Assessment)",
+        "banner": "🇮🇳 BRSR TRACK FINALE: Integrated reporting and terminal BRSR assessment.",
+        "facilitator_guidance": [
+            "★ GOVERNANCE CRISIS: If 'governance_fragility' flag is active from BRSR R1, the engine injects a 'Whistleblower Governance Leak' crisis, draining $2.5M from treasury.",
+            "This is the 'long-tail' consequence — a governance shortcut taken 8 rounds ago now materialises as a crisis. Use this as the primary debrief teaching moment.",
+            "Teams achieving 'BRSR Pioneer' status earn the brsr_net_positive_dividend (+0.05 M_R) — permanently boosting their Regenerative Multiple.",
+            "Ask teams to compare their BRSR Dashboard status with their core simulation performance. Are they consistent, or is there a disconnect?",
+        ],
+        "debrief_prompts": [
+            "★ CAPSTONE: Trace the governance_fragility flag from BRSR R1 to this crisis. What was the compounding cost of the shortcut?",
+            "What does 'reasonable assurance' mean in BRSR reporting? How is it different from 'limited assurance'?",
+            "If you achieved BRSR Pioneer: what strategic decisions enabled it? Would a real company make the same choices?",
+            "How does the BRSR framework's Essential/Leadership structure compare to GRI or TCFD reporting?",
+        ],
+    },
+}
+
 @teleprompter_router.get("/teleprompter/{round_number}", summary="Get facilitator teleprompter script")
 async def get_teleprompter(round_number: int):
     script = _TELEPROMPTER_SCRIPTS.get(round_number, {
@@ -827,6 +905,15 @@ async def get_teleprompter(round_number: int):
     try:
         from pedagogical_engine import BOARD_ROOM_PROMPTS
         script["board_room_prompts"] = BOARD_ROOM_PROMPTS
+    except ImportError:
+        pass
+    # Inject BRSR NGRBC overlay if track is enabled
+    try:
+        from admin_shared import _god_mode_settings
+        if _god_mode_settings.get("brsr_ngrbc_enabled", False):
+            brsr_overlay = _BRSR_TELEPROMPTER_OVERLAYS.get(round_number)
+            if brsr_overlay:
+                script["brsr_ngrbc_overlay"] = brsr_overlay
     except ImportError:
         pass
     return {"round": round_number, "script": script}

@@ -1,8 +1,8 @@
-﻿"""
+"""
 Muressons Global Corporation — Side Track E2E Tests
 
 Comprehensive test suite covering:
-  1. All 4 tracks: registry, configs, scoring, data bridges
+  1. All 5 tracks: registry, configs, scoring, data bridges
   2. Cross-track dependency chain (SC → Ethics → Reporting)
   3. Multiplayer state isolation
   4. Aggregate leaderboard composite scoring
@@ -18,17 +18,17 @@ from side_tracks import get_track, get_track_catalog, get_all_tracks
 # ═════════════════════════════════════════════════════════════════
 
 class TestTrackRegistry(unittest.TestCase):
-    """Verify all 4 tracks register correctly."""
+    """Verify all 5 tracks register correctly."""
 
-    def test_four_tracks_registered(self):
+    def test_five_tracks_registered(self):
         tracks = get_all_tracks()
-        self.assertEqual(len(tracks), 4)
-        expected = {"supply_chain", "ethics_sustainability", "stakeholder_management", "sustainability_reporting"}
+        self.assertEqual(len(tracks), 6)
+        expected = {"supply_chain", "ethics_sustainability", "stakeholder_management", "sustainability_reporting", "corporate_sdg", "brsr_ngrbc"}
         self.assertEqual(set(tracks.keys()), expected)
 
     def test_catalog_completeness(self):
         catalog = get_track_catalog()
-        self.assertEqual(len(catalog), 4)
+        self.assertEqual(len(catalog), 6)
         for entry in catalog:
             self.assertIn("track_id", entry)
             self.assertIn("display_name", entry)
@@ -43,10 +43,10 @@ class TestTrackRegistry(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_total_rounds(self):
-        """4 tracks: 7 + 5 + 4 + 5 = 21 total rounds."""
+        """6 tracks: 7 + 5 + 4 + 5 + 5 + 5 = 31 total rounds."""
         catalog = get_track_catalog()
         total = sum(t["num_rounds"] for t in catalog)
-        self.assertEqual(total, 21)
+        self.assertEqual(total, 31)
 
 
 # ═════════════════════════════════════════════════════════════════

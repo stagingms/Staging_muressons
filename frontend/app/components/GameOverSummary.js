@@ -749,6 +749,8 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                         { id: 'ethics', label: 'Ethics & Sustainability', icon: '⚖️', scoreKey: 'ethics_final_score', gradeKey: 'ethics_grade', archetypeKey: 'ethics_archetype', completedKey: 'ethics_track_completed', mrBonusKey: 'es_track_mr_bonus', mrPenaltyKey: 'es_track_mr_penalty' },
                         { id: 'stakeholder', label: 'Stakeholder Management', icon: '🤝', scoreKey: 'stakeholder_final_score', gradeKey: 'stakeholder_grade', archetypeKey: 'stakeholder_archetype', completedKey: 'stakeholder_track_completed', mrBonusKey: 'sm_track_mr_bonus', mrPenaltyKey: 'sm_track_mr_penalty' },
                         { id: 'reporting', label: 'Sustainability Reporting', icon: '📊', scoreKey: 'reporting_final_score', gradeKey: 'reporting_grade', archetypeKey: 'reporting_archetype', completedKey: 'reporting_track_completed', mrBonusKey: 'sr_track_mr_bonus', mrPenaltyKey: 'sr_track_mr_penalty' },
+                        { id: 'corporate_sdg', label: 'Corporate SDG Alignment', icon: '🌐', scoreKey: 'sdg_impact_score', gradeKey: 'sdg_grade', archetypeKey: 'sdg_archetype', completedKey: 'sdg_track_completed', mrBonusKey: 'sdg_mr_bonus', mrPenaltyKey: 'sdg_mr_penalty' },
+                        { id: 'brsr_ngrbc', label: 'BRSR: NGRBC Deep Dive', icon: '🇮🇳', scoreKey: 'brsr_performance_score', gradeKey: 'brsr_grade', archetypeKey: 'brsr_archetype', completedKey: 'brsr_track_completed', mrBonusKey: 'brsr_net_positive_dividend', mrPenaltyKey: 'brsr_mr_penalty' },
                     ];
 
                     const completedTracks = SIDE_TRACKS.filter(t => flags[t.completedKey]);

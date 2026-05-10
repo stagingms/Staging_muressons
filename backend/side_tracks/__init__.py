@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Side Track Registry & Dispatcher
 
 Central registry for all side simulation tracks.
@@ -67,8 +67,12 @@ from side_tracks.supply_chain import SupplyChainTrack
 from side_tracks.ethics_sustainability import EthicsSustainabilityTrack
 from side_tracks.stakeholder_management import StakeholderManagementTrack
 from side_tracks.sustainability_reporting import SustainabilityReportingTrack
+from side_tracks.corporate_sdg import CorporateSDGTrack
+from side_tracks.brsr_ngrbc import BRSRNGRBCTrack
 
 register_track(SupplyChainTrack())
 register_track(EthicsSustainabilityTrack())
 register_track(StakeholderManagementTrack())
 register_track(SustainabilityReportingTrack())
+register_track(CorporateSDGTrack())
+register_track(BRSRNGRBCTrack())

@@ -558,7 +558,7 @@ def calc_greenwashing_risk(
     choice: str,
     decisions: list[dict],
     green_investment_threshold: float = 0.15,
-    penalty: float = 8.0,
+    penalty: float = 15.0,
 ) -> tuple[bool, float]:
     """
     FEATURE 16 — ESG Greenwashing Risk:
@@ -566,6 +566,7 @@ def calc_greenwashing_risk(
     average investment ratio is below green_investment_threshold,
     a greenwashing scandal is triggered.
 
+    SDG-ORCH Enhancement: Penalty upgraded from 8.0 to 15.0 (Group Reputation).
     Returns (scandal_triggered, social_license_penalty).
     """
     # Green options (A/C) are checked against the standard 15% threshold.
@@ -586,6 +587,65 @@ def calc_greenwashing_risk(
         if avg_ratio < moderate_threshold:
             return True, round(penalty * 0.5, 2)  # Half penalty for moderate choices
     return False, 0.0
+
+
+# ── 20b. Per-BU Greenwash Scandal Detection (SDG-ORCH) ─────────
+def check_bu_greenwash_scandal(
+    choice: str,
+    bu_investment_ratios: dict[str, float],
+    threshold: float = 0.15,
+) -> tuple[bool, dict]:
+    """
+    SDG-ORCH Enhancement — Per-BU Greenwash Detection:
+    If a player selects a high-impact 'A' option (Remediation, Ethical Overhaul,
+    Circularity) but maintains Average Investment Ratio < 15% for that BU,
+    trigger the Greenwashing Scandal.
+
+    Consequences:
+      - Group Reputation: -15
+      - Consequence DNA: Credibility Impairment (Leak Node, red)
+      - Auditor tolerance: set to 'Hostile' (tolerance = 0)
+
+    Args:
+        choice: The option selected (e.g., "option_a")
+        bu_investment_ratios: {bu_id: average_investment_ratio_pct}
+        threshold: Minimum ratio to avoid scandal (default 15%)
+
+    Returns:
+        (scandal_triggered, {bu_id: ratio, offending_bus: [...], penalty_details: {...}})
+    """
+    if choice != "option_a":
+        return False, {}
+
+    offending_bus = []
+    for bu_id, ratio in bu_investment_ratios.items():
+        if ratio < threshold:
+            offending_bus.append({
+                "bu_id": bu_id,
+                "investment_ratio": round(ratio, 4),
+                "gap": round(threshold - ratio, 4),
+            })
+
+    if offending_bus:
+        return True, {
+            "scandal_type": "greenwash_hypocrisy",
+            "offending_bus": offending_bus,
+            "penalty_details": {
+                "reputation_delta": -15,
+                "auditor_tolerance_override": 0,  # Set to Hostile
+                "credibility_impairment": True,    # Red DNA leak node
+                "consequence_dna_node": "credibility_impairment",
+            },
+            "narrative": (
+                "📰 GREENWASH SCANDAL: Independent analysis reveals that despite "
+                f"choosing the highest-impact option, {len(offending_bus)} Business "
+                f"Unit(s) maintained investment ratios below the {threshold*100:.0f}% "
+                "threshold. Market credibility collapses. Auditor moves to Hostile."
+            ),
+        }
+
+    return False, {}
+
 
 
 # ── 21. Macro Interest Rate Environment ─────────────────────────

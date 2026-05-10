@@ -241,6 +241,8 @@ export default function GodModeStatus({ facilitatorId }) {
                                         { key: 'decision_timer_enabled', label: '⏱️ Timer', default: false, tip: 'Cognitive pressure timer: forces decisions within a time limit. Simulates real boardroom time pressure.' },
                                         { key: 'market_dynamics_enabled', label: '📈 Market Sim', default: false, tip: 'Cross-player market dynamics for multiplayer: shared carbon credit pool, competitive talent hiring, scarcity pricing.' },
                                         { key: 'regulatory_sandbox_enabled', label: '⚖️ Reg Sandbox', default: false, tip: 'Expert-tier regulatory design: students create carbon taxes, ETS, disclosure mandates with configurable parameters.' },
+                                        { key: 'sdg_linkage_engine_enabled', label: '🌐 SDG Linkage', default: true, tip: 'BU-to-SDG materiality mapping engine. Tracks per-BU alignment to material SDGs (3,6,8,9,10,12,15) with live gap analysis and M_SDG terminal multiplier.' },
+                                        { key: 'brsr_ngrbc_enabled', label: '🇮🇳 BRSR NGRBC', default: false, tip: 'SEBI BRSR deep-dive: 5-round NGRBC track covering Governance, Workforce, Environment, Value Chain & Integrated Reporting. Injects dynamic crises (Show-Cause Notice, Governance Leak) and awards +0.05 ESG Alpha Dividend to BRSR Pioneers.' },
                                     ].map(t => (
                                         <button
                                             key={t.key}
@@ -385,6 +387,96 @@ export default function GodModeStatus({ facilitatorId }) {
                                     {h.ai_monetised_count} sessions — {h.ai_monetised_count > 0 ? 'EU AI Act costs active R7+' : 'no AI deployment'}
                                 </div>
                             </div>
+
+                            {/* SDG Orchestrator Intelligence */}
+                            {h.sdg_intelligence && (() => {
+                                const sdg = h.sdg_intelligence;
+                                return (
+                                    <div style={{
+                                        padding: '0.8rem', borderRadius: 8,
+                                        background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(0,229,195,0.04))',
+                                        border: '1px solid rgba(99,102,241,0.2)',
+                                        gridColumn: '1 / -1',
+                                    }}>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#818cf8', marginBottom: '0.5rem' }}>
+                                            🌐 SDG Orchestrator Intelligence
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.sdg_track_completions || 0}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Track Completions</div>
+                                            </div>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: '#00e5c3', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.avg_group_sdg_score?.toFixed(1) ?? '—'}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Avg SDG Score</div>
+                                            </div>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: sdg.avg_m_sdg >= 1.1 ? '#10b981' : '#f59e0b', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.avg_m_sdg?.toFixed(4) ?? '—'}×</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Avg M<sub>SDG</sub></div>
+                                            </div>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: (sdg.total_material_gaps || 0) > 5 ? '#ef4444' : '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>{sdg.total_material_gaps || 0}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Active Gaps</div>
+                                            </div>
+                                        </div>
+                                        {sdg.m_sdg_distribution && Object.keys(sdg.m_sdg_distribution).length > 0 && (
+                                            <div style={{ marginTop: '0.4rem' }}>
+                                                <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, marginBottom: '0.3rem' }}>M_SDG Distribution</div>
+                                                {Object.entries(sdg.m_sdg_distribution).map(([band, count]) => (
+                                                    <div key={band} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                                                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#c4b5fd', width: '80px' }}>{band}</span>
+                                                        <div style={{ flex: 1, height: '6px', borderRadius: 3, background: 'rgba(255,255,255,0.04)' }}>
+                                                            <div style={{ width: `${Math.min(count * 20, 100)}%`, height: '100%', borderRadius: 3, background: 'linear-gradient(90deg, #818cf8, #00e5c3)' }} />
+                                                        </div>
+                                                        <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}>{count}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
+
+                            {/* BRSR NGRBC Intelligence */}
+                            {h.brsr_intelligence && (() => {
+                                const brsr = h.brsr_intelligence;
+                                return (
+                                    <div style={{
+                                        padding: '0.8rem', borderRadius: 8,
+                                        background: 'linear-gradient(135deg, rgba(16,185,129,0.06), rgba(245,158,11,0.04))',
+                                        border: '1px solid rgba(16,185,129,0.2)',
+                                        gridColumn: '1 / -1',
+                                    }}>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#10b981', marginBottom: '0.5rem' }}>
+                                            🇮🇳 BRSR NGRBC Intelligence
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.6rem', marginBottom: '0.5rem' }}>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.brsr_track_completions || 0}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Track Completions</div>
+                                            </div>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: (brsr.pioneer_count || 0) > 0 ? '#10b981' : '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.pioneer_count || 0}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>BRSR Pioneers</div>
+                                            </div>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: (brsr.greenwash_risk_count || 0) > 0 ? '#ef4444' : '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.greenwash_risk_count || 0}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Greenwash Risk</div>
+                                            </div>
+                                            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '0.5rem', borderRadius: 6, textAlign: 'center' }}>
+                                                <div style={{ fontSize: '1rem', fontWeight: 900, color: (brsr.governance_fragility_count || 0) > 0 ? '#f59e0b' : '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>{brsr.governance_fragility_count || 0}</div>
+                                                <div style={{ fontSize: '0.58rem', color: '#94a3b8', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Gov Fragility</div>
+                                            </div>
+                                        </div>
+                                        {brsr.avg_brsr_score != null && (
+                                            <div style={{ fontSize: '0.68rem', color: '#cbd5e1', marginTop: '0.3rem' }}>
+                                                <strong style={{ color: '#10b981' }}>Avg BRSR Score:</strong>{' '}
+                                                {brsr.avg_brsr_score.toFixed(1)}/100 · <strong style={{ color: '#f59e0b' }}>Crises Injected:</strong> {brsr.crises_injected || 0}
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 );

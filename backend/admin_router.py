@@ -166,6 +166,8 @@ async def get_global_settings():
         "org_politics_enabled": _god_mode_settings.get("org_politics_enabled", True),
         "meadows_leverage_enabled": _god_mode_settings.get("meadows_leverage_enabled", True),
         "system_archetypes_enabled": _god_mode_settings.get("system_archetypes_enabled", True),
+        # BRSR NGRBC Track
+        "brsr_ngrbc_enabled": _god_mode_settings.get("brsr_ngrbc_enabled", False),
     }
 
 class GlobalSettingsPatch(BaseModel):
@@ -234,6 +236,8 @@ class GlobalSettingsPatch(BaseModel):
     org_politics_enabled: bool | None = None
     meadows_leverage_enabled: bool | None = None
     system_archetypes_enabled: bool | None = None
+    # BRSR NGRBC Track
+    brsr_ngrbc_enabled: bool | None = None
 
 @admin_router.patch("/global-settings", summary="Update global simulation settings (Sim Switchboard)")
 async def patch_global_settings(body: GlobalSettingsPatch, _guard: None = Depends(require_super_admin)):
@@ -286,6 +290,8 @@ async def get_scaffolding_status():
         ("regulatory_sandbox_enabled", "⚖️ Reg Sandbox", False),
         ("meadows_leverage_enabled", "🎯 Leverage Pts", True),
         ("system_archetypes_enabled", "🔄 Archetypes", True),
+        # BRSR NGRBC
+        ("brsr_ngrbc_enabled", "🇮🇳 BRSR NGRBC", False),
     ]
     features = []
     for key, label, default in scaffolding_keys:
@@ -4263,6 +4269,46 @@ async def get_audit_log():
 #  GOD MODE — System Status / Overview (#5)
 # ═════════════════════════════════════════════════════════════════
 
+def _aggregate_brsr_intelligence(all_sessions: dict):
+    """Aggregate BRSR NGRBC track intelligence across all sessions."""
+    if not _god_mode_settings.get("brsr_ngrbc_enabled", False):
+        return None
+    completions = 0
+    pioneer_count = 0
+    greenwash_count = 0
+    fragility_count = 0
+    crises_injected = 0
+    brsr_scores = []
+    for sid, sess in all_sessions.items():
+        gs = sess.get("global_state")
+        if not gs:
+            continue
+        flags = gs.get("active_event_flags", {})
+        if flags.get("brsr_track_completed"):
+            completions += 1
+        if flags.get("brsr_pioneer"):
+            pioneer_count += 1
+        if flags.get("brsr_greenwash_risk"):
+            greenwash_count += 1
+        if flags.get("governance_fragility"):
+            fragility_count += 1
+        if flags.get("brsr_greenwash_crisis"):
+            crises_injected += 1
+        if flags.get("brsr_governance_crisis"):
+            crises_injected += 1
+        score = flags.get("brsr_performance_score")
+        if score is not None:
+            brsr_scores.append(score)
+    return {
+        "brsr_track_completions": completions,
+        "pioneer_count": pioneer_count,
+        "greenwash_risk_count": greenwash_count,
+        "governance_fragility_count": fragility_count,
+        "crises_injected": crises_injected,
+        "avg_brsr_score": sum(brsr_scores) / max(len(brsr_scores), 1) if brsr_scores else None,
+    }
+
+
 @admin_router.get("/god/system-status", summary="System-wide status overview")
 async def get_system_status():
     """Aggregate stats across all sessions for the God Mode overview."""
@@ -4356,6 +4402,8 @@ async def get_system_status():
             "avg_scope3_completeness": round(sum(scope3_completeness_vals) / max(len(scope3_completeness_vals), 1), 1) if scope3_completeness_vals else None,
             "ai_monetised_count": ai_monetised_count,
             "retraining_outcomes": retraining_triggered,
+            # BRSR NGRBC intelligence
+            "brsr_intelligence": _aggregate_brsr_intelligence(all_sessions),
         },
     }
 

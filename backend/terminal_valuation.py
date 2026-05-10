@@ -41,6 +41,9 @@ def calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness,
     if avg_burnout < 20:
         mr += 0.05; breakdown["wellbeing_bonus"] = 0.05
         bonuses.append("Wellbeing Champion (+0.05)")
+    if flags.get("planet_expendable"):
+        mr -= 0.20; breakdown["planet_expendable_penalty"] = -0.20
+        bonuses.append("Planet Expendable Penalty (-0.20)")
     if avg_slo < 75:
         mr -= 0.40; breakdown["instability_discount"] = -0.40
         bonuses.append("Instability Discount (-0.40)")
@@ -50,22 +53,45 @@ def calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness,
             bonuses.append(f"{k.replace('_',' ').title()} ({v:+.2f})")
     mr = round(max(0.0, mr), 4)
     return {"mr": mr, "breakdown": breakdown, "jt_scaling_factor": jt_scaling,
-            "bonuses_earned": bonuses, "max_achievable_mr": 2.08}
+            "bonuses_earned": bonuses, "max_achievable_mr": 2.28}
+
+
+# ── SDG Multiplier (M_SDG) ──
+def calculate_sdg_multiplier(sdg_impact_score: float = 0.0) -> dict:
+    """
+    M_SDG = 1.0 + (SDG_Impact_Score / 100) × 0.25
+
+    SDG Impact Score is accumulated from the Corporate SDG Side Track.
+    Range: -11 (all Option C) to 105 (all Option A).
+    M_SDG range: 0.97 to 1.26.
+    Sessions without the SDG Side Track default to score=0 → M_SDG=1.0 (neutral).
+    """
+    m_sdg = round(1.0 + (sdg_impact_score / 100.0) * 0.25, 4)
+    return {
+        "m_sdg": m_sdg,
+        "sdg_impact_score": sdg_impact_score,
+        "sdg_track_active": sdg_impact_score != 0.0,
+    }
 
 # ── Terminal Value ──
 def calculate_terminal_value(bus, mr, carbon_tax_per_ton=250.0,
                              exit_multiple=12.0, green_fund_balance=0.0,
-                             is_advanced_climate=False):
+                             is_advanced_climate=False, sdg_impact_score=0.0):
     gross = sum(bu["revenue_base"] - bu["opex_base"] for bu in bus)
     tco2e = round(sum(bu.get("carbon_intensity", 0) * bu["revenue_base"] / 1e6 for bu in bus), 1)
     cc = round(tco2e * carbon_tax_per_ton, 2)
     ebitda = round(gross - cc, 2)
     base = ebitda + (green_fund_balance if is_advanced_climate else 0)
-    tv = round(base * exit_multiple * mr, 2)
+    sdg_result = calculate_sdg_multiplier(sdg_impact_score)
+    m_sdg = sdg_result["m_sdg"]
+    tv = round(base * exit_multiple * mr * m_sdg, 2)
     return {"gross_profit": round(gross, 2), "tco2e_emissions": tco2e, "carbon_cost": cc,
             "carbon_tax_per_ton": carbon_tax_per_ton, "terminal_ebitda": ebitda,
             "green_fund_included": green_fund_balance if is_advanced_climate else 0,
-            "exit_multiple": exit_multiple, "regenerative_multiple": mr, "terminal_value": tv}
+            "exit_multiple": exit_multiple, "regenerative_multiple": mr,
+            "sdg_multiplier": m_sdg, "sdg_impact_score": sdg_impact_score,
+            "sdg_track_active": sdg_result["sdg_track_active"],
+            "terminal_value": tv}
 
 # ── Archetype Determination ──
 _THRESHOLDS = {"regenerative_titan": 1.8, "derisked_safe_haven": 1.2, "fragile_giant": 0.8}

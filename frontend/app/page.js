@@ -40,6 +40,8 @@ const PolicyWarRoom = dynamic(() => import('./components/PolicyWarRoom'), { ssr:
 const ESGRefinancingSimulator = dynamic(() => import('./components/ESGRefinancingSimulator'), { ssr: false });
 const CircularStrategyDashboard = dynamic(() => import('./components/CircularStrategyDashboard'), { ssr: false });
 const SideTrackPanel = dynamic(() => import('./components/SideTrackPanel'), { ssr: false });
+const SDGAlignmentRadar = dynamic(() => import('./components/SDGAlignmentRadar'), { ssr: false });
+const BRSRDashboard = dynamic(() => import('./components/BRSRDashboard'), { ssr: false });
 const InlinePodcastPlayer = dynamic(() => import('./components/InlinePodcastPlayer'), { ssr: false });
 
 // ── Per-round AI Podcast transcripts (Dr. Priya Sharma + Prof. James Walker) ─
@@ -283,6 +285,8 @@ export default function CockpitPage() {
   const [peerComparisonOpen, setPeerComparisonOpen] = useState(false);
   const [analyticsOpen, setAnalyticsOpen] = useState(false);
   const [sideTracksOpen, setSideTracksOpen] = useState(false);
+  const [sdgRadarOpen, setSdgRadarOpen] = useState(false);
+  const [brsrDashboardOpen, setBrsrDashboardOpen] = useState(false);
   const [sideTrackInfo, setSideTrackInfo] = useState(null); // { count, unlocked, blocking_track_id }
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false); // Phase 2.1: delayed until after glimpse
@@ -698,6 +702,14 @@ export default function CockpitPage() {
         }
       }
 
+      if (sim.events?.brsr_greenwash_crisis) {
+        addMsg(`evt-brsr-gw-${roundNumber}`, '💧 SEBI Show-Cause Notice', sim.events.brsr_greenwash_crisis);
+      }
+
+      if (sim.events?.brsr_governance_crisis) {
+        addMsg(`evt-brsr-gov-${roundNumber}`, '⛔ Governance Leak', sim.events.brsr_governance_crisis);
+      }
+
       return changed ? msgs : prev;
     });
   }, [roundNumber, sim.events]);
@@ -1057,6 +1069,8 @@ export default function CockpitPage() {
                 { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
                 { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
                 { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
+                { icon: '🌐', label: 'SDG Radar', shortcut: null, onClick: () => setSdgRadarOpen(true) },
+                { icon: '🇮🇳', label: 'BRSR', shortcut: null, onClick: () => setBrsrDashboardOpen(true) },
                 { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
                 { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound' : 'Muted', shortcut: null, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
                 { icon: '👋', label: 'Log Out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
@@ -1140,6 +1154,27 @@ export default function CockpitPage() {
       {/* ═══ SIDE TRACK PANEL ═══ */}
       {sideTracksOpen && sim.sessionId && (
         <SideTrackPanel sessionId={sim.sessionId} onClose={() => setSideTracksOpen(false)} />
+      )}
+
+      {/* ═══ SDG ALIGNMENT RADAR ═══ */}
+      {sdgRadarOpen && sim.sessionId && (
+        <SDGAlignmentRadar
+          sessionId={sim.sessionId}
+          globalState={globalState}
+          buStates={businessUnits}
+          isOpen={sdgRadarOpen}
+          onClose={() => setSdgRadarOpen(false)}
+        />
+      )}
+
+      {/* ═══ BRSR DASHBOARD ═══ */}
+      {brsrDashboardOpen && sim.sessionId && (
+        <BRSRDashboard
+          sessionId={sim.sessionId}
+          globalState={globalState}
+          isOpen={brsrDashboardOpen}
+          onClose={() => setBrsrDashboardOpen(false)}
+        />
       )}
 
       {/* ═══ CRISIS ALERTS (auto-trigger + manual inject) ═══ */}
