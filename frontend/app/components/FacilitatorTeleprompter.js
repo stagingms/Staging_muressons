@@ -872,6 +872,71 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     </div>
                 </>
             )}
+            {/* ── BRSR NGRBC Overlay (when track is enabled) ── */}
+            {script.brsr_ngrbc_overlay && (() => {
+                const bo = script.brsr_ngrbc_overlay;
+                return (
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(251,146,60,0.08), rgba(16,185,129,0.05))',
+                        border: '1px solid rgba(251,146,60,0.22)',
+                        borderRadius: '10px', padding: '1rem',
+                        borderLeft: '3px solid #fb923c',
+                    }}>
+                        {sectionLabel('🇮🇳', bo.brsr_round || 'BRSR NGRBC Track', '#fb923c')}
+                        {bo.banner && (
+                            <div style={{
+                                padding: '0.5rem 0.75rem', borderRadius: '7px',
+                                background: 'rgba(251,146,60,0.08)', border: '1px solid rgba(251,146,60,0.15)',
+                                fontSize: '0.78rem', fontWeight: 700, color: '#fdba74',
+                                marginBottom: '0.75rem', lineHeight: 1.4,
+                            }}>
+                                {bo.banner}
+                            </div>
+                        )}
+                        {bo.facilitator_guidance?.length > 0 && (
+                            <div style={{ marginBottom: '0.75rem' }}>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#fb923c', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                    Facilitator Guidance — BRSR
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    {bo.facilitator_guidance.map((point, i) => (
+                                        <div key={i} style={{
+                                            padding: '0.45rem 0.65rem', borderRadius: '6px',
+                                            background: point.startsWith('KEY') || point.startsWith('★') ? 'rgba(251,146,60,0.06)' : 'rgba(255,255,255,0.02)',
+                                            borderLeft: `2px solid ${point.startsWith('KEY') || point.startsWith('★') ? 'rgba(251,146,60,0.4)' : 'rgba(251,146,60,0.15)'}`,
+                                            fontSize: '0.78rem', color: 'var(--text-secondary, #94a3b8)',
+                                            lineHeight: 1.5,
+                                            fontWeight: point.startsWith('KEY') || point.startsWith('★') ? 600 : 400,
+                                        }}>
+                                            {point}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        {bo.debrief_prompts?.length > 0 && (
+                            <div>
+                                <div style={{ fontSize: '0.62rem', fontWeight: 800, color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.4rem' }}>
+                                    BRSR Debrief Prompts
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                    {bo.debrief_prompts.map((prompt, i) => (
+                                        <div key={i} style={{
+                                            padding: '0.45rem 0.65rem', borderRadius: '6px',
+                                            background: 'rgba(16,185,129,0.04)',
+                                            borderLeft: '2px solid rgba(16,185,129,0.3)',
+                                            fontSize: '0.75rem', color: '#a7f3d0',
+                                            fontStyle: 'italic', lineHeight: 1.5,
+                                        }}>
+                                            &ldquo;{prompt}&rdquo;
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* ── Journey Improvement Guidance (Phase 6 Mechanics) ── */}
             {(() => {

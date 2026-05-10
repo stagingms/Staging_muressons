@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import styles from './DashboardHome.module.css';
 import { formatSessionId } from '../utils/sessionUtils';
+import { fmtCompact } from '../utils/formatCurrency';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -40,11 +41,8 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
         };
     }, [leaderboard]);
 
-    const formatCurrency = (val) => {
-        if (val >= 1_000_000) return `$${(val / 1_000_000).toFixed(1)}M`;
-        if (val >= 1_000) return `$${(val / 1_000).toFixed(0)}K`;
-        return `$${val.toFixed(0)}`;
-    };
+    // EX-3: Uses standardized formatCurrency utility
+    const formatCurrency = fmtCompact;
 
     // ── Round Briefing Data ──
     const currentRound = useMemo(() => {

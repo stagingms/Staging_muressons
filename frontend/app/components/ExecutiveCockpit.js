@@ -196,44 +196,33 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
 
   const toggle = (key) => setOpen(prev => ({ ...prev, [key]: !prev[key] }));
 
-  const cardStyle = {
-    borderRadius: 8, marginBottom: 10, overflow: 'hidden',
-    border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(15,23,42,0.6)',
-  };
-  const headerStyle = (accent) => ({
-    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-    padding: '7px 10px', cursor: 'pointer', userSelect: 'none',
-    background: `rgba(${accent},0.08)`, borderBottom: `1px solid rgba(${accent},0.15)`,
-  });
-  const labelStyle = { fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' };
-  const bodyStyle = { padding: '8px 10px', fontSize: '0.7rem', color: '#94a3b8', lineHeight: 1.5 };
-
+  // AC-4: Migrated from inline styles to CSS module classes
   const Bar = ({ value, max = 100, color }) => (
-    <div style={{ height: 5, background: 'rgba(255,255,255,0.06)', borderRadius: 3, overflow: 'hidden', margin: '3px 0 6px' }}>
-      <div style={{ height: '100%', width: `${Math.min(100, (value / max) * 100)}%`, background: color, borderRadius: 3, transition: 'width 0.5s ease' }} />
+    <div className={styles.ewBarTrack}>
+      <div className={styles.ewBarFill} style={{ width: `${Math.min(100, (value / max) * 100)}%`, background: color }} />
     </div>
   );
 
   const Pill = ({ label, value, good }) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-      <span style={{ fontSize: '0.65rem', color: '#64748b' }}>{label}</span>
-      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: good ? '#10b981' : '#f59e0b' }}>{value}</span>
+    <div className={styles.ewPill}>
+      <span className={styles.ewPillLabel}>{label}</span>
+      <span className={styles.ewPillValue} style={{ color: good ? '#10b981' : '#f59e0b' }}>{value}</span>
     </div>
   );
 
   const noEngine = (name) => (
-    <div style={{ ...bodyStyle, textAlign: 'center', opacity: 0.45, fontStyle: 'italic' }}>
+    <div className={styles.ewNoEngine}>
       {name} engine not active this session.
     </div>
   );
 
   // Friction #5: Loading skeleton
   const skeleton = () => (
-    <div style={{ ...bodyStyle }}>
-      <div style={{ height: 8, width: '80%', borderRadius: 4, background: 'rgba(255,255,255,0.06)', marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
-      <div style={{ height: 5, width: '100%', borderRadius: 3, background: 'rgba(255,255,255,0.04)', marginBottom: 6 }} />
-      <div style={{ height: 8, width: '60%', borderRadius: 4, background: 'rgba(255,255,255,0.06)', marginBottom: 8 }} />
-      <div style={{ height: 5, width: '100%', borderRadius: 3, background: 'rgba(255,255,255,0.04)' }} />
+    <div className={styles.ewSkeleton}>
+      <div className={styles.ewSkeletonBar} style={{ height: 8, width: '80%', marginBottom: 8 }} />
+      <div className={styles.ewSkeletonBarNarrow} style={{ width: '100%' }} />
+      <div className={styles.ewSkeletonBar} style={{ height: 8, width: '60%', marginBottom: 8 }} />
+      <div className={styles.ewSkeletonBarNarrow} style={{ width: '100%' }} />
     </div>
   );
 
@@ -244,13 +233,13 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
       </div>
 
       {/* ── Biodiversity ── */}
-      <div style={cardStyle}>
-        <div style={headerStyle('16,185,129')} onClick={() => toggle('bio')}>
-          <span style={{ ...labelStyle, color: '#34d399' }}>🌿 Biodiversity</span>
-          <span style={{ fontSize: '0.6rem', color: '#475569' }}>{open.bio ? '▲' : '▼'}</span>
+      <div className={styles.ewCard}>
+        <div className={styles.ewHeader} style={{ background: 'rgba(16,185,129,0.08)', borderBottom: '1px solid rgba(16,185,129,0.15)' }} onClick={() => toggle('bio')}>
+          <span className={styles.ewLabel} style={{ color: '#34d399' }}>🌿 Biodiversity</span>
+          <span className={styles.ewChevron}>{open.bio ? '▲' : '▼'}</span>
         </div>
         {open.bio && (bio ? (
-          <div style={bodyStyle}>
+          <div className={styles.ewBody}>
             <Pill label="Ecosystem Health Index" value={`${(bio.ehi ?? bio.ecosystem_health_index ?? 0).toFixed(1)} / 100`} good={(bio.ehi ?? bio.ecosystem_health_index ?? 0) >= 60} />
             <Bar value={bio.ehi ?? bio.ecosystem_health_index ?? 0} color="#34d399" />
             <Pill label="Deforestation Risk" value={(bio.deforestation_risk ?? 'Low')} good={(bio.deforestation_risk ?? 'Low') === 'Low'} />
@@ -268,13 +257,13 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
       </div>
 
       {/* ── Board Governance ── */}
-      <div style={cardStyle}>
-        <div style={headerStyle('99,102,241')} onClick={() => toggle('board')}>
-          <span style={{ ...labelStyle, color: '#818cf8' }}>🏛️ Board Governance</span>
-          <span style={{ fontSize: '0.6rem', color: '#475569' }}>{open.board ? '▲' : '▼'}</span>
+      <div className={styles.ewCard}>
+        <div className={styles.ewHeader} style={{ background: 'rgba(99,102,241,0.08)', borderBottom: '1px solid rgba(99,102,241,0.15)' }} onClick={() => toggle('board')}>
+          <span className={styles.ewLabel} style={{ color: '#818cf8' }}>🏛️ Board Governance</span>
+          <span className={styles.ewChevron}>{open.board ? '▲' : '▼'}</span>
         </div>
         {open.board && (board ? (
-          <div style={bodyStyle}>
+          <div className={styles.ewBody}>
             <Pill label="ESG Alignment Score" value={`${(board.esg_alignment_score ?? board.board_esg_score ?? 0).toFixed(1)} / 100`} good={(board.esg_alignment_score ?? board.board_esg_score ?? 0) >= 60} />
             <Bar value={board.esg_alignment_score ?? board.board_esg_score ?? 0} color="#818cf8" />
             <Pill label="Board Confidence" value={`${(board.board_confidence ?? 0).toFixed(1)}%`} good={(board.board_confidence ?? 0) >= 60} />
@@ -288,13 +277,13 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
       </div>
 
       {/* ── Supply Chain ── */}
-      <div style={cardStyle}>
-        <div style={headerStyle('245,158,11')} onClick={() => toggle('supply')}>
-          <span style={{ ...labelStyle, color: '#fbbf24' }}>🔗 Supply Chain</span>
-          <span style={{ fontSize: '0.6rem', color: '#475569' }}>{open.supply ? '▲' : '▼'}</span>
+      <div className={styles.ewCard}>
+        <div className={styles.ewHeader} style={{ background: 'rgba(245,158,11,0.08)', borderBottom: '1px solid rgba(245,158,11,0.15)' }} onClick={() => toggle('supply')}>
+          <span className={styles.ewLabel} style={{ color: '#fbbf24' }}>🔗 Supply Chain</span>
+          <span className={styles.ewChevron}>{open.supply ? '▲' : '▼'}</span>
         </div>
         {open.supply && (supply ? (
-          <div style={bodyStyle}>
+          <div className={styles.ewBody}>
             <Pill label="Scope 3 Completeness" value={`${(supply.scope3_completeness ?? supply.data_completeness ?? 0).toFixed(0)}%`} good={(supply.scope3_completeness ?? supply.data_completeness ?? 0) >= 60} />
             <Bar value={supply.scope3_completeness ?? supply.data_completeness ?? 0} color="#fbbf24" />
             <Pill label="Tier 1 Compliance" value={`${(supply.tier1_compliance ?? 0).toFixed(0)}%`} good={(supply.tier1_compliance ?? 0) >= 70} />
@@ -309,10 +298,10 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
       </div>
 
       {/* ── Balance Sheet (CL-2: Compact summary + modal for full IFRS view) ── */}
-      <div style={cardStyle}>
-        <div style={headerStyle('56,189,248')} onClick={() => toggle('bs')}>
-          <span style={{ ...labelStyle, color: '#38bdf8' }}>📊 Balance Sheet</span>
-          <span style={{ fontSize: '0.6rem', color: '#475569' }}>{open.bs ? '▲' : '▼'}</span>
+      <div className={styles.ewCard}>
+        <div className={styles.ewHeader} style={{ background: 'rgba(56,189,248,0.08)', borderBottom: '1px solid rgba(56,189,248,0.15)' }} onClick={() => toggle('bs')}>
+          <span className={styles.ewLabel} style={{ color: '#38bdf8' }}>📊 Balance Sheet</span>
+          <span className={styles.ewChevron}>{open.bs ? '▲' : '▼'}</span>
         </div>
         {open.bs && (balanceSheet ? (() => {
           const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
@@ -323,7 +312,7 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
           const covenantStatus = balanceSheet.covenant_status || 'green';
           const covenantColors = { green: '#10b981', amber: '#f59e0b', red: '#ef4444', breached: '#dc2626' };
           return (
-            <div style={{ ...bodyStyle }}>
+            <div className={styles.ewBody}>
               {/* Compact 3-line summary */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>

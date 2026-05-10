@@ -5842,6 +5842,14 @@ async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...)):
     if invalid:
         raise HTTPException(400, f"Unknown track IDs: {sorted(invalid)}")
 
+    # Auto-derive timing from track available_window if not explicitly provided
+    from side_tracks import get_track as _get_st
+    for tid in tracks:
+        if tid not in timing:
+            t = _get_st(tid)
+            if t:
+                timing[tid] = {"unlock_after_round": t.available_window[0] - 1}
+
     # Store on the session
     sess["active_side_tracks"] = tracks
     sess["side_track_timing"] = timing  # e.g. {"supply_chain": {"unlock_after_round": 3}}
@@ -5859,6 +5867,11 @@ async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...)):
                 "accumulated_flags": [],
             }
     sess["side_track_states"] = existing_states
+
+    # Auto-enable God Mode flag for BRSR when the track is assigned
+    if "brsr_ngrbc" in tracks and not _god_mode_settings.get("brsr_ngrbc_enabled"):
+        _god_mode_settings["brsr_ngrbc_enabled"] = True
+
     _persist()
 
     return {

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import styles from './LeaderboardMatrix.module.css';
 import { Abbr } from './Glossary';
+import { fmtM } from '../utils/formatCurrency';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -123,7 +124,7 @@ export default function LeaderboardMatrix({
                                     <td className={styles.mono}>{sess.round_number}/10</td>
                                     <td className={styles.mono}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            <span>${(sess.terminal_value / 1_000_000).toFixed(1)}M</span>
+                                            <span>{fmtM(sess.terminal_value)}</span>
                                             {sess.sparkline && sess.sparkline.length > 1 && (
                                                 <svg width="60" height="20" viewBox={`0 0 60 20`} style={{ overflow: 'visible' }}>
                                                     <polyline
@@ -144,7 +145,7 @@ export default function LeaderboardMatrix({
                                         </div>
                                     </td>
                                     <td className={styles.mono}>
-                                        ${(sess.total_cash / 1_000_000).toFixed(1)}M
+                                        {fmtM(sess.total_cash)}
                                     </td>
                                     <td className={styles.mono}>
                                         {sess.group_synergy.toFixed(2)}×

@@ -29,7 +29,7 @@
   --ck-surface-1: #0e1222;
   --ck-surface-2: rgba(255,255,255,0.03);
   --ck-border: rgba(148,163,184,0.08);
-  --ck-radius: 8px;
+  --ck-radius: var(--radius-sm, 8px); /* AC-5: Unified with global radius scale */
   --ck-danger: #f87171;
   --ck-success: #4ade80;
 }
@@ -2641,4 +2641,108 @@
   color: var(--ck-text-3);
   padding: 2px 8px;
   opacity: 0.6;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   AC-4: Engine Widgets Panel — CSS Module Classes
+   Replaces inline style={{}} objects with proper CSS classes.
+   ═══════════════════════════════════════════════════════════ */
+.ewCard {
+  border-radius: var(--ck-radius);
+  margin-bottom: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(15,23,42,0.6);
+}
+
+.ewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.ewLabel {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ewBody {
+  padding: 8px 10px;
+  font-size: 0.7rem;
+  color: var(--ck-text-2);
+  line-height: 1.5;
+}
+
+.ewChevron {
+  font-size: 0.6rem;
+  color: var(--ck-text-3);
+}
+
+/* Bar gauge */
+.ewBarTrack {
+  height: 5px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 3px 0 6px;
+}
+
+.ewBarFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+/* Pill metric row */
+.ewPill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.ewPillLabel {
+  font-size: 0.65rem;
+  color: var(--ck-text-3);
+}
+
+.ewPillValue {
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+/* No engine placeholder */
+.ewNoEngine {
+  composes: ewBody;
+  text-align: center;
+  opacity: 0.45;
+  font-style: italic;
+}
+
+/* Loading skeleton */
+.ewSkeleton {
+  composes: ewBody;
+}
+
+.ewSkeletonBar {
+  border-radius: 4px;
+  background: rgba(255,255,255,0.06);
+  animation: skeletonPulse 1.5s ease-in-out infinite;
+}
+
+.ewSkeletonBarNarrow {
+  height: 5px;
+  border-radius: 3px;
+  background: rgba(255,255,255,0.04);
+  margin-bottom: 6px;
+}
+
+@keyframes skeletonPulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
 }

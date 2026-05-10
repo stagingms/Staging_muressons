@@ -921,7 +921,18 @@ async def get_teleprompter(round_number: int):
 
 @teleprompter_router.get("/teleprompter", summary="Get all teleprompter scripts")
 async def get_all_teleprompter():
-    return {"scripts": _TELEPROMPTER_SCRIPTS}
+    import copy
+    scripts = copy.deepcopy(_TELEPROMPTER_SCRIPTS)
+    # Inject BRSR NGRBC overlay into scripts when enabled
+    try:
+        from admin_shared import _god_mode_settings
+        if _god_mode_settings.get("brsr_ngrbc_enabled", False):
+            for rnd, overlay in _BRSR_TELEPROMPTER_OVERLAYS.items():
+                if rnd in scripts:
+                    scripts[rnd]["brsr_ngrbc_overlay"] = overlay
+    except ImportError:
+        pass
+    return {"scripts": scripts}
 
 
 # ═══════════════════════════════════════════════════════════════

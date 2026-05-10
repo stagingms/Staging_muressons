@@ -830,6 +830,12 @@ export default function CockpitPage() {
   };
 
   const attemptCommitTurn = () => {
+    // Side track blocking gate
+    if (sideTrackInfo?.mainBlocked) {
+      setBlockAlert("A Side Track requires your attention before you can advance to the next round. Complete the active side track first.");
+      setSideTracksOpen(true);
+      return;
+    }
     if (roundNumber === 1 && !hasCompletedStakeholderMap) {
       setBlockAlert("You must complete the Stakeholder Power/Interest Grid before advancing. Click the ⚖️ Stakeholder Map button to begin.");
     } else if (roundNumber === 2 && !hasSubmittedMatrix) {

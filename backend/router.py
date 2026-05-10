@@ -868,6 +868,18 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             detail="Round is locked. Waiting for facilitator to unlock.",
         )
 
+    # ── Side track blocking gate ─────────────────────────────
+    blocking_tid, blocking_st = _get_active_side_track_for_session(session_id)
+    if blocking_tid and blocking_st and not blocking_st.get("completed"):
+        from side_tracks import get_track as _st_get
+        _st_obj = _st_get(blocking_tid)
+        _st_name = _st_obj.display_name if _st_obj else blocking_tid
+        commit_lock.release()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Side track '{_st_name}' is active and must be completed before advancing. Open the Side Tracks panel to continue.",
+        )
+
     # ── Build engine inputs ──────────────────────────────────
     current_global = {
         "round_number": current_round,
