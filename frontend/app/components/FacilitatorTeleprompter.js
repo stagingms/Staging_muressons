@@ -1235,6 +1235,24 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                             'Compare your SDG track choices with your main simulation strategy — were they consistent or contradictory?',
                         ],
                     },
+                    brsr_ngrbc: {
+                        icon: '🇮🇳', label: 'BRSR: NGRBC Deep Dive',
+                        debrief_after_round: 5,
+                        talking_points: [
+                            'BRSR-R1 Governance & Transparency (P1/P7): Option A "Radical Transparency" sets the brsr_pioneer flag — this is the Leadership Indicator path and unlocks the +0.05 ESG Alpha Dividend at terminal valuation. Ask: "What is the difference between Essential and Leadership indicators?"',
+                            'BRSR-R2 Workforce Well-being (P3/P5): Living wage adoption is a Leadership Indicator under NGRBC P3. Teams that chose minimum wage compliance fulfilled Essential but missed Leadership — discuss the real-world SEBI distinction.',
+                            'BRSR-R3 Environment & Circularity (P6/P2): Circular procurement requires Scope 3 tracking infrastructure. Teams with deep audit data from the main sim R1 had an easier time — the data infrastructure carries over.',
+                            'BRSR-R4 Value Chain Assurance (P4/P8/P9): If teams accumulated the brsr_greenwash_risk flag, the engine injects a SEBI Show-Cause Notice crisis this round (−12 Reputation). This teaches that greenwashing has real regulatory consequences.',
+                            'BRSR-R5 Integrated Reporting & BRSR Core: The governance_fragility flag from BRSR-R1 triggers a Whistleblower Governance Leak ($2.5M treasury drain). This is the "long-tail consequence" — a shortcut taken 8 rounds ago now materialises as a crisis.',
+                        ],
+                        discussion_prompts: [
+                            'Trace the governance_fragility flag from BRSR R1 to the R5 crisis. What was the compounding cost of the governance shortcut?',
+                            'How does the BRSR Essential vs. Leadership indicator structure compare to GRI or TCFD reporting frameworks?',
+                            'SEBI mandates BRSR for the top 1,000 listed companies. What market signal does this threshold create for smaller firms?',
+                            'If you achieved BRSR Pioneer status: what strategic decisions enabled it? Would a real Indian listed company make the same choices under SEBI pressure?',
+                            'How does the +0.05 ESG Alpha Dividend change your view of sustainability reporting as a "cost centre" vs. a value driver?',
+                        ],
+                    },
                 };
 
                 // Show debrief sections for all tracks (facilitator can review at any time)
