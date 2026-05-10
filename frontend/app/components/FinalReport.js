@@ -44,6 +44,9 @@ const MR_LABELS = {
     workforce_bonus: { label: 'HR Workforce Excellence', description: 'Workforce readiness ≥ 75 at terminal' },
     wellbeing_bonus: { label: 'HR Wellbeing Champion', description: 'Average burnout < 20 at terminal' },
     instability_discount: { label: 'Instability Discount', description: 'Average Social License < 75' },
+    planet_expendable_penalty: { label: 'Planet Expendable', description: 'Shadow Board: rejected activist path (−0.20)' },
+    sdg_mr_bonus: { label: 'SDG Track Bonus', description: 'Integrated Reporting M_R uplift from SDG track' },
+    brsr_esg_alpha_dividend: { label: '🇮🇳 BRSR ESG Alpha', description: 'BRSR Pioneer status: +0.05 M_R from SEBI NGRBC track' },
     max_achievable_mr: { label: 'Max Achievable', description: 'Perfect play ceiling' },
 };
 
@@ -164,6 +167,17 @@ export default function FinalReport({ data = null, onClose }) {
                             Cash reserves at game end
                         </span>
                     </div>
+                    {d.sdg_multiplier != null && d.sdg_multiplier !== 1.0 && (
+                        <div className={styles.metricCard}>
+                            <span className={styles.metricLabel}>SDG Multiplier</span>
+                            <span className={styles.metricValue} style={{ color: d.sdg_multiplier >= 1.0 ? '#818cf8' : '#ef4444' }}>
+                                {d.sdg_multiplier.toFixed(4)}×
+                            </span>
+                            <span className={styles.metricSub}>
+                                <abbr title="SDG Impact Multiplier — bonus from SDG Deep Track">M<sub>SDG</sub></abbr> = 1 + (Score/100) × 0.25
+                            </span>
+                        </div>
+                    )}
                 </section>
 
                 {/* ── MR Breakdown ────────────────────────────────── */}
@@ -284,11 +298,11 @@ export default function FinalReport({ data = null, onClose }) {
                     </h2>
                     <div className={styles.formula}>
                         <div className={styles.formulaLine}>
-                            V<sub>T</sub> = EBITDA<sub>Year 5</sub> × Exit Multiple × M<sub>R</sub>
+                            V<sub>T</sub> = EBITDA<sub>Year 5</sub> × Exit Multiple × M<sub>R</sub>{d.sdg_multiplier != null && d.sdg_multiplier !== 1.0 ? <> × M<sub>SDG</sub></> : ''}
                         </div>
                         <div className={styles.formulaLine}>
                             V<sub>T</sub> = ${(d.terminal_ebitda / 1_000_000).toFixed(2)}M × {d.exit_multiple}×
-                            {' '} × {d.regenerative_multiple.toFixed(2)}
+                            {' '} × {d.regenerative_multiple.toFixed(2)}{d.sdg_multiplier != null && d.sdg_multiplier !== 1.0 ? ` × ${d.sdg_multiplier.toFixed(4)}` : ''}
                         </div>
                         <div className={styles.formulaResult} style={{ color: theme.tagColor }}>
                             V<sub>T</sub> = ${(d.terminal_value / 1_000_000).toFixed(2)}M
@@ -349,6 +363,44 @@ export default function FinalReport({ data = null, onClose }) {
                                 </span>
                             </div>
                         )}
+                    </section>
+                )}
+
+                {/* ── SDG Track Results (SDG-ORCH) ────────────────── */}
+                {d.sdg_multiplier != null && d.sdg_multiplier !== 1.0 && (
+                    <section className={styles.carbonSection}>
+                        <h2 className={styles.sectionTitle}>
+                            <span>🌐</span> SDG Alignment Impact
+                        </h2>
+                        <div className={styles.carbonGrid}>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>SDG Impact Score</span>
+                                <span className={styles.carbonValue} style={{ color: '#818cf8' }}>
+                                    {d.sdg_impact_score ?? '—'}/105
+                                </span>
+                            </div>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>M<sub>SDG</sub> Multiplier</span>
+                                <span className={styles.carbonValue} style={{
+                                    color: d.sdg_multiplier >= 1.15 ? '#10b981' : d.sdg_multiplier >= 1.0 ? '#3b82f6' : '#ef4444'
+                                }}>
+                                    {d.sdg_multiplier.toFixed(4)}×
+                                </span>
+                            </div>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>TV Uplift from SDG</span>
+                                <span className={styles.carbonValue} style={{ color: d.sdg_multiplier >= 1.0 ? '#10b981' : '#ef4444' }}>
+                                    {d.sdg_multiplier >= 1.0 ? '+' : ''}
+                                    {((d.sdg_multiplier - 1.0) * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                            <div className={styles.carbonCard}>
+                                <span className={styles.carbonLabel}>SDG Track Status</span>
+                                <span className={styles.carbonValue} style={{ color: '#10b981' }}>
+                                    ✅ Complete
+                                </span>
+                            </div>
+                        </div>
                     </section>
                 )}
 

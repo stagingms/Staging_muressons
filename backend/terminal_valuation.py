@@ -44,6 +44,11 @@ def calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness,
     if flags.get("planet_expendable"):
         mr -= 0.20; breakdown["planet_expendable_penalty"] = -0.20
         bonuses.append("Planet Expendable Penalty (-0.20)")
+    # BRSR NGRBC Track: ESG Alpha Dividend
+    brsr_div = flags.get("brsr_net_positive_dividend", 0)
+    if brsr_div:
+        mr += brsr_div; breakdown["brsr_esg_alpha_dividend"] = brsr_div
+        bonuses.append(f"BRSR ESG Alpha Dividend (+{brsr_div:.2f})")
     if avg_slo < 75:
         mr -= 0.40; breakdown["instability_discount"] = -0.40
         bonuses.append("Instability Discount (-0.40)")
@@ -53,7 +58,7 @@ def calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness,
             bonuses.append(f"{k.replace('_',' ').title()} ({v:+.2f})")
     mr = round(max(0.0, mr), 4)
     return {"mr": mr, "breakdown": breakdown, "jt_scaling_factor": jt_scaling,
-            "bonuses_earned": bonuses, "max_achievable_mr": 2.28}
+            "bonuses_earned": bonuses, "max_achievable_mr": 2.33}
 
 
 # ── SDG Multiplier (M_SDG) ──
@@ -177,6 +182,11 @@ FLAG_DEPENDENCY_GRAPH = [
     {"source_round": 8, "flag": "electronics_water_priority", "target_round": 10, "effect": "BLOCKS +0.20 Resilience M_R bonus", "category": "risk"},
     {"source_round": 9, "flag": "community_fund", "target_round": 10, "effect": "+0.18 Community Champion M_R (xJT)", "category": "social"},
     {"source_round": 9, "flag": "managed_transition", "target_round": 10, "effect": "+0.12 Just Transition M_R (xJT)", "category": "social"},
+    # BRSR NGRBC Track
+    {"source_round": "BRSR-1", "flag": "brsr_pioneer", "target_round": 10, "effect": "Enables BRSR Pioneer archetype path", "category": "governance"},
+    {"source_round": "BRSR-1", "flag": "governance_fragility", "target_round": "BRSR-5", "effect": "Triggers Whistleblower Governance Leak (-$2.5M)", "category": "governance"},
+    {"source_round": "BRSR-4", "flag": "brsr_greenwash_risk", "target_round": "BRSR-4", "effect": "Triggers SEBI Show-Cause Notice (-12 Reputation)", "category": "risk"},
+    {"source_round": "BRSR-5", "flag": "brsr_net_positive_dividend", "target_round": 10, "effect": "+0.05 ESG Alpha Dividend M_R (BRSR Pioneer)", "category": "governance"},
 ]
 
 def get_flag_dependency_graph(active_flags=None):

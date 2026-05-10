@@ -41,6 +41,15 @@ SDG_DECISION_LABELS = {
     5: {"option_a": "ST5: Integrated Value Creation", "option_b": "ST5: Strategic Integration", "option_c": "ST5: Separate Supplement"},
 }
 
+# BRSR NGRBC Side Track decision labels
+BRSR_DECISION_LABELS = {
+    1: {"option_a": "BRSR1: Radical Transparency", "option_b": "BRSR1: Standard Compliance", "option_c": "BRSR1: Reactive Disclosure"},
+    2: {"option_a": "BRSR2: Living Wage Standard", "option_b": "BRSR2: Safety & POSH Focus", "option_c": "BRSR2: Statutory Minimums"},
+    3: {"option_a": "BRSR3: Circular Symbiosis & ZLD", "option_b": "BRSR3: Efficiency Upgrades", "option_c": "BRSR3: Regulatory Minimums"},
+    4: {"option_a": "BRSR4: Multi-Tier Assurance", "option_b": "BRSR4: Tier-1 Screening", "option_c": "BRSR4: Self-Assessment Only"},
+    5: {"option_a": "BRSR5: Integrated Report", "option_b": "BRSR5: Strategic BRSR", "option_c": "BRSR5: Compliance File"},
+}
+
 
 # ── Red DNA: Option C Consequence Nodes (Constriction/Leak) ──
 # These create visually distinct red nodes in the Consequence DNA visualizer
@@ -106,6 +115,9 @@ FLAG_METRIC_SHIFTS = {
     "brsr_living_wage": [{"metric": "social_license", "label": "Living Wage SLO ↑", "delta": 20}],
     "sdg_12_leadership": [{"metric": "natural_capital", "label": "NCD ↓", "delta": -15}],
     "brsr_circular_symbiosis": [{"metric": "natural_capital", "label": "ZLD Implemented", "delta": -20}],
+    "brsr_net_positive_dividend": [{"metric": "terminal_value", "label": "ESG Alpha Dividend (+0.05 M_R)", "delta": 5}],
+    "brsr_greenwash_crisis": [{"metric": "reputation", "label": "SEBI Show-Cause Notice (-12 Rep)", "delta": -12}],
+    "brsr_governance_crisis": [{"metric": "treasury", "label": "Governance Leak (-$2.5M)", "delta": -2500000}],
     # Shadow Board SDG-enhanced penalties
     "planet_expendable": [{"metric": "ecosystem", "label": "Ecosystem Resilience ↓ (M_R -0.20)", "delta": -20}],
 }
