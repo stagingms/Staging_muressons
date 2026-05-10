@@ -43,6 +43,12 @@ class SoundManager {
   click() { this._playTone(800, 0.05, 'sine', 0.06); }
   success() { this._playTone(523, 0.08); setTimeout(() => this._playTone(784, 0.15), 120); }
   error() { this._playTone(200, 0.2, 'sawtooth', 0.06); }
+  // EX-5: Deep ominous thrum for tipping point activation
+  tippingWarning() {
+    this._playTone(80, 0.6, 'sawtooth', 0.10);
+    setTimeout(() => this._playTone(60, 0.8, 'sawtooth', 0.08), 300);
+    setTimeout(() => this._playTone(110, 0.4, 'square', 0.06), 700);
+  }
 
   toggle() {
     this.enabled = !this.enabled;
@@ -54,5 +60,5 @@ class SoundManager {
   }
 }
 
-const soundManager = typeof window !== 'undefined' ? new SoundManager() : { commit(){}, advance(){}, alert(){}, click(){}, success(){}, error(){}, toggle(){ return false; }, enabled: false };
+const soundManager = typeof window !== 'undefined' ? new SoundManager() : { commit(){}, advance(){}, alert(){}, click(){}, success(){}, error(){}, tippingWarning(){}, toggle(){ return false; }, enabled: false };
 export default soundManager;

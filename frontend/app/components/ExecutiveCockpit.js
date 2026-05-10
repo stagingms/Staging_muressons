@@ -2,7 +2,7 @@
 import React from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ExecutiveCockpit.module.css';
@@ -46,6 +46,15 @@ import EBITDAWaterfall from './EBITDAWaterfall';
 import PlayerAnnotations from './PlayerAnnotations';
 import WhatIfSandbox from './WhatIfSandbox';
 import ShadowBoardAudit from './ShadowBoardAudit';
+import BalanceSheetModal from './BalanceSheetModal';
+import soundManager from '../utils/soundManager';
+import dynamic from 'next/dynamic';
+
+// Antigravity Enhancement: 3D ESG Impact Constellation (code-split)
+const ESGImpactConstellation = dynamic(() => import('./ESGImpactConstellation'), {
+  ssr: false,
+  loading: () => null,
+});
 
 // AI Board Member Personas (Improvement #4.2)
 const BOARD_PERSONAS = {
@@ -148,7 +157,9 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
   const [board, setBoard] = useState(null);
   const [supply, setSupply] = useState(null);
   const [balanceSheet, setBalanceSheet] = useState(null);
+  const [bsModalOpen, setBsModalOpen] = useState(false); // CL-2: Balance Sheet Modal
   const [open, setOpen] = useState({ bio: true, board: false, supply: false, bs: true });
+  const [enginesLoaded, setEnginesLoaded] = useState(false); // Friction #5: track initial load
 
   useEffect(() => {
     if (!sessionId) return;
@@ -164,6 +175,9 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
     // Balance Sheet
     fetch(`${API}/api/simulations/${sessionId}/balance-sheet`)
       .then(r => r.ok ? r.json() : null).then(d => d && setBalanceSheet(d.balance_sheet || d)).catch(() => {});
+    // Mark engines as loaded after a short delay (covers network round-trip)
+    const t = setTimeout(() => setEnginesLoaded(true), 600);
+    return () => clearTimeout(t);
   }, [sessionId]);
 
   // Re-sync balance sheet after each commit (so sidebar panel shows latest)
@@ -213,6 +227,16 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
     </div>
   );
 
+  // Friction #5: Loading skeleton
+  const skeleton = () => (
+    <div style={{ ...bodyStyle }}>
+      <div style={{ height: 8, width: '80%', borderRadius: 4, background: 'rgba(255,255,255,0.06)', marginBottom: 8, animation: 'pulse 1.5s ease-in-out infinite' }} />
+      <div style={{ height: 5, width: '100%', borderRadius: 3, background: 'rgba(255,255,255,0.04)', marginBottom: 6 }} />
+      <div style={{ height: 8, width: '60%', borderRadius: 4, background: 'rgba(255,255,255,0.06)', marginBottom: 8 }} />
+      <div style={{ height: 5, width: '100%', borderRadius: 3, background: 'rgba(255,255,255,0.04)' }} />
+    </div>
+  );
+
   return (
     <div style={{ paddingTop: 4 }}>
       <div style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
@@ -240,7 +264,7 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
               </div>
             )}
           </div>
-        ) : noEngine('Biodiversity'))}
+        ) : (!enginesLoaded ? skeleton() : noEngine('Biodiversity')))}
       </div>
 
       {/* ── Board Governance ── */}
@@ -260,7 +284,7 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
               </div>
             )}
           </div>
-        ) : noEngine('Board Governance'))}
+        ) : (!enginesLoaded ? skeleton() : noEngine('Board Governance')))}
       </div>
 
       {/* ── Supply Chain ── */}
@@ -281,10 +305,10 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
               </div>
             )}
           </div>
-        ) : noEngine('Supply Chain'))}
+        ) : (!enginesLoaded ? skeleton() : noEngine('Supply Chain')))}
       </div>
 
-      {/* ── Balance Sheet ── */}
+      {/* ── Balance Sheet (CL-2: Compact summary + modal for full IFRS view) ── */}
       <div style={cardStyle}>
         <div style={headerStyle('56,189,248')} onClick={() => toggle('bs')}>
           <span style={{ ...labelStyle, color: '#38bdf8' }}>📊 Balance Sheet</span>
@@ -292,173 +316,62 @@ function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
         </div>
         {open.bs && (balanceSheet ? (() => {
           const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
-          const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `$${((v || 0) / 1_000).toFixed(0)}K`;
           const totalAssets = balanceSheet.total_assets || 0;
           const totalLiabilities = balanceSheet.total_liabilities || 0;
           const netAssets = balanceSheet.net_assets || 0;
           const deRatio = balanceSheet.debt_to_equity || 0;
           const covenantStatus = balanceSheet.covenant_status || 'green';
-          const ndEbitda = balanceSheet.net_debt_to_ebitda || 0;
-          const strandedExposure = balanceSheet.stranded_asset_exposure || 0;
-
           const covenantColors = { green: '#10b981', amber: '#f59e0b', red: '#ef4444', breached: '#dc2626' };
-          const covenantLabels = { green: '🟢 Comfortable', amber: '🟡 Watch List', red: '🔴 Breach (Cure Period)', breached: '🚨 Acceleration' };
-
-          const ta = balanceSheet.tangible_assets || {};
-          const ia = balanceSheet.intangible_assets || {};
-          const ca = balanceSheet.current_assets || {};
-          const ncl = balanceSheet.non_current_liabilities || {};
-          const cl = balanceSheet.current_liabilities || {};
-
-          const totalTangible = Object.values(ta).reduce((s, v) => s + (v || 0), 0);
-          const totalIntangible = Object.values(ia).reduce((s, v) => s + (v || 0), 0);
-          const totalCurrent = Object.values(ca).reduce((s, v) => s + (v || 0), 0);
-          const totalNCL = Object.values(ncl).reduce((s, v) => s + (v || 0), 0);
-          const totalCL = Object.values(cl).reduce((s, v) => s + (v || 0), 0);
-          const totalEquity = (balanceSheet.share_capital || 0) + (balanceSheet.retained_earnings || 0) + (balanceSheet.other_reserves || 0);
-
-          // Line item row helper
-          const lineRow = (label, value, opts = {}) => (
-            <div style={{
-              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              padding: opts.bold ? '3px 0' : '1px 0',
-              borderTop: opts.topBorder ? '1px solid var(--border-subtle, rgba(148,163,184,0.2))' : 'none',
-              borderBottom: opts.bottomBorder ? '1px double var(--border-subtle, rgba(148,163,184,0.3))' : 'none',
-            }}>
-              <span style={{
-                fontSize: opts.bold ? '0.62rem' : '0.58rem',
-                fontWeight: opts.bold ? 800 : 500,
-                color: opts.color || (opts.bold ? 'var(--text-primary, #e2e8f0)' : 'var(--text-secondary, #334155)'),
-                paddingLeft: opts.indent ? 12 : 0,
-              }}>{label}</span>
-              <span style={{
-                fontSize: opts.bold ? '0.65rem' : '0.58rem',
-                fontWeight: opts.bold ? 800 : 600,
-                fontFamily: "'JetBrains Mono', monospace",
-                color: opts.color || (opts.bold ? 'var(--text-primary, #e2e8f0)' : 'var(--text-primary, #1e293b)'),
-              }}>{typeof value === 'number' ? fmtK(value) : value}</span>
-            </div>
-          );
-
-          // Section header
-          const sectionHeader = (label, icon) => (
-            <div style={{
-              fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
-              letterSpacing: '0.08em', color: 'var(--text-muted, #475569)', marginTop: 8, marginBottom: 3,
-              display: 'flex', alignItems: 'center', gap: 4,
-            }}>{icon} {label}</div>
-          );
-
           return (
-            <div style={{ ...bodyStyle, maxHeight: 520, overflowY: 'auto' }}>
-              {/* Title */}
-              <div style={{ textAlign: 'center', fontSize: '0.65rem', fontWeight: 800, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6, borderBottom: '2px solid rgba(56,189,248,0.2)', paddingBottom: 4 }}>
-                Statement of Financial Position
-              </div>
-
-              {/* ═══ ASSETS ═══ */}
-              {sectionHeader('Non-Current Assets', '🏭')}
-              {lineRow('Property, Plant & Equipment', ta.property_plant_equipment, { indent: true })}
-              {lineRow('Right-of-Use Assets (IFRS 16)', ta.right_of_use_assets, { indent: true })}
-              {lineRow('Inventory', ta.inventory, { indent: true })}
-              {lineRow('Total Tangible Assets', totalTangible, { bold: true, topBorder: true })}
-
-              {sectionHeader('Intangible Assets', '💎')}
-              {lineRow('Brand Value', ia.brand_value, { indent: true })}
-              {lineRow('Intellectual Property', ia.intellectual_property, { indent: true })}
-              {lineRow('Goodwill', ia.goodwill, { indent: true })}
-              {lineRow('Social Licence (IAS 38)', ia.social_licence_asset, { indent: true })}
-              {lineRow('Reputation Capital', ia.reputation_asset, { indent: true })}
-              {lineRow('Total Intangible Assets', totalIntangible, { bold: true, topBorder: true })}
-
-              {sectionHeader('Current Assets', '💵')}
-              {lineRow('Cash & Equivalents', ca.cash_and_equivalents, { indent: true, color: (ca.cash_and_equivalents || 0) < 0 ? '#f87171' : '#4ade80' })}
-              {lineRow('Trade Receivables', ca.trade_receivables, { indent: true })}
-              {lineRow('Prepayments', ca.prepayments, { indent: true })}
-              {lineRow('Total Current Assets', totalCurrent, { bold: true, topBorder: true })}
-
-              {lineRow('TOTAL ASSETS', totalAssets, { bold: true, topBorder: true, bottomBorder: true, color: '#38bdf8' })}
-
-              {/* ═══ LIABILITIES ═══ */}
-              {sectionHeader('Non-Current Liabilities', '🏦')}
-              {lineRow('Revolving Credit Facility', ncl.revolving_credit_facility, { indent: true })}
-              {lineRow('Green Bonds Outstanding', ncl.green_bonds_outstanding, { indent: true, color: (ncl.green_bonds_outstanding || 0) > 0 ? '#10b981' : undefined })}
-              {lineRow('Environmental Provisions', ncl.environmental_provisions, { indent: true })}
-              {lineRow('Decommissioning Obligations', ncl.decommissioning_obligations, { indent: true })}
-              {lineRow('Lease Liabilities (IFRS 16)', ncl.lease_liabilities, { indent: true })}
-              {lineRow('Total Non-Current Liabilities', totalNCL, { bold: true, topBorder: true })}
-
-              {sectionHeader('Current Liabilities', '📋')}
-              {lineRow('Trade Payables', cl.trade_payables, { indent: true })}
-              {lineRow('Tax Provisions', cl.tax_provisions, { indent: true })}
-              {lineRow('Accrued Remediation', cl.accrued_remediation, { indent: true })}
-              {lineRow('Short-Term Debt', cl.short_term_debt, { indent: true })}
-              {lineRow('Total Current Liabilities', totalCL, { bold: true, topBorder: true })}
-
-              {lineRow('TOTAL LIABILITIES', totalLiabilities, { bold: true, topBorder: true, bottomBorder: true, color: '#f87171' })}
-
-              {/* ═══ EQUITY ═══ */}
-              {sectionHeader('Shareholders\' Equity', '🏛️')}
-              {lineRow('Share Capital', balanceSheet.share_capital, { indent: true })}
-              {lineRow('Retained Earnings', balanceSheet.retained_earnings, { indent: true, color: (balanceSheet.retained_earnings || 0) < 0 ? '#f87171' : undefined })}
-              {lineRow('Other Reserves', balanceSheet.other_reserves, { indent: true })}
-              {lineRow('TOTAL EQUITY', totalEquity, { bold: true, topBorder: true, bottomBorder: true, color: '#a78bfa' })}
-
-              {lineRow('NET ASSETS (= Equity)', netAssets, { bold: true, topBorder: true, color: netAssets >= 0 ? '#4ade80' : '#ef4444' })}
-
-              {/* ═══ KEY RATIOS ═══ */}
-              <div style={{ marginTop: 10, padding: '6px 8px', borderRadius: 6, background: 'rgba(56,189,248,0.05)', border: '1px solid rgba(56,189,248,0.1)' }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted, #475569)', marginBottom: 4 }}>📐 Key Ratios</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
-                  <Pill label="Debt / Equity" value={`${deRatio.toFixed(2)}×`} good={deRatio < 2.0} />
-                  <Pill label="ND / EBITDA" value={`${ndEbitda.toFixed(2)}×`} good={ndEbitda <= 2.5} />
+            <div style={{ ...bodyStyle }}>
+              {/* Compact 3-line summary */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Assets</span>
+                  <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#38bdf8' }}>{fmtM(totalAssets)}</span>
                 </div>
-                {strandedExposure > 0 && (
-                  <>
-                    <Pill label="Stranded Asset Exposure" value={fmtM(strandedExposure)} good={false} />
-                    <Bar value={Math.min(100, (strandedExposure / (totalAssets || 1)) * 100)} color="#f59e0b" />
-                  </>
-                )}
-              </div>
-
-              {/* Covenant Status Badge */}
-              <div style={{
-                marginTop: 6, padding: '5px 8px', borderRadius: 5,
-                background: `${covenantColors[covenantStatus]}15`,
-                border: `1px solid ${covenantColors[covenantStatus]}30`,
-                fontSize: '0.65rem', fontWeight: 700,
-                color: covenantColors[covenantStatus],
-                display: 'flex', alignItems: 'center', gap: 5,
-              }}>
-                <span>Covenant:</span>
-                <span>{covenantLabels[covenantStatus] || covenantStatus}</span>
-              </div>
-
-              {/* Historical trend mini-chart */}
-              {balanceSheet.balance_sheet_history?.length > 1 && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>Net Assets Trend</div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 28 }}>
-                    {balanceSheet.balance_sheet_history.map((h, i) => {
-                      const maxNA = Math.max(...balanceSheet.balance_sheet_history.map(x => Math.abs(x.net_assets || 1)));
-                      const pct = Math.max(4, Math.abs(h.net_assets || 0) / maxNA * 100);
-                      const isNeg = (h.net_assets || 0) < 0;
-                      return (
-                        <div key={i} title={`R${h.round}: ${fmtM(h.net_assets)}`} style={{
-                          flex: 1, height: `${pct}%`, borderRadius: 2, minHeight: 3,
-                          background: isNeg ? '#ef4444' : '#38bdf8',
-                          opacity: 0.6 + (i / balanceSheet.balance_sheet_history.length) * 0.4,
-                          transition: 'height 0.4s ease',
-                        }} />
-                      );
-                    })}
-                  </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
+                  <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Liabilities</span>
+                  <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#f87171' }}>{fmtM(totalLiabilities)}</span>
                 </div>
-              )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: 3 }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>Net Assets</span>
+                  <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: netAssets >= 0 ? '#4ade80' : '#ef4444' }}>{fmtM(netAssets)}</span>
+                </div>
+              </div>
+              {/* Quick ratio pills */}
+              <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
+                <Pill label="D/E" value={`${deRatio.toFixed(1)}×`} good={deRatio < 2.0} />
+                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: covenantColors[covenantStatus], padding: '2px 6px', borderRadius: 4, background: `${covenantColors[covenantStatus]}15`, border: `1px solid ${covenantColors[covenantStatus]}25` }}>
+                  {covenantStatus === 'green' ? '🟢' : covenantStatus === 'amber' ? '🟡' : '🔴'} Covenant
+                </span>
+              </div>
+              {/* Open full modal button */}
+              <button
+                onClick={() => setBsModalOpen(true)}
+                style={{
+                  marginTop: 8, width: '100%', padding: '5px 0', borderRadius: 5,
+                  background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)',
+                  color: '#38bdf8', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer',
+                  fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.04em',
+                  transition: 'background 0.15s',
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(56,189,248,0.15)'}
+                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(56,189,248,0.08)'}
+              >
+                📊 View Full Statement →
+              </button>
             </div>
           );
-        })() : noEngine('Balance Sheet'))}
+        })() : (!enginesLoaded ? skeleton() : noEngine('Balance Sheet')))}
       </div>
+
+      {/* CL-2: Balance Sheet Full Modal */}
+      <BalanceSheetModal
+        balanceSheet={balanceSheet}
+        isOpen={bsModalOpen}
+        onClose={() => setBsModalOpen(false)}
+      />
     </div>
   );
 }
@@ -569,6 +482,7 @@ export default function ExecutiveCockpit({
 
   // ── Consequence DNA Visualizer (pop-out) ─────────────────
   const [showDNAVisualizer, setShowDNAVisualizer] = useState(false);
+  const [showConstellation, setShowConstellation] = useState(false); // Antigravity Enhancement
   const dnaIgnited = shadowBoardCompleted || !!globalState?.active_event_flags?.shadow_board_completed;
 
   // Trigger shadow board when R5 briefing is dismissed
@@ -689,6 +603,15 @@ export default function ExecutiveCockpit({
   const costOfCapital = globalState?.cost_of_capital || 0.05;
   const tippingPointActive = globalState?.tipping_point_active || false;
   const pendingProjects = globalState?.pending_capex_projects || [];
+
+  // EX-5: Play tipping point warning sound on activation (false → true transition)
+  const prevTippingRef = useRef(false);
+  useEffect(() => {
+    if (tippingPointActive && !prevTippingRef.current) {
+      soundManager.tippingWarning();
+    }
+    prevTippingRef.current = tippingPointActive;
+  }, [tippingPointActive]);
 
   // PHASE-3: Extract ESG WACC and tipping state for Command Center components
   const esgWacc = events?.esg_adjusted_wacc || commitResults?.events?.esg_adjusted_wacc || null;
@@ -2104,10 +2027,36 @@ export default function ExecutiveCockpit({
 
             {/* Consequence DNA Visualizer Trigger (Sankey pop-out) */}
             {roundNumber >= 4 && (
-              <ConsequenceDNATrigger
-                ignited={dnaIgnited}
-                onClick={() => setShowDNAVisualizer(true)}
-              />
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <ConsequenceDNATrigger
+                  ignited={dnaIgnited}
+                  onClick={() => setShowDNAVisualizer(true)}
+                />
+                {/* Antigravity: 3D Constellation Trigger */}
+                <button
+                  onClick={() => setShowConstellation(true)}
+                  style={{
+                    padding: '6px 14px',
+                    background: 'linear-gradient(135deg, rgba(94,234,212,0.08), rgba(129,140,248,0.08))',
+                    border: '1px solid rgba(94,234,212,0.2)',
+                    borderRadius: 8,
+                    color: '#5eead4',
+                    fontSize: '0.68rem',
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    letterSpacing: '0.04em',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 5,
+                  }}
+                  onMouseEnter={(e) => { e.target.style.borderColor = 'rgba(94,234,212,0.4)'; e.target.style.boxShadow = '0 0 12px rgba(94,234,212,0.15)'; }}
+                  onMouseLeave={(e) => { e.target.style.borderColor = 'rgba(94,234,212,0.2)'; e.target.style.boxShadow = 'none'; }}
+                  data-tooltip="Open 3D ESG Impact Constellation — visualize causal chains across all rounds"
+                >
+                  🌐 3D Constellation
+                </button>
+              </div>
             )}
 
             {/* Consequence DNA Visualizer Pop-Out */}
@@ -2117,6 +2066,15 @@ export default function ExecutiveCockpit({
               onClose={() => setShowDNAVisualizer(false)}
               frozen={false}
             />
+
+            {/* Antigravity Enhancement: 3D ESG Impact Constellation */}
+            {showConstellation && (
+              <ESGImpactConstellation
+                history={history}
+                currentRound={roundNumber}
+                onClose={() => setShowConstellation(false)}
+              />
+            )}
 
             {/* Phase 3.7: Terminal Valuation Calculator (R9-10 Finale tier) */}
             <TerminalValuationCalc
@@ -2350,29 +2308,46 @@ export default function ExecutiveCockpit({
             </div>
 
             {/* Tab Content */}
-            <div style={{ padding: '8px 12px', overflowY: 'auto', flex: 1 }}>
+            <div key={rightPanelTab} className={styles.tabContentEnter} style={{ padding: '8px 12px', overflowY: 'auto', flex: 1 }}>
               {rightPanelTab === 'mailbox' ? (
                 <>
                   <div className={styles.mailboxTitle}>
                     Round {roundNumber}
                     {unreadCount > 0 && <span className={styles.mailboxBadge}>{unreadCount}</span>}
                   </div>
-                  {currentMessages.map((msg) => (
+                  {currentMessages.map((msg) => {
+                    // NF-2: Determine severity for visual differentiation
+                    const persona = getPersona(msg);
+                    const isCritical = persona === BOARD_PERSONAS.crisis ||
+                      (msg.title || '').toLowerCase().includes('crisis') ||
+                      (msg.title || '').toLowerCase().includes('removal') ||
+                      (msg.title || '').toLowerCase().includes('ultimatum');
+                    const isWarning = persona === BOARD_PERSONAS.legal ||
+                      (msg.title || '').toLowerCase().includes('warning') ||
+                      (msg.title || '').toLowerCase().includes('alert') ||
+                      (msg.title || '').toLowerCase().includes('risk');
+                    const severityClass = isCritical ? styles.msgSeverityCritical
+                      : isWarning ? styles.msgSeverityWarning
+                      : '';
+                    return (
                     <div
                       key={msg.id}
-                      className={styles.feedItem}
+                      className={`${styles.feedItem} ${severityClass}`}
                       onClick={() => { onMarkRead?.(msg.id); setExpandedMessage(msg); }}
                       style={{ cursor: 'pointer', opacity: msg.read ? 0.6 : 1 }}
                     >
                       {/* Improvement #4.2: AI Personas */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                        <span style={{ fontSize: '0.7rem' }}>{getPersona(msg).avatar}</span>
-                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: getPersona(msg).color }}>{getPersona(msg).name}</span>
+                        <span style={{ fontSize: '0.7rem' }}>{persona.avatar}</span>
+                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: persona.color }}>{persona.name}</span>
+                        {isCritical && <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#ef4444', background: 'rgba(239,68,68,0.1)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em' }}>URGENT</span>}
+                        {isWarning && !isCritical && <span style={{ fontSize: '0.55rem', fontWeight: 800, color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '1px 5px', borderRadius: 3, letterSpacing: '0.06em' }}>ALERT</span>}
                       </div>
                       <strong style={{ fontSize: '0.68rem', color: '#0f172a' }}>{msg.title}</strong>
                       <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#334155' }}>{msg.body?.substring(0, 120)}...</p>
                     </div>
-                  ))}
+                    );
+                  })}
                   {currentMessages.length === 0 && (
                     <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center' }}>No messages this round</div>
                   )}

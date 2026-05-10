@@ -541,7 +541,9 @@ def process_agent_tick(
             base_decay = profile["patience_decay_rate"] * (1 + severity)
             # Apply inter-agent interference multiplier (1.0 if none active)
             interference_mult = interference_mults.get(agent_id, 1.0)
-            decay = base_decay * interference_mult
+            # SDG-ORCH: Apply shadow board decay modifier (e.g. +20% for shareholder rejection)
+            sb_modifier = agent_state.get("shadow_board_decay_modifier", 1.0)
+            decay = base_decay * interference_mult * sb_modifier
             agent_state["tolerance"] = max(0, round(old_tolerance - decay, 1))
             agent_state["patience_counter"] += 1
             agent_state["recovery_counter"] = 0

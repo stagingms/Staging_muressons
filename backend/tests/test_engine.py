@@ -653,11 +653,11 @@ class TestTechnologyLockin:
 
 class TestGreenwashingRisk:
     def test_greenwashing_option_b(self):
-        """Option B with zero investment triggers greenwashing (10% threshold, 4 SLO penalty)."""
+        """Option B with zero investment triggers greenwashing (10% threshold, 7.5 SLO penalty)."""
         decs = [{"bu_id": "a", "investment_ratio": 0.0}]
         hit, penalty = calc_greenwashing_risk("option_b", decs)
         assert hit is True
-        assert penalty == 4.0  # Half penalty for option_b
+        assert penalty == 7.5  # Half penalty for option_b (15.0 / 2)
 
     def test_greenwashing_triggered(self):
         """Green choice + low investment = scandal."""
@@ -667,7 +667,7 @@ class TestGreenwashingRisk:
         ]
         hit, penalty = calc_greenwashing_risk("option_a", decs)
         assert hit is True
-        assert penalty == 8.0
+        assert penalty == 15.0  # SDG-ORCH upgraded penalty
 
     def test_no_greenwashing_with_investment(self):
         """Green choice + high investment = no scandal."""

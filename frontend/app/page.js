@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import styles from './page.module.css';
+import cockpitStyles from './components/ExecutiveCockpit.module.css';
 import dynamic from 'next/dynamic';
 
 import ExecutiveCockpit from './components/ExecutiveCockpit';
@@ -844,6 +845,9 @@ export default function CockpitPage() {
     }
   };
 
+  // EX-2/NF-4: Commit Ceremony state
+  const [showCommitCeremony, setShowCommitCeremony] = useState(false);
+
 
   // ── Main Cockpit ──────────────────────────────────────────
   if (!isHydrated) {
@@ -1330,7 +1334,15 @@ export default function CockpitPage() {
                 }}
               >← Go Back & Edit</button>
               <button
-                onClick={() => { setShowReviewModal(false); handleCommitTurn(); }}
+                onClick={() => {
+                  setShowReviewModal(false);
+                  // EX-2/NF-4: Show commit ceremony overlay
+                  setShowCommitCeremony(true);
+                  setTimeout(() => {
+                    setShowCommitCeremony(false);
+                    handleCommitTurn();
+                  }, 800);
+                }}
                 style={{
                   flex: 1, padding: '10px 0',
                   background: 'linear-gradient(135deg, #16a34a, #15803d)',
@@ -1341,6 +1353,16 @@ export default function CockpitPage() {
               >✅ Confirm & Submit</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* EX-2/NF-4: Commit Ceremony Overlay */}
+      {showCommitCeremony && (
+        <div className={cockpitStyles.commitCeremony}>
+          <div className={cockpitStyles.commitPulseRing}>
+            <span style={{ fontSize: '1.6rem' }}>✅</span>
+          </div>
+          <span className={cockpitStyles.commitProcessingText}>Processing Decision...</span>
         </div>
       )}
 

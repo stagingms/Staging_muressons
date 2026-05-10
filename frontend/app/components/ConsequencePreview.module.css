@@ -1,9 +1,9 @@
-/* ConsequencePreview.module.css */
+/* ConsequencePreview.module.css — AC-3/QW-2: Uses CSS variables for proper theming */
 
 .previewContainer {
-  background: rgba(15, 23, 42, 0.75);
+  background: var(--glass-bg, rgba(15, 23, 42, 0.75));
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  border: 1px solid var(--glass-border, rgba(148, 163, 184, 0.15));
   border-radius: 16px;
   padding: 18px;
   position: relative;
@@ -17,7 +17,7 @@
 }
 .emptyState {
   display: flex; flex-direction: column; align-items: center;
-  gap: 8px; padding: 30px 20px; color: #64748b;
+  gap: 8px; padding: 30px 20px; color: var(--text-muted, #64748b);
   font-size: 13px; text-align: center;
 }
 .emptyIcon { font-size: 28px; opacity: 0.5; }
@@ -26,7 +26,7 @@
   margin-bottom: 14px;
 }
 .previewTitle {
-  font-size: 14px; font-weight: 600; color: #e2e8f0; margin: 0;
+  font-size: 14px; font-weight: 600; color: var(--text-primary, #e2e8f0); margin: 0;
 }
 .optionBadge {
   padding: 3px 10px; border-radius: 6px; font-size: 11px; font-weight: 700;
@@ -34,18 +34,18 @@
 }
 .section { margin-bottom: 14px; }
 .sectionTitle {
-  font-size: 11px; font-weight: 600; color: #94a3b8; margin: 0 0 8px;
+  font-size: 11px; font-weight: 600; color: var(--text-muted, #94a3b8); margin: 0 0 8px;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 .impactRow {
   display: flex; align-items: center; gap: 8px; padding: 3px 0;
 }
 .impactLabel {
-  font-size: 11px; color: #94a3b8; width: 120px; flex-shrink: 0;
+  font-size: 11px; color: var(--text-muted, #94a3b8); width: 120px; flex-shrink: 0;
   text-transform: capitalize; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .impactBarTrack {
-  flex: 1; height: 8px; background: rgba(148,163,184,0.08);
+  flex: 1; height: 8px; background: var(--border-subtle, rgba(148,163,184,0.08));
   border-radius: 4px; position: relative; overflow: hidden;
 }
 .impactBarFill {
@@ -64,19 +64,19 @@
   display: flex; align-items: center; gap: 8px; padding: 5px 8px;
   border-radius: 6px; font-size: 12px; margin-bottom: 4px;
 }
-.severity_critical { background: rgba(239,68,68,0.1); border-left: 3px solid #ef4444; }
-.severity_high { background: rgba(245,158,11,0.1); border-left: 3px solid #f59e0b; }
-.severity_medium { background: rgba(59,130,246,0.1); border-left: 3px solid #3b82f6; }
-.reactionNpc { color: #e2e8f0; font-weight: 600; }
-.reactionAction { color: #94a3b8; margin-left: auto; }
+.severity_critical { background: rgba(239,68,68,0.1); border-left: 3px solid var(--gauge-red, #ef4444); }
+.severity_high { background: rgba(245,158,11,0.1); border-left: 3px solid var(--gauge-yellow, #f59e0b); }
+.severity_medium { background: rgba(59,130,246,0.1); border-left: 3px solid var(--accent-blue, #3b82f6); }
+.reactionNpc { color: var(--text-primary, #e2e8f0); font-weight: 600; }
+.reactionAction { color: var(--text-muted, #94a3b8); margin-left: auto; }
 .tippingRow {
   display: flex; align-items: center; gap: 8px; padding: 3px 0;
 }
 .tippingLabel {
-  font-size: 11px; color: #94a3b8; width: 70px; text-transform: capitalize;
+  font-size: 11px; color: var(--text-muted, #94a3b8); width: 70px; text-transform: capitalize;
 }
 .tippingTrack {
-  flex: 1; height: 6px; background: rgba(148,163,184,0.1);
+  flex: 1; height: 6px; background: var(--border-subtle, rgba(148,163,184,0.1));
   border-radius: 3px; overflow: hidden;
 }
 .tippingFill {
@@ -88,13 +88,13 @@
   text-transform: capitalize;
 }
 .mrProjection {
-  background: rgba(30,41,59,0.5); border-radius: 8px; padding: 10px 12px;
+  background: var(--bg-elevated, rgba(30,41,59,0.5)); border-radius: 8px; padding: 10px 12px;
 }
 .mrRow {
   display: flex; justify-content: space-between; padding: 3px 0;
-  font-size: 12px; color: #94a3b8;
+  font-size: 12px; color: var(--text-muted, #94a3b8);
 }
-.mrValue { font-weight: 700; color: #e2e8f0; }
+.mrValue { font-weight: 700; color: var(--text-primary, #e2e8f0); }
 .mrDelta { font-weight: 700; font-size: 14px; }
 .framingBadge {
   margin-top: 10px; padding: 6px 10px; border-radius: 6px;
@@ -102,12 +102,10 @@
   font-size: 11px; color: #fcd34d; text-align: center;
 }
 
-/* Light mode */
-@media (prefers-color-scheme: light) {
-  .previewContainer { background: rgba(255,255,255,0.85); border-color: rgba(148,163,184,0.25); }
-  .previewTitle { color: #1e293b; }
-  .impactLabel { color: #64748b; }
-  .reactionNpc { color: #1e293b; }
-  .mrProjection { background: rgba(241,245,249,0.6); }
-  .mrValue { color: #1e293b; }
-}
+/* Light mode — uses data-theme attribute (QW-2 fix) */
+:global([data-theme="light"]) .previewContainer { background: rgba(255,255,255,0.85); border-color: rgba(148,163,184,0.25); }
+:global([data-theme="light"]) .previewTitle { color: #1e293b; }
+:global([data-theme="light"]) .impactLabel { color: #64748b; }
+:global([data-theme="light"]) .reactionNpc { color: #1e293b; }
+:global([data-theme="light"]) .mrProjection { background: rgba(241,245,249,0.6); }
+:global([data-theme="light"]) .mrValue { color: #1e293b; }

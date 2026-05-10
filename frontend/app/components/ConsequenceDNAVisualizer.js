@@ -552,6 +552,47 @@ export default function ConsequenceDNAVisualizer({
                   </text>
                 </g>
               ))}
+
+              {/* ── Red DNA Nodes (Option C Consequences) ── */}
+              {(data.red_dna_nodes || []).map((node, i) => {
+                const redX = COL_X[1] + NODE_W + 5;
+                const badgeOffset = (data.archetype_badges || []).length * 18;
+                const redY = 35 + badgeOffset + 8 + i * 30;
+                const isConstriction = node.subtype === 'constriction';
+                return (
+                  <g key={node.id} style={{ cursor: 'default' }}>
+                    {isConstriction ? (
+                      /* Constriction: Pulsing red circle with ⛔ */
+                      <>
+                        <circle
+                          cx={redX + 10} cy={redY + 8} r={9}
+                          fill="rgba(239, 68, 68, 0.15)" stroke="#ef4444" strokeWidth={1.5}
+                          style={{ animation: 'pulse 2s infinite' }}
+                        />
+                        <text x={redX + 10} y={redY + 12} textAnchor="middle" fontSize="8" fill="#ef4444">
+                          ⛔
+                        </text>
+                      </>
+                    ) : (
+                      /* Leak: Red diamond with 💧 */
+                      <>
+                        <polygon
+                          points={`${redX + 10},${redY} ${redX + 20},${redY + 8} ${redX + 10},${redY + 16} ${redX},${redY + 8}`}
+                          fill="rgba(239, 68, 68, 0.12)" stroke="#ef4444" strokeWidth={1.5}
+                          style={{ animation: 'pulse 2.5s infinite' }}
+                        />
+                        <text x={redX + 10} y={redY + 12} textAnchor="middle" fontSize="7" fill="#ef4444">
+                          💧
+                        </text>
+                      </>
+                    )}
+                    <text x={redX + 24} y={redY + 12} fontSize="8" fontWeight="700" fill="#ef4444"
+                          fontFamily="var(--font-mono, monospace)">
+                      {truncate(node.label, 24)}
+                    </text>
+                  </g>
+                );
+              })}
             </svg>
           )}
 
@@ -584,6 +625,14 @@ export default function ConsequenceDNAVisualizer({
               </span>
               <span className={styles.statLabel}>Active Conflicts</span>
             </div>
+            {(data?.red_dna_nodes || []).length > 0 && (
+              <div className={styles.stat}>
+                <span className={styles.statValue} style={{ color: '#ef4444' }}>
+                  {(data.red_dna_nodes || []).length}
+                </span>
+                <span className={styles.statLabel} style={{ color: '#fca5a5' }}>Red DNA Nodes</span>
+              </div>
+            )}
           </div>
           <div className={styles.mrProjection}>
             <div>

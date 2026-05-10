@@ -213,6 +213,34 @@
     color: var(--gauge-red);
 }
 
+/* CL-5: Impact bar visualization */
+.impactBarWrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex: 1;
+    justify-content: flex-end;
+    position: relative;
+}
+
+.impactBar {
+    height: 4px;
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    flex-shrink: 0;
+    max-width: 60px;
+}
+
+.barPos {
+    background: var(--gauge-green, #10b981);
+    opacity: 0.6;
+}
+
+.barNeg {
+    background: var(--gauge-red, #ef4444);
+    opacity: 0.6;
+}
+
 /* ── Selected Badge ──────────────────────────────────────────── */
 .selectedBadge {
     position: absolute;

@@ -20,6 +20,14 @@ import styles from './ShadowBoardAudit.module.css';
  *   - globalState:  current game state (for pre-check)
  */
 export default function ShadowBoardAudit({ sessionId, onComplete, globalState }) {
+  // ── SDG Tension: live M_SDG projection for the intercept panel ──
+  const flags = globalState?.active_event_flags || {};
+  const sdgTrackScore = flags.sdg_impact_score ?? null;
+  const sdgTrackActive = sdgTrackScore !== null;
+  const sdgHistoricalScore = sdgTrackScore ?? 0;
+  const mSdgCurrent = 1.0 + (sdgHistoricalScore / 100.0) * 0.25;
+  const mSdgWithPerfectR5 = 1.0 + ((sdgHistoricalScore + 20) / 100.0) * 0.25; // +20 from option_a
+  const mSdgUplift = Math.round((mSdgWithPerfectR5 - mSdgCurrent) * 10000) / 10000;
   const API = process.env.NEXT_PUBLIC_API_URL || '';
 
   const [phase, setPhase] = useState('loading'); // 'loading' | 'personas' | 'confirming' | 'result'
@@ -285,6 +293,59 @@ export default function ShadowBoardAudit({ sessionId, onComplete, globalState })
             </div>
           </div>
         </div>
+
+        {/* ── SDG Tension Panel (Fix 6) — shown if SDG track is active ── */}
+        {sdgTrackActive && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(0,229,195,0.05))',
+            border: '1px solid rgba(99,102,241,0.25)',
+            borderRadius: '12px',
+            padding: '1rem 1.25rem',
+            marginBottom: '1.2rem',
+            borderLeft: '4px solid #6366f1',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '1.1rem' }}>🌐</span>
+                <div>
+                  <div style={{ fontSize: '0.72rem', fontWeight: 800, color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.1em' }}>SDG Deep Track — Intercept Alert</div>
+                  <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: '1px' }}>Your SDG trajectory is visible to institutional investors. One round remains.</div>
+                </div>
+              </div>
+            </div>
+
+            {/* M_SDG trajectory cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginBottom: '0.75rem' }}>
+              <div style={{ textAlign: 'center', padding: '0.6rem', borderRadius: '8px', background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                <div style={{ fontSize: '0.58rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>SDG Score (R1–R4)</div>
+                <div style={{ fontSize: '1rem', fontWeight: 900, color: sdgHistoricalScore >= 60 ? '#10b981' : sdgHistoricalScore >= 35 ? '#f59e0b' : '#ef4444', fontFamily: "'JetBrains Mono', monospace" }}>{sdgHistoricalScore}/85</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '0.6rem', borderRadius: '8px', background: 'rgba(0,0,0,0.15)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                <div style={{ fontSize: '0.58rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Current M<sub>SDG</sub></div>
+                <div style={{ fontSize: '1rem', fontWeight: 900, color: '#3b82f6', fontFamily: "'JetBrains Mono', monospace" }}>{mSdgCurrent.toFixed(4)}×</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '0.6rem', borderRadius: '8px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)' }}>
+                <div style={{ fontSize: '0.58rem', color: '#10b981', fontWeight: 700, textTransform: 'uppercase', marginBottom: '2px' }}>Max M<sub>SDG</sub> (ST-R5 A)</div>
+                <div style={{ fontSize: '1rem', fontWeight: 900, color: '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>{mSdgWithPerfectR5.toFixed(4)}×</div>
+              </div>
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ marginBottom: '0.5rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontSize: '0.6rem', color: '#64748b' }}>SDG Alignment Progress</span>
+                <span style={{ fontSize: '0.6rem', color: '#818cf8', fontWeight: 700 }}>{Math.round((sdgHistoricalScore / 85) * 100)}% of R1–R4 max</span>
+              </div>
+              <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{ height: '100%', width: `${Math.min(100, (sdgHistoricalScore / 85) * 100)}%`, background: 'linear-gradient(90deg, #6366f1, #00e5c3)', borderRadius: '3px', transition: 'width 0.8s ease' }} />
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.72rem', color: '#a78bfa', fontStyle: 'italic', borderLeft: '2px solid rgba(99,102,241,0.3)', paddingLeft: '0.6rem' }}>
+              🎯 <strong>Integrated Reporting (ST-R5)</strong> is your final SDG decision. Choosing <em>Integrated Value Creation</em> (Option A) can lift M<sub>SDG</sub> by <strong style={{ color: '#10b981' }}>+{mSdgUplift.toFixed(4)}×</strong> — stacking multiplicatively with M<sub>R</sub> at terminal valuation.
+            </div>
+          </div>
+        )}
 
         {/* Personas */}
         <div className={styles.personasSection}>

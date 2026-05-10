@@ -608,11 +608,26 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             ⚠️ R1 Audit Gap Active
                         </span>
                     )}
-                    <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>
+                    <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', minWidth: '140px' }}>
                         <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', fontWeight: 700 }}>Placed</span>
                         <span style={{ fontWeight: 700, fontSize: '0.9rem', color: hasEnoughPlaced ? '#4ade80' : '#f59e0b' }}>
-                            {placedCount} / {MIN_PLACED}+
+                            {placedCount} / {issues.length} issues
                         </span>
+                        {/* CL-4: Visual completion bar */}
+                        <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 2, marginTop: 3, overflow: 'hidden' }}>
+                            <div style={{
+                                height: '100%', borderRadius: 2,
+                                width: `${Math.min(100, (placedCount / Math.max(1, issues.length)) * 100)}%`,
+                                background: hasEnoughPlaced ? '#4ade80' : '#f59e0b',
+                                transition: 'width 0.3s ease, background 0.3s ease',
+                            }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.4rem', marginTop: 2, fontSize: '0.58rem', color: '#64748b' }}>
+                            <span>Q1:{containers.q1.length}</span>
+                            <span>Q2:{containers.q2.length}</span>
+                            <span>Q3:{containers.q3.length}</span>
+                            <span>Q4:{containers.q4.length}</span>
+                        </div>
                     </div>
                     {/* Fix 7: Budget counter with animated connection */}
                     <div style={{ padding: '0 0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center' }}>

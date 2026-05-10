@@ -828,6 +828,207 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     );
                 })()}
 
+                {/* ── SDG Terminal Valuation Waterfall (Fix 7) ── */}
+                {(() => {
+                    const flags = globalState?.active_event_flags || {};
+                    const sdgScore = flags.sdg_impact_score;
+                    const sdgCompleted = flags.sdg_track_completed;
+                    if (!sdgCompleted && sdgScore == null) return null;
+
+                    const safeScore = sdgScore ?? 0;
+                    const mSdg = 1.0 + (safeScore / 100.0) * 0.25;
+                    const mR = d.regenerative_multiple || 1.0;
+                    const exitMultiple = d.exit_multiple || 12.0;
+                    const ebitda = d.terminal_ebitda || d.terminal_value / (exitMultiple * mR * mSdg) || 0;
+                    const vT = d.terminal_value || 0;
+                    const sdgMrBonus = flags.sdg_mr_bonus || 0;
+                    const history = flags.sdg_score_history || [];
+
+                    const lineColor = (val, threshold) => val >= threshold ? '#10b981' : val >= threshold * 0.7 ? '#f59e0b' : '#ef4444';
+
+                    return (
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(99,102,241,0.07), rgba(0,229,195,0.05))',
+                            border: '1px solid rgba(99,102,241,0.25)',
+                            borderRadius: '12px',
+                            padding: '1.2rem 1.4rem',
+                            marginTop: '0.5rem',
+                        }}>
+                            {/* Header */}
+                            <div style={{
+                                fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.12em',
+                                textTransform: 'uppercase', marginBottom: '1rem',
+                                display: 'flex', alignItems: 'center', gap: '0.4rem', color: '#818cf8',
+                            }}>
+                                <span>🌐</span> Terminal Valuation Waterfall — SDG Breakdown
+                            </div>
+
+                            {/* Formula line items */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0', marginBottom: '1rem' }}>
+                                {[
+                                    {
+                                        label: 'Group EBITDA (Year 5)',
+                                        value: ebitda > 0 ? `$${(ebitda / 1_000_000).toFixed(2)}M` : '—',
+                                        color: '#cbd5e1', op: null, desc: 'Base operating profit across all BUs',
+                                    },
+                                    {
+                                        label: `Exit Multiple`,
+                                        value: `${exitMultiple.toFixed(1)}×`,
+                                        color: '#60a5fa', op: '×', desc: 'Board-approved exit multiple (12× base; SDG Integrated Reporting locks at 12×)',
+                                    },
+                                    {
+                                        label: `M_R — Regenerative Multiple`,
+                                        value: `${mR.toFixed(4)}×`,
+                                        color: lineColor(mR, 1.3), op: '×', desc: 'ESG performance score × Capital efficiency × Leverage quality',
+                                    },
+                                    {
+                                        label: `M_SDG — Sustainability Multiplier`,
+                                        value: sdgCompleted ? `${mSdg.toFixed(4)}×` : '1.0000× (track not used)',
+                                        color: sdgCompleted ? lineColor(mSdg, 1.1) : '#64748b', op: '×',
+                                        desc: `SDG Impact Score: ${safeScore}/105 → M_SDG = 1.0 + (${safeScore}/100) × 0.25`,
+                                        highlight: sdgCompleted,
+                                    },
+                                ].map((row, i, arr) => (
+                                    <div key={i} style={{
+                                        display: 'flex', alignItems: 'center',
+                                        padding: '0.6rem 0.75rem',
+                                        background: row.highlight ? 'rgba(99,102,241,0.08)' : 'rgba(0,0,0,0.1)',
+                                        borderLeft: row.highlight ? '3px solid #818cf8' : '3px solid transparent',
+                                        borderBottom: i < arr.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
+                                    }}>
+                                        {row.op && (
+                                            <span style={{ fontSize: '0.85rem', color: '#475569', width: '22px', flexShrink: 0, textAlign: 'center', fontWeight: 800 }}>
+                                                {row.op}
+                                            </span>
+                                        )}
+                                        {!row.op && <span style={{ width: '22px', flexShrink: 0 }} />}
+                                        <div style={{ flex: 1 }}>
+                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: row.color }}>{row.label}</div>
+                                            <div style={{ fontSize: '0.6rem', color: '#475569', marginTop: '1px' }}>{row.desc}</div>
+                                        </div>
+                                        <span style={{
+                                            fontSize: '0.88rem', fontWeight: 900,
+                                            fontFamily: "'JetBrains Mono', monospace",
+                                            color: row.color,
+                                        }}>{row.value}</span>
+                                    </div>
+                                ))}
+
+                                {/* Result line */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                                    padding: '0.75rem', marginTop: '4px',
+                                    background: 'linear-gradient(135deg, rgba(16,185,129,0.1), rgba(99,102,241,0.08))',
+                                    border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px',
+                                }}>
+                                    <div>
+                                        <div style={{ fontSize: '0.78rem', fontWeight: 800, color: '#e2e8f0' }}>= V<sub>T</sub> — Terminal Enterprise Value</div>
+                                        <div style={{ fontSize: '0.6rem', color: '#64748b', marginTop: '2px' }}>
+                                            EBITDA × {exitMultiple.toFixed(1)}× × M_R({mR.toFixed(3)}) × M_SDG({mSdg.toFixed(4)})
+                                        </div>
+                                    </div>
+                                    <span style={{
+                                        fontSize: '1.2rem', fontWeight: 900,
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        color: '#10b981',
+                                    }}>${(vT / 1_000_000).toFixed(2)}M</span>
+                                </div>
+                            </div>
+
+                            {/* SDG contribution callout */}
+                            {sdgCompleted && (
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: '1fr 1fr',
+                                    gap: '0.6rem', marginBottom: '0.75rem',
+                                }}>
+                                    <div style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.15)' }}>
+                                        <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '3px' }}>SDG Track Score</div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#818cf8', fontFamily: "'JetBrains Mono', monospace" }}>{safeScore}/105</div>
+                                        <div style={{ fontSize: '0.6rem', color: '#475569', marginTop: '2px' }}>
+                                            {safeScore >= 85 ? '🌟 Champion' : safeScore >= 65 ? '🏆 Leader' : safeScore >= 45 ? '📈 Performer' : safeScore >= 20 ? '📋 Starter' : '⚠️ Laggard'}
+                                        </div>
+                                    </div>
+                                    <div style={{ padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)' }}>
+                                        <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '3px' }}>M_SDG Contribution</div>
+                                        <div style={{ fontSize: '0.9rem', fontWeight: 900, color: '#10b981', fontFamily: "'JetBrains Mono', monospace" }}>
+                                            {vT > 0 ? `+$${((vT - vT / mSdg) / 1_000_000).toFixed(2)}M` : `${mSdg.toFixed(4)}×`}
+                                        </div>
+                                        <div style={{ fontSize: '0.6rem', color: '#475569', marginTop: '2px' }}>
+                                            {vT > 0 ? 'Value added vs. no SDG track' : 'Terminal multiplier'}
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* SDG Round Sparkline (Fix 8 lite — show round-by-round score history in GameOver) */}
+                            {history.length > 0 && (
+                                <div>
+                                    <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
+                                        SDG Score Progression (Round by Round)
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.35rem', alignItems: 'flex-end', height: '44px' }}>
+                                        {history.map((h, i) => {
+                                            const maxScore = 105;
+                                            const pct = Math.max(8, (h.score / maxScore) * 100);
+                                            const col = h.points >= 15 ? '#10b981' : h.points >= 8 ? '#f59e0b' : '#ef4444';
+                                            return (
+                                                <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                                                    <div style={{ fontSize: '0.5rem', color: col, fontWeight: 700 }}>{h.points > 0 ? `+${h.points}` : h.points}</div>
+                                                    <div style={{ width: '100%', height: `${pct}%`, minHeight: '5px', borderRadius: '3px 3px 0 0', background: col, opacity: 0.85 }}
+                                                        title={`ST-R${h.sdg_track_round}: ${h.choice} (+${h.points}pts) → Total: ${h.score}`} />
+                                                    <div style={{ fontSize: '0.5rem', color: '#475569' }}>ST-R{h.sdg_track_round}</div>
+                                                </div>
+                                            );
+                                        })}
+                                        {/* Remaining potential bars (if track not fully completed) */}
+                                        {history.length < 5 && Array.from({ length: 5 - history.length }).map((_, i) => (
+                                            <div key={`empty-${i}`} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px' }}>
+                                                <div style={{ fontSize: '0.5rem', color: '#1e293b' }}>—</div>
+                                                <div style={{ width: '100%', height: '8px', borderRadius: '3px 3px 0 0', background: 'rgba(255,255,255,0.04)', border: '1px dashed rgba(255,255,255,0.08)' }} />
+                                                <div style={{ fontSize: '0.5rem', color: '#334155' }}>ST-R{history.length + i + 1}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    {/* M_SDG trend line labels */}
+                                    <div style={{ display: 'flex', gap: '0.35rem', marginTop: '6px' }}>
+                                        {history.map((h, i) => (
+                                            <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: '0.48rem', color: '#475569', fontFamily: "'JetBrains Mono', monospace" }}>
+                                                {h.m_sdg?.toFixed(3)}
+                                            </div>
+                                        ))}
+                                        {history.length < 5 && Array.from({ length: 5 - history.length }).map((_, i) => (
+                                            <div key={`ml-${i}`} style={{ flex: 1 }} />
+                                        ))}
+                                    </div>
+                                    <div style={{ fontSize: '0.52rem', color: '#334155', textAlign: 'right', marginTop: '2px' }}>M_SDG per round →</div>
+                                </div>
+                            )}
+
+                            {/* M_R bonus from Integrated Reporting */}
+                            {sdgMrBonus > 0 && (
+                                <div style={{ marginTop: '0.75rem', padding: '0.5rem 0.75rem', borderRadius: '7px', background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', fontSize: '0.72rem', color: '#a7f3d0' }}>
+                                    <strong>📊 Integrated Reporting Bonus:</strong> +{(sdgMrBonus * 100).toFixed(0)}% M_R uplift from codifying the Universal Care Mandate. This stacks multiplicatively at terminal valuation.
+                                </div>
+                            )}
+
+                            {/* What-if: if they had NOT done the SDG track */}
+                            {sdgCompleted && vT > 0 && mSdg > 1.0 && (
+                                <div style={{ marginTop: '0.6rem', fontSize: '0.68rem', color: '#334155', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '0.6rem' }}>
+                                    Without SDG track: V<sub>T</sub> would be{' '}
+                                    <span style={{ color: '#64748b', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                                        ${((vT / mSdg) / 1_000_000).toFixed(2)}M
+                                    </span>{' '}
+                                    — the SDG track added{' '}
+                                    <span style={{ color: '#10b981', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace" }}>
+                                        ${((vT - vT / mSdg) / 1_000_000).toFixed(2)}M
+                                    </span>{' '}
+                                    in terminal enterprise value.
+                                </div>
+                            )}
+                        </div>
+                    );
+                })()}
+
                 {/* Actions */}
                 <div className={styles.actions}>
                     {interviewAvailable && !interviewCompleted && (

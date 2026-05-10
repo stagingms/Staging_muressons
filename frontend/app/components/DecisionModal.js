@@ -228,21 +228,37 @@ export default function DecisionModal({
                                 <p className={styles.optDesc}>{opt.description}</p>
 
                                 <div className={styles.impactGrid}>
-                                    {Object.entries(opt.impacts || {}).map(([key, val]) => (
-                                        <div key={key} className={styles.impactItem}>
-                                            <span className={styles.impactKey}>
-                                                {key.replace(/_/g, ' ')}
-                                            </span>
-                                            <span
-                                                className={`${styles.impactVal} ${String(val).startsWith('-')
-                                                    ? styles.negative
-                                                    : styles.positive
-                                                    }`}
-                                            >
-                                                {val}
-                                            </span>
-                                        </div>
-                                    ))}
+                                    {Object.entries(opt.impacts || {}).map(([key, val]) => {
+                                        // CL-5: Parse numeric values for bar visualization
+                                        const numericVal = typeof val === 'number' ? val
+                                            : typeof val === 'string' && val.match(/^[+-]?\d/) ? parseFloat(val.replace(/[^0-9.+-]/g, ''))
+                                            : null;
+                                        const isNegative = numericVal !== null ? numericVal < 0 : String(val).startsWith('-');
+                                        const barWidth = numericVal !== null ? Math.min(100, Math.abs(numericVal) * 2) : 0;
+                                        return (
+                                            <div key={key} className={styles.impactItem}>
+                                                <span className={styles.impactKey}>
+                                                    {key.replace(/_/g, ' ')}
+                                                </span>
+                                                <div className={styles.impactBarWrap}>
+                                                    {numericVal !== null && barWidth > 0 && (
+                                                        <div
+                                                            className={`${styles.impactBar} ${isNegative ? styles.barNeg : styles.barPos}`}
+                                                            style={{ width: `${barWidth}%` }}
+                                                        />
+                                                    )}
+                                                    <span
+                                                        className={`${styles.impactVal} ${isNegative
+                                                            ? styles.negative
+                                                            : styles.positive
+                                                            }`}
+                                                    >
+                                                        {val}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 {isDisabled && opt.disabledReason && (

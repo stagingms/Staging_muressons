@@ -131,6 +131,7 @@ export const BRIEFINGS = {
       'Choose your resilience strategy: Hard engineering, nature-based, or insurance',
       'Understand the trade-off between upfront cost and damage mitigation',
       'Consider the Natural Capital Debt implications of each approach',
+      '⚖️ Complete the mandatory Shadow Board Audit — your board will review your ESG governance posture before allowing strategy access',
     ],
     metrics: [
       { icon: '🛡️', label: 'Resilience Factor' },
@@ -391,6 +392,7 @@ export const HEALTHCARE_BRIEFINGS = {
       'Prepare clinical infrastructure for a devastating extreme weather event',
       'Choose your posture: Insurance, Evacuation, or Hardened Infrastructure',
       'Understand how resilience mitigating protects your balance sheet',
+      '⚖️ Complete the mandatory Shadow Board Audit — your board will review your ESG governance posture before allowing strategy access',
     ],
     metrics: [
       { icon: '🛡️', label: 'Resilience Factor' },

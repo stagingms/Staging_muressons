@@ -3,7 +3,7 @@
    With light mode override at bottom
    ═══════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+/* Font: Using DM Sans from global layout.js — no local import needed (AC-2 fix) */
 
 .overlay {
     position: fixed;
@@ -220,15 +220,15 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    font-size: 1.1rem;
+    font-size: 0.9rem;
     font-weight: 800;
-    color: rgba(0, 229, 195, 0.06);
+    color: rgba(0, 229, 195, 0.12);
     text-align: center;
     pointer-events: none;
     width: 80%;
     line-height: 1.5;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
+    letter-spacing: 0.12em;
 }
 
 .quadrantHeader {

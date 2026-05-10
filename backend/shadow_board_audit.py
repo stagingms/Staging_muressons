@@ -122,45 +122,54 @@ REJECTION_FLAGS = {
     "shareholder": {
         "flag_name": "shareholder_alienated",
         "description": "Player rejected shareholder logic — liquidity deprioritised.",
+        "penalty_type": "investor_decay",
+        "marcus_decay_increase": 0.20,  # +20% to Marcus's patience_decay_rate
         "r10_cascade": "hostile_takeover",
         "r10_impact": (
             "Increases probability of the Hostile Takeover ending pathway. "
-            "Marcus Chen-Hoffmann's tolerance drops immediately by 10 points. "
+            "Marcus Chen-Hoffmann's tolerance drops immediately by 10 points "
+            "and his patience decay rate accelerates by 20%. "
             "The Nordic Pension Alliance's exit thesis is validated."
         ),
         "consequence_dna": {
             "source": {"round": 5, "label": "R5: Rejected Shareholder Logic", "type": "decision"},
-            "effect": {"label": "Investor confidence eroded", "type": "effect"},
+            "effect": {"label": "Investor confidence eroded (+20% decay)", "type": "effect"},
             "future": {"label": "R10 Hostile Takeover risk ↑", "type": "future"},
         },
     },
     "activist": {
         "flag_name": "planet_expendable",
         "description": "Player rejected environmental logic — ecosystem health deprioritised.",
+        "penalty_type": "resilience_block",
+        "mr_penalty": -0.20,  # -0.20 applied directly to final M_R
         "r10_cascade": "climate_black_swan",
         "r10_impact": (
             "Increases probability of the Climate Black Swan or Stakeholder "
             "Revolt ending. Megha Patrike's tolerance drops immediately by 10 "
-            "points. The community coalition's grievance memory intensifies."
+            "points. Applies a permanent -0.20 Resilience Penalty to final M_R. "
+            "The community coalition's grievance memory intensifies."
         ),
         "consequence_dna": {
             "source": {"round": 5, "label": "R5: Rejected Environmental Logic", "type": "decision"},
-            "effect": {"label": "Ecosystem resilience undermined", "type": "effect"},
+            "effect": {"label": "Ecosystem resilience undermined (M_R -0.20)", "type": "effect"},
             "future": {"label": "R10 Climate/Stakeholder crisis ↑", "type": "future"},
         },
     },
     "auditor": {
         "flag_name": "governance_fragility",
         "description": "Player rejected governance logic — risk management deprioritised.",
+        "penalty_type": "cost_escalation",
+        "truth_premium_cost_override": 12_000_000,  # R6 Truth Premium costs $12M instead of $8M
         "r10_cascade": "regulatory_shutdown",
         "r10_impact": (
             "Increases probability of the Regulatory Shutdown ending pathway. "
             "Commissioner Carson's tolerance drops immediately by 10 points. "
+            "The R6 Truth Premium cost escalates from $8M to $12M. "
             "The regulator's enhanced monitoring programme escalates."
         ),
         "consequence_dna": {
             "source": {"round": 5, "label": "R5: Rejected Governance Logic", "type": "decision"},
-            "effect": {"label": "Regulatory scrutiny increased", "type": "effect"},
+            "effect": {"label": "Regulatory scrutiny ↑ (Truth Premium $12M)", "type": "effect"},
             "future": {"label": "R10 Regulatory Shutdown risk ↑", "type": "future"},
         },
     },
@@ -246,6 +255,7 @@ def process_rejection(
 
     # 2. Apply stakeholder tolerance penalty via Autonomous Agents
     tolerance_applied = False
+    marcus_decay_applied = False
     agent_id = persona["stakeholder_agent_id"]
     if agent_master_state:
         agents = agent_master_state.get("agents", {})
@@ -256,6 +266,12 @@ def process_rejection(
                 old_tol = agent["tolerance"]
                 agent["tolerance"] = max(0, round(old_tol - penalty, 1))
                 tolerance_applied = True
+
+                # SDG-ORCH: Apply Marcus's accelerated decay rate if shareholder rejected
+                if rejection_target == "shareholder" and flag_info.get("marcus_decay_increase"):
+                    increase = flag_info["marcus_decay_increase"]
+                    agent["shadow_board_decay_modifier"] = 1.0 + increase  # 1.20 = +20%
+                    marcus_decay_applied = True
 
                 # Log in grievance memory
                 agent.setdefault("grievance_memory", []).append({

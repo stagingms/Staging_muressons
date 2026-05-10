@@ -14,7 +14,6 @@ References:
   - Thiagarajan (2006): Debriefing frames → R7-R8 variation
 """
 
-from __future__ import annotations
 from typing import Any
 
 

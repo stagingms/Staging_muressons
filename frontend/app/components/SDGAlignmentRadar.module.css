@@ -1,0 +1,356 @@
+/* ═══════════════════════════════════════════════════════════════
+   SDG Alignment Radar — Chief Strategic Orchestrator
+   ═══════════════════════════════════════════════════════════════ */
+
+.overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: rgba(5, 8, 22, 0.88);
+  backdrop-filter: blur(16px);
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeIn 0.25s ease-out;
+}
+
+.panel {
+  width: 92vw; max-width: 1200px; height: 88vh;
+  background: linear-gradient(160deg, #0d1224 0%, #111832 100%);
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 16px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6), 0 0 60px rgba(99, 102, 241, 0.08);
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(0, 0, 0, 0.15);
+}
+.headerLeft { display: flex; align-items: center; gap: 12px; }
+.headerIcon { font-size: 1.6rem; }
+.headerTitle {
+  font-size: 0.72rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.14em; color: #818cf8;
+  font-family: 'JetBrains Mono', monospace;
+}
+.headerSub { font-size: 0.62rem; color: #64748b; margin-top: 2px; }
+.headerRight { display: flex; gap: 6px; align-items: center; }
+
+.tabBtn {
+  padding: 5px 12px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: transparent; color: #64748b;
+  font-size: 0.6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; transition: all 0.2s;
+  font-family: 'DM Sans', system-ui, sans-serif;
+}
+.tabBtnActive {
+  border-color: rgba(0, 229, 195, 0.4);
+  background: rgba(0, 229, 195, 0.1);
+  color: #00e5c3;
+}
+.closeBtn {
+  width: 32px; height: 32px; border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: transparent; color: #94a3b8; cursor: pointer;
+  font-size: 0.8rem; display: flex; align-items: center; justify-content: center;
+}
+
+/* ── Score Banner ── */
+.scoreBanner {
+  display: flex; gap: 12px; padding: 14px 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.1);
+}
+.scoreCard {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 10px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.scoreLabel {
+  font-size: 0.58rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #64748b; margin-bottom: 4px;
+}
+.scoreValue {
+  font-size: 1.6rem; font-weight: 900;
+  font-family: 'JetBrains Mono', monospace;
+}
+.scoreUnit {
+  font-size: 0.55rem; color: #475569; margin-top: 2px;
+}
+
+/* ── Content ── */
+.content {
+  flex: 1; overflow-y: auto; padding: 20px 24px;
+}
+
+.loadingState {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 12px; height: 200px; color: #64748b;
+}
+.spinner {
+  width: 28px; height: 28px; border-radius: 50%;
+  border: 3px solid rgba(99, 102, 241, 0.15);
+  border-top-color: #818cf8;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ── Radar Layout ── */
+.radarLayout {
+  display: grid; grid-template-columns: 1fr 1.2fr; gap: 24px;
+}
+.radarSvgWrap {
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 12px; padding: 16px;
+}
+.radarSvg { width: 100%; max-width: 320px; }
+.radarRing {
+  fill: none; stroke: rgba(255, 255, 255, 0.06); stroke-width: 0.5;
+}
+.ringLabel {
+  font-size: 7px; fill: rgba(255, 255, 255, 0.15);
+  font-family: 'JetBrains Mono', monospace;
+}
+.radarAxis { stroke: rgba(255, 255, 255, 0.08); stroke-width: 0.5; }
+.radarPolygon {
+  fill: rgba(0, 229, 195, 0.1); stroke: #00e5c3; stroke-width: 1.5;
+  stroke-linejoin: round;
+  animation: radarPulse 3s ease-in-out infinite;
+}
+.radarDot {
+  stroke: rgba(0, 0, 0, 0.5); stroke-width: 1.5;
+  filter: drop-shadow(0 0 4px currentColor);
+}
+.radarLabel {
+  font-size: 8px; font-weight: 800; fill: #e2e8f0;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* ── BU Cards ── */
+.buCards { display: flex; flex-direction: column; gap: 10px; }
+.buCard {
+  padding: 12px 14px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: border-color 0.2s;
+}
+.buCard:hover { border-color: rgba(0, 229, 195, 0.2); }
+.buCardHeader {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.buIcon { font-size: 1rem; }
+.buName {
+  font-size: 0.72rem; font-weight: 700; color: #e2e8f0; flex: 1;
+}
+.buScore {
+  font-size: 1rem; font-weight: 900;
+  font-family: 'JetBrains Mono', monospace;
+}
+.buSDGs { display: flex; flex-direction: column; gap: 4px; }
+.sdgRow { display: flex; align-items: center; gap: 6px; }
+.sdgIcon { font-size: 0.7rem; width: 18px; text-align: center; }
+.sdgName {
+  font-size: 0.6rem; color: #94a3b8; width: 42px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.sdgBar {
+  flex: 1; height: 6px; border-radius: 3px;
+  background: rgba(255, 255, 255, 0.05); overflow: hidden;
+}
+.sdgBarFill {
+  height: 100%; border-radius: 3px;
+  transition: width 0.6s ease-out;
+}
+.sdgScore {
+  font-size: 0.58rem; font-weight: 800; color: #94a3b8; width: 22px;
+  text-align: right; font-family: 'JetBrains Mono', monospace;
+}
+.buGap {
+  margin-top: 6px; padding: 4px 8px; border-radius: 4px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  font-size: 0.58rem; color: #fca5a5;
+}
+.buLinkage {
+  margin-top: 4px; font-size: 0.55rem; color: #475569;
+  font-style: italic;
+}
+
+/* ── Heatmap ── */
+.heatmapLayout { display: flex; flex-direction: column; gap: 20px; }
+.heatmapGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+}
+.heatmapTile {
+  padding: 14px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex; flex-direction: column; align-items: center;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.heatmapTile:hover { transform: translateY(-2px); border-color: rgba(99, 102, 241, 0.3); }
+.heatmapTileHeader {
+  display: flex; align-items: center; gap: 6px;
+  padding-bottom: 6px; margin-bottom: 6px; width: 100%;
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+}
+.heatmapIcon { font-size: 1rem; }
+.heatmapNum {
+  font-size: 0.68rem; font-weight: 800; color: #e2e8f0;
+  font-family: 'JetBrains Mono', monospace;
+}
+.heatmapLabel {
+  font-size: 0.58rem; color: #94a3b8; text-align: center;
+  margin-bottom: 8px; line-height: 1.3;
+}
+.heatmapScoreWrap { display: flex; justify-content: center; margin-bottom: 6px; }
+.heatmapRing {
+  width: 52px; height: 52px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.heatmapScore {
+  font-size: 0.88rem; font-weight: 900; color: #f1f5f9;
+  font-family: 'JetBrains Mono', monospace;
+  background: #0d1224; border-radius: 50%;
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+}
+.heatmapBUs { display: flex; gap: 4px; justify-content: center; }
+.heatmapBUBadge {
+  padding: 2px 5px; border-radius: 4px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.65rem;
+}
+
+/* ── Alerts ── */
+.alertSection { margin-top: 8px; }
+.alertTitle {
+  font-size: 0.68rem; font-weight: 800; color: #fca5a5;
+  text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
+}
+.alertCard {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 12px; border-radius: 8px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.15);
+  margin-bottom: 6px;
+}
+.alertSeverity { font-size: 0.75rem; }
+.alertMsg { font-size: 0.62rem; color: #e2e8f0; line-height: 1.4; }
+
+/* ── SDG Track Tab ── */
+.trackLayout { display: flex; flex-direction: column; gap: 16px; }
+.trackCompleted {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 16px; padding: 24px;
+}
+.trackCompletedIcon { font-size: 2.5rem; }
+.trackCompletedTitle {
+  font-size: 1.1rem; font-weight: 800; color: #e2e8f0;
+}
+.trackScoreRow { display: flex; gap: 16px; width: 100%; }
+.trackScoreCard {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  padding: 14px; border-radius: 10px;
+  background: rgba(99, 102, 241, 0.06);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+.trackScoreLabel {
+  font-size: 0.58rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #818cf8; margin-bottom: 6px;
+}
+.trackScoreVal {
+  font-size: 1.2rem; font-weight: 900; color: #f1f5f9;
+  font-family: 'JetBrains Mono', monospace;
+}
+.trackFlagsSection { width: 100%; margin-top: 8px; }
+.trackFlagsTitle {
+  font-size: 0.62rem; font-weight: 800; text-transform: uppercase;
+  letter-spacing: 0.1em; color: #64748b; margin-bottom: 8px;
+}
+.trackFlags { display: flex; flex-wrap: wrap; gap: 6px; }
+.trackFlag {
+  padding: 4px 8px; border-radius: 5px;
+  font-size: 0.58rem; font-weight: 700;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #64748b; text-transform: capitalize;
+}
+.trackFlagActive {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.25);
+  color: #10b981;
+}
+
+.trackNotStarted {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 12px; padding: 20px;
+}
+.trackNotStartedIcon { font-size: 2.5rem; }
+.trackNotStartedTitle { font-size: 1rem; font-weight: 800; color: #e2e8f0; }
+.trackNotStartedDesc { font-size: 0.72rem; color: #94a3b8; text-align: center; }
+.trackRoundsList {
+  width: 100%; display: flex; flex-direction: column; gap: 8px;
+  margin-top: 8px;
+}
+.trackRoundItem {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 14px; border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+.trackRoundIcon { font-size: 1.1rem; }
+.trackRoundLabel { font-size: 0.72rem; font-weight: 700; color: #e2e8f0; }
+.trackRoundDesc { font-size: 0.6rem; color: #94a3b8; margin-top: 2px; }
+.trackNotStartedNote {
+  font-size: 0.62rem; color: #475569; text-align: center;
+  padding: 10px; border-radius: 6px;
+  background: rgba(99, 102, 241, 0.04);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+}
+
+/* ── Trigger Button ── */
+.triggerBtn {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 8px; cursor: pointer;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(0, 229, 195, 0.08));
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #a5b4fc; font-size: 0.62rem; font-weight: 700;
+  letter-spacing: 0.04em; position: relative;
+  font-family: 'DM Sans', system-ui, sans-serif;
+  transition: border-color 0.2s, background 0.2s;
+}
+.triggerBtn:hover {
+  border-color: rgba(0, 229, 195, 0.4);
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.18), rgba(0, 229, 195, 0.12));
+}
+.triggerPulse {
+  position: absolute; top: -2px; right: -2px;
+  width: 8px; height: 8px; border-radius: 50%;
+  animation: pulse 2s ease-in-out infinite;
+}
+.triggerScore {
+  padding: 1px 5px; border-radius: 4px;
+  background: rgba(0, 229, 195, 0.15);
+  border: 1px solid rgba(0, 229, 195, 0.3);
+  color: #00e5c3; font-family: 'JetBrains Mono', monospace;
+  font-size: 0.6rem; font-weight: 800;
+}
+
+/* ── Animations ── */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.3); }
+}
+@keyframes radarPulse {
+  0%, 100% { fill-opacity: 0.1; }
+  50% { fill-opacity: 0.18; }
+}

@@ -1153,6 +1153,23 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                             'How would you explain the ROI of sustainability reporting to a sceptical CFO?',
                         ],
                     },
+                    corporate_sdg: {
+                        icon: '🌐', label: 'Corporate SDG Alignment Deep Dive',
+                        debrief_after_round: 5,
+                        talking_points: [
+                            'The PAI Audit (ST-R1) maps each BU to its material SDGs using Principled Prioritization. Teams choosing \"SDG cherry-picking\" (C) lose credibility — connect this to real UN GRI Standards critiques of selective SDG reporting.',
+                            'Living Wage Strike (ST-R2) tests whether teams treat living wage as a cost or investment. Full living wage certification (A) yields the highest long-term reputation and SDG 8 alignment — compare to Unilever Living Wage commitment.',
+                            'Circular Procurement (ST-R3) is the most capital-intensive SDG round. Teams choosing the full closed-loop option (A) earn the \"circular_leader\" flag which amplifies M_SDG. Discuss Ellen MacArthur Foundation circularity metrics.',
+                            'Biodiversity Net-Gain (ST-R4) forces teams to quantify natural capital: SBTN/TNFD alignment, offsetting vs. insetting. Teams choosing \"nature positive\" (A) get the maximum SDG 15 score but must accept $8M cost.',
+                            'Integrated Reporting (ST-R5) is the capstone. Teams that codify the Universal Care Mandate into corporate strategy earn maximum M_SDG (up to 1.2625×). This stacks MULTIPLICATIVELY with M_R — discuss the mathematical amplification.',
+                        ],
+                        discussion_prompts: [
+                            'How did the BU-specific SDG mapping change your understanding of \"material\" sustainability vs. aspirational SDG claims?',
+                            'M_SDG and M_R stack multiplicatively. What does this mean for teams that achieve both high ESG performance AND strong SDG alignment?',
+                            'Is the \"greenwash detection\" penalty fair? When does legitimate SDG aspiration become performative SDG-washing?',
+                            'Compare your SDG track choices with your main simulation strategy — were they consistent or contradictory?',
+                        ],
+                    },
                 };
 
                 // Show debrief sections for all tracks (facilitator can review at any time)

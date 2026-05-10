@@ -4266,6 +4266,146 @@ async def get_audit_log():
 
 
 # ═════════════════════════════════════════════════════════════════
+#  BRSR NGRBC — Implementation Controller Endpoints
+# ═════════════════════════════════════════════════════════════════
+# Import lazily to avoid circular deps at module load
+def _get_brsr_controller():
+    from brsr_controller import (
+        init_brsr_state, check_brsr_prerequisites,
+        process_brsr_round, finalise_brsr_track,
+        build_brsr_facilitator_status,
+    )
+    return (init_brsr_state, check_brsr_prerequisites,
+            process_brsr_round, finalise_brsr_track,
+            build_brsr_facilitator_status)
+
+
+@admin_router.get(
+    "/{session_id}/brsr/status",
+    summary="Get BRSR NGRBC track status for a session (Facilitator Monitor)",
+)
+async def get_brsr_status(session_id: str):
+    """Returns the full BRSR facilitator monitor payload for one session."""
+    session = await db.get_session(session_id)
+    if not session:
+        raise HTTPException(404, f"Session {session_id} not found")
+
+    _, _, _, _, build_status = _get_brsr_controller()
+    gs = session.get("global_state", {})
+    payload = build_status(gs)
+    payload["session_id"] = session_id
+    payload["brsr_enabled_globally"] = _god_mode_settings.get("brsr_ngrbc_enabled", False)
+    return payload
+
+
+@admin_router.get(
+    "/{session_id}/brsr/prerequisites",
+    summary="Check BRSR track prerequisite eligibility for a session",
+)
+async def check_brsr_prereqs(session_id: str):
+    """Returns eligibility, met/missing prerequisites, and god-mode override status."""
+    session = await db.get_session(session_id)
+    if not session:
+        raise HTTPException(404, f"Session {session_id} not found")
+
+    _, check_prereqs, _, _, _ = _get_brsr_controller()
+    gs = session.get("global_state", {})
+    god_override = _god_mode_settings.get("brsr_ngrbc_enabled", False)
+    result = check_prereqs(gs, god_mode_override=god_override)
+    result["session_id"] = session_id
+    return result
+
+
+class BRSRRoundRequest(BaseModel):
+    brsr_round: int        # 1–5
+    choice: str            # "option_a" | "option_b" | "option_c"
+    god_mode_override: bool = False
+
+
+@admin_router.post(
+    "/{session_id}/brsr/decide",
+    summary="Process a BRSR round decision (Facilitator-controlled)",
+)
+async def process_brsr_decision(session_id: str, req: BRSRRoundRequest):
+    """
+    Submit a BRSR track round decision for a session.
+    Applies all BRSR consequences to BU states, global_state, and flags.
+    Finalises the track automatically after round 5.
+    """
+    if req.brsr_round < 1 or req.brsr_round > 5:
+        raise HTTPException(400, "brsr_round must be 1–5")
+    if req.choice not in ("option_a", "option_b", "option_c"):
+        raise HTTPException(400, "choice must be option_a, option_b, or option_c")
+
+    if not _god_mode_settings.get("brsr_ngrbc_enabled", False) and not req.god_mode_override:
+        raise HTTPException(403, "BRSR NGRBC track is not enabled. Toggle brsr_ngrbc_enabled in God Mode.")
+
+    session = await db.get_session(session_id)
+    if not session:
+        raise HTTPException(404, f"Session {session_id} not found")
+
+    init_state, _, process_round, finalise, build_status = _get_brsr_controller()
+
+    gs = session.get("global_state", {})
+    bus = session.get("bu_states", []) or gs.get("bu_states", [])
+
+    # Initialise if needed
+    completed_tracks = gs.get("active_event_flags", {})
+    init_state(gs, bus, completed_tracks)
+
+    # Process the round
+    extra = process_round(
+        round_number=req.brsr_round,
+        choice=req.choice,
+        global_state=gs,
+        bu_states=bus,
+    )
+
+    # If round 5 complete, finalise and write back
+    track_state = gs.get("_brsr_track_state", {})
+    rounds_done = len(track_state.get("round_choices", {}))
+    finalised = False
+    if rounds_done >= 5:
+        wb = finalise(gs)
+        extra["brsr_track_finalised"] = True
+        extra["write_back_flags"] = list(wb.keys())
+        finalised = True
+
+    # Persist session changes
+    session["global_state"] = gs
+    if bus:
+        session["bu_states"] = bus
+    await db.save_session(session_id, session)
+
+    # Broadcast update to facilitator dashboards
+    status = build_status(gs)
+    await manager.broadcast_admin({
+        "type": "brsr_round_processed",
+        "session_id": session_id,
+        "brsr_round": req.brsr_round,
+        "choice": req.choice,
+        "status": status,
+        "finalised": finalised,
+    })
+
+    _audit("brsr_decision", details={
+        "session_id": session_id,
+        "brsr_round": req.brsr_round,
+        "choice": req.choice,
+        "finalised": finalised,
+    })
+
+    return {
+        "session_id": session_id,
+        "brsr_round": req.brsr_round,
+        "choice": req.choice,
+        "extra_events": extra,
+        "current_status": status,
+        "finalised": finalised,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
 #  GOD MODE — System Status / Overview (#5)
 # ═════════════════════════════════════════════════════════════════
 
