@@ -202,5 +202,5 @@ class TestTerminalValuation:
     def test_flag_dependency_graph(self):
         from terminal_valuation import get_flag_dependency_graph
         result = get_flag_dependency_graph({"materiality_aligned": True})
-        assert result["total_flags"] == 13
+        assert result["total_flags"] == 17  # 13 core + 4 BRSR NGRBC
         assert result["active_count"] == 1

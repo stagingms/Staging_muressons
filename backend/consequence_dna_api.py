@@ -268,7 +268,8 @@ def build_consequence_dna_data(
 
     flag_nodes = []
     for dep in dep_graph["dependencies"]:
-        if dep["source_round"] <= current_round or "BRSR" in str(dep.get("source_round", "")):
+        sr = dep["source_round"]
+        if (isinstance(sr, int) and sr <= current_round) or isinstance(sr, str):
             flag_nodes.append({
                 "id": dep["flag"],
                 "label": dep["flag"].replace("_", " ").title(),
@@ -417,7 +418,8 @@ def build_consequence_dna_data(
     # ── 5. Build Sankey links ──
     links = []
     for dep in dep_graph["dependencies"]:
-        if dep["source_round"] > current_round:
+        sr = dep["source_round"]
+        if isinstance(sr, int) and sr > current_round:
             continue
         is_active = dep.get("status") == "active"
         # Decision → Flag link
