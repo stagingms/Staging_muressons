@@ -143,6 +143,9 @@ class GlobalStateOut(BaseModel):
     community_trust_score: Optional[float] = None
     global_emissions_intensity: Optional[float] = None
 
+    # Real-World Scenario Mechanics
+    cfo_austerity_active: Optional[bool] = False
+    regulatory_ratchet_baseline: Optional[float] = 10.0
 
 class BUStateOut(BaseModel):
     bu_id: str
@@ -161,6 +164,10 @@ class BUStateOut(BaseModel):
     patient_outcomes_score: Optional[float] = None
     staff_burnout_index: Optional[float] = None
     bed_capacity_utilization: Optional[float] = None
+
+    # Real-World Scenario Mechanics
+    supplier_defection_active: Optional[bool] = False
+    green_premium_squeeze: Optional[float] = 0.0
 
 
 # ── POST /api/simulations/start ─────────────────────────────────

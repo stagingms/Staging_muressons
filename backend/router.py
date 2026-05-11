@@ -973,6 +973,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         current_bus=current_bus,
         decisions=decisions_raw,
         crisis_severity=body.crisis_severity,
+        force_override_cfo=body.force_override_cfo,
     )
 
     # Check for validation errors (e.g. R2 CFO gate)
@@ -1150,8 +1151,10 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     except Exception as exc:
         print(f"[WARN] New engines batch failed: {exc}")
 
-    # Ensure active_event_flags contains everything
-    new_global["active_event_flags"] = events
+    # Ensure active_event_flags contains everything (preserve history)
+    merged_flags = dict(current_global.get("active_event_flags", {}))
+    merged_flags.update(events)
+    new_global["active_event_flags"] = merged_flags
 
     # ── CHECK HIDDEN RESOURCE TRIGGERS ───────────────────────
     try:

@@ -262,14 +262,58 @@ function SessionCard({ sessionId, data, leaderboardEntry, isSelected, onSelect, 
                 </div>
             )}
 
+            {/* Shadow Board Archetype Badge */}
+            {gs.active_event_flags?.shadow_board_archetype && (
+                <div style={{
+                    padding: '0.5rem 0.75rem',
+                    borderRadius: '8px',
+                    border: '1px solid',
+                    borderColor: gs.active_event_flags.shadow_board_archetype === 'Sustainability-First'
+                        ? 'rgba(16, 185, 129, 0.4)'
+                        : gs.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
+                        ? 'rgba(245, 158, 11, 0.4)'
+                        : 'rgba(139, 92, 246, 0.4)',
+                    background: gs.active_event_flags.shadow_board_archetype === 'Sustainability-First'
+                        ? 'rgba(16, 185, 129, 0.08)'
+                        : gs.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
+                        ? 'rgba(245, 158, 11, 0.08)'
+                        : 'rgba(139, 92, 246, 0.08)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    fontSize: '0.78rem',
+                }}>
+                    <span style={{ fontSize: '1.1rem' }}>
+                        {gs.active_event_flags.shadow_board_archetype === 'Sustainability-First' ? '🌱'
+                            : gs.active_event_flags.shadow_board_archetype === 'Profit-Maximiser' ? '📈'
+                            : '⚡'}
+                    </span>
+                    <div>
+                        <div style={{
+                            fontWeight: 700,
+                            color: gs.active_event_flags.shadow_board_archetype === 'Sustainability-First'
+                                ? '#10b981'
+                                : gs.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
+                                ? '#f59e0b'
+                                : '#8b5cf6',
+                        }}>
+                            {gs.active_event_flags.shadow_board_archetype}
+                        </div>
+                        <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                            Shadow Board R5 — rejected {gs.active_event_flags.shadow_board_rejection?.replace(/_/g, ' ') || '?'}
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Active Flags */}
             {flags.length > 0 && (
                 <div className={styles.flagsRow}>
-                    {flags.slice(0, compact ? 3 : 8).map(f => (
+                    {flags.filter(f => !f.startsWith('shadow_board_')).slice(0, compact ? 3 : 8).map(f => (
                         <span key={f} className={styles.flagTag}>{f.replace(/_/g, ' ')}</span>
                     ))}
-                    {flags.length > (compact ? 3 : 8) && (
-                        <span className={styles.flagMore}>+{flags.length - (compact ? 3 : 8)}</span>
+                    {flags.filter(f => !f.startsWith('shadow_board_')).length > (compact ? 3 : 8) && (
+                        <span className={styles.flagMore}>+{flags.filter(f => !f.startsWith('shadow_board_')).length - (compact ? 3 : 8)}</span>
                     )}
                 </div>
             )}

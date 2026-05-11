@@ -6,6 +6,7 @@ import {
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
 } from 'recharts';
 import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
+import TCFDScenarioDashboard from './TCFDScenarioDashboard';
 import styles from './DebriefReport.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -142,8 +143,9 @@ export default function DebriefReport({ sessionId }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [expandedRounds, setExpandedRounds] = useState(new Set());
-    const [activeTab, setActiveTab] = useState('rounds'); // 'rounds' | 'trends' | 'analysis' | 'dna'
+    const [activeTab, setActiveTab] = useState('rounds'); // 'rounds' | 'trends' | 'analysis' | 'dna' | 'tcfd'
     const [dnaData, setDnaData] = useState(null);
+    const [tcfdEnabled, setTcfdEnabled] = useState(false);
 
     const fetchDebrief = useCallback(async () => {
         if (!sessionId) return;
@@ -177,6 +179,15 @@ export default function DebriefReport({ sessionId }) {
         fetch(`${API}/api/simulations/${sessionId}/consequence-dna-data`)
             .then(r => r.ok ? r.json() : null)
             .then(d => { if (d) setDnaData(d); })
+            .catch(() => {});
+    }, [sessionId]);
+
+    // Check if TCFD is available
+    useEffect(() => {
+        if (!sessionId) return;
+        fetch(`${API}/api/simulations/${sessionId}/tcfd-scenarios`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d && d.summary) setTcfdEnabled(true); })
             .catch(() => {});
     }, [sessionId]);
 
@@ -260,6 +271,14 @@ export default function DebriefReport({ sessionId }) {
                         🧬 DNA Map
                     </button>
                 )}
+                {tcfdEnabled && (
+                    <button
+                        className={`${styles.tab} ${activeTab === 'tcfd' ? styles.tabActive : ''}`}
+                        onClick={() => setActiveTab('tcfd')}
+                    >
+                        🌍 Climate Scenarios
+                    </button>
+                )}
             </nav>
 
             <div className={styles.body}>
@@ -335,6 +354,13 @@ export default function DebriefReport({ sessionId }) {
                             snapshotData={dnaData}
                             onClose={() => setActiveTab('analysis')}
                         />
+                    </div>
+                )}
+
+                {/* ──── Tab: Climate Scenarios ──── */}
+                {activeTab === 'tcfd' && (
+                    <div style={{ marginTop: '1rem' }}>
+                        <TCFDScenarioDashboard sessionId={sessionId} />
                     </div>
                 )}
             </div>

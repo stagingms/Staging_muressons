@@ -164,6 +164,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
               <div key={i} className={styles.heatmapRoundHeader}>R{i + 1}</div>
             ))}
             <div className={styles.heatmapRoundHeader}>Now</div>
+            <div className={styles.heatmapRoundHeader} style={{ width: '120px', textAlign: 'left', paddingLeft: '8px' }}>Active Traps</div>
           </div>
 
           {/* Team rows */}
@@ -204,6 +205,29 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
                   <span className={styles.cellValue}>
                     {activeMetric.format(team.current[selectedMetric])}
                   </span>
+                )}
+              </div>
+              {/* Active Traps */}
+              <div className={styles.heatmapCell} style={{ width: '120px', justifyContent: 'flex-start', paddingLeft: '8px', fontSize: '0.65rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {team.current?.active_traps?.length > 0 ? (
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {team.current.active_traps.map((trap, idx) => {
+                      const trapType = trap.split(' ')[1];
+                      let tooltipDesc = trap;
+                      if (trapType === 'Austerity') tooltipDesc = '🛑 CFO Austerity Override Active - ESG budgets frozen';
+                      else if (trapType === 'Defection') tooltipDesc = '🏭 Supplier Defection - Mandates enforced without subsidies';
+                      else if (trapType === 'Squeeze') tooltipDesc = '📉 Green Premium Squeeze - Low social license hurting sales';
+                      else if (trapType === 'Ratchet') tooltipDesc = '⚖️ Regulatory Ratchet - Governance risk exceeds industry baseline';
+                      
+                      return (
+                        <span key={idx} title={tooltipDesc} style={{ background: 'rgba(239,68,68,0.2)', color: '#fca5a5', padding: '2px 4px', borderRadius: '4px', cursor: 'help' }}>
+                          {trap}
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span style={{ color: 'var(--text-muted)' }}>—</span>
                 )}
               </div>
             </div>

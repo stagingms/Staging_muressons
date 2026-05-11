@@ -94,6 +94,7 @@ export default function LeaderboardMatrix({
                             <th className={styles.heatCol}><Abbr term="NCD">NCD Risk</Abbr></th>
                             <th className={styles.heatCol}><Abbr term="SL">Social License</Abbr></th>
                             <th>Talent Risk</th>
+                            <th title="Shadow Board Audit archetype — R5 value judgment">Shadow Board</th>
                             <th>Practice</th>
                             <th>Actions</th>
                         </tr>
@@ -176,6 +177,41 @@ export default function LeaderboardMatrix({
                                         )}
                                     </td>
                                     <td>
+                                        {sess.shadow_board_archetype ? (
+                                            <span
+                                                title={`Rejected: ${(sess.shadow_board_rejection || '').replace(/_/g, ' ')}`}
+                                                style={{
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 700,
+                                                    padding: '0.15rem 0.4rem',
+                                                    borderRadius: '4px',
+                                                    background: sess.shadow_board_archetype === 'Sustainability-First'
+                                                        ? 'rgba(16, 185, 129, 0.12)'
+                                                        : sess.shadow_board_archetype === 'Profit-Maximiser'
+                                                        ? 'rgba(245, 158, 11, 0.12)'
+                                                        : 'rgba(139, 92, 246, 0.12)',
+                                                    color: sess.shadow_board_archetype === 'Sustainability-First'
+                                                        ? '#10b981'
+                                                        : sess.shadow_board_archetype === 'Profit-Maximiser'
+                                                        ? '#f59e0b'
+                                                        : '#8b5cf6',
+                                                    border: `1px solid ${sess.shadow_board_archetype === 'Sustainability-First'
+                                                        ? 'rgba(16, 185, 129, 0.3)'
+                                                        : sess.shadow_board_archetype === 'Profit-Maximiser'
+                                                        ? 'rgba(245, 158, 11, 0.3)'
+                                                        : 'rgba(139, 92, 246, 0.3)'}`,
+                                                    whiteSpace: 'nowrap',
+                                                }}
+                                            >
+                                                {sess.shadow_board_archetype === 'Sustainability-First' ? '🌱'
+                                                    : sess.shadow_board_archetype === 'Profit-Maximiser' ? '📈' : '⚡'}
+                                                {' '}{sess.shadow_board_archetype}
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                        )}
+                                    </td>
+                                    <td>
                                         {isCohort ? (
                                             <button
                                                 className={`${styles.practiceBtn} ${isPractice ? styles.practiceBtnActive : ''}`}
@@ -223,7 +259,7 @@ export default function LeaderboardMatrix({
                         })}
                         {leaderboard.length === 0 && (
                             <tr>
-                                <td colSpan={14} className={styles.empty}>
+                                <td colSpan={15} className={styles.empty}>
                                     No active sessions. Start a simulation to see the leaderboard.
                                 </td>
                             </tr>

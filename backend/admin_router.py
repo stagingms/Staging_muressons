@@ -2300,6 +2300,13 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
         if not sparkline_data:
             sparkline_data = [terminal_value]
 
+        flags = gs.get("active_event_flags", {})
+        active_traps = []
+        if flags.get("cfo_austerity_active"): active_traps.append("🛑 Austerity")
+        if flags.get("supplier_defection", {}).get("active"): active_traps.append("🏭 Defection")
+        if flags.get("green_premium_squeeze", {}).get("active"): active_traps.append("📉 Squeeze")
+        if flags.get("regulatory_ratchet", {}).get("active"): active_traps.append("⚖️ Ratchet")
+
         leaderboard.append({
             "sparkline": sparkline_data,
             "session_id": sid,
@@ -2318,7 +2325,10 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
             "avg_social_license": round(avg_sl, 2),
             "talent_flight_risk": talent_penalty > 1.25,
             "talent_penalty_multiplier": talent_penalty,
-            "active_flags": list(gs.get("active_event_flags", {}).keys()),
+            "active_flags": list(flags.keys()),
+            "active_traps": active_traps,
+            "shadow_board_archetype": flags.get("shadow_board_archetype"),
+            "shadow_board_rejection": flags.get("shadow_board_rejection"),
             # Cohort configuration fields for SimulationManager dropdown
             "experience_level": sess.get("experience_level"),
             "scenario_preset": sess.get("scenario_preset"),
@@ -5696,6 +5706,13 @@ async def get_cohort_pulse(cohort_id: str):
                 sum(b.get("social_license_score", 50) for b in latest_bus) / len(latest_bus)
                 if latest_bus else 50
             )
+            
+            # Extract real-world scenario traps
+            active_traps = []
+            if flags.get("cfo_austerity_active"): active_traps.append("🛑 Austerity")
+            if flags.get("supplier_defection", {}).get("active"): active_traps.append("🏭 Defection")
+            if flags.get("green_premium_squeeze", {}).get("active"): active_traps.append("📉 Squeeze")
+            if flags.get("regulatory_ratchet", {}).get("active"): active_traps.append("⚖️ Ratchet")
 
             teams.append({
                 "name": sess.get("cohort_name") or sess.get("player_name") or sid[:10],
@@ -5710,6 +5727,7 @@ async def get_cohort_pulse(cohort_id: str):
                     "green_fund": latest.get("green_transition_fund", 0),
                     "cost_of_capital": latest.get("cost_of_capital", 0.05),
                     "carbon_fee_paid": total_fee,
+                    "active_traps": active_traps,
                 },
                 "round": latest.get("round_number", 1),
                 "tipping_point": bool(latest.get("tipping_point_active", False)),

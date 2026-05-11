@@ -34,9 +34,20 @@ export default function ConsequenceTimeline({ currentRound = 1, activeFlags = {}
   const allFlags = useMemo(() => {
     const s = new Set();
     if (activeFlags && typeof activeFlags === 'object') {
-      Object.keys(activeFlags).forEach(k => s.add(k));
-      const fl = activeFlags.flags_set;
-      if (Array.isArray(fl)) fl.forEach(f => s.add(f));
+      Object.entries(activeFlags).forEach(([key, val]) => {
+        // Flags stored as arrays under keys like r1_flags, r3_flags, etc.
+        if (Array.isArray(val)) {
+          val.forEach(f => { if (typeof f === 'string') s.add(f); });
+        }
+        // Boolean flags stored directly (e.g., deep_audit_completed: true)
+        else if (val === true && typeof key === 'string') {
+          s.add(key);
+        }
+        // String-valued flags (e.g., ending_pathway: "climate_black_swan")
+        else if (typeof val === 'string' && typeof key === 'string') {
+          s.add(key);
+        }
+      });
     }
     return s;
   }, [activeFlags]);

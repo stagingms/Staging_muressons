@@ -1,0 +1,607 @@
+/* TCFDScenarioDashboard.module.css — Climate Scenario Analysis Styling
+   Design: Dark glassmorphism matching ExecutiveCockpit theme
+   Palette: Scenario-driven (green 1.5°C → amber 2°C → red 4°C) */
+
+/* ═══ Container ═══ */
+.container {
+  background: rgba(15, 23, 42, 0.78);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  position: relative;
+  font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.35), transparent);
+  z-index: 1;
+}
+
+.compact { font-size: 0.92em; }
+
+/* ═══ Header ═══ */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 10px;
+  gap: 12px;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.headerIcon {
+  font-size: 1.5rem;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.4));
+}
+
+.title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e2e8f0;
+  letter-spacing: -0.02em;
+}
+
+.subtitle {
+  display: block;
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-top: 1px;
+}
+
+.headerActions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.modeToggle {
+  padding: 4px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 6px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.modeToggle:hover { border-color: #38bdf8; color: #38bdf8; }
+.modeActive {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+}
+
+.closeBtn {
+  width: 24px; height: 24px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 6px;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+.closeBtn:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+
+/* ═══ Scenario Tab Selector ═══ */
+.scenarioTabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+}
+
+.scenarioTab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 10px;
+  background: rgba(30, 41, 59, 0.4);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.scenarioTab::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 120%, var(--accent-bg, transparent), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.scenarioTab:hover { border-color: var(--accent, #64748b); transform: translateY(-1px); }
+.scenarioTab:hover::after { opacity: 1; }
+
+.scenarioTabActive {
+  border-color: var(--accent, #38bdf8);
+  background: rgba(30, 41, 59, 0.7);
+  box-shadow: 0 0 20px -4px var(--accent-bg, transparent);
+}
+.scenarioTabActive::after { opacity: 1; }
+
+.tabIcon { font-size: 1.1rem; z-index: 1; }
+
+.tabInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 1;
+}
+
+.tabTemp {
+  font-size: 13px;
+  font-weight: 800;
+  color: #e2e8f0;
+  letter-spacing: -0.02em;
+}
+
+.tabTag {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 1px 5px;
+  border-radius: 3px;
+  width: fit-content;
+}
+
+.tabRisk {
+  margin-left: auto;
+  font-size: 18px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  z-index: 1;
+}
+
+/* ═══ Single Scenario View ═══ */
+.singleView {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Banner */
+.scenarioBanner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--sc-gradient, linear-gradient(135deg, #1e293b, #334155));
+  position: relative;
+  overflow: hidden;
+}
+
+.scenarioBanner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 0;
+}
+
+.bannerIcon { font-size: 1.8rem; z-index: 1; filter: saturate(1.3); }
+
+.bannerText { flex: 1; z-index: 1; }
+
+.bannerTitle {
+  margin: 0 0 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #f1f5f9;
+  letter-spacing: -0.01em;
+}
+
+.bannerDesc {
+  margin: 0;
+  font-size: 10.5px;
+  color: rgba(226, 232, 240, 0.7);
+  line-height: 1.45;
+}
+
+.bannerTag {
+  z-index: 1;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* KPI Row */
+.kpiRow {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.kpiCard {
+  background: rgba(30, 41, 59, 0.5);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 8px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.kpiLabel {
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 4px;
+}
+
+.kpiValue {
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/* Gauge Section */
+.gaugeSection {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.gaugeWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 72px;
+}
+
+.gaugeArc {
+  transition: stroke-dashoffset 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.gaugeValue {
+  font-size: 16px;
+  font-weight: 900;
+  margin-top: -6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.gaugeLabel {
+  font-size: 9px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.riskDetail {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.riskRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.riskBadge {
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+
+/* BU Revenue Projections */
+.buSection {
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.buHeader {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+}
+
+.buRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.buName {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: capitalize;
+  width: 80px;
+  flex-shrink: 0;
+}
+
+.buBarWrap {
+  flex: 1;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.buBar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.buPct {
+  font-size: 11px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  text-align: right;
+}
+
+/* Strategic Implications */
+.implicationsSection {
+  background: rgba(30, 41, 59, 0.35);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.implHeader {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 8px;
+}
+
+.implItem {
+  font-size: 10.5px;
+  color: #cbd5e1;
+  line-height: 1.5;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.06);
+}
+
+.implItem:last-child { border-bottom: none; }
+
+/* Nature Risk */
+.natureRisk {
+  background: rgba(16, 185, 129, 0.04);
+  border: 1px solid rgba(16, 185, 129, 0.1);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.natureHeader {
+  font-size: 11px;
+  font-weight: 700;
+  color: #10b981;
+  margin-bottom: 8px;
+}
+
+.natureRow {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #94a3b8;
+  padding: 3px 0;
+}
+
+.natureReco {
+  font-size: 10px;
+  color: #6ee7b7;
+  margin-top: 6px;
+  font-style: italic;
+  line-height: 1.4;
+}
+
+/* ═══ Compare Mode ═══ */
+.compareGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.compareCard {
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(148, 163, 184, 0.08);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.ccHeader {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-bottom: 10px;
+}
+
+.gaugeRow {
+  display: flex;
+  justify-content: space-around;
+  padding: 8px 0;
+}
+
+.compareRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.compareLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.compareTrack {
+  flex: 1;
+  height: 7px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.compareFill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.compareVal {
+  font-size: 11px;
+  font-weight: 700;
+  color: #e2e8f0;
+  font-variant-numeric: tabular-nums;
+  min-width: 55px;
+  text-align: right;
+}
+
+/* Impact bars */
+.impactRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.impactLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: #94a3b8;
+  width: 50px;
+  flex-shrink: 0;
+}
+
+.impactTrack {
+  flex: 1;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.impactFill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s ease;
+}
+
+.impactVal {
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 42px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ═══ Insight Footer ═══ */
+.insightFooter {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(56, 189, 248, 0.04);
+  border-top: 1px solid rgba(56, 189, 248, 0.08);
+}
+
+.insightIcon { font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+.insightText {
+  margin: 0;
+  font-size: 10px;
+  color: #94a3b8;
+  line-height: 1.5;
+  font-style: italic;
+}
+
+/* ═══ Loading / Error States ═══ */
+.loadingWrap, .errorWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+}
+
+.loadingOrb {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  border: 3px solid rgba(56, 189, 248, 0.15);
+  border-top-color: #38bdf8;
+  animation: orbSpin 0.8s linear infinite;
+}
+
+@keyframes orbSpin {
+  to { transform: rotate(360deg); }
+}
+
+.loadingText, .errorText {
+  font-size: 11px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.errorIcon { font-size: 24px; }
+
+/* ═══ Light Mode ═══ */
+@media (prefers-color-scheme: light) {
+  .container {
+    background: rgba(255, 255, 255, 0.88);
+    border-color: rgba(148, 163, 184, 0.2);
+  }
+  .title { color: #0f172a; }
+  .subtitle { color: #64748b; }
+  .scenarioTab { background: rgba(241, 245, 249, 0.6); }
+  .scenarioTabActive { background: rgba(241, 245, 249, 0.9); }
+  .tabTemp { color: #0f172a; }
+  .kpiCard { background: rgba(241, 245, 249, 0.5); }
+  .kpiLabel { color: #64748b; }
+  .bannerTitle { color: #f1f5f9; }
+  .ccHeader, .buHeader, .implHeader { color: #0f172a; }
+  .compareVal { color: #0f172a; }
+}

@@ -217,6 +217,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                             <th>Cohort / Session</th>
                                             <th>Round</th>
                                             <th style={{ textAlign: 'right' }}>Treasury</th>
+                                            <th style={{ textAlign: 'center' }}>Active Traps</th>
                                             <th>Schedule</th>
                                             <th style={{ textAlign: 'center' }}>Pacing</th>
                                             <th style={{ textAlign: 'center' }}>Visibility</th>
@@ -243,6 +244,28 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                         <td className={styles.sessionName}>{s.cohort_name || formatSessionId(s)}</td>
                                                         <td><span className={styles.sessionRound}>R{s.round_number || 1}</span></td>
                                                         <td style={{ textAlign: 'right' }}><span className={styles.sessionTreasury}>{formatCurrency(s.total_cash || s.corporate_treasury || 0)}</span></td>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            {s.active_traps && s.active_traps.length > 0 ? (
+                                                                <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                                                    {s.active_traps.map((t, i) => {
+                                                                        const trapType = t.split(' ')[1];
+                                                                        let tooltipDesc = t;
+                                                                        if (trapType === 'Austerity') tooltipDesc = '🛑 CFO Austerity Override Active - ESG budgets frozen';
+                                                                        else if (trapType === 'Defection') tooltipDesc = '🏭 Supplier Defection - Mandates enforced without subsidies';
+                                                                        else if (trapType === 'Squeeze') tooltipDesc = '📉 Green Premium Squeeze - Low social license hurting sales';
+                                                                        else if (trapType === 'Ratchet') tooltipDesc = '⚖️ Regulatory Ratchet - Governance risk exceeds industry baseline';
+                                                                        
+                                                                        return (
+                                                                            <span key={i} title={tooltipDesc} style={{ fontSize: '1.1rem', cursor: 'help' }}>
+                                                                                {t.split(' ')[0]}
+                                                                            </span>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            ) : (
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>—</span>
+                                                            )}
+                                                        </td>
                                                         <td>
                                                             <div className={styles.scheduleCell} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                                                 {s.start_time ? (

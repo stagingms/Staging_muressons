@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { BRIEFINGS, HEALTHCARE_BRIEFINGS, SDG_BRIEFINGS } from './RoundBriefing';
+import TCFDScenarioDashboard from './TCFDScenarioDashboard';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 /* ── Systemic Risk Intelligence Sub-Component ── */
@@ -1095,6 +1096,22 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
             {activeRound >= 5 && sessionId && (() => {
                 return <LiveDNAInsight sessionId={sessionId} activeRound={activeRound} sectionLabel={sectionLabel} />;
             })()}
+
+            {/* ── TCFD Climate Analysis (R5+) ── */}
+            {activeRound === 5 && sessionId && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.06), rgba(6,182,212,0.04))',
+                    border: '1px solid rgba(16,185,129,0.2)',
+                    borderRadius: '10px', padding: '1rem',
+                    borderLeft: '3px solid #10b981',
+                }}>
+                    {sectionLabel('🌍', 'TCFD Climate Scenario Analysis (R5 Mid-Game Checkpoint)', '#10b981')}
+                    <div style={{ fontSize: '0.78rem', color: '#a7f3d0', marginBottom: '1rem', fontStyle: 'italic' }}>
+                        Use this TCFD comparison to show teams how their strategic resilience varies across 1.5°C, 2°C, and 4°C futures.
+                    </div>
+                    <TCFDScenarioDashboard sessionId={sessionId} compact={true} />
+                </div>
+            )}
 
             {/* ── Reflection Pause Points ── */}
             {(() => {

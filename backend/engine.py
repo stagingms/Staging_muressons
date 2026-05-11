@@ -1526,6 +1526,12 @@ def process_tick(
 
     next_round = current_global["round_number"] + 1
 
+    # ── REAL-WORLD SCENARIO MECHANICS (Austerity Clamp) ──────────
+    if current_global.get("active_event_flags", {}).get("cfo_austerity_active", False):
+        for d in decisions:
+            d["investment_ratio"] = 0.0
+            d["capex_allocated"] = 0.0
+            
     # Build a decision lookup  {bu_id: decision_dict}
     decision_map: dict[str, dict] = {d["bu_id"]: d for d in decisions}
 
@@ -2953,6 +2959,81 @@ def process_tick(
                 })
     except ImportError:
         pass
+
+    # ── REAL-WORLD SCENARIO MECHANICS ────────────────────────────
+    # 1. Regulatory Ratchet
+    regulatory_baseline = 10.0 + (current_global["round_number"] // 2) * 5.0
+    avg_gov_risk = sum(bu.get("governance_risk_score", 0) for bu in new_bus) / max(len(new_bus), 1)
+    if avg_gov_risk > regulatory_baseline:
+        fine = (avg_gov_risk - regulatory_baseline) * 500_000
+        new_treasury -= fine
+        events["regulatory_ratchet"] = {
+            "active": True, 
+            "baseline": regulatory_baseline, 
+            "fine": fine,
+            "message": f"⚖️ Regulatory Ratchet: Average governance risk ({avg_gov_risk:.1f}) exceeds the shifting industry baseline ({regulatory_baseline:.1f}). Compliance fine: ${fine:,.0f}."
+        }
+    else:
+        events["regulatory_ratchet"] = {"active": False, "baseline": regulatory_baseline, "fine": 0}
+
+    # 2. Supplier Defection & 3. Green Premium Squeeze
+    supplier_defections = []
+    green_premium_squeezes = []
+    
+    for dec in decisions:
+        bu_id = dec["bu_id"]
+        bu = next((b for b in new_bus if b["bu_id"] == bu_id), None)
+        if not bu: continue
+        
+        inv_ratio = dec.get("investment_ratio", 0.0)
+        
+        # Supplier Defection (Check if strict mandate but low subsidy)
+        pillar_decisions = dec.get("pillar_decisions", {})
+        supply_chain_choice = pillar_decisions.get("supply_chain", "")
+        if supply_chain_choice in ["audit_suppliers", "strict_mandates", "living_wage_mandate"] and inv_ratio < 0.15:
+            bu["opex_base"] = round(bu["opex_base"] * 1.10, 2)  # 10% penalty
+            bu["revenue_base"] = round(bu["revenue_base"] * 0.95, 2) # 5% stockout loss
+            bu["supplier_defection_active"] = True
+            supplier_defections.append(bu_id)
+        else:
+            bu["supplier_defection_active"] = False
+            
+        # Green Premium Squeeze (High cost pass-through but low social license)
+        if inv_ratio > 0.25 and bu.get("social_license_score", 50) < 60:
+            penalty_pct = (60 - bu["social_license_score"]) * 0.005 # 0.5% per point below 60
+            penalty_val = round(bu["revenue_base"] * penalty_pct, 2)
+            bu["revenue_base"] -= penalty_val
+            bu["green_premium_squeeze"] = penalty_val
+            green_premium_squeezes.append({"bu_id": bu_id, "penalty": penalty_val})
+        else:
+            bu["green_premium_squeeze"] = 0.0
+
+    if supplier_defections:
+        events["supplier_defection"] = {
+            "active": True, 
+            "affected_bus": supplier_defections,
+            "message": f"🏭 Supplier Defection: You mandated strict supply chain ESG rules without providing financial subsidies (investment ratio < 15%) for {len(supplier_defections)} BU(s). Suppliers dropped you. +10% OPEX shock, -5% Revenue."
+        }
+    else:
+        events["supplier_defection"] = {"active": False}
+
+    if green_premium_squeezes:
+        total_squeeze = sum(s["penalty"] for s in green_premium_squeezes)
+        events["green_premium_squeeze"] = {
+            "active": True, 
+            "penalty": total_squeeze,
+            "message": f"📉 Green Premium Squeeze: You invested heavily (>25%) but lacked the Social License (<60) to pass costs to consumers. The market rejected the premium pricing. Revenue lost: ${total_squeeze:,.0f}."
+        }
+    else:
+        events["green_premium_squeeze"] = {"active": False}
+
+    # 4. Valley of Death (CFO Austerity Trap)
+    # Check if treasury is < 0 OR if the player took out a massive loan (exceeding 50% of base treasury) to fund CAPEX
+    if new_treasury < 0 or loan_principal > base_treasury * 0.5:
+        events["cfo_austerity_active"] = True
+        events["cfo_austerity_message"] = "🛑 CFO Austerity Override: Heavy ESG investments drained free cash flow. The CFO has frozen all sustainability budgets for the next round."
+    else:
+        events["cfo_austerity_active"] = False
 
     # ── FIX-QA-005: Final bounds-clamping pass for all BU state variables ──
     # Prevents logic leaks where compound penalties (cannibalization, FX,

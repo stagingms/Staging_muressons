@@ -46,6 +46,7 @@ import EBITDAWaterfall from './EBITDAWaterfall';
 import PlayerAnnotations from './PlayerAnnotations';
 import WhatIfSandbox from './WhatIfSandbox';
 import ShadowBoardAudit from './ShadowBoardAudit';
+import TCFDScenarioDashboard from './TCFDScenarioDashboard';
 import BalanceSheetModal from './BalanceSheetModal';
 import soundManager from '../utils/soundManager';
 import dynamic from 'next/dynamic';
@@ -1016,6 +1017,20 @@ export default function ExecutiveCockpit({
       items.push({ type: c < 50 ? 'alert' : 'info', text: `📊 DISCLOSURE: Scope 3 supply chain data at ${c}% completeness — ${c < 50 ? 'investor pressure mounting for transparency' : 'disclosure levels tracking industry benchmarks'}.` });
     }
 
+    // ── REAL-WORLD SCENARIOS ──
+    if (events?.cfo_austerity_active || flags?.cfo_austerity_active) {
+      items.push({ type: 'alert', text: events?.cfo_austerity_message || flags?.cfo_austerity_message || `🛑 CFO AUSTERITY OVERRIDE: Heavy ESG investments drained free cash flow. The CFO has frozen all sustainability budgets for the next round.` });
+    }
+    if (events?.supplier_defection?.active) {
+      items.push({ type: 'alert', text: events.supplier_defection.message });
+    }
+    if (events?.green_premium_squeeze?.active) {
+      items.push({ type: 'alert', text: events.green_premium_squeeze.message });
+    }
+    if (events?.regulatory_ratchet?.active) {
+      items.push({ type: 'alert', text: events.regulatory_ratchet.message });
+    }
+
     return items;
   }, [crisisInfo, events, roundNumber, globalState]);
 
@@ -1870,6 +1885,49 @@ export default function ExecutiveCockpit({
               )}
             </div>
 
+            {/* Shadow Board Archetype Reminder — persistent from R5+ */}
+            {roundNumber >= 5 && globalState?.active_event_flags?.shadow_board_archetype && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: '0.5rem',
+                padding: '0.35rem 0.65rem', marginBottom: '6px',
+                borderRadius: '6px', fontSize: '0.7rem',
+                background: globalState.active_event_flags.shadow_board_archetype === 'Sustainability-First'
+                  ? 'rgba(16, 185, 129, 0.08)'
+                  : globalState.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
+                  ? 'rgba(245, 158, 11, 0.08)'
+                  : 'rgba(139, 92, 246, 0.08)',
+                border: `1px solid ${
+                  globalState.active_event_flags.shadow_board_archetype === 'Sustainability-First'
+                    ? 'rgba(16, 185, 129, 0.25)'
+                    : globalState.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
+                    ? 'rgba(245, 158, 11, 0.25)'
+                    : 'rgba(139, 92, 246, 0.25)'
+                }`,
+              }}>
+                <span style={{ fontSize: '0.9rem' }}>
+                  {globalState.active_event_flags.shadow_board_archetype === 'Sustainability-First' ? '🌱'
+                    : globalState.active_event_flags.shadow_board_archetype === 'Profit-Maximiser' ? '📈' : '⚡'}
+                </span>
+                <span style={{
+                  fontWeight: 700,
+                  color: globalState.active_event_flags.shadow_board_archetype === 'Sustainability-First'
+                    ? '#10b981'
+                    : globalState.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
+                    ? '#f59e0b'
+                    : '#8b5cf6',
+                }}>
+                  {globalState.active_event_flags.shadow_board_archetype}
+                </span>
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.65rem' }}>
+                  {globalState.active_event_flags.shadow_board_archetype === 'Sustainability-First'
+                    ? '— Your R5 board audit prioritised long-term planetary resilience over short-term returns'
+                    : globalState.active_event_flags.shadow_board_archetype === 'Profit-Maximiser'
+                    ? '— Your R5 board audit prioritised financial efficiency over ecosystem health'
+                    : '— Your R5 board audit prioritised calculated agility over maximum governance protection'}
+                </span>
+              </div>
+            )}
+
             {decisionParadigm === 'multi_toggles' ? (
               /* ── Multi-Toggles: 4 pillar tiles ── */
               <div className={styles.pillarTiles}>
@@ -2294,6 +2352,20 @@ export default function ExecutiveCockpit({
               >
                 🌎 Engines
               </button>
+              <button
+                onClick={() => setRightPanelTab('climate')}
+                style={{
+                  flex: 1, padding: '8px 10px', cursor: 'pointer',
+                  fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
+                  letterSpacing: '0.06em', border: 'none',
+                  background: rightPanelTab === 'climate' ? 'rgba(56,189,248,0.08)' : 'transparent',
+                  color: rightPanelTab === 'climate' ? '#38bdf8' : '#64748b',
+                  borderBottom: rightPanelTab === 'climate' ? '2px solid #38bdf8' : '2px solid transparent',
+                  transition: 'all 0.15s ease',
+                }}
+              >
+                🌡️ Climate
+              </button>
             </div>
 
             {/* Tab Content */}
@@ -2362,6 +2434,8 @@ export default function ExecutiveCockpit({
                 </>
               ) : rightPanelTab === 'decisions' ? (
                 <DecisionHistory historyData={historyData} />
+              ) : rightPanelTab === 'climate' ? (
+                <TCFDScenarioDashboard sessionId={sim?.sessionId || sim?.session_id} globalState={globalState} compact />
               ) : (
                 <EngineWidgetsPanel sessionId={sim?.sessionId || sim?.session_id} globalState={globalState} commitResults={commitResults} />
               )}
@@ -3664,8 +3738,35 @@ export default function ExecutiveCockpit({
                   tippingState={commitResults.events?.systemic_tipping?.tipping_state || systemicTipping?.tipping_state || {}}
                 />
                 <ConsequencePreview
-                  selectedOption={decisionChoice}
-                  optionConfig={options[decisionChoice] || {}}
+                  selectedOption={decisionChoice || (Object.keys(pillarSelections || {}).length > 0 ? 'multi_pillars' : null)}
+                  optionConfig={decisionChoice
+                    ? (options[decisionChoice] || {})
+                    : (() => {
+                        // Build synthetic optionConfig from multi_toggles pillar selections
+                        const sels = pillarSelections || {};
+                        const areas = pillarConfig?.areas || {};
+                        if (Object.keys(sels).length === 0) return {};
+                        const mergedImpacts = {};
+                        const labels = [];
+                        for (const [areaKey, optKey] of Object.entries(sels)) {
+                          const opt = areas[areaKey]?.options?.[optKey];
+                          if (!opt) continue;
+                          labels.push(opt.title || optKey);
+                          // Merge impacts from each selected pillar option
+                          const imp = opt.impacts || {};
+                          for (const [k, v] of Object.entries(imp)) {
+                            if (typeof v === 'number') {
+                              mergedImpacts[k] = (mergedImpacts[k] || 0) + v;
+                            }
+                          }
+                          // Also fold in top-level cost as a treasury impact
+                          if (opt.cost && !imp.treasury) {
+                            mergedImpacts.treasury = (mergedImpacts.treasury || 0) + opt.cost;
+                          }
+                        }
+                        return { label: labels.join(' + '), impacts: mergedImpacts };
+                      })()
+                  }
                   currentState={commitResults.globalState || globalState}
                   buStates={commitResults.businessUnits || businessUnits}
                   tippingState={commitResults.events?.systemic_tipping?.tipping_state || {}}
@@ -3674,7 +3775,7 @@ export default function ExecutiveCockpit({
               </div>
               <ConsequenceTimeline
                 currentRound={roundNumber}
-                activeFlags={commitResults.events || events || {}}
+                activeFlags={commitResults.globalState?.active_event_flags || globalState?.active_event_flags || {}}
                 foreshadowingSignals={commitResults.events?.foreshadowing_signals || foreshadowingSignals}
               />
 
