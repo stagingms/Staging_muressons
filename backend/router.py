@@ -2168,19 +2168,55 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
             f"Governance posture must be consistent with capital allocation rationale."
         )
 
-    # ── Full-Quadrant Accuracy Bonus ──────────────────────────────────────────
-    def _correct_quadrant(issue):
-        h_fin = issue["financial_impact"] == "high"
-        h_imp = issue["societal_impact"] == "high"
-        if h_fin and h_imp: return "q1"
+    # ── Full-Quadrant Accuracy Bonus — ESRS 1 §1.30-1.38 ──────────────────────
+    # Upgrade: dual-axis severity×likelihood scoring.
+    # For issues with numeric fields: threshold ≥ ESRS_MAT_THRESHOLD (default 12/25)
+    # determines whether each axis is "high" (material) — no more binary string labels.
+    # Falls back to legacy string-label matching for issues without numeric fields.
+    ESRS_MAT_THRESHOLD = 12  # out of 25 (5×5). Mirrors real ESRS significance threshold.
+
+    def _mat_axis_is_high(issue, axis: str) -> bool:
+        """
+        Returns True if the given axis (financial or societal) is 'high' (material).
+        Priority: numeric severity/likelihood product → legacy string label fallback.
+        """
+        sev = issue.get("severity_score")
+        like = issue.get("likelihood_score")
+        if sev is not None and like is not None:
+            product = sev * like
+            # For financial axis we use the product as proxy for enterprise risk
+            # For societal axis we use the same product (both axes use same severity/likelihood)
+            # This reflects ESRS 1 §1.30: both impact and financial materiality use the same
+            # underlying severity/likelihood assessment of the underlying matter.
+            return product >= ESRS_MAT_THRESHOLD
+        # Fallback: legacy string label
+        return issue.get(f"{'financial' if axis == 'fin' else 'societal'}_impact") == "high"
+
+    def _correct_quadrant_v2(issue: dict) -> str:
+        """ESRS-aligned quadrant classification using severity×likelihood axes."""
+        h_fin = _mat_axis_is_high(issue, "fin")
+        h_imp = _mat_axis_is_high(issue, "soc")
+        if h_fin and h_imp:     return "q1"
         if not h_fin and h_imp: return "q2"
         if h_fin and not h_imp: return "q3"
         return "q4"
 
+    # Adjacent-quadrant map for ambiguous partial credit
+    _ADJACENT_Q = {
+        "q1": {"q2", "q3"},  # shares both Q2 (high impact) and Q3 (high financial) borders
+        "q2": {"q1", "q4"},
+        "q3": {"q1", "q4"},
+        "q4": {"q2", "q3"},
+    }
+
     issue_lookup = {i["id"]: i for i in all_issues}
-    total_placed = 0
-    correct_placed = 0
+    total_placed = 0.0
+    correct_placed = 0.0
     q2_disclosure_correct = 0
+
+    # Build per-issue score breakdown for debrief transparency
+    issue_score_breakdown: dict[str, dict] = {}
+
     for qname in ("q1", "q2", "q3", "q4"):
         submission_attr = {
             "q1": "quadrant_1_top_right",
@@ -2194,19 +2230,48 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
             if not issue:
                 continue  # custom factor — skip accuracy check
             total_placed += 1
-            if _correct_quadrant(issue) == qname:
-                correct_placed += 1
-                # Count correctly placed Q2 disclosure issues
+            correct_q = _correct_quadrant_v2(issue)
+            sev = issue.get("severity_score")
+            like = issue.get("likelihood_score")
+            mat_product = (sev * like) if sev and like else None
+
+            is_ambiguous = issue.get("is_ambiguous", False)
+            if correct_q == qname:
+                credit = 1.0
+                correct_placed += credit
                 if qname == "q2" and issue.get("disclosure_required"):
                     q2_disclosure_correct += 1
+            elif is_ambiguous and qname in _ADJACENT_Q.get(correct_q, set()):
+                # Partial credit for ambiguous issues placed in adjacent quadrant
+                credit = 0.5
+                correct_placed += credit
+            else:
+                credit = 0.0
 
-    full_accuracy = (correct_placed / total_placed) if total_placed > 0 else 0
+            # Build transparency record
+            issue_score_breakdown[iid] = {
+                "title": issue.get("title", iid),
+                "esrs_topic": issue.get("esrs_topic"),
+                "severity_score": sev,
+                "likelihood_score": like,
+                "materiality_product": mat_product,
+                "threshold": ESRS_MAT_THRESHOLD,
+                "correct_quadrant": correct_q,
+                "placed_quadrant": qname,
+                "credit": credit,
+                "is_ambiguous": is_ambiguous,
+                "value_chain_scope": issue.get("value_chain_scope"),
+                "time_horizon": issue.get("time_horizon"),
+            }
+
+    full_accuracy = (correct_placed / total_placed) if total_placed > 0 else 0.0
     accuracy_bonus = 0
     if full_accuracy >= 0.80:
         accuracy_bonus = 1000
         global_state["bonus_score"] = global_state.get("bonus_score", 0) + accuracy_bonus
 
     global_state["materiality_full_accuracy"] = round(full_accuracy * 100, 1)
+    global_state["materiality_issue_scores"] = issue_score_breakdown
 
     # ── Q2 Disclosure Investment Budget ───────────────────────────────────────
     # Players who correctly placed Q2 issues receive the disclosure_investment_budget
@@ -2256,16 +2321,39 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
     # ── ESRS Debrief Card ─────────────────────────────────────────────────────
     # Post-submission regulatory literacy card explaining the scoring rationale.
     q1_correct_ids = list(q1_submission.intersection(q1_target_issue_ids))
-    q1_missed_ids = list(q1_target_issue_ids - q1_submission)
+    q1_missed_ids  = list(q1_target_issue_ids - q1_submission)
+
+    # ── ESRS Assurance Readiness Indicator ────────────────────────────────────
+    # Synthesise a 1-4 star readiness score from four ESRS governance signals.
+    # This teaches students that CSRD assurance depends on process quality, not
+    # just which issues they identified.
+    _assurance_signals = {
+        "q1_recall":         len(q1_correct_ids) >= (len(q1_target_issue_ids) * 0.8),  # ≥80% Q1 recall
+        "governance_board":  r2_gov != "option_c",                                      # ESRS 1 §1.51 board oversight
+        "q2_disclosed":      q2_disclosure_correct > 0,                                 # Impact material issues disclosed
+        "ambiguous_handled": any(                                                         # Ambiguous issues placed thoughtfully
+            v.get("is_ambiguous") and v.get("credit", 0) >= 0.5
+            for v in issue_score_breakdown.values()
+        ),
+    }
+    assurance_stars = sum(_assurance_signals.values())  # 0-4
+    assurance_labels = {
+        0: ("❌ Not Assurance-Ready", "No board oversight, poor Q1 recall, and no Q2 disclosure. External assurance would be refused."),
+        1: ("⚠️ Limited Readiness", "Partial compliance. Significant gaps remain before limited assurance is achievable."),
+        2: ("📋 Limited Assurance Pathway", "Meets minimum threshold for limited assurance under ISAE 3000. Requires improvement in governance and disclosure."),
+        3: ("✅ Reasonable Assurance Candidate", "Strong recall and governance. Suitable for reasonable assurance with minor remediation of Q2 disclosure gaps."),
+        4: ("🏆 Exemplary ESRS Compliance", "Full board oversight, ≥80% Q1 recall, Q2 disclosure, and ambiguous issues handled correctly. Best-practice materiality process."),
+    }
+    assurance_label, assurance_detail = assurance_labels[assurance_stars]
+
     global_state["r2_esrs_debrief"] = {
-        "esrs_reference": "ESRS 1 §1.51-1.61 — Impact Materiality Threshold",
-        "q1_correct": q1_correct_ids,
-        "q1_missed": q1_missed_ids,
+        "esrs_reference": "ESRS 1 §1.30-1.51 — Double Materiality Threshold (Severity × Likelihood)",
+        "q1_correct":     q1_correct_ids,
+        "q1_missed":      q1_missed_ids,
         "scoring_rationale": (
-            "Under ESRS 1, issues are doubly material if they meet BOTH: "
-            "(a) financial materiality threshold (enterprise value impact) AND "
-            "(b) impact materiality threshold (severity × scale × irremediability). "
-            f"Your Q1 recall: {len(q1_correct_ids)}/{len(q1_target_issue_ids)} issues correctly prioritised."
+            f"Scoring engine: severity × likelihood ≥ {12}/25 on BOTH axes = Q1 (doubly material). "
+            f"Your Q1 recall: {len(q1_correct_ids)}/{len(q1_target_issue_ids)} issues correctly prioritised "
+            f"({round(full_accuracy * 100, 1)}% weighted accuracy including partial credit for ambiguous placements)."
         ),
         "q2_insight": (
             "Q2 issues (High Impact / Low Financial) are not capital-intensive, but "
@@ -2273,18 +2361,26 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
             "disclosure investment (data collection, assurance) — not silence."
         ),
         "spectrum_note": (
-            "Note: ESRS 1 does not use binary High/Low classification. Real-world "
-            "assessment requires continuous severity/likelihood/time-horizon weighting. "
-            "This simulation uses a simplified 2×2 matrix — real practice is more granular."
+            "The 2×2 matrix is a pedagogical simplification. Real ESRS practice uses "
+            "continuous severity (Scale × Scope × Irremediability) × Likelihood scoring "
+            "with explicit time-horizon tagging — which the severity badges on each issue chip now reflect."
         ),
         "time_horizon_note": (
-            "Time horizons matter: Scope 3 Carbon is long-term but compounds; "
-            "Water Scarcity is short-term and irreversible. Both are Q1 — but "
-            "sequencing and prioritisation differ in your ESRS transition plan."
+            "Time horizons matter: Short-term issues (ST) demand immediate capital allocation; "
+            "long-term issues (LT) require transition plan disclosure. Both can be Q1 — but "
+            "your ESRS reporting must distinguish them in the materiality table."
         ),
-        "full_accuracy_pct": round(full_accuracy * 100, 1),
+        "full_accuracy_pct":      round(full_accuracy * 100, 1),
         "q2_disclosure_allocated": disclosure_allocated,
-        "clawback_applied": clawback_applied,
+        "clawback_applied":        clawback_applied,
+        # New: per-issue score transparency
+        "issue_score_breakdown":   issue_score_breakdown,
+        # New: ESRS Assurance Readiness
+        "assurance_stars":         assurance_stars,
+        "assurance_label":         assurance_label,
+        "assurance_detail":        assurance_detail,
+        "assurance_signals":       _assurance_signals,
+        "esrs_mat_threshold":      12,
     }
 
     # Persist the updated treasury back to the database for this round

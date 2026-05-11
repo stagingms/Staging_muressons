@@ -1,14 +1,14 @@
 """
-Section 14: Full Game Walkthrough — Climate Black Swan Pathway
+Section 16: Full Game Walkthrough — Climate Black Swan Pathway
 Helper module imported by generate_briefings_doc.py
 """
 from docx.shared import Pt
 
 
 def write_section_14(doc, add_styled_heading, add_body, add_bullet):
-    """Write Section 14 into the Word document."""
+    """Write Section 16 into the Word document."""
 
-    add_styled_heading(doc, '14. Full Game Walkthrough: Climate Black Swan (Rounds 1-10)', level=1)
+    add_styled_heading(doc, '16. Full Game Walkthrough: Climate Black Swan (Rounds 1-10)', level=1)
     add_body(doc, (
         'This section walks through a complete 10-round game using the Advanced Climate '
         'decision paradigm with the Climate Black Swan ending pathway. For each round we show: '
@@ -177,7 +177,7 @@ def write_section_14(doc, add_styled_heading, add_body, add_bullet):
     ]
 
     for rd in rounds_data:
-        add_styled_heading(doc, f'14.{rd["num"]} Round {rd["num"]}: {rd["title"]}', level=2)
+        add_styled_heading(doc, f'16.{rd["num"]} Round {rd["num"]}: {rd["title"]}', level=2)
 
         p = doc.add_paragraph()
         run = p.add_run(f'Decision: {rd["choice"]}')
@@ -199,7 +199,7 @@ def write_section_14(doc, add_styled_heading, add_body, add_bullet):
         doc.add_paragraph()
 
     # Terminal Valuation
-    add_styled_heading(doc, '14.11 Terminal Valuation Calculation', level=2)
+    add_styled_heading(doc, '16.11 Terminal Valuation Calculation', level=2)
     add_body(doc, 'Step 1 — Terminal EBITDA:', bold=True)
     add_bullet(doc, 'Total Revenue (4 BUs, synergy-enhanced): ~$76M')
     add_bullet(doc, 'Total OPEX (synergy-reduced, inflation-adjusted): ~$30M')

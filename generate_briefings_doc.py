@@ -132,6 +132,8 @@ from side_tracks.supply_chain.configs import SUPPLY_CHAIN_ROUND_CONFIGS
 from side_tracks.ethics_sustainability.configs import ETHICS_ROUND_CONFIGS
 from side_tracks.stakeholder_management.configs import STAKEHOLDER_ROUND_CONFIGS
 from side_tracks.sustainability_reporting.configs import REPORTING_ROUND_CONFIGS
+from side_tracks.brsr_ngrbc.configs import BRSR_ROUND_CONFIGS
+from side_tracks.corporate_sdg.configs import SDG_ROUND_CONFIGS
 from round_configs import ROUND_CONFIGS, TURNAROUND_OPTION_T
 from healthcare_configs import HEALTHCARE_ROUND_CONFIGS
 
@@ -179,10 +181,12 @@ toc_items = [
     '8. Side Track: Ethics & Sustainability (5 Rounds)',
     '9. Side Track: Stakeholder Management (4 Rounds)',
     '10. Side Track: Sustainability Reporting (5 Rounds)',
-    '11. Mathematical Engine: Formulae & Sample Calculations',
-    '12. Investment Matrix: How Capital Allocation Impacts Round Outcomes',
-    '13. Investment-to-Score Rationale: Why Investment Improves Player Scores',
-    '14. Full Game Walkthrough: Climate Black Swan (Rounds 1-10)',
+    '11. Side Track: BRSR & NGRBC Compliance (5 Rounds)',
+    '12. Side Track: Corporate SDG Alignment (5 Rounds)',
+    '13. Mathematical Engine: Formulae & Sample Calculations',
+    '14. Investment Matrix: How Capital Allocation Impacts Round Outcomes',
+    '15. Investment-to-Score Rationale: Why Investment Improves Player Scores',
+    '16. Full Game Walkthrough: Climate Black Swan (Rounds 1-10)',
 ]
 for item in toc_items:
     doc.add_paragraph(item, style='List Number')
@@ -595,11 +599,13 @@ write_side_track(doc, 7, 'Supply Chain (7 Rounds)', SUPPLY_CHAIN_ROUND_CONFIGS, 
 write_side_track(doc, 8, 'Ethics & Sustainability (5 Rounds)', ETHICS_ROUND_CONFIGS, 5)
 write_side_track(doc, 9, 'Stakeholder Management (4 Rounds)', STAKEHOLDER_ROUND_CONFIGS, 4)
 write_side_track(doc, 10, 'Sustainability Reporting (5 Rounds)', REPORTING_ROUND_CONFIGS, 5)
+write_side_track(doc, 11, 'BRSR & NGRBC Compliance (5 Rounds)', BRSR_ROUND_CONFIGS, 5)
+write_side_track(doc, 12, 'Corporate SDG Alignment (5 Rounds)', SDG_ROUND_CONFIGS, 5)
 
 # ═══════════════════════════════════════════════════════════════
-#  SECTION 11: MATHEMATICAL ENGINE
+#  SECTION 13: MATHEMATICAL ENGINE
 # ═══════════════════════════════════════════════════════════════
-add_styled_heading(doc, '11. Mathematical Engine: Formulae & Sample Calculations', level=1)
+add_styled_heading(doc, '13. Mathematical Engine: Formulae & Sample Calculations', level=1)
 add_body(doc, 'This section documents every formula used by the simulation engine (engine.py, round_logic.py, impact_engine.py). Each formula includes a worked example using representative game data.')
 
 # Helper to add a formula block
@@ -619,7 +625,7 @@ def add_formula_block(doc, name, formula, description, example_lines):
     doc.add_paragraph()
 
 add_formula_block(doc,
-    '11.1 Corporate Strategic Fund (CSF)',
+    '15.1 Corporate Strategic Fund (CSF)',
     'CSF = Sum(Revenue_i - OPEX_i) - Dividends_Paid',
     'Calculates net cash added to the corporate treasury each round. If total CAPEX exceeds 20% of treasury, a loan is triggered at 12% interest.',
     [
@@ -632,7 +638,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.2 Contagion Engine (Sigmoid Model)',
+    '15.2 Contagion Engine (Sigmoid Model)',
     'Group_Rep = AVG(BU_Rep) - 50 * sigmoid((severity - 30) / 15)',
     'Uses S-curve centered at severity=30. Low severity (<15): minimal impact. Medium (20-40): rapid erosion. High (>50): saturating damage. Result clamped to [0, 100].',
     [
@@ -645,7 +651,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.3 Synergy Engine (Diminishing Returns)',
+    '15.3 Synergy Engine (Diminishing Returns)',
     'effective_ratio = sqrt(ratio) * 0.7; New_OPEX = Old_OPEX * (1 - effective_ratio * Synergy_Mult)',
     'Uses sqrt scaling so first dollars invested yield outsized returns while later dollars hit diminishing marginal efficiency. Investment_Ratio clamped to [0.0, 1.0].',
     [
@@ -657,7 +663,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.4 Natural Capital Cost of Debt',
+    '15.4 Natural Capital Cost of Debt',
     'Interest_Rate = Base_Rate + (NCD * 0.0001)',
     'Debt compounds each round: Debt_Next = Debt + (Debt * Interest_Rate). NCD floored at 0, capped at 1,000,000. At NCD=100: rate~6%. At NCD=500: rate~10%. At NCD=1000: rate~15%.',
     [
@@ -669,7 +675,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.5 VRIO Decay Function',
+    '13.5 VRIO Decay Function',
     'Advantage_Next = Advantage_Current * (1 - Imitation_Decay_Rate)',
     'Prevents synergy from staying permanently high. Default decay rate is 5% per round.',
     [
@@ -680,7 +686,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.6 Talent Brain-Drain (Software/Telehealth BUs)',
+    '13.6 Talent Brain-Drain (Software/Telehealth BUs)',
     'Penalty = 1 + MAX(0, (65 - Group_Rep)/100) * 1.5 + burnout_adj',
     'When Group Reputation < 65, Software BU OPEX inflates. If burnout > 50, additional agency/locum overhead applies: +((burnout-50)/100)*2.0.',
     [
@@ -693,7 +699,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.7 Strike Probability Engine (R9)',
+    '13.7 Strike Probability Engine (R9)',
     'P_Strike = Base_Risk + ((1 - SLO/100) * 0.4)',
     'Triggered when Immediate Closure chosen and Social License < 50. Burnout > 50 adds up to +20% probability. Result clamped to [0.0, 1.0].',
     [
@@ -706,7 +712,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.8 Natural Decay (Entropy)',
+    '13.8 Natural Decay (Entropy)',
     'If CAPEX = 0: Rep_Next = Rep * 0.98, SLO_Next = SLO * 0.98',
     'BUs receiving zero investment decay 2% per round in reputation and social license. Simulates organizational entropy.',
     [
@@ -718,7 +724,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.9 Macroeconomic Inflation',
+    '13.9 Macroeconomic Inflation',
     'New_OPEX = OPEX * (1 + inflation_index)',
     'Every round, baseline OPEX increases by 2.5%. Players must invest just to tread water.',
     [
@@ -729,7 +735,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.10 Execution Overrun Risk',
+    '13.10 Execution Overrun Risk',
     'If CAPEX > $3M: 25% chance of +15% cost overrun',
     'Stochastic penalty for large capital projects. Simulates real-world execution risk.',
     [
@@ -740,7 +746,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.11 Technical Debt',
+    '13.11 Technical Debt',
     'If consecutive_zero_rounds >= 2: OPEX_Next = OPEX * 1.04',
     '4% OPEX penalty for BUs receiving zero investment for 2+ consecutive rounds.',
     [
@@ -751,7 +757,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.12 Revenue Cannibalization',
+    '13.12 Revenue Cannibalization',
     'If BU_Rev > 1.15 * AVG_Rev: penalty = victim_rev * 0.03 * overlap_score',
     'Market overlap matrix determines cannibalization intensity. Software-Electronics overlap: 0.65. Telehealth-Clinics: 0.70.',
     [
@@ -762,7 +768,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.13 Stakeholder Fatigue',
+    '13.13 Stakeholder Fatigue',
     'recovery_efficiency = 1.0 / (1 + 0.3 * crisis_count)',
     'Trust recovery diminishes after each crisis. Third crisis reduces recovery to 53% effectiveness.',
     [
@@ -773,7 +779,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.14 Burnout Accumulation',
+    '13.14 Burnout Accumulation',
     'New_Burnout = Current + burnout_delta + natural_drift; OPEX_penalty = ((burnout-20)^2) * 0.000028125',
     'HR investment reduces burnout (-10 high, -4 medium). No investment adds +3 drift. OPEX penalty activates above 20. Critical threshold at 70 adds governance risk.',
     [
@@ -785,7 +791,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.15 Workforce Readiness',
+    '13.15 Workforce Readiness',
     'Readiness_Next = Readiness + delta; High HR: +8, Medium: +4, None: -5',
     'Global workforce competence score (0-100, starts 50). Below 40: strategic pillar effectiveness -20%. Above 75: +0.05 synergy at R10.',
     [
@@ -797,7 +803,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.16 Cash Conversion / Working Capital',
+    '13.16 Cash Conversion / Working Capital',
     'cash_efficiency = 1.0 - (governance_risk / 500); Realized_Rev = Revenue * efficiency',
     'BUs with high governance risk have slower cash conversion. Efficiency clamped to [0.5, 1.0].',
     [
@@ -808,7 +814,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.17 Dividend Ratchet',
+    '13.17 Dividend Ratchet',
     'If Dividends < 80% of last round: Reputation penalty = -5',
     'Simulates board pressure. Cutting dividends by more than 20% triggers a reputation hit.',
     [
@@ -819,7 +825,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.18 FX Risk Engine',
+    '13.18 FX Risk Engine',
     'FX_delta = Revenue * fx_movement * BU_exposure; fx_movement in [-5%, +5%]',
     'Stochastic currency movement. Exposure varies by BU: Software 80%, Electronics 75%, Pharma 60%, Consumer Goods 40%.',
     [
@@ -830,7 +836,7 @@ add_formula_block(doc,
 )
 
 add_formula_block(doc,
-    '11.19 Macro Interest Rate Cycles',
+    '13.19 Macro Interest Rate Cycles',
     'R1-R3: CoC -0.5% (easing); R4-R6: 0% (neutral); R7-R9: +0.5% (tightening); R10: +1.0% (crisis)',
     'Models central bank policy cycles affecting cost of capital.',
     [
@@ -843,7 +849,7 @@ add_formula_block(doc,
 
 # ── R5 Stochastic Climate ──
 add_formula_block(doc,
-    '11.20 R5 Stochastic Climate Event',
+    '13.20 R5 Stochastic Climate Event',
     'If random_roll < threshold (0.75): Damage = Base_Damage * (1 - Resilience_Factor)',
     'Base damage: $12M (corporate) / $18M (healthcare). Resilience from Option A=0.85 (hard engineering), B=0.60 (nature-based), C=0.0 (insurance only). Deferred 2 rounds.',
     [
@@ -857,7 +863,7 @@ add_formula_block(doc,
 
 # ── R9 Regulatory Friction ──
 add_formula_block(doc,
-    '11.21 R9 Regulatory Friction',
+    '13.21 R9 Regulatory Friction',
     'Regulatory_Friction = 1 / max(1, avg_SLO); OPEX_surcharge = friction * 0.08',
     'Low social license generates regulatory friction as an OPEX surcharge across all BUs.',
     [
@@ -869,7 +875,7 @@ add_formula_block(doc,
 )
 
 # ── R10 Terminal Valuation ──
-add_styled_heading(doc, '11.22 R10 Terminal Valuation (Grand Finale)', level=2)
+add_styled_heading(doc, '13.22 R10 Terminal Valuation (Grand Finale)', level=2)
 add_body(doc, 'The terminal valuation combines EBITDA, carbon costs, exit multiple, and the Regenerative Multiple (M_R).', bold=False)
 
 p = doc.add_paragraph()
@@ -955,7 +961,7 @@ for ph in [('Regenerative Titan', '>= 1.80', 'Gold standard -- rebuilt natural c
 doc.add_paragraph()
 
 # ── Strategic What-If Table ──
-add_styled_heading(doc, '11.23 Strategic What-If Comparison', level=2)
+add_styled_heading(doc, '13.23 Strategic What-If Comparison', level=2)
 add_body(doc, 'Small choices in earlier rounds compound into massive terminal value deltas:')
 whatif_table = doc.add_table(rows=1, cols=4)
 whatif_table.style = 'Light Grid Accent 1'
@@ -973,7 +979,7 @@ for sc in [('Baseline (Fragile Giant)', '1.05', '~$478M', '--'),
 doc.add_page_break()
 
 # ── 11.24 CAROIC: Carbon-Adjusted Return on Invested Capital ──
-add_styled_heading(doc, '11.24 Carbon-Adjusted Return on Invested Capital (CAROIC)', level=2)
+add_styled_heading(doc, '13.24 Carbon-Adjusted Return on Invested Capital (CAROIC)', level=2)
 add_body(doc, (
     'CAROIC measures not just the return on capital, but the efficiency of carbon usage. '
     'It extends traditional ROIC by incorporating a shadow carbon cost into the capital base, '
@@ -1061,9 +1067,9 @@ doc.add_paragraph()
 doc.add_page_break()
 
 # ═══════════════════════════════════════════════════════════════
-#  SECTION 12: INVESTMENT MATRIX IMPACT
+#  SECTION 14: INVESTMENT MATRIX IMPACT
 # ═══════════════════════════════════════════════════════════════
-add_styled_heading(doc, '12. Investment Matrix: How Capital Allocation Impacts Round Outcomes', level=1)
+add_styled_heading(doc, '14. Investment Matrix: How Capital Allocation Impacts Round Outcomes', level=1)
 add_body(doc, (
     'The Investment Matrix is the primary capital allocation interface. Each round, players distribute '
     'their Corporate Strategic Fund (CSF) across Business Units using sliders. This section explains '
@@ -1071,7 +1077,7 @@ add_body(doc, (
 ))
 
 # 12.1 How the Slider Works
-add_styled_heading(doc, '12.1 Investment Matrix Mechanics', level=2)
+add_styled_heading(doc, '14.1 Investment Matrix Mechanics', level=2)
 add_body(doc, 'Slider Inputs per BU:', bold=True)
 add_bullet(doc, 'Investment Ratio (0.0 to 1.0): The fraction of a BU\'s revenue base allocated as CAPEX. Slider position = percentage.')
 add_bullet(doc, 'CAPEX Allocated ($): The dollar amount = Investment Ratio * BU Revenue. This is deducted from the CSF pool.')
@@ -1097,7 +1103,7 @@ add_bullet(doc, '15. Technology Lock-In -- same BU getting highest CAPEX for 3+ 
 doc.add_paragraph()
 
 # 12.2 Round-by-Round Impact Examples
-add_styled_heading(doc, '12.2 Worked Example: Three Investment Strategies Compared', level=2)
+add_styled_heading(doc, '14.2 Worked Example: Three Investment Strategies Compared', level=2)
 add_body(doc, (
     'Starting State (Round 1): Treasury $50M. Four BUs: Pharma (Rev $18M, OPEX $11M), '
     'Electronics ($22M/$14M), Consumer Goods ($15M/$9M), Software ($20M/$8M). '
@@ -1136,7 +1142,7 @@ for sr in strat_rows:
 doc.add_paragraph()
 
 # 12.3 OPEX Impact
-add_styled_heading(doc, '12.3 OPEX Reduction: How Investment Ratio Drives Synergy', level=2)
+add_styled_heading(doc, '14.3 OPEX Reduction: How Investment Ratio Drives Synergy', level=2)
 add_body(doc, 'The Synergy Engine uses sqrt(ratio) * 0.7 * synergy_multiplier to reduce OPEX. Here is the effect per ratio level:')
 
 opex_table = doc.add_table(rows=1, cols=5)
@@ -1174,7 +1180,7 @@ add_bullet(doc, 'This creates a critical tension: heavy R1 investment yields zer
 doc.add_paragraph()
 
 # 12.4 Neglect Penalties
-add_styled_heading(doc, '12.4 Neglect Cascade: The Cost of Zero Investment', level=2)
+add_styled_heading(doc, '14.4 Neglect Cascade: The Cost of Zero Investment', level=2)
 add_body(doc, 'When a BU receives zero CAPEX, multiple penalty engines activate simultaneously:')
 
 penalty_table = doc.add_table(rows=1, cols=4)
@@ -1212,7 +1218,7 @@ add_bullet(doc, 'Net OPEX increase: $9M -> $10.48M (+16.4%) WITHOUT any crisis o
 doc.add_paragraph()
 
 # 12.5 Round-Specific Investment Effects
-add_styled_heading(doc, '12.5 Round-Specific Investment Effects', level=2)
+add_styled_heading(doc, '14.5 Round-Specific Investment Effects', level=2)
 add_body(doc, 'Beyond the general engines, specific rounds amplify or modify how investments work:')
 
 round_fx_table = doc.add_table(rows=1, cols=3)
@@ -1248,7 +1254,7 @@ for sr in round_fx_rows:
 doc.add_paragraph()
 
 # 12.6 Terminal Value Impact
-add_styled_heading(doc, '12.6 Investment Strategy vs Terminal Value: Full Lifecycle Comparison', level=2)
+add_styled_heading(doc, '14.6 Investment Strategy vs Terminal Value: Full Lifecycle Comparison', level=2)
 add_body(doc, 'Three players start identically. Their investment patterns over 10 rounds produce vastly different terminal outcomes:')
 
 tv_table = doc.add_table(rows=1, cols=5)
@@ -1292,9 +1298,9 @@ add_bullet(doc, 'Emergency credit ($1M at rate+2%) is a pedagogical trap: it fee
 doc.add_page_break()
 
 # ═══════════════════════════════════════════════════════════════
-#  SECTION 13: INVESTMENT-TO-SCORE RATIONALE
+#  SECTION 15: INVESTMENT-TO-SCORE RATIONALE
 # ═══════════════════════════════════════════════════════════════
-add_styled_heading(doc, '13. Investment-to-Score Rationale: Why Investment Improves Player Scores', level=1)
+add_styled_heading(doc, '15. Investment-to-Score Rationale: Why Investment Improves Player Scores', level=1)
 add_body(doc, (
     'Player competency is assessed across 6 dimensions on a 1-10 scale. Each dimension score is a 50/50 blend '
     'of data-derived metrics (from simulation performance) and LLM-assessed interview responses. This section '
@@ -1303,7 +1309,7 @@ add_body(doc, (
 ))
 
 # 13.1 Scoring Framework
-add_styled_heading(doc, '13.1 The Six Competency Dimensions & Their Formulas', level=2)
+add_styled_heading(doc, '15.1 The Six Competency Dimensions & Their Formulas', level=2)
 add_body(doc, 'Each dimension draws from specific simulation metrics. The data-derived score (50% weight) is calculated as follows:')
 
 dim_table = doc.add_table(rows=1, cols=4)
@@ -1353,7 +1359,7 @@ for sr in dim_rows:
 doc.add_paragraph()
 
 # 13.2 Causal Chains
-add_styled_heading(doc, '13.2 Causal Chains: Slider -> Engine -> Metric -> Score', level=2)
+add_styled_heading(doc, '15.2 Causal Chains: Slider -> Engine -> Metric -> Score', level=2)
 add_body(doc, 'Each investment decision triggers a chain of engine calculations that ultimately determines a competency score. Here are the 6 primary chains:')
 
 add_body(doc, '(1) Strategic Thinking: Investment -> M_R -> Score', bold=True)
@@ -1411,7 +1417,7 @@ add_bullet(doc, 'Counter: readiness=25 (atrophied), HR invested 1/10 -> 25/15 + 
 doc.add_paragraph()
 
 # 13.3 Optimal Investment Roadmap
-add_styled_heading(doc, '13.3 Optimal Investment Roadmap for Maximum Scores', level=2)
+add_styled_heading(doc, '15.3 Optimal Investment Roadmap for Maximum Scores', level=2)
 add_body(doc, 'The following round-by-round investment plan maximizes all 6 dimension scores simultaneously:')
 
 roadmap_table = doc.add_table(rows=1, cols=5)
@@ -1447,7 +1453,7 @@ for sr in roadmap_rows:
 doc.add_paragraph()
 
 # 13.4 Expected Scores
-add_styled_heading(doc, '13.4 Expected Scores: Optimal vs Neglect Comparison', level=2)
+add_styled_heading(doc, '15.4 Expected Scores: Optimal vs Neglect Comparison', level=2)
 add_body(doc, 'Given the optimal roadmap above vs a player who invests zero and takes the cheapest option each round:')
 
 score_table = doc.add_table(rows=1, cols=5)
@@ -1537,7 +1543,7 @@ add_bullet(doc, "Highlight Stigler's Theory of Economic Regulation when discussi
 doc.add_page_break()
 
 # ═══════════════════════════════════════════════════════════════
-#  SECTION 14: FULL GAME WALKTHROUGH
+#  SECTION 16: FULL GAME WALKTHROUGH
 # ═══════════════════════════════════════════════════════════════
 from section14_walkthrough import write_section_14
 write_section_14(doc, add_styled_heading, add_body, add_bullet)
