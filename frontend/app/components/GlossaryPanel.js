@@ -206,7 +206,7 @@ export default function GlossaryPanel({ isOpen, onClose }) {
                             background: '#fff', border: '1px solid #e2e8f0',
                             borderRadius: 6, padding: '3px 8px',
                             fontSize: '0.65rem', fontWeight: 600, color: '#6366f1',
-                            cursor: 'pointer', transition: 'all 0.15s',
+                            cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                           }}
                           onMouseOver={e => { e.target.style.background = '#eef2ff'; e.target.style.borderColor = '#c7d2fe'; }}
                           onMouseOut={e => { e.target.style.background = '#fff'; e.target.style.borderColor = '#e2e8f0'; }}

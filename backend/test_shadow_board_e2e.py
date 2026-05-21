@@ -61,7 +61,7 @@ for round_num in range(1, 5):
 
 # ── Step 3: Verify at Round 5 ───────────────────────────────────
 print("\nSTEP 3: Verifying current state is Round 5...")
-r = requests.get(f"{SIM}/{session_id}")
+r = requests.get(f"{SIM}/{session_id}/dashboard")
 state = r.json()
 current_round = state.get("current_round")
 print(f"  Current round: {current_round}")
@@ -100,7 +100,7 @@ print("  OK: Archetype = Sustainability-First, Flag = shareholder_alienated")
 
 # ── Step 6: Verify flags persisted in game state ────────────────
 print("\nSTEP 6: Verifying flags in game state...")
-r = requests.get(f"{SIM}/{session_id}")
+r = requests.get(f"{SIM}/{session_id}/dashboard")
 state = r.json()
 flags = state.get("global_state", {}).get("active_event_flags", {})
 print(f"  shadow_board_completed: {flags.get('shadow_board_completed')}")

@@ -11,6 +11,29 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // Disable React Compiler rules added in eslint-plugin-react-hooks v7.
+  // This project does not use the React Compiler, so these rules produce
+  // false positives for common patterns like setLoading before a fetch.
+  // Keep rules-of-hooks and exhaustive-deps which are broadly applicable.
+  {
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/set-state-in-render": "off",
+      "react-hooks/purity": "off",
+      "react-hooks/refs": "off",
+      "react-hooks/immutability": "off",
+      "react-hooks/globals": "off",
+      "react-hooks/static-components": "off",
+      "react-hooks/use-memo": "off",
+      "react-hooks/component-hook-factories": "off",
+      "react-hooks/preserve-manual-memoization": "off",
+      "react-hooks/incompatible-library": "off",
+      "react-hooks/error-boundaries": "off",
+      "react-hooks/unsupported-syntax": "off",
+      "react-hooks/config": "off",
+      "react-hooks/gating": "off",
+    },
+  },
 ]);
 
 export default eslintConfig;

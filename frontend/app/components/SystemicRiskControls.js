@@ -147,7 +147,7 @@ export default function SystemicRiskControls() {
                                 padding: '0.85rem 1rem', borderRadius: '8px',
                                 background: isOn ? 'rgba(99,102,241,0.04)' : 'rgba(0,0,0,0.04)',
                                 border: `1px solid ${isOn ? 'rgba(99,102,241,0.15)' : 'rgba(0,0,0,0.06)'}`,
-                                transition: 'all 0.2s',
+                                transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                             }}>
                                 <div
                                     onClick={() => updateSetting(toggle.key, !isOn)}

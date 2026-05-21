@@ -201,6 +201,21 @@ class TestSharedStateConsistency:
         from admin_router import _facilitator_registry as router_reg
         assert shared_reg is router_reg
 
+    def test_player_registry_identity(self):
+        from admin_shared import _player_registry as shared_reg
+        from admin_router import _player_registry as router_reg
+        assert shared_reg is router_reg
+
+    def test_shared_lists_remain_same_object_after_in_place_clear(self):
+        """Slice assignment (_reg[:] = [...]) must not break object identity.
+        If any code uses rebinding (_reg = [...]) the identity check above
+        would pass at import time but fail after the first mutation."""
+        from admin_shared import _player_registry as shared_reg
+        original_id = id(shared_reg)
+        shared_reg[:] = list(shared_reg)   # simulate an in-place clear/filter
+        from admin_shared import _player_registry as shared_reg2
+        assert id(shared_reg2) == original_id, "List identity broken after [:] ="
+
     def test_round_pacing_identity(self):
         from admin_shared import _round_pacing as shared_pacing
         from admin_router import _round_pacing as router_pacing

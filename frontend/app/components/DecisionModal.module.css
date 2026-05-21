@@ -1,19 +1,18 @@
 /* DecisionModal.module.css */
 
-/* ── Overlay ─────────────────────────────────────────────────── */
+/* â”€â”€ Overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .overlay {
     position: fixed;
     inset: 0;
-    z-index: 200;
+    z-index: var(--z-modal, 200);
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(6px);
+    background: rgba(0, 0, 0, 0.92);
     animation: fadeInUp 0.2s ease-out both;
 }
 
-/* ── Modal ────────────────────────────────────────────────────── */
+/* â”€â”€ Modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modal {
     width: 92%;
     max-width: 820px;
@@ -26,7 +25,7 @@
     animation: modalIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-/* ── Header ──────────────────────────────────────────────────── */
+/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modalHeader {
     display: flex;
     align-items: center;
@@ -65,7 +64,7 @@
     color: var(--text-muted);
     font-size: 0.9rem;
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast);
 }
 
 .closeBtn:hover {
@@ -74,7 +73,7 @@
     border-color: var(--border-active);
 }
 
-/* ── Crisis Block ────────────────────────────────────────────── */
+/* â”€â”€ Crisis Block â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .crisisBlock {
     padding: var(--space-xl);
 }
@@ -93,7 +92,7 @@
     max-width: 640px;
 }
 
-/* ── Divider ─────────────────────────────────────────────────── */
+/* â”€â”€ Divider â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .divider {
     display: flex;
     align-items: center;
@@ -116,7 +115,7 @@
     color: var(--text-muted);
 }
 
-/* ── Options Grid ────────────────────────────────────────────── */
+/* â”€â”€ Options Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .optionsGrid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
@@ -134,7 +133,7 @@
     border: 1.5px solid var(--border-subtle);
     border-radius: var(--radius-lg);
     cursor: pointer;
-    transition: all var(--transition-normal);
+    transition: border-color var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-normal);
 }
 
 .optionCard:hover {
@@ -145,8 +144,12 @@
 
 .optionCard.active {
     border-color: var(--opt-accent, var(--accent-blue));
-    box-shadow: 0 0 24px color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 30%, transparent);
-    background: color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 6%, var(--bg-card));
+    border-width: 2px;
+    /* Triple-layer selection signal: outer glow + ring + background tint */
+    box-shadow:
+        0 0 0 3px color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 18%, transparent),
+        0 0 28px color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 25%, transparent);
+    background: color-mix(in srgb, var(--opt-accent, var(--accent-blue)) 8%, var(--bg-card));
 }
 
 .optLabel {
@@ -176,7 +179,7 @@
     flex: 1;
 }
 
-/* ── Impact Grid ─────────────────────────────────────────────── */
+/* â”€â”€ Impact Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .impactGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -232,16 +235,16 @@
 }
 
 .barPos {
-    background: var(--gauge-green, #10b981);
+    background: var(--gauge-green);
     opacity: 0.6;
 }
 
 .barNeg {
-    background: var(--gauge-red, #ef4444);
+    background: var(--gauge-red);
     opacity: 0.6;
 }
 
-/* ── Selected Badge ──────────────────────────────────────────── */
+/* â”€â”€ Selected Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .selectedBadge {
     position: absolute;
     top: 8px;
@@ -256,7 +259,7 @@
     animation: fadeInUp 0.2s ease-out;
 }
 
-/* ── Disabled Card (R10 synergy gate) ────────────────────────── */
+/* â”€â”€ Disabled Card (R10 synergy gate) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .optionCard.disabled {
     opacity: 0.4;
     cursor: not-allowed;
@@ -282,7 +285,7 @@
     text-align: center;
 }
 
-/* ── Footer ──────────────────────────────────────────────────── */
+/* â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modalFooter {
     padding: var(--space-lg) var(--space-xl);
     border-top: 1px solid var(--border-subtle);
@@ -299,7 +302,7 @@
     border: none;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all var(--transition-normal);
+    transition: box-shadow var(--transition-normal), transform var(--transition-normal);
 }
 
 .confirmBtn:hover {
@@ -342,7 +345,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all var(--transition-fast);
+    transition: background var(--transition-fast), color var(--transition-fast);
 }
 
 .cancelBtn:hover {
@@ -359,7 +362,7 @@
     border: none;
     border-radius: var(--radius-md);
     cursor: pointer;
-    transition: all var(--transition-normal);
+    transition: box-shadow var(--transition-normal), transform var(--transition-normal);
 }
 
 .commitBtn:hover {
@@ -377,7 +380,7 @@
     }
 }
 
-/* ── Strategic Breakdown Panel ────────────────────────────────── */
+/* â”€â”€ Strategic Breakdown Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .breakdownPanel {
     margin: 0 var(--space-xl) var(--space-lg);
     background: rgba(15, 23, 42, 0.4);
@@ -403,7 +406,7 @@
 .breakdownTitle {
     font-size: 0.72rem;
     font-weight: 800;
-    color: var(--accent-cyan, #06b6d4);
+    color: var(--accent-cyan);
     letter-spacing: 0.1em;
 }
 

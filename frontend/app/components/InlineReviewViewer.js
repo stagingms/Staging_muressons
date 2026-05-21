@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import { sanitizeHtml } from '@/app/utils/sanitize';
 
 /**
  * In-game review/study content viewer.
@@ -67,7 +68,7 @@ export default function InlineReviewViewer({ isOpen, onClose, title, content = '
         <div style={{
           flex: 1, overflowY: 'auto', padding: '20px 28px',
         }}>
-          <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+          <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(htmlContent) }} />
         </div>
 
         {/* Footer */}

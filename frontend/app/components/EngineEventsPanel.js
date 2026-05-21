@@ -509,6 +509,22 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
   // ── Decision Regret (shadow tick alternatives) ──
   const regret = roundEvents?.decision_regret;
 
+  // ── Category grouping ──
+  const categorizeEvent = (evt) => {
+    if (['#ef4444'].includes(evt.color) || evt.text?.toLowerCase().includes('risk') || evt.text?.toLowerCase().includes('penalty') || evt.text?.toLowerCase().includes('strike') || evt.text?.toLowerCase().includes('breach') || evt.text?.toLowerCase().includes('tipping')) return 'risks';
+    if (evt.text?.toLowerCase().includes('revenue') || evt.text?.toLowerCase().includes('$') || evt.text?.toLowerCase().includes('ebitda') || evt.text?.toLowerCase().includes('wacc') || evt.text?.toLowerCase().includes('treasury') || evt.text?.toLowerCase().includes('cost') || evt.text?.toLowerCase().includes('fee') || evt.text?.toLowerCase().includes('interest') || evt.text?.toLowerCase().includes('covenant')) return 'financial';
+    return 'market';
+  };
+
+  const grouped = { risks: [], financial: [], market: [] };
+  events.forEach(evt => grouped[categorizeEvent(evt)].push(evt));
+
+  const categoryMeta = {
+    risks: { icon: '⚠️', label: 'RISKS', color: '#ef4444' },
+    financial: { icon: '📈', label: 'FINANCIAL IMPACTS', color: '#f59e0b' },
+    market: { icon: '🌍', label: 'MARKET & ESG', color: '#6366f1' },
+  };
+
   if (events.length === 0 && !diary && !regret) return null;
 
   const moodStyles = {
@@ -520,8 +536,9 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
   };
 
   const [eventsOpen, setEventsOpen] = React.useState(true);
-  const [regretOpen, setRegretOpen] = React.useState(false);
+  const [regretOpen, setRegretOpen] = React.useState(true);
   const [diaryOpen, setDiaryOpen] = React.useState(false);
+  const [expandedEvent, setExpandedEvent] = React.useState(null);
 
   const hasRegret = regret && Object.keys(regret.alternatives || {}).length > 0;
 
@@ -534,7 +551,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
         borderRadius: isOpen ? '8px 8px 0 0' : 8,
         background: isOpen ? '#111827' : '#0f1729',
         borderLeft: `3px solid ${accentColor}`,
-        cursor: 'pointer', transition: 'all 0.2s',
+        cursor: 'pointer', transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
         fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
       }}
     >
@@ -576,15 +593,57 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
             <div style={{
               padding: '10px 14px', background: '#0c1322',
               borderTop: '1px solid #1e293b',
-              maxHeight: 260, overflowY: 'auto',
+              maxHeight: 340, overflowY: 'auto',
             }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                {events.map((evt, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }} data-tooltip={evt.tooltip}>
-                    <span style={{ flexShrink: 0, fontSize: '0.85rem' }}>{evt.icon}</span>
-                    <span style={{ fontSize: '0.72rem', color: '#cbd5e1', lineHeight: 1.5 }}>{evt.text}</span>
-                  </div>
-                ))}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '6px 10px', marginBottom: 8, borderRadius: 6,
+                background: 'rgba(94,234,212,0.06)', border: '1px solid rgba(94,234,212,0.1)',
+                fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600,
+              }}>
+                <span>{events.length} events</span>
+                <span>{grouped.risks.length} risks</span>
+                <span>{grouped.financial.length} financial</span>
+                <span>{grouped.market.length} market</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                {Object.entries(grouped).filter(([, evts]) => evts.length > 0).map(([cat, catEvents]) => {
+                  const meta = categoryMeta[cat];
+                  return (
+                    <div key={cat} style={{ marginBottom: 8 }}>
+                      <div style={{
+                        fontSize: '0.6rem', fontWeight: 800, textTransform: 'uppercase',
+                        letterSpacing: '0.08em', color: meta.color, padding: '4px 0',
+                        borderBottom: `1px solid ${meta.color}20`, marginBottom: 5,
+                        display: 'flex', alignItems: 'center', gap: 5,
+                      }}>
+                        {meta.icon} {meta.label} ({catEvents.length})
+                      </div>
+                      {catEvents.map((evt, i) => (
+                        <div
+                          key={`${cat}-${evt.tooltip?.slice(0, 40) || evt.text?.slice(0, 40) || i}`}
+                          style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: evt.tooltip ? 'pointer' : 'default', padding: '3px 0' }}
+                          onClick={() => evt.tooltip && setExpandedEvent(expandedEvent === `${cat}-${i}` ? null : `${cat}-${i}`)}
+                          data-tooltip={evt.tooltip}
+                        >
+                          <span style={{ flexShrink: 0, fontSize: '0.85rem' }}>{evt.icon}</span>
+                          <div style={{ flex: 1 }}>
+                            <span style={{ fontSize: '0.72rem', color: '#cbd5e1', lineHeight: 1.5 }}>{evt.text}</span>
+                            {expandedEvent === `${cat}-${i}` && evt.tooltip && (
+                              <div style={{
+                                marginTop: 4, padding: '6px 8px', borderRadius: 4,
+                                background: 'rgba(94,234,212,0.04)', border: '1px solid rgba(94,234,212,0.1)',
+                                fontSize: '0.65rem', color: '#94a3b8', lineHeight: 1.6, fontStyle: 'italic',
+                              }}>
+                                💡 {evt.tooltip}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -603,7 +662,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
           return `${sign}$${abs.toFixed(0)}`;
         };
         return (
-          <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #1e293b' }}>
+          <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #1e293b', background: 'linear-gradient(135deg, rgba(167,139,250,0.03), transparent)' }}>
             <AccordionHeader
               icon="🔮" title="Road Not Taken"
               badge={regret.note || 'Alternatives'}
@@ -612,12 +671,21 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
             />
             {regretOpen && (
               <div style={{
-                padding: '10px 14px', background: '#0c1322',
+                padding: '10px 14px', background: 'linear-gradient(135deg, rgba(167,139,250,0.04), #0c1322)',
                 borderTop: '1px solid #1e293b',
               }}>
-                <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 8 }}>
-                  You chose <strong style={{ color: '#c4b5fd' }}>{optionLabels[regret.your_choice] || regret.your_choice}</strong>. Here's what the alternatives would have yielded:
+                <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginBottom: 8 }}>
+                  <span style={{
+                    background: 'linear-gradient(90deg, #c4b5fd, #818cf8, #c4b5fd)',
+                    backgroundSize: '200% auto',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                    animation: 'shimmer 3s linear infinite',
+                  }}>
+                    You chose <strong>{optionLabels[regret.your_choice] || regret.your_choice}</strong>
+                  </span>. Here's what the alternatives would have yielded:
                 </div>
+                <style>{`@keyframes shimmer { to { background-position: 200% center; } }`}</style>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {Object.entries(regret.alternatives).map(([opt, data]) => {
                     const tBetter = data.treasury_delta > 0;

@@ -193,7 +193,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
       position: 'absolute',
       zIndex: 3,
       pointerEvents: 'all',
-      transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
+      transition: 'background 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), color 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), border-color 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
     };
 
     switch (cardSide) {
@@ -219,41 +219,8 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
           {/* Invisible click blocker — prevents interaction with cockpit while tour runs */}
           <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'all' }} />
 
-          {/* SVG Mask Overlay — cuts a transparent window in the dark overlay */}
-          <svg
-            style={{
-              position: 'absolute', inset: 0, width: '100%', height: '100%',
-              zIndex: 2, pointerEvents: 'none',
-              transition: 'opacity 0.3s ease',
-            }}
-          >
-            <defs>
-              <mask id="tour-spotlight-mask">
-                {/* White = visible (dark overlay shown), Black = hidden (transparent hole) */}
-                <rect x="0" y="0" width="100%" height="100%" fill="white" />
-                {spot.w > 0 && spot.h > 0 && (
-                  <rect
-                    x={spot.x}
-                    y={spot.y}
-                    width={spot.w}
-                    height={spot.h}
-                    rx="10"
-                    ry="10"
-                    fill="black"
-                    style={{ transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)' }}
-                  />
-                )}
-              </mask>
-            </defs>
-            <rect
-              x="0" y="0" width="100%" height="100%"
-              fill="rgba(15, 23, 42, 0.75)"
-              mask="url(#tour-spotlight-mask)"
-            />
-          </svg>
-
-          {/* Dashed border highlight around the cutout */}
-          {spot.w > 0 && spot.h > 0 && (
+          {/* Spotlight Cutout Overlay */}
+          {spot.w > 0 && spot.h > 0 ? (
             <div style={{
               position: 'absolute',
               left: spot.x,
@@ -266,7 +233,14 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
               zIndex: 3,
               transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
               pointerEvents: 'none',
-              boxShadow: '0 0 20px rgba(165, 180, 252, 0.15)',
+              /* The 9999px box-shadow creates the dark overlay outside the box, while the box itself remains transparent */
+              boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.75), 0 0 20px rgba(165, 180, 252, 0.15)',
+            }} />
+          ) : (
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'rgba(15, 23, 42, 0.75)',
+              zIndex: 2, pointerEvents: 'none'
             }} />
           )}
 
@@ -286,7 +260,7 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
                 <div key={i} style={{
                   width: i === currentStep ? 20 : 6, height: 6, borderRadius: 3,
                   background: i === currentStep ? '#6366f1' : i < currentStep ? '#a5b4fc' : '#e2e8f0',
-                  transition: 'all 0.3s',
+                  transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s',
                 }} />
               ))}
             </div>

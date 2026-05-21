@@ -4,29 +4,30 @@
 .header h2 { margin: 0; font-size: 1.4rem; font-weight: 800; }
 .subtitle { margin: 0.2rem 0 0; font-size: 0.82rem; color: var(--text-muted); }
 .loading { padding: 3rem; text-align: center; color: var(--text-muted); }
-.statusMsg { padding: 0.6rem 1rem; border-radius: 8px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: #10b981; font-weight: 600; font-size: 0.85rem; margin-bottom: 1rem; }
+.statusMsg { padding: 0.6rem 1rem; border-radius: 8px; background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); color: var(--gauge-green); font-weight: 600; font-size: 0.85rem; margin-bottom: 1rem; }
 .settingCard { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; }
 .frozenCard { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.04); }
 .dangerCard { border-color: rgba(239,68,68,0.4); }
 .settingInfo h3 { margin: 0 0 0.4rem; font-size: 1rem; font-weight: 700; color: var(--text-primary); }
 .settingInfo p { margin: 0 0 0.6rem; font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; }
-.toggle { position: relative; width: 140px; height: 36px; border-radius: 18px; border: none; cursor: pointer; display: flex; align-items: center; padding: 0 0.5rem; transition: all 0.3s; }
+.toggle { position: relative; width: 140px; height: 36px; border-radius: 18px; border: none; cursor: pointer; display: flex; align-items: center; padding: 0 0.5rem; transition: background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s; }
 .toggleOn { background: linear-gradient(135deg, #10b981, #059669); justify-content: flex-end; }
 .toggleOff { background: var(--border-subtle); justify-content: flex-start; }
-.toggleKnob { width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: all 0.3s; }
+.toggleKnob { width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.2); transition: background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s; }
 .toggleLabel { position: absolute; width: 100%; text-align: center; font-size: 0.65rem; font-weight: 800; letter-spacing: 0.1em; color: #fff; pointer-events: none; }
-.frozenBadge { padding: 0.5rem 0.8rem; border-radius: 6px; background: rgba(239,68,68,0.1); color: #ef4444; font-size: 0.78rem; font-weight: 600; display: inline-block; }
+.frozenBadge { padding: 0.5rem 0.8rem; border-radius: 6px; background: rgba(239,68,68,0.1); color: var(--gauge-red); font-size: 0.78rem; font-weight: 600; display: inline-block; }
 .freezeControls { display: flex; gap: 0.5rem; margin-top: 0.5rem; }
 .freezeInput { flex: 1; padding: 0.5rem 0.8rem; border-radius: 8px; border: 1px solid var(--border-subtle); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; outline: none; }
 .freezeBtn { padding: 0.5rem 1.2rem; border: none; border-radius: 8px; background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; font-weight: 700; font-size: 0.82rem; cursor: pointer; white-space: nowrap; }
 .unfreezeBtn { padding: 0.6rem 1.5rem; border: none; border-radius: 8px; background: linear-gradient(135deg, #10b981, #059669); color: #fff; font-weight: 700; font-size: 0.88rem; cursor: pointer; }
 .dangerHint { font-style: italic; }
-.dangerHint code { background: rgba(239,68,68,0.1); padding: 0.15rem 0.4rem; border-radius: 4px; color: #ef4444; font-weight: 700; font-size: 0.82rem; }
+.dangerHint code { background: rgba(239,68,68,0.1); padding: 0.15rem 0.4rem; border-radius: 4px; color: var(--gauge-red); font-weight: 700; font-size: 0.82rem; }
 .resetControls { display: flex; flex-direction: column; gap: 0.8rem; margin-top: 0.5rem; }
 .dangerInput { padding: 0.6rem 1rem; border-radius: 8px; border: 2px solid rgba(239,68,68,0.3); background: var(--bg-body); color: var(--text-primary); font-size: 0.88rem; font-family: var(--font-mono); outline: none; }
-.dangerInput:focus { border-color: #ef4444; }
+.dangerInput:focus { border-color: var(--gauge-red); }
 .nukeBtn { padding: 0.7rem 1.5rem; border: none; border-radius: 8px; background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 16px rgba(239,68,68,0.3); }
 .nukeBtn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
-.countdownBadge { padding: 0.7rem 1rem; border-radius: 8px; background: rgba(239,68,68,0.08); color: #ef4444; font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.8rem; }
-.cancelBtn { background: none; border: 1px solid #ef4444; color: #ef4444; padding: 0.3rem 0.8rem; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; }
+.countdownBadge { padding: 0.7rem 1rem; border-radius: 8px; background: rgba(239,68,68,0.08); color: var(--gauge-red); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 0.8rem; }
+.cancelBtn { background: none; border: 1px solid var(--gauge-red); color: var(--gauge-red); padding: 0.3rem 0.8rem; border-radius: 6px; font-weight: 700; font-size: 0.75rem; cursor: pointer; }
 .resetResult { font-size: 0.85rem; font-weight: 600; padding: 0.5rem; }
+

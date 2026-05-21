@@ -1,8 +1,8 @@
 /* AuditTrail.module.css — Admin dashboard dark theme */
 
 .panel {
-    background: var(--bg-card, #0f172a);
-    border: 1px solid var(--border-subtle, #1e293b);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg, 12px);
     overflow: hidden;
 }
@@ -12,8 +12,8 @@
     align-items: center;
     justify-content: space-between;
     padding: 0.8rem 1rem;
-    border-bottom: 1px solid var(--border-subtle, #1e293b);
-    background: var(--bg-elevated, #1e293b);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
 }
 
 .titleRow {
@@ -26,13 +26,13 @@
     margin: 0;
     font-size: 0.85rem;
     font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }
 
 .totalBadge {
     font-size: 0.7rem;
     font-weight: 700;
-    color: #a78bfa;
+    color: var(--accent-purple);
     background: rgba(139, 92, 246, 0.12);
     padding: 3px 10px;
     border-radius: 20px;
@@ -49,10 +49,10 @@
     text-align: center;
     padding: 1.5rem 1rem;
     font-size: 0.8rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 
-/* ── Round Accordion ────────────────────────────── */
+/* -- Round Accordion ------------------------------ */
 
 .roundGroup {
     margin-bottom: 0.4rem;
@@ -64,43 +64,43 @@
     gap: 0.5rem;
     width: 100%;
     padding: 0.5rem 0.75rem;
-    background: var(--bg-elevated, #1e293b);
-    border: 1px solid var(--border-subtle, #334155);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 .roundToggle:hover {
     background: #334155;
-    color: var(--text-primary, #e2e8f0);
-    border-color: #475569;
+    color: var(--text-primary);
+    border-color: var(--text-secondary);
 }
 
 .roundIcon {
     font-size: 0.65rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .roundLabel {
     font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }
 
 .roundCount {
     margin-left: auto;
     font-size: 0.65rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--text-muted);
     background: rgba(100, 116, 139, 0.15);
     padding: 2px 8px;
     border-radius: 10px;
 }
 
-/* ── Table ───────────────────────────────────────── */
+/* -- Table ----------------------------------------- */
 
 .roundBody {
     padding: 0.5rem 0 0 0;
@@ -119,13 +119,13 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: var(--text-muted);
     border-bottom: 1px solid #334155;
 }
 
 .table td {
     padding: 0.45rem 0.6rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     border-bottom: 1px solid rgba(51, 65, 85, 0.5);
 }
 
@@ -134,10 +134,10 @@
 }
 
 .playerId {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-weight: 700;
     font-size: 0.75rem;
-    color: #6366f1;
+    color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.08);
     padding: 2px 6px;
     border-radius: 4px;
@@ -150,7 +150,7 @@
 
 .decisionNode {
     font-size: 0.72rem;
-    color: #94a3b8;
+    color: var(--text-muted);
     max-width: 120px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -170,7 +170,7 @@
     background: var(--choice-color, #6366f1);
 }
 
-/* ── Scrollbar ──────────────────────────────────── */
+/* -- Scrollbar ------------------------------------ */
 
 .body::-webkit-scrollbar {
     width: 4px;

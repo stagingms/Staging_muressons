@@ -302,7 +302,21 @@ def build_consequence_dna_data(
     synergy = global_state.get("synergy_multiplier", 1.0)
     hr_rounds = global_state.get("hr_investment_rounds", 0)
 
-    mr_result = calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness, synergy, hr_rounds)
+    # If the engine already computed the authoritative M_R (stored at R10 commit),
+    # use it directly so the DNA Visualizer matches the Scorecard.  Only fall back
+    # to recomputing via calculate_mr for in-progress (pre-R10) sessions where
+    # active_event_flags.regenerative_multiple has not yet been written.
+    authoritative_mr = flags.get("regenerative_multiple")
+    if authoritative_mr is not None:
+        mr_breakdown = flags.get("mr_breakdown", {})
+        mr_result = {
+            "mr": float(authoritative_mr),
+            "breakdown": mr_breakdown,
+            "bonuses_earned": [],
+            "max_achievable_mr": 2.33,
+        }
+    else:
+        mr_result = calculate_mr(flags, avg_slo, avg_burnout, workforce_readiness, synergy, hr_rounds)
     projection_nodes = []
     for key, value in mr_result["breakdown"].items():
         if key == "base":
@@ -523,6 +537,11 @@ def build_consequence_dna_data(
         lp_analysis = {"effectiveness_score": 0, "dominant_leverage_point": 12}
 
     archetype_result = determine_archetype(mr_result["mr"])
+    # If the engine stored a pathway-specific profile title/icon, honour it.
+    if flags.get("profile_title"):
+        archetype_result = {**archetype_result, "title": flags["profile_title"]}
+    if flags.get("profile"):
+        archetype_result = {**archetype_result, "key": flags["profile"]}
 
     return {
         "ignited": ignited,

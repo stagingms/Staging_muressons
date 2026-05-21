@@ -611,3 +611,456 @@ def generate_fallback_feedback(
         "key_strengths": strengths,
         "growth_areas": growth_areas,
     }
+
+
+# ═══════════════════════════════════════════════════════════════
+#  IMPROVEMENT 1: LLM-BASED RESPONSE SCORING
+# ═══════════════════════════════════════════════════════════════
+
+async def score_responses_with_llm(
+    questions: list[dict],
+    responses: list[str],
+    data_scores: dict[str, float],
+    extra: dict,
+) -> dict | None:
+    """Call LLM API to score interview responses. Returns parsed result or None."""
+    import json as _json
+    try:
+        from config import LLM_API_KEY, LLM_PROVIDER, LLM_MODEL
+    except ImportError:
+        return None
+
+    if not LLM_API_KEY:
+        return None
+
+    prompt = build_assessment_prompt(questions, responses, data_scores, extra)
+
+    try:
+        import httpx
+        if LLM_PROVIDER == "anthropic":
+            async with httpx.AsyncClient(timeout=30) as client:
+                res = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": LLM_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": LLM_MODEL or "claude-sonnet-4-20250514",
+                        "max_tokens": 2000,
+                        "system": ASSESSMENT_SYSTEM_PROMPT,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                )
+                body = res.json()
+                text = body.get("content", [{}])[0].get("text", "")
+        else:  # openai
+            async with httpx.AsyncClient(timeout=30) as client:
+                res = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {LLM_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": LLM_MODEL or "gpt-4o-mini",
+                        "messages": [
+                            {"role": "system", "content": ASSESSMENT_SYSTEM_PROMPT},
+                            {"role": "user", "content": prompt},
+                        ],
+                        "temperature": 0.3,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+                body = res.json()
+                text = body["choices"][0]["message"]["content"]
+
+        # Parse JSON from response
+        # Strip markdown fences if present
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+        result = _json.loads(text)
+        return result
+    except Exception as e:
+        print(f"[ceo-interview] LLM scoring error: {e}")
+        return None
+
+
+# ═══════════════════════════════════════════════════════════════
+#  IMPROVEMENT 2: TRAJECTORY-AWARE SCORING
+# ═══════════════════════════════════════════════════════════════
+
+def calc_trajectory_modifiers(
+    round_history: list[dict],
+    decision_log: list[dict],
+) -> dict[str, dict]:
+    """Analyze round-over-round trajectories for consistency bonuses/penalties.
+
+    Returns {dimension_id: {modifier: float, narrative: str}}
+    where modifier is a multiplier (0.8 to 1.2) applied to the data score.
+    """
+    if not round_history or len(round_history) < 3:
+        return {}
+
+    modifiers = {}
+
+    # Extract time series
+    mr_series = []
+    slo_series = []
+    treasury_series = []
+    synergy_series = []
+
+    for rh in round_history:
+        gs = rh.get("global_state", {})
+        flags = gs.get("active_event_flags", {})
+        mr_series.append(flags.get("regenerative_multiple", gs.get("synergy_multiplier", 1.0)))
+        treasury_series.append(gs.get("corporate_treasury", 0))
+        synergy_series.append(gs.get("synergy_multiplier", 1.0))
+
+        bus = rh.get("business_units", [])
+        if bus:
+            slo_series.append(sum(b.get("social_license_score", 50) for b in bus) / len(bus))
+        else:
+            slo_series.append(50)
+
+    def _trend_score(series):
+        """Calculate improvement trend. Returns -1 to +1."""
+        if len(series) < 2:
+            return 0
+        improvements = sum(1 for i in range(1, len(series)) if series[i] > series[i - 1])
+        return (improvements / (len(series) - 1)) * 2 - 1
+
+    def _variance_penalty(series):
+        """High variance = inconsistency = penalty."""
+        if len(series) < 2:
+            return 0
+        mean = sum(series) / len(series)
+        if mean == 0:
+            return 0
+        variance = sum((x - mean) ** 2 for x in series) / len(series)
+        cv = (variance ** 0.5) / abs(mean)  # coefficient of variation
+        return min(0.15, cv * 0.3)  # cap at 15% penalty
+
+    # Strategic Thinking — reward consistent M_R improvement
+    trend = _trend_score(synergy_series)
+    mod = 1.0 + (trend * 0.1)  # ±10%
+    if trend > 0.3:
+        narr = f"Your strategic metrics improved consistently across {len(round_history)} rounds (+{trend*10:.0f}% trajectory bonus)."
+    elif trend < -0.3:
+        narr = f"Your strategic metrics declined over the simulation (-{abs(trend)*10:.0f}% trajectory penalty)."
+    else:
+        narr = "Your strategic trajectory was relatively flat — neither consistently improving nor declining."
+    modifiers["strategic_thinking"] = {"modifier": round(mod, 2), "narrative": narr}
+
+    # Stakeholder Empathy — penalise high SLO variance (boom-bust)
+    penalty = _variance_penalty(slo_series)
+    mod = 1.0 - penalty
+    if penalty > 0.08:
+        narr = f"Your Social License score showed high volatility across rounds (σ penalty: -{penalty*100:.0f}%). Consistent stakeholder management would have scored higher."
+    elif penalty > 0.03:
+        narr = "Your SLO showed moderate fluctuation — some rounds saw significant drops followed by recovery."
+    else:
+        narr = "Your Social License was maintained consistently — a sign of genuine stakeholder management discipline."
+    modifiers["stakeholder_empathy"] = {"modifier": round(mod, 2), "narrative": narr}
+
+    # Financial Acumen — reward consistent treasury growth, penalise boom-bust
+    t_trend = _trend_score(treasury_series)
+    t_penalty = _variance_penalty(treasury_series)
+    mod = 1.0 + (t_trend * 0.08) - t_penalty
+    emergency_rounds = sum(1 for r in round_history
+                          if r.get("global_state", {}).get("active_event_flags", {}).get("emergency_credit_used"))
+    if emergency_rounds > 0:
+        mod -= 0.05 * emergency_rounds
+        narr = f"Emergency credit was used in {emergency_rounds} round(s), indicating cash flow stress. Treasury trend: {'growing' if t_trend > 0 else 'declining'}."
+    elif t_trend > 0.2:
+        narr = "Treasury grew consistently across rounds — strong cash management."
+    else:
+        narr = "Treasury showed instability — consider more conservative capital allocation in volatile rounds."
+    modifiers["financial_acumen"] = {"modifier": round(max(0.8, mod), 2), "narrative": narr}
+
+    # Systems Thinking — reward compounding synergy
+    syn_trend = _trend_score(synergy_series)
+    mod = 1.0 + (syn_trend * 0.1)
+    if syn_trend > 0.3:
+        narr = f"Synergy multiplier compounded consistently (+{syn_trend*10:.0f}% bonus) — evidence of systems-level thinking."
+    else:
+        narr = "Synergy gains were inconsistent, suggesting siloed rather than systemic investment decisions."
+    modifiers["systems_thinking"] = {"modifier": round(mod, 2), "narrative": narr}
+
+    # Adaptive Leadership — detect strategy pivots after crises
+    pivots = 0
+    for entry in decision_log:
+        if entry.get("choice_selected", "") != entry.get("previous_choice", ""):
+            pivots += 1
+    mod = 1.0 + min(0.15, pivots * 0.03)
+    if pivots >= 3:
+        narr = f"You adapted your strategy {pivots} times across the simulation — strong adaptive capacity."
+    elif pivots >= 1:
+        narr = f"You made {pivots} strategic pivot(s). More willingness to adapt mid-game would strengthen this score."
+    else:
+        narr = "No significant strategy changes were detected across rounds — consider whether more flexibility was warranted."
+    modifiers["adaptive_leadership"] = {"modifier": round(mod, 2), "narrative": narr}
+
+    # Ethical Reasoning — reward early vs late ethical investment
+    ethical_flags_by_round = {}
+    for rh in round_history:
+        rn = rh.get("round_number", 0)
+        flags = rh.get("global_state", {}).get("active_event_flags", {})
+        for key in ["ethical_ai_overhaul", "community_fund", "managed_transition", "deep_audit"]:
+            if flags.get(key) and key not in ethical_flags_by_round:
+                ethical_flags_by_round[key] = rn
+
+    if ethical_flags_by_round:
+        avg_round = sum(ethical_flags_by_round.values()) / len(ethical_flags_by_round)
+        # Early = bonus (rounds 1-4), late = penalty (rounds 8-10)
+        mod = 1.0 + max(-0.1, min(0.15, (5 - avg_round) * 0.03))
+        if avg_round <= 4:
+            narr = f"Ethical investments were made proactively (avg round {avg_round:.0f}) — this indicates genuine values-driven leadership, not reactive compliance."
+        else:
+            narr = f"Ethical decisions came late (avg round {avg_round:.0f}). Earlier investment signals conviction; late investment may appear reactive."
+    else:
+        mod = 0.9
+        narr = "No ethical investment flags were triggered — a significant gap in your leadership profile."
+    modifiers["ethical_reasoning"] = {"modifier": round(mod, 2), "narrative": narr}
+
+    return modifiers
+
+
+# ═══════════════════════════════════════════════════════════════
+#  IMPROVEMENT 3: BEHAVIOURAL EVIDENCE CITATIONS
+# ═══════════════════════════════════════════════════════════════
+
+def generate_evidence_citations(
+    decision_log: list[dict],
+    round_history: list[dict],
+    data_scores: dict[str, float],
+) -> dict[str, list[str]]:
+    """Mine decision log for specific round/choice citations per dimension.
+
+    Returns {dimension_id: [citation_1, citation_2]}
+    """
+    citations = {d["id"]: [] for d in DIMENSIONS}
+    if not decision_log:
+        return citations
+
+    # Build round → choice mapping
+    choices_by_round = {}
+    for entry in decision_log:
+        rn = entry.get("round_number", 0)
+        choices_by_round.setdefault(rn, []).append(entry)
+
+    # Build round → SLO delta mapping
+    slo_deltas = {}
+    for i in range(1, len(round_history)):
+        prev_bus = round_history[i - 1].get("business_units", [])
+        curr_bus = round_history[i].get("business_units", [])
+        if prev_bus and curr_bus:
+            prev_avg = sum(b.get("social_license_score", 50) for b in prev_bus) / len(prev_bus)
+            curr_avg = sum(b.get("social_license_score", 50) for b in curr_bus) / len(curr_bus)
+            slo_deltas[round_history[i].get("round_number", i + 1)] = round(curr_avg - prev_avg, 1)
+
+    # Treasury deltas
+    treasury_deltas = {}
+    for i in range(1, len(round_history)):
+        prev_t = round_history[i - 1].get("global_state", {}).get("corporate_treasury", 0)
+        curr_t = round_history[i].get("global_state", {}).get("corporate_treasury", 0)
+        treasury_deltas[round_history[i].get("round_number", i + 1)] = round(curr_t - prev_t)
+
+    # Find most impactful rounds per dimension
+    # Stakeholder Empathy — worst SLO drop
+    if slo_deltas:
+        worst_slo_round = min(slo_deltas, key=slo_deltas.get)
+        delta = slo_deltas[worst_slo_round]
+        if delta < -5:
+            choices = choices_by_round.get(worst_slo_round, [])
+            choice_text = choices[0].get("choice_selected", "unknown") if choices else "unknown"
+            citations["stakeholder_empathy"].append(
+                f"Round {worst_slo_round}: Your choice ('{choice_text}') caused a {abs(delta):.0f}-point SLO drop — the largest single-round decline in your simulation."
+            )
+
+    # Financial Acumen — worst treasury drop
+    if treasury_deltas:
+        worst_t_round = min(treasury_deltas, key=treasury_deltas.get)
+        delta = treasury_deltas[worst_t_round]
+        if delta < -1_000_000:
+            choices = choices_by_round.get(worst_t_round, [])
+            choice_text = choices[0].get("choice_selected", "unknown") if choices else "unknown"
+            citations["financial_acumen"].append(
+                f"Round {worst_t_round}: Treasury dropped by ${abs(delta)/1_000_000:.1f}M after choosing '{choice_text}'. This was your most expensive single-round decision."
+            )
+
+    # Strategic Thinking — cite the choice with highest CAPEX
+    all_choices = sorted(decision_log, key=lambda x: abs(x.get("capex_allocated", 0)), reverse=True)
+    if all_choices and all_choices[0].get("capex_allocated", 0) > 0:
+        top = all_choices[0]
+        citations["strategic_thinking"].append(
+            f"Round {top.get('round_number', '?')}: You allocated ${top['capex_allocated']/1_000_000:.1f}M CAPEX via '{top.get('choice_selected', '?')}' — your largest single investment. This decision shaped your terminal value trajectory."
+        )
+
+    # Ethical Reasoning — cite specific ethical flag rounds
+    for rh in round_history:
+        rn = rh.get("round_number", 0)
+        flags = rh.get("global_state", {}).get("active_event_flags", {})
+        if flags.get("ethical_ai_overhaul"):
+            citations["ethical_reasoning"].append(f"Round {rn}: You invested in the Ethical AI Overhaul — demonstrating commitment to responsible technology governance.")
+            break
+    for rh in round_history:
+        rn = rh.get("round_number", 0)
+        flags = rh.get("global_state", {}).get("active_event_flags", {})
+        if flags.get("community_fund"):
+            citations["ethical_reasoning"].append(f"Round {rn}: You established the Community Fund — prioritising just transition over cost minimisation.")
+            break
+
+    return citations
+
+
+# ═══════════════════════════════════════════════════════════════
+#  IMPROVEMENT 4: PEER BENCHMARKING
+# ═══════════════════════════════════════════════════════════════
+
+_peer_scores_store: dict[str, list[dict]] = {}  # cohort_id -> [{dim_id: score}]
+
+
+def store_peer_scores(cohort_id: str, final_scores: dict[str, float]) -> None:
+    """Store a completed assessment's scores for peer comparison."""
+    _peer_scores_store.setdefault(cohort_id, []).append(final_scores)
+
+
+def calc_peer_benchmarks(cohort_id: str, final_scores: dict[str, float]) -> dict[str, dict]:
+    """Calculate percentile rank relative to cohort peers.
+
+    Returns {dimension_id: {percentile: int, cohort_avg: float, cohort_size: int}}
+    """
+    peers = _peer_scores_store.get(cohort_id, [])
+    if len(peers) < 2:
+        return {}
+
+    benchmarks = {}
+    for dim in DIMENSIONS:
+        did = dim["id"]
+        my_score = final_scores.get(did, 0)
+        peer_values = [p.get(did, 0) for p in peers]
+        below = sum(1 for v in peer_values if v < my_score)
+        percentile = round((below / len(peer_values)) * 100)
+        avg = sum(peer_values) / len(peer_values)
+        benchmarks[did] = {
+            "percentile": percentile,
+            "cohort_avg": round(avg, 1),
+            "cohort_size": len(peer_values),
+        }
+    return benchmarks
+
+
+# ═══════════════════════════════════════════════════════════════
+#  IMPROVEMENT 6: ADAPTIVE INTERVIEW QUESTIONS
+# ═══════════════════════════════════════════════════════════════
+
+PROBE_TEMPLATES = {
+    "strategic_thinking": {
+        "text": "Your overall strategic trajectory suggests some missed opportunities. Looking at Rounds 4-7 specifically, what was driving your investment priorities? Were you optimising for short-term stability or long-term value creation?",
+        "dimensions": ["strategic_thinking"],
+        "ceo_intro": "I want to drill into your strategic framework more deeply.",
+    },
+    "stakeholder_empathy": {
+        "text": "Your Social License scores fluctuated significantly. Can you walk me through a specific moment where you had to choose between stakeholder welfare and financial performance? What tipped the balance?",
+        "dimensions": ["stakeholder_empathy"],
+        "ceo_intro": "Stakeholder management is where many leaders struggle. Let's examine yours.",
+    },
+    "financial_acumen": {
+        "text": "Your balance sheet tells an interesting story. There were rounds where treasury moved sharply. Walk me through your capital allocation logic — how did you decide what to invest in and what to defer?",
+        "dimensions": ["financial_acumen"],
+        "ceo_intro": "The numbers don't lie. Let's talk about your financial strategy.",
+    },
+    "ethical_reasoning": {
+        "text": "Ethical leadership often requires investing in initiatives that don't have immediate financial returns. How did you weigh ethical considerations against commercial pressures? Give me a specific example.",
+        "dimensions": ["ethical_reasoning"],
+        "ceo_intro": "Ethics isn't just about compliance — it's about conviction. Tell me about yours.",
+    },
+    "systems_thinking": {
+        "text": "Cross-business-unit synergies are the hidden multiplier in this simulation. How did you think about the connections between your divisions? Were you managing each BU independently or as an integrated portfolio?",
+        "dimensions": ["systems_thinking"],
+        "ceo_intro": "I'm interested in whether you saw the forest or just the trees.",
+    },
+    "adaptive_leadership": {
+        "text": "The simulation threw several curveballs — market shocks, regulatory changes, stakeholder crises. How quickly did you adapt your strategy when conditions changed? Can you describe a specific pivot?",
+        "dimensions": ["adaptive_leadership"],
+        "ceo_intro": "Adaptability separates good managers from great leaders.",
+    },
+}
+
+
+def generate_adaptive_questions(
+    data_scores: dict[str, float],
+    ending_pathway: str = "activist_ultimatum",
+    question_count: int = 5,
+) -> list[dict]:
+    """Generate interview questions that probe the player's weakest dimensions.
+
+    Returns a mix of base questions + targeted probes for weak areas.
+    """
+    # Start with 3 core questions
+    questions = list(BASE_QUESTIONS[:3])
+
+    # Find weakest 2 dimensions
+    sorted_dims = sorted(data_scores.items(), key=lambda x: x[1])
+    weakest = [d[0] for d in sorted_dims[:2]]
+
+    # Add targeted probes for weak areas
+    for dim_id in weakest:
+        if dim_id in PROBE_TEMPLATES and len(questions) < question_count:
+            probe = dict(PROBE_TEMPLATES[dim_id])
+            probe["id"] = f"q_probe_{dim_id}"
+            probe["is_adaptive"] = True
+            probe["target_dimension"] = dim_id
+            questions.append(probe)
+
+    # Fill remaining with pathway question
+    if len(questions) < question_count:
+        pw_q = PATHWAY_QUESTIONS.get(ending_pathway, PATHWAY_QUESTIONS["activist_ultimatum"])
+        questions.append(pw_q)
+
+    return questions[:question_count]
+
+
+# ═══════════════════════════════════════════════════════════════
+#  IMPROVEMENT 5: SELF-ASSESSMENT CALIBRATION
+# ═══════════════════════════════════════════════════════════════
+
+def calc_calibration_gaps(
+    self_assessment: dict[str, float],
+    final_scores: dict[str, float],
+) -> dict[str, dict]:
+    """Calculate the gap between self-rated and actual scores.
+
+    Returns {dimension_id: {self: float, actual: float, gap: float, label: str}}
+    """
+    if not self_assessment:
+        return {}
+
+    gaps = {}
+    for dim in DIMENSIONS:
+        did = dim["id"]
+        self_score = self_assessment.get(did, 5.0)
+        actual = final_scores.get(did, 5.0)
+        gap = round(self_score - actual, 1)
+
+        if abs(gap) <= 1.0:
+            label = "Well Calibrated"
+        elif gap > 2.5:
+            label = "Significantly Overconfident"
+        elif gap > 1.0:
+            label = "Moderately Overconfident"
+        elif gap < -2.5:
+            label = "Significantly Underconfident"
+        else:
+            label = "Moderately Underconfident"
+
+        gaps[did] = {
+            "self": self_score,
+            "actual": actual,
+            "gap": gap,
+            "label": label,
+        }
+    return gaps

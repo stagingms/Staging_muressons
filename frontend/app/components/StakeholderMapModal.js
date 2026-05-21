@@ -334,30 +334,30 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {/* Score Summary Cards */}
                             <div style={{
                                 display: 'flex', justifyContent: 'center', gap: '1rem',
-                                margin: '0.5rem 0', padding: '0.5rem',
+                                margin: '0.3rem 0', padding: '0.4rem',
                                 background: 'transparent',
                                 borderRadius: '10px',
                                 border: `1px solid ${result.passed ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'}`,
                             }}>
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.passed ? '#10b981' : '#ef4444' }}>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.passed ? '#10b981' : '#ef4444' }}>
                                         {result.accuracy_percentage}%
                                     </div>
-                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Accuracy</div>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Accuracy</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.passed ? '#f59e0b' : '#94a3b8' }}>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.passed ? '#f59e0b' : '#94a3b8' }}>
                                         {result.correct_count}/{result.total_count}
                                     </div>
-                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Correct</div>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Correct</div>
                                 </div>
                                 <div style={{ width: '1px', background: 'var(--border-subtle, rgba(255,255,255,0.1))' }} />
                                 <div style={{ textAlign: 'center', flex: 1 }}>
-                                    <div style={{ fontSize: '1.4rem', fontWeight: 800, color: result.points_awarded > 0 ? '#6366f1' : '#94a3b8' }}>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: result.points_awarded > 0 ? '#6366f1' : '#94a3b8' }}>
                                         +{result.points_awarded}
                                     </div>
-                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>Bonus Pts</div>
+                                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)' }}>Bonus Pts</div>
                                 </div>
                             </div>
 
@@ -371,22 +371,19 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                 </p>
                             )}
 
-                            {/* ── Comparison Table ── */}
-                            {result.details && (
-                                <div style={{ textAlign: 'left', marginTop: '0.4rem' }}>
-                                    <table style={{
-                                        width: '100%', borderCollapse: 'separate', borderSpacing: '0 2px',
-                                        fontSize: '0.72rem',
-                                    }}>
+                            {/* ── Two-Column Layout ── */}
+                            <div className={styles.resultTwoCol}>
+                              {/* LEFT COLUMN: Comparison + Ambiguous + Penalties */}
+                              <div className={styles.resultColLeft}>
+                                {result.details && (
+                                  <div style={{ textAlign: 'left' }}>
+                                    <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 1px', fontSize: '0.7rem' }}>
                                         <thead>
-                                            <tr style={{
-                                                fontSize: '0.65rem', textTransform: 'uppercase',
-                                                letterSpacing: '0.08em', color: 'var(--text-muted)',
-                                            }}>
-                                                <th style={{ padding: '4px 6px', textAlign: 'left', width: '24px' }}></th>
-                                                <th style={{ padding: '4px 6px', textAlign: 'left' }}>Stakeholder</th>
-                                                <th style={{ padding: '4px 6px', textAlign: 'center' }}>Your Placement</th>
-                                                <th style={{ padding: '4px 6px', textAlign: 'center' }}>Correct Placement</th>
+                                            <tr style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                                                <th style={{ padding: '3px 4px', textAlign: 'left', width: '20px' }}></th>
+                                                <th style={{ padding: '3px 4px', textAlign: 'left' }}>Stakeholder</th>
+                                                <th style={{ padding: '3px 4px', textAlign: 'center' }}>Your Placement</th>
+                                                <th style={{ padding: '3px 4px', textAlign: 'center' }}>Correct Placement</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -395,228 +392,122 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                                 const correctQ = QUADRANTS.find(q => q.id === d.correct_quadrant);
                                                 const s = getStakeholder(d.id);
                                                 return (
-                                                    <tr key={d.id} style={{
-                                                        background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                                                        borderRadius: '6px',
-                                                    }}>
-                                                        <td style={{ padding: '5px 6px', fontSize: '0.9rem', textAlign: 'center' }}>
-                                                            {d.is_correct ? '✅' : '❌'}
+                                                    <tr key={d.id} style={{ background: idx % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent' }}>
+                                                        <td style={{ padding: '3px 4px', fontSize: '0.8rem', textAlign: 'center' }}>{d.is_correct ? '✅' : '❌'}</td>
+                                                        <td style={{ padding: '3px 4px', fontWeight: 600 }}><span>{s?.icon || ''} {d.name}</span></td>
+                                                        <td style={{ padding: '3px 4px', textAlign: 'center' }}>
+                                                            <span style={{ fontWeight: 600, fontSize: '0.65rem', color: d.is_correct ? (playerQ?.color || '#10b981') : '#ef4444' }}>{playerQ?.label || '—'}</span>
                                                         </td>
-                                                        <td style={{ padding: '5px 6px', fontWeight: 600 }}>
-                                                            <span>{s?.icon || ''} {d.name}</span>
-                                                        </td>
-                                                        <td style={{ padding: '5px 6px', textAlign: 'center' }}>
-                                                            <span style={{
-                                                                fontWeight: 600, fontSize: '0.7rem',
-                                                                color: d.is_correct ? (playerQ?.color || '#10b981') : '#ef4444',
-                                                            }}>
-                                                                {playerQ?.label || '—'}
-                                                            </span>
-                                                        </td>
-                                                        <td style={{ padding: '5px 6px', textAlign: 'center' }}>
-                                                            <span style={{
-                                                                fontWeight: 600, fontSize: '0.7rem',
-                                                                color: correctQ?.color || '#6366f1',
-                                                            }}>
-                                                                {correctQ?.label || '—'}
-                                                            </span>
+                                                        <td style={{ padding: '3px 4px', textAlign: 'center' }}>
+                                                            <span style={{ fontWeight: 600, fontSize: '0.65rem', color: correctQ?.color || '#6366f1' }}>{correctQ?.label || '—'}</span>
                                                         </td>
                                                     </tr>
                                                 );
                                             })}
                                         </tbody>
                                     </table>
-                                </div>
-                            )}
+                                  </div>
+                                )}
 
-                            {/* ── C17: Ambiguous Stakeholder Callout ── */}
-                            {result.details?.filter(d => d.alternate_quadrant).map(d => (
-                                <div key={`amb-${d.id}`} style={{
-                                    marginTop: '0.4rem', padding: '0.5rem 0.65rem',
-                                    background: 'transparent', borderRadius: '8px',
-                                    border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b',
-                                }}>
-                                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24', marginBottom: '0.25rem' }}>
-                                        ⚖️ Ambiguous Classification — {d.name}
+                                {/* Ambiguous Stakeholder Callout */}
+                                {result.details?.filter(d => d.alternate_quadrant).map(d => (
+                                    <div key={`amb-${d.id}`} style={{ padding: '0.4rem 0.5rem', background: 'transparent', borderRadius: '8px', border: '1px solid rgba(245,158,11,0.2)', borderLeft: '3px solid #f59e0b' }}>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: '#fbbf24', marginBottom: '0.2rem' }}>⚖️ Ambiguous Classification — {d.name}</div>
+                                        <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.4 }}>{d.alternate_rationale}</div>
                                     </div>
-                                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary, #94a3b8)', lineHeight: 1.5 }}>
-                                        {d.alternate_rationale}
-                                    </div>
-                                </div>
-                            ))}
+                                ))}
 
-                            {/* ── C4/C12: Scoring Tier & Penalty Banner ── */}
-                            {(result.scoring_tier || result.treasury_penalty || result.reputation_penalty) && (
-                                <div style={{
-                                    marginTop: '0.4rem', padding: '0.5rem 0.65rem',
-                                    background: 'transparent',
-                                    borderRadius: '8px', border: `1px solid ${result.passed ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`,
-                                    display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center',
-                                }}>
-                                    {result.scoring_tier && (
-                                        <span style={{ fontSize: '0.7rem', fontWeight: 700, color: result.passed ? '#10b981' : '#f59e0b' }}>
-                                            📊 {result.scoring_tier}
-                                        </span>
-                                    )}
-                                    {result.reputation_penalty < 0 && (
-                                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#ef4444' }}>
-                                            🌍 Reputation {result.reputation_penalty}
-                                        </span>
-                                    )}
-                                    {result.treasury_penalty < 0 && (
-                                        <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#ef4444' }}>
-                                            💰 Treasury ${Math.abs(result.treasury_penalty / 1000)}K penalty (misaligned engagement)
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* ── C13: Urgency & Legitimacy Debrief (Mitchell et al. 1997) ── */}
-                            {result.urgency_debrief?.length > 0 && (
-                                <div style={{
-                                    marginTop: '0.5rem', padding: '0.5rem',
-                                    background: 'transparent',
-                                    border: '1px solid rgba(139,92,246,0.12)',
-                                    borderRadius: '8px',
-                                }}>
-                                    <h3 style={{ margin: '0 0 0.4rem', fontSize: '0.78rem', color: '#a78bfa' }}>
-                                        🔬 Stakeholder Salience Debrief <span style={{ fontSize: '0.6rem', fontWeight: 400, color: 'var(--text-muted)' }}>(Mitchell, Agle & Wood 1997)</span>
-                                    </h3>
-                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.35rem', lineHeight: 1.4 }}>
-                                        Beyond Power × Interest, real-world stakeholder analysis considers <strong>Urgency</strong> (time-sensitivity of claims) and <strong>Legitimacy</strong> (moral/legal standing).
+                                {/* Scoring Tier & Penalty Banner */}
+                                {(result.scoring_tier || result.treasury_penalty || result.reputation_penalty) && (
+                                    <div style={{ padding: '0.4rem 0.5rem', background: 'transparent', borderRadius: '8px', border: `1px solid ${result.passed ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`, display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                        {result.scoring_tier && (<span style={{ fontSize: '0.65rem', fontWeight: 700, color: result.passed ? '#10b981' : '#f59e0b' }}>📊 {result.scoring_tier}</span>)}
+                                        {result.reputation_penalty < 0 && (<span style={{ fontSize: '0.63rem', fontWeight: 600, color: '#ef4444' }}>🌍 Reputation {result.reputation_penalty}</span>)}
+                                        {result.treasury_penalty < 0 && (<span style={{ fontSize: '0.63rem', fontWeight: 600, color: '#ef4444' }}>💰 Treasury ${Math.abs(result.treasury_penalty / 1000)}K penalty</span>)}
                                     </div>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                                        {result.urgency_debrief.map(u => (
-                                            <div key={u.id} style={{
-                                                padding: '4px 8px',
-                                                display: 'flex', alignItems: 'center', gap: '6px',
-                                            }}>
-                                                <span style={{ fontSize: '0.65rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>
-                                                    {u.name}
-                                                </span>
-                                                <span style={{
-                                                    fontSize: '0.68rem', fontWeight: 700,
-                                                    color: u.urgency === 'high' ? '#f87171' : u.urgency === 'medium' ? '#fbbf24' : '#94a3b8',
-                                                }}>
-                                                    ⏱ {u.urgency}
-                                                </span>
-                                                <span style={{
-                                                    fontSize: '0.68rem', fontWeight: 700,
-                                                    color: u.legitimacy === 'high' ? '#4ade80' : u.legitimacy === 'medium' ? '#fbbf24' : '#94a3b8',
-                                                }}>
-                                                    ⚖ {u.legitimacy}
-                                                </span>
+                                )}
+                              </div>
+
+                              {/* RIGHT COLUMN: Salience + Ratings + Tactics */}
+                              <div className={styles.resultColRight}>
+                                {/* Urgency & Legitimacy Debrief */}
+                                {result.urgency_debrief?.length > 0 && (
+                                    <div style={{ padding: '0.4rem', background: 'transparent', border: '1px solid rgba(139,92,246,0.12)', borderRadius: '8px' }}>
+                                        <h3 style={{ margin: '0 0 0.3rem', fontSize: '0.72rem', color: '#a78bfa' }}>
+                                            🔬 Stakeholder Salience Debrief <span style={{ fontSize: '0.55rem', fontWeight: 400, color: 'var(--text-muted)' }}>(Mitchell, Agle & Wood 1997)</span>
+                                        </h3>
+                                        <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.25rem', lineHeight: 1.3 }}>
+                                            Beyond Power × Interest, real-world stakeholder analysis considers <strong>Urgency</strong> (time-sensitivity of claims) and <strong>Legitimacy</strong> (moral/legal standing).
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2px' }}>
+                                            {result.urgency_debrief.map(u => (
+                                                <div key={u.id} style={{ padding: '3px 6px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                                    <span style={{ fontSize: '0.6rem', fontWeight: 600, color: 'var(--text-primary)', flex: 1 }}>{u.name}</span>
+                                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: u.urgency === 'high' ? '#f87171' : u.urgency === 'medium' ? '#fbbf24' : '#94a3b8' }}>⏱ {u.urgency}</span>
+                                                    <span style={{ fontSize: '0.62rem', fontWeight: 700, color: u.legitimacy === 'high' ? '#4ade80' : u.legitimacy === 'medium' ? '#fbbf24' : '#94a3b8' }}>⚖ {u.legitimacy}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Official Stakeholder Ratings */}
+                                {result.details && (
+                                    <div style={{ padding: '0.4rem', background: 'transparent', border: '1px solid rgba(99,102,241,0.12)', borderRadius: '8px' }}>
+                                        <h3 style={{ margin: '0 0 0.35rem', fontSize: '0.78rem', color: 'var(--text-primary)' }}>📖 Official Stakeholder Ratings</h3>
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
+                                            {QUADRANTS.map(q => {
+                                                const qStakeholders = result.details.filter(d => d.correct_quadrant === q.id);
+                                                if (qStakeholders.length === 0) return null;
+                                                return (
+                                                    <div key={q.id} style={{ background: 'var(--bg-elevated, #16213e)', borderRadius: '8px', padding: '0.35rem 0.5rem', borderLeft: `3px solid ${q.color}` }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.65rem', color: q.color, marginBottom: '0.2rem' }}>
+                                                            {q.label} <span style={{ fontSize: '0.6rem', fontWeight: 500, color: 'var(--text-muted)', marginLeft: '4px' }}>{q.power} Power · {q.interest} Interest</span>
+                                                        </div>
+                                                        {qStakeholders.map(d => { const s = getStakeholder(d.id); return (
+                                                            <div key={d.id} style={{ display: 'flex', gap: '4px', alignItems: 'center', padding: '2px 0', fontSize: '0.65rem', color: d.is_correct ? '#10b981' : '#ef4444' }}>
+                                                                <span style={{ fontSize: '0.75rem' }}>{s?.icon || '•'}</span>
+                                                                <span style={{ fontWeight: 600 }}>{d.name}</span>
+                                                                <span style={{ fontSize: '0.62rem' }}>{d.is_correct ? '✓' : '✗'}</span>
+                                                            </div>
+                                                        ); })}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Engagement Tactics */}
+                                {result.engagement_tactics?.length > 0 && (
+                                    <div style={{ padding: '0.4rem', background: 'transparent', border: '1px solid rgba(59,130,246,0.12)', borderRadius: '8px' }}>
+                                        <h3 style={{ margin: '0 0 0.3rem', fontSize: '0.72rem', color: '#60a5fa' }}>🎯 Engagement Strategy — "Manage Closely"</h3>
+                                        <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.3rem' }}>For high-power, high-interest stakeholders, what engagement tactic would you deploy?</div>
+                                        {result.engagement_tactics.map(et => (
+                                            <div key={et.stakeholder_id} style={{ marginBottom: '0.4rem' }}>
+                                                <div style={{ fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.2rem' }}>{et.stakeholder_name}</div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                                    {et.tactics.map(t => (
+                                                        <div key={t.id} style={{ padding: '3px 6px', borderRadius: '4px', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                                            <div style={{ fontSize: '0.62rem', fontWeight: 600, color: t.correct ? '#10b981' : 'var(--text-secondary)' }}>{t.correct ? '✅' : '❌'} {t.label}</div>
+                                                            <div style={{ fontSize: '0.55rem', color: 'var(--text-muted)', marginTop: '1px', fontStyle: 'italic' }}>{t.rationale}</div>
+                                                        </div>
+                                                    ))}
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
-                                </div>
-                            )}
-
-                            {/* ── Suggested Solution ── */}
-                            {result.details && (
-                                <div style={{
-                                    marginTop: '0.5rem', padding: '0.5rem',
-                                    background: 'transparent',
-                                    border: '1px solid rgba(99,102,241,0.12)',
-                                    borderRadius: '8px',
-                                }}>
-                                    <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                                        📖 Official Stakeholder Ratings
-                                    </h3>
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                                        {QUADRANTS.map(q => {
-                                            const qStakeholders = result.details.filter(d => d.correct_quadrant === q.id);
-                                            if (qStakeholders.length === 0) return null;
-                                            return (
-                                                <div key={q.id} style={{
-                                                    background: 'var(--bg-elevated, #16213e)',
-                                                    borderRadius: '8px',
-                                                    padding: '0.5rem 0.6rem',
-                                                    borderLeft: `3px solid ${q.color}`,
-                                                }}>
-                                                    <div style={{
-                                                        fontWeight: 700, fontSize: '0.72rem',
-                                                        color: q.color, marginBottom: '0.35rem',
-                                                    }}>
-                                                        {q.label}
-                                                        <span style={{
-                                                            fontSize: '0.68rem', fontWeight: 500,
-                                                            color: 'var(--text-muted)',
-                                                            marginLeft: '6px',
-                                                        }}>
-                                                            {q.power} Power · {q.interest} Interest
-                                                        </span>
-                                                    </div>
-                                                    {qStakeholders.map(d => {
-                                                        const s = getStakeholder(d.id);
-                                                        return (
-                                                            <div key={d.id} style={{
-                                                                display: 'flex', gap: '5px', alignItems: 'center',
-                                                                padding: '3px 0',
-                                                                fontSize: '0.72rem',
-                                                                color: d.is_correct ? '#10b981' : '#ef4444',
-                                                            }}>
-                                                                <span style={{ fontSize: '0.85rem' }}>{s?.icon || '•'}</span>
-                                                                <span style={{ fontWeight: 600 }}>{d.name}</span>
-                                                                <span style={{ fontSize: '0.7rem' }}>{d.is_correct ? '✓' : '✗'}</span>
-                                                            </div>
-                                                        );
-                                                    })}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* ── C8: Engagement Tactics Quiz (Mendelow Strategy Selection) ── */}
-                            {result.engagement_tactics?.length > 0 && (
-                                <div style={{
-                                    marginTop: '0.5rem', padding: '0.5rem',
-                                    background: 'transparent',
-                                    border: '1px solid rgba(59,130,246,0.12)',
-                                    borderRadius: '8px',
-                                }}>
-                                    <h3 style={{ margin: '0 0 0.4rem', fontSize: '0.78rem', color: '#60a5fa' }}>
-                                        🎯 Engagement Strategy — "Manage Closely" Stakeholders
-                                    </h3>
-                                    <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginBottom: '0.4rem' }}>
-                                        Classification is only step 1. For high-power, high-interest stakeholders, what engagement tactic would you deploy?
-                                    </div>
-                                    {result.engagement_tactics.map(et => (
-                                        <div key={et.stakeholder_id} style={{ marginBottom: '0.5rem' }}>
-                                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-                                                {et.stakeholder_name}
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                                {et.tactics.map(t => (
-                                                    <div key={t.id} style={{
-                                                        padding: '5px 8px', borderRadius: '5px',
-                                                        background: 'rgba(255,255,255,0.02)',
-                                                        border: '1px solid rgba(255,255,255,0.04)',
-                                                    }}>
-                                                        <div style={{ fontSize: '0.68rem', fontWeight: 600, color: t.correct ? '#10b981' : 'var(--text-secondary)' }}>
-                                                            {t.correct ? '✅' : '❌'} {t.label}
-                                                        </div>
-                                                        <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', marginTop: '2px', fontStyle: 'italic' }}>
-                                                            {t.rationale}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                )}
+                              </div>
+                            </div>
 
                             {/* ── C19: Executive Rationale Prompt ── */}
                             <div style={{
-                                marginTop: '0.5rem', padding: '0.5rem',
+                                marginTop: '0.3rem', padding: '0.4rem',
                                 background: 'transparent',
                                 border: '1px solid rgba(245,158,11,0.12)',
                                 borderRadius: '8px',
                             }}>
-                                <label style={{ fontSize: '0.72rem', fontWeight: 700, color: '#fbbf24', display: 'block', marginBottom: '0.3rem' }}>
+                                <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#fbbf24', display: 'block', marginBottom: '0.2rem' }}>
                                     ✍️ Executive Rationale — Justify your most controversial placement:
                                 </label>
                                 <textarea
@@ -624,10 +515,10 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                                     onChange={e => setRationale(e.target.value)}
                                     placeholder="e.g., I placed the journalist in 'Keep Informed' because their track record of syndication means a negative story would rapidly amplify..."
                                     style={{
-                                        width: '100%', minHeight: '50px', padding: '6px 8px', borderRadius: '6px',
+                                        width: '100%', minHeight: '40px', padding: '5px 7px', borderRadius: '6px',
                                         background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)',
-                                        color: 'var(--text-primary, #e2e8f0)', fontSize: '0.72rem', fontFamily: 'inherit',
-                                        resize: 'vertical', outline: 'none', lineHeight: 1.5,
+                                        color: 'var(--text-primary, #e2e8f0)', fontSize: '0.68rem', fontFamily: 'inherit',
+                                        resize: 'vertical', outline: 'none', lineHeight: 1.4,
                                     }}
                                 />
                             </div>
@@ -635,8 +526,8 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             {/* ── C9: Retry Button (1 re-attempt) ── */}
                             {!result.passed && attemptCount < MAX_ATTEMPTS && (
                                 <button onClick={handleRetry} style={{
-                                    width: '100%', marginTop: '0.4rem', padding: '0.55rem',
-                                    fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                                    width: '100%', marginTop: '0.3rem', padding: '0.45rem',
+                                    fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
                                     background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
                                     borderRadius: '6px', color: '#818cf8',
                                 }}>
@@ -646,7 +537,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
 
                             {/* ── Action Button — go to Decision Tab ── */}
                             <button className={styles.dismissBtn} onClick={handleDismiss}
-                                style={{ width: '100%', marginTop: '0.4rem', fontSize: '0.9rem', padding: '0.65rem' }}>
+                                style={{ width: '100%', marginTop: '0.3rem', fontSize: '0.85rem', padding: '0.55rem' }}>
                                 📋 Open Decision Tab →
                             </button>
                         </div>

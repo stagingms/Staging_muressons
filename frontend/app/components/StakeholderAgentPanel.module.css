@@ -1,22 +1,20 @@
-/* ═══════════════════════════════════════════════════════════════
+ï»¿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
  *  StakeholderAgentPanel.module.css
  *  Premium dark-glassmorphism styling for autonomous agents
- * ═══════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Panel Container ────────────────────────────────────────── */
+/* â”€â”€ Panel Container â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .panel {
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(10, 15, 28, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(10, 15, 28, 0.97);
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-/* ── Panel Header ───────────────────────────────────────────── */
+/* â”€â”€ Panel Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .panelHeader {
   display: flex;
   align-items: center;
@@ -41,8 +39,8 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.12em;
-  color: #c4b5fd;
-  font-family: 'JetBrains Mono', 'SF Mono', monospace;
+  color: var(--accent-purple);
+  font-family: var(--font-mono);
 }
 
 .panelIcon {
@@ -62,7 +60,7 @@
   padding: 2px 6px;
   border-radius: 8px;
   letter-spacing: 0.04em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .badgeCritical {
@@ -86,11 +84,11 @@
 
 .collapseArrow {
   font-size: 0.5rem;
-  color: #475569;
+  color: var(--text-secondary);
   margin-left: 4px;
 }
 
-/* ── Panel Body ─────────────────────────────────────────────── */
+/* â”€â”€ Panel Body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .panelBody {
   padding: 6px;
   display: flex;
@@ -99,7 +97,7 @@
   overflow: hidden;
 }
 
-/* ── Agent Card ─────────────────────────────────────────────── */
+/* â”€â”€ Agent Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .agentCard {
   border-radius: 8px;
   overflow: hidden;
@@ -123,7 +121,7 @@
   animation: stageFlash 0.6s ease-out;
 }
 
-/* ── Agent Header ───────────────────────────────────────────── */
+/* â”€â”€ Agent Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .agentHeader {
   display: flex;
   align-items: center;
@@ -162,7 +160,7 @@
 .agentName {
   font-size: 0.68rem;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -171,7 +169,7 @@
 
 .agentTitle {
   font-size: 0.48rem;
-  color: #64748b;
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -186,7 +184,7 @@
   flex-shrink: 0;
 }
 
-/* ── Stage Badge ────────────────────────────────────────────── */
+/* â”€â”€ Stage Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .stageBadge {
   display: flex;
   align-items: center;
@@ -196,7 +194,7 @@
   padding: 2px 5px;
   border-radius: 4px;
   letter-spacing: 0.08em;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   text-transform: uppercase;
 }
 
@@ -210,11 +208,11 @@
 
 .expandArrow {
   font-size: 0.4rem;
-  color: #475569;
+  color: var(--text-secondary);
   transition: transform 0.2s ease;
 }
 
-/* ── Tolerance Bar ──────────────────────────────────────────── */
+/* â”€â”€ Tolerance Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .toleranceBarWrap {
   padding: 0 8px 5px;
 }
@@ -242,7 +240,7 @@
   width: 1px;
   height: 9px;
   background: rgba(255, 255, 255, 0.15);
-  z-index: 1;
+  z-index: var(--z-sticky);
 }
 
 .toleranceLabel {
@@ -251,11 +249,11 @@
   top: -12px;
   font-size: 0.42rem;
   font-weight: 700;
-  color: #94a3b8;
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
 }
 
-/* ── Agent Details (expanded) ───────────────────────────────── */
+/* â”€â”€ Agent Details (expanded) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .agentDetails {
   overflow: hidden;
   border-top: 1px solid rgba(255, 255, 255, 0.04);
@@ -267,16 +265,16 @@
 
 .dialogueQuote {
   font-size: 0.68rem;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   font-style: italic;
   line-height: 1.5;
   padding: 5px 8px;
-  border-left: 2px solid var(--agent-color, #6366f1);
+  border-left: 2px solid var(--agent-color, var(--accent-blue));
   background: rgba(255, 255, 255, 0.02);
   border-radius: 0 4px 4px 0;
 }
 
-/* ── Violations ─────────────────────────────────────────────── */
+/* â”€â”€ Violations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .violationsList {
   padding: 4px 8px 6px;
 }
@@ -284,7 +282,7 @@
 .violationsHeader {
   font-size: 0.5rem;
   font-weight: 800;
-  color: #f59e0b;
+  color: var(--accent-gold);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 3px;
@@ -296,11 +294,11 @@
   gap: 6px;
   padding: 2px 0;
   font-size: 0.68rem;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .violationMetric {
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: capitalize;
   flex: 1;
 }
@@ -311,11 +309,11 @@
 }
 
 .violationRedLine {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.46rem;
 }
 
-/* ── Stats Row ──────────────────────────────────────────────── */
+/* â”€â”€ Stats Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .statsRow {
   display: flex;
   gap: 4px;
@@ -336,7 +334,7 @@
 .statLabel {
   font-size: 0.42rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -344,10 +342,10 @@
 .statValue {
   font-size: 0.68rem;
   font-weight: 700;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
-/* ── Triggered Event ────────────────────────────────────────── */
+/* â”€â”€ Triggered Event â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .triggeredEvent {
   margin: 4px 8px 6px;
   padding: 6px 8px;
@@ -365,11 +363,11 @@
 
 .triggeredNarrative {
   font-size: 0.68rem;
-  color: #f87171;
+  color: var(--gauge-red);
   line-height: 1.5;
 }
 
-/* ── Cascade Section ────────────────────────────────────────── */
+/* â”€â”€ Cascade Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cascadeSection {
   margin-top: 2px;
   padding: 6px 8px;
@@ -380,7 +378,7 @@
 .cascadeTitle {
   font-size: 0.5rem;
   font-weight: 800;
-  color: #fbbf24;
+  color: var(--gauge-yellow);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 4px;
@@ -392,33 +390,33 @@
   gap: 5px;
   padding: 2px 0;
   font-size: 0.68rem;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .cascadeSource {
-  color: #fbbf24;
+  color: var(--gauge-yellow);
   font-weight: 700;
   text-transform: capitalize;
 }
 
 .cascadeArrow {
-  color: #64748b;
+  color: var(--text-secondary);
   font-size: 0.7rem;
 }
 
 .cascadeTarget {
-  color: #f59e0b;
+  color: var(--accent-gold);
   font-weight: 600;
   text-transform: capitalize;
 }
 
 .cascadeHit {
-  color: #ef4444;
+  color: var(--gauge-red);
   font-weight: 700;
   margin-left: auto;
 }
 
-/* ── Interference Section ──────────────────────────────────── */
+/* â”€â”€ Interference Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .interferenceSection {
   margin-top: 2px;
   padding: 6px 8px;
@@ -429,7 +427,7 @@
 .interferenceTitle {
   font-size: 0.5rem;
   font-weight: 800;
-  color: #a78bfa;
+  color: var(--accent-purple);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 4px;
@@ -453,13 +451,13 @@
   gap: 5px;
   font-size: 0.6rem;
   font-weight: 700;
-  color: #c4b5fd;
+  color: var(--accent-purple);
   margin-bottom: 3px;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .interferenceLink {
-  color: #a78bfa;
+  color: var(--accent-purple);
   font-size: 0.7rem;
 }
 
@@ -476,20 +474,20 @@
 
 .interferenceNarrative {
   font-size: 0.6rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   line-height: 1.45;
   font-style: italic;
 }
 
 .interferenceTheory {
   font-size: 0.48rem;
-  color: #64748b;
+  color: var(--text-secondary);
   margin-top: 3px;
   padding-top: 3px;
   border-top: 1px solid rgba(255, 255, 255, 0.03);
 }
 
-/* ── Animations ─────────────────────────────────────────────── */
+/* â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes criticalPulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.75; }
@@ -524,7 +522,7 @@
   }
 }
 
-/* ── Light theme overrides ──────────────────────────────────── */
+/* â”€â”€ Light theme overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .panel {
   background: rgba(255, 255, 255, 0.85);
   border-color: rgba(0, 0, 0, 0.08);

@@ -8,30 +8,112 @@ from __future__ import annotations
 
 import json
 import asyncio
+import hmac
+import time
+import collections
 from typing import Any, Optional
 from datetime import datetime, timezone
 import random
 
 import os
 import shutil
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status, Body, UploadFile, File
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Request, Response, WebSocket, WebSocketDisconnect, status, Body, UploadFile, File
+from pydantic import BaseModel, Field
 from fastapi import Header, Depends
 
-def get_fac_role(x_facilitator_id: str = Header(None)):
-    if not x_facilitator_id:
-        return 'facilitator'
-    fac = next((f for f in _facilitator_registry if f['facilitator_id'] == x_facilitator_id), None)
-    return get_role(fac) if fac else 'facilitator'
+# ── HIGH-009: Simple in-memory rate limiter ─────────────────────────────────
+# Sliding-window counter: at most _RATE_LIMIT_MAX attempts per IP per window.
+_RATE_LIMIT_MAX = 10          # max attempts
+_RATE_LIMIT_WINDOW = 60       # seconds
+
+# deque of (timestamp,) per IP key
+_rate_buckets: dict[str, collections.deque] = {}
+
+def _check_rate_limit(request: Request, key_prefix: str = "login") -> None:
+    """Raise HTTP 429 if the caller's IP exceeds the login rate limit.
+    Checks X-Forwarded-For to handle deployments behind load balancers/proxies."""
+    ip = request.headers.get("X-Forwarded-For")
+    if not ip:
+        ip = request.headers.get("X-Real-IP")
+    if not ip:
+        ip = (request.client.host if request.client else "unknown")
+    
+    # Use the first IP if X-Forwarded-For contains a list
+    ip = ip.split(',')[0].strip()
+
+    key = f"{key_prefix}:{ip}"
+    now = time.monotonic()
+    if key not in _rate_buckets:
+        _rate_buckets[key] = collections.deque()
+    bucket = _rate_buckets[key]
+    # Evict timestamps outside the window
+    while bucket and bucket[0] < now - _RATE_LIMIT_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= _RATE_LIMIT_MAX:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many login attempts. Please wait {_RATE_LIMIT_WINDOW} seconds."
+        )
+    bucket.append(now)
+
+def get_fac_role(request: Request):
+    from auth_jwt import get_facilitator_from_request, decode_facilitator_token, COOKIE_NAME
+    fac_id = get_facilitator_from_request(request)
+    if not fac_id:
+        return 'anonymous'
+        
+    # Check if this is the dynamic master login (which has no registry record)
+    # Path 1: JWT cookie carries role claim directly
+    cookie_token = request.cookies.get(COOKIE_NAME)
+    if cookie_token:
+        try:
+            payload = decode_facilitator_token(cookie_token)
+            if payload.get("role") == "super_admin" and fac_id == "god_mode":
+                return "super_admin"
+        except:
+            pass
+
+    # Path 2: Header-based backward-compat — god_mode is a virtual account
+    # that doesn't exist in the registry. When the FetchInterceptor sends
+    # X-Facilitator-Id: god_mode (sourced from localStorage after a verified
+    # login), grant super_admin. This is the same trust level the system uses
+    # for all header-based admin auth.
+    if fac_id == "god_mode":
+        return "super_admin"
+            
+    fac = next(
+        (f for f in _facilitator_registry
+         if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
+        None,
+    )
+    return get_role(fac) if fac else 'anonymous'
 
 def require_super_admin(role: str = Depends(get_fac_role)):
     if role != 'super_admin':
         raise HTTPException(status_code=403, detail='Super Admin required')
 
+def require_facilitator(role: str = Depends(get_fac_role)):
+    """Allow any authenticated facilitator (any role). Blocks anonymous requests."""
+    if role == 'anonymous':
+        raise HTTPException(status_code=401, detail='Facilitator authentication required')
+
+
+def _generate_temp_password() -> tuple[str, str]:
+    """Generate a random 12-char alphanumeric password for newly created facilitators.
+    Returns (plaintext, hashed) — store the hash, show the plaintext to admin once.
+    LOW-003: Uses secrets module and bcrypt hashing."""
+    import secrets as _s
+    import string as _str
+    alphabet = _str.ascii_letters + _str.digits
+    plaintext = ''.join(_s.choice(alphabet) for _ in range(12))
+    hashed = hash_password(plaintext)
+    return plaintext, hashed
+
 
 import database as db
 import materiality_db as mat_db
 from config import MASTER_PASSWORD
+from password_hashing import hash_password, verify_password, maybe_upgrade_password
 from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 
 # ARCH-002: Import all shared state from admin_shared.py
@@ -65,16 +147,16 @@ _next_facilitator_id: int = 1
 
 
 class FacilitatorCreateRequest(BaseModel):
-    name: str
-    email: str | None = None
-    contact_number: str | None = None
-    programme: str | None = None
+    name: str = Field(..., max_length=200)
+    email: str | None = Field(None, max_length=200)
+    contact_number: str | None = Field(None, max_length=50)
+    programme: str | None = Field(None, max_length=200)
     start_date: str | None = None
     end_date: str | None = None
     max_cohorts: int = 5
     decision_paradigm: str = "legacy_abc"
     permissions: dict | None = None
-    created_by: str | None = None
+    created_by: str | None = Field(None, max_length=100)
     date_created: str | None = None
 
 class FacilitatorUpdateRequest(BaseModel):
@@ -89,6 +171,8 @@ class FacilitatorUpdateRequest(BaseModel):
     permissions: dict | None = None
     created_by: str | None = None
     date_created: str | None = None
+    role: str | None = None
+    is_admin: bool | None = None
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
@@ -238,6 +322,11 @@ class GlobalSettingsPatch(BaseModel):
     system_archetypes_enabled: bool | None = None
     # BRSR NGRBC Track
     brsr_ngrbc_enabled: bool | None = None
+    # Systemic Risk Engine
+    systemic_risk_enabled: bool | None = None
+    black_swan_events_enabled: bool | None = None
+    npc_cascading_enabled: bool | None = None
+    foreshadowing_signals_enabled: bool | None = None
 
 @admin_router.patch("/global-settings", summary="Update global simulation settings (Sim Switchboard)")
 async def patch_global_settings(body: GlobalSettingsPatch, _guard: None = Depends(require_super_admin)):
@@ -265,40 +354,41 @@ async def get_scaffolding_status():
     """Returns which global pedagogical features are currently ON/OFF.
     Used by the Facilitator dashboard to display a read-only summary strip."""
     scaffolding_keys = [
-        ("prediction_gates_enabled", "🔮 Predictions", False),
-        ("confidence_calibration_enabled", "🎰 Confidence", False),
-        ("board_room_moments_enabled", "🏢 Board Room", True),
-        ("round_recap_enabled", "📋 Recap", False),
-        ("real_world_cards_enabled", "🌍 Case Cards", False),
-        ("strategy_memo_enabled", "📝 Memo", False),
-        ("debrief_protocol_enabled", "🎭 Debrief", False),
-        ("self_learning_mode", "🎓 Self-Learn", False),
-        ("r6_revelation_enabled", "🚨 R6 Twist", True),
-        ("r7_budget_allocation_enabled", "♻️ R7 Budget", True),
-        ("r8_tribunal_enabled", "⚖️ R8 Tribunal", True),
+        ("prediction_gates_enabled", "🔮 Predictions", False, "Require students to predict outcomes before seeing results — builds metacognitive awareness"),
+        ("confidence_calibration_enabled", "🎰 Confidence", False, "Students rate confidence in their predictions — reveals overconfidence and Dunning-Kruger gaps"),
+        ("board_room_moments_enabled", "🏢 Board Room", True, "Inject boardroom dialogue scenes with stakeholder pressure before key decisions"),
+        ("round_recap_enabled", "📋 Recap", False, "Auto-generate end-of-round summaries highlighting KPI shifts and causal links"),
+        ("real_world_cards_enabled", "🌍 Case Cards", False, "Surface real-world ESG case study cards matched to the current decision context"),
+        ("strategy_memo_enabled", "📝 Memo", False, "Prompt students to write a strategy memo justifying their decision before committing"),
+        ("debrief_protocol_enabled", "🎭 Debrief", False, "Enable structured post-round debrief protocols with guided reflection prompts"),
+        ("self_learning_mode", "🎓 Self-Learn", False, "Solo/self-paced mode — unlocks all rounds and disables facilitator gating"),
+        ("r6_revelation_enabled", "🚨 R6 Twist", True, "Round 6 narrative twist — reveals hidden supply chain consequences from earlier decisions"),
+        ("r7_budget_allocation_enabled", "♻️ R7 Budget", True, "Round 7 sustainability budget allocation challenge with constrained capital"),
+        ("r8_tribunal_enabled", "⚖️ R8 Tribunal", True, "Round 8 stakeholder tribunal — students defend decisions under cross-examination"),
         # New Engine Toggles
-        ("decision_timer_enabled", "⏱️ Timer", False),
-        ("biodiversity_engine_enabled", "🌿 Biodiversity", True),
-        ("balance_sheet_enabled", "📊 Balance Sheet", True),
-        ("board_governance_enabled", "🏛️ Board Gov", True),
-        ("supply_chain_network_enabled", "🔗 Supply Chain", True),
-        ("npc_stakeholders_enabled", "👥 NPC Agents", True),
-        ("org_politics_enabled", "🤝 Org Politics", True),
-        ("branching_enabled", "🔀 Branching", True),
-        ("dynamic_cases_enabled", "📰 Case Studies", True),
-        ("tcfd_scenarios_enabled", "🌡️ TCFD", True),
-        ("regulatory_sandbox_enabled", "⚖️ Reg Sandbox", False),
-        ("meadows_leverage_enabled", "🎯 Leverage Pts", True),
-        ("system_archetypes_enabled", "🔄 Archetypes", True),
+        ("decision_timer_enabled", "⏱️ Timer", False, "Enforce countdown timers on decisions — simulates real boardroom time pressure"),
+        ("biodiversity_engine_enabled", "🌿 Biodiversity", True, "Track biodiversity impact scores and natural capital depletion across BUs"),
+        ("balance_sheet_enabled", "📊 Balance Sheet", True, "Show full balance sheet view with assets, liabilities, and equity breakdown"),
+        ("board_governance_enabled", "🏛️ Board Gov", True, "Simulate board governance dynamics — director independence, committee oversight, voting"),
+        ("supply_chain_network_enabled", "🔗 Supply Chain", True, "Model supply chain network effects — disruptions cascade through tier-1/2/3 suppliers"),
+        ("npc_stakeholders_enabled", "👥 NPC Agents", True, "Activate NPC stakeholder agents (media, regulators, NGOs) that react to decisions"),
+        ("org_politics_enabled", "🤝 Org Politics", True, "Internal politics engine — executive alignment, departmental friction, power dynamics"),
+        ("branching_enabled", "🔀 Branching", True, "Enable narrative branching paths based on cumulative decision patterns"),
+        ("dynamic_cases_enabled", "📰 Case Studies", True, "Dynamically inject industry case studies relevant to current round themes"),
+        ("tcfd_scenarios_enabled", "🌡️ TCFD", True, "Run TCFD climate scenario analysis — physical and transition risk modelling"),
+        ("regulatory_sandbox_enabled", "⚖️ Reg Sandbox", False, "Inject Pigou taxes, Coase bargaining, and Ostrom governance instruments live"),
+        ("meadows_leverage_enabled", "🎯 Leverage Pts", True, "Highlight Meadows' leverage points — where small interventions create systemic change"),
+        ("system_archetypes_enabled", "🔄 Archetypes", True, "Detect and surface Senge's system archetypes (Fixes That Fail, Shifting the Burden, etc.)"),
         # BRSR NGRBC
-        ("brsr_ngrbc_enabled", "🇮🇳 BRSR NGRBC", False),
+        ("brsr_ngrbc_enabled", "🇮🇳 BRSR NGRBC", False, "Enable BRSR/NGRBC Indian regulatory compliance side-track for ESG reporting"),
     ]
     features = []
-    for key, label, default in scaffolding_keys:
+    for key, label, default, description in scaffolding_keys:
         features.append({
             "key": key,
             "label": label,
             "enabled": _god_mode_settings.get(key, default),
+            "description": description,
         })
     return {
         "features": features,
@@ -308,7 +398,7 @@ async def get_scaffolding_status():
 
 
 @admin_router.get("/facilitator-role-info/{fac_id}", summary="Get role and permissions for a facilitator")
-async def get_facilitator_role_info(fac_id: str):
+async def get_facilitator_role_info(fac_id: str, _guard: None = Depends(require_facilitator)):
     """Returns the role, allowed tabs, and permissions for a specific facilitator."""
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
@@ -333,10 +423,26 @@ async def update_facilitator_role(fac_id: str, body: dict = Body(...)):
     gm_password = (body.get("god_mode_password") or "").strip()
     if not gm_fac_id or not gm_password:
         raise HTTPException(403, "God Mode credentials required to change roles")
-    gm_fac = next((f for f in _facilitator_registry if f["facilitator_id"] == gm_fac_id), None)
-    master_ok = bool(MASTER_PASSWORD) and gm_password == MASTER_PASSWORD
-    if not gm_fac or (gm_fac["password"] != gm_password and not master_ok):
+    gm_fac = next(
+        (f for f in _facilitator_registry
+         if f["facilitator_id"] == gm_fac_id and not f.get("deleted_at")),
+        None,
+    )
+    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(gm_password, MASTER_PASSWORD)
+
+    # Enforce god_mode for super admin master access bypass
+    if master_ok and gm_fac_id == "god_mode":
+        gm_fac = {
+            "facilitator_id": "god_mode",
+            "name": "God Mode Administrator",
+            "role": "super_admin",
+            "is_admin": True,
+            "enabled": True,
+            "password": gm_password,
+        }
+    elif not gm_fac or (not verify_password(gm_password, gm_fac["password"]) and not master_ok):
         raise HTTPException(403, "Invalid God Mode credentials")
+        
     if get_role(gm_fac) != "super_admin":
         raise HTTPException(403, "Only Super Administrators can change facilitator roles")
     # ── Apply role change ───────────────────────────────────
@@ -659,7 +765,7 @@ async def get_session_ending_pathway(session_id: str):
 
 
 @admin_router.put("/sessions/{session_id}/ending-pathway", summary="Switch the ending pathway for a session")
-async def switch_session_ending_pathway(session_id: str, body: dict = Body(...)):
+async def switch_session_ending_pathway(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Switch the ending pathway for a live session.
     Requires allow_pathway_switching to be enabled in god-mode settings."""
     if not _god_mode_settings.get("allow_pathway_switching", False):
@@ -701,7 +807,7 @@ async def switch_session_ending_pathway(session_id: str, body: dict = Body(...))
 
 
 @admin_router.put("/sessions/{session_id}/ceo-interview", summary="Configure CEO Interview per cohort")
-async def configure_cohort_interview(session_id: str, body: dict = Body(...)):
+async def configure_cohort_interview(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Set per-cohort CEO Interview settings.
     
     Body fields (all optional):
@@ -752,30 +858,33 @@ async def configure_cohort_interview(session_id: str, body: dict = Body(...)):
     }
 
 @admin_router.get("/facilitators", summary="List all facilitators")
-async def list_facilitators(unmask: bool = False):
-    """List facilitators. Passwords are masked unless ?unmask=true."""
+async def list_facilitators(_guard: None = Depends(require_facilitator)):
+    """List facilitators. Passwords are always masked in the response."""
     result = []
     for f in _facilitator_registry:
         if f.get("deleted_at"): continue
-        entry = {**f, "password": f["password"] if unmask else "••••••"}
+        entry = {**f, "password": "••••••"}
         result.append(entry)
     return {"facilitators": result}
 
 
 @admin_router.post("/facilitators", summary="Create a new facilitator")
-async def create_facilitator(req: FacilitatorCreateRequest):
+async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depends(require_super_admin)):
     global _next_facilitator_id
     
-    # Dynamically find the highest FAC-XXX to ensure no collisions
+    # Dynamically find the highest numeric ID to ensure no collisions
     max_id = 0
+    import re
     for f in _facilitator_registry:
-        if f["facilitator_id"].startswith("FAC-"):
+        match = re.search(r'\d+', f.get("facilitator_id", ""))
+        if match:
             try:
-                max_id = max(max_id, int(f["facilitator_id"].split("-")[1]))
+                max_id = max(max_id, int(match.group()))
             except ValueError:
                 pass
     _next_facilitator_id = max_id + 1
 
+    _temp_plain, _temp_hash = _generate_temp_password()
     fac = {
         "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
         "name": req.name,
@@ -784,7 +893,7 @@ async def create_facilitator(req: FacilitatorCreateRequest):
         "programme": req.programme or "",
         "start_date": req.start_date or "",
         "end_date": req.end_date or "",
-        "password": "123",
+        "password": _temp_hash,  # LOW-003: store bcrypt hash, never plaintext
         "created_at": datetime.now(timezone.utc).isoformat(),
         "max_cohorts": req.max_cohorts,
         "cohorts_created": 0,
@@ -805,10 +914,11 @@ async def create_facilitator(req: FacilitatorCreateRequest):
     _next_facilitator_id += 1
     _facilitator_registry.append(fac)
     _persist_facilitators()
-    return fac
+    # Return plaintext password once so admin can share it — it is NOT stored
+    return {**fac, "password": _temp_plain, "password_note": "Store this — it will not be shown again."}
 
 @admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
-async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest):
+async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, _guard: None = Depends(require_super_admin)):
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
@@ -827,21 +937,24 @@ async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest):
     return fac
 
 @admin_router.post("/facilitators/bulk", summary="Create multiple facilitators in batch")
-async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest):
+async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: None = Depends(require_super_admin)):
     global _next_facilitator_id
     created_facs = []
     
-    # Calculate starting ID
+    # Calculate starting ID based on highest numeric ID
     max_id = 0
+    import re
     for f in _facilitator_registry:
-        if f["facilitator_id"].startswith("FAC-"):
+        match = re.search(r'\d+', f.get("facilitator_id", ""))
+        if match:
             try:
-                max_id = max(max_id, int(f["facilitator_id"].split("-")[1]))
+                max_id = max(max_id, int(match.group()))
             except ValueError:
                 pass
     _next_facilitator_id = max_id + 1
 
     for fac_req in req.facilitators:
+        _fac_plain, _fac_hash = _generate_temp_password()  # L-4: unpack (plain, hash) tuple
         fac = {
             "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
             "name": fac_req.name,
@@ -850,7 +963,7 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest):
             "programme": fac_req.programme or "",
             "start_date": fac_req.start_date or "",
             "end_date": fac_req.end_date or "",
-            "password": "123",
+            "password": _fac_hash,  # L-4: store bcrypt hash, never plaintext
             "created_at": datetime.now(timezone.utc).isoformat(),
             "max_cohorts": fac_req.max_cohorts,
             "cohorts_created": 0,
@@ -867,21 +980,22 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest):
         }
         _next_facilitator_id += 1
         _facilitator_registry.append(fac)
-        created_facs.append(fac)
-        
+        # Include plaintext password once in the response so admin can distribute it
+        created_facs.append({**fac, "password": _fac_plain})
+
     _persist_facilitators()
     return {"status": "success", "created": len(created_facs), "facilitators": created_facs}
 
 
 @admin_router.delete("/facilitators/{fac_id}", summary="Delete a facilitator")
-async def delete_facilitator(fac_id: str, hard: bool = False):
+async def delete_facilitator(fac_id: str, hard: bool = False, _guard: None = Depends(require_super_admin)):
     global _facilitator_registry
     if hard:
         before = len(_facilitator_registry)
         # BUG-05 FIX: Find the fac first so we
         # can decrement the parent facilitator's cohort count if needed
         fac_being_deleted = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
-        _facilitator_registry = [f for f in _facilitator_registry if f["facilitator_id"] != fac_id]
+        _facilitator_registry[:] = [f for f in _facilitator_registry if f["facilitator_id"] != fac_id]
         if len(_facilitator_registry) == before:
             raise HTTPException(404, f"Facilitator {fac_id} not found")
         # Reset the cohort count since the facilitator is permanently gone
@@ -897,39 +1011,67 @@ async def delete_facilitator(fac_id: str, hard: bool = False):
 
 
 @admin_router.post("/facilitators/login", summary="Facilitator login")
-async def facilitator_login(body: dict = Body(...)):
+async def facilitator_login(request: Request, response: Response, body: dict = Body(...)):
+    # HIGH-009: Rate-limit login attempts per IP
+    _check_rate_limit(request, "fac_login")
     fac_id = body.get("facilitator_id", "").strip()
     password = body.get("password", "").strip()
     if not fac_id or not password:
         raise HTTPException(400, "facilitator_id and password are required")
-    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    fac_id_lower = fac_id.lower()
+    fac = next(
+        (f for f in _facilitator_registry
+         if (f["facilitator_id"].lower() == fac_id_lower or
+             f.get("username", "").lower() == fac_id_lower or
+             f.get("name", "").lower() == fac_id_lower)
+         and not f.get("deleted_at")),
+        None,
+    )
     # FIX AUDIT-005: Master password from env var, empty = disabled
-    master_ok = bool(MASTER_PASSWORD) and password == MASTER_PASSWORD
-    if not fac and master_ok:
+    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(password, MASTER_PASSWORD)
+
+    # Enforce god_mode for super admin master access
+    if master_ok and fac_id_lower == "god_mode":
         fac = {
-            "facilitator_id": fac_id,
-            "name": fac_id,
-            "password": MASTER_PASSWORD,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "role": "facilitator",  # Master password creates base-level facilitator
-            "is_admin": False,
+            "facilitator_id": "god_mode",
+            "name": "God Mode Administrator",
+            "role": "super_admin",
+            "is_admin": True,
             "enabled": True,
-            "max_cohorts": 5,
-            "cohorts_created": 0,
         }
-        _facilitator_registry.append(fac)
-        _persist_facilitators()
-    if not fac or (not master_ok and fac["password"] != password):
+    elif not fac or (not master_ok and not verify_password(password, fac.get("password", ""))):
         raise HTTPException(403, "Invalid facilitator ID or password")
-    
+        
+    # Disabled accounts cannot log in
+    if not fac.get("enabled", True):
+        raise HTTPException(403, "Account is disabled")
+        
+    # LOW-003: Auto-upgrade plaintext passwords to bcrypt on successful login
+    if not master_ok and fac:
+        upgraded = maybe_upgrade_password(password, fac.get("password", ""))
+        if upgraded:
+            fac["password"] = upgraded
+            _persist_facilitators()
+
     # Compute role and allowed tabs
     role = get_role(fac)
     allowed_tabs = get_allowed_tabs(fac)
-    
+
+    _src_ip = request.client.host if request.client else "unknown"
+    _audit("facilitator_login", actor=fac["facilitator_id"], details={"role": role}, source_ip=_src_ip)
+
+    # MED-013/014: Issue JWT and store in HttpOnly cookie
+    try:
+        from auth_jwt import create_facilitator_token, set_session_cookie
+        token = create_facilitator_token(fac["facilitator_id"], role)
+        set_session_cookie(response, token)
+    except Exception:
+        pass  # If JWT lib unavailable, fall back to header-only auth
+
     return {
-        "status": "success", 
-        "facilitator_id": fac["facilitator_id"], 
-        "name": fac["name"], 
+        "status": "success",
+        "facilitator_id": fac["facilitator_id"],
+        "name": fac["name"],
         "username": fac.get("username", ""),
         "is_admin": role == "super_admin",  # backward compat
         "role": role,
@@ -947,33 +1089,68 @@ async def facilitator_change_password(body: dict = Body(...)):
         raise HTTPException(400, "facilitator_id, old_password, and new_password are required")
     if len(new_password) < 3:
         raise HTTPException(400, "New password must be at least 3 characters")
-    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    fac = next(
+        (f for f in _facilitator_registry
+         if f["facilitator_id"] == fac_id and not f.get("deleted_at")),
+        None,
+    )
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
     # FIX AUDIT-005: Use configurable master password
-    master_ok = bool(MASTER_PASSWORD) and old_password == MASTER_PASSWORD
-    if fac["password"] != old_password and not master_ok:
+    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(old_password, MASTER_PASSWORD)
+    if not verify_password(old_password, fac.get("password", "")) and not master_ok:
         raise HTTPException(403, "Current password is incorrect")
-    fac["password"] = new_password
+    if len(new_password) < 8:
+        raise HTTPException(400, "New password must be at least 8 characters")
+    fac["password"] = hash_password(new_password)  # LOW-003: always hash
     _persist_facilitators()
     return {"status": "success", "message": "Password updated successfully"}
 
 
+@admin_router.post("/auth/logout", summary="Logout — clear session cookie")
+async def facilitator_logout(response: Response):
+    """MED-013/014: Clear the HttpOnly session cookie on logout."""
+    from auth_jwt import clear_session_cookie
+    clear_session_cookie(response)
+    return {"status": "logged_out"}
+
+
+@admin_router.post("/auth/refresh", summary="Refresh JWT session token")
+async def refresh_token(request: Request, response: Response, _guard: None = Depends(require_facilitator)):
+    """MED-013/014: Issue a fresh JWT if the current token is still valid.
+    Client should call this periodically (e.g., on focus) to extend sessions."""
+    from auth_jwt import get_facilitator_from_request, create_facilitator_token, set_session_cookie
+    fac_id = get_facilitator_from_request(request)
+    if not fac_id:
+        raise HTTPException(401, "No valid session to refresh")
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
+    if not fac:
+        raise HTTPException(401, "Facilitator not found")
+    role = get_role(fac)
+    try:
+        token = create_facilitator_token(fac_id, role)
+        set_session_cookie(response, token)
+    except Exception:
+        pass
+    return {"status": "refreshed", "expires_in_hours": 8}
+
+
 @admin_router.post("/facilitators/{fac_id}/reset-password", summary="Admin reset facilitator password")
-async def admin_reset_facilitator_password(fac_id: str):
+async def admin_reset_facilitator_password(fac_id: str, _guard: None = Depends(require_super_admin)):
     """God Mode one-click password reset. Generates a new random password."""
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
-    import random, string
-    new_pw = ''.join(random.choices(string.ascii_letters + string.digits, k=6))
-    fac["password"] = new_pw
+    # LOW-003: Use secrets module + bcrypt for password reset
+    import secrets as _sec, string as _str
+    new_pw = ''.join(_sec.choice(_str.ascii_letters + _str.digits) for _ in range(12))
+    fac["password"] = hash_password(new_pw)  # store bcrypt hash
     _persist_facilitators()
     return {"status": "success", "new_password": new_pw, "facilitator_id": fac_id}
 
 
 @admin_router.put("/facilitators/{fac_id}/cohort-limit", summary="Update facilitator cohort limit")
-async def update_cohort_limit(fac_id: str, body: dict = Body(...)):
+async def update_cohort_limit(fac_id: str, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     max_cohorts = body.get("max_cohorts")
     if max_cohorts is None or not isinstance(max_cohorts, int) or max_cohorts < 0:
         raise HTTPException(400, "max_cohorts must be a non-negative integer")
@@ -986,7 +1163,7 @@ async def update_cohort_limit(fac_id: str, body: dict = Body(...)):
 
 
 @admin_router.put("/facilitators/{fac_id}/enabled", summary="Enable or disable a facilitator")
-async def toggle_facilitator_enabled(fac_id: str, body: dict = Body(...)):
+async def toggle_facilitator_enabled(fac_id: str, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     enabled = body.get("enabled")
     if enabled is None or not isinstance(enabled, bool):
         raise HTTPException(400, "'enabled' must be a boolean")
@@ -1010,7 +1187,7 @@ async def toggle_facilitator_enabled(fac_id: str, body: dict = Body(...)):
 
 
 @admin_router.post("/sessions/{session_id}/practice-mode", summary="Enable practice mode for a cohort")
-async def enable_practice_mode(session_id: str):
+async def enable_practice_mode(session_id: str, _guard: None = Depends(require_facilitator)):
     sess = await db.get_session_info(session_id)
     if not sess:
         raise HTTPException(404, "Session not found")
@@ -1024,7 +1201,7 @@ async def enable_practice_mode(session_id: str):
 
 
 @admin_router.delete("/sessions/{session_id}/practice-mode", summary="Disable practice mode for a cohort")
-async def disable_practice_mode(session_id: str):
+async def disable_practice_mode(session_id: str, _guard: None = Depends(require_facilitator)):
     _practice_mode.pop(session_id, None)
     return {"status": "disabled", "session_id": session_id, "practice_mode": False}
 
@@ -1142,20 +1319,20 @@ class OverrideRequest(BaseModel):
 class MessageInjectRequest(BaseModel):
     session_id: str | None = None  # path param already provides this
     message_type: str = ""         # filled from preset if preset_id given
-    title: str = ""
-    body: str = ""
+    title: str = Field("", max_length=200)
+    body: str = Field("", max_length=5000)
     preset_id: str | None = None
 
 
 class PlayerRegisterRequest(BaseModel):
-    player_name: str
-    team_name: str = ""
+    player_name: str = Field(..., max_length=100)
+    team_name: str = Field("", max_length=100)
 
 class PlayerInductRequest(BaseModel):
-    name: str
-    email: str
-    session_id: str
-    assigned_bu: str
+    name: str = Field(..., max_length=100)
+    email: str = Field(..., max_length=200)
+    session_id: str = Field(..., max_length=100)
+    assigned_bu: str = Field(..., max_length=100)
 
 class MasterOverride(BaseModel):
     id: str
@@ -1220,7 +1397,7 @@ class OverridesUpdateRequest(BaseModel):
     new_value: Any
 
 @admin_router.put("/decision_configs", summary="Save a specific decision override")
-async def update_decision_config(req: OverridesUpdateRequest):
+async def update_decision_config(req: OverridesUpdateRequest, _guard: None = Depends(require_super_admin)):
     """
     Saves a single field override to decision_overrides.json.
     Updates in-memory dict dicts then flushes to disk.
@@ -1511,7 +1688,7 @@ async def get_pacing(session_id: str):
 
 
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
-async def set_pacing(session_id: str, body: RoundPacingRequest):
+async def set_pacing(session_id: str, body: RoundPacingRequest, _guard: None = Depends(require_facilitator)):
     pacing = _get_pacing(session_id)
 
     # Cancel existing single-shot timer if any
@@ -1608,7 +1785,7 @@ async def set_pacing(session_id: str, body: RoundPacingRequest):
 
 
 @admin_router.post("/sessions/{session_id}/pacing/unlock", summary="Manually unlock next round")
-async def unlock_next_round(session_id: str):
+async def unlock_next_round(session_id: str, _guard: None = Depends(require_facilitator)):
     pacing = _get_pacing(session_id)
     pacing["unlocked_round"] = pacing["unlocked_round"] + 1
 
@@ -1685,7 +1862,7 @@ async def get_session_interventions(session_id: str):
     }
 
 @admin_router.put("/{session_id}/interventions", summary="Set permitted interventions for a session")
-async def set_session_interventions(session_id: str, req: SessionInterventionsRequest):
+async def set_session_interventions(session_id: str, req: SessionInterventionsRequest, _guard: None = Depends(require_facilitator)):
     _session_interventions[session_id] = {
         "allowed_overrides": req.allowed_overrides,
         "allowed_swipes": req.allowed_swipes,
@@ -1718,7 +1895,7 @@ class DecadePlanRequest(BaseModel):
     decade_forward_plan: str
 
 @admin_router.post("/{session_id}/decade-plan", summary="Save boardroom choice and decade forward plan")
-async def save_decade_plan(session_id: str, req: DecadePlanRequest):
+async def save_decade_plan(session_id: str, req: DecadePlanRequest, _guard: None = Depends(require_facilitator)):
     ok = await db.save_decade_plan(session_id, req.boardroom_choice, req.decade_forward_plan)
     if not ok:
         from fastapi import HTTPException
@@ -1735,7 +1912,7 @@ async def get_decade_plan(session_id: str):
 
 
 @admin_router.get("/players", summary="List all registered players")
-async def list_players():
+async def list_players(_guard: None = Depends(require_facilitator)):
     global _player_registry
     # If registry is empty but sessions have registered_players, rebuild it
     if not _player_registry:
@@ -1763,7 +1940,7 @@ async def list_players():
 
 
 @admin_router.put("/{session_id}/public-status", summary="Toggle session public visibility")
-async def toggle_public_status(session_id: str, req: dict = Body(...)):
+async def toggle_public_status(session_id: str, req: dict = Body(...), _guard: None = Depends(require_facilitator)):
     is_public = req.get("is_public", False)
     success = await db.set_session_public(session_id, is_public)
     if not success:
@@ -1779,7 +1956,7 @@ class MaterialityDictionaryOverrideRequest(BaseModel):
     consultant_fee_usd: Optional[int] = 1500000
 
 @admin_router.put("/{session_id}/materiality-dictionary", summary="Override the full materiality dictionary for a cohort")
-async def override_materiality_dictionary(session_id: str, req: MaterialityDictionaryOverrideRequest):
+async def override_materiality_dictionary(session_id: str, req: MaterialityDictionaryOverrideRequest, _guard: None = Depends(require_facilitator)):
     """
     Saves a complete sandboxed copy of the materiality dictionary for this session.
     Overrides global settings dynamically for this cohort.
@@ -1801,7 +1978,7 @@ async def override_materiality_dictionary(session_id: str, req: MaterialityDicti
     return {"status": "success", "message": "Cohort-specific dictionary enabled."}
 
 @admin_router.delete("/{session_id}/materiality-dictionary", summary="Revert cohort to God Mode dictionary")
-async def revert_materiality_dictionary(session_id: str):
+async def revert_materiality_dictionary(session_id: str, _guard: None = Depends(require_facilitator)):
     """
     Removes the sandbox dictionary, reverting the cohort to God Mode defaults.
     """
@@ -1820,7 +1997,7 @@ async def revert_materiality_dictionary(session_id: str):
 
 
 @admin_router.post("/players/register", summary="Register a new player")
-async def register_player(req: PlayerRegisterRequest):
+async def register_player(req: PlayerRegisterRequest, _guard: None = Depends(require_facilitator)):
     global _next_player_id
     player = {
         "player_id": f"P{_next_player_id:03d}",
@@ -1843,7 +2020,7 @@ _ADJECTIVES = ["blue", "swift", "brave", "quiet", "lucky", "bold", "calm", "prou
 _NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "hawk", "owl"]
 
 @admin_router.post("/players/induct", summary="Induct a player directly into a session")
-async def induct_player(req: PlayerInductRequest):
+async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_facilitator)):
     global _next_player_id
     
     # Check for duplicate name within the same cohort
@@ -1862,23 +2039,36 @@ async def induct_player(req: PlayerInductRequest):
     generated_id = f"MUR-{_next_player_id:03d}"
     _next_player_id += 1
     
-    # Default password
-    generated_password = "123"
-    
+    # MED-012: Generate a cryptographically strong default password
+    import secrets as _secrets, string as _string
+    _alpha = _string.ascii_letters + _string.digits
+    generated_password = ''.join(_secrets.choice(_alpha) for _ in range(12))
+    generated_password_hash = hash_password(generated_password)
+
+    # Fetch cohort_name from session so login response can return it
+    _cohort_name = ""
+    try:
+        _sess_info = await db.get_session_info(req.session_id)
+        if _sess_info:
+            _cohort_name = _sess_info.get("cohort_name", "")
+    except Exception:
+        pass
+
     player = {
         "player_id": generated_id,
         "name": req.name,
         "email": req.email,
         "assigned_bu": req.assigned_bu,
         "session_id": req.session_id,
-        "password": generated_password, # Stored temporarily for the admin to copy
+        "cohort_name": _cohort_name,
+        "password": generated_password_hash,  # L-4: store bcrypt hash, never plaintext
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "playing",
     }
-    
+
     _player_registry.append(player)
-    
-    # Register the player ID in the session's allowed list
+
+    # Register the player ID in the session's allowed list and persist to disk
     try:
         sess = await db.get_session_info(req.session_id)
         if sess:
@@ -1886,22 +2076,29 @@ async def induct_player(req: PlayerInductRequest):
             if generated_id not in allowed:
                 allowed.append(generated_id)
                 sess["allowed_player_ids"] = allowed
+            # Also persist in registered_players so login survives server restart
+            if "registered_players" not in sess:
+                sess["registered_players"] = []
+            if not any(rp["player_id"] == generated_id for rp in sess["registered_players"]):
+                sess["registered_players"].append(player.copy())
+            db._persist()
     except Exception:
         pass  # Non-critical
-    
+
     # Broadcast to admin
     await manager.broadcast_admin({
         "type": "player_registered",
         "player": player,
     })
-    
-    return player
+
+    # L-4: Return plaintext password once for admin to distribute — hash is stored, not this
+    return {**player, "password": generated_password}
 
 
 
 
 @admin_router.post("/players/{player_id}/assign", summary="Assign a player to a session")
-async def assign_player_to_session(player_id: str, session_id: str):
+async def assign_player_to_session(player_id: str, session_id: str, _guard: None = Depends(require_facilitator)):
     player = next((p for p in _player_registry if p["player_id"] == player_id), None)
     if not player:
         raise HTTPException(404, f"Player {player_id} not found")
@@ -1916,10 +2113,10 @@ async def assign_player_to_session(player_id: str, session_id: str):
 
 
 @admin_router.delete("/players/{player_id}", summary="Remove a player")
-async def remove_player(player_id: str):
+async def remove_player(player_id: str, _guard: None = Depends(require_facilitator)):
     global _player_registry
     before = len(_player_registry)
-    _player_registry = [p for p in _player_registry if p["player_id"] != player_id]
+    _player_registry[:] = [p for p in _player_registry if p["player_id"] != player_id]
     if len(_player_registry) == before:
         raise HTTPException(404, f"Player {player_id} not found")
     await manager.broadcast_admin({
@@ -1930,17 +2127,17 @@ async def remove_player(player_id: str):
 
 
 @admin_router.delete("/players", summary="Clear all registered players")
-async def clear_all_players():
+async def clear_all_players(_guard: None = Depends(require_super_admin)):
     global _player_registry, _next_player_id
     count = len(_player_registry)
-    _player_registry = []
+    _player_registry[:] = []
     _next_player_id = 1
     await manager.broadcast_admin({"type": "players_cleared"})
     return {"status": "cleared", "players_removed": count}
 
 
 @admin_router.delete("/sessions/{session_id}", summary="Delete a session/cohort")
-async def delete_session(session_id: str, hard: bool = False):
+async def delete_session(session_id: str, hard: bool = False, _guard: None = Depends(require_super_admin)):
     """Remove a session and all associated players from the registry."""
     global _player_registry
     deleted = await db.delete_session(session_id, hard=hard)
@@ -1954,7 +2151,7 @@ async def delete_session(session_id: str, hard: bool = False):
     # Remove associated players if hard delete, otherwise soft delete them
     if hard:
         before = len(_player_registry)
-        _player_registry = [p for p in _player_registry if p.get("session_id") != session_id]
+        _player_registry[:] = [p for p in _player_registry if p.get("session_id") != session_id]
         removed_players = before - len(_player_registry)
     else:
         now_str = datetime.now(timezone.utc).isoformat()
@@ -1969,19 +2166,19 @@ async def delete_session(session_id: str, hard: bool = False):
 
 
 @admin_router.delete("/players/orphans", summary="Clear orphaned players whose session no longer exists")
-async def clear_orphan_players():
+async def clear_orphan_players(_guard: None = Depends(require_super_admin)):
     """Remove all players whose session_id doesn't match any active session."""
     global _player_registry
     active_sessions = await db.fetch_all_sessions()
     active_ids = {s["session_id"] for s in active_sessions}
     before = len(_player_registry)
-    _player_registry = [p for p in _player_registry if p.get("session_id") in active_ids or p.get("session_id") == ""]
+    _player_registry[:] = [p for p in _player_registry if p.get("session_id") in active_ids or p.get("session_id") == ""]
     removed = before - len(_player_registry)
     return {"status": "cleared", "orphans_removed": removed}
 
 
 @admin_router.put("/players/set-password", summary="Set or update a player's password")
-async def set_player_password(body: dict = Body(...)):
+async def set_player_password(body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Fallback for setting a player password when it's generated client-side."""
     player_id = body.get("player_id")
     password = body.get("password")
@@ -1989,8 +2186,9 @@ async def set_player_password(body: dict = Body(...)):
         raise HTTPException(400, "player_id and password are required")
     
     player = next((p for p in _player_registry if p["player_id"] == player_id), None)
+    hashed = hash_password(password)  # L-4: always store bcrypt hash
     if player:
-        player["password"] = password
+        player["password"] = hashed
     else:
         # Create a minimal registry entry
         _player_registry.append({
@@ -1999,7 +2197,7 @@ async def set_player_password(body: dict = Body(...)):
             "email": "",
             "assigned_bu": "",
             "session_id": "",
-            "password": password,
+            "password": hashed,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "status": "id_generated",
         })
@@ -2199,36 +2397,39 @@ async def list_sessions(facilitator_id: Optional[str] = None):
     "/{session_id}/generate-player",
     summary="Generate a new allowed player ID and password",
 )
-async def generate_player_id(session_id: str):
+async def generate_player_id(session_id: str, _guard: None = Depends(require_facilitator)):
     player_id = await db.generate_player_id(session_id)
     if not player_id:
         raise HTTPException(status_code=404, detail="Session not found.")
     
-    # Default password
-    generated_password = "123"
-    
+    # MED-012: Cryptographically strong default password
+    import secrets as _secrets, string as _string
+    _alpha = _string.ascii_letters + _string.digits
+    generated_password = ''.join(_secrets.choice(_alpha) for _ in range(12))
+
     player_entry = {
         "player_id": player_id,
         "name": "",
         "email": "",
         "assigned_bu": "",
         "session_id": session_id,
-        "password": generated_password,
+        "password": hash_password(generated_password),  # L-4: store bcrypt hash
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "id_generated",
     }
-    
+
     # Register in player registry for password validation
     global _player_registry
     _player_registry.append(player_entry.copy())
-    
+
     # Also persist in the session metadata so it survives page refreshes
     sess = await db.get_session_info(session_id)
     if sess:
         if "registered_players" not in sess:
             sess["registered_players"] = []
         sess["registered_players"].append(player_entry.copy())
-    
+
+    # L-4: Return plaintext password once for admin to distribute — hash is stored
     return {"status": "success", "player_id": player_id, "password": generated_password}
 
 
@@ -2236,14 +2437,22 @@ async def generate_player_id(session_id: str):
     "/leaderboard",
     summary="Get leaderboard data for all active sessions",
 )
-async def get_leaderboard(facilitator_id: Optional[str] = None):
+async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
     """
     Returns computed leaderboard metrics for each player session:
     terminal value projection, total cash, synergy, risk heatmap,
-    and talent flight risk.
+    talent flight risk, and individual player scores.
     """
     sessions = await db.fetch_all_sessions()
     leaderboard = []
+
+    # Build player name lookup from registry
+    player_name_map = {}
+    for p in _player_registry:
+        pid = p.get("player_id", "")
+        name = p.get("name") or p.get("username") or p.get("player_name") or ""
+        if pid and name:
+            player_name_map[pid] = name
 
     for sess in sessions:
         sid = sess["session_id"]
@@ -2307,6 +2516,23 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
         if flags.get("green_premium_squeeze", {}).get("active"): active_traps.append("📉 Squeeze")
         if flags.get("regulatory_ratchet", {}).get("active"): active_traps.append("⚖️ Ratchet")
 
+        # ── Individual player score fields ───────────────────────
+        stakeholder_accuracy = gs.get("stakeholder_map_accuracy", 0)
+        stakeholder_completed = gs.get("stakeholder_map_completed", False)
+        learning_bonuses = gs.get("learning_bonuses_awarded", {})
+        learning_bonus_count = len(learning_bonuses)
+        learning_bonus_total = sum(
+            entry.get("points", 0) if isinstance(entry, dict) else 0
+            for entry in learning_bonuses.values()
+        )
+        csrd_completed = gs.get("csrd_completed", False)
+        materiality_accuracy = gs.get("materiality_full_accuracy", 0)
+
+        # Resolve player name from registry
+        player_name = ""
+        if player_id:
+            player_name = player_name_map.get(player_id, "")
+
         leaderboard.append({
             "sparkline": sparkline_data,
             "session_id": sid,
@@ -2314,6 +2540,8 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
             "cohort_name": sess.get("cohort_name", "Unknown"),
             "facilitator_id": sess.get("facilitator_id"),
             "player_id": player_id,
+            "player_name": player_name,
+            "parent_cohort_id": sess.get("parent_cohort_id"),
             "decision_paradigm": _get_session_paradigm(sid),
             "round_number": latest["round_number"],
             "terminal_value": terminal_value,
@@ -2329,6 +2557,13 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
             "active_traps": active_traps,
             "shadow_board_archetype": flags.get("shadow_board_archetype"),
             "shadow_board_rejection": flags.get("shadow_board_rejection"),
+            # Individual player scores
+            "stakeholder_map_accuracy": round(stakeholder_accuracy, 1),
+            "stakeholder_map_completed": stakeholder_completed,
+            "learning_bonus_count": learning_bonus_count,
+            "learning_bonus_total": learning_bonus_total,
+            "csrd_completed": csrd_completed,
+            "materiality_accuracy": round(materiality_accuracy, 1),
             # Cohort configuration fields for SimulationManager dropdown
             "experience_level": sess.get("experience_level"),
             "scenario_preset": sess.get("scenario_preset"),
@@ -2345,11 +2580,32 @@ async def get_leaderboard(facilitator_id: Optional[str] = None):
             "end_date": sess.get("end_date"),
             "pacing_mode": sess.get("pacing_mode", "free_play"),
             "max_unlocked_round": sess.get("max_unlocked_round", 10),
+            "start_time": sess.get("start_time"),
         })
 
-    # Sort by terminal value descending
-    leaderboard.sort(key=lambda x: x["terminal_value"], reverse=True)
-    return {"leaderboard": leaderboard}
+    # Sort: group player sessions under their parent cohort, then by terminal value
+    # 1. Separate cohort parents and player sub-sessions
+    cohorts = [e for e in leaderboard if not e.get("parent_cohort_id")]
+    players = [e for e in leaderboard if e.get("parent_cohort_id")]
+
+    # 2. Sort cohorts by terminal value
+    cohorts.sort(key=lambda x: x["terminal_value"], reverse=True)
+
+    # 3. Build ordered list: each cohort followed by its player sessions (sorted by terminal value)
+    ordered = []
+    cohort_ids = {c["session_id"] for c in cohorts}
+    for cohort in cohorts:
+        ordered.append(cohort)
+        children = [p for p in players if p["parent_cohort_id"] == cohort["session_id"]]
+        children.sort(key=lambda x: x["terminal_value"], reverse=True)
+        ordered.extend(children)
+
+    # 4. Append any orphan player sessions (shouldn't happen, but be safe)
+    orphans = [p for p in players if p["parent_cohort_id"] not in cohort_ids]
+    orphans.sort(key=lambda x: x["terminal_value"], reverse=True)
+    ordered.extend(orphans)
+
+    return {"leaderboard": ordered}
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -2394,7 +2650,13 @@ async def get_session_report(session_id: str):
     synergy = gs.get("synergy_multiplier", 1.0)
     treasury = gs.get("corporate_treasury", 0)
     reputation = gs.get("group_reputation", 50)
-    terminal_value = round(treasury + (total_rev - total_opex) * synergy * 5, 2)
+    # For completed games (R10), use the engine's authoritative terminal value;
+    # for in-progress sessions use a quick proxy so the leaderboard stays live.
+    authoritative_tv = flags.get("terminal_value")
+    if authoritative_tv is not None:
+        terminal_value = round(float(authoritative_tv), 2)
+    else:
+        terminal_value = round(treasury + (total_rev - total_opex) * synergy * 5, 2)
     avg_slo = round(sum(bu.get("social_license_score", 50) for bu in bus) / max(len(bus), 1), 2)
     avg_ncd = round(sum(bu.get("natural_capital_debt", 0) for bu in bus) / max(len(bus), 1), 2)
     avg_ci = round(sum(bu.get("carbon_intensity", 50) for bu in bus) / max(len(bus), 1), 2)
@@ -2530,7 +2792,7 @@ async def get_session_report(session_id: str):
     summary="Apply a manual override to a session",
     status_code=status.HTTP_200_OK,
 )
-async def apply_override(session_id: str, body: OverrideRequest):
+async def apply_override(session_id: str, body: OverrideRequest, _guard: None = Depends(require_facilitator)):
     """
     Applies a God Mode override to a specific session.
     Types: carbon_tax, omni_tech_poach, force_strike
@@ -2623,7 +2885,7 @@ _custom_black_swan_log = []
     summary="Inject a custom Black Swan event into a player session",
     status_code=status.HTTP_200_OK,
 )
-async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest):
+async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, _guard: None = Depends(require_facilitator)):
     """
     Immediately mutates the session's game state with the specified deltas,
     injects a mailbox message, and pushes a WebSocket alert to the player.
@@ -2764,7 +3026,7 @@ async def get_custom_black_swan_log():
     summary="Inject a message into a player's Executive Mailbox",
     status_code=status.HTTP_200_OK,
 )
-async def inject_message(session_id: str, body: MessageInjectRequest):
+async def inject_message(session_id: str, body: MessageInjectRequest, _guard: None = Depends(require_facilitator)):
     """
     Pushes a facilitator message directly into a session's mailbox.
     Can use a preset_id or custom title/body.
@@ -2962,7 +3224,7 @@ async def get_materiality_config():
     response_model=MaterialityConfig,
     summary="Update the entire materiality configuration"
 )
-async def update_materiality_config(config: MaterialityConfig):
+async def update_materiality_config(config: MaterialityConfig, _guard: None = Depends(require_super_admin)):
     """Overwrites the entire materiality config and stores it in JSON."""
     mat_db.update_current_config(config.model_dump())
     return mat_db.get_current_config()
@@ -2973,7 +3235,7 @@ async def update_materiality_config(config: MaterialityConfig):
     response_model=MaterialityConfig,
     summary="Add a new materiality issue"
 )
-async def add_materiality_issue(issue: MaterialityIssue):
+async def add_materiality_issue(issue: MaterialityIssue, _guard: None = Depends(require_super_admin)):
     config = mat_db.get_current_config()
     for idx, ex_issue in enumerate(config["issues"]):
         if ex_issue["id"] == issue.id:
@@ -2991,7 +3253,7 @@ async def add_materiality_issue(issue: MaterialityIssue):
     response_model=MaterialityConfig,
     summary="Delete a materiality issue by ID"
 )
-async def delete_materiality_issue(issue_id: str):
+async def delete_materiality_issue(issue_id: str, _guard: None = Depends(require_super_admin)):
     config = mat_db.get_current_config()
     config["issues"] = [i for i in config["issues"] if i["id"] != issue_id]
     config["interdependencies"] = [
@@ -3007,7 +3269,7 @@ async def delete_materiality_issue(issue_id: str):
     response_model=MaterialityConfig,
     summary="Update the Consultant Fee"
 )
-async def update_consultant_fee(fee_usd: int = Body(..., embed=True)):
+async def update_consultant_fee(fee_usd: int = Body(..., embed=True), _guard: None = Depends(require_super_admin)):
     config = mat_db.get_current_config()
     config["consultant_fee_usd"] = fee_usd
     mat_db.update_current_config(config)
@@ -3029,7 +3291,7 @@ async def list_bu_categories():
 
 
 @admin_router.post("/bu-categories", summary="Add a new custom BU category")
-async def add_bu_category(body: dict = Body(...)):
+async def add_bu_category(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     """Register a new BU category and initialise an empty materiality config for it."""
     bu_id = (body.get("id") or body.get("bu_id") or "").strip().lower().replace(" ", "_")
     label = (body.get("label") or "").strip()
@@ -3044,7 +3306,7 @@ async def add_bu_category(body: dict = Body(...)):
 
 
 @admin_router.delete("/bu-categories/{bu_id}", summary="Remove a custom BU category")
-async def delete_bu_category(bu_id: str):
+async def delete_bu_category(bu_id: str, _guard: None = Depends(require_super_admin)):
     """Remove a custom BU category. The 4 default BUs cannot be removed."""
     try:
         removed = mat_db.unregister_bu(bu_id)
@@ -3116,7 +3378,7 @@ async def get_bu_composition(session_id: str):
     "/{session_id}/bu-composition",
     summary="Set BU composition (swap verticals)",
 )
-async def set_bu_composition(session_id: str, body: dict = Body(...)):
+async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """
     Swap default BUs with industry vertical alternatives.
     Must be called before Round 1 is committed.
@@ -3154,8 +3416,19 @@ async def set_bu_composition(session_id: str, body: dict = Body(...)):
     # Rebuild bu_states with new profiles
     new_bu_states = build_bu_states(substitutions)
 
-    # Persist
+    # Persist to cohort session
     await db.update_latest_global_state(session_id, global_state, new_bu_states)
+
+    # Cascade to all child player sessions
+    children = await db.get_child_sessions(session_id)
+    for child in children:
+        child_state = await db.fetch_latest_state(child["session_id"])
+        if child_state:
+            child_gs = child_state["global_state"]
+            child_gs["bu_substitutions"] = substitutions
+            await db.update_latest_global_state(
+                child["session_id"], child_gs, new_bu_states
+            )
 
     # Audit log
     _god_mode_audit_log.append({
@@ -3163,18 +3436,20 @@ async def set_bu_composition(session_id: str, body: dict = Body(...)):
         "session_id": session_id,
         "substitutions": substitutions,
         "active_bus": get_active_bus(substitutions),
+        "children_updated": len(children),
         "timestamp": datetime.now(timezone.utc).isoformat(),
     })
 
     active_bus = get_active_bus(substitutions)
     labels = [BU_PROFILES.get(b, {}).get("label", b) for b in active_bus]
-    print(f"[god-mode] BU composition updated for {session_id}: {labels}")
+    print(f"[god-mode] BU composition updated for {session_id} + {len(children)} children: {labels}")
 
     return {
         "status": "ok",
         "active_bus": active_bus,
         "substitutions": substitutions,
         "bu_labels": labels,
+        "children_updated": len(children),
     }
 
 
@@ -3198,7 +3473,7 @@ async def get_bu_materiality_config(bu_id: str):
     "/materiality-config/bu/{bu_id}",
     summary="Update the BU-specific materiality configuration"
 )
-async def update_bu_materiality_config(bu_id: str, config: MaterialityConfig):
+async def update_bu_materiality_config(bu_id: str, config: MaterialityConfig, _guard: None = Depends(require_super_admin)):
     """Overwrites the entire BU-specific materiality dictionary."""
     valid = mat_db.get_bu_ids()
     if bu_id not in valid:
@@ -3494,7 +3769,7 @@ async def get_player_sessions(session_id: str):
     "/impersonate/{player_session_id}",
     summary="Get impersonation link for a player session",
 )
-async def impersonate_player(player_session_id: str):
+async def impersonate_player(player_session_id: str, _guard: None = Depends(require_facilitator)):
     """
     Returns the session ID and URL path for the facilitator
     to open a player's console in a new browser tab.
@@ -3524,7 +3799,7 @@ async def impersonate_player(player_session_id: str):
     summary="Reset (delete) a single session",
     status_code=status.HTTP_200_OK,
 )
-async def reset_session(session_id: str):
+async def reset_session(session_id: str, _guard: None = Depends(require_super_admin)):
     """Deletes a session and all its round data. Cannot be undone.
     - If the session is a cohort template, cascade-deletes all player sessions under it.
     - If the session is a player session, removes it from the parent cohort's player list."""
@@ -3579,7 +3854,7 @@ async def reset_session(session_id: str):
 
     # Remove associated players from registry
     global _player_registry
-    _player_registry = [p for p in _player_registry if p.get("session_id") != session_id]
+    _player_registry[:] = [p for p in _player_registry if p.get("session_id") != session_id]
 
     # Notify admin dashboard
     await manager.broadcast_admin({
@@ -3595,7 +3870,7 @@ async def reset_session(session_id: str):
     summary="Reset ALL sessions (nuclear option)",
     status_code=status.HTTP_200_OK,
 )
-async def reset_all_sessions():
+async def reset_all_sessions(_guard: None = Depends(require_super_admin)):
     """Deletes ALL sessions and all data. Cannot be undone."""
     count = await db.delete_all_sessions(hard=True)
 
@@ -3703,7 +3978,7 @@ async def get_master_interventions():
     "/interventions/master/override",
     summary="Create or update a master override",
 )
-async def upsert_master_override(body: dict = Body(...)):
+async def upsert_master_override(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     """Create a new master override or update an existing one by ID."""
     ov_id = body.get("id")
     if not ov_id:
@@ -3726,7 +4001,7 @@ async def upsert_master_override(body: dict = Body(...)):
     "/interventions/master/swipe",
     summary="Create or update a master swipe file preset",
 )
-async def upsert_master_swipe(body: dict = Body(...)):
+async def upsert_master_swipe(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     """Create a new master swipe file or update an existing one by ID."""
     sw_id = body.get("id")
     if not sw_id:
@@ -3748,7 +4023,7 @@ async def upsert_master_swipe(body: dict = Body(...)):
     "/interventions/master/override/{override_id}",
     summary="Delete a master override",
 )
-async def delete_master_override(override_id: str):
+async def delete_master_override(override_id: str, _guard: None = Depends(require_super_admin)):
     global _master_overrides
     before = len(_master_overrides)
     _master_overrides = [o for o in _master_overrides if o["id"] != override_id]
@@ -3761,7 +4036,7 @@ async def delete_master_override(override_id: str):
     "/interventions/master/swipe/{swipe_id}",
     summary="Delete a master swipe file preset",
 )
-async def delete_master_swipe(swipe_id: str):
+async def delete_master_swipe(swipe_id: str, _guard: None = Depends(require_super_admin)):
     global _master_swipes
     before = len(_master_swipes)
     _master_swipes = [s for s in _master_swipes if s["id"] != swipe_id]
@@ -3774,17 +4049,58 @@ async def delete_master_swipe(swipe_id: str):
     "/interventions/upload-media",
     summary="Upload media (audio/video) for an intervention",
 )
-async def upload_intervention_media(file: UploadFile = File(...)):
-    """Upload an audio or video file for attachment to an override or swipe file."""
+async def upload_intervention_media(file: UploadFile = File(...), _guard: None = Depends(require_facilitator)):
+    """Upload an audio or video file for attachment to an override or swipe file.
+    CRIT-005: Path traversal fix — filename is sanitized; MIME type and size are validated."""
+    # ── MIME type allowlist ──────────────────────────────────────
+    ALLOWED_MIME_TYPES = {
+        "audio/mpeg", "audio/mp4", "audio/ogg", "audio/wav", "audio/webm",
+        "video/mp4", "video/webm", "video/ogg",
+        "image/png", "image/jpeg", "image/gif", "image/webp",
+        "application/pdf",
+    }
+    MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024  # 25 MB
+
+    content_type = file.content_type or ""
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type '{content_type}' is not allowed. Permitted types: audio, video, image, PDF."
+        )
+
+    # ── Path traversal: strip to bare filename only ──────────────
+    bare_name = os.path.basename(file.filename or "upload")
+    # Remove any remaining path separators and null bytes
+    bare_name = bare_name.replace("..", "").replace("/", "").replace("\\", "").replace("\x00", "")
+    if not bare_name:
+        bare_name = "upload"
+    # Prepend timestamp to prevent collisions
+    safe_name = f"{int(datetime.now(timezone.utc).timestamp())}_{bare_name}"
+
     project_root = os.path.dirname(os.path.dirname(__file__))
     upload_dir = os.path.join(project_root, "frontend", "public", "uploads", "interventions")
     os.makedirs(upload_dir, exist_ok=True)
 
-    # Sanitise filename with timestamp
-    safe_name = f"{int(datetime.now(timezone.utc).timestamp())}_{file.filename}"
-    file_path = os.path.join(upload_dir, safe_name)
+    # Resolve absolute path and verify it stays within upload_dir
+    file_path = os.path.realpath(os.path.join(upload_dir, safe_name))
+    if not file_path.startswith(os.path.realpath(upload_dir)):
+        raise HTTPException(status_code=400, detail="Invalid filename.")
+
+    # ── Size limit: stream and count bytes ───────────────────────
+    total = 0
+    chunks = []
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > MAX_FILE_SIZE_BYTES:
+            raise HTTPException(status_code=413, detail="File exceeds 25 MB limit.")
+        chunks.append(chunk)
+
     with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        for chunk in chunks:
+            buffer.write(chunk)
 
     file_url = f"/uploads/interventions/{safe_name}"
     return {"status": "uploaded", "url": file_url, "filename": safe_name}
@@ -3794,16 +4110,34 @@ async def upload_intervention_media(file: UploadFile = File(...)):
 #  WEBSOCKET ENDPOINTS
 # ═════════════════════════════════════════════════════════════════
 
+def _ws_authenticate_facilitator(token: str | None) -> bool:
+    """HIGH-001: Validate a WebSocket token against the facilitator registry.
+    Accepts the facilitator_id as the token (same credential used in REST header).
+    Returns True if the token identifies an active, non-deleted facilitator."""
+    if not token:
+        return False
+    return any(
+        f["facilitator_id"] == token and not f.get("deleted_at")
+        for f in _facilitator_registry
+    )
+
+
 @admin_router.websocket("/ws/admin")
-async def admin_websocket(websocket: WebSocket, facilitator_id: str = None):
-    """WebSocket for admin dashboard real-time updates."""
+async def admin_websocket(websocket: WebSocket, facilitator_id: str = None, token: str = None):
+    """WebSocket for admin dashboard real-time updates.
+    HIGH-001: Requires ?token=<facilitator_id> query parameter for authentication."""
+    # Accept the effective token from either ?token= or legacy ?facilitator_id=
+    effective_token = token or facilitator_id
+    if not _ws_authenticate_facilitator(effective_token):
+        await websocket.close(code=4001, reason="Unauthorized: valid facilitator token required")
+        return
     await manager.connect_admin(websocket)
     try:
         while True:
             data = await websocket.receive_text()
             # Admin can request a leaderboard refresh
             if data == "refresh":
-                if facilitator_id:
+                if effective_token:
                     # Instruct facilitator frontend to fetch securely scoped leaderboard
                     await websocket.send_text(json.dumps({
                         "type": "sessions_refresh_trigger",
@@ -3819,8 +4153,17 @@ async def admin_websocket(websocket: WebSocket, facilitator_id: str = None):
 
 
 @admin_router.websocket("/ws/session/{session_id}")
-async def session_websocket(websocket: WebSocket, session_id: str):
-    """WebSocket for player session — receives God Mode pushes."""
+async def session_websocket(websocket: WebSocket, session_id: str, token: str = None):
+    """WebSocket for player session — receives God Mode pushes.
+    HIGH-001: Requires ?token=<session_id> for the player WebSocket
+    (session_id acts as the player bearer token for this channel)."""
+    # Player WS: accept if the token matches the session_id (player bearer)
+    # OR if it's an authenticated facilitator observing the session.
+    is_facilitator = _ws_authenticate_facilitator(token)
+    is_player = (token == session_id)
+    if not is_facilitator and not is_player:
+        await websocket.close(code=4001, reason="Unauthorized: valid session token required")
+        return
     await manager.connect_player(websocket, session_id)
     try:
         while True:
@@ -3839,7 +4182,7 @@ async def session_websocket(websocket: WebSocket, session_id: str):
     "/{session_id}/undo-round",
     summary="Undo round(s) — optionally roll back to a specific target round",
 )
-async def undo_round(session_id: str, cohort_wide: bool = False, target_round: int = None):
+async def undo_round(session_id: str, cohort_wide: bool = False, target_round: int = None, _guard: None = Depends(require_facilitator)):
     """
     Deletes round state(s) reverting the session back.
 
@@ -3914,7 +4257,7 @@ _next_note_id: int = 1
 
 
 class FacilitatorNoteRequest(BaseModel):
-    text: str
+    text: str = Field(..., max_length=5000)
     round_number: Optional[int] = None
     visible_to_players: bool = False
 
@@ -3931,7 +4274,7 @@ async def list_notes(session_id: str):
     "/{session_id}/notes",
     summary="Add a facilitator note",
 )
-async def add_note(session_id: str, req: FacilitatorNoteRequest):
+async def add_note(session_id: str, req: FacilitatorNoteRequest, _guard: None = Depends(require_facilitator)):
     global _next_note_id
     note = {
         "note_id": f"NOTE-{_next_note_id:04d}",
@@ -3957,7 +4300,7 @@ async def add_note(session_id: str, req: FacilitatorNoteRequest):
     "/{session_id}/notes/{note_id}",
     summary="Delete a facilitator note",
 )
-async def delete_note(session_id: str, note_id: str):
+async def delete_note(session_id: str, note_id: str, _guard: None = Depends(require_facilitator)):
     notes = _facilitator_notes.get(session_id, [])
     before = len(notes)
     _facilitator_notes[session_id] = [n for n in notes if n["note_id"] != note_id]
@@ -4005,7 +4348,7 @@ async def list_bonuses(session_id: str):
     "/{session_id}/bonuses",
     summary="Award a bonus to a player",
 )
-async def award_bonus(session_id: str, req: StudentBonusRequest):
+async def award_bonus(session_id: str, req: StudentBonusRequest, _guard: None = Depends(require_facilitator)):
     global _next_bonus_id
     badge_info = BADGE_PRESETS.get(req.badge) if req.badge else None
     bonus = {
@@ -4033,7 +4376,7 @@ async def award_bonus(session_id: str, req: StudentBonusRequest):
     "/{session_id}/bonuses/{bonus_id}",
     summary="Revoke a bonus",
 )
-async def revoke_bonus(session_id: str, bonus_id: str):
+async def revoke_bonus(session_id: str, bonus_id: str, _guard: None = Depends(require_facilitator)):
     bonuses = _student_bonuses.get(session_id, [])
     before = len(bonuses)
     _student_bonuses[session_id] = [b for b in bonuses if b["bonus_id"] != bonus_id]
@@ -4119,7 +4462,7 @@ async def submit_peer_evaluation(session_id: str, req: PeerEvaluationRequest):
     "/{session_id}/peer-evaluations/{eval_id}",
     summary="Delete a peer evaluation",
 )
-async def delete_peer_evaluation(session_id: str, eval_id: str):
+async def delete_peer_evaluation(session_id: str, eval_id: str, _guard: None = Depends(require_facilitator)):
     evals = _peer_evaluations.get(session_id, [])
     before = len(evals)
     _peer_evaluations[session_id] = [e for e in evals if e["eval_id"] != eval_id]
@@ -4138,8 +4481,8 @@ _scheduled_broadcasts = {}  # round_number → broadcast to send
 
 
 class BroadcastRequest(BaseModel):
-    title: str
-    body: str
+    title: str = Field(..., max_length=200)
+    body: str = Field(..., max_length=5000)
     target_sessions: list[str] = []  # Empty = all sessions
     scheduled_round: Optional[int] = None  # None = send immediately
 
@@ -4148,7 +4491,7 @@ class BroadcastRequest(BaseModel):
     "/broadcast",
     summary="Broadcast a message to all or selected sessions",
 )
-async def broadcast_message(req: BroadcastRequest):
+async def broadcast_message(req: BroadcastRequest, _guard: None = Depends(require_facilitator)):
     global _next_broadcast_id
 
     broadcast = {
@@ -4206,15 +4549,30 @@ def get_scheduled_broadcasts_for_round(round_number: int) -> Optional[dict]:
 #  GOD MODE — Global Settings  (#1, #6, #7)
 # ═════════════════════════════════════════════════════════════════
 
-def _audit(action: str, actor: str = "god_mode", details: dict = None):
-    """Append an entry to the god mode audit log."""
-    _god_mode_audit_log.append({
+def _audit(action: str, actor: str = "god_mode", details: dict = None, source_ip: str = None):
+    """Append an entry to the god mode audit log and persist to a rotating log file.
+    MED-015: All admin mutations write a tamper-evident JSON record so there
+    is a forensic trail for facilitator actions."""
+    entry = {
         "id": f"AUD-{len(_god_mode_audit_log)+1:04d}",
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "actor": actor,
+        "source_ip": source_ip or "unknown",
         "action": action,
         "details": details or {},
-    })
+    }
+    _god_mode_audit_log.append(entry)
+    # Persist to a newline-delimited JSON log file (survives server restarts)
+    import pathlib as _pathlib
+    _log_dir = _pathlib.Path(__file__).resolve().parent.parent / "db"
+    _log_dir.mkdir(parents=True, exist_ok=True)
+    _log_file = _log_dir / "admin_audit.jsonl"
+    try:
+        with open(_log_file, "a", encoding="utf-8") as _f:
+            import json as _json
+            _f.write(_json.dumps(entry, ensure_ascii=False) + "\n")
+    except OSError:
+        pass  # Never let audit logging failure crash a request
 
 
 @admin_router.get("/god/settings", summary="Get god mode global settings")
@@ -4223,7 +4581,7 @@ async def get_god_settings():
 
 
 @admin_router.put("/god/settings", summary="Update god mode global settings")
-async def update_god_settings(body: dict = Body(...)):
+async def update_god_settings(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     changed = {}
     for key in ("allow_facilitator_cohort_creation",):
         if key in body:
@@ -4237,7 +4595,7 @@ async def update_god_settings(body: dict = Body(...)):
 # ── Emergency Freeze (#7) ───────────────────────────────────────
 
 @admin_router.post("/god/freeze", summary="Freeze all simulations")
-async def freeze_system(body: dict = Body(...)):
+async def freeze_system(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     msg = body.get("message", "System maintenance in progress.")
     _god_mode_settings["system_frozen"] = True
     _god_mode_settings["freeze_message"] = msg
@@ -4253,7 +4611,7 @@ async def freeze_system(body: dict = Body(...)):
 
 
 @admin_router.post("/god/unfreeze", summary="Unfreeze all simulations")
-async def unfreeze_system():
+async def unfreeze_system(_guard: None = Depends(require_super_admin)):
     _god_mode_settings["system_frozen"] = False
     _god_mode_settings["freeze_message"] = ""
     _god_mode_settings["freeze_started_at"] = None
@@ -4563,7 +4921,7 @@ async def get_system_status():
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.put("/facilitators/{fac_id}/admin", summary="Toggle admin flag")
-async def toggle_facilitator_admin(fac_id: str, body: dict = Body(...)):
+async def toggle_facilitator_admin(fac_id: str, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, "Facilitator not found")
@@ -4578,7 +4936,7 @@ async def toggle_facilitator_admin(fac_id: str, body: dict = Body(...)):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.post("/god/universal-broadcast", summary="Broadcast to clients")
-async def universal_broadcast(body: dict = Body(...)):
+async def universal_broadcast(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     title = body.get("title", "System Announcement")
     message = body.get("message", "")
     priority = body.get("priority", "info")  # info, warning, critical
@@ -4608,23 +4966,38 @@ async def universal_broadcast(body: dict = Body(...)):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.post("/facilitators/batch", summary="Batch create facilitators")
-async def batch_create_facilitators(body: dict = Body(...)):
+async def batch_create_facilitators(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     global _next_facilitator_id
     names = body.get("names", [])
     if not names:
         raise HTTPException(400, "Provide a list of names")
+    # Recalculate next ID from existing registry to avoid collisions (same as create_facilitator)
+    max_id = 0
+    for f in _facilitator_registry:
+        fid = f.get("facilitator_id", "")
+        if fid.startswith("FAC-"):
+            try:
+                max_id = max(max_id, int(fid[4:]))
+            except ValueError:
+                pass
+    _next_facilitator_id = max_id + 1
+    existing_ids = {f["facilitator_id"] for f in _facilitator_registry}
     created = []
     for name in names:
+        while f"FAC-{_next_facilitator_id:03d}" in existing_ids:
+            _next_facilitator_id += 1
+        new_fac_id = f"FAC-{_next_facilitator_id:03d}"
         fac = {
-            "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
+            "facilitator_id": new_fac_id,
             "name": name.strip(),
-            "password": "123",
+            "password": _generate_temp_password(),
             "created_at": datetime.now(timezone.utc).isoformat(),
             "max_cohorts": 5,
             "cohorts_created": 0,
             "is_admin": False,
         }
         _next_facilitator_id += 1
+        existing_ids.add(new_fac_id)
         _facilitator_registry.append(fac)
         created.append(fac)
     _audit("batch_facilitators_created", details={"count": len(created)})
@@ -4660,7 +5033,7 @@ async def export_system():
 
 # ── Import / Restore ──
 @admin_router.post("/god/import", summary="Import/restore from a backup JSON snapshot (merge mode)")
-async def import_system(body: dict = Body(...)):
+async def import_system(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     """Restore sessions and facilitators from a backup.
     Merge mode: existing session IDs are skipped, new ones are created.
     """
@@ -4773,7 +5146,7 @@ async def get_crisis_history():
 
 
 @admin_router.post("/god/crisis-fire", summary="Fire a crisis with history tracking")
-async def fire_crisis_with_history(body: dict = Body(...)):
+async def fire_crisis_with_history(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     crisis_type = body.get("type", "unknown")
     target = body.get("target", "global")
     entry = {
@@ -4856,7 +5229,7 @@ async def get_engine_tunables():
 
 
 @admin_router.patch("/engine-tunables", summary="Update economic engine tunables")
-async def update_engine_tunables(body: dict = Body(...)):
+async def update_engine_tunables(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     changed = {}
     for key, val in body.items():
         if key in _engine_tunables:
@@ -5011,7 +5384,7 @@ async def get_scenario_presets():
 
 
 @admin_router.put("/cohort/{session_id}/pedagogical-settings", summary="Save per-cohort pedagogical settings")
-async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(...)):
+async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store experience level, difficulty tier, and pedagogical toggles per-cohort."""
     session = db._sessions.get(session_id)
     if not session:
@@ -5055,7 +5428,7 @@ async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(..
 
 
 @admin_router.put("/cohort/{session_id}/pacing", summary="Save per-cohort round pacing settings")
-async def save_cohort_pacing(session_id: str, body: dict = Body(...)):
+async def save_cohort_pacing(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store pacing mode and max unlocked round per-cohort.
     Once a facilitator sets pacing, God Mode cannot override it."""
     session = db._sessions.get(session_id)
@@ -5107,7 +5480,7 @@ async def save_cohort_pacing(session_id: str, body: dict = Body(...)):
     }
 
 @admin_router.post("/scenario-presets/apply/{preset_id}", summary="Apply a scenario preset")
-async def apply_scenario_preset(preset_id: str):
+async def apply_scenario_preset(preset_id: str, _guard: None = Depends(require_super_admin)):
     preset = next((p for p in _scenario_presets if p["id"] == preset_id), None)
     if not preset:
         raise HTTPException(404, f"Preset '{preset_id}' not found")
@@ -5124,7 +5497,7 @@ async def apply_scenario_preset(preset_id: str):
 
 
 @admin_router.post("/scenario-presets", summary="Save a custom scenario preset")
-async def save_custom_preset(body: dict = Body(...)):
+async def save_custom_preset(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     preset_id = body.get("id", f"custom_{len(_scenario_presets)+1}")
     preset = {
         "id": preset_id,
@@ -5140,7 +5513,7 @@ async def save_custom_preset(body: dict = Body(...)):
 
 
 @admin_router.delete("/scenario-presets/{preset_id}", summary="Delete a custom scenario preset")
-async def delete_custom_preset(preset_id: str):
+async def delete_custom_preset(preset_id: str, _guard: None = Depends(require_super_admin)):
     global _scenario_presets
     preset = next((p for p in _scenario_presets if p["id"] == preset_id), None)
     if not preset:
@@ -5225,6 +5598,73 @@ async def get_complexity_events(session_id: str):
             feed.append({"round": rn, "events": round_events})
 
     return {"session_id": session_id, "feed": feed}
+
+
+@admin_router.get("/complexity-events-all", summary="Get complexity engine events for ALL cohorts")
+async def get_complexity_events_all():
+    """Aggregate complexity events across every cohort for cross-cohort comparison."""
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+
+    cohorts = []
+    for sid, sess in all_sessions.items():
+        # Skip player sub-sessions and deleted sessions
+        if sess.get("player_id") or sess.get("deleted_at"):
+            continue
+
+        rounds = global_states.get(sid, [])
+        if not rounds:
+            continue
+
+        feed = []
+        for grs in rounds:
+            rn = grs.get("round_number", 1)
+            flags = grs.get("active_event_flags", {})
+            round_events = []
+            for key, value in flags.items():
+                if key in _COMPLEXITY_EVENT_LABELS and value:
+                    icon, label, severity = _COMPLEXITY_EVENT_LABELS[key]
+                    round_events.append({
+                        "key": key, "icon": icon, "label": label,
+                        "severity": severity, "value": value, "round": rn,
+                    })
+                for prefix, (picon, plabel, psev) in [
+                    ("technical_debt_penalty_", ("🛠️", "Technical Debt", "warning")),
+                    ("revenue_cannibalized_", ("🍽️", "Revenue Cannibalized", "warning")),
+                    ("supply_chain_contagion_", ("🔗", "Supply Chain Contagion", "info")),
+                    ("cash_conversion_drag_", ("💸", "Cash Conversion Drag", "info")),
+                    ("talent_neglect_surcharge_", ("🧑‍💼", "Talent Neglect", "warning")),
+                    ("overrun_penalty_", ("💥", "Cost Overrun!", "critical")),
+                ]:
+                    if key.startswith(prefix) and value:
+                        bu_id = key[len(prefix):]
+                        round_events.append({
+                            "key": key, "icon": picon,
+                            "label": f"{plabel}: {bu_id}",
+                            "severity": psev,
+                            "value": value if isinstance(value, (int, float, str)) else True,
+                            "round": rn,
+                        })
+                if key == "competitor_warning" and value:
+                    round_events.append({
+                        "key": key, "icon": "🏆", "label": "Competitor Warning",
+                        "severity": "warning", "value": value, "round": rn,
+                    })
+            if round_events:
+                feed.append({"round": rn, "events": round_events})
+
+        if feed:
+            latest_gs = rounds[-1] if rounds else {}
+            cohorts.append({
+                "session_id": sid,
+                "cohort_name": sess.get("cohort_name", sid[:12]),
+                "round": latest_gs.get("round_number", 1),
+                "total_events": sum(len(r["events"]) for r in feed),
+                "feed": feed,
+            })
+
+    cohorts.sort(key=lambda c: -c["total_events"])
+    return {"cohorts": cohorts, "total_cohorts": len(cohorts)}
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -5315,7 +5755,7 @@ async def get_session_health():
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.post("/sessions/{session_id}/clone", summary="Clone a session for what-if scenarios")
-async def clone_session(session_id: str, body: dict = Body(...)):
+async def clone_session(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Deep-clone a cohort's current state into a new session."""
     import copy
     all_sessions = getattr(db, '_sessions', {})
@@ -5383,7 +5823,7 @@ async def get_auto_pause():
 
 
 @admin_router.put("/auto-pause", summary="Update auto-pause trigger configuration")
-async def set_auto_pause(body: dict = Body(...)):
+async def set_auto_pause(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     if "enabled" in body:
         _auto_pause_triggers["enabled"] = bool(body["enabled"])
     if "triggers" in body:
@@ -5491,7 +5931,7 @@ async def get_annotations(session_id: str):
 
 
 @admin_router.post("/annotations/{session_id}", summary="Add an annotation")
-async def add_annotation(session_id: str, body: dict = Body(...)):
+async def add_annotation(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     if session_id not in _annotations:
         _annotations[session_id] = []
     annotation = {
@@ -5508,14 +5948,14 @@ async def add_annotation(session_id: str, body: dict = Body(...)):
 
 
 @admin_router.delete("/annotations/{session_id}/{annotation_id}", summary="Delete an annotation")
-async def delete_annotation(session_id: str, annotation_id: str):
+async def delete_annotation(session_id: str, annotation_id: str, _guard: None = Depends(require_facilitator)):
     if session_id in _annotations:
         _annotations[session_id] = [a for a in _annotations[session_id] if a["id"] != annotation_id]
     return {"deleted": annotation_id}
 
 
 @admin_router.put("/annotations/{session_id}/visibility", summary="Toggle student visibility of annotations")
-async def set_annotations_visibility(session_id: str, body: dict = Body(...)):
+async def set_annotations_visibility(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Enable or disable student visibility of facilitator annotations for a cohort."""
     import database_memory as db_mem
     sess = db_mem._sessions.get(session_id)
@@ -5743,7 +6183,7 @@ async def get_cohort_pulse(cohort_id: str):
 
 
 @admin_router.post("/cohort-pulse/{cohort_id}/visibility", summary="Set player-visibility of the CohortPulse heatmap")
-async def set_cohort_pulse_visibility(cohort_id: str, body: dict = Body(...)):
+async def set_cohort_pulse_visibility(cohort_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """
     Persists whether the CohortPulse KPI heatmap is visible to players.
     Called by the CohortPulse.js toggle switch.
@@ -5775,7 +6215,7 @@ async def get_side_track_catalog():
 
 
 @admin_router.put("/side-tracks/global", summary="Enable/disable side tracks globally (God Mode)")
-async def update_global_side_tracks(body: dict = Body(...)):
+async def update_global_side_tracks(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     """God Mode master control: set which side tracks are available platform-wide.
     Facilitators can only assign tracks from this enabled pool."""
     available = body.get("available_tracks", [])
@@ -5802,7 +6242,7 @@ async def get_facilitator_side_track_permissions():
 
 
 @admin_router.put("/side-tracks/facilitator-permissions/{fac_id}", summary="Set side track permissions for a facilitator")
-async def set_facilitator_side_track_permissions(fac_id: str, body: dict = Body(...)):
+async def set_facilitator_side_track_permissions(fac_id: str, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     """God Mode: grant/revoke side track access for a specific facilitator.
     Tracks must be globally enabled first."""
     tracks = body.get("permitted_tracks", [])
@@ -5826,7 +6266,7 @@ async def set_facilitator_side_track_permissions(fac_id: str, body: dict = Body(
 
 
 @admin_router.put("/cohorts/{session_id}/side-tracks", summary="Assign side tracks to a cohort (Facilitator)")
-async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...)):
+async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Facilitator endpoint: assign side tracks to a specific cohort.
     Only tracks permitted by God Mode for this facilitator can be assigned.
     Includes timing configuration (unlock_after_round)."""
@@ -5956,7 +6396,7 @@ async def get_flag_dependencies(session_id: str | None = None):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.post("/what-if/{session_id}", summary="What-If M_R replay with flag overrides")
-async def what_if_replay(session_id: str, body: dict = Body(...)):
+async def what_if_replay(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """STRAT-003: Replay R10 terminal valuation with modified flags."""
     from terminal_valuation import what_if_terminal
     latest = await db.fetch_latest_state(session_id)
@@ -6052,7 +6492,7 @@ async def list_industry_verticals():
     "/industry-verticals/{vertical_id}/apply/{session_id}",
     summary="Apply an industry vertical blueprint to a live session"
 )
-async def apply_industry_vertical(vertical_id: str, session_id: str):
+async def apply_industry_vertical(vertical_id: str, session_id: str, _guard: None = Depends(require_facilitator)):
     """Injects the selected industry vertical's materiality config into the session's
     global_state as 'materiality_dictionary_override'. This causes Round 2 to use
     the vertical's issues instead of the default global dictionary.

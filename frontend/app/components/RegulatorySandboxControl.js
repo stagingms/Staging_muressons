@@ -22,7 +22,7 @@ function getTheoryColor(theory = '') {
     return '#64748b';
 }
 
-export default function RegulatorySandboxControl({ sessionId }) {
+export default function RegulatorySandboxControl({ sessionId, isGodMode = false }) {
     const [instruments, setInstruments]   = useState({});
     const [customParams, setCustomParams] = useState({});
     const [loading, setLoading]           = useState(true);
@@ -123,7 +123,7 @@ export default function RegulatorySandboxControl({ sessionId }) {
                 </div>
                 <div className={styles.emptyState}>
                     <div className={styles.emptyIcon}>🏛️</div>
-                    <p>Select a session from the Leaderboard to configure its regulatory environment.</p>
+                    <p>{isGodMode ? 'Select a cohort from the Target Cohort dropdown above to configure its regulatory environment.' : 'Select a session from the Leaderboard to configure its regulatory environment.'}</p>
                 </div>
             </section>
         );

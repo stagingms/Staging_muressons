@@ -80,7 +80,7 @@ function IntegrityGauge({ score }) {
                 {/* Needle */}
                 <line x1={cx} y1={cy} x2={needleX} y2={needleY}
                     stroke="#0f172a" strokeWidth="2.5" strokeLinecap="round"
-                    style={{ transition: 'all 0.35s ease-out' }} />
+                    style={{ transition: 'background 0.35s ease-out, color 0.35s ease-out, border-color 0.35s ease-out, box-shadow 0.35s ease-out, opacity 0.35s ease-out, transform 0.35s ease-out' }} />
                 <circle cx={cx} cy={cy} r="5" fill="#0f172a" />
                 {/* Icon */}
                 <text x={cx} y={cy - 24} textAnchor="middle" fontSize="14" fill={zoneColor}>{icon}</text>

@@ -5,7 +5,9 @@ Simulation endpoints: start, dashboard, commit-turn, round-config.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException, status
+import hmac
+
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 import copy
 
@@ -16,9 +18,10 @@ from round_logic import pre_tick, post_tick, run_new_engines
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
 from config import MASTER_PASSWORD
-from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions
+from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions, require_facilitator, _check_rate_limit
+from password_hashing import verify_password as _verify_pw, hash_password as _hash_pw, maybe_upgrade_password as _maybe_upgrade_pw
 from admin_resources import check_hidden_resource_triggers
-from admin_shared import check_and_increment_cohort_count, is_practice_mode
+from admin_shared import check_and_increment_cohort_count, is_practice_mode, _session_journey_responses
 from option_shuffle import shuffle_options_for_display, deshuffle_choice, strip_canonical_metadata
 from models import (
     BUStateOut,
@@ -26,6 +29,7 @@ from models import (
     CommitTurnResponse,
     DashboardResponse,
     GlobalStateOut,
+    JourneyResponseRequest,
     RoundSnapshot,
     StartSessionRequest,
     StartSessionResponse,
@@ -53,14 +57,22 @@ _BU_NAMES = {
     "southeast_asia_hub": "South-East Asia Hub",
     "latin_america_basin": "Latin America Basin",
     "northern_transition_zone": "Northern Transition Zone",
+    # Industry Verticals
+    "oil_gas": "Muressons Oil & Gas",
+    "banking_financial_services": "Muressons Banking & Financial Services",
+    "retail_fmcg": "Muressons Retail/FMCG",
+    "agriculture": "Muressons Agriculture",
+    "technology": "Muressons Technology",
 }
 
 
 def _bu_out(bu: dict) -> BUStateOut:
     """Map a raw BU dict to the Pydantic output model."""
+    # Prefer bu_label (set by build_bu_states for verticals), then _BU_NAMES, then raw ID
+    display_name = bu.get("bu_label") or _BU_NAMES.get(bu["bu_id"], bu["bu_id"])
     return BUStateOut(
         bu_id=bu["bu_id"],
-        name=_BU_NAMES.get(bu["bu_id"], bu["bu_id"]),
+        name=display_name,
         revenue_base=bu["revenue_base"],
         opex_base=bu["opex_base"],
         natural_capital_debt=bu.get("natural_capital_debt", 0),
@@ -96,6 +108,27 @@ def _get_commit_lock(session_id: str) -> _asyncio.Lock:
     if session_id not in _commit_locks:
         _commit_locks[session_id] = _asyncio.Lock()
     return _commit_locks[session_id]
+
+
+async def _assert_player_owns_session(request: Request, session_id: str) -> None:
+    """MED-003–008: Validate X-Player-Id header against session ownership.
+
+    The header is OPTIONAL for backward compatibility (clients that send it
+    must be validated; clients that omit it fall back to UUID-as-bearer-token).
+    If provided and the player_id does NOT match the session owner, raise 403.
+    """
+    player_id_header = request.headers.get("X-Player-Id", "").strip()
+    if not player_id_header:
+        return  # No header → rely on UUID entropy as bearer token
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        return  # Session not found check handled by caller
+    session_owner = sess.get("player_id", "")
+    if session_owner and session_owner != player_id_header:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Player is not the owner of this session.",
+        )
 
 @router.get("/public/sessions", summary="List active public sessions")
 async def get_active_sessions():
@@ -200,12 +233,15 @@ class PlayerLoginRequest(BaseModel):
     password: str = ""
 
 @router.post("/player-login", summary="Player login — auto-resolves cohort from Player ID")
-async def player_login(req: PlayerLoginRequest):
+async def player_login(request: Request, req: PlayerLoginRequest):
     """
     Simplified player login: only Player ID + Password required.
     Looks up the player's cohort from the registry and joins/re-joins automatically.
     Returns the player's session info so the frontend can resume where they left off.
     """
+    # HIGH-009: Rate-limit player login per IP
+    _check_rate_limit(request, "player_login")
+
     from admin_shared import _player_registry
 
     # Find the player in the registry
@@ -217,8 +253,26 @@ async def player_login(req: PlayerLoginRequest):
     if not player_record:
         import database as db
         for sid, sess in db._sessions.items():
+            # Check player's own sub-session
             if sess.get("player_id") == req.player_id:
                 player_record = {"player_id": req.player_id, "session_id": sess.get("parent_cohort_id")}
+                break
+            # Check pre-generated players in registered_players (survives server restart)
+            for rp in sess.get("registered_players", []):
+                if rp.get("player_id") == req.player_id:
+                    player_record = rp
+                    # Re-hydrate into _player_registry so future logins are fast
+                    from admin_shared import _player_registry as _reg
+                    if not any(p["player_id"] == req.player_id for p in _reg):
+                        _reg.append(rp)
+                    break
+            if player_record:
+                break
+            # allowed_player_ids: player was pre-generated via generate-player endpoint.
+            # Their actual password is stored in _player_registry (added by generate_player_id).
+            # Fall back to an empty stored_pw so the password check below handles it.
+            if req.player_id in sess.get("allowed_player_ids", []):
+                player_record = {"player_id": req.player_id, "session_id": sid, "password": ""}
                 break
 
     if not player_record:
@@ -227,14 +281,19 @@ async def player_login(req: PlayerLoginRequest):
             detail="Player ID not found. Please check with your facilitator."
         )
 
-    # FIX AUDIT-005: Use configurable master password
+    # LOW-003: Use bcrypt-aware verify (falls back to plaintext for legacy records)
     stored_pw = player_record.get("password", "")
-    master_ok = bool(MASTER_PASSWORD) and req.password == MASTER_PASSWORD
-    if stored_pw and not master_ok and req.password != stored_pw:
+    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(req.password, MASTER_PASSWORD)
+    if stored_pw and not master_ok and not _verify_pw(req.password, stored_pw):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Incorrect password."
         )
+    # Auto-upgrade plaintext player passwords to bcrypt on successful login
+    if stored_pw and not master_ok:
+        upgraded = _maybe_upgrade_pw(req.password, stored_pw)
+        if upgraded:
+            player_record["password"] = upgraded
 
     # Get the cohort session_id
     cohort_session_id = player_record.get("session_id", "")
@@ -290,9 +349,9 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         from admin_shared import _player_registry
         player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
         if player_record and player_record.get("password"):
-            # FIX AUDIT-005: Use configurable master password
-            master_ok = bool(MASTER_PASSWORD) and req.password == MASTER_PASSWORD
-            if not master_ok and req.password != player_record["password"]:
+            # LOW-003: bcrypt-aware comparison
+            master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(req.password, MASTER_PASSWORD)
+            if not master_ok and not _verify_pw(req.password, player_record["password"]):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password.")
     except ImportError:
         pass  # admin_router not available, skip password check
@@ -324,7 +383,6 @@ async def join_session(session_id: str, req: JoinSessionRequest):
                 "player_count": len(players),
             }
 
-    print(f"[DEBUG] session_id={session_id}, len_players={len(players)}, players={players}")
     if len(players) >= 5:
         raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 5 players.")
 
@@ -806,9 +864,19 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         )
     _commit_timestamps[session_id] = now
 
+    # ── Emergency Freeze guard ───────────────────────────────
+    from admin_shared import _god_mode_settings as _gms
+    if _gms.get("system_frozen", False):
+        commit_lock.release()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="System is currently frozen for maintenance. Please wait for your facilitator to resume.",
+        )
+
     # ── Fetch current state ──────────────────────────────────
     current = await db.fetch_latest_state(session_id)
     if current is None:
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Session {session_id} not found.",
@@ -823,6 +891,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             try:
                 cohort_end = date.fromisoformat(end_date_str)
                 if date.today() > cohort_end:
+                    if commit_lock.locked(): commit_lock.release()
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
                         detail=f"This cohort expired on {end_date_str}. The game is locked and no further rounds can be played.",
@@ -832,6 +901,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
 
     current_round = current["round_number"]
     if current_round > 10:
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Simulation has already completed all 10 rounds.",
@@ -840,6 +910,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     # ── ITEM 1: Optimistic locking — expected_round guard ────
     expected_round = getattr(body, 'expected_round', None)
     if expected_round is not None and expected_round != current_round:
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
@@ -855,6 +926,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     pace_session = await db.get_session_info(pace_session_id)
     max_round = (pace_session or {}).get("max_round")
     if max_round is not None and current_round > max_round:
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Cohort pace lock: maximum round is {max_round}. Wait for facilitator.",
@@ -863,6 +935,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     # ── Round pacing gate ────────────────────────────────────
     from admin_shared import is_round_unlocked
     if not is_round_unlocked(session_id, current_round):
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Round is locked. Waiting for facilitator to unlock.",
@@ -935,6 +1008,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
 
     # VULN-005: Reject duplicate BU IDs
     if len(submitted_bu_ids) != len(set(submitted_bu_ids)):
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Duplicate BU IDs in decisions. Each BU must appear exactly once.",
@@ -943,6 +1017,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     # VULN-009: Require decisions for all active BUs
     missing = valid_bu_ids - set(submitted_bu_ids)
     if missing:
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Missing decisions for BU(s): {', '.join(sorted(missing))}.",
@@ -953,6 +1028,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         for d in decisions_raw:
             choice = d.get("choice_selected", "")
             if choice and choice not in valid_choices:
+                if commit_lock.locked(): commit_lock.release()
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Invalid choice_selected '{choice}'. Must be option_a, option_b, or option_c.",
@@ -961,6 +1037,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     # VULN-009: Enforce minimum investment of $1 per BU
     for d in decisions_raw:
         if d.get("capex_allocated", 0) < 1:
+            if commit_lock.locked(): commit_lock.release()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"BU '{d['bu_id']}' must receive a minimum investment of $1.",
@@ -978,6 +1055,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
 
     # Check for validation errors (e.g. R2 CFO gate)
     if "validation_error" in pre_result:
+        if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=pre_result["validation_error"],
@@ -1152,7 +1230,11 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         print(f"[WARN] New engines batch failed: {exc}")
 
     # Ensure active_event_flags contains everything (preserve history)
+    # Merge order: historical flags → post_tick flags (rN_flags) → events
+    # FIX: Previously used current_global (input state) as base, which
+    # silently dropped flags set by _apply_option_flags in post_tick.
     merged_flags = dict(current_global.get("active_event_flags", {}))
+    merged_flags.update(new_global.get("active_event_flags", {}))
     merged_flags.update(events)
     new_global["active_event_flags"] = merged_flags
 
@@ -1240,6 +1322,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
                 decisions=decisions_raw,
             )
     except Exception as exc:
+        commit_lock.release()
         # Unique constraint → duplicate round
         if "uq_session_round" in str(exc):
             raise HTTPException(
@@ -1307,6 +1390,7 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
         # Return a special response with practice_reset event
         reset_state = await db.fetch_latest_state(session_id)
         reset_events = {"practice_reset": True, "practice_message": "Practice complete — session reset to Round 1."}
+        commit_lock.release()
         return CommitTurnResponse(
             session_id=session_id,
             new_round_number=1,
@@ -1448,11 +1532,12 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
     status_code=status.HTTP_200_OK,
     summary="Save uncommitted UI allocations and decisions mid-round",
 )
-async def save_decisions(session_id: str, body: SaveDecisionsRequest):
+async def save_decisions(request: Request, session_id: str, body: SaveDecisionsRequest):
     """
     Saves the user's current slider allocations and chosen decision
     to the global_state so they can resume after leaving the page.
     """
+    await _assert_player_owns_session(request, session_id)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(
@@ -1470,6 +1555,37 @@ async def save_decisions(session_id: str, body: SaveDecisionsRequest):
     await db.update_latest_global_state(session_id, global_state, bu_states)
 
     return {"status": "success", "message": "Decisions saved successfully."}
+
+
+# ─────────────────────────────────────────────────────────────────
+# POST /api/simulations/{session_id}/journey-response
+# ─────────────────────────────────────────────────────────────────
+
+@router.post(
+    "/{session_id}/journey-response",
+    status_code=status.HTTP_200_OK,
+    summary="Persist a pedagogical journey response (R6/R7/R8) for a player session",
+)
+async def save_journey_response(request: Request, session_id: str, body: JourneyResponseRequest):
+    """
+    Stores the player's response from a pedagogical journey panel (R6 revelation,
+    R7 budget allocation, R8 stakeholder tribunal) keyed by journey step.
+    Data lives in _session_journey_responses[session_id] for the lifetime of the
+    process and is readable by the admin debrief view.
+    """
+    await _assert_player_owns_session(request, session_id)
+    if session_id not in _session_journey_responses:
+        _session_journey_responses[session_id] = {}
+    _session_journey_responses[session_id][body.key] = body.data
+    return {"status": "ok", "session_id": session_id, "key": body.key}
+
+
+@router.get(
+    "/{session_id}/journey-responses",
+    summary="Retrieve all persisted journey responses for a session",
+)
+async def get_journey_responses(session_id: str):
+    return {"session_id": session_id, "responses": _session_journey_responses.get(session_id, {})}
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -1558,30 +1674,42 @@ async def get_sdg_dashboard(session_id: str):
     all_gaps = []
 
     for bu in bus:
-        bu_id = bu.get("name", "").lower().replace(" ", "_")
+        # Use bu_id directly (e.g. "pharma") or fall back to deriving from name
+        bu_id = bu.get("bu_id") or bu.get("name", "").lower().replace(" ", "_").replace("muressons_", "")
         mat = SDG_BU_MATERIALITY.get(bu_id, {})
-        sdgs = mat.get("sdgs", [])
-        metric_keys = mat.get("metric_keys", [])
+        sdg_entries = mat.get("sdgs", [])
         linkage_rule = mat.get("linkage_rule", "")
 
         sdg_details = []
         bu_total = 0
-        for i, sdg_num in enumerate(sdgs):
-            mk = metric_keys[i] if i < len(metric_keys) else None
+        for sdg_entry in sdg_entries:
+            # Support both dict-based format {sdg, metric_key, scoring, ...}
+            # and legacy int-based format (fall back gracefully)
+            if isinstance(sdg_entry, dict):
+                sdg_num = sdg_entry["sdg"]
+                mk = sdg_entry.get("metric_key")
+                scoring = sdg_entry.get("scoring", "higher_is_better")
+                icon = sdg_entry.get("icon") or SDG_ICONS.get(sdg_num, "🎯")
+                color = SDG_COLORS.get(sdg_num, "#888")
+            else:
+                sdg_num = sdg_entry
+                mk = None
+                scoring = "higher_is_better"
+                icon = SDG_ICONS.get(sdg_num, "🎯")
+                color = SDG_COLORS.get(sdg_num, "#888")
+
             raw_val = bu.get(mk, 50.0) if mk else 50.0
 
-            # Normalize: higher is better for most metrics, invert for negative ones
-            if mk in ("carbon_intensity", "staff_burnout_index", "natural_capital_debt"):
-                normalized = max(0, min(100, 100 - raw_val))
-            elif mk in ("water_dependency",):
+            # Normalize using scoring direction from engine definition
+            if scoring == "lower_is_better":
                 normalized = max(0, min(100, 100 - raw_val))
             else:
                 normalized = max(0, min(100, raw_val))
 
             sdg_details.append({
                 "sdg": sdg_num,
-                "icon": SDG_ICONS.get(sdg_num, "🎯"),
-                "color": SDG_COLORS.get(sdg_num, "#888"),
+                "icon": icon,
+                "color": color,
                 "raw_metric": round(raw_val, 2),
                 "metric_key": mk,
                 "normalized_score": round(normalized, 1),
@@ -1592,7 +1720,7 @@ async def get_sdg_dashboard(session_id: str):
                 all_sdg_scores[sdg_num] = []
             all_sdg_scores[sdg_num].append(normalized)
 
-        bu_avg = bu_total / max(len(sdgs), 1)
+        bu_avg = bu_total / max(len(sdg_entries), 1)
         bu_color = '#10b981' if bu_avg >= 60 else '#f59e0b' if bu_avg >= 40 else '#ef4444'
 
         # Detect gaps (SDGs scoring below 40)
@@ -1691,7 +1819,7 @@ async def get_shadow_board_audit(session_id: str):
     summary="Submit Shadow Board public rejection (R5 middleware)",
 )
 async def submit_shadow_board_rejection(
-    session_id: str, body: ShadowBoardRejectionRequest
+    request: Request, session_id: str, body: ShadowBoardRejectionRequest
 ):
     """
     Records the player's public rejection of one of the three Shadow Board
@@ -1701,6 +1829,7 @@ async def submit_shadow_board_rejection(
     3. Classifies the firm's strategic archetype
     4. Returns consequence DNA chain for UI traceability
     """
+    await _assert_player_owns_session(request, session_id)
     from shadow_board_audit import process_rejection
     from autonomous_agents import AGENT_PROFILES
 
@@ -1951,7 +2080,7 @@ class UpdateParadigmRequest(BaseModel):
     "/{session_id}/paradigm",
     summary="Update the decision paradigm for a session",
 )
-async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest):
+async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest, _guard: None = Depends(require_facilitator)):
     """Set the decision paradigm for a session. Propagates to child player sessions."""
     if body.decision_paradigm not in ("legacy_abc", "multi_toggles", "advanced_climate", "healthcare"):
         raise HTTPException(status_code=400, detail="Invalid paradigm. Must be 'legacy_abc', 'multi_toggles', 'advanced_climate', or 'healthcare'.")
@@ -2022,7 +2151,7 @@ async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest):
     response_model=MaterialitySubmissionResponse,
     summary="Submit Double Materiality matrix and receive capital allocation",
 )
-async def submit_materiality_matrix(session_id: str, body: MaterialitySubmissionRequest):
+async def submit_materiality_matrix(request: Request, session_id: str, body: MaterialitySubmissionRequest):
     """
     1. Fetches current state and dynamic materiality config.
     2. If bu_id is provided (Strategic Pillars mode), loads BU-specific dictionary.
@@ -2033,6 +2162,7 @@ async def submit_materiality_matrix(session_id: str, body: MaterialitySubmission
     7. Allocates disclosure_investment_budget for Q2 issues placed correctly.
     8. Persists the new treasury state and emits ESRS debrief card.
     """
+    await _assert_player_owns_session(request, session_id)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -2459,7 +2589,8 @@ async def get_stakeholders(session_id: str = None):
     tags=["Simulation"],
     summary="Submit stakeholder power-interest grid mapping",
 )
-async def submit_stakeholder_map(session_id: str, body: StakeholderMapSubmission):
+async def submit_stakeholder_map(request: Request, session_id: str, body: StakeholderMapSubmission):
+    await _assert_player_owns_session(request, session_id)
     # Evaluate against master (C4: graduated scoring, C12: treasury penalty)
     # Session-aware: uses vertical stakeholders if BU substitutions are active
     latest_for_eval = await db.fetch_latest_state(session_id)
@@ -2522,7 +2653,7 @@ class ChangePasswordRequest(BaseModel):
     new_password: str
 
 @router.post(
-    "/api/simulations/change-password",
+    "/change-password",
     tags=["Simulation"],
     summary="Allow a player to change their password",
 )
@@ -2536,13 +2667,13 @@ async def change_password(body: ChangePasswordRequest):
     if not player:
         raise HTTPException(404, "Player ID not found")
 
-    if player.get("password") != body.old_password:
+    if not _verify_pw(body.old_password, player.get("password", "")):
         raise HTTPException(403, "Current password is incorrect")
 
-    if len(body.new_password.strip()) < 3:
-        raise HTTPException(400, "New password must be at least 3 characters")
+    if len(body.new_password.strip()) < 8:
+        raise HTTPException(400, "New password must be at least 8 characters")
 
-    player["password"] = body.new_password.strip()
+    player["password"] = _hash_pw(body.new_password.strip())
     return {"status": "success", "message": "Password updated successfully"}
 
 
@@ -2559,7 +2690,7 @@ class LearningBonusRequest(BaseModel):
     "/{session_id}/learning-bonus",
     summary="Award bonus points for completing podcast or quiz",
 )
-async def award_learning_bonus(session_id: str, body: LearningBonusRequest):
+async def award_learning_bonus(request: Request, session_id: str, body: LearningBonusRequest):
     """
     Awards bonus points:
     - podcast_complete: 1000 pts (one-time only)
@@ -2567,6 +2698,7 @@ async def award_learning_bonus(session_id: str, body: LearningBonusRequest):
       Retakes allowed — only the *incremental* improvement is awarded.
     Tracks attempt count so frontend can reveal answers after attempt 2.
     """
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if latest is None:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -2980,6 +3112,238 @@ async def get_peer_leaderboard(session_id: str):
         leaderboard.append(entry)
 
     return {"leaderboard": leaderboard}
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/peer-trend-history
+# Returns averaged round-by-round metrics for all cohort peers.
+# Used by the Trends tab to overlay "Cohort Average" lines on charts.
+# ─────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/peer-trend-history",
+    summary="Get averaged round-by-round peer metrics for cohort comparison",
+)
+async def get_peer_trend_history(session_id: str):
+    """
+    Returns averaged round-by-round performance metrics for all sibling
+    sessions in the same cohort.  Each round entry contains:
+      - avgCI, tco2e, ebitda, rep (averages across all peers)
+      - peerCount (how many peers contributed data for that round)
+
+    For solo sessions, generates synthetic AI benchmark trend lines.
+    """
+    session_info = await db.get_session_info(session_id)
+    if not session_info:
+        return {"available": False, "reason": "Session not found", "rounds": []}
+
+    parent_id = session_info.get("parent_cohort_id")
+
+    # ── Solo: Generate synthetic peer benchmarks ──────────────────
+    # NOTE: AI benchmarks use INDEPENDENT absolute trajectories, NOT
+    # perturbations of the player's own data. This ensures the peer
+    # comparison line is meaningfully different from the player's path.
+    if not parent_id:
+        latest = await db.fetch_latest_state(session_id)
+        if not latest:
+            return {"available": False, "reason": "No simulation data yet", "rounds": []}
+
+        own_history = await db.fetch_round_history(session_id)
+        if not own_history:
+            return {"available": False, "reason": "No history available", "rounds": []}
+
+        import random as _rng
+        seed = hash(session_id) & 0xFFFFFFFF
+        _rng.seed(seed)
+
+        # ── Independent AI archetype trajectories ──────────────────
+        # Each profile defines absolute base values and per-round deltas
+        # representing genuinely different strategic approaches.
+        #
+        # Base values match the simulation's initial conditions:
+        #   CI ~45, EBITDA ~$19.2M, Rep ~50, tCO2e ~180
+        EBITDA_BASE = 19_200_000
+        CI_BASE = 45.0
+        REP_BASE = 50.0
+        TCO2E_BASE = 180.0
+        IPO_PRICE_REF = 50.0  # For stock price calculation
+
+        ai_profiles = [
+            {
+                "name": "Balanced",
+                "ci_delta": -1.5,        # gradual decarbonisation
+                "ebitda_growth": 0.03,    # steady 3% growth/round
+                "rep_delta": 1.5,         # slow reputation build
+                "tco2e_delta": -8,        # moderate emission cuts
+                "synergy_base": 1.02,
+            },
+            {
+                "name": "Growth",
+                "ci_delta": 1.0,          # carbon increases (profit focus)
+                "ebitda_growth": 0.08,    # aggressive 8% growth/round
+                "rep_delta": -2.0,        # reputation erosion
+                "tco2e_delta": 12,        # emissions rise
+                "synergy_base": 0.95,
+            },
+            {
+                "name": "ESG",
+                "ci_delta": -3.0,         # aggressive decarbonisation
+                "ebitda_growth": -0.02,   # EBITDA shrinks (heavy green CAPEX)
+                "rep_delta": 3.0,         # strong reputation gain
+                "tco2e_delta": -18,       # deep emission cuts
+                "synergy_base": 1.10,
+            },
+        ]
+
+        rounds_out = []
+        for snap in own_history:
+            rn = snap.get("round_number", 0)
+            if rn < 1 or rn > 10:
+                continue
+
+            # Generate each profile's absolute value at this round
+            ci_vals, tco2e_vals, ebitda_vals, rep_vals, stock_vals = [], [], [], [], []
+            for prof in ai_profiles:
+                r = rn - 1  # 0-indexed round offset
+
+                ci = max(5, CI_BASE + prof["ci_delta"] * r + _rng.uniform(-1.5, 1.5))
+                tco2e = max(0, TCO2E_BASE + prof["tco2e_delta"] * r + _rng.uniform(-15, 15))
+                ebitda = EBITDA_BASE * ((1 + prof["ebitda_growth"]) ** r) + _rng.uniform(-1_500_000, 1_500_000)
+                rep = min(100, max(5, REP_BASE + prof["rep_delta"] * r + _rng.uniform(-2, 2)))
+
+                ci_vals.append(ci)
+                tco2e_vals.append(tco2e)
+                ebitda_vals.append(ebitda)
+                rep_vals.append(rep)
+
+                # Stock price: IPO * (EBITDA/Baseline) * sentiment
+                synergy_boost = prof["synergy_base"] - 1.0
+                ncd_penalty = 5.0 / 100  # assume moderate NCD ~5
+                rep_penalty = (100 - rep) / 200
+                sentiment = max(0.1, 1.0 + synergy_boost - ncd_penalty - rep_penalty)
+                stock_price = IPO_PRICE_REF * (max(0, ebitda) / EBITDA_BASE) * sentiment
+                stock_vals.append(max(1.0, stock_price))
+
+            avg_ci = sum(ci_vals) / len(ci_vals)
+            avg_tco2e = sum(tco2e_vals) / len(tco2e_vals)
+            avg_ebitda = sum(ebitda_vals) / len(ebitda_vals)
+            avg_rep = sum(rep_vals) / len(rep_vals)
+            avg_stock = sum(stock_vals) / len(stock_vals)
+
+            peer_details = []
+            for i, prof in enumerate(ai_profiles):
+                peer_details.append({
+                    "id": f"ai_{i}",
+                    "name": prof["name"],
+                    "ci": ci_vals[i],
+                    "tco2e": tco2e_vals[i],
+                    "ebitda": ebitda_vals[i],
+                    "rep": rep_vals[i],
+                    "stock": stock_vals[i]
+                })
+
+            rounds_out.append({
+                "round": rn,
+                "avgCI": round(avg_ci, 2),
+                "tco2e": round(avg_tco2e, 1),
+                "ebitda": round(avg_ebitda, 2),
+                "rep": round(avg_rep, 1),
+                "peerStockPrice": round(avg_stock, 2),
+                "peerCount": 3,
+                "peers": peer_details,
+            })
+
+        return {"available": True, "ai_benchmark": True, "peerCount": 3, "rounds": rounds_out}
+
+    # ── Multiplayer: Real peer averages ──────────────────────────
+    try:
+        from database_memory import _sessions, _round_states
+    except ImportError:
+        return {"available": False, "reason": "Peer comparison unavailable", "rounds": []}
+
+    # Collect all sibling session IDs (excluding self)
+    sibling_ids = [
+        sid for sid, sess in _sessions.items()
+        if sess.get("parent_cohort_id") == parent_id and sid != session_id
+    ]
+    if not sibling_ids:
+        return {"available": False, "reason": "No peer sessions in this cohort", "rounds": []}
+
+    # Aggregate per-round metrics from all siblings
+    round_accum = {}  # round_num → {ci: [], tco2e: [], ebitda: [], rep: [], peers: []}
+    for sid in sibling_ids:
+        peer_history = await db.fetch_round_history(sid)
+        if not peer_history:
+            continue
+        for snap in peer_history:
+            rn = snap.get("round_number", 0)
+            if rn < 1 or rn > 10:
+                continue
+            gs = snap.get("global_state", {})
+            bu_arr = snap.get("business_units", snap.get("bu_states", []))
+            ci = sum(b.get("carbon_intensity", 0) for b in bu_arr) / max(len(bu_arr), 1)
+            tco2e = gs.get("tco2e_emissions", 0)
+            ebitda = gs.get("historical_ebitda", 0)
+            rep = gs.get("group_reputation", 50)
+
+            # Compute peer stock price
+            _ipo = 50.0
+            _baseline_ebitda = 19_200_000
+            _synergy_boost = 0.0  # assume baseline synergy for peers
+            _ncd_penalty = 5.0 / 100
+            _rep_penalty = (100 - rep) / 200
+            _sentiment = max(0.1, 1.0 + _synergy_boost - _ncd_penalty - _rep_penalty)
+            _stock = max(1.0, _ipo * (max(0, ebitda) / _baseline_ebitda) * _sentiment)
+
+            if rn not in round_accum:
+                round_accum[rn] = {"ci": [], "tco2e": [], "ebitda": [], "rep": [], "peers": []}
+            round_accum[rn]["ci"].append(ci)
+            round_accum[rn]["tco2e"].append(tco2e)
+            round_accum[rn]["ebitda"].append(ebitda)
+            round_accum[rn]["rep"].append(rep)
+            
+            # Use cohort name or short code if available, fallback to Team X
+            sess_info = _sessions.get(sid, {})
+            p_name = sess_info.get("cohort_name") or f"Team {sid[:4]}"
+            round_accum[rn]["peers"].append({
+                "id": sid,
+                "name": p_name,
+                "ci": ci,
+                "tco2e": tco2e,
+                "ebitda": ebitda,
+                "rep": rep,
+                "stock": _stock
+            })
+
+    rounds_out = []
+    for rn in sorted(round_accum.keys()):
+        acc = round_accum[rn]
+        n = len(acc["ci"])
+        avg_ebitda = sum(acc["ebitda"]) / n
+        avg_rep = sum(acc["rep"]) / n
+
+        # Compute peer stock price from averaged metrics
+        # Same formula as stockValuationEngine: IPO * (EBITDA/Baseline) * sentiment
+        _ipo = 50.0
+        _baseline_ebitda = 19_200_000
+        _synergy_boost = 0.0  # assume baseline synergy for peers
+        _ncd_penalty = 5.0 / 100
+        _rep_penalty = (100 - avg_rep) / 200
+        _sentiment = max(0.1, 1.0 + _synergy_boost - _ncd_penalty - _rep_penalty)
+        _stock = max(1.0, _ipo * (max(0, avg_ebitda) / _baseline_ebitda) * _sentiment)
+
+        rounds_out.append({
+            "round": rn,
+            "avgCI": round(sum(acc["ci"]) / n, 2),
+            "tco2e": round(sum(acc["tco2e"]) / n, 1),
+            "ebitda": round(avg_ebitda, 2),
+            "rep": round(avg_rep, 1),
+            "peerStockPrice": round(_stock, 2),
+            "peerCount": n,
+            "peers": acc["peers"],
+        })
+
+    return {"available": True, "ai_benchmark": False, "peerCount": len(sibling_ids), "rounds": rounds_out}
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -3627,6 +3991,14 @@ async def submit_interview_responses(session_id: str, body: dict):
     responses = body.get("responses", [])
     if not responses:
         raise HTTPException(400, "No responses provided")
+    # Guard against LLM abuse: cap response count and individual response length
+    if len(responses) > 20:
+        raise HTTPException(400, "Too many responses (max 20).")
+    for r in responses:
+        if isinstance(r, dict):
+            ans = r.get("answer", r.get("response", ""))
+            if isinstance(ans, str) and len(ans) > 3000:
+                raise HTTPException(400, "Response too long (max 3000 characters per answer).")
 
     gs = latest.get("global_state", {})
     bus = latest.get("bu_states", [])
@@ -3637,6 +4009,9 @@ async def submit_interview_responses(session_id: str, body: dict):
         get_interview_questions, calc_data_scores, blend_scores,
         generate_fallback_feedback, generate_score_rationale,
         get_ceo_persona, DIMENSIONS,
+        score_responses_with_llm, calc_trajectory_modifiers,
+        generate_evidence_citations, store_peer_scores,
+        calc_peer_benchmarks, calc_calibration_gaps,
     )
     voice_gender = _god_mode_settings.get("ceo_interview_voice_gender", "female")
     persona = get_ceo_persona(voice_gender)
@@ -3647,7 +4022,6 @@ async def submit_interview_responses(session_id: str, body: dict):
     )
 
     # Build the extra dict from R10 grand finale results
-    # (should be in active_event_flags after commit)
     extra = {
         "regenerative_multiple": flags.get("regenerative_multiple", gs.get("regenerative_multiple", 1.0)),
         "terminal_value": flags.get("terminal_value", gs.get("terminal_value", 0)),
@@ -3657,38 +4031,80 @@ async def submit_interview_responses(session_id: str, body: dict):
     # Step 1: Calculate data-derived scores
     data_scores = calc_data_scores(extra, gs, bus, flags)
 
-    # Step 2: Try LLM-based response scoring, fall back to data-only
+    # Step 1b: Apply trajectory modifiers (Improvement 2)
+    round_history = await db.fetch_round_history(session_id)
+    decision_log = await db.get_decision_log(session_id)
+    trajectory = calc_trajectory_modifiers(round_history, decision_log)
+    trajectory_adjusted_data = dict(data_scores)
+    for dim_id, traj in trajectory.items():
+        if dim_id in trajectory_adjusted_data:
+            trajectory_adjusted_data[dim_id] = round(
+                min(10, max(1, trajectory_adjusted_data[dim_id] * traj["modifier"])), 1
+            )
+
+    # Step 2: LLM-based response scoring (Improvement 1)
     response_scores = {}
     llm_feedback = None
+    llm_used = False
     try:
-        # TODO: Integrate with actual LLM API (GPT-4o / Claude)
-        # For now, use data scores as both halves (with slight randomisation)
+        llm_result = await score_responses_with_llm(
+            questions, responses, data_scores, extra
+        )
+        if llm_result and "dimension_scores" in llm_result:
+            response_scores = {
+                k: round(min(10, max(1, float(v))), 1)
+                for k, v in llm_result["dimension_scores"].items()
+            }
+            llm_feedback = {
+                "feedback_paragraphs": llm_result.get("feedback_paragraphs", []),
+                "key_strengths": llm_result.get("key_strengths", []),
+                "growth_areas": llm_result.get("growth_areas", []),
+            }
+            llm_used = True
+            print(f"[ceo-interview] LLM scoring successful via API")
+    except Exception as e:
+        print(f"[ceo-interview] LLM scoring failed: {e}")
+
+    if not response_scores:
+        # Fallback: noise-based scoring
         import random
         for dim_id in data_scores:
-            # Simulate response analysis: slight variance around data score
             base = data_scores[dim_id]
             noise = random.uniform(-1.0, 1.0)
             response_scores[dim_id] = round(min(10, max(1, base + noise)), 1)
-    except Exception as e:
-        print(f"[ceo-interview] LLM scoring failed: {e}")
-        response_scores = dict(data_scores)
 
-    # Step 3: Blend scores
-    final_scores = blend_scores(data_scores, response_scores)
+    # Step 3: Blend scores (using trajectory-adjusted data scores)
+    final_scores = blend_scores(trajectory_adjusted_data, response_scores)
 
-    # Step 4: Generate score rationale (per-dimension explanations)
-    score_rationale = generate_score_rationale(data_scores, extra, gs, bus, flags)
+    # Step 4: Generate score rationale
+    score_rationale = generate_score_rationale(trajectory_adjusted_data, extra, gs, bus, flags)
 
-    # Step 5: Generate narrative feedback
+    # Step 5: Generate evidence citations (Improvement 3)
+    evidence_citations = generate_evidence_citations(decision_log, round_history, data_scores)
+
+    # Step 6: Generate narrative feedback
     feedback = llm_feedback or generate_fallback_feedback(final_scores, extra)
 
-    # Step 6: Persist the assessment in session flags
+    # Step 7: Self-assessment calibration (Improvement 5)
+    self_assessment = flags.get("ceo_interview_self_assessment", {})
+    calibration = calc_calibration_gaps(self_assessment, final_scores)
+
+    # Step 8: Peer benchmarking (Improvement 4)
+    parent_id = (await db.get_session_info(session_id) or {}).get("parent_cohort_id", session_id)
+    store_peer_scores(parent_id, final_scores)
+    peer_benchmarks = calc_peer_benchmarks(parent_id, final_scores)
+
+    # Step 9: Persist the assessment in session flags
     try:
         flags["ceo_interview_completed"] = True
         flags["ceo_interview_scores"] = final_scores
-        flags["ceo_interview_data_scores"] = data_scores
+        flags["ceo_interview_data_scores"] = trajectory_adjusted_data
+        flags["ceo_interview_raw_data_scores"] = data_scores
         flags["ceo_interview_response_scores"] = response_scores
         flags["ceo_interview_score_rationale"] = score_rationale
+        flags["ceo_interview_trajectory"] = trajectory
+        flags["ceo_interview_evidence"] = evidence_citations
+        flags["ceo_interview_llm_used"] = llm_used
         gs["active_event_flags"] = flags
         await db.update_latest_global_state(session_id, gs, bus)
     except Exception as e:
@@ -3698,17 +4114,23 @@ async def submit_interview_responses(session_id: str, body: dict):
         "session_id": session_id,
         "dimensions": DIMENSIONS,
         "final_scores": final_scores,
-        "data_scores": data_scores,
+        "data_scores": trajectory_adjusted_data,
+        "raw_data_scores": data_scores,
         "response_scores": response_scores,
         "score_rationale": score_rationale,
+        "trajectory": trajectory,
+        "evidence_citations": evidence_citations,
+        "calibration": calibration,
+        "peer_benchmarks": peer_benchmarks,
         "feedback": feedback,
         "persona": persona,
+        "llm_used": llm_used,
     }
 
 
 @router.get("/{session_id}/ceo-interview/results", summary="Get stored interview results")
 async def get_interview_results(session_id: str):
-    """Retrieve previously completed CEO interview results."""
+    """Retrieve previously completed CEO interview results with all enrichment data."""
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")
@@ -3717,7 +4139,10 @@ async def get_interview_results(session_id: str):
     if not flags.get("ceo_interview_completed"):
         raise HTTPException(404, "No CEO interview results found for this session")
 
-    from ceo_interview import get_ceo_persona, DIMENSIONS, generate_fallback_feedback, generate_score_rationale
+    from ceo_interview import (
+        get_ceo_persona, DIMENSIONS, generate_fallback_feedback,
+        generate_score_rationale, calc_peer_benchmarks, calc_calibration_gaps,
+    )
     from admin_shared import _god_mode_settings as _gms
     voice_gender = _gms.get("ceo_interview_voice_gender", "female")
     persona = get_ceo_persona(voice_gender)
@@ -3737,16 +4162,132 @@ async def get_interview_results(session_id: str):
         data_scores = flags.get("ceo_interview_data_scores", {})
         score_rationale = generate_score_rationale(data_scores, extra, gs, bus, flags)
 
+    # Re-calc calibration if self-assessment exists
+    self_assessment = flags.get("ceo_interview_self_assessment", {})
+    calibration = calc_calibration_gaps(self_assessment, final_scores)
+
+    # Re-calc peer benchmarks
+    parent_id = (await db.get_session_info(session_id) or {}).get("parent_cohort_id", session_id)
+    peer_benchmarks = calc_peer_benchmarks(parent_id, final_scores)
+
     return {
         "session_id": session_id,
         "dimensions": DIMENSIONS,
         "final_scores": final_scores,
         "data_scores": flags.get("ceo_interview_data_scores", {}),
+        "raw_data_scores": flags.get("ceo_interview_raw_data_scores", {}),
         "response_scores": flags.get("ceo_interview_response_scores", {}),
         "score_rationale": score_rationale,
+        "trajectory": flags.get("ceo_interview_trajectory", {}),
+        "evidence_citations": flags.get("ceo_interview_evidence", {}),
+        "calibration": calibration,
+        "peer_benchmarks": peer_benchmarks,
         "feedback": generate_fallback_feedback(final_scores, extra),
         "persona": persona,
+        "llm_used": flags.get("ceo_interview_llm_used", False),
         "completed": True,
+    }
+
+
+@router.post("/{session_id}/ceo-interview/self-assessment", summary="Submit self-assessment ratings")
+async def submit_self_assessment(session_id: str, body: dict):
+    """Store player's self-rated dimension scores before the interview.
+
+    Body: { "ratings": { "strategic_thinking": 7.0, ... } }
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    ratings = body.get("ratings", {})
+    if not ratings:
+        raise HTTPException(400, "Missing ratings object")
+
+    gs = latest.get("global_state", {})
+    bus = latest.get("bu_states", [])
+    flags = gs.get("active_event_flags", {})
+    flags["ceo_interview_self_assessment"] = ratings
+    gs["active_event_flags"] = flags
+    await db.update_latest_global_state(session_id, gs, bus)
+    return {"status": "ok", "stored_dimensions": list(ratings.keys())}
+
+
+@router.post("/{session_id}/ceo-interview/adaptive-questions", summary="Get personalised interview questions")
+async def get_adaptive_questions(session_id: str):
+    """Generate interview questions tailored to the player's weak dimensions.
+
+    Requires data scores to have been pre-calculated (calls calc_data_scores internally).
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    gs = latest.get("global_state", {})
+    bus = latest.get("bu_states", [])
+    flags = gs.get("active_event_flags", {})
+    ending_pathway = flags.get("ending_pathway", "activist_ultimatum")
+
+    from ceo_interview import calc_data_scores, generate_adaptive_questions, get_ceo_persona
+    from admin_shared import _god_mode_settings
+    extra = {
+        "regenerative_multiple": flags.get("regenerative_multiple", gs.get("regenerative_multiple", 1.0)),
+        "terminal_value": flags.get("terminal_value", gs.get("terminal_value", 0)),
+        "profile_title": flags.get("profile_title", gs.get("profile_title", "Unknown")),
+    }
+    data_scores = calc_data_scores(extra, gs, bus, flags)
+    questions = generate_adaptive_questions(
+        data_scores, ending_pathway,
+        _god_mode_settings.get("ceo_interview_question_count", 5),
+    )
+    voice_gender = _god_mode_settings.get("ceo_interview_voice_gender", "female")
+    return {
+        "questions": questions,
+        "data_scores_preview": data_scores,
+        "persona": get_ceo_persona(voice_gender),
+    }
+
+
+@router.post("/{session_id}/ceo-interview/what-if", summary="Counterfactual 'What-If' analysis")
+async def what_if_analysis(session_id: str, body: dict):
+    """Run a lightweight counterfactual scenario.
+
+    Body: { "round": 5, "dimension": "stakeholder_empathy", "scenario": "What if I had invested in community fund earlier?" }
+    Returns estimated score deltas.
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    target_round = body.get("round", 5)
+    dimension = body.get("dimension", "")
+    scenario_text = body.get("scenario", "")
+
+    gs = latest.get("global_state", {})
+    flags = gs.get("active_event_flags", {})
+    final_scores = flags.get("ceo_interview_scores", {})
+
+    # Simplified counterfactual model — estimates impact of earlier ethical/strategic decisions
+    counterfactual = {}
+    for dim_id, current_score in final_scores.items():
+        # The earlier the intervention, the bigger the potential impact
+        round_bonus = max(0, (10 - target_round) * 0.15)
+        projected = min(10, current_score + round_bonus) if dim_id == dimension else current_score
+        counterfactual[dim_id] = round(projected, 1)
+
+    delta = {
+        dim_id: round(counterfactual.get(dim_id, 0) - final_scores.get(dim_id, 0), 1)
+        for dim_id in final_scores
+    }
+
+    return {
+        "original_scores": final_scores,
+        "counterfactual_scores": counterfactual,
+        "deltas": delta,
+        "target_round": target_round,
+        "target_dimension": dimension,
+        "insight": f"Had you acted on '{dimension.replace('_', ' ')}' in Round {target_round} instead of later, "
+                   f"your score could have improved by approximately +{delta.get(dimension, 0):.1f} points. "
+                   f"Earlier interventions compound through the remaining rounds.",
     }
 
 
@@ -3767,6 +4308,8 @@ async def synthesize_ceo_voice(session_id: str, body: dict):
     text = body.get("text", "")
     if not text:
         raise HTTPException(400, "No text provided")
+    if len(text) > 2000:
+        raise HTTPException(400, "Text too long (max 2000 characters).")
 
     # Resolve voice from god-mode settings if not explicitly provided
     voice_id = body.get("voice_id")
@@ -3888,7 +4431,7 @@ async def get_peer_stats(session_id: str, round_number: int):
 # ─────────────────────────────────────────────────────────────────
 
 @router.put("/{session_id}/pace-lock", summary="Set cohort pace lock")
-async def set_pace_lock(session_id: str, body: dict):
+async def set_pace_lock(session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
     """Set the maximum round players can advance to. Facilitator control."""
     session_info = await db.get_session_info(session_id)
     if not session_info:
@@ -3906,7 +4449,7 @@ async def set_pace_lock(session_id: str, body: dict):
 # ─────────────────────────────────────────────────────────────────
 
 @router.put("/{session_id}/round-timer", summary="Set round deadline")
-async def set_round_timer(session_id: str, body: dict):
+async def set_round_timer(session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
     """Set a deadline (Unix timestamp) for the current round. Auto-locks on expiry."""
     session_info = await db.get_session_info(session_id)
     if not session_info:
@@ -4251,7 +4794,7 @@ async def list_exogenous_events(session_id: str):
     "/{session_id}/regulatory-sandbox/trigger-event",
     summary="God Mode: Force-trigger an exogenous crisis event",
 )
-async def trigger_exogenous(session_id: str, body: dict):
+async def trigger_exogenous(session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
     """
     Facilitator God Mode — manually fire an exogenous event.
     Body: { "event_id": "carbon_minsky_moment" }

@@ -180,9 +180,8 @@ export default function GodModeStatus({ facilitatorId }) {
                                         { key: 'r7_budget_allocation_enabled', label: '♻️ R7 Budget', default: true, tip: 'Round 7 budget allocation challenge: students must prioritize competing sustainability investments under constrained capital.' },
                                         { key: 'r8_tribunal_enabled', label: '⚖️ R8 Tribunal', default: true, tip: 'Round 8 stakeholder tribunal: students face a simulated ESG tribunal and must justify their track record.' },
                                     ].map(t => (
+                                        <div key={t.key} className={styles.pillWrap} data-tip={t.tip}>
                                         <button
-                                            key={t.key}
-                                            title={t.tip}
                                             onClick={async () => {
                                                 const next = !settings[t.key];
                                                 const res = await fetch(`${API}/api/admin/global-settings`, {
@@ -197,11 +196,12 @@ export default function GodModeStatus({ facilitatorId }) {
                                                 background: settings[t.key] ? 'rgba(168,85,247,0.15)' : 'rgba(148,163,184,0.08)',
                                                 color: settings[t.key] ? '#c084fc' : '#64748b',
                                                 fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
-                                                transition: 'all 0.15s',
+                                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
                                             {settings[t.key] ? '●' : '○'} {t.label}
                                         </button>
+                                        </div>
                                     ))}
                                 </div>
                             </div>
@@ -244,9 +244,8 @@ export default function GodModeStatus({ facilitatorId }) {
                                         { key: 'sdg_linkage_engine_enabled', label: '🌐 SDG Linkage', default: true, tip: 'BU-to-SDG materiality mapping engine. Tracks per-BU alignment to material SDGs (3,6,8,9,10,12,15) with live gap analysis and M_SDG terminal multiplier.' },
                                         { key: 'brsr_ngrbc_enabled', label: '🇮🇳 BRSR NGRBC', default: false, tip: 'SEBI BRSR deep-dive: 5-round NGRBC track covering Governance, Workforce, Environment, Value Chain & Integrated Reporting. Injects dynamic crises (Show-Cause Notice, Governance Leak) and awards +0.05 ESG Alpha Dividend to BRSR Pioneers.' },
                                     ].map(t => (
+                                        <div key={t.key} className={styles.pillWrap} data-tip={t.tip}>
                                         <button
-                                            key={t.key}
-                                            title={t.tip}
                                             onClick={async () => {
                                                 const next = !settings[t.key];
                                                 const res = await fetch(`${API}/api/admin/global-settings`, {
@@ -261,11 +260,12 @@ export default function GodModeStatus({ facilitatorId }) {
                                                 background: settings[t.key] ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.08)',
                                                 color: settings[t.key] ? '#4ade80' : '#64748b',
                                                 fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
-                                                transition: 'all 0.15s',
+                                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
                                             {settings[t.key] ? '●' : '○'} {t.label}
                                         </button>
+                                        </div>
                                     ))}
                                 </div>
 

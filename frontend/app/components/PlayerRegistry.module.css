@@ -1,22 +1,22 @@
 /* PlayerRegistry.module.css — dark-theme-first rewrite */
 
-/* ── Outer Panel ──────────────────────────────────────────────── */
+/* -- Outer Panel ------------------------------------------------ */
 .panel {
-    background: var(--bg-card, #161e2e);
-    border: 1px solid var(--border-subtle, rgba(148,163,184,0.12));
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg, 12px);
     overflow: hidden;
 }
 
-/* ── Header ───────────────────────────────────────────────────── */
+/* -- Header ----------------------------------------------------- */
 .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     padding: 14px 20px;
-    border-bottom: 1px solid var(--border-subtle, rgba(148,163,184,0.12));
-    background: var(--bg-elevated, #1e293b);
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
 }
 
 .titleRow {
@@ -33,7 +33,7 @@
 .header h2 {
     font-size: 0.88rem;
     font-weight: 700;
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
     margin: 0;
 }
 
@@ -54,7 +54,7 @@
     letter-spacing: 0.02em;
 }
 
-/* ── Body ─────────────────────────────────────────────────────── */
+/* -- Body ------------------------------------------------------- */
 .body {
     padding: 12px;
     display: flex;
@@ -62,11 +62,11 @@
     gap: 12px;
 }
 
-/* ── Empty / Loading ──────────────────────────────────────────── */
+/* -- Empty / Loading -------------------------------------------- */
 .empty {
     text-align: center;
     padding: 40px 20px;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-style: italic;
     font-size: 0.8rem;
     line-height: 1.6;
@@ -75,7 +75,7 @@
 .loading {
     text-align: center;
     padding: 32px 20px;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.8rem;
     animation: pulse 1.5s ease-in-out infinite;
 }
@@ -85,7 +85,7 @@
     50%       { opacity: 0.4; }
 }
 
-/* ── Session Group ────────────────────────────────────────────── */
+/* -- Session Group ---------------------------------------------- */
 .sessionGroup {
     border: 1px solid rgba(148, 163, 184, 0.14);
     border-radius: 10px;
@@ -99,7 +99,7 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
 }
 
-/* ── Session Header ───────────────────────────────────────────── */
+/* -- Session Header --------------------------------------------- */
 .sessionHeader {
     display: flex;
     justify-content: space-between;
@@ -115,12 +115,12 @@
     margin: 0 0 2px;
     font-size: 0.95rem;
     font-weight: 700;
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
 }
 
 .sessionHeader h3 span {
-    color: var(--text-muted, #64748b);
-    font-family: var(--font-mono, monospace);
+    color: var(--text-muted);
+    font-family: var(--font-mono);
     font-size: 0.75rem;
     margin-left: 8px;
     font-weight: 500;
@@ -129,14 +129,14 @@
 .playerCount {
     font-size: 0.68rem;
     font-weight: 700;
-    color: #60a5fa;
+    color: var(--accent-blue);
     background: rgba(59, 130, 246, 0.12);
     padding: 2px 9px;
     border-radius: 999px;
     border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-/* ── Induct Button ────────────────────────────────────────────── */
+/* -- Induct Button ---------------------------------------------- */
 .inductBtn {
     padding: 6px 14px;
     font-size: 0.72rem;
@@ -146,7 +146,7 @@
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
     box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
     white-space: nowrap;
 }
@@ -156,7 +156,7 @@
     transform: translateY(-1px);
 }
 
-/* ── Player Table ─────────────────────────────────────────────── */
+/* -- Player Table ----------------------------------------------- */
 .tableWrapper {
     overflow-x: auto;
 }
@@ -174,7 +174,7 @@
     text-transform: uppercase;
     letter-spacing: 0.09em;
     /* High-contrast muted text on dark bg */
-    color: #94a3b8;
+    color: var(--text-muted);
     background: rgba(15, 23, 42, 0.4);
     border-bottom: 1px solid rgba(148, 163, 184, 0.1);
 }
@@ -184,7 +184,7 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
     /* Ensure text is always visible on dark bg */
-    color: var(--text-primary, #f1f5f9);
+    color: var(--text-primary);
 }
 
 .table tr:last-child td {
@@ -198,15 +198,15 @@
 .nameCell strong {
     font-size: 0.85rem;
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .emailText {
     font-size: 0.72rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
-/* ── BU Badge ─────────────────────────────────────────────────── */
+/* -- BU Badge --------------------------------------------------- */
 .buBadge {
     font-size: 0.68rem;
     font-weight: 800;
@@ -218,7 +218,7 @@
     white-space: nowrap;
 }
 
-/* ── Status badges ────────────────────────────────────────────── */
+/* -- Status badges ---------------------------------------------- */
 .countWaiting,
 .countPlaying {
     font-size: 0.68rem;
@@ -229,13 +229,13 @@
 
 .countWaiting {
     background: rgba(245, 158, 11, 0.12);
-    color: #fbbf24;
+    color: var(--accent-gold);
     border: 1px solid rgba(245, 158, 11, 0.2);
 }
 
 .countPlaying {
     background: rgba(16, 185, 129, 0.12);
-    color: #34d399;
+    color: var(--gauge-green);
     border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
@@ -248,30 +248,30 @@
 
 .status_waiting {
     background: rgba(245, 158, 11, 0.12);
-    color: #fbbf24;
+    color: var(--accent-gold);
 }
 
 .status_playing {
     background: rgba(16, 185, 129, 0.12);
-    color: #34d399;
+    color: var(--gauge-green);
 }
 
-/* ── Remove / Clear buttons ───────────────────────────────────── */
+/* -- Remove / Clear buttons ------------------------------------- */
 .removeBtn {
     background: none;
     border: none;
     font-size: 0.75rem;
-    color: #64748b;
+    color: var(--text-muted);
     cursor: pointer;
     opacity: 0.5;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
     padding: 3px 6px;
     border-radius: 4px;
 }
 
 .removeBtn:hover {
     opacity: 1;
-    color: #f87171;
+    color: var(--gauge-red);
     background: rgba(239, 68, 68, 0.1);
 }
 
@@ -281,10 +281,10 @@
     padding: 5px 12px;
     border: 1px solid rgba(239, 68, 68, 0.3);
     background: rgba(239, 68, 68, 0.08);
-    color: #f87171;
+    color: var(--gauge-red);
     border-radius: 6px;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
 }
 
 .clearBtn:hover {
@@ -292,12 +292,12 @@
     border-color: rgba(239, 68, 68, 0.5);
 }
 
-/* ── Input / Register Form ────────────────────────────────────── */
+/* -- Input / Register Form -------------------------------------- */
 .registerForm {
     display: flex;
     gap: 8px;
     padding: 12px 16px;
-    border-bottom: 1px solid var(--border-subtle, rgba(148,163,184,0.12));
+    border-bottom: 1px solid var(--border-subtle);
     background: rgba(99, 102, 241, 0.03);
 }
 
@@ -308,13 +308,13 @@
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 6px;
-    color: #e2e8f0;
+    color: var(--text-primary);
     outline: none;
     transition: border-color 0.2s;
 }
 
 .input::placeholder {
-    color: #475569;
+    color: var(--text-secondary);
 }
 
 .input:focus {
@@ -332,7 +332,7 @@
     border-radius: 6px;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
 }
 
 .registerBtn:hover {
@@ -344,7 +344,7 @@
     cursor: not-allowed;
 }
 
-/* ── Misc ─────────────────────────────────────────────────────── */
+/* -- Misc ------------------------------------------------------- */
 .playerList {
     max-height: 300px;
     overflow-y: auto;
@@ -361,7 +361,7 @@
     background: rgba(30, 41, 59, 0.6);
     border: 1px solid rgba(148, 163, 184, 0.1);
     border-radius: 8px;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
 }
 
 .playerCard:hover {
@@ -369,11 +369,11 @@
 }
 
 .playerCard.playing {
-    border-left: 3px solid #10b981;
+    border-left: 3px solid var(--gauge-green);
 }
 
 .playerCard.waiting {
-    border-left: 3px solid #f59e0b;
+    border-left: 3px solid var(--gauge-yellow);
 }
 
 .playerInfo {
@@ -384,10 +384,10 @@
 }
 
 .playerId {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-size: 0.65rem;
     font-weight: 700;
-    color: #94a3b8;
+    color: var(--text-muted);
     background: rgba(15, 23, 42, 0.5);
     padding: 1px 6px;
     border-radius: 3px;
@@ -396,7 +396,7 @@
 .playerName {
     font-size: 0.8rem;
     font-weight: 600;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .teamTag {
@@ -416,9 +416,9 @@
 }
 
 .sessionTag {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-size: 0.68rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .assignSelect {
@@ -427,7 +427,7 @@
     background: rgba(15, 23, 42, 0.6);
     border: 1px solid rgba(148, 163, 184, 0.2);
     border-radius: 6px;
-    color: #94a3b8;
+    color: var(--text-muted);
     cursor: pointer;
     outline: none;
 }
@@ -437,13 +437,13 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 18px;
-    border-top: 1px solid var(--border-subtle, rgba(148,163,184,0.12));
+    border-top: 1px solid var(--border-subtle);
     background: rgba(30, 41, 59, 0.5);
 }
 
 .totalCount {
     font-size: 0.68rem;
-    color: #64748b;
+    color: var(--text-muted);
     font-weight: 600;
 }
 
@@ -453,3 +453,4 @@
     .playerActions { width: 100%; flex-wrap: wrap; }
     .sessionHeader { flex-direction: column; }
 }
+

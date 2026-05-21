@@ -269,7 +269,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                                     background: 'transparent',
                                     color: 'var(--text-muted, #64748b)',
                                     fontSize: '0.82rem', fontWeight: 600,
-                                    cursor: 'pointer', transition: 'all 0.15s',
+                                    cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                 }}
                             >
                                 ← Back
@@ -298,7 +298,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                             fontSize: '0.88rem', fontWeight: 700,
                             cursor: 'pointer',
                             boxShadow: `0 4px 16px ${current.color}40`,
-                            transition: 'all 0.15s',
+                            transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                             animation: step === steps.length - 1 ? 'pulseGlow 2s infinite' : 'none',
                         }}
                     >
@@ -322,7 +322,7 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                                 border: 'none',
                                 background: i === step ? current.color : 'rgba(148,163,184,0.2)',
                                 cursor: 'pointer',
-                                transition: 'all 0.3s ease',
+                                transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease',
                                 padding: 0,
                             }}
                         />

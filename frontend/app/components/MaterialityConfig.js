@@ -568,7 +568,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                     padding: '6px 14px', borderRadius: opt.is_custom ? '20px 0 0 20px' : '20px', cursor: 'pointer',
                                     fontSize: '0.78rem', fontWeight: 600, 
                                     borderWidth: '1.5px', borderStyle: 'solid',
-                                    transition: 'all 0.15s',
+                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                     background: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'transparent',
                                     color: selectedDict === opt.id ? '#fff' : 'var(--text-primary, #334155)',
                                     borderColor: selectedDict === opt.id ? 'var(--accent-blue, #3b82f6)' : 'var(--border-subtle, #d1d5db)',
@@ -585,7 +585,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                         padding: '6px 8px', borderRadius: '0 20px 20px 0', cursor: 'pointer',
                                         fontSize: '0.7rem', fontWeight: 700, 
                                         borderWidth: '1.5px', borderStyle: 'solid', borderLeftWidth: '0',
-                                        transition: 'all 0.15s',
+                                        transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                         background: selectedDict === opt.id ? '#dc2626' : 'transparent',
                                         color: selectedDict === opt.id ? '#fff' : '#ef4444',
                                         borderColor: selectedDict === opt.id ? '#dc2626' : 'var(--border-subtle, #d1d5db)',
@@ -615,7 +615,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                                         padding: '6px 14px', borderRadius: '20px', cursor: 'pointer',
                                         fontSize: '0.78rem', fontWeight: 700,
                                         borderWidth: '1.5px', borderStyle: 'solid',
-                                        transition: 'all 0.15s',
+                                        transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                         background: selectedDict === v.id ? '#6366f1' : 'rgba(99,102,241,0.08)',
                                         color: selectedDict === v.id ? '#fff' : '#6366f1',
                                         borderColor: selectedDict === v.id ? '#6366f1' : 'rgba(99,102,241,0.35)',
@@ -642,7 +642,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                             padding: '6px 12px', borderRadius: '20px', cursor: 'pointer',
                             fontSize: '0.75rem', fontWeight: 700, border: '1.5px dashed',
                             background: showAddCategory ? 'rgba(16,185,129,0.1)' : 'transparent',
-                            color: '#10b981', borderColor: '#10b981', transition: 'all 0.15s',
+                            color: '#10b981', borderColor: '#10b981', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                         }}
                     >
                         {showAddCategory ? '✕ Cancel' : '+ Add Category'}

@@ -4,8 +4,7 @@
   position: fixed;
   inset: 0;
   z-index: 950;
-  background: rgba(4, 6, 14, 0.92);
-  backdrop-filter: blur(16px);
+  background: rgba(4, 6, 14, 0.97);
   display: flex;
   flex-direction: column;
   animation: constellationFadeIn 0.4s ease-out both;
@@ -16,7 +15,7 @@
   to { opacity: 1; }
 }
 
-/* ── Header Bar ─────────────────────────────────────────── */
+/* -- Header Bar ------------------------------------------- */
 .header {
   display: flex;
   align-items: center;
@@ -47,7 +46,7 @@
 
 .subtitle {
   font-size: 0.65rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
@@ -59,27 +58,27 @@
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 .closeBtn:hover {
   background: rgba(255, 255, 255, 0.08);
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
-/* ── Canvas Container ───────────────────────────────────── */
+/* -- Canvas Container ------------------------------------- */
 .canvasContainer {
   flex: 1;
   position: relative;
   overflow: hidden;
 }
 
-/* ── Filter Bar ─────────────────────────────────────────── */
+/* -- Filter Bar ------------------------------------------- */
 .filterBar {
   position: absolute;
   bottom: 20px;
@@ -89,8 +88,7 @@
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
+  background: rgba(15, 23, 42, 0.97);
   border: 1px solid rgba(94, 234, 212, 0.12);
   border-radius: 12px;
   z-index: 10;
@@ -101,19 +99,19 @@
   border-radius: 8px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 700;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-sans);
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .filterBtn:hover {
   background: rgba(255, 255, 255, 0.06);
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .filterBtnActive {
@@ -123,12 +121,12 @@
 .filterLabel {
   font-size: 0.62rem;
   font-weight: 800;
-  color: #475569;
+  color: var(--text-secondary);
   letter-spacing: 0.1em;
   text-transform: uppercase;
 }
 
-/* ── Timeline Slider ────────────────────────────────────── */
+/* -- Timeline Slider -------------------------------------- */
 .timelineContainer {
   position: absolute;
   bottom: 70px;
@@ -138,8 +136,7 @@
   align-items: center;
   gap: 10px;
   padding: 6px 14px;
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(94, 234, 212, 0.08);
   border-radius: 10px;
   z-index: 10;
@@ -148,7 +145,7 @@
 .timelineLabel {
   font-size: 0.62rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   white-space: nowrap;
@@ -163,16 +160,15 @@
   font-size: 0.72rem;
   font-weight: 800;
   color: #5eead4;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   min-width: 40px;
 }
 
-/* ── Tooltip ────────────────────────────────────────────── */
+/* -- Tooltip ---------------------------------------------- */
 .tooltip {
   position: absolute;
   z-index: 20;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
+  background: rgba(15, 23, 42, 0.97);
   border: 1px solid rgba(94, 234, 212, 0.2);
   border-radius: 10px;
   padding: 12px 16px;
@@ -190,7 +186,7 @@
 .tooltipTitle {
   font-size: 0.78rem;
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 4px;
 }
 
@@ -207,14 +203,14 @@
   display: flex;
   justify-content: space-between;
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   padding: 2px 0;
 }
 
 .tooltipValue {
   font-weight: 700;
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
 }
 
 .tooltipDelta {
@@ -222,10 +218,10 @@
   font-size: 0.72rem;
 }
 
-.tooltipDeltaUp { color: #4ade80; }
-.tooltipDeltaDown { color: #f87171; }
+.tooltipDeltaUp { color: var(--gauge-green); }
+.tooltipDeltaDown { color: var(--gauge-red); }
 
-/* ── Legend ──────────────────────────────────────────────── */
+/* -- Legend ------------------------------------------------ */
 .legend {
   position: absolute;
   top: 14px;
@@ -234,8 +230,7 @@
   flex-direction: column;
   gap: 4px;
   padding: 10px 14px;
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(94, 234, 212, 0.08);
   border-radius: 10px;
   z-index: 10;
@@ -244,7 +239,7 @@
 .legendTitle {
   font-size: 0.58rem;
   font-weight: 800;
-  color: #475569;
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.12em;
   margin-bottom: 2px;
@@ -255,7 +250,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.65rem;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .legendDot {
@@ -264,7 +259,7 @@
   border-radius: 50%;
 }
 
-/* ── Stats Panel ────────────────────────────────────────── */
+/* -- Stats Panel ------------------------------------------ */
 .statsPanel {
   position: absolute;
   top: 14px;
@@ -273,8 +268,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 10px 14px;
-  background: rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.95);
   border: 1px solid rgba(94, 234, 212, 0.08);
   border-radius: 10px;
   z-index: 10;
@@ -289,7 +283,7 @@
 .statLabel {
   font-size: 0.62rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
@@ -297,11 +291,11 @@
 .statValue {
   font-size: 0.72rem;
   font-weight: 800;
-  color: #e2e8f0;
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
 }
 
-/* ── Empty State ────────────────────────────────────────── */
+/* -- Empty State ------------------------------------------ */
 .emptyState {
   position: absolute;
   inset: 0;
@@ -310,7 +304,7 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .emptyIcon {
@@ -326,7 +320,7 @@
   line-height: 1.6;
 }
 
-/* ── Responsive ─────────────────────────────────────────── */
+/* -- Responsive ------------------------------------------- */
 @media (max-width: 768px) {
   .filterBar {
     flex-wrap: wrap;

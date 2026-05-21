@@ -6,13 +6,13 @@
 .form { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
 .formGrid { display: grid; grid-template-columns: 1fr 80px 1fr; gap: 0.5rem; }
 .input { padding: 0.55rem 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; font-family: inherit; outline: none; }
-.input:focus { border-color: #3b82f6; }
+.input:focus { border-color: var(--accent-blue); }
 .inputSmall { padding: 0.55rem 0.5rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-body); color: var(--text-primary); font-size: 0.85rem; text-align: center; outline: none; }
 .badgeRow { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-.badgeBtn { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 4px 10px; font-size: 0.72rem; cursor: pointer; transition: all 0.15s; color: var(--text-secondary); font-family: inherit; }
-.badgeBtn:hover { border-color: #3b82f6; }
-.badgeActive { background: rgba(59,130,246,0.12); border-color: #3b82f6; color: #3b82f6; font-weight: 700; }
-.awardBtn { background: linear-gradient(135deg, #f59e0b, #22c55e); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.badgeBtn { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 4px 10px; font-size: 0.72rem; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s; color: var(--text-secondary); font-family: inherit; }
+.badgeBtn:hover { border-color: var(--accent-blue); }
+.badgeActive { background: rgba(59,130,246,0.12); border-color: var(--accent-blue); color: var(--accent-blue); font-weight: 700; }
+.awardBtn { background: linear-gradient(135deg, #f59e0b, #22c55e); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s; font-family: inherit; }
 .awardBtn:hover { transform: translateY(-1px); }
 .awardBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .summary { font-size: 0.78rem; color: var(--text-muted); }
@@ -23,7 +23,7 @@
 .bonusInfo { flex: 1; }
 .bonusInfo strong { font-size: 0.85rem; color: var(--text-primary); margin-right: 0.5rem; }
 .bonusPoints { font-size: 0.72rem; font-weight: 700; color: #22c55e; background: rgba(34,197,94,0.1); padding: 2px 6px; border-radius: var(--radius-full); }
-.bonusBadge { font-size: 0.65rem; font-weight: 600; color: #f59e0b; background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: var(--radius-full); margin-left: 0.3rem; }
+.bonusBadge { font-size: 0.65rem; font-weight: 600; color: var(--accent-gold); background: rgba(245,158,11,0.1); padding: 2px 6px; border-radius: var(--radius-full); margin-left: 0.3rem; }
 .bonusReason { font-size: 0.78rem; color: var(--text-muted); margin: 0.2rem 0 0; }
 .bonusTime { font-size: 0.68rem; color: var(--text-muted); font-family: var(--font-mono); }
 .revokeBtn { background: none; border: none; font-size: 0.8rem; cursor: pointer; opacity: 0.3; transition: opacity 0.2s; }

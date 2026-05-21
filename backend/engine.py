@@ -2988,7 +2988,7 @@ def process_tick(
         inv_ratio = dec.get("investment_ratio", 0.0)
         
         # Supplier Defection (Check if strict mandate but low subsidy)
-        pillar_decisions = dec.get("pillar_decisions", {})
+        pillar_decisions = dec.get("pillar_decisions") or {}
         supply_chain_choice = pillar_decisions.get("supply_chain", "")
         if supply_chain_choice in ["audit_suppliers", "strict_mandates", "living_wage_mandate"] and inv_ratio < 0.15:
             bu["opex_base"] = round(bu["opex_base"] * 1.10, 2)  # 10% penalty

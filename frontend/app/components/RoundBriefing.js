@@ -1,6 +1,7 @@
 'use client';
 
 import styles from './RoundBriefing.module.css';
+import { sanitizeHtml } from '@/app/utils/sanitize';
 
 /**
  * ═══════════════════════════════════════════════════════════════
@@ -1052,7 +1053,7 @@ export default function RoundBriefing({
           {/* Narrative */}
           <div className={styles.narrative}>
             {b.narrative.map((para, i) => (
-              <p key={i} dangerouslySetInnerHTML={{ __html: para }} />
+              <p key={i} dangerouslySetInnerHTML={{ __html: sanitizeHtml(para) }} />
             ))}
           </div>
 
@@ -1151,7 +1152,7 @@ export default function RoundBriefing({
                   <span className={styles.warningIcon}>⚠️</span>
                   <div
                     className={styles.warningText}
-                    dangerouslySetInnerHTML={{ __html: b.warning.text }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(b.warning.text) }}
                   />
                 </div>
               )}

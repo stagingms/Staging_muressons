@@ -1,7 +1,7 @@
-/* ═══════════════════════════════════════════════════════════════
- *  SimulationReference — God Mode Reference Tab
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ *  SimulationReference â€” God Mode Reference Tab
  *  Premium data-dense reference with editorial precision
- * ═══════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .container {
     padding: 1.5rem;
@@ -10,15 +10,15 @@
     gap: 1rem;
 }
 
-/* ── Section Nav ── */
+/* â”€â”€ Section Nav â”€â”€ */
 .sectionNav {
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
     padding: 4px;
-    background: var(--bg-body, #f1f5f9);
+    background: var(--bg-body);
     border-radius: 10px;
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    border: 1px solid var(--border-subtle);
 }
 
 .sectionBtn {
@@ -29,27 +29,27 @@
     background: transparent;
     border: none;
     border-radius: 8px;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
     white-space: nowrap;
 }
 .sectionBtn:hover {
     background: rgba(99, 102, 241, 0.08);
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
 }
 .sectionActive {
-    background: var(--bg-card, #fff) !important;
-    color: var(--text-primary, #1e293b) !important;
+    background: var(--bg-card) !important;
+    color: var(--text-primary) !important;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
 }
 .sectionIcon {
     font-size: 0.9rem;
 }
 
-/* ── Read-Only Badge ── */
+/* â”€â”€ Read-Only Badge â”€â”€ */
 .readOnlyBadge {
     display: flex;
     align-items: center;
@@ -62,13 +62,13 @@
     font-weight: 700;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 
-/* ── Section ── */
+/* â”€â”€ Section â”€â”€ */
 .section {
-    background: var(--bg-card, #fff);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 1.5rem;
     animation: fadeIn 0.25s ease;
@@ -84,7 +84,7 @@
     gap: 10px;
     font-size: 1.15rem;
     font-weight: 800;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     margin: 0 0 0.5rem;
 }
 .titleIcon {
@@ -92,12 +92,12 @@
 }
 .subtitle {
     font-size: 0.82rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     margin: 0 0 1.5rem;
     line-height: 1.5;
 }
 
-/* ── Stat Grid ── */
+/* â”€â”€ Stat Grid â”€â”€ */
 .statGrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -105,8 +105,8 @@
     margin-bottom: 1.5rem;
 }
 .statCard {
-    background: var(--bg-body, #f1f5f9);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-body);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 1rem;
     text-align: center;
@@ -114,7 +114,7 @@
 .statValue {
     font-size: 1.6rem;
     font-weight: 800;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
 .statLabel {
@@ -122,11 +122,11 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     margin-top: 4px;
 }
 
-/* ── Paradigm Bar ── */
+/* â”€â”€ Paradigm Bar â”€â”€ */
 .paradigmBar {
     margin-bottom: 1.5rem;
 }
@@ -135,7 +135,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     margin: 0 0 0.5rem;
 }
 .paradigmChips {
@@ -149,29 +149,29 @@
     border: 1px solid rgba(99, 102, 241, 0.15);
     border-radius: 20px;
     font-size: 0.75rem;
-    color: var(--text-secondary, #475569);
+    color: var(--text-secondary);
     text-transform: capitalize;
 }
 .paradigmChip strong {
     margin-left: 4px;
-    color: #6366f1;
+    color: var(--accent-blue);
 }
 
-/* ── Info Box ── */
+/* â”€â”€ Info Box â”€â”€ */
 .infoBox {
     padding: 12px 16px;
     background: rgba(59, 130, 246, 0.06);
     border: 1px solid rgba(59, 130, 246, 0.15);
     border-radius: 8px;
     font-size: 0.82rem;
-    color: var(--text-secondary, #475569);
+    color: var(--text-secondary);
     line-height: 1.6;
 }
 .infoBox strong {
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
 }
 
-/* ── Global Params ── */
+/* â”€â”€ Global Params â”€â”€ */
 .globalParams {
     margin-bottom: 1.5rem;
 }
@@ -180,7 +180,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     margin: 0 0 0.75rem;
 }
 .paramGrid {
@@ -193,8 +193,8 @@
     flex-direction: column;
     gap: 4px;
     padding: 10px 12px;
-    background: var(--bg-body, #f1f5f9);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-body);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
 }
 .paramLabel {
@@ -202,20 +202,20 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 .paramValue {
     font-size: 1rem;
     font-weight: 800;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
 
-/* ── Data Tables ── */
+/* â”€â”€ Data Tables â”€â”€ */
 .tableWrap {
     overflow-x: auto;
     border-radius: 8px;
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    border: 1px solid var(--border-subtle);
 }
 .dataTable {
     width: 100%;
@@ -223,7 +223,7 @@
     font-size: 0.78rem;
 }
 .dataTable thead {
-    background: var(--bg-body, #f1f5f9);
+    background: var(--bg-body);
 }
 .dataTable th {
     padding: 8px 12px;
@@ -231,15 +231,15 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     text-align: left;
-    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+    border-bottom: 1px solid var(--border-subtle);
     white-space: nowrap;
 }
 .dataTable td {
     padding: 8px 12px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.04);
-    color: var(--text-secondary, #475569);
+    color: var(--text-secondary);
     font-variant-numeric: tabular-nums;
 }
 .dataTable tbody tr:hover {
@@ -247,11 +247,11 @@
 }
 .buName {
     font-weight: 700;
-    color: var(--text-primary, #1e293b) !important;
+    color: var(--text-primary) !important;
     text-transform: capitalize;
 }
-.positive { color: #10b981 !important; font-weight: 700; }
-.negative { color: #ef4444 !important; font-weight: 700; }
+.positive { color: var(--gauge-green) !important; font-weight: 700; }
+.negative { color: var(--gauge-red) !important; font-weight: 700; }
 .totalRow {
     background: rgba(99, 102, 241, 0.06) !important;
 }
@@ -260,11 +260,11 @@
 }
 .sourceCell {
     font-size: 0.72rem;
-    color: var(--text-muted, #64748b) !important;
+    color: var(--text-muted) !important;
     font-style: italic;
 }
 
-/* ── Formula Grid ── */
+/* â”€â”€ Formula Grid â”€â”€ */
 .filterRow {
     display: flex;
     gap: 4px;
@@ -273,14 +273,14 @@
 }
 .filterBtn {
     padding: 5px 12px;
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    border: 1px solid var(--border-subtle);
     border-radius: 6px;
     background: transparent;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 .filterBtn:hover {
     background: rgba(99, 102, 241, 0.06);
@@ -288,7 +288,7 @@
 .filterActive {
     background: rgba(99, 102, 241, 0.1) !important;
     border-color: rgba(99, 102, 241, 0.3) !important;
-    color: #6366f1 !important;
+    color: var(--accent-blue) !important;
 }
 
 .formulaGrid {
@@ -297,8 +297,8 @@
     gap: 10px;
 }
 .formulaCard {
-    background: var(--bg-body, #f1f5f9);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-body);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
     padding: 12px;
     transition: border-color 0.15s;
@@ -315,7 +315,7 @@
 .formulaNum {
     font-size: 0.65rem;
     font-weight: 800;
-    color: #6366f1;
+    color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.1);
     padding: 2px 6px;
     border-radius: 4px;
@@ -323,7 +323,7 @@
 .formulaName {
     font-size: 0.78rem;
     font-weight: 700;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     flex: 1;
 }
 .formulaCat {
@@ -331,7 +331,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     background: rgba(0, 0, 0, 0.04);
     padding: 2px 8px;
     border-radius: 4px;
@@ -341,21 +341,21 @@
     font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', monospace;
     font-size: 0.72rem;
     line-height: 1.5;
-    color: var(--text-secondary, #475569);
+    color: var(--text-secondary);
     background: rgba(0, 0, 0, 0.03);
     padding: 8px 10px;
     border-radius: 6px;
     word-break: break-word;
 }
 
-/* ── Rounds ── */
+/* â”€â”€ Rounds â”€â”€ */
 .roundList {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 .roundCard {
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     overflow: hidden;
     transition: border-color 0.15s;
@@ -372,7 +372,7 @@
     background: transparent;
     border: none;
     cursor: pointer;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     font-size: 0.85rem;
     transition: background 0.15s;
 }
@@ -381,7 +381,7 @@
 }
 .roundExpanded {
     background: rgba(99, 102, 241, 0.04);
-    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+    border-bottom: 1px solid var(--border-subtle);
 }
 .roundMeta {
     display: flex;
@@ -392,24 +392,24 @@
 .roundNum {
     font-size: 0.72rem;
     font-weight: 800;
-    color: #6366f1;
+    color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.1);
     padding: 2px 8px;
     border-radius: 4px;
 }
 .roundTitle {
     font-weight: 700;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
 }
 .roundTheme {
     font-size: 0.75rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-weight: 500;
 }
 .expandIcon {
     font-size: 1rem;
     font-weight: 700;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     width: 24px;
     height: 24px;
     display: flex;
@@ -422,7 +422,7 @@
 }
 .crisisDesc {
     font-size: 0.82rem;
-    color: var(--text-secondary, #475569);
+    color: var(--text-secondary);
     margin: 0 0 1rem;
     line-height: 1.5;
 }
@@ -438,7 +438,7 @@
 }
 .optLabel {
     font-weight: 800 !important;
-    color: #6366f1 !important;
+    color: var(--accent-blue) !important;
     font-size: 0.85rem;
 }
 .flagCell {
@@ -454,7 +454,7 @@
     border-radius: 4px;
     font-size: 0.65rem;
     font-family: 'Cascadia Code', 'Fira Code', monospace;
-    color: #6366f1;
+    color: var(--accent-blue);
     white-space: nowrap;
 }
 .framingCell {
@@ -465,7 +465,7 @@
     color: #059669 !important;
 }
 
-/* ── Flag Dependency Chain ── */
+/* â”€â”€ Flag Dependency Chain â”€â”€ */
 .flagChain {
     display: flex;
     flex-direction: column;
@@ -477,8 +477,8 @@
     align-items: center;
     gap: 12px;
     padding: 12px 16px;
-    background: var(--bg-body, #f1f5f9);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-body);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
     transition: border-color 0.15s;
 }
@@ -487,7 +487,7 @@
 }
 .depSource {
     font-weight: 800;
-    color: #6366f1;
+    color: var(--accent-blue);
     font-size: 0.82rem;
 }
 .depArrow {
@@ -495,7 +495,7 @@
     align-items: center;
     gap: 8px;
     font-size: 0.85rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 .depFlag {
     font-family: 'Cascadia Code', 'Fira Code', monospace;
@@ -504,23 +504,23 @@
     background: rgba(99, 102, 241, 0.08);
     border: 1px solid rgba(99, 102, 241, 0.15);
     border-radius: 4px;
-    color: #6366f1;
+    color: var(--accent-blue);
 }
 .depTarget {
     font-weight: 800;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     font-size: 0.82rem;
 }
 .depEffect {
     font-size: 0.75rem;
-    color: var(--text-secondary, #475569);
+    color: var(--text-secondary);
 }
 
-/* ── AC Blocks ── */
+/* â”€â”€ AC Blocks â”€â”€ */
 .acBlock {
     margin-bottom: 1.5rem;
     padding-bottom: 1.5rem;
-    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+    border-bottom: 1px solid var(--border-subtle);
 }
 .acBlock:last-child {
     border-bottom: none;
@@ -530,7 +530,7 @@
 .acBlock h4 {
     font-size: 0.78rem;
     font-weight: 700;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     margin: 0 0 0.75rem;
 }
 
@@ -555,7 +555,7 @@
 .feeValue {
     font-size: 0.82rem;
     font-weight: 800;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
     font-variant-numeric: tabular-nums;
 }
 .feeRound {
@@ -563,10 +563,10 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 
-/* ── Status Badge ── */
+/* â”€â”€ Status Badge â”€â”€ */
 .statusBadge {
     font-size: 0.68rem;
     font-weight: 700;
@@ -585,7 +585,7 @@
     border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
-/* ── Archetype Grid ── */
+/* â”€â”€ Archetype Grid â”€â”€ */
 .archetypeGrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -597,8 +597,8 @@
     align-items: center;
     gap: 6px;
     padding: 1rem;
-    background: var(--bg-body, #f1f5f9);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-body);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     text-align: center;
 }
@@ -608,16 +608,16 @@
 .archetypeName {
     font-size: 0.78rem;
     font-weight: 700;
-    color: var(--text-primary, #1e293b);
+    color: var(--text-primary);
 }
 .archetypeThreshold {
     font-size: 0.68rem;
     font-weight: 600;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
 
-/* ── Loading / Error ── */
+/* â”€â”€ Loading / Error â”€â”€ */
 .loadingState {
     display: flex;
     flex-direction: column;
@@ -625,15 +625,15 @@
     justify-content: center;
     gap: 1rem;
     padding: 4rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.85rem;
     font-weight: 600;
 }
 .spinner {
     width: 32px;
     height: 32px;
-    border: 3px solid var(--border-subtle, #e2e8f0);
-    border-top-color: #6366f1;
+    border: 3px solid var(--border-subtle);
+    border-top-color: var(--accent-blue);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
 }
@@ -643,6 +643,7 @@
 .errorState {
     padding: 2rem;
     text-align: center;
-    color: #ef4444;
+    color: var(--gauge-red);
     font-weight: 600;
 }
+

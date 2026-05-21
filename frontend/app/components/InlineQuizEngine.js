@@ -361,7 +361,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
                     textAlign: 'left', cursor: showExplanation ? 'default' : 'pointer',
                     fontSize: '0.85rem', fontWeight: 500,
                     display: 'flex', alignItems: 'center', gap: 10,
-                    transition: 'all 0.2s',
+                    transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                   }}>
                     <span style={{
                       width: 26, height: 26, borderRadius: '50%', flexShrink: 0,

@@ -1,4 +1,4 @@
-/* DebriefReport.module.css — Facilitator debrief panel (light theme compatible) */
+/* DebriefReport.module.css â€” Facilitator debrief panel (light theme compatible) */
 
 .panel {
     background: #fff;
@@ -40,7 +40,7 @@
     letter-spacing: 0.03em;
 }
 
-/* ── Tab Navigation ────────────────────────────────── */
+/* â”€â”€ Tab Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .tabNav {
     display: flex;
@@ -54,12 +54,12 @@
     padding: 0.65rem 1rem;
     font-size: 0.8rem;
     font-weight: 600;
-    color: #64748b;
+    color: var(--text-muted);
     background: none;
     border: none;
     border-bottom: 2px solid transparent;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: color 0.15s, background-color 0.15s, border-color 0.15s;
     white-space: nowrap;
 }
 
@@ -73,7 +73,7 @@
     border-bottom-color: #4f46e5;
 }
 
-/* ── Body ──────────────────────────────────────────── */
+/* â”€â”€ Body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .body {
     padding: 1rem;
@@ -86,7 +86,7 @@
     text-align: center;
     padding: 3rem 1rem;
     font-size: 0.92rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .emptyIcon {
@@ -95,7 +95,7 @@
     opacity: 0.6;
 }
 
-/* ── Round Card ───────────────────────────────────── */
+/* â”€â”€ Round Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .roundCard {
     margin-bottom: 0.75rem;
@@ -122,7 +122,7 @@
     color: #1e293b;
     font-size: 0.88rem;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 .roundCardHeader:hover {
@@ -157,7 +157,7 @@
 
 .roundTheme {
     font-size: 0.78rem;
-    color: #64748b;
+    color: var(--text-muted);
     font-weight: 500;
 }
 
@@ -185,7 +185,7 @@
     transform: rotate(90deg);
 }
 
-/* ── Round body (expanded) ─────────────────────────── */
+/* â”€â”€ Round body (expanded) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .roundCardBody {
     padding: 1.1rem 1.15rem;
@@ -196,7 +196,7 @@
     border-top: 1px solid #e2e8f0;
 }
 
-/* ── Crisis Section ────────────────────────────────── */
+/* â”€â”€ Crisis Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .crisisSection {
     display: flex;
@@ -228,7 +228,7 @@
     line-height: 1.6;
 }
 
-/* ── Decision Section ──────────────────────────────── */
+/* â”€â”€ Decision Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .decisionSection {
     padding: 0.85rem 1rem;
@@ -242,7 +242,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: #64748b;
+    color: var(--text-muted);
     margin-bottom: 0.5rem;
 }
 
@@ -265,7 +265,7 @@
     line-height: 1.55;
 }
 
-/* ── Metrics Grid ──────────────────────────────────── */
+/* â”€â”€ Metrics Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .metricsGrid {
     display: grid;
@@ -287,7 +287,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: var(--text-muted);
     margin-bottom: 0.35rem;
 }
 
@@ -295,7 +295,7 @@
     font-size: 1.05rem;
     font-weight: 800;
     color: #0f172a;
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     display: flex;
     align-items: baseline;
     gap: 0.4rem;
@@ -311,7 +311,7 @@
 .deltaNegative { color: #dc2626; }
 .deltaZero { color: #94a3b8; }
 
-/* ── CapEx Table ───────────────────────────────────── */
+/* â”€â”€ CapEx Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .capexSection { font-size: 0.82rem; }
 
@@ -321,7 +321,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .capexGrid {
@@ -341,7 +341,7 @@
 
 .capexBu {
     font-size: 0.72rem;
-    color: #64748b;
+    color: var(--text-muted);
     font-weight: 600;
     margin-bottom: 4px;
 }
@@ -350,10 +350,10 @@
     font-size: 0.88rem;
     font-weight: 700;
     color: #0f172a;
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
 }
 
-/* ── Flags Row ─────────────────────────────────────── */
+/* â”€â”€ Flags Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .flagsRow {
     display: flex;
@@ -371,7 +371,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: var(--text-muted);
     margin-right: 0.4rem;
 }
 
@@ -389,18 +389,18 @@
     white-space: nowrap;
 }
 
-/* ── Players Row ───────────────────────────────────── */
+/* â”€â”€ Players Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .playersRow {
     display: flex;
     align-items: center;
     gap: 0.45rem;
     font-size: 0.78rem;
-    color: #64748b;
+    color: var(--text-muted);
 }
 
 .playerBadge {
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     font-weight: 600;
     font-size: 0.78rem;
     color: #4f46e5;
@@ -410,9 +410,9 @@
     border: 1px solid rgba(79, 70, 229, 0.12);
 }
 
-/* ═══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    TRENDS SECTION
-   ═══════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .sectionHeading {
     font-size: 0.92rem;
@@ -462,9 +462,9 @@
     padding: 0.5rem 0.3rem 0.3rem;
 }
 
-/* ═══════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    CRITICAL ANALYSIS SECTION
-   ═══════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .analysisSection {
     padding: 0.25rem 0;
@@ -473,7 +473,7 @@
 .verdictCard {
     background: #f8fafc;
     border: 1px solid #e2e8f0;
-    border-left: 4px solid #3b82f6;
+    border-left: 4px solid var(--accent-blue);
     border-radius: 10px;
     padding: 1rem 1.1rem;
     margin-bottom: 1rem;
@@ -534,7 +534,7 @@
     line-height: 1.55;
 }
 
-/* ── Summary Table ─────────────────────────────────── */
+/* â”€â”€ Summary Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .summaryTable {
     margin-top: 1rem;
@@ -551,7 +551,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    color: #64748b;
+    color: var(--text-muted);
     background: #f8fafc;
     border-bottom: 1px solid #e2e8f0;
 }
@@ -575,11 +575,11 @@
 .summaryValue {
     font-weight: 700;
     color: #0f172a;
-    font-family: var(--font-mono, monospace);
+    font-family: var(--font-mono);
     text-align: right;
 }
 
-/* ── Scrollbar ─────────────────────────────────────── */
+/* â”€â”€ Scrollbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .body::-webkit-scrollbar { width: 5px; }
 .body::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }

@@ -153,7 +153,7 @@ export default function UndoRound({ session }) {
                                         fontWeight: targetRound === r ? 700 : 500,
                                         fontSize: '0.85rem',
                                         cursor: 'pointer',
-                                        transition: 'all 0.15s',
+                                        transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                     }}
                                 >
                                     Round {r}

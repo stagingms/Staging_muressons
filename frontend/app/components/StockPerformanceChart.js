@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useCallback } from 'react';
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
+  ComposedChart, Area, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   ReferenceLine,
 } from 'recharts';
 import { buildFullStockData, IPO_PRICE } from './stockValuationEngine';
@@ -23,6 +23,8 @@ import styles from './StockPerformanceChart.module.css';
  *  - roundNumber:    current round
  *  - events:         current round engine events
  *  - projectedCost:  projected treasury delta (for header display)
+ *  - peerStockData:  Array of { round, price } for peer comparison overlay
+ *  - peerLabel:      Label for the peer line (e.g. 'AI Benchmark Avg')
  */
 
 const RANGE_FILTERS = [
@@ -33,18 +35,29 @@ const RANGE_FILTERS = [
 ];
 
 // Custom tooltip
-function StockTooltip({ active, payload }) {
+function StockTooltip({ active, payload, peerLabel }) {
   if (!active || !payload?.length) return null;
   const data = payload[0].payload;
   const roundLabel = data.round === 0
     ? 'IPO'
     : roundToQuarter(data.round).label;
+
+  const playerEntry = payload.find(p => p.dataKey === 'price');
+  const peerEntry = payload.find(p => p.dataKey === 'peerPrice');
+
   return (
     <div className={styles.tooltipContainer}>
       <div className={styles.tooltipLabel}>{roundLabel}</div>
-      <div className={styles.tooltipPrice}>
-        ${data.price.toFixed(2)}
-      </div>
+      {playerEntry && (
+        <div className={styles.tooltipPrice}>
+          Your Stock: ${playerEntry.value?.toFixed(2) || '—'}
+        </div>
+      )}
+      {peerEntry && peerEntry.value != null && (
+        <div className={styles.tooltipPeer} style={{ color: '#fb923c', fontSize: 11, marginTop: 2 }}>
+          {peerLabel || 'Peer Avg'}: ${peerEntry.value?.toFixed(2) || '—'}
+        </div>
+      )}
     </div>
   );
 }
@@ -56,6 +69,8 @@ export default function StockPerformanceChart({
   roundNumber = 1,
   events,
   projectedCost = 0,
+  peerStockData = null,
+  peerLabel = null,
 }) {
   const [activeRange, setActiveRange] = useState('ALL');
 
@@ -65,25 +80,49 @@ export default function StockPerformanceChart({
     [historyData, globalState, businessUnits, roundNumber, events],
   );
 
+  // Merge peer stock data into the full data
+  // Peer data has one price per round — we place it at the last day of each round
+  const fullDataWithPeer = useMemo(() => {
+    if (!peerStockData || peerStockData.length === 0) return fullData;
+
+    const peerMap = {};
+    peerStockData.forEach(p => { peerMap[p.round] = p.price; });
+
+    // Find the last data point for each round and attach peer price
+    const lastDayPerRound = {};
+    fullData.forEach((d, idx) => {
+      lastDayPerRound[d.round] = idx;
+    });
+
+    return fullData.map((d, idx) => {
+      if (lastDayPerRound[d.round] === idx && peerMap[d.round] != null) {
+        return { ...d, peerPrice: peerMap[d.round] };
+      }
+      return d;
+    });
+  }, [fullData, peerStockData]);
+
   // Current price = last data point
-  const currentPrice = fullData.length > 0 ? fullData[fullData.length - 1].price : IPO_PRICE;
-  const prevPrice = fullData.length > 1 ? fullData[fullData.length - 2].price : IPO_PRICE;
+  const currentPrice = fullDataWithPeer.length > 0 ? fullDataWithPeer[fullDataWithPeer.length - 1].price : IPO_PRICE;
+  const prevPrice = fullDataWithPeer.length > 1 ? fullDataWithPeer[fullDataWithPeer.length - 2].price : IPO_PRICE;
   const priceDelta = currentPrice - IPO_PRICE;
   const pctChange = IPO_PRICE > 0 ? ((currentPrice - IPO_PRICE) / IPO_PRICE * 100) : 0;
 
   // Filter data by range
   const filteredData = useMemo(() => {
     const filter = RANGE_FILTERS.find(f => f.label === activeRange);
-    if (!filter || filter.label === 'ALL') return fullData;
-    return fullData.filter(d => d.round >= filter.minRound && d.round <= filter.maxRound);
-  }, [fullData, activeRange]);
+    if (!filter || filter.label === 'ALL') return fullDataWithPeer;
+    return fullDataWithPeer.filter(d => d.round >= filter.minRound && d.round <= filter.maxRound);
+  }, [fullDataWithPeer, activeRange]);
 
   // Y-axis domain: padded min/max with 50 baseline visible
   const yDomain = useMemo(() => {
     if (filteredData.length === 0) return [40, 60];
     const prices = filteredData.map(d => d.price);
-    const min = Math.min(...prices, IPO_PRICE);
-    const max = Math.max(...prices, IPO_PRICE);
+    const peerPrices = filteredData.filter(d => d.peerPrice != null).map(d => d.peerPrice);
+    const allPrices = [...prices, ...peerPrices, IPO_PRICE];
+    const min = Math.min(...allPrices);
+    const max = Math.max(...allPrices);
     const padding = (max - min) * 0.15 || 5;
     return [Math.max(0, Math.floor(min - padding)), Math.ceil(max + padding)];
   }, [filteredData]);
@@ -108,6 +147,8 @@ export default function StockPerformanceChart({
     }
     return ticks;
   }, [filteredData]);
+
+  const hasPeer = peerStockData && peerStockData.length > 0;
 
   return (
     <div className={styles.container}>
@@ -140,7 +181,7 @@ export default function StockPerformanceChart({
       {/* Chart */}
       <div className={styles.chartArea}>
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
+          <ComposedChart
             data={filteredData}
             margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
           >
@@ -170,7 +211,7 @@ export default function StockPerformanceChart({
               width={32}
             />
 
-            <Tooltip content={<StockTooltip />} />
+            <Tooltip content={<StockTooltip peerLabel={peerLabel} />} />
 
             {/* IPO Baseline */}
             <ReferenceLine
@@ -200,7 +241,21 @@ export default function StockPerformanceChart({
                 strokeWidth: 2,
               }}
             />
-          </AreaChart>
+
+            {/* Peer stock price overlay (dashed amber line) */}
+            {hasPeer && (
+              <Line
+                type="monotone"
+                dataKey="peerPrice"
+                name={peerLabel || 'Peer Avg'}
+                stroke="#fb923c"
+                strokeWidth={1.8}
+                strokeDasharray="6 3"
+                dot={{ r: 3, fill: '#fb923c', strokeWidth: 0 }}
+                connectNulls={true}
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

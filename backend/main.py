@@ -9,10 +9,17 @@ import os
 import sys
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import logging
 
-from config import APP_TITLE, APP_VERSION, DEBUG
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
+
+import socket
+from urllib.parse import urlparse
+from config import APP_TITLE, APP_VERSION, DEBUG, DATABASE_URL
 
 # ── Database Backend Selection ─────────────────────────────────
 # Set USE_MEMORY_DB=true to force in-memory mode
@@ -20,17 +27,26 @@ from config import APP_TITLE, APP_VERSION, DEBUG
 
 _use_memory = os.getenv("USE_MEMORY_DB", "").lower() in ("true", "1", "yes")
 
+def _is_postgres_available() -> bool:
+    try:
+        import asyncpg  # noqa: F401
+        parsed = urlparse(DATABASE_URL)
+        host = parsed.hostname or "localhost"
+        port = parsed.port or 5432
+        with socket.create_connection((host, port), timeout=1.0):
+            return True
+    except Exception:
+        return False
+
 if _use_memory:
     print("[MEMORY] In-memory mode (forced via USE_MEMORY_DB)")
     import database_memory as db
+elif _is_postgres_available():
+    import database as db
+    print("[POSTGRES] PostgreSQL mode")
 else:
-    try:
-        import asyncpg  # noqa: F401 — just checking availability
-        import database as db
-        print("[POSTGRES] PostgreSQL mode")
-    except Exception:
-        print("[MEMORY] PostgreSQL unavailable -- using in-memory database")
-        import database_memory as db
+    print("[MEMORY] PostgreSQL unavailable -- using in-memory database")
+    import database_memory as db
 
 # Inject the selected db module into router/admin_router
 sys.modules["database"] = db  # type: ignore
@@ -50,11 +66,19 @@ async def lifespan(app: FastAPI):
     await db.close_pool()
 
 
+# LOW-002: Hide interactive API docs in production to reduce attack surface.
+_docs_url    = "/docs"    if DEBUG else None
+_redoc_url   = "/redoc"   if DEBUG else None
+_openapi_url = "/openapi.json" if DEBUG else None
+
 app = FastAPI(
     title=APP_TITLE,
     version=APP_VERSION,
     debug=DEBUG,
     lifespan=lifespan,
+    docs_url=_docs_url,
+    redoc_url=_redoc_url,
+    openapi_url=_openapi_url,
 )
 
 # FIX AUDIT-011: CORS — use explicit origins instead of wildcard + credentials.
@@ -76,6 +100,42 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# HIGH-010: HTTP security headers middleware
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        # Prevent clickjacking
+        response.headers["X-Frame-Options"] = "DENY"
+        # Prevent MIME-type sniffing
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        # Limit referrer data leakage
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # Prevent browsers from exposing permissions unnecessarily
+        response.headers["Permissions-Policy"] = "geolocation=(), camera=(), microphone=()"
+        # Content-Security-Policy: tighten for API responses (no HTML rendered by backend)
+        response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+        # HSTS: force HTTPS for 1 year in production
+        if not DEBUG:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        # Remove server banner
+        if "server" in response.headers:
+            del response.headers["server"]
+        return response
+
+app.add_middleware(SecurityHeadersMiddleware)
+
+# LOW-009: Generic error handler — never expose internal tracebacks in production
+@app.exception_handler(Exception)
+async def _global_exception_handler(request: Request, exc: Exception):
+    if DEBUG:
+        # In debug mode, let FastAPI's default handler show the traceback
+        raise exc
+    logging.exception("Unhandled server error on %s %s", request.method, request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please try again."},
+    )
 
 # Mount routers
 app.include_router(simulation_router)

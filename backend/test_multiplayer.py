@@ -223,7 +223,7 @@ def run_multiplayer_test(paradigm):
         print(f"    Peer Leaderboard has {len(lb)} entries")
         if len(lb) != 3: errors.append(f"Leaderboard size is {len(lb)}, expected 3")
         for rank, entry in enumerate(lb):
-            print(f"      #{rank+1} {entry.get('username') or entry.get('player_id')} - EBITDA: ${entry.get('historical_ebitda', 0):,.0f}")
+            print(f"      #{rank+1} {entry.get('name')} - Treasury: ${entry.get('treasury', 0):,.0f}")
     else:
         errors.append(f"Peer leaderboard failed: {lb_res.status_code}")
 

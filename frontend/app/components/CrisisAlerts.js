@@ -119,9 +119,12 @@ function speak(text) {
  *   - roundNumber:  current round (1–10)
  *   - onInjectMessage: (msg: {id, round, type, title, body}) => void
  *      callback to inject a message into the ExecutiveMailbox
+ *   - briefingActive: boolean — when true, delay auto-triggers until
+ *      the round briefing overlay is dismissed so the crisis overlay
+ *      appears on top of the cockpit / Shadow Board Audit screen.
  * ═════════════════════════════════════════════════════════════════ */
 
-export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage }) {
+export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage, briefingActive }) {
   const [activeAlert, setActiveAlert] = useState(null);   // 'activist_threat' | 'ceo_liquidity_panic' | null
   const [isSpeaking, setIsSpeaking] = useState(false);
   const firedRef = useRef({});  // track which alerts already fired per round
@@ -145,9 +148,14 @@ export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage
     return () => bc.close();
   }, []);
 
-  // Evaluate auto-triggers whenever globalState changes
+  // Evaluate auto-triggers whenever globalState changes.
+  // If the round briefing overlay is still showing (briefingActive), defer
+  // evaluation so the crisis overlay fires AFTER the briefing is dismissed —
+  // this ensures the Activist Threat / CEO Liquidity Panic full-screen
+  // overlay is visible on top of the cockpit or Shadow Board Audit.
   useEffect(() => {
     if (!globalState) return;
+    if (briefingActive) return;  // wait until briefing is dismissed
     const config = configRef.current;
 
     for (const key of ['activist_threat', 'ceo_liquidity_panic']) {
@@ -166,7 +174,7 @@ export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage
         break;  // one alert at a time
       }
     }
-  }, [globalState, roundNumber]);
+  }, [globalState, roundNumber, briefingActive]);
 
   const fireAlert = useCallback((crisisType, isManual) => {
     const config = configRef.current;

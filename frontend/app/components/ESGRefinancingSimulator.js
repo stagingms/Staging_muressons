@@ -34,9 +34,9 @@ function ESGGauge({ score }) {
                     return <path key={s} d={`M ${sx} ${sy} A ${r} ${r} 0 ${e - s > 90 ? 1 : 0} 1 ${ex2} ${ey2}`} fill="none" stroke={c2} strokeWidth="26" strokeLinecap="round" />;
                 })}
                 {/* Progress */}
-                {pct > 0 && <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round" style={{ transition: 'all 0.35s' }} />}
+                {pct > 0 && <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`} fill="none" stroke={color} strokeWidth="7" strokeLinecap="round" style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />}
                 {/* Needle */}
-                <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" style={{ transition: 'all 0.35s' }} />
+                <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
                 <circle cx={cx} cy={cy} r="5.5" fill="#1e293b" />
                 {/* Core */}
                 <text x={cx} y={cy - 32} textAnchor="middle" fontSize="28" fontWeight="900" fill={color}
@@ -76,7 +76,7 @@ function CostBars({ scoreRate, baseRate }) {
                 const x = padL + gap * (i + 1) + barW * i;
                 const y = padT + cH - bH;
                 return <g key={b.label}>
-                    <rect x={x} y={y} width={barW} height={bH} fill={b.col} rx="3" style={{ transition: 'all 0.35s' }} />
+                    <rect x={x} y={y} width={barW} height={bH} fill={b.col} rx="3" style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
                     <text x={x + barW / 2} y={y - 5} textAnchor="middle" fontSize="10" fontWeight="700" fill={b.col}>${Math.round(b.v)}M</text>
                     <text x={x + barW / 2} y={H - padB + 15} textAnchor="middle" fontSize="10" fill="#64748b">{b.label}</text>
                 </g>;

@@ -11,9 +11,10 @@ import SustainabilityBalancedScorecard from './components/SustainabilityBalanced
 import GameOverSummary from './components/GameOverSummary';
 import StakeholderMapModal from './components/StakeholderMapModal';
 import CFOOverrideModal from './components/CFOOverrideModal';
+const FullScreenLoader = () => <div style={{position: 'fixed', inset: 0, background: '#080c18', zIndex: 20000}}></div>;
 const DoubleMaterialityMatrix = dynamic(() => import('./components/DoubleMaterialityMatrix'), { ssr: false });
-const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false });
-const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false });
+const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false, loading: FullScreenLoader });
+const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false, loading: FullScreenLoader });
 import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
 import CrisisAlerts from './components/CrisisAlerts';
@@ -423,6 +424,20 @@ export default function CockpitPage() {
     }
   }, [sim.sessionId, sim.roundChanged, sim.gameOver, roundNumber]);
 
+  // Clear transient decision state when the round actually advances.
+  // This is deferred from handleCommitTurn so the post-commit results
+  // overlay (ConsequencePreview, etc.) can still reference the player's
+  // committed choices while reviewing round outcomes.
+  const prevRoundForClear = useRef(roundNumber);
+  useEffect(() => {
+    if (roundNumber !== prevRoundForClear.current) {
+      prevRoundForClear.current = roundNumber;
+      setAllocations({});
+      setDecisionChoice(null);
+      setPillarSelections({});
+    }
+  }, [roundNumber]);
+
   const handleProceedFromDesktop = () => {
     // Mark this round's briefing as seen so it doesn't re-open
     seenBriefingRoundsRef.current.add(roundNumber);
@@ -465,8 +480,9 @@ export default function CockpitPage() {
         emergency_credit_used: emergencyCreditActive,
       });
       soundManager.commit();
-      setAllocations({});
-      setDecisionChoice(null);
+      // NOTE: allocations, decisionChoice, and pillarSelections are now
+      // cleared by the roundNumber-change useEffect above (not here), so
+      // the post-commit results overlay can still reference them.
       setShowOverrideModal(false);
       setPendingDecisions(null);
     } catch (err) {
@@ -551,8 +567,6 @@ export default function CockpitPage() {
       });
       setShowOverrideModal(false);
       setPendingDecisions(null);
-      setAllocations({});
-      setDecisionChoice(null);
     } catch (err) {
       console.error("Force override still failed:", err);
     }
@@ -562,6 +576,8 @@ export default function CockpitPage() {
   const [gameOverPhase, setGameOverPhase] = useState('scorecard'); // 'scorecard' | 'boardroom' | 'done'
   const [showPodcast, setShowPodcast] = useState(false);
   const [boardroomDone, setBoardroomDone] = useState(false);
+  // EX-2/NF-4: Commit Ceremony state (must be before any early return)
+  const [showCommitCeremony, setShowCommitCeremony] = useState(false);
 
   // Note: no effect that auto-skips phases — the flow is:
   //   game ends → scorecard shown → player clicks Proceed → boardroom → player submits → done
@@ -787,10 +803,6 @@ export default function CockpitPage() {
           onClose={() => setGameOverPhase('done')}
           onLogout={sim.logout}
           sessionId={sim.sessionId}
-          onExtend={() => {
-            // Re-fetch dashboard so sim detects game_over=false and round=11
-            sim.fetchDashboard?.(sim.sessionId);
-          }}
         />
       );
     }
@@ -851,8 +863,6 @@ export default function CockpitPage() {
     }
   };
 
-  // EX-2/NF-4: Commit Ceremony state
-  const [showCommitCeremony, setShowCommitCeremony] = useState(false);
 
 
   // ── Main Cockpit ──────────────────────────────────────────
@@ -878,7 +888,7 @@ export default function CockpitPage() {
             border: confirmLogout ? '1px solid #f87171' : '1px solid rgba(248,113,113,0.25)',
             borderRadius: 8, color: confirmLogout ? '#fff' : '#fca5a5',
             fontSize: '0.72rem', fontWeight: 700, fontFamily: "'DM Sans', system-ui, sans-serif",
-            cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+            cursor: 'pointer', transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease', boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
           {confirmLogout ? '⚠️ Confirm Logout?' : '🚪 Logout'}
@@ -1143,10 +1153,12 @@ export default function CockpitPage() {
         allocations={allocations}
         onAllocationsChange={setAllocations}
         onResourcesOpen={() => { setResourceSidebarOpen(true); setHasNewResources(false); }}
+        hasNewResources={hasNewResources}
         hasAllocated={Object.keys(allocations).length > 0}
         hasReadBriefing={!showDesktop}
         onLogout={sim.logout}
         lastSavedAt={lastSavedAt}
+        tourActive={showOnboarding}
       />
 
       {/* ═══ INLINE PODCAST PLAYER ═══ */}
@@ -1193,6 +1205,7 @@ export default function CockpitPage() {
           globalState={globalState}
           roundNumber={roundNumber}
           onInjectMessage={handleCrisisInject}
+          briefingActive={showDesktop}
         />
       )}
 

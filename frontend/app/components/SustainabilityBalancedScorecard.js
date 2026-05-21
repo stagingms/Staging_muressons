@@ -3,7 +3,7 @@
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import {
     LineChart, Line, AreaChart, Area, ComposedChart,
-    XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+    XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts';
 import styles from './SustainabilityBalancedScorecard.module.css';
 import StockPerformanceChart from './StockPerformanceChart';
@@ -237,7 +237,7 @@ const PERSPECTIVE_COLORS = {
  *  - history: array of round snapshots for review
  *  - onProceed: () => void — proceed to Boardroom Showdown
  */
-export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose, onLogout, sessionId, onExtend }) {
+export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose, onLogout, sessionId }) {
     const d = data || {};
     const bus = businessUnits;
     const theme = PROFILES[d.profile] || PROFILES.fragile_giant;
@@ -247,11 +247,37 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
     console.log('[SCORECARD] profile:', d.profile, '| terminal_ebitda:', d.terminal_ebitda, '| terminal_value:', d.terminal_value);
     console.log('[SCORECARD] bus:', bus.length, '| globalState keys:', Object.keys(globalState));
     console.log('[SCORECARD] history:', history.length, 'rounds');
-    const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'analysis' | 'trends' | 'tbl_matrix' | 'rounds' | 'stock' | 'leaderboard' | 'report' | 'dna_map'
+    const [activeTab, setActiveTab] = useState('scorecard'); // 'scorecard' | 'financial_statement' | 'analysis' | 'trends' | 'tbl_matrix' | 'rounds' | 'stock' | 'leaderboard' | 'report' | 'dna_map'
     const printRef = useRef(null);
     const [leaderboard, setLeaderboard] = useState([]);
-    const [extendLoading, setExtendLoading] = useState(false);
-    const [extendError, setExtendError] = useState(null);
+
+    // Peer trend comparison state
+    const [showPeerTrends, setShowPeerTrends] = useState(false);
+    const [peerTrendData, setPeerTrendData] = useState(null); // { available, ai_benchmark, peerCount, rounds: [] }
+    const [peerLoading, setPeerLoading] = useState(false);
+
+    // Fetch peer trend history when toggle is activated
+    useEffect(() => {
+        if (!showPeerTrends || !sessionId || peerTrendData) return;
+        setPeerLoading(true);
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sessionId}/peer-trend-history`)
+            .then(r => r.json())
+            .then(data => {
+                setPeerTrendData(data);
+                setPeerLoading(false);
+            })
+            .catch(() => setPeerLoading(false));
+    }, [showPeerTrends, sessionId, peerTrendData]);
+
+    // Balance Sheet data for the Financial Statement tab
+    const [balanceSheet, setBalanceSheet] = useState(null);
+    useEffect(() => {
+        if (!sessionId) return;
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sessionId}/balance-sheet`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => d && setBalanceSheet(d.balance_sheet || d))
+            .catch(() => {});
+    }, [sessionId]);
 
     // Fallback state for older sessions that didn't capture the snapshot at R10
     const [fetchedDnaSnapshot, setFetchedDnaSnapshot] = useState(null);
@@ -271,23 +297,6 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 .catch(err => console.error("Failed to fetch DNA snapshot fallback:", err));
         }
     }, [sessionId]);
-
-    const handleExtendMode = async () => {
-        if (!sessionId) return;
-        setExtendLoading(true);
-        setExtendError(null);
-        try {
-            const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sessionId}/extend`, {
-                method: 'POST',
-            });
-            if (!res.ok) throw new Error(await res.text());
-            onExtend?.();
-        } catch (e) {
-            setExtendError('Could not activate extended mode. Please try again.');
-        } finally {
-            setExtendLoading(false);
-        }
-    };
 
     // Compute derived KPIs
     const kpis = useMemo(() => {
@@ -726,6 +735,12 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         📊 Scorecard
                     </button>
                     <button
+                        className={`${styles.tab} ${activeTab === 'financial_statement' ? styles.tabActive : ''}`}
+                        onClick={() => setActiveTab('financial_statement')}
+                    >
+                        💰 Financial Statement
+                    </button>
+                    <button
                         className={`${styles.tab} ${activeTab === 'analysis' ? styles.tabActive : ''}`}
                         onClick={() => setActiveTab('analysis')}
                     >
@@ -764,13 +779,29 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                           🧬 DNA Map
                       </button>
                     )}
+                    {d.pathway_discovery && (
+                        <button
+                            className={`${styles.tab} ${activeTab === 'pathway' ? styles.tabActive : ''}`}
+                            onClick={() => setActiveTab('pathway')}
+                        >
+                            🗺️ Pathway
+                        </button>
+                    )}
+                    {history && history.length > 0 && (
+                        <button
+                            className={`${styles.tab} ${activeTab === 'journey' ? styles.tabActive : ''}`}
+                            onClick={() => setActiveTab('journey')}
+                        >
+                            📜 Journey
+                        </button>
+                    )}
                     <button className={styles.downloadBtn} onClick={handleDownload}>
                         📥 Download Report
                     </button>
                     {onLogout && (
                         <button
                             className={styles.downloadBtn}
-                            onClick={onLogout}
+                            onClick={() => { if (window.confirm('Log out? Your progress is saved and you can return anytime.')) onLogout(); }}
                             style={{ background: 'rgba(239,68,68,0.1)', borderColor: '#fca5a5', color: '#fca5a5' }}
                         >
                             🚪 Logout
@@ -858,6 +889,196 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         </section>
                     </>
                 )}
+
+                {/* ──────── TAB: Financial Statement ──────── */}
+                {activeTab === 'financial_statement' && (() => {
+                    if (!balanceSheet) return (
+                        <section style={{ padding: '3rem 2rem', textAlign: 'center' }}>
+                            <div style={{ fontSize: '2.5rem', marginBottom: '1rem', opacity: 0.4 }}>💰</div>
+                            <h3 style={{ color: 'var(--text-primary, #e2e8f0)', marginBottom: '0.5rem' }}>Loading Financial Statement...</h3>
+                            <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>The balance sheet data is being retrieved.</p>
+                        </section>
+                    );
+
+                    const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
+                    const fmtK = (v) => Math.abs(v || 0) >= 1_000_000 ? fmtM(v) : `$${((v || 0) / 1_000).toFixed(0)}K`;
+
+                    const totalAssets = balanceSheet.total_assets || 0;
+                    const totalLiabilities = balanceSheet.total_liabilities || 0;
+                    const netAssets = balanceSheet.net_assets || 0;
+                    const deRatio = balanceSheet.debt_to_equity || 0;
+                    const covenantStatus = balanceSheet.covenant_status || 'green';
+                    const ndEbitda = balanceSheet.net_debt_to_ebitda || 0;
+                    const strandedExposure = balanceSheet.stranded_asset_exposure || 0;
+                    const brandValue = (balanceSheet.intangible_assets || {}).brand_value || 0;
+
+                    const covenantColors = { green: '#10b981', amber: '#f59e0b', red: '#ef4444', breached: '#dc2626' };
+                    const covenantLabels = { green: '🟢 Comfortable', amber: '🟡 Watch List', red: '🔴 Breach (Cure Period)', breached: '🚨 Acceleration' };
+
+                    const ta = balanceSheet.tangible_assets || {};
+                    const ia = balanceSheet.intangible_assets || {};
+                    const ca = balanceSheet.current_assets || {};
+                    const ncl = balanceSheet.non_current_liabilities || {};
+                    const cl = balanceSheet.current_liabilities || {};
+
+                    const totalTangible = Object.values(ta).reduce((s, v) => s + (v || 0), 0);
+                    const totalIntangible = Object.values(ia).reduce((s, v) => s + (v || 0), 0);
+                    const totalCurrent = Object.values(ca).reduce((s, v) => s + (v || 0), 0);
+                    const totalNCL = Object.values(ncl).reduce((s, v) => s + (v || 0), 0);
+                    const totalCL = Object.values(cl).reduce((s, v) => s + (v || 0), 0);
+                    const totalEquity = (balanceSheet.share_capital || 0) + (balanceSheet.retained_earnings || 0) + (balanceSheet.other_reserves || 0);
+
+                    const lineRow = (label, value, opts = {}) => (
+                        <div style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: opts.bold ? '6px 0' : '4px 0',
+                            borderTop: opts.topBorder ? '1px solid rgba(148,163,184,0.15)' : 'none',
+                            borderBottom: opts.bottomBorder ? '1px double rgba(148,163,184,0.2)' : 'none',
+                        }}>
+                            <span style={{
+                                fontSize: opts.bold ? '0.82rem' : '0.78rem',
+                                fontWeight: opts.bold ? 800 : 500,
+                                color: opts.color || (opts.bold ? '#e2e8f0' : '#94a3b8'),
+                                paddingLeft: opts.indent ? 16 : 0,
+                            }}>{label}</span>
+                            <span style={{
+                                fontSize: opts.bold ? '0.85rem' : '0.78rem',
+                                fontWeight: opts.bold ? 800 : 600,
+                                fontFamily: "'JetBrains Mono', monospace",
+                                color: opts.color || (opts.bold ? '#e2e8f0' : '#cbd5e1'),
+                            }}>{typeof value === 'number' ? fmtK(value) : value}</span>
+                        </div>
+                    );
+
+                    const sectionHeader = (label, icon) => (
+                        <div style={{
+                            fontSize: '0.82rem', fontWeight: 800, textTransform: 'uppercase',
+                            letterSpacing: '0.08em', color: '#64748b', marginTop: 18, marginBottom: 6,
+                            display: 'flex', alignItems: 'center', gap: 6,
+                        }}>{icon} {label}</div>
+                    );
+
+                    return (
+                        <section style={{ padding: '1.5rem 0' }}>
+                            <h2 className={styles.sectionTitle}>📊 Statement of Financial Position</h2>
+                            <p style={{ color: '#64748b', fontSize: '0.78rem', marginBottom: '1.25rem' }}>IFRS-Compliant Balance Sheet — Year 5 Terminal State</p>
+
+                            {/* Summary header cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+                                <div style={{
+                                    padding: '14px 16px', borderRadius: 10, textAlign: 'center',
+                                    background: 'rgba(56,189,248,0.06)', border: '1px solid rgba(56,189,248,0.15)',
+                                }}>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Assets</div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: totalAssets >= 0 ? '#38bdf8' : '#f87171', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(totalAssets)}</div>
+                                </div>
+                                <div style={{
+                                    padding: '14px 16px', borderRadius: 10, textAlign: 'center',
+                                    background: 'rgba(248,113,113,0.06)', border: '1px solid rgba(248,113,113,0.15)',
+                                }}>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Total Liabilities</div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: '#f87171', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(totalLiabilities)}</div>
+                                </div>
+                                <div style={{
+                                    padding: '14px 16px', borderRadius: 10, textAlign: 'center',
+                                    background: netAssets >= 0 ? 'rgba(74,222,128,0.06)' : 'rgba(239,68,68,0.06)',
+                                    border: `1px solid ${netAssets >= 0 ? 'rgba(74,222,128,0.15)' : 'rgba(239,68,68,0.15)'}`,
+                                }}>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Net Assets</div>
+                                    <div style={{ fontSize: '1.2rem', fontWeight: 800, color: netAssets >= 0 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(netAssets)}</div>
+                                </div>
+                            </div>
+
+                            {/* Two-column layout: Assets / Liabilities+Equity */}
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 28, background: 'rgba(15,23,42,0.4)', borderRadius: 12, padding: '1.5rem', border: '1px solid rgba(99,102,241,0.1)' }}>
+                                {/* LEFT: Assets */}
+                                <div>
+                                    {sectionHeader('Non-Current Assets', '🏭')}
+                                    {lineRow('Property, Plant & Equipment', ta.property_plant_equipment, { indent: true })}
+                                    {lineRow('Right-of-Use Assets (IFRS 16)', ta.right_of_use_assets, { indent: true })}
+                                    {lineRow('Inventory', ta.inventory, { indent: true })}
+                                    {lineRow('Total Tangible', totalTangible, { bold: true, topBorder: true })}
+
+                                    {sectionHeader('Intangible Assets', '💎')}
+                                    {lineRow('Brand Value', ia.brand_value, { indent: true })}
+                                    {lineRow('Intellectual Property', ia.intellectual_property, { indent: true })}
+                                    {lineRow('Goodwill', ia.goodwill, { indent: true })}
+                                    {lineRow('Social Licence (IAS 38)', ia.social_licence_asset, { indent: true })}
+                                    {lineRow('Reputation Capital', ia.reputation_asset, { indent: true })}
+                                    {lineRow('Total Intangible', totalIntangible, { bold: true, topBorder: true })}
+
+                                    {sectionHeader('Current Assets', '💵')}
+                                    {lineRow('Cash & Equivalents', ca.cash_and_equivalents, { indent: true, color: (ca.cash_and_equivalents || 0) < 0 ? '#f87171' : '#4ade80' })}
+                                    {lineRow('Trade Receivables', ca.trade_receivables, { indent: true })}
+                                    {lineRow('Prepayments', ca.prepayments, { indent: true })}
+                                    {lineRow('Total Current', totalCurrent, { bold: true, topBorder: true })}
+
+                                    {lineRow('TOTAL ASSETS', totalAssets, { bold: true, topBorder: true, bottomBorder: true, color: '#38bdf8' })}
+                                </div>
+
+                                {/* RIGHT: Liabilities + Equity */}
+                                <div>
+                                    {sectionHeader('Non-Current Liabilities', '🏦')}
+                                    {lineRow('Revolving Credit Facility', ncl.revolving_credit_facility, { indent: true })}
+                                    {lineRow('Green Bonds', ncl.green_bonds_outstanding, { indent: true })}
+                                    {lineRow('Environmental Provisions', ncl.environmental_provisions, { indent: true })}
+                                    {lineRow('Decommissioning', ncl.decommissioning_obligations, { indent: true })}
+                                    {lineRow('Lease Liabilities (IFRS 16)', ncl.lease_liabilities, { indent: true })}
+                                    {lineRow('Total Non-Current', totalNCL, { bold: true, topBorder: true })}
+
+                                    {sectionHeader('Current Liabilities', '📋')}
+                                    {lineRow('Trade Payables', cl.trade_payables, { indent: true })}
+                                    {lineRow('Tax Provisions', cl.tax_provisions, { indent: true })}
+                                    {lineRow('Accrued Remediation', cl.accrued_remediation, { indent: true })}
+                                    {lineRow('Short-Term Debt', cl.short_term_debt, { indent: true })}
+                                    {lineRow('Total Current', totalCL, { bold: true, topBorder: true })}
+
+                                    {sectionHeader("Shareholders' Equity", '🏛️')}
+                                    {lineRow('Share Capital', balanceSheet.share_capital, { indent: true })}
+                                    {lineRow('Retained Earnings', balanceSheet.retained_earnings, { indent: true, color: (balanceSheet.retained_earnings || 0) < 0 ? '#f87171' : undefined })}
+                                    {lineRow('Other Reserves', balanceSheet.other_reserves, { indent: true })}
+                                    {lineRow('TOTAL EQUITY', totalEquity, { bold: true, topBorder: true, bottomBorder: true, color: '#a78bfa' })}
+                                </div>
+                            </div>
+
+                            {/* Bottom: Key Ratios */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginTop: 20 }}>
+                                <div style={{ padding: '14px', borderRadius: 10, background: 'rgba(56,189,248,0.04)', border: '1px solid rgba(56,189,248,0.1)', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>⚖️</div>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>D/E Ratio</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 800, color: deRatio < 2.0 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{deRatio.toFixed(2)}×</div>
+                                </div>
+                                <div style={{ padding: '14px', borderRadius: 10, background: 'rgba(56,189,248,0.04)', border: '1px solid rgba(56,189,248,0.1)', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>📄</div>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>ND/EBITDA</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 800, color: ndEbitda <= 2.5 ? '#4ade80' : '#ef4444', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{ndEbitda.toFixed(2)}×</div>
+                                </div>
+                                <div style={{ padding: '14px', borderRadius: 10, background: strandedExposure > 0 ? 'rgba(245,158,11,0.06)' : 'rgba(56,189,248,0.04)', border: `1px solid ${strandedExposure > 0 ? 'rgba(245,158,11,0.15)' : 'rgba(56,189,248,0.1)'}`, textAlign: 'center' }}>
+                                    <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>⚠️</div>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Stranded Exposure</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 800, color: strandedExposure > 0 ? '#f59e0b' : '#4ade80', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(strandedExposure)}</div>
+                                </div>
+                                <div style={{ padding: '14px', borderRadius: 10, background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.1)', textAlign: 'center' }}>
+                                    <div style={{ fontSize: '1.3rem', marginBottom: 4 }}>💎</div>
+                                    <div style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Brand Value</div>
+                                    <div style={{ fontSize: '1rem', fontWeight: 800, color: '#a78bfa', fontFamily: "'JetBrains Mono', monospace", marginTop: 4 }}>{fmtM(brandValue)}</div>
+                                </div>
+                            </div>
+
+                            {/* Debt Covenant Status */}
+                            <div style={{
+                                marginTop: 16, padding: '12px 20px', borderRadius: 10, textAlign: 'center',
+                                background: `${covenantColors[covenantStatus]}08`,
+                                border: `1px solid ${covenantColors[covenantStatus]}25`,
+                            }}>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginRight: 12 }}>Debt Covenant Status:</span>
+                                <span style={{ fontSize: '0.88rem', fontWeight: 800, color: covenantColors[covenantStatus] }}>
+                                    {covenantLabels[covenantStatus] || covenantStatus}
+                                </span>
+                            </div>
+                        </section>
+                    );
+                })()}
 
                 {/* ──────── TAB: Critical Analysis ──────── */}
                 {activeTab === 'analysis' && (
@@ -954,12 +1175,79 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         return { ...d, cumulativeCarbon: cumCarbon };
                     });
 
-                    const fmtM = (v) => `$${(v / 1_000_000).toFixed(1)}M`;
+                    // ── Merge peer data into chart data (if toggle is on) ──
+                    const peerRounds = (showPeerTrends && peerTrendData?.available) ? peerTrendData.rounds : [];
+                    const peerCumCarbonMap = {};
+                    const peerMap = {};
+                    const peerIds = [];
+                    const peerColors = ['#fb923c', '#c084fc', '#f472b6', '#34d399', '#60a5fa', '#fcd34d', '#2dd4bf'];
+
+                    if (peerRounds.length > 0 && peerRounds[0].peers) {
+                        peerRounds[0].peers.forEach((p, idx) => {
+                            peerIds.push({
+                                id: p.id,
+                                name: p.name || p.id,
+                                color: peerColors[idx % peerColors.length]
+                            });
+                            peerCumCarbonMap[p.id] = 0;
+                        });
+                    }
+
+                    peerRounds.forEach(pr => {
+                        const peersInfo = {};
+                        (pr.peers || []).forEach(p => {
+                            if (peerCumCarbonMap[p.id] === undefined) peerCumCarbonMap[p.id] = 0;
+                            peerCumCarbonMap[p.id] += (p.tco2e || 0);
+                            
+                            peersInfo[`peer_${p.id}_ci`] = p.ci;
+                            peersInfo[`peer_${p.id}_tco2e`] = p.tco2e;
+                            peersInfo[`peer_${p.id}_ebitda`] = p.ebitda;
+                            peersInfo[`peer_${p.id}_rep`] = p.rep;
+                            peersInfo[`peer_${p.id}_stock`] = p.stock;
+                            peersInfo[`peer_${p.id}_cum`] = peerCumCarbonMap[p.id];
+                        });
+                        peerMap[pr.round] = { ...pr, ...peersInfo };
+                    });
+
+                    const chartDataMerged = chartDataWithCum.map(d => {
+                        const pr = peerMap[d.round];
+                        return pr ? { ...d, ...pr } : d;
+                    });
+
+                    const isPeerActive = showPeerTrends && peerTrendData?.available;
+                    const peerCountLabel = peerTrendData?.ai_benchmark
+                        ? '3 AI profiles'
+                        : `${peerTrendData?.peerCount || 0} peer${(peerTrendData?.peerCount || 0) !== 1 ? 's' : ''}`;
+
+                    const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
                     const chartTooltipStyle = { fontSize: 11, borderRadius: 8, background: 'rgba(22,33,62,0.95)', border: '1px solid #2a2a4a', color: '#e2e8f0' };
 
                     return (
                         <section className={styles.trendsSection}>
                             <h2 className={styles.sectionTitle}>📉 Performance Trends Across Simulation</h2>
+
+                            {/* ── Peer Comparison Toggle ── */}
+                            <div className={styles.peerToggleRow}>
+                                <div
+                                    className={`${styles.peerToggleLabel} ${showPeerTrends ? styles.peerToggleActive : ''}`}
+                                    onClick={() => setShowPeerTrends(prev => !prev)}
+                                    role="switch"
+                                    aria-checked={showPeerTrends}
+                                    tabIndex={0}
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setShowPeerTrends(prev => !prev); } }}
+                                >
+                                    <div className={styles.peerToggleSwitch} />
+                                    <span className={styles.peerToggleText}>
+                                        {peerLoading ? '⏳ Loading...' : showPeerTrends ? `👥 Cohort Trends` : '👥 Show Cohort Trends'}
+                                    </span>
+                                </div>
+                                {isPeerActive && (
+                                    <span className={styles.peerToggleBadge}>
+                                        {peerTrendData?.ai_benchmark ? '🤖' : '👥'} {peerCountLabel}
+                                    </span>
+                                )}
+                            </div>
+
                             <div className={styles.trendsGrid}>
 
                                 {/* 1. Carbon Intensity */}
@@ -970,12 +1258,23 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     </div>
                                     <div className={styles.trendChart}>
                                         <ResponsiveContainer width="100%" height={200}>
-                                            <LineChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                                            <LineChart data={chartDataMerged} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
                                                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => [`${v.toFixed(1)} tCO₂e/$M`, 'Carbon Intensity']} />
-                                                <Line type="monotone" dataKey="avgCI" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
+                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => {
+                                                    const isPeer = name.startsWith('peer_');
+                                                    if (isPeer) {
+                                                        const pId = name.split('_')[1];
+                                                        const peer = peerIds.find(p => p.id === pId);
+                                                        return [`${Number(v).toFixed(1)} tCO₂e/$M`, peer ? peer.name : 'Peer'];
+                                                    }
+                                                    return [`${Number(v).toFixed(1)} tCO₂e/$M`, 'Your Team'];
+                                                }} />
+                                                <Line type="monotone" dataKey="avgCI" name="Your Team" stroke="#f59e0b" strokeWidth={2.5} dot={{ r: 4, fill: '#f59e0b' }} activeDot={{ r: 6 }} />
+                                                {isPeerActive && peerIds.map(p => (
+                                                    <Line key={p.id} type="monotone" dataKey={`peer_${p.id}_ci`} name={`peer_${p.id}`} stroke={p.color} strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
+                                                ))}
                                             </LineChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -989,16 +1288,24 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     </div>
                                     <div className={styles.trendChart}>
                                         <ResponsiveContainer width="100%" height={200}>
-                                            <ComposedChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                                            <ComposedChart data={chartDataMerged} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
                                                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis yAxisId="left" tick={{ fontSize: 10, fill: '#94a3b8' }} />
                                                 <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => [
-                                                    `${v.toFixed(0)} t`, name === 'cumulativeCarbon' ? 'Cumulative tCO₂e' : 'Per-Year tCO₂e'
-                                                ]} />
-                                                <Area yAxisId="left" type="monotone" dataKey="cumulativeCarbon" stroke="#ef4444" fill="rgba(239,68,68,0.15)" strokeWidth={2} dot={{ r: 3 }} />
-                                                <Line yAxisId="right" type="monotone" dataKey="tco2e" stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3, fill: '#3b82f6' }} />
+                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => {
+                                                    if (name.startsWith('peer_') && name.endsWith('_cum')) {
+                                                        const pId = name.split('_')[1];
+                                                        const peer = peerIds.find(p => p.id === pId);
+                                                        return [`${Number(v).toFixed(0)} t`, `${peer ? peer.name : 'Peer'} (Cum)`];
+                                                    }
+                                                    return [`${Number(v).toFixed(0)} t`, name === 'cumulativeCarbon' ? 'Cumulative tCO₂e' : 'Per-Year tCO₂e'];
+                                                }} />
+                                                <Area yAxisId="left" type="monotone" dataKey="cumulativeCarbon" name="Cumulative Carbon" stroke="#ef4444" fill="rgba(239,68,68,0.15)" strokeWidth={2} dot={{ r: 3 }} />
+                                                <Line yAxisId="right" type="monotone" dataKey="tco2e" name="Per-Year tCO₂e" stroke="#3b82f6" strokeWidth={2} strokeDasharray="4 3" dot={{ r: 3, fill: '#3b82f6' }} />
+                                                {isPeerActive && peerIds.map(p => (
+                                                    <Line key={p.id} yAxisId="left" type="monotone" dataKey={`peer_${p.id}_cum`} name={`peer_${p.id}_cum`} stroke={p.color} strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
+                                                ))}
                                             </ComposedChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -1012,13 +1319,24 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     </div>
                                     <div className={styles.trendChart}>
                                         <ResponsiveContainer width="100%" height={200}>
-                                            <AreaChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                                            <ComposedChart data={chartDataMerged} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
                                                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis tick={{ fontSize: 10, fill: '#94a3b8' }} tickFormatter={(v) => `$${(v / 1_000_000).toFixed(0)}M`} />
-                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => [fmtM(v), 'EBITDA']} />
-                                                <Area type="monotone" dataKey="ebitda" stroke="#10b981" fill="rgba(16,185,129,0.12)" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
-                                            </AreaChart>
+                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => {
+                                                    const isPeer = name.startsWith('peer_');
+                                                    if (isPeer) {
+                                                        const pId = name.split('_')[1];
+                                                        const peer = peerIds.find(p => p.id === pId);
+                                                        return [fmtM(v), peer ? peer.name : 'Peer'];
+                                                    }
+                                                    return [fmtM(v), 'Your EBITDA'];
+                                                }} />
+                                                <Area type="monotone" dataKey="ebitda" name="Your EBITDA" stroke="#10b981" fill="rgba(16,185,129,0.12)" strokeWidth={2.5} dot={{ r: 4, fill: '#10b981' }} activeDot={{ r: 6 }} />
+                                                {isPeerActive && peerIds.map(p => (
+                                                    <Line key={p.id} type="monotone" dataKey={`peer_${p.id}_ebitda`} name={`peer_${p.id}`} stroke={p.color} strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
+                                                ))}
+                                            </ComposedChart>
                                         </ResponsiveContainer>
                                     </div>
                                 </div>
@@ -1031,12 +1349,23 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     </div>
                                     <div className={styles.trendChart}>
                                         <ResponsiveContainer width="100%" height={200}>
-                                            <LineChart data={chartDataWithCum} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
+                                            <LineChart data={chartDataMerged} margin={{ top: 10, right: 20, bottom: 5, left: 10 }}>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.1)" />
                                                 <XAxis dataKey="label" tick={{ fontSize: 9, fill: '#94a3b8' }} />
                                                 <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v) => [`${v.toFixed(1)} / 100`, 'Reputation']} />
-                                                <Line type="monotone" dataKey="rep" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 4, fill: '#8b5cf6' }} activeDot={{ r: 6 }} />
+                                                <Tooltip contentStyle={chartTooltipStyle} formatter={(v, name) => {
+                                                    const isPeer = name.startsWith('peer_');
+                                                    if (isPeer) {
+                                                        const pId = name.split('_')[1];
+                                                        const peer = peerIds.find(p => p.id === pId);
+                                                        return [`${Number(v).toFixed(1)} / 100`, peer ? peer.name : 'Peer'];
+                                                    }
+                                                    return [`${Number(v).toFixed(1)} / 100`, 'Your Reputation'];
+                                                }} />
+                                                <Line type="monotone" dataKey="rep" name="Your Reputation" stroke="#8b5cf6" strokeWidth={2.5} dot={{ r: 4, fill: '#8b5cf6' }} activeDot={{ r: 6 }} />
+                                                {isPeerActive && peerIds.map(p => (
+                                                    <Line key={p.id} type="monotone" dataKey={`peer_${p.id}_rep`} name={`peer_${p.id}`} stroke={p.color} strokeWidth={1.5} strokeDasharray="5 3" dot={false} />
+                                                ))}
                                             </LineChart>
                                         </ResponsiveContainer>
                                     </div>
@@ -1056,6 +1385,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         businessUnits={bus}
                                         roundNumber={10}
                                         events={globalState.active_event_flags || {}}
+                                        peerStockData={isPeerActive ? peerRounds.map(pr => ({ round: pr.round, price: pr.peerStockPrice })).filter(p => p.price) : null}
+                                        peerLabel={isPeerActive ? (peerTrendData?.ai_benchmark ? 'AI Benchmark Avg' : 'Cohort Average') : null}
                                     />
                                 </div>
                             </div>
@@ -1348,40 +1679,6 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 {/* ── Footer ── */}
                 <div className={styles.closeRow} style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem', alignItems: 'center' }}>
 
-                    {/* Extended Mode offer */}
-                    {sessionId && (
-                        <div style={{
-                            width: '100%', maxWidth: 520,
-                            background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.08))',
-                            border: '1px solid rgba(99,102,241,0.3)',
-                            borderRadius: 12, padding: '1rem 1.2rem',
-                            display: 'flex', flexDirection: 'column', gap: '0.5rem',
-                        }}>
-                            <div style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#818cf8' }}>
-                                🚀 Extended Horizon Mode — Rounds 11–20
-                            </div>
-                            <div style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.5 }}>
-                                Continue beyond Year 5 into a full 10-year strategic horizon. Face CBAM enforcement, AI disruption waves, shareholder revolutions, and the legacy decision. Your current state carries forward.
-                            </div>
-                            {extendError && (
-                                <div style={{ fontSize: '0.72rem', color: '#f87171' }}>{extendError}</div>
-                            )}
-                            <button
-                                onClick={handleExtendMode}
-                                disabled={extendLoading}
-                                style={{
-                                    padding: '0.65rem 1.4rem', borderRadius: 8, border: 'none',
-                                    background: extendLoading ? 'rgba(99,102,241,0.3)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                                    color: '#fff', fontWeight: 800, fontSize: '0.78rem',
-                                    cursor: extendLoading ? 'not-allowed' : 'pointer',
-                                    letterSpacing: '0.04em', alignSelf: 'flex-start',
-                                    boxShadow: '0 4px 16px rgba(99,102,241,0.25)',
-                                }}
-                            >
-                                {extendLoading ? '⏳ Activating…' : '🚀 Enter Extended Mode (Rounds 11–20)'}
-                            </button>
-                        </div>
-                    )}
 
                     {/* ──────── TAB: DNA Map (frozen Sankey) ──────── */}
                     {activeTab === 'dna_map' && dnaSnapshot && (
@@ -1414,7 +1711,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                             style={{
                               background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.25)',
                               borderRadius: 8, color: '#818cf8', cursor: 'pointer', padding: '6px 14px',
-                              fontSize: '0.72rem', fontWeight: 600, transition: 'all 0.2s',
+                              fontSize: '0.72rem', fontWeight: 600, transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                             }}
                           >
                             📸 Export PNG
@@ -1437,12 +1734,372 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                       </section>
                     )}
 
+                    {/* ──────── TAB: Pathway Discovery ──────── */}
+                    {activeTab === 'pathway' && d.pathway_discovery && (() => {
+                        const pd = d.pathway_discovery;
+                        const chain = pd.foreshadowing_chain || [];
+
+                        const ROUND_DECISION_THEMES = {
+                            1: { icon: '📋', theme: 'ESG Baseline Assessment', desc: 'Board mandated ESG materiality audit depth' },
+                            2: { icon: '📊', theme: 'Double Materiality Gate', desc: 'CSRD framework alignment decision' },
+                            3: { icon: '🏭', theme: 'Scope 3 Supply Chain', desc: 'Supply chain decarbonisation strategy' },
+                            4: { icon: '🔥', theme: 'Contagion Crisis', desc: 'Reputational crisis response strategy' },
+                            5: { icon: '🌪️', theme: 'Climate Physical Risk', desc: 'Climate resilience investment choice' },
+                            6: { icon: '🤖', theme: 'AI Ethics & Bias', desc: 'Algorithmic ethics governance decision' },
+                            7: { icon: '♻️', theme: 'Circular Economy Pivot', desc: 'EU circular compliance strategy' },
+                            8: { icon: '💧', theme: 'Blue Water Stress', desc: 'Watershed scarcity response' },
+                            9: { icon: '✊', theme: 'Just Transition', desc: 'Workforce & community transition plan' },
+                            10: { icon: '🏛️', theme: 'Grand Finale', desc: 'Activist ultimatum / final strategic choice' },
+                        };
+
+                        return (
+                            <section style={{ padding: '20px 0' }}>
+                                <h2 className={styles.sectionTitle}>🗺️ Pathway Discovery — How Your Ending Was Shaped</h2>
+
+                                {/* Pathway Name + Description */}
+                                <div style={{
+                                    background: '#0f172a',
+                                    border: '1px solid #334155',
+                                    borderRadius: '8px',
+                                    padding: '1rem',
+                                    marginBottom: '0.8rem',
+                                }}>
+                                    <div style={{ fontSize: '0.92rem', fontWeight: 800, color: '#c4b5fd', marginBottom: '0.3rem' }}>
+                                        {pd.pathway_name || 'Unknown Pathway'}
+                                    </div>
+                                    <div style={{ fontSize: '0.82rem', color: '#e2e8f0', lineHeight: 1.55 }}>
+                                        {pd.pathway_description || 'Your decisions shaped a unique ending pathway.'}
+                                    </div>
+                                </div>
+
+                                {/* Foreshadowing Chain */}
+                                {chain.length > 0 && (
+                                    <>
+                                        <div style={{
+                                            fontSize: '0.65rem', fontWeight: 700, textTransform: 'uppercase',
+                                            color: '#94a3b8', letterSpacing: '0.08em', marginBottom: '0.5rem',
+                                        }}>
+                                            Foreshadowing Signals — Rounds {chain[0]?.round || '?'} to {chain[chain.length - 1]?.round || '?'}
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                            {chain.map((step, i) => {
+                                                const rt = ROUND_DECISION_THEMES[step.round] || {};
+                                                const headline = step.headline || step.event || null;
+                                                const detail = step.detail || step.hint || null;
+                                                return (
+                                                    <div key={i} style={{
+                                                        display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                                                        padding: '0.6rem 0.75rem', borderRadius: '6px',
+                                                        background: '#0f172a',
+                                                        borderLeft: `3px solid ${i === chain.length - 1 ? '#a78bfa' : '#475569'}`,
+                                                    }}>
+                                                        <span style={{
+                                                            flexShrink: 0, width: 26, height: 26, borderRadius: '50%',
+                                                            background: i === chain.length - 1 ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.05)',
+                                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                            fontSize: '0.65rem', fontWeight: 800, color: i === chain.length - 1 ? '#a78bfa' : '#64748b',
+                                                            border: i === chain.length - 1 ? '1px solid rgba(167,139,250,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                                        }}>R{step.round}</span>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontSize: '0.74rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                                                {headline || `${rt.icon || '📌'} ${rt.theme || `Round ${step.round}`}`}
+                                                            </div>
+                                                            {detail && (
+                                                                <div style={{ fontSize: '0.66rem', color: '#94a3b8', marginTop: '0.15rem', lineHeight: 1.45 }}>
+                                                                    {detail}
+                                                                </div>
+                                                            )}
+                                                            {!detail && rt.desc && (
+                                                                <div style={{ fontSize: '0.66rem', color: '#64748b', marginTop: '0.15rem', fontStyle: 'italic' }}>
+                                                                    {rt.desc}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Pedagogical Note */}
+                                {pd.pedagogical_note && (
+                                    <div style={{
+                                        marginTop: '0.8rem', padding: '0.6rem 0.8rem', borderRadius: '6px',
+                                        background: 'rgba(168,85,247,0.06)',
+                                        border: '1px solid rgba(168,85,247,0.2)',
+                                        fontSize: '0.72rem', color: '#c4b5fd', lineHeight: 1.5,
+                                        fontStyle: 'italic',
+                                    }}>
+                                        <strong>💡 Facilitator Note:</strong> {pd.pedagogical_note}
+                                    </div>
+                                )}
+                            </section>
+                        );
+                    })()}
+
+                    {/* ──────── TAB: Decision Journey ──────── */}
+                    {activeTab === 'journey' && history && history.length > 0 && (() => {
+                        const ROUND_DEEP = {
+                            1: { icon: '📋', theme: 'ESG Baseline Assessment', crisis: 'The Board mandated a comprehensive ESG materiality audit to identify the group\'s exposure to sustainability risks across all four business units.',
+                                options: {
+                                    option_a: { label: 'Surface-Level Scan', cost: '$0', impacts: ['Reputation −2: Stakeholders perceive the audit as performative — NGOs flag "greenwashing" risk.', 'No hidden liabilities uncovered — blind spots in Electronics BU supply chain remain undetected.', 'Sets a weak baseline for future CSRD reporting in Round 2, making Double Materiality harder.'] },
+                                    option_b: { label: 'Deep Forensic Audit', cost: '−$3M', impacts: ['Reputation +5: Transparent disclosure earns analyst upgrades and media credibility.', 'Uncovers hidden natural capital debt in Mining BU — enables proactive remediation before regulators intervene.', 'Creates robust data foundation for Scope 3 calculations in Round 3 and CSRD compliance in Round 2.', 'The $3M cost reduces short-term treasury but unlocks the "Deep Audit Completed" causal flag — a prerequisite for M_R bonuses later.'] },
+                                    option_c: { label: 'Phased Audit Rollout', cost: '−$1.5M', impacts: ['Reputation +2: Moderate credibility — seen as "trying" but not fully committed.', 'Partial discovery of risks — Electronics supply chain gaps may surface later in Round 4 Contagion Crisis.', 'Cost-efficient but delays full baseline by one quarter, creating a data gap in trend reporting.'] },
+                                },
+                            },
+                            2: { icon: '📊', theme: 'Double Materiality Gate', crisis: 'The EU Corporate Sustainability Reporting Directive (CSRD) requires Double Materiality assessment — evaluating both how sustainability issues affect the company AND how the company affects society.',
+                                options: {
+                                    option_a: { label: 'Full CSRD Alignment', cost: 'Rep+5, Gov−5', impacts: ['Full alignment with EFRS standards — positions Muressons as an EU regulatory leader.', 'Governance score drops as internal processes are restructured to meet disclosure requirements.', 'Unlocks the "CSRD Governance Premium" (+0.10 M_R) — a direct multiplier on terminal value.', 'Creates defensible audit trail that protects against regulatory fines in later rounds.'] },
+                                    option_b: { label: 'Strategic Exceptions', cost: 'Rep+2, Gov−2', impacts: ['Cherry-picks favorable metrics for disclosure — regulators may challenge completeness later.', 'Modest reputation gain but leaves gaps that could be exploited in Round 4 media crisis.', 'Governance impact is manageable but the incomplete framework may hinder Scope 3 reporting.'] },
+                                    option_c: { label: 'Ignore Framework', cost: 'Rep−5, Gov+10', impacts: ['Reputation suffers significantly — ESG-focused investors begin divesting.', 'Governance score soars as management retains full operational control without external constraints.', 'Triggers the "Governance Fragility" causal flag — creates compounding vulnerability in Rounds 5-8.', 'Short-term efficiency gains are overwhelmed by medium-term regulatory and reputational costs.'] },
+                                },
+                            },
+                            3: { icon: '🏭', theme: 'Scope 3 Supply Chain', crisis: 'Mandatory Scope 3 GHG disclosures are imminent. The Electronics and Mining BUs have extensive upstream supply chains with significant embedded carbon.',
+                                options: {
+                                    option_a: { label: 'Rapid Supplier Switch', cost: '−$4M', impacts: ['Carbon Intensity −15: Immediate and dramatic decarbonisation of supply chain.', 'Treasury hit of $4M reflects supplier transition costs — contract terminations, new onboarding.', 'Triggers "Broz Pioneer" causal flag — unlocks Green Bond Premium and Resilience Bonus pathways.', 'Reduces Year 5 carbon tax liability significantly, potentially saving more than the upfront cost.'] },
+                                    option_b: { label: 'Green Bond Investment', cost: '−$2M', impacts: ['Carbon Intensity −8: Moderate reduction funded through ESG-labelled debt instruments.', 'Green bond issuance signals market credibility — cost of debt decreases for future rounds.', 'Builds a bridge to Net Zero but may not be aggressive enough to avoid tipping point in Round 5.'] },
+                                    option_c: { label: 'Offset & Defer', cost: '−$1M', impacts: ['Reputation −3: Carbon offsets are increasingly viewed as "climate delay" by stakeholders.', 'Minimal actual emission reduction — kicks the carbon liability to future rounds.', 'Round 5 Climate Event and Round 7 Circular Economy will compound the deferred carbon debt.', 'Cheapest short-term option but creates the highest long-term carbon tax exposure at terminal.'] },
+                                },
+                            },
+                            4: { icon: '🔥', theme: 'Contagion Crisis', crisis: 'An investigative journalist exposes child labour and toxic waste dumping in a tier-2 supplier to the Electronics BU. The story goes viral, triggering regulatory investigations across all business units.',
+                                options: {
+                                    option_a: { label: 'Full Transparency', cost: '−$6M', impacts: ['Reputation +10: Radical transparency earns grudging respect from media and regulators.', '$6M covers immediate remediation, victim compensation, and independent supply chain audit.', 'Triggers "Broz Net Positive Disclosure" flag — strengthens the Truth Premium M_R component.', 'The reputational recovery creates a buffer for future crises in Rounds 5-8.'] },
+                                    option_b: { label: 'Damage Control PR', cost: '−$2M', impacts: ['Reputation +2: Professional crisis management contains the story but doesn\'t resolve root causes.', 'Media cycle moves on but the underlying supply chain vulnerability remains exploitable.', 'If Round 1 chose Surface-Level Scan, the blind spots compound — "Electronics Blindspot" flag activates.'] },
+                                    option_c: { label: 'Deny & Deflect', cost: '$0', impacts: ['Reputation −15: Catastrophic brand damage as whistleblowers provide contradicting evidence.', 'Triggers "Broz Greenwash Risk" flag — permanently damages credibility with ESG investors.', 'Compounds in Rounds 6-9: stakeholder trust deficit makes every future crisis more expensive.', 'The $0 upfront "saving" typically costs $20M+ in compounded reputational and regulatory penalties.'] },
+                                },
+                            },
+                            5: { icon: '🌪️', theme: 'Climate Physical Risk', crisis: 'A Category 4 cyclone makes landfall near key Mining and Agriculture facilities. Infrastructure damage is immediate. Insurance premiums are repricing globally.',
+                                options: {
+                                    option_a: { label: 'Hard Engineering', cost: '−$8M', impacts: ['Maximum physical resilience — seawalls, reinforced structures, backup power systems.', 'Unlocks "Resilience Bonus" (+0.20 M_R) — the most valuable climate-linked multiplier.', 'Protects revenue base from future climate events — facilities operate through disruptions.', 'The $8M investment reduces insurance costs and protects asset book value at terminal.'] },
+                                    option_b: { label: 'Nature-Based Solutions', cost: '−$5M', impacts: ['Mangrove restoration, wetland buffers, and green infrastructure provide moderate protection.', 'Natural Capital Debt decreases — the ecosystem services create ongoing value beyond storm protection.', 'Partial resilience — another severe event could still cause damage, but at reduced severity.', 'Signals climate leadership to stakeholders — reputation and SLO both benefit modestly.'] },
+                                    option_c: { label: 'Insurance Only', cost: '−$2M', impacts: ['Minimum capital outlay — relies entirely on insurance markets to absorb future losses.', 'No Resilience Bonus earned — misses +0.20 M_R that directly multiplies terminal value.', 'Insurance premiums will escalate in subsequent rounds as climate risk reprices.', 'Facilities remain vulnerable — any Round 8 Water Scarcity event hits unprotected assets.'] },
+                                },
+                            },
+                            6: { icon: '🤖', theme: 'AI Ethics & Bias', crisis: 'An internal audit reveals the Software BU\'s AI recruitment algorithm systematically discriminates against certain demographic groups. Regulators and civil rights organisations are notified.',
+                                options: {
+                                    option_a: { label: 'Monetise Algorithm', cost: '+$5M', impacts: ['Revenue +$5M from licensing the biased algorithm to third parties — immediate treasury gain.', 'Reputation −20: Catastrophic stakeholder backlash when the monetisation becomes public.', 'Triggers severe "AI Reputational Risk" flag — talent flight accelerates from Software BU.', 'P_Talent penalty multiplier increases, inflating Software BU OPEX in all subsequent rounds.', 'The +$5M gain is dwarfed by the terminal value destruction from talent and reputation collapse.'] },
+                                    option_b: { label: 'Ethical Overhaul', cost: '−$8M', impacts: ['SLO +15: Communities and workforce see genuine commitment to ethical technology governance.', 'Earns "Truth Premium" (+0.15 M_R) — one of the highest-value multiplier components.', '$8M funds algorithmic retraining, third-party bias audits, and a public transparency report.', 'Software BU talent retention stabilises — P_Talent penalty is avoided or reversed.', 'Creates defensive moat against Round 9 Just Transition labour scrutiny.'] },
+                                    option_c: { label: 'Quiet Patch', cost: '−$1M', impacts: ['Reputation −5: The patch fixes symptoms but the systemic bias architecture remains.', 'If discovered later (probable in media-rich environment), the cover-up compounds damage.', 'No Truth Premium earned — misses +0.15 M_R on terminal value.', 'Moderate cost but creates ongoing governance fragility that regulators may exploit.'] },
+                                },
+                            },
+                            7: { icon: '♻️', theme: 'Circular Economy', crisis: 'The EU Circular Economy Action Plan mandates 60% waste diversion across all industrial operations. Non-compliance triggers escalating fines and market access restrictions.',
+                                options: {
+                                    option_a: { label: 'Circular Redesign', cost: '−$10M', impacts: ['NCD −12: Dramatic reduction in Natural Capital Debt as products are redesigned for full lifecycle.', 'Transforms Mining and Agriculture BUs into closed-loop systems — waste becomes feedstock.', 'Unlocks cross-BU synergy pathways — materials flow between divisions creating internal value.', 'The $10M investment pays back through reduced raw material costs and EU compliance positioning.'] },
+                                    option_b: { label: 'Producer Responsibility', cost: '−$5M', impacts: ['Meets minimum EU Extended Producer Responsibility requirements — avoids fines.', 'Moderate circularity gains but the business model remains fundamentally linear.', 'Does not unlock the Synergy Bonus — BUs continue operating as disconnected silos.', 'Sufficient for compliance but misses the strategic upside of systemic redesign.'] },
+                                    option_c: { label: 'Waste-to-Energy', cost: '−$7M', impacts: ['Synergy +0.35: Creates an internal energy ecosystem — waste from one BU powers another.', 'The waste-to-energy pathway is the primary unlock for the Industrial Synergy multiplier.', 'Reduces external energy costs and creates revenue from excess energy sales.', 'Important: doesn\'t reduce NCD as much as Circular Redesign — the waste is burned, not eliminated.'] },
+                                },
+                            },
+                            8: { icon: '💧', theme: 'Blue Water Stress', crisis: 'The watershed serving Mining and Agriculture operations is reclassified from "stressed" to "critically stressed." Water allocation permits are being revoked. Communities demand priority access.',
+                                options: {
+                                    option_a: { label: 'Water Efficiency All BUs', cost: '−$12M', impacts: ['Comprehensive water recycling and efficiency across all four business units.', 'Eliminates water scarcity risk as a terminal value threat — operational continuity assured.', 'SLO benefit: communities see Muressons as a responsible water steward rather than a competitor.', '$12M is the most expensive option but creates the broadest resilience across the portfolio.'] },
+                                    option_b: { label: 'Prioritise Electronics', cost: '−$4M', impacts: ['Focuses water efficiency investment on the highest-value BU — protects Software and Electronics.', 'Mining and Agriculture BUs remain exposed — if water permits are revoked, those BUs face shutdown.', 'Cost-efficient but creates asymmetric risk — the portfolio is only partially protected.', 'May trigger community backlash if Mining BU operations degrade local water access.'] },
+                                    option_c: { label: 'Desalination Mega-Project', cost: '−$30M', impacts: ['Creates an independent water supply — complete decoupling from watershed dependency.', 'The $30M cost is the single largest capital allocation in the simulation — massive treasury impact.', 'Eliminates water risk permanently but the capital could have been deployed across multiple initiatives.', 'Energy-intensive desalination increases carbon footprint — potential conflict with decarbonisation goals.'] },
+                                },
+                            },
+                            9: { icon: '✊', theme: 'Just Transition', crisis: 'Three legacy factories must close as Muressons pivots to sustainable operations. 2,400 workers face displacement. Community protests are escalating. The ILO and trade unions are watching.',
+                                options: {
+                                    option_a: { label: 'Immediate Closure', cost: '+$5M', impacts: ['Treasury +$5M from immediate OPEX savings — factories close within 90 days.', 'SLO −20: Communities and displaced workers have no safety net — protests intensify.', 'Triggers the "Instability Discount" (−0.40 M_R) if average SLO falls below 75 — devastating to terminal value.', 'Media coverage of displaced families creates lasting reputational damage heading into the Grand Finale.', 'The +$5M saving can easily destroy $50M+ in terminal value through the M_R penalty.'] },
+                                    option_b: { label: 'Managed Transition', cost: '−$12M', impacts: ['SLO +10: Workers receive retraining programs and 18-month transition support.', 'Earns "Just Transition Bonus" (+0.12 M_R) — rewards responsible workforce management.', '$12M covers retraining centres, income bridges, and community liaison officers.', 'Maintains SLO above 75 threshold — avoids the catastrophic Instability Discount.'] },
+                                    option_c: { label: 'Community Fund', cost: '−$20M', impacts: ['SLO +18: The most generous community investment — establishes a permanent transition fund.', 'Earns both "Just Transition Bonus" (+0.12) AND "Community Champion Bonus" (+0.18 M_R).', '$20M creates a self-sustaining community development corporation — legacy beyond the simulation.', 'Combined +0.30 M_R bonus is the single highest M_R contribution available from any single round.'] },
+                                },
+                            },
+                            10: { icon: '🏛️', theme: 'Grand Finale', crisis: 'An activist consortium has acquired a blocking stake in Muressons Global. They demand a strategic review: integrate and reform, spin off underperformers, or divest entirely. The Board must decide.',
+                                options: {
+                                    option_a: { label: 'Resist & Integrate', cost: '−$5M', impacts: ['Maintains portfolio integrity — all four BUs continue operating as an integrated group.', '$5M funds legal defence, shareholder communications, and operational restructuring.', 'Preserves cross-BU synergy multiplier — if Synergy was built in R7, this protects that investment.', 'The activist consortium may launch a proxy fight — governance strength from R2 decisions determines outcome.'] },
+                                    option_b: { label: 'Spin-off', cost: '+$10M', impacts: ['Treasury +$10M from spinning off one or more underperforming BUs.', 'Synergy multiplier is partially reduced as cross-BU value chains are severed.', 'Allows remaining BUs to focus capital on their strongest sustainability positions.', 'Market generally rewards focused portfolios — valuation multiple may increase for retained BUs.'] },
+                                    option_c: { label: 'Divest', cost: '+$25M', impacts: ['Treasury +$25M from full divestiture of non-core assets — maximum immediate cash generation.', 'Synergy multiplier drops significantly — the integrated industrial ecosystem is dismantled.', 'Eliminates carbon and water liabilities from divested BUs — improves per-unit sustainability metrics.', 'Highest short-term cash but destroys the long-term strategic optionality built over 9 rounds.'] },
+                                },
+                            },
+                        };
+
+                        const choiceColors = { option_a: '#38bdf8', option_b: '#f59e0b', option_c: '#f87171' };
+                        const choiceLetters = { option_a: 'A', option_b: 'B', option_c: 'C' };
+
+                        // Hover state managed via a wrapper component
+                        const JourneyRow = ({ roundNum, h, prevH }) => {
+                            const [hovered, setHovered] = React.useState(false);
+                            const rd = ROUND_DEEP[roundNum] || {};
+                            const choice = h?.choice_selected || h?.choice || null;
+                            const choiceLetter = choiceLetters[choice] || '?';
+                            const choiceLabel = h?.choice_title || h?.choice_label || (rd.options?.[choice]?.label) || null;
+                            const choiceColor = choiceColors[choice] || '#94a3b8';
+                            const optionData = rd.options?.[choice];
+
+                            let delta = h?.treasury_delta ?? null;
+                            if (delta === null) {
+                                const curr = h?.treasury ?? h?.corporate_treasury ?? 0;
+                                const prev = prevH ? (prevH?.treasury ?? prevH?.corporate_treasury ?? curr) : curr;
+                                delta = curr - prev;
+                            }
+                            const deltaStr = delta !== 0 ? `${delta >= 0 ? '+' : ''}$${(Math.abs(delta) / 1_000_000).toFixed(1)}M` : null;
+
+                            return (
+                                <div
+                                    onMouseEnter={() => setHovered(true)}
+                                    onMouseLeave={() => setHovered(false)}
+                                    style={{ position: 'relative', cursor: 'pointer' }}
+                                >
+                                    {/* Row */}
+                                    <div style={{
+                                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                        padding: '0.45rem 0.65rem', borderRadius: '6px',
+                                        background: hovered ? 'rgba(99,102,241,0.1)' : 'rgba(0,0,0,0.15)',
+                                        borderLeft: `3px solid ${choiceColor}`,
+                                        transition: 'background 0.15s',
+                                    }}>
+                                        <span style={{
+                                            flexShrink: 0, width: 22, height: 22, borderRadius: '50%',
+                                            background: `${choiceColor}18`,
+                                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                            fontSize: '0.6rem', fontWeight: 800, color: choiceColor,
+                                            border: `1px solid ${choiceColor}40`,
+                                        }}>{roundNum}</span>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', fontWeight: 700, color: '#e2e8f0' }}>
+                                                <span>{rd.icon || '📌'}</span>
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{rd.theme || `Round ${roundNum}`}</span>
+                                            </div>
+                                            {choiceLabel && (
+                                                <div style={{ fontSize: '0.62rem', color: '#94a3b8', marginTop: '0.1rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {choiceLabel}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span style={{
+                                            flexShrink: 0, padding: '2px 8px', borderRadius: '4px',
+                                            fontSize: '0.65rem', fontWeight: 800,
+                                            background: `${choiceColor}18`, color: choiceColor,
+                                            border: `1px solid ${choiceColor}30`,
+                                            fontFamily: "'JetBrains Mono', monospace",
+                                        }}>{choiceLetter}</span>
+                                        {deltaStr && (
+                                            <span style={{
+                                                flexShrink: 0, fontSize: '0.62rem', fontWeight: 700,
+                                                color: delta >= 0 ? '#4ade80' : '#f87171',
+                                                fontFamily: "'JetBrains Mono', monospace",
+                                                minWidth: '48px', textAlign: 'right',
+                                            }}>{deltaStr}</span>
+                                        )}
+                                    </div>
+
+                                    {/* Hover Popup */}
+                                    {hovered && optionData && (
+                                        <div style={{
+                                            position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 50,
+                                            marginTop: '4px',
+                                            background: 'linear-gradient(135deg, #1e293b, #0f172a)',
+                                            border: `1px solid ${choiceColor}50`,
+                                            borderRadius: '10px',
+                                            padding: '1rem 1.1rem',
+                                            boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px ${choiceColor}20`,
+                                            animation: 'fadeIn 0.15s ease-out',
+                                        }}>
+                                            {/* Crisis Context */}
+                                            <div style={{ fontSize: '0.68rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.4rem' }}>
+                                                Round {roundNum} — Crisis Context
+                                            </div>
+                                            <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.55, marginBottom: '0.7rem', fontStyle: 'italic', borderLeft: '2px solid #475569', paddingLeft: '0.6rem' }}>
+                                                {rd.crisis}
+                                            </div>
+
+                                            {/* Your Decision */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.6rem' }}>
+                                                <span style={{
+                                                    padding: '3px 10px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 800,
+                                                    background: `${choiceColor}20`, color: choiceColor,
+                                                    border: `1px solid ${choiceColor}40`,
+                                                }}>
+                                                    Option {choiceLetter}: {optionData.label}
+                                                </span>
+                                                {optionData.cost && (
+                                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontFamily: "'JetBrains Mono', monospace" }}>
+                                                        ({optionData.cost})
+                                                    </span>
+                                                )}
+                                            </div>
+
+                                            {/* Impact Chain */}
+                                            <div style={{ fontSize: '0.65rem', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: 700, marginBottom: '0.35rem' }}>
+                                                ⛓️ Impact Chain & Consequences
+                                            </div>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                                                {optionData.impacts.map((impact, idx) => (
+                                                    <div key={idx} style={{
+                                                        display: 'flex', alignItems: 'flex-start', gap: '0.4rem',
+                                                        padding: '0.35rem 0.5rem', borderRadius: '5px',
+                                                        background: 'rgba(255,255,255,0.02)',
+                                                        borderLeft: `2px solid ${idx === 0 ? choiceColor : idx === optionData.impacts.length - 1 ? '#a78bfa' : '#334155'}`,
+                                                    }}>
+                                                        <span style={{ flexShrink: 0, fontSize: '0.65rem', color: idx === 0 ? choiceColor : '#64748b', marginTop: '1px' }}>
+                                                            {idx === 0 ? '▸' : idx === optionData.impacts.length - 1 ? '◆' : '│'}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.72rem', color: '#e2e8f0', lineHeight: 1.5 }}>
+                                                            {impact}
+                                                        </span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            );
+                        };
+
+                        return (
+                            <section style={{ padding: '20px 0' }}>
+                                <h2 className={styles.sectionTitle}>📜 Full Decision Journey — 10 Rounds</h2>
+                                <p style={{ fontSize: '0.72rem', color: '#64748b', marginBottom: '0.8rem', lineHeight: 1.5 }}>
+                                    Hover over each round to reveal the full impact chain — how your strategic choice cascaded through financial, reputational, and systemic consequences.
+                                </p>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                                    {history.slice(0, 10).map((h, i) => (
+                                        <JourneyRow key={i + 1} roundNum={i + 1} h={h} prevH={i > 0 ? history[i - 1] : null} />
+                                    ))}
+                                </div>
+
+                                {/* Summary footer */}
+                                {history.length >= 10 && (() => {
+                                    const totalDelta = history.slice(0, 10).reduce((sum, h, i) => {
+                                        let delta = h?.treasury_delta ?? 0;
+                                        if (delta === 0) {
+                                            const curr = h?.treasury ?? h?.corporate_treasury ?? 0;
+                                            const prev = i > 0 ? (history[i - 1]?.treasury ?? history[i - 1]?.corporate_treasury ?? curr) : curr;
+                                            delta = curr - prev;
+                                        }
+                                        return sum + delta;
+                                    }, 0);
+                                    return (
+                                        <div style={{
+                                            marginTop: '0.6rem', padding: '0.5rem 0.75rem', borderRadius: '6px',
+                                            background: 'rgba(99,102,241,0.06)',
+                                            border: '1px solid rgba(99,102,241,0.15)',
+                                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                        }}>
+                                            <span style={{ fontSize: '0.65rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                                                Net Treasury Impact (10 Rounds)
+                                            </span>
+                                            <span style={{
+                                                fontSize: '0.82rem', fontWeight: 900,
+                                                color: totalDelta >= 0 ? '#4ade80' : '#f87171',
+                                                fontFamily: "'JetBrains Mono', monospace",
+                                            }}>
+                                                {totalDelta >= 0 ? '+' : ''}${(Math.abs(totalDelta) / 1_000_000).toFixed(1)}M
+                                            </span>
+                                        </div>
+                                    );
+                                })()}
+                            </section>
+                        );
+                    })()}
+
                     <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
                         <button className={styles.closeBtn} onClick={proceedAction} style={{ background: theme.gradient }}>
                             {onProceed ? '⚖️ Proceed to Boardroom Showdown →' : 'Close Balanced Scorecard'}
                         </button>
-                        {onLogout && !onProceed && (
-                            <button className={styles.closeBtn} onClick={onLogout} style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
+                        {onLogout && (
+                            <button className={styles.closeBtn} onClick={() => { if (window.confirm('Log out? Your progress is saved and you can return anytime.')) onLogout(); }} style={{ background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }}>
                                 👋 Logout & Exit
                             </button>
                         )}

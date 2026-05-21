@@ -17,7 +17,9 @@ const TIERS = [
 
 // ── Radar Chart (SVG polygon on 4 axes) ──────────────────────
 function RadarChart({ scores, size = 220 }) {
-    const cx = size / 2, cy = size / 2, r = size * 0.36;
+    const padding = 40;
+    const fullSize = size + padding * 2;
+    const cx = fullSize / 2, cy = fullSize / 2, r = size * 0.36;
     // 4 axes: top=Financial(0°), right=Decarbon(90°), bottom=Risk(180°), left=Circular(270°)
     const angles = [-90, 0, 90, 180]; // degrees from top, clockwise
     const toRad = d => d * Math.PI / 180;
@@ -42,7 +44,7 @@ function RadarChart({ scores, size = 220 }) {
     const rings = [0.25, 0.5, 0.75, 1.0];
 
     return (
-        <svg viewBox={`0 0 ${size} ${size}`} style={{ width: '100%', maxWidth: size }}>
+        <svg viewBox={`0 0 ${fullSize} ${fullSize}`} style={{ width: '100%', maxWidth: fullSize, overflow: 'visible' }}>
             {/* Rings */}
             {rings.map(f => {
                 const pts = angles.map(a => {
@@ -56,10 +58,10 @@ function RadarChart({ scores, size = 220 }) {
                 <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="#e2e8f0" strokeWidth="1" />
             ))}
             {/* Score polygon filled */}
-            <polygon points={polyPts} fill="rgba(220,38,38,0.12)" stroke="#dc2626" strokeWidth="2" strokeLinejoin="round" style={{ transition: 'all 0.35s' }} />
+            <polygon points={polyPts} fill="rgba(220,38,38,0.12)" stroke="#dc2626" strokeWidth="2" strokeLinejoin="round" style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
             {/* Score dots */}
             {scorePoints.map((p, i) => (
-                <circle key={i} cx={p.x} cy={p.y} r="4.5" fill={PILLARS[i].color} style={{ transition: 'all 0.35s' }} />
+                <circle key={i} cx={p.x} cy={p.y} r="4.5" fill={PILLARS[i].color} style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
             ))}
             {/* Axis labels */}
             {axisPoints.map((p, i) => (

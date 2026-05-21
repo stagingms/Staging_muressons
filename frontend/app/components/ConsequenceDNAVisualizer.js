@@ -79,7 +79,9 @@ export default function ConsequenceDNAVisualizer({
   const [loading, setLoading] = useState(false);
   const [hoveredChain, setHoveredChain] = useState(null);
   const [hoveredLink, setHoveredLink] = useState(null); // {x, y, label} for path tooltip
+  const [hoveredNode, setHoveredNode] = useState(null); // {node, type, rect} for node tooltip
   const svgRef = useRef(null);
+  const containerRef = useRef(null);
 
   // Fetch data from API (or use snapshot)
   useEffect(() => {
@@ -185,6 +187,84 @@ export default function ConsequenceDNAVisualizer({
     setHoveredChain(nodeId ? getChainIds(nodeId) : null);
   }, [getChainIds]);
 
+  // ── Node tooltip handler ──
+  const handleNodeEnter = useCallback((e, node, type) => {
+    const container = containerRef.current;
+    if (!container) return;
+    const containerRect = container.getBoundingClientRect();
+    const el = e.currentTarget;
+    const svg = svgRef.current;
+    if (!svg) return;
+    const svgRect = svg.getBoundingClientRect();
+    const sx = svgRect.width / SVG_W;
+    const sy = svgRect.height / SVG_H;
+    const nx = svgRect.left - containerRect.left + node.x * sx + node.w * sx + 8;
+    const ny = svgRect.top - containerRect.top + node.y * sy;
+    setHoveredNode({ node, type, x: nx, y: ny });
+    handleHover(node.id || node.agent_id);
+  }, [handleHover]);
+
+  const handleNodeLeave = useCallback(() => {
+    setHoveredNode(null);
+    handleHover(null);
+  }, [handleHover]);
+
+  // ── Tooltip content builder ──
+  const buildTooltipContent = useCallback((info) => {
+    if (!info) return null;
+    const { node: n, type } = info;
+    switch (type) {
+      case 'decision': return {
+        title: n.label || `R${n.round}`,
+        rows: [
+          ['Leverage Point', `LP${n.leverage_level || 12}`],
+          ['Impact Score', (n.impact_score || 0).toFixed(2)],
+          ['Category', n.category_label || (n.leverage_level <= 3 ? 'Deep Structural' : n.leverage_level <= 9 ? 'Feedback Loop' : 'Parameter Tweak')],
+          ['CAPEX', n.capex ? `$${(n.capex / 1e6).toFixed(1)}M` : '—'],
+        ],
+        color: leverageColor(n.leverage_level || 12),
+      };
+      case 'flag': return {
+        title: n.label || n.id,
+        rows: [
+          ['Status', n.active ? '🟢 Active' : '⚪ Inactive'],
+          ['Source → Target', `R${n.source_round} → R${n.target_round}`],
+          ['Category', n.category || '—'],
+          ['Effect', n.effect || '—'],
+        ],
+        color: n.active ? '#10b981' : '#94a3b8',
+      };
+      case 'agent': return {
+        title: `${n.icon || ''} ${n.name || n.agent_id}`,
+        rows: [
+          ['Stage', (n.stage || 'dormant').toUpperCase()],
+          ['Constriction', `${((n.constriction_factor || 0) * 100).toFixed(0)}%`],
+          ['Flow', `${n.flow_source || '?'} → ${n.flow_target || '?'}`],
+          n.leak_active ? ['⚠ Leak', n.leak_label || 'Active'] : null,
+        ].filter(Boolean),
+        color: ({ dormant: '#94a3b8', watching: '#f59e0b', agitated: '#f59e0b', hostile: '#ef4444', triggered: '#ef4444' })[n.stage] || '#94a3b8',
+      };
+      case 'metric': return {
+        title: n.label || n.id,
+        rows: [
+          ['Metric', n.metric || '—'],
+          ['Delta', `${n.delta > 0 ? '+' : ''}${n.delta}`],
+          ['Source Flag', (n.source_flag || '—').replace(/_/g, ' ')],
+        ],
+        color: n.delta > 0 ? '#10b981' : '#ef4444',
+      };
+      case 'projection': return {
+        title: n.label || n.id,
+        rows: [
+          ['M_R Contribution', `${n.mr_delta > 0 ? '+' : ''}${(n.mr_delta || 0).toFixed(3)}`],
+          ['Direction', n.mr_delta > 0 ? '📈 Positive' : n.mr_delta < 0 ? '📉 Negative' : '➡ Neutral'],
+        ],
+        color: n.mr_delta > 0 ? '#10b981' : '#ef4444',
+      };
+      default: return null;
+    }
+  }, []);
+
   // ── PNG Export ──
   const handleCapture = useCallback(() => {
     const svg = svgRef.current;
@@ -249,7 +329,7 @@ export default function ConsequenceDNAVisualizer({
         {frozen && <div className={styles.frozenBadge}>🔒 SYSTEM FREEZE — R10</div>}
 
         {/* SVG Canvas */}
-        <div className={styles.sankeyContainer}>
+        <div className={styles.sankeyContainer} ref={containerRef} style={{ position: 'relative' }}>
           {!ignited && !frozen && (
             <div className={styles.dormantOverlay}>
               <div className={styles.dormantIcon}>🔒</div>
@@ -395,8 +475,8 @@ export default function ConsequenceDNAVisualizer({
                 <g
                   key={node.id}
                   className={`${styles.nodeGroup} ${!isNodeHighlighted(node.id) ? styles.nodeGroupDimmed : ''}`}
-                  onMouseEnter={() => handleHover(node.id)}
-                  onMouseLeave={() => handleHover(null)}
+                  onMouseEnter={(e) => handleNodeEnter(e, node, 'decision')}
+                  onMouseLeave={handleNodeLeave}
                 >
                   <rect
                     x={node.x} y={node.y} width={node.w} height={node.h}
@@ -419,8 +499,8 @@ export default function ConsequenceDNAVisualizer({
                 <g
                   key={node.id}
                   className={`${styles.nodeGroup} ${!isNodeHighlighted(node.id) ? styles.nodeGroupDimmed : ''}`}
-                  onMouseEnter={() => handleHover(node.id)}
-                  onMouseLeave={() => handleHover(null)}
+                  onMouseEnter={(e) => handleNodeEnter(e, node, 'flag')}
+                  onMouseLeave={handleNodeLeave}
                 >
                   <rect
                     x={node.x} y={node.y} width={node.w} height={node.h}
@@ -459,6 +539,8 @@ export default function ConsequenceDNAVisualizer({
                   <g
                     key={node.agent_id}
                     className={`${styles.conflictNode} ${node.stage === 'triggered' ? styles.cascadeFlash : ''}`}
+                    onMouseEnter={(e) => handleNodeEnter(e, node, 'agent')}
+                    onMouseLeave={handleNodeLeave}
                   >
                     <rect
                       x={node.x} y={node.y} width={node.w} height={node.h}
@@ -492,8 +574,8 @@ export default function ConsequenceDNAVisualizer({
                 <g
                   key={node.id}
                   className={`${styles.nodeGroup} ${!isNodeHighlighted(node.id) ? styles.nodeGroupDimmed : ''}`}
-                  onMouseEnter={() => handleHover(node.id)}
-                  onMouseLeave={() => handleHover(null)}
+                  onMouseEnter={(e) => handleNodeEnter(e, node, 'metric')}
+                  onMouseLeave={handleNodeLeave}
                 >
                   <rect
                     x={node.x} y={node.y} width={node.w} height={node.h}
@@ -515,8 +597,8 @@ export default function ConsequenceDNAVisualizer({
                 <g
                   key={node.id}
                   className={`${styles.nodeGroup} ${!isNodeHighlighted(node.id) ? styles.nodeGroupDimmed : ''}`}
-                  onMouseEnter={() => handleHover(node.id)}
-                  onMouseLeave={() => handleHover(null)}
+                  onMouseEnter={(e) => handleNodeEnter(e, node, 'projection')}
+                  onMouseLeave={handleNodeLeave}
                 >
                   <rect
                     x={node.x} y={node.y} width={node.w} height={node.h}
@@ -602,6 +684,26 @@ export default function ConsequenceDNAVisualizer({
               <div className={styles.dormantText}>Loading Consequence DNA data…</div>
             </div>
           )}
+
+          {/* ── Node Hover Tooltip (HTML overlay) ── */}
+          {hoveredNode && (() => {
+            const tip = buildTooltipContent(hoveredNode);
+            if (!tip) return null;
+            return (
+              <div
+                className={styles.nodeTooltip}
+                style={{ left: hoveredNode.x, top: hoveredNode.y, borderColor: tip.color }}
+              >
+                <div className={styles.nodeTooltipTitle} style={{ color: tip.color }}>{tip.title}</div>
+                {tip.rows.map(([k, v], i) => (
+                  <div key={i} className={styles.nodeTooltipRow}>
+                    <span className={styles.nodeTooltipKey}>{k}</span>
+                    <span className={styles.nodeTooltipVal}>{v}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Footer Stats */}

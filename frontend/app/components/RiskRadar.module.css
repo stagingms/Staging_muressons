@@ -1,9 +1,7 @@
-/* RiskRadar.module.css — Glassmorphism Risk Radar styling */
+ï»¿/* RiskRadar.module.css â€” Glassmorphism Risk Radar styling */
 
 .radarContainer {
-  background: rgba(15, 23, 42, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background: rgba(15, 23, 42, 0.97);
   border: 1px solid rgba(148, 163, 184, 0.15);
   border-radius: 16px;
   padding: 20px;
@@ -31,7 +29,7 @@
 .radarTitle {
   font-size: 15px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.01em;
 }
@@ -47,7 +45,7 @@
   align-items: center;
   gap: 5px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: capitalize;
 }
 
@@ -75,8 +73,7 @@
 
 .tooltip {
   position: absolute;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(12px);
+  background: rgba(15, 23, 42, 0.97);
   border: 1px solid rgba(99, 102, 241, 0.3);
   border-radius: 10px;
   padding: 12px 14px;
@@ -89,7 +86,7 @@
 .tooltipTitle {
   font-size: 13px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
@@ -100,18 +97,18 @@
   justify-content: space-between;
   gap: 12px;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   padding: 2px 0;
 }
 
 .tooltipRow span:last-child {
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
-.tier_safe { color: #10b981 !important; }
-.tier_warning { color: #f59e0b !important; }
-.tier_stressed { color: #ef4444 !important; }
+.tier_safe { color: var(--gauge-green) !important; }
+.tier_warning { color: var(--accent-gold) !important; }
+.tier_stressed { color: var(--gauge-red) !important; }
 .tier_tipped { color: #7f1d1d !important; font-weight: 800 !important; }
 
 /* Light mode overrides */
@@ -121,7 +118,7 @@
     border-color: rgba(148, 163, 184, 0.25);
   }
   .radarTitle { color: #1e293b; }
-  .legendItem { color: #64748b; }
+  .legendItem { color: var(--text-muted); }
   .tooltip {
     background: rgba(255, 255, 255, 0.95);
     border-color: rgba(99, 102, 241, 0.2);

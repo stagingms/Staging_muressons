@@ -224,7 +224,7 @@ export default function GreenFundBidding({ sessionId, onComplete }) {
                         const isRejected = selected === p.id;
                         const borderCol = p.mac < 0 ? '#fecaca' : isFunded ? '#bbf7d0' : '#e2e8f0';
                         return (
-                            <div key={p.id} style={{ border: `2px solid ${isFunded ? '#16a34a' : borderCol}`, background: isFunded ? '#f0fdf4' : '#fff', borderRadius: 8, padding: '0.85rem 1rem', cursor: 'pointer', transition: 'all 0.2s' }}
+                            <div key={p.id} style={{ border: `2px solid ${isFunded ? '#16a34a' : borderCol}`, background: isFunded ? '#f0fdf4' : '#fff', borderRadius: 8, padding: '0.85rem 1rem', cursor: 'pointer', transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s' }}
                                 onClick={() => toggleProject(p.id)}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

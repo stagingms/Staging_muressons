@@ -21,12 +21,10 @@ import copy
 def _run(coro):
     """Run an async coroutine synchronously."""
     try:
-        loop = asyncio.get_event_loop()
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
+        loop = asyncio.get_running_loop()
     except RuntimeError:
         loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         asyncio.set_event_loop(loop)
     return loop.run_until_complete(coro)
 

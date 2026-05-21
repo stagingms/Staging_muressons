@@ -73,7 +73,7 @@ export default function ScenarioPresets() {
                     <div key={p.id} style={{
                         padding: '1.25rem', borderRadius: '12px', background: 'var(--bg-card)',
                         border: '1px solid var(--border-subtle)', position: 'relative',
-                        transition: 'all 0.2s',
+                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                     }}>
                         {p.is_custom && (
                             <button onClick={() => deletePreset(p.id)} style={{

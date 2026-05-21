@@ -1,4 +1,4 @@
-.container { display: flex; flex-direction: column; gap: 1.25rem; }
+ï»¿.container { display: flex; flex-direction: column; gap: 1.25rem; }
 .header { display: flex; align-items: flex-start; gap: 1rem; }
 .icon { font-size: 2rem; }
 .title { font-size: 1.2rem; font-weight: 800; margin: 0; color: var(--text-primary); }
@@ -9,16 +9,16 @@
 .targetSection { }
 .targetHeader { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
 .targetLabel { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); }
-.linkBtn { background: none; border: none; color: #3b82f6; font-size: 0.72rem; cursor: pointer; text-decoration: underline; font-family: inherit; }
+.linkBtn { background: none; border: none; color: var(--accent-blue); font-size: 0.72rem; cursor: pointer; text-decoration: underline; font-family: inherit; }
 .sessionChips { display: flex; flex-wrap: wrap; gap: 0.3rem; }
-.chip { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 3px 10px; font-size: 0.72rem; cursor: pointer; transition: all 0.15s; color: var(--text-secondary); font-family: inherit; }
-.chip:hover { border-color: #3b82f6; }
-.chipActive { background: rgba(59,130,246,0.12); border-color: #3b82f6; color: #3b82f6; font-weight: 700; }
+.chip { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 3px 10px; font-size: 0.72rem; cursor: pointer; transition: border-color 0.15s, background 0.15s, color 0.15s; color: var(--text-secondary); font-family: inherit; }
+.chip:hover { border-color: var(--accent-blue); }
+.chipActive { background: rgba(59,130,246,0.12); border-color: var(--accent-blue); color: var(--accent-blue); font-weight: 700; }
 .scheduleRow { display: flex; align-items: center; gap: 0.5rem; }
 .scheduleLabel { font-size: 0.78rem; color: var(--text-secondary); font-weight: 600; }
 .roundInput { width: 60px; padding: 0.4rem 0.5rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-body); color: var(--text-primary); font-size: 0.82rem; text-align: center; outline: none; }
 .scheduleHint { font-size: 0.68rem; color: var(--text-muted); }
-.sendBtn { background: linear-gradient(135deg, #6366f1, #3b82f6); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.7rem 1.5rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: all 0.2s; font-family: inherit; }
+.sendBtn { background: linear-gradient(135deg, #6366f1, #3b82f6); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.7rem 1.5rem; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: box-shadow 0.2s, transform 0.2s; font-family: inherit; }
 .sendBtn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(99,102,241,0.3); }
 .sendBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .success { background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); color: #22c55e; padding: 0.7rem 1rem; border-radius: var(--radius-md); font-size: 0.85rem; font-weight: 600; }
@@ -29,6 +29,6 @@
 .historyHeader strong { font-size: 0.85rem; color: var(--text-primary); }
 .statusBadge { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; padding: 2px 8px; border-radius: var(--radius-full); }
 .statusSent { color: #22c55e; background: rgba(34,197,94,0.1); }
-.statusScheduled { color: #f59e0b; background: rgba(245,158,11,0.1); }
+.statusScheduled { color: var(--accent-gold); background: rgba(245,158,11,0.1); }
 .historyBody { font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 0.3rem; }
 .historyMeta { display: flex; gap: 0.75rem; font-size: 0.65rem; color: var(--text-muted); font-family: var(--font-mono); }

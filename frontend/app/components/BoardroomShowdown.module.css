@@ -1,9 +1,8 @@
 .overlay {
     position: fixed;
     inset: 0;
-    z-index: 9000;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(12px);
+    z-index: var(--z-top);
+    background: rgba(0, 0, 0, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -12,8 +11,8 @@
 }
 
 .modal {
-    background: var(--bg-card, #1a1a2e);
-    border: 1px solid var(--border-subtle, #2a2a4a);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: 16px;
     width: 100%;
     max-width: 900px;
@@ -35,7 +34,7 @@
     }
 }
 
-/* ── Header ────────────────────────────────────────────────── */
+/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .header {
     background: linear-gradient(135deg, #1e1e3f, #0f172a);
     padding: 2rem 2.5rem;
@@ -52,7 +51,7 @@
     font-size: 0.7rem;
     font-weight: 700;
     letter-spacing: 2px;
-    color: #818cf8;
+    color: var(--accent-blue);
     margin-bottom: 1rem;
 }
 
@@ -67,12 +66,12 @@
 }
 
 .subtitle {
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.85rem;
     margin: 0;
 }
 
-/* ── Briefing Phase ────────────────────────────────────────── */
+/* â”€â”€ Briefing Phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .briefing {
     padding: 2rem;
 }
@@ -80,8 +79,8 @@
 .narrativeCard {
     display: flex;
     gap: 1.5rem;
-    background: var(--bg-elevated, #16213e);
-    border: 1px solid var(--border-subtle, #2a2a4a);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
@@ -96,12 +95,12 @@
 .narrativeContent h2 {
     font-size: 1.2rem;
     margin: 0 0 0.8rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }
 
 .narrativeContent p {
     font-size: 0.85rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     line-height: 1.6;
     margin: 0 0 0.8rem;
 }
@@ -114,13 +113,13 @@
     font-style: italic;
     font-size: 0.85rem;
     line-height: 1.7;
-    color: var(--text-secondary, #cbd5e1);
+    color: var(--text-secondary);
     margin: 0.8rem 0;
 }
 
 .narrativeSubtext {
     font-weight: 600;
-    color: #818cf8 !important;
+    color: var(--accent-blue) !important;
 }
 
 /* Stats Bar */
@@ -132,8 +131,8 @@
 }
 
 .stat {
-    background: var(--bg-elevated, #16213e);
-    border: 1px solid var(--border-subtle, #2a2a4a);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 10px;
     padding: 0.8rem;
     text-align: center;
@@ -144,7 +143,7 @@
     font-size: 0.65rem;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     margin-bottom: 0.3rem;
 }
 
@@ -152,10 +151,10 @@
     display: block;
     font-size: 1.4rem;
     font-weight: 800;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }
 
-/* ── Decision Phase ────────────────────────────────────────── */
+/* â”€â”€ Decision Phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .decisionPhase {
     padding: 2rem;
 }
@@ -165,7 +164,7 @@
     font-weight: 700;
     text-align: center;
     margin: 0 0 1.5rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }
 
 .optionsGrid {
@@ -176,13 +175,13 @@
 }
 
 .optionCard {
-    background: var(--bg-elevated, #16213e);
-    border: 2px solid var(--border-subtle, #2a2a4a);
+    background: var(--bg-elevated);
+    border: 2px solid var(--border-subtle);
     border-radius: 12px;
     padding: 1.2rem;
     text-align: left;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
     position: relative;
 }
 
@@ -218,7 +217,7 @@
 .optionHeader h3 {
     font-size: 0.95rem;
     font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     margin: 0;
 }
 
@@ -231,7 +230,7 @@
 
 .optionDesc {
     font-size: 0.72rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     line-height: 1.5;
     margin: 0 0 0.6rem;
 }
@@ -244,12 +243,12 @@
 
 .optionImpacts li {
     font-size: 0.68rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     padding: 2px 0;
 }
 
 .optionImpacts li::before {
-    content: '•';
+    content: 'â€¢';
     color: var(--opt-color, #6366f1);
     margin-right: 6px;
     font-weight: 800;
@@ -278,7 +277,7 @@
     font-weight: 700;
 }
 
-/* ── Plan Phase ────────────────────────────────────────────── */
+/* â”€â”€ Plan Phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .planPhase {
     padding: 2rem;
 }
@@ -298,12 +297,12 @@
     padding: 4px 12px;
     border-radius: 8px;
     font-size: 0.75rem;
-    color: #818cf8;
+    color: var(--accent-blue);
 }
 
 .planInstruction {
     font-size: 0.8rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     line-height: 1.6;
     margin: 0 0 1rem;
 }
@@ -312,13 +311,13 @@
     width: 100%;
     min-height: 280px;
     padding: 1rem;
-    background: #0f172a;
+    background: var(--bg-primary);
     border: 2px solid rgba(99, 102, 241, 0.4);
     border-radius: 10px;
     font-size: 0.85rem;
     line-height: 1.6;
-    color: #e2e8f0;
-    caret-color: #e2e8f0;
+    color: var(--text-primary);
+    caret-color: var(--text-primary);
     resize: vertical;
     transition: border-color 0.2s;
     font-family: inherit;
@@ -327,7 +326,7 @@
 }
 
 .planTextarea::placeholder {
-    color: #64748b;
+    color: var(--text-muted);
     font-style: italic;
 }
 
@@ -349,10 +348,10 @@
     margin-top: 0.8rem;
     text-align: center;
     font-size: 0.75rem;
-    color: #fbbf24;
+    color: var(--accent-gold);
 }
 
-/* ── Buttons ───────────────────────────────────────────────── */
+/* â”€â”€ Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .proceedBtn {
     display: block;
     width: 100%;
@@ -375,18 +374,18 @@
 
 .backBtn {
     background: none;
-    border: 1px solid var(--border-subtle, #2a2a4a);
-    color: var(--text-secondary, #94a3b8);
+    border: 1px solid var(--border-subtle);
+    color: var(--text-secondary);
     padding: 0.7rem 1.2rem;
     border-radius: 8px;
     font-size: 0.85rem;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 .backBtn:hover {
     border-color: #6366f1;
-    color: #818cf8;
+    color: var(--accent-blue);
 }
 
 .submitBtn {
@@ -412,7 +411,7 @@
     cursor: not-allowed;
 }
 
-/* ── Responsive ────────────────────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 768px) {
     .optionsGrid {
         grid-template-columns: 1fr;

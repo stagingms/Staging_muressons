@@ -97,7 +97,7 @@ export default function WhatIfSandbox({
       border: `1px solid ${isOpen ? colors.border : 'rgba(0,229,195,0.08)'}`,
       borderRadius: '10px',
       background: isOpen ? colors.bg : 'transparent',
-      transition: 'all 0.3s ease',
+      transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease',
       marginBottom: '8px',
       overflow: 'hidden',
     }}>
@@ -157,7 +157,7 @@ export default function WhatIfSandbox({
                     fontSize: '0.72rem',
                     fontWeight: isActive ? 700 : 500,
                     cursor: 'pointer',
-                    transition: 'all 0.15s',
+                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                     maxWidth: '180px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

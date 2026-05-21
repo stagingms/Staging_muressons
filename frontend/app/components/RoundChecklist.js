@@ -40,7 +40,7 @@ export default function RoundChecklist({
       <div
         onClick={() => setCollapsed(false)}
         style={{
-          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+          background: 'rgba(255,255,255,0.97)',
           borderRadius: 20, padding: '6px 18px', zIndex: 8000,
           fontSize: '0.78rem', fontWeight: 700, color: '#475569',
           cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
@@ -72,8 +72,7 @@ export default function RoundChecklist({
           bottom: 30px;
           left: 50%;
           transform: translateX(-50%);
-          background: rgba(255,255,255,0.97);
-          backdrop-filter: blur(12px);
+          background: rgba(255,255,255,0.98);
           border-radius: 14px;
           padding: 10px 16px;
           z-index: 8000;
@@ -93,7 +92,7 @@ export default function RoundChecklist({
           display: flex; align-items: center; gap: 5px;
           padding: 6px 14px; border-radius: 8px;
           font-size: 0.75rem; font-weight: 600;
-          transition: all 0.2s;
+          transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
         }
         .checklist-icon { font-size: 0.85rem; }
         .checklist-arrow { font-size: 0.7rem; }

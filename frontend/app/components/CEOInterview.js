@@ -153,6 +153,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
   const audioCacheRef = useRef({});
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+  const transcriptRef = useRef(''); // Stable ref for the running transcript — avoids stale closures
 
   // ── Fetch questions on mount ──
   useEffect(() => {
@@ -272,7 +273,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
   // ── Speech Recognition (Voice Input) ──
   const stopRecording = useCallback(() => {
     if (recognitionRef.current) {
-      recognitionRef.current.stop();
+      try { recognitionRef.current.stop(); } catch { /* already stopped */ }
       recognitionRef.current = null;
     }
     if (timerRef.current) {
@@ -284,10 +285,16 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
 
   const startRecording = useCallback(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) return;
+    if (!SpeechRecognition) {
+      alert('Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.');
+      return;
+    }
 
     stopRecording();
     setRecordingTimer(120); // Reset to 2 minutes
+
+    // Seed the transcript ref with whatever text exists now
+    transcriptRef.current = currentAnswer || '';
 
     const recognition = new SpeechRecognition();
     recognition.continuous = true;
@@ -295,37 +302,44 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
     recognition.lang = 'en-US';
     recognition.maxAlternatives = 1;
 
-    let finalTranscript = currentAnswer || '';
-
     recognition.onresult = (event) => {
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const transcript = event.results[i][0].transcript;
         if (event.results[i].isFinal) {
-          finalTranscript += (finalTranscript ? ' ' : '') + transcript;
+          transcriptRef.current += (transcriptRef.current ? ' ' : '') + transcript;
         } else {
           interim += transcript;
         }
       }
-      setCurrentAnswer(finalTranscript + (interim ? ' ' + interim : ''));
+      setCurrentAnswer(transcriptRef.current + (interim ? ' ' + interim : ''));
     };
 
     recognition.onerror = (e) => {
-      if (e.error !== 'aborted') {
+      if (e.error === 'not-allowed') {
+        alert('Microphone access was denied. Please allow microphone permissions in your browser settings and try again.');
+      } else if (e.error !== 'aborted' && e.error !== 'no-speech') {
         console.warn('Speech recognition error:', e.error);
       }
       stopRecording();
     };
 
     recognition.onend = () => {
-      // Recognition ended naturally — might need restart for continuous mode
-      if (recognitionRef.current) {
+      // Recognition ended naturally (e.g. silence timeout) — restart if still recording
+      if (recognitionRef.current === recognition) {
         try { recognition.start(); } catch { stopRecording(); }
       }
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (e) {
+      console.error('Failed to start speech recognition:', e);
+      alert('Could not start speech recognition. Please check your microphone and try again.');
+      stopRecording();
+      return;
+    }
     setIsRecording(true);
 
     // Start 2-minute countdown
@@ -344,6 +358,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
   useEffect(() => {
     stopRecording();
     setRecordingTimer(120);
+    transcriptRef.current = '';
   }, [currentQ, stopRecording]);
 
   // ── Submit responses ──
@@ -647,7 +662,7 @@ export default function CEOInterview({ sessionId, onClose, onComplete }) {
                   ref={textareaRef}
                   className={styles.responseInput}
                   value={currentAnswer}
-                  onChange={e => setCurrentAnswer(e.target.value)}
+                  onChange={e => { setCurrentAnswer(e.target.value); transcriptRef.current = e.target.value; }}
                   placeholder="Type your response here… (minimum 20 characters)"
                   rows={5}
                 />

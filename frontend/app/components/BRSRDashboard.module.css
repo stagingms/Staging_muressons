@@ -1,8 +1,7 @@
-.overlay {
+ï»¿.overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 14, 26, 0.6);
-  backdrop-filter: blur(8px);
+  background: rgba(10, 14, 26, 0.95);
   z-index: 21500;
   display: flex;
   align-items: center;
@@ -11,7 +10,7 @@
 }
 
 .panel {
-  background: #0a0e1a;
+  background: var(--bg-primary);
   border: 1px solid rgba(16, 185, 129, 0.3);
   border-radius: 16px;
   width: 90%;
@@ -22,7 +21,7 @@
   flex-direction: column;
   overflow: hidden;
   font-family: 'Inter', system-ui, sans-serif;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .header {
@@ -47,13 +46,13 @@
 .headerTitle {
   font-size: 1.1rem;
   font-weight: 800;
-  color: #10b981;
+  color: var(--gauge-green);
   letter-spacing: 0.1em;
 }
 
 .headerSub {
   font-size: 0.8rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -66,13 +65,13 @@
 .closeBtn {
   background: transparent;
   border: none;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 1.2rem;
   cursor: pointer;
   padding: 4px;
 }
 .closeBtn:hover {
-  color: #f1f5f9;
+  color: var(--text-primary);
 }
 
 .content {
@@ -108,7 +107,7 @@
 .metricTitle {
   font-size: 0.85rem;
   font-weight: 700;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: uppercase;
 }
 
@@ -119,7 +118,7 @@
 .metricValue {
   font-size: 1.8rem;
   font-weight: 900;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   margin-bottom: 0.5rem;
 }
 
@@ -145,7 +144,7 @@
 .flagsTitle {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #10b981;
+  color: var(--gauge-green);
   margin-bottom: 1rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -167,13 +166,13 @@
   border-radius: 8px;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .flagBadgeActive {
   background: rgba(16, 185, 129, 0.1);
   border-color: rgba(16, 185, 129, 0.5);
-  color: #10b981;
+  color: var(--gauge-green);
 }
 
 @keyframes fadeIn {

@@ -1,14 +1,13 @@
-/* StrategicPillarsWorkspace — Premium 5-Area Decision UI */
+/* StrategicPillarsWorkspace â€” Premium 5-Area Decision UI */
 
 .workspace {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding: 1.5rem;
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.9));
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.97), rgba(30, 41, 59, 0.97));
   border-radius: 16px;
   border: 1px solid rgba(99, 102, 241, 0.15);
-  backdrop-filter: blur(20px);
 }
 
 /* Loading */
@@ -84,7 +83,7 @@
   padding: 0.35rem 0.75rem;
   border-radius: 20px;
   background: rgba(99, 102, 241, 0.15);
-  color: #818cf8;
+  color: var(--accent-blue);
   font-size: 0.75rem;
   font-weight: 600;
   border: 1px solid rgba(99, 102, 241, 0.25);
@@ -102,7 +101,7 @@
   border: 1px solid rgba(99, 102, 241, 0.12);
   border-radius: 12px;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background 0.3s cubic-bezier(0.4, 0, 0.2, 1), color 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .pillarTile:hover {
@@ -151,14 +150,14 @@
   margin: 0;
   font-size: 0.95rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .selectedTag {
   display: inline-block;
   margin-top: 0.2rem;
   font-size: 0.7rem;
-  color: #4ade80;
+  color: var(--gauge-green);
   font-weight: 500;
 }
 
@@ -190,7 +189,7 @@
   border: 1px solid rgba(99, 102, 241, 0.1);
   background: rgba(15, 23, 42, 0.5);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
 .optionCard:hover {
@@ -215,7 +214,7 @@
 .optionTitle {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .optionCost {
@@ -226,7 +225,7 @@
 }
 
 .costPositive {
-  color: #4ade80;
+  color: var(--gauge-green);
   background: rgba(34, 197, 94, 0.12);
 }
 
@@ -260,12 +259,12 @@
 
 .impactGood {
   background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
+  color: var(--gauge-green);
 }
 
 .impactBad {
   background: rgba(239, 68, 68, 0.12);
-  color: #f87171;
+  color: var(--gauge-red);
 }
 
 .selectedIndicator {
@@ -274,7 +273,7 @@
   right: 0.5rem;
   font-size: 0.6rem;
   font-weight: 700;
-  color: #4ade80;
+  color: var(--gauge-green);
   background: rgba(34, 197, 94, 0.15);
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
@@ -333,7 +332,7 @@
   font-weight: 500;
 }
 
-/* ── Strategic Breakdown Panel ────────────────────────────────── */
+/* â”€â”€ Strategic Breakdown Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .breakdownPanel {
   margin-top: 1.5rem;
   background: rgba(15, 23, 42, 0.6);
@@ -343,7 +342,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  backdrop-filter: blur(8px);
 }
 
 .breakdownLabels {
@@ -360,7 +358,7 @@
 .breakdownTitle {
   font-size: 0.7rem;
   font-weight: 800;
-  color: var(--accent-cyan, #06b6d4);
+  color: var(--accent-cyan);
   letter-spacing: 0.1em;
 }
 
@@ -377,6 +375,6 @@
 }
 
 .breakdownPlaceholder {
-  color: #94a3b8 !important;
+  color: var(--text-muted) !important;
   font-style: italic;
 }

@@ -1,13 +1,13 @@
-/* ═══════════════════════════════════════════════════════════════
-   Muressons Global Corporation — Design System
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Muressons Global Corporation â€” Design System
    Dual-theme: Dark (default) + Light
-   ═══════════════════════════════════════════════════════════════ */
-/* ══════════════════════════════════════════════════════════════
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    DARK THEME (default)
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :root,
 [data-theme="dark"] {
-  /* Surface palette — deep executive dark */
+  /* Surface palette â€” deep executive dark */
   --bg-primary: #0a0e1a;
   --bg-secondary: #111827;
   --bg-card: #161e2e;
@@ -20,19 +20,19 @@
   --accent-purple: #8b5cf6;
   --accent-gold: #f59e0b;
 
-  /* Semantic — gauge thresholds */
+  /* Semantic â€” gauge thresholds */
   --gauge-green: #10b981;
   --gauge-yellow: #f59e0b;
   --gauge-red: #ef4444;
 
-  /* Text — contrast-safe (WCAG AA 4.5:1+ on dark) */
+  /* Text â€” contrast-safe (WCAG AA 4.5:1+ on dark) */
   --text-primary: #f1f5f9;
-  --text-secondary: #b0bec5;   /* Upgraded from #94a3b8 → 5.8:1 ratio */
-  --text-muted: #8899a6;       /* Upgraded from #64748b → 4.6:1 ratio */
+  --text-secondary: #b0bec5;   /* Upgraded from #94a3b8 â†’ 5.8:1 ratio */
+  --text-muted: #8899a6;       /* Upgraded from #64748b â†’ 4.6:1 ratio */
   --text-inverse: #0f172a;
 
   /* Minimum font size (accessibility floor) */
-  --font-min: 0.75rem;  /* 12px — WCAG floor for body text */
+  --font-min: 0.75rem;  /* 12px â€” WCAG floor for body text */
 
   /* Borders & glows */
   --border-subtle: rgba(148, 163, 184, 0.12);
@@ -44,6 +44,11 @@
   /* Shadows */
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 4px 20px rgba(0, 0, 0, 0.5);
+
+  /* Form-field / page-body background alias
+     Used by inputs, textareas, and admin page wrappers. Defined here so
+     var(--bg-body) never falls through to the browser default (white).   */
+  --bg-body: var(--bg-elevated);
 
   /* Gradient backdrop */
   --backdrop-1: rgba(59, 130, 246, 0.06);
@@ -58,9 +63,11 @@
   --toggle-border: rgba(148, 163, 184, 0.2);
   --toggle-hover: rgba(59, 130, 246, 0.15);
 
-  /* Typography — Unified font stack (RF-1: standardized on DM Sans) */
-  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  /* Typography â€” next/font injects --font-dm-sans / --font-jetbrains-mono onto <html>
+     via className. We map them here so every component only needs --font-sans /
+     --font-mono. Fallbacks kick in before fonts are resolved on first paint.       */
+  --font-sans: var(--font-dm-sans, 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif);
+  --font-mono: var(--font-jetbrains-mono, 'JetBrains Mono', 'Fira Code', monospace);
 
   /* Fluid Typography Scale (Tier 3: clamp-based responsive sizing) */
   --fs-xs: clamp(0.72rem, 0.68rem + 0.12vw, 0.78rem);
@@ -89,26 +96,44 @@
   --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 400ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* â”€â”€ Z-Index Scale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+     Single source of truth for stacking context.
+     Import with var(--z-<tier>) in all component CSS.
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  --z-base:     1;
+  --z-sticky:   10;    /* sticky headers, floating labels         */
+  --z-dropdown: 100;   /* dropdown menus, tooltips                */
+  --z-modal:    200;   /* decision modals, confirmation dialogs   */
+  --z-overlay:  500;   /* leaderboard, peer comparison, drawers   */
+  --z-briefing: 600;   /* round briefing â€” sits above overlays    */
+  --z-toast:    700;   /* toast/alert notifications               */
+  --z-crisis:   800;   /* crisis alerts â€” always topmost          */
+  --z-top:      9000;  /* join overlay, full-screen takeovers     */
+
+  /* color-scheme: tells browsers to adapt native controls (scrollbars,
+     inputs, selects) to match the active theme. */
+  color-scheme: dark;
 }
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LIGHT THEME
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 [data-theme="light"] {
-  /* Surface palette — crisp corporate light */
+  /* Surface palette â€” crisp corporate light */
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
   --bg-card: #ffffff;
   --bg-elevated: #f8fafc;
   --bg-glass: rgba(255, 255, 255, 0.75);
 
-  /* Accent palette — slightly deeper for legibility */
+  /* Accent palette â€” slightly deeper for legibility */
   --accent-blue: #2563eb;
   --accent-cyan: #0891b2;
   --accent-purple: #7c3aed;
   --accent-gold: #d97706;
 
-  /* Semantic — gauge thresholds (unchanged, high contrast) */
+  /* Semantic â€” gauge thresholds (unchanged, high contrast) */
   --gauge-green: #059669;
   --gauge-yellow: #d97706;
   --gauge-red: #dc2626;
@@ -116,7 +141,7 @@
   /* Text */
   --text-primary: #0f172a;
   --text-secondary: #475569;
-  --text-muted: #64748b;       /* Upgraded from #94a3b8 → 5.3:1 ratio on white */
+  --text-muted: #64748b;       /* Upgraded from #94a3b8 â†’ 5.3:1 ratio on white */
   --text-inverse: #f8fafc;
 
   /* Borders & glows */
@@ -130,6 +155,9 @@
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-lg: 0 4px 16px rgba(0, 0, 0, 0.08);
 
+  /* Form-field / page-body background â€” white card bg for light mode */
+  --bg-body: var(--bg-card);
+
   /* Gradient backdrop */
   --backdrop-1: rgba(37, 99, 235, 0.03);
   --backdrop-2: rgba(124, 58, 237, 0.03);
@@ -142,6 +170,9 @@
   --toggle-bg: #ffffff;
   --toggle-border: rgba(15, 23, 42, 0.12);
   --toggle-hover: rgba(37, 99, 235, 0.08);
+
+  /* Light theme adapts native browser controls to light palette */
+  color-scheme: light;
 
   /* Cockpit Design Token Overrides (defined in ExecutiveCockpit.module.css :root) */
   --ck-text-1: #0f172a;
@@ -158,7 +189,7 @@
   --ck-success: #16a34a;
 }
 
-/* ── Reset & Base ────────────────────────────────────────────── */
+/* â”€â”€ Reset & Base â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 *,
 *::before,
 *::after {
@@ -176,9 +207,13 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
-  transition: background var(--transition-normal), color var(--transition-normal);
+  /* NO transition here â€” transitions on body/html fire during initial
+     data-theme hydration and cause the "flash + blur on load" bug.
+     Theme-switch transitions are gated behind .theme-transitioning
+     (added by ThemeToggle only during a deliberate user toggle).    */
 }
 
+/* Soft gradient backdrop â€” rendered behind all page content. */
 body::before {
   content: '';
   position: fixed;
@@ -188,10 +223,19 @@ body::before {
     radial-gradient(ellipse 60% 40% at 80% 100%, var(--backdrop-2) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
-  transition: background var(--transition-slow);
+  /* No transition â€” animating this gradient on load creates a blur artefact. */
 }
 
-/* ── Scrollbar ───────────────────────────────────────────────── */
+/* Theme-switch transitions â€” ONLY fire when ThemeToggle adds this class
+   just before toggling data-theme, and removes it 300 ms later.           */
+body.theme-transitioning {
+  transition: background var(--transition-normal), color var(--transition-normal);
+}
+body.theme-transitioning::before {
+  transition: background var(--transition-normal);
+}
+
+/* â”€â”€ Scrollbar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -209,11 +253,11 @@ body::before {
   background: var(--scrollbar-hover);
 }
 
-/* ── Utility classes ─────────────────────────────────────────── */
+/* â”€â”€ Utility classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .glass {
-  background: var(--bg-glass);
-  backdrop-filter: blur(16px) saturate(1.2);
-  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  /* backdrop-filter removed globally â€” creates permanent GPU compositor layers
+     on any always-mounted element, causing simulation-wide blur artefacts. */
+  background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
 }
 
@@ -236,7 +280,7 @@ body::before {
   font-family: var(--font-mono);
 }
 
-/* ── Animations ──────────────────────────────────────────────── */
+/* â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -305,7 +349,7 @@ body::before {
   animation: slideInRight 0.35s ease-out both;
 }
 
-/* ── New Improvement Animations ──────────────────────────────── */
+/* â”€â”€ New Improvement Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes fadeSlideUp {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: translateY(0); }
@@ -326,7 +370,7 @@ body::before {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* ── Mobile Responsive (Improvement #4.6) ────────────────────── */
+/* â”€â”€ Mobile Responsive (Improvement #4.6) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 768px) {
   /* Make cockpit columns stack vertically on mobile */
   .cockpit .mainContent {
@@ -367,23 +411,23 @@ body::before {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   GLOBAL ACCESSIBILITY — Phase 1 Improvements
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   GLOBAL ACCESSIBILITY â€” Phase 1 Improvements
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* 1.2: Enforce minimum font size floor (12px) across all elements */
-body, button, input, select, textarea, label, span, p, div, li, td, th {
-  font-size: max(var(--font-min, 0.75rem), inherit);
-}
+/*
+  1.2: Font-size floor is enforced by the --fs-* clamp() token scale defined in :root above.
+  Each token bottoms out at â‰¥ 0.72 rem (~11.5 px), so no blanket override rule is needed.
 
-/* Override: allow icons and badges to remain small */
-.allow-small-text {
-  font-size: inherit !important;
-}
+  The previous `font-size: max(var(--font-min), inherit)` rule was removed because
+  `inherit` is a CSS-wide keyword (not a <length>), making the max() call invalid in
+  Safari â‰¤ 15.4 â€” it silently resolves to `inherit`, defeating the floor entirely.
+  Components that need a specific floor should reference a --fs-* token directly.
+*/
 
-/* ══════════════════════════════════════════════════════════════
-   Phase 4.1 — ROUND TRANSITION ANIMATION
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Phase 4.1 â€” ROUND TRANSITION ANIMATION
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 @keyframes roundTransitionPulse {
   0% { transform: scale(1); opacity: 1; }
   25% { transform: scale(1.15); opacity: 0.7; }
@@ -405,9 +449,9 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   animation: roundTitleSlide 0.5s ease-out 0.3s both;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   Phase 4.2 — KPI DELTA MICRO-ANIMATIONS
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Phase 4.2 â€” KPI DELTA MICRO-ANIMATIONS
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 @keyframes kpiCountUp {
   from { opacity: 0.5; transform: translateY(4px); }
   to { opacity: 1; transform: translateY(0); }
@@ -435,9 +479,9 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   border-radius: 4px;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   Phase 4.5 — STOCHASTIC DICE ROLL ANIMATION (R5)
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Phase 4.5 â€” STOCHASTIC DICE ROLL ANIMATION (R5)
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 @keyframes diceRoll {
   0% { transform: rotate(0deg) scale(1); }
   20% { transform: rotate(72deg) scale(1.2); }
@@ -460,11 +504,11 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   animation: diceBounce 0.4s ease-out;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   UI QUICK WINS — Enhanced Animations & Utilities
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   UI QUICK WINS â€” Enhanced Animations & Utilities
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Animated Gradient Border ─────────────────────────────── */
+/* â”€â”€ Animated Gradient Border â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @property --border-angle {
   syntax: '<angle>';
   initial-value: 0deg;
@@ -475,7 +519,7 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   to { --border-angle: 360deg; }
 }
 
-/* ── Skeleton Loading States ──────────────────────────────── */
+/* â”€â”€ Skeleton Loading States â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes shimmerSweep {
   0%   { background-position: -200% 0; }
   100% { background-position: 200% 0; }
@@ -515,7 +559,7 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   width: 100%;
 }
 
-/* ── Page Section Fade-In (staggered) ───────────────────── */
+/* â”€â”€ Page Section Fade-In (staggered) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes sectionFadeIn {
   from {
     opacity: 0;
@@ -532,37 +576,37 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
 .stagger-3 { animation: sectionFadeIn 0.5s ease-out 0.25s both; }
 .stagger-4 { animation: sectionFadeIn 0.5s ease-out 0.35s both; }
 
-/* ── Universal Shimmer Sweep (for buttons) ──────────────── */
+/* â”€â”€ Universal Shimmer Sweep (for buttons) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes shimmerBtn {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
 }
 
 
-/* ══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    TOOLTIP SYSTEM
    Handled by GlobalTooltip.js (portal-based, escapes overflow)
    Usage: data-tooltip="Description text" on any element
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 @keyframes slideInFromRight {
   from { transform: translateX(100%); opacity: 0.5; }
   to { transform: translateX(0); opacity: 1; }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   PHASE G — ESG DESIGN TOKEN SYSTEM
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PHASE G â€” ESG DESIGN TOKEN SYSTEM
    Semantic palette for ESG dimensions, risk severity, tipping
    point indicators, and glassmorphism Command Center surfaces.
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 :root,
 [data-theme="dark"] {
-  /* ── ESG Dimension Palette ─────────────────────────────────
+  /* â”€â”€ ESG Dimension Palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Maps to the three pillars: Environmental, Social, Governance.
      Used consistently across RiskRadar, ConsequenceTimeline,
      Materiality Matrix, and Teleprompter panels.
-     ────────────────────────────────────────────────────────── */
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --esg-environmental: hsl(152, 68%, 45%);
   --esg-environmental-muted: hsla(152, 68%, 45%, 0.15);
   --esg-social: hsl(210, 78%, 55%);
@@ -570,27 +614,27 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   --esg-governance: hsl(270, 60%, 55%);
   --esg-governance-muted: hsla(270, 60%, 55%, 0.15);
 
-  /* ── Risk Severity Scale (4-tier) ──────────────────────────
-     Low → Moderate → High → Critical
+  /* â”€â”€ Risk Severity Scale (4-tier) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+     Low â†’ Moderate â†’ High â†’ Critical
      Aligned to contagion_risk_index thresholds (25/50/75).
-     ────────────────────────────────────────────────────────── */
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --risk-low: hsl(142, 71%, 45%);
   --risk-moderate: hsl(45, 93%, 47%);
   --risk-high: hsl(25, 95%, 53%);
   --risk-critical: hsl(0, 84%, 60%);
 
-  /* ── Tipping Point Indicators ──────────────────────────────
+  /* â”€â”€ Tipping Point Indicators â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Maps to systemic_tipping_state tiers:
-     safe → warning → stressed → tipped (irreversible).
-     ────────────────────────────────────────────────────────── */
+     safe â†’ warning â†’ stressed â†’ tipped (irreversible).
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --tipping-safe: hsl(152, 68%, 45%);
   --tipping-warning: hsl(38, 92%, 50%);
   --tipping-stressed: hsl(15, 90%, 55%);
   --tipping-tipped: hsl(0, 84%, 50%);
 
-  /* ── Glassmorphism Command Center ──────────────────────────
+  /* â”€â”€ Glassmorphism Command Center â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      For overlay panels, result modals, and intelligence feeds.
-     ────────────────────────────────────────────────────────── */
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --glass-bg: rgba(15, 23, 42, 0.75);
   --glass-bg-elevated: rgba(22, 30, 46, 0.85);
   --glass-border: rgba(148, 163, 184, 0.15);
@@ -598,39 +642,39 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   --glass-blur: blur(16px);
   --glass-saturate: saturate(1.3);
 
-  /* ── Black Swan Event Palette ───────────────────────────────
-     Distinct from risk scale — used for stochastic disruptions.
-     ────────────────────────────────────────────────────────── */
+  /* â”€â”€ Black Swan Event Palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+     Distinct from risk scale â€” used for stochastic disruptions.
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --swan-bg: rgba(167, 139, 250, 0.06);
   --swan-border: rgba(167, 139, 250, 0.25);
   --swan-text: #e9d5ff;
   --swan-accent: #a78bfa;
 
-  /* ── NPC Cascade Palette ───────────────────────────────────
+  /* â”€â”€ NPC Cascade Palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      For stakeholder cascading reaction indicators.
-     ────────────────────────────────────────────────────────── */
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --cascade-bg: rgba(249, 115, 22, 0.06);
   --cascade-border: rgba(249, 115, 22, 0.2);
   --cascade-text: #fb923c;
 
-  /* ── Foreshadowing Signal Palette ──────────────────────────
+  /* â”€â”€ Foreshadowing Signal Palette â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Positive signals (green) and warning signals (amber).
-     ────────────────────────────────────────────────────────── */
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
   --foreshadow-positive: hsl(152, 76%, 60%);
   --foreshadow-positive-bg: rgba(34, 211, 153, 0.06);
   --foreshadow-warning: hsl(38, 92%, 65%);
   --foreshadow-warning-bg: rgba(245, 158, 11, 0.06);
 
-  /* ── WACC Indicator ────────────────────────────────────────
+  /* â”€â”€ WACC Indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
      Visual encoding for cost-of-capital health.
-     ────────────────────────────────────────────────────────── */
-  --wacc-healthy: var(--risk-low);       /* ≤ 6% */
+     â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+  --wacc-healthy: var(--risk-low);       /* â‰¤ 6% */
   --wacc-elevated: var(--risk-moderate); /* 6-8% */
   --wacc-stressed: var(--risk-high);     /* 8-10% */
   --wacc-critical: var(--risk-critical); /* > 10% */
 }
 
-/* ── Light Theme Overrides ──────────────────────────────────── */
+/* â”€â”€ Light Theme Overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 [data-theme="light"] {
   --esg-environmental: hsl(152, 68%, 38%);
   --esg-environmental-muted: hsla(152, 68%, 38%, 0.1);
@@ -670,16 +714,16 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
 }
 
 
-/* ══════════════════════════════════════════════════════════════
-   PHASE G — RISK STATE MICRO-ANIMATIONS
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PHASE G â€” RISK STATE MICRO-ANIMATIONS
    Animated visual feedback for systemic risk state transitions.
    Applied via utility classes to any element.
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Tipping Point Pulse ─────────────────────────────────────
+/* â”€â”€ Tipping Point Pulse â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Pulsing glow that accelerates as risk tier increases.
    Usage: .pulse-risk-low, .pulse-risk-high, .pulse-risk-critical
-   ────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes pulseRiskLow {
   0%, 100% { box-shadow: 0 0 4px var(--risk-low); }
   50% { box-shadow: 0 0 12px var(--risk-low); }
@@ -700,15 +744,17 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   50% { box-shadow: 0 0 28px var(--risk-critical); opacity: 0.85; }
 }
 
-.pulse-risk-low     { animation: pulseRiskLow 3s ease-in-out infinite; }
-.pulse-risk-moderate { animation: pulseRiskModerate 2.5s ease-in-out infinite; }
+/* Low and moderate are static â€” too many simultaneous animations cause visual fatigue.
+   Only high and critical animate to preserve the urgency signal. */
+.pulse-risk-low     { box-shadow: 0 0 4px var(--risk-low); }
+.pulse-risk-moderate { box-shadow: 0 0 8px var(--risk-moderate); }
 .pulse-risk-high    { animation: pulseRiskHigh 2s ease-in-out infinite; }
 .pulse-risk-critical { animation: pulseRiskCritical 1.2s ease-in-out infinite; }
 
-/* ── Tipping Point Flash ─────────────────────────────────────
+/* â”€â”€ Tipping Point Flash â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    One-shot flash when a tipping threshold is crossed.
    Usage: Apply .tipping-flash to element on state transition.
-   ────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes tippingFlash {
   0%   { background: transparent; transform: scale(1); }
   15%  { background: rgba(239, 68, 68, 0.25); transform: scale(1.05); }
@@ -722,10 +768,10 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   border-radius: var(--radius-md);
 }
 
-/* ── Cascade Ripple ──────────────────────────────────────────
+/* â”€â”€ Cascade Ripple â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Expanding ring effect when NPC cascading reactions trigger.
    Usage: Apply .cascade-ripple to a container.
-   ────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes cascadeRipple {
   0%   { box-shadow: 0 0 0 0 rgba(249, 115, 22, 0.4); }
   50%  { box-shadow: 0 0 0 8px rgba(249, 115, 22, 0); }
@@ -736,9 +782,9 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   animation: cascadeRipple 1.8s ease-out;
 }
 
-/* ── Foreshadowing Glow ──────────────────────────────────────
+/* â”€â”€ Foreshadowing Glow â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Subtle breathing glow for foreshadowing signal badges.
-   ────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes foreshadowGlow {
   0%, 100% { opacity: 0.7; filter: brightness(1); }
   50% { opacity: 1; filter: brightness(1.15); }
@@ -748,9 +794,9 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   animation: foreshadowGlow 4s ease-in-out infinite;
 }
 
-/* ── Black Swan Entrance ─────────────────────────────────────
+/* â”€â”€ Black Swan Entrance â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Dramatic entrance for Black Swan event notifications.
-   ────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes swanEntrance {
   0%   { opacity: 0; transform: scale(0.8) translateY(-8px); filter: blur(4px); }
   40%  { opacity: 1; transform: scale(1.05) translateY(0); filter: blur(0); }
@@ -763,10 +809,32 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   animation: swanEntrance 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* ── WACC Stress Indicator ───────────────────────────────────
+/* ── Crisis Alert Flash Entrance ─────────────────────────────────
+   Full-screen crisis overlay (Activist Threat / CEO Liquidity Panic).
+   Used by inline-style crisis interstitial in ExecutiveCockpit.
+   ──────────────────────────────────────────────────────────────── */
+@keyframes flashIn {
+  0%   { opacity: 0; }
+  20%  { opacity: 1; }
+  35%  { opacity: 0.6; }
+  50%  { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+@keyframes crisisSlideUp {
+  from { opacity: 0; transform: translateY(40px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes crisisIconPulse {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.12); }
+}
+
+/* â”€â”€ WACC Stress Indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
    Colour-shifting border that responds to WACC severity.
    Usage: Apply .wacc-indicator[data-severity="critical"]
-   ────────────────────────────────────────────────────────────── */
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes waccPulse {
   0%, 100% { border-color: var(--wacc-color); }
   50% { border-color: color-mix(in srgb, var(--wacc-color) 50%, transparent); }
@@ -788,25 +856,23 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   animation: waccPulse 1.5s ease-in-out infinite;
 }
 
-/* ── Glassmorphism Utility Classes ────────────────────────── */
+/* â”€â”€ Glassmorphism Utility Classes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur) var(--glass-saturate);
-  -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
-  border: 1px solid var(--glass-border);
+  /* backdrop-filter removed â€” see .glass comment above */
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
 }
 
 .glass-panel-elevated {
-  background: var(--glass-bg-elevated);
-  backdrop-filter: var(--glass-blur) var(--glass-saturate);
-  -webkit-backdrop-filter: var(--glass-blur) var(--glass-saturate);
-  border: 1px solid var(--glass-border-active);
+  /* backdrop-filter removed â€” see .glass comment above */
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-active);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
 }
 
-/* ── ESG Dimension Badge Utilities ───────────────────────── */
+/* â”€â”€ ESG Dimension Badge Utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .esg-badge-env {
   background: var(--esg-environmental-muted);
   color: var(--esg-environmental);
@@ -825,7 +891,7 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   border: 1px solid var(--esg-governance);
 }
 
-/* ── Tipping Point Status Badges ─────────────────────────── */
+/* â”€â”€ Tipping Point Status Badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tipping-badge {
   display: inline-flex;
   align-items: center;
@@ -835,29 +901,30 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   font-size: 0.68rem;
   font-weight: 700;
   font-family: var(--font-mono);
-  transition: all var(--transition-fast);
+  transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast), opacity var(--transition-fast), transform var(--transition-fast);
 }
 
+/* Safe and warning are static. Stressed and tipped animate â€” escalation signal. */
 .tipping-badge[data-tier="safe"]     { background: hsla(152,68%,45%,0.1); color: var(--tipping-safe); border: 1px solid hsla(152,68%,45%,0.3); }
 .tipping-badge[data-tier="warning"]  { background: hsla(38,92%,50%,0.1);  color: var(--tipping-warning); border: 1px solid hsla(38,92%,50%,0.3); }
-.tipping-badge[data-tier="stressed"] { background: hsla(15,90%,55%,0.1);  color: var(--tipping-stressed); border: 1px solid hsla(15,90%,55%,0.3); }
+.tipping-badge[data-tier="stressed"] { background: hsla(15,90%,55%,0.1);  color: var(--tipping-stressed); border: 1px solid hsla(15,90%,55%,0.3); animation: pulseRiskHigh 2.5s ease-in-out infinite; }
 .tipping-badge[data-tier="tipped"]   { background: hsla(0,84%,50%,0.15);  color: var(--tipping-tipped); border: 1px solid hsla(0,84%,50%,0.4); animation: pulseRiskCritical 1.5s ease-in-out infinite; }
 
-/* ══════════════════════════════════════════════════════════════
-   STRATEGY TOOLTIP — Hover-reveal description popup
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   STRATEGY TOOLTIP â€” Hover-reveal description popup
    Applied via .strategy-tip-trigger > .strategy-tip-box
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .strategy-tip-trigger:hover > .strategy-tip-box {
   opacity: 1 !important;
   transform: translateY(0) !important;
   pointer-events: auto !important;
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ACCESSIBILITY — Reduced Motion (WCAG 2.1 SC 2.3.3)
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ACCESSIBILITY â€” Reduced Motion (WCAG 2.1 SC 2.3.3)
    Disables all non-essential animations for users with
    vestibular disorders or motion sensitivity preferences.
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -869,11 +936,11 @@ body, button, input, select, textarea, label, span, p, div, li, td, th {
   }
 }
 
-/* ══════════════════════════════════════════════════════════════
-   ACCESSIBILITY — Focus Ring System (WCAG 2.1 SC 2.4.7)
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   ACCESSIBILITY â€” Focus Ring System (WCAG 2.1 SC 2.4.7)
    Visible focus indicators for keyboard-only navigation.
    Uses :focus-visible to avoid showing rings on mouse clicks.
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :focus-visible {
   outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
@@ -890,162 +957,137 @@ a:focus-visible,
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible {
-  outline: 2px solid var(--accent-cyan, #06b6d4);
+  outline: 2px solid var(--accent-cyan);
   outline-offset: 2px;
   box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.15);
 }
 
-/* ══════════════════════════════════════════════════════════════
-   LIGHT MODE — Inline Style Color Override System
-   ──────────────────────────────────────────────────────────────
-   React serializes inline hex colors as rgb() in the DOM.
-   e.g., color: '#e2e8f0' → style="color: rgb(226, 232, 240)"
-   
-   These selectors target the rgb() values to override them
-   in light mode with dark, readable equivalents.
-   ══════════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   LIGHT MODE â€” Inline Style Color Compatibility Shim
+   â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+   React serializes inline hex colors as rgb() in the DOM, so
+   `style={{ color: '#818cf8' }}` becomes style="color: rgb(129, 140, 248)".
 
-/* ── PRIMARY TEXT: #e2e8f0 → rgb(226, 232, 240) ────────────── */
-[data-theme="light"] [style*="color: rgb(226, 232, 240)"] {
-  color: #1e293b !important;
-}
+   MIGRATION STATUS (2026-05):
+   âœ…  Neutral text colors (#e2e8f0, #f1f5f9, #cbd5e1, #94a3b8,
+       #64748b, #475569) â€” replaced with var(--text-primary/
+       secondary/muted) across all 61 JS files (352 replacements).
+       Those rgb() rules are removed from this block.
 
-/* ── NEAR-WHITE TEXT: #f1f5f9 → rgb(241, 245, 249) ──────────── */
-[data-theme="light"] [style*="color: rgb(241, 245, 249)"] {
-  color: #0f172a !important;
-}
+   â³  Accent/semantic colors (indigo, sky, emerald, red, amber,
+       purple, etc.) â€” still hardcoded in JS components. The rules
+       below keep them readable on a white background.
 
-/* ── SECONDARY TEXT: #cbd5e1 → rgb(203, 213, 225) ────────────── */
-[data-theme="light"] [style*="color: rgb(203, 213, 225)"] {
-  color: #334155 !important;
-}
+   â³  Background and border darks (#0f172a, #1e293b, etc.) â€” still
+       hardcoded in a handful of components. Rules below handle them.
 
-/* ── MUTED TEXT: #94a3b8 → rgb(148, 163, 184) ────────────────── */
-[data-theme="light"] [style*="color: rgb(148, 163, 184)"] {
-  color: #64748b !important;
-}
+   To eliminate this block entirely: replace every remaining
+   `color: '#xxx'` inline style in JS components with the matching
+   CSS variable from globals.css (--accent-*, --gauge-*, etc.).
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── DEEP MUTED: #64748b → rgb(100, 116, 139) ───────────────── */
-[data-theme="light"] [style*="color: rgb(100, 116, 139)"] {
-  color: #475569 !important;
-}
-
-/* ── SLATE-500: #475569 → rgb(71, 85, 105) ───────────────────── */
-[data-theme="light"] [style*="color: rgb(71, 85, 105)"] {
-  color: #334155 !important;
-}
-
-/* ── Semi-transparent white text → dark text ─────────────────── */
+/* â”€â”€ Semi-transparent white text (rgba(255,â€¦)) â†’ readable dark â”€â”€ */
 [data-theme="light"] [style*="color: rgba(255"] {
   color: #334155 !important;
 }
-[data-theme="light"] [style*="color: rgba(241"] {
-  color: #334155 !important;
-}
-[data-theme="light"] [style*="color: rgba(226"] {
-  color: #475569 !important;
-}
-[data-theme="light"] [style*="color: rgba(203"] {
-  color: #475569 !important;
-}
 
-/* ── ACCENT COLORS (too washed-out on white) ─────────────────── */
-/* Indigo-400: #818cf8 → rgb(129, 140, 248) */
+/* â”€â”€ ACCENT COLORS (too washed-out on white) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Indigo-400: #818cf8 â†’ rgb(129, 140, 248) */
 [data-theme="light"] [style*="color: rgb(129, 140, 248)"] {
   color: #4f46e5 !important;
 }
 
-/* Indigo-300: #a5b4fc → rgb(165, 180, 252) */
+/* Indigo-300: #a5b4fc â†’ rgb(165, 180, 252) */
 [data-theme="light"] [style*="color: rgb(165, 180, 252)"] {
   color: #6366f1 !important;
 }
 
-/* Violet-300: #c4b5fd → rgb(196, 181, 253) */
+/* Violet-300: #c4b5fd â†’ rgb(196, 181, 253) */
 [data-theme="light"] [style*="color: rgb(196, 181, 253)"] {
   color: #7c3aed !important;
 }
 
-/* Indigo-200: #c7d2fe → rgb(199, 210, 254) */
+/* Indigo-200: #c7d2fe â†’ rgb(199, 210, 254) */
 [data-theme="light"] [style*="color: rgb(199, 210, 254)"] {
   color: #4f46e5 !important;
 }
 
-/* Sky-400: #38bdf8 → rgb(56, 189, 248) */
+/* Sky-400: #38bdf8 â†’ rgb(56, 189, 248) */
 [data-theme="light"] [style*="color: rgb(56, 189, 248)"] {
   color: #0284c7 !important;
 }
 
-/* Sky-300: #7dd3fc → rgb(125, 211, 252) */
+/* Sky-300: #7dd3fc â†’ rgb(125, 211, 252) */
 [data-theme="light"] [style*="color: rgb(125, 211, 252)"] {
   color: #0369a1 !important;
 }
 
-/* Violet-400: #a78bfa → rgb(167, 139, 250) */
+/* Violet-400: #a78bfa â†’ rgb(167, 139, 250) */
 [data-theme="light"] [style*="color: rgb(167, 139, 250)"] {
   color: #7c3aed !important;
 }
 
-/* Emerald-300: #6ee7b7 → rgb(110, 231, 183) */
+/* Emerald-300: #6ee7b7 â†’ rgb(110, 231, 183) */
 [data-theme="light"] [style*="color: rgb(110, 231, 183)"] {
   color: #059669 !important;
 }
 
-/* Emerald-400: #34d399 → rgb(52, 211, 153) */
+/* Emerald-400: #34d399 â†’ rgb(52, 211, 153) */
 [data-theme="light"] [style*="color: rgb(52, 211, 153)"] {
   color: #059669 !important;
 }
 
-/* Green-400: #4ade80 → rgb(74, 222, 128) */
+/* Green-400: #4ade80 â†’ rgb(74, 222, 128) */
 [data-theme="light"] [style*="color: rgb(74, 222, 128)"] {
   color: #16a34a !important;
 }
 
-/* Red-300: #fca5a5 → rgb(252, 165, 165) */
+/* Red-300: #fca5a5 â†’ rgb(252, 165, 165) */
 [data-theme="light"] [style*="color: rgb(252, 165, 165)"] {
   color: #dc2626 !important;
 }
 
-/* Red-400: #f87171 → rgb(248, 113, 113) */
+/* Red-400: #f87171 â†’ rgb(248, 113, 113) */
 [data-theme="light"] [style*="color: rgb(248, 113, 113)"] {
   color: #dc2626 !important;
 }
 
-/* Amber-300: #fcd34d → rgb(252, 211, 77) */
+/* Amber-300: #fcd34d â†’ rgb(252, 211, 77) */
 [data-theme="light"] [style*="color: rgb(252, 211, 77)"] {
   color: #d97706 !important;
 }
 
-/* Orange: #fb923c → rgb(251, 146, 60) */
+/* Orange: #fb923c â†’ rgb(251, 146, 60) */
 [data-theme="light"] [style*="color: rgb(251, 146, 60)"] {
   color: #ea580c !important;
 }
 
-/* Cyan: #22d3ee → rgb(34, 211, 238) */
+/* Cyan: #22d3ee â†’ rgb(34, 211, 238) */
 [data-theme="light"] [style*="color: rgb(34, 211, 238)"] {
   color: #0891b2 !important;
 }
 
-/* Purple: #e9d5ff → rgb(233, 213, 255) */
+/* Purple: #e9d5ff â†’ rgb(233, 213, 255) */
 [data-theme="light"] [style*="color: rgb(233, 213, 255)"] {
   color: #7c3aed !important;
 }
 
-/* ── BACKGROUND OVERRIDES ────────────────────────────────────── */
-/* Dark navy: #0f172a → rgb(15, 23, 42) */
+/* â”€â”€ BACKGROUND OVERRIDES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* Dark navy: #0f172a â†’ rgb(15, 23, 42) */
 [data-theme="light"] [style*="background: rgb(15, 23, 42)"],
 [data-theme="light"] [style*="background-color: rgb(15, 23, 42)"] {
   background: #f8fafc !important;
   border: 1px solid #e2e8f0 !important;
 }
 
-/* Dark blue: #111827 → rgb(17, 24, 39) */
+/* Dark blue: #111827 â†’ rgb(17, 24, 39) */
 [data-theme="light"] [style*="background: rgb(17, 24, 39)"],
 [data-theme="light"] [style*="background-color: rgb(17, 24, 39)"] {
   background: #f1f5f9 !important;
   border: 1px solid #e2e8f0 !important;
 }
 
-/* Slate-800: #1e293b → rgb(30, 41, 59) */
+/* Slate-800: #1e293b â†’ rgb(30, 41, 59) */
 [data-theme="light"] [style*="background: rgb(30, 41, 59)"],
 [data-theme="light"] [style*="background-color: rgb(30, 41, 59)"] {
   background: #ffffff !important;
@@ -1082,7 +1124,7 @@ textarea:focus-visible {
   background: rgba(255, 255, 255, 0.8) !important;
 }
 
-/* ── BORDER OVERRIDES ────────────────────────────────────────── */
+/* â”€â”€ BORDER OVERRIDES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 [data-theme="light"] [style*="border-color: rgb(30, 41, 59)"] {
   border-color: #e2e8f0 !important;
 }
@@ -1090,7 +1132,7 @@ textarea:focus-visible {
   border-color: #cbd5e1 !important;
 }
 
-/* ── SVG STROKE OVERRIDES ────────────────────────────────────── */
+/* â”€â”€ SVG STROKE OVERRIDES â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 [data-theme="light"] [style*="stroke: rgb(15, 23, 42)"] {
   stroke: #ffffff !important;
 }

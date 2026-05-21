@@ -358,86 +358,77 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             }
 
             const newSession = await res.json();
+            const configWarnings = [];
+
+            // Helper to handle sub-config fetch with telemetry
+            const runSubConfig = async (name, url, payload) => {
+                try {
+                    const subRes = await fetch(url, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload),
+                    });
+                    if (!subRes.ok) {
+                        const errData = await subRes.json().catch(() => ({}));
+                        throw new Error(errData.detail || `HTTP ${subRes.status}`);
+                    }
+                } catch (err) {
+                    console.error(`[Cohort Config] Failed to apply ${name}:`, err);
+                    configWarnings.push(`Failed to apply ${name}: ${err.message}`);
+                }
+            };
 
             // Save per-cohort visibility overrides if any differ from defaults
             if (hasVisibilityOverrides() && newSession.session_id) {
-                try {
-                    await fetch(`${API}/api/admin/cohort/${newSession.session_id}/analytics-visibility`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(visibility),
-                    });
-                } catch { /* non-critical */ }
+                await runSubConfig('Visibility Overrides', `${API}/api/admin/cohort/${newSession.session_id}/analytics-visibility`, visibility);
             }
 
             // Save per-cohort pedagogical scaffolding settings
             if (newSession.session_id) {
-                try {
-                    await fetch(`${API}/api/admin/cohort/${newSession.session_id}/pedagogical-settings`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            experience_level: selectedExperienceLevel,
-                            difficulty_tier: (scenarioPresets.find(p => p.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
-                            ...pedagogicalToggles,
-                            ...engineModuleToggles,
-                        }),
-                    });
-                } catch { /* non-critical */ }
+                await runSubConfig('Pedagogical Settings', `${API}/api/admin/cohort/${newSession.session_id}/pedagogical-settings`, {
+                    experience_level: selectedExperienceLevel,
+                    difficulty_tier: (scenarioPresets.find(p => p.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
+                    ...pedagogicalToggles,
+                    ...engineModuleToggles,
+                });
             }
 
             // Apply per-cohort CEO Interview settings
             if (newSession.session_id) {
-                try {
-                    await fetch(`${API}/api/admin/sessions/${newSession.session_id}/ceo-interview`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            ceo_interview_enabled: ceoInterviewEnabled,
-                            ceo_interview_voice_gender: ceoVoiceGender,
-                        }),
-                    });
-                } catch { /* non-critical */ }
+                await runSubConfig('CEO Interview Settings', `${API}/api/admin/sessions/${newSession.session_id}/ceo-interview`, {
+                    ceo_interview_enabled: ceoInterviewEnabled,
+                    ceo_interview_voice_gender: ceoVoiceGender,
+                });
             }
 
             // Assign per-cohort side tracks
             if (newSession.session_id && selectedSideTracks.length > 0) {
-                try {
-                    await fetch(`${API}/api/admin/cohorts/${newSession.session_id}/side-tracks`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ tracks: selectedSideTracks }),
-                    });
-                } catch { /* non-critical */ }
+                await runSubConfig('Side Tracks', `${API}/api/admin/cohorts/${newSession.session_id}/side-tracks`, { 
+                    tracks: selectedSideTracks 
+                });
             }
 
             // Save per-cohort round pacing settings
             if (newSession.session_id) {
-                try {
-                    await fetch(`${API}/api/admin/cohort/${newSession.session_id}/pacing`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            pacing_mode: pacingMode,
-                            max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
-                            round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
-                        }),
-                    });
-                } catch { /* non-critical */ }
+                await runSubConfig('Pacing Settings', `${API}/api/admin/cohort/${newSession.session_id}/pacing`, {
+                    pacing_mode: pacingMode,
+                    max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
+                    round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
+                });
             }
 
             // Apply BU vertical substitutions (at cohort formation time)
             if (newSession.session_id && Object.keys(buSubstitutions).length > 0) {
-                try {
-                    await fetch(`${API}/api/admin/${newSession.session_id}/bu-composition`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ substitutions: buSubstitutions }),
-                    });
-                } catch { /* non-critical */ }
+                await runSubConfig('BU Substitutions', `${API}/api/admin/${newSession.session_id}/bu-composition`, { 
+                    substitutions: buSubstitutions 
+                });
             }
 
-            onCreated(newSession);
+            if (configWarnings.length > 0) {
+                setError(`Cohort created, but some configurations failed: ${configWarnings.join(' | ')}`);
+            } else {
+                onCreated(newSession);
+            }
         } catch (err) {
             setError(err.message);
         } finally {
@@ -617,7 +608,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         padding: '12px 16px', borderRadius: 10, cursor: 'pointer',
                                                         border: isSelected ? `2px solid ${presetColor}` : '1.5px solid rgba(100,116,139,0.3)',
                                                         background: isSelected ? `${presetColor}12` : 'rgba(15,23,42,0.5)',
-                                                        transition: 'all 0.18s', textAlign: 'left', width: '100%',
+                                                        transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s', textAlign: 'left', width: '100%',
                                                     }}
                                                 >
                                                     <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{p.icon}</span>
@@ -690,7 +681,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     border: isActive ? '2px solid #6366f1' : '1.5px solid transparent',
                                                     background: isActive ? 'rgba(99,102,241,0.12)' : 'transparent',
                                                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
-                                                    transition: 'all 0.15s',
+                                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                                 }}
                                                 title={`${c.label} (${c.symbol})`}
                                             >
@@ -728,7 +719,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
                                                         border: isSelected ? `2px solid ${p.color}` : '1.5px solid rgba(100,116,139,0.3)',
                                                         background: isSelected ? p.bg : 'rgba(15,23,42,0.5)',
-                                                        transition: 'all 0.18s',
+                                                        transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
                                                         textAlign: 'left', width: '100%',
                                                         opacity: 1,
                                                     }}
@@ -773,7 +764,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
                                             border: selectedPathway === 'random' ? '2px solid #a78bfa' : '1.5px solid rgba(100,116,139,0.3)',
                                             background: selectedPathway === 'random' ? 'rgba(167,139,250,0.1)' : 'rgba(15,23,42,0.5)',
-                                            textAlign: 'left', width: '100%', transition: 'all 0.18s',
+                                            textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
                                         }}
                                     >
                                         <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>🎲</span>
@@ -798,7 +789,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
                                                     border: isSelected ? '2px solid #6366f1' : '1.5px solid rgba(100,116,139,0.3)',
                                                     background: isSelected ? 'rgba(99,102,241,0.1)' : 'rgba(15,23,42,0.5)',
-                                                    textAlign: 'left', width: '100%', transition: 'all 0.18s',
+                                                    textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
                                                     opacity: p.implemented ? 1 : 0.4,
                                                 }}
                                                 disabled={!p.implemented}
@@ -861,7 +852,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         marginBottom: 12, padding: '12px 14px', borderRadius: 10,
                                         background: currentSub ? 'rgba(99,102,241,0.06)' : 'rgba(15,23,42,0.4)',
                                         border: currentSub ? '1.5px solid rgba(99,102,241,0.3)' : '1.5px solid rgba(100,116,139,0.2)',
-                                        transition: 'all 0.2s',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                                             <span style={{ fontSize: '1.2rem' }}>{slotConfig.slotIcon}</span>
@@ -890,7 +881,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
                                                     border: !currentSub ? '2px solid rgba(16,185,129,0.5)' : '1.5px solid rgba(100,116,139,0.25)',
                                                     background: !currentSub ? 'rgba(16,185,129,0.08)' : 'transparent',
-                                                    transition: 'all 0.15s', flex: '1 1 auto', minWidth: 120,
+                                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', flex: '1 1 auto', minWidth: 120,
                                                 }}
                                             >
                                                 <span style={{ fontSize: '1rem' }}>{slotConfig.slotIcon}</span>
@@ -919,7 +910,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                             padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
                                                             border: isSelected ? '2px solid rgba(99,102,241,0.5)' : '1.5px solid rgba(100,116,139,0.25)',
                                                             background: isSelected ? 'rgba(99,102,241,0.1)' : 'transparent',
-                                                            transition: 'all 0.15s', flex: '1 1 auto', minWidth: 120,
+                                                            transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', flex: '1 1 auto', minWidth: 120,
                                                         }}
                                                     >
                                                         <span style={{ fontSize: '1rem' }}>{alt.icon}</span>
@@ -989,7 +980,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 padding: '7px 10px', borderRadius: 8, cursor: 'pointer',
                                                 border: isOn ? '1.5px solid rgba(16,185,129,0.4)' : '1.5px solid rgba(100,116,139,0.2)',
                                                 background: isOn ? 'rgba(16,185,129,0.08)' : 'rgba(15,23,42,0.3)',
-                                                transition: 'all 0.15s', textAlign: 'left',
+                                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', textAlign: 'left',
                                             }}
                                         >
                                             <span style={{ fontSize: '1rem', flexShrink: 0 }}>{t.icon}</span>
@@ -1039,7 +1030,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <button
                                                 key={track.track_id}
                                                 type="button"
+                                                disabled={!track.enabled_globally}
+                                                title={!track.enabled_globally ? "Requires God Mode authorization to assign" : ""}
                                                 onClick={() => {
+                                                    if (!track.enabled_globally) return;
                                                     setSelectedSideTracks(prev =>
                                                         prev.includes(track.track_id)
                                                             ? prev.filter(t => t !== track.track_id)
@@ -1048,10 +1042,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 }}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 10,
-                                                    padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+                                                    padding: '10px 14px', borderRadius: 10, 
+                                                    cursor: track.enabled_globally ? 'pointer' : 'not-allowed',
                                                     border: isSelected ? '2px solid #6366f1' : '1.5px solid rgba(100,116,139,0.3)',
                                                     background: isSelected ? 'rgba(99,102,241,0.1)' : 'rgba(15,23,42,0.5)',
-                                                    textAlign: 'left', width: '100%', transition: 'all 0.18s',
+                                                    textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
+                                                    opacity: track.enabled_globally ? 1 : 0.4,
                                                 }}
                                             >
                                                 <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{track.icon || '📦'}</span>
@@ -1116,7 +1112,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         background: ceoInterviewEnabled ? '#10b981' : 'rgba(148,163,184,0.15)',
                                         color: ceoInterviewEnabled ? '#fff' : '#94a3b8',
                                         fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer',
-                                        transition: 'all 0.15s', flexShrink: 0,
+                                        transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', flexShrink: 0,
                                     }}
                                 >
                                     {ceoInterviewEnabled ? '● ENABLED' : '○ DISABLED'}
@@ -1264,7 +1260,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 ? 'rgba(59,130,246,0.08)'
                                                 : 'var(--bg-card)',
                                             cursor: 'pointer',
-                                            transition: 'all 0.15s',
+                                            transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                         }}
                                     >
                                         <div style={{ fontSize: '1rem', marginBottom: 4 }}>{mode.icon} <strong style={{ color: 'var(--text-primary)' }}>{mode.label}</strong></div>

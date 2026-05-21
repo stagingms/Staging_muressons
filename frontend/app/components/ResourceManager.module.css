@@ -5,7 +5,7 @@
     max-width: 1000px;
 }
 
-/* ── Tab Bar ─────────────────────────────────────────────── */
+/* â”€â”€ Tab Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tabBar {
     display: flex;
     gap: 0.5rem;
@@ -16,13 +16,13 @@
 .tabBtn {
     background: transparent;
     border: 1px solid rgba(255, 255, 255, 0.08);
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     padding: 0.5rem 1.2rem;
     border-radius: 8px;
     cursor: pointer;
     font-size: 0.85rem;
     font-weight: 600;
-    transition: all 0.2s;
+    transition: color 0.2s, background-color 0.2s, border-color 0.2s;
 }
 
 .tabBtn:hover {
@@ -36,9 +36,9 @@
     color: #a5b4fc;
 }
 
-/* ── Upload Section ──────────────────────────────────────── */
+/* â”€â”€ Upload Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .uploadSection {
-    background: var(--bg-card, rgba(15, 15, 25, 0.6));
+    background: var(--bg-card);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 12px;
     padding: 1.2rem;
@@ -46,7 +46,7 @@
 
 .uploadSection h3 {
     margin: 0 0 0.8rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     font-size: 1rem;
 }
 
@@ -55,7 +55,7 @@
     border-radius: 10px;
     padding: 1.5rem;
     text-align: center;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     cursor: pointer;
     transition: border-color 0.2s, background 0.2s;
 }
@@ -76,7 +76,7 @@
     justify-content: center;
 }
 
-/* ── Resource Table ──────────────────────────────────────── */
+/* â”€â”€ Resource Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .resourceTable {
     width: 100%;
     border-collapse: separate;
@@ -89,14 +89,14 @@
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--text-secondary, #64748b);
+    color: var(--text-secondary);
     border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .resourceTable td {
     padding: 0.6rem 0.8rem;
     font-size: 0.85rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
     vertical-align: middle;
 }
@@ -116,25 +116,25 @@
 
 .typePDF {
     background: rgba(239, 68, 68, 0.15);
-    color: #f87171;
+    color: var(--gauge-red);
 }
 
 .typeVideo {
     background: rgba(139, 92, 246, 0.15);
-    color: #a78bfa;
+    color: var(--accent-purple);
 }
 
 .typeWeblink {
     background: rgba(59, 130, 246, 0.15);
-    color: #60a5fa;
+    color: var(--accent-blue);
 }
 
 .typeMemo {
     background: rgba(245, 158, 11, 0.15);
-    color: #fbbf24;
+    color: var(--accent-gold);
 }
 
-/* ── Add Resource Form ─────────────────────────────────────── */
+/* â”€â”€ Add Resource Form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .libraryActions {
     display: flex;
     justify-content: flex-end;
@@ -150,7 +150,7 @@
     font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
 }
 
 .addBtn:hover {
@@ -210,7 +210,7 @@
 
 .inputGroup label {
     font-size: 0.75rem;
-    color: #475569;
+    color: var(--text-secondary);
     font-weight: 700;
 }
 
@@ -224,19 +224,19 @@
     border-radius: 6px;
     font-size: 0.85rem;
     font-family: inherit;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
 }
 
 .inputGroup input::placeholder,
 .inputGroup textarea::placeholder {
-    color: #94a3b8;
+    color: var(--text-muted);
 }
 
 .inputGroup input:focus,
 .inputGroup select:focus,
 .inputGroup textarea:focus {
     outline: none;
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     background: #ffffff;
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
@@ -276,7 +276,7 @@
 .deleteBtn {
     background: none;
     border: none;
-    color: #64748b;
+    color: var(--text-muted);
     cursor: pointer;
     font-size: 1rem;
     padding: 0.2rem;
@@ -285,10 +285,10 @@
 }
 
 .deleteBtn:hover {
-    color: #ef4444;
+    color: var(--gauge-red);
 }
 
-/* ── Session Resource Control ────────────────────────────── */
+/* â”€â”€ Session Resource Control â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sessionSelector {
     display: flex;
     align-items: center;
@@ -298,14 +298,14 @@
 
 .sessionSelector label {
     font-size: 0.85rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
 .sessionSelector select {
     flex: 1;
-    background: var(--bg-elevated, rgba(20, 20, 35, 0.8));
-    color: var(--text-primary, #e2e8f0);
+    background: var(--bg-elevated);
+    color: var(--text-primary);
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 8px;
     padding: 0.5rem 0.8rem;
@@ -336,12 +336,12 @@
 .toggleTitle {
     font-size: 0.85rem;
     font-weight: 600;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }
 
 .toggleMeta {
     font-size: 0.72rem;
-    color: var(--text-secondary, #64748b);
+    color: var(--text-secondary);
 }
 
 .toggleActions {
@@ -384,7 +384,7 @@
 }
 
 .toggleSwitch input:checked+.slider {
-    background: #6366f1;
+    background: var(--accent-blue);
 }
 
 .toggleSwitch input:checked+.slider::before {
@@ -413,9 +413,9 @@
     cursor: not-allowed;
 }
 
-/* ── Deployment Guide ────────────────────────────────────── */
+/* â”€â”€ Deployment Guide â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .guideSection {
-    background: var(--bg-card, rgba(15, 15, 25, 0.6));
+    background: var(--bg-card);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 12px;
     padding: 1.2rem;
@@ -423,7 +423,7 @@
 
 .guideSection h3 {
     margin: 0 0 0.8rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     font-size: 1rem;
 }
 
@@ -453,7 +453,7 @@
 
 .guideRoundHeader span:last-child {
     font-size: 0.82rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     font-weight: 600;
 }
 
@@ -461,13 +461,13 @@
     padding: 0.5rem 0.8rem;
     padding-left: 2.5rem;
     font-size: 0.82rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     line-height: 1.5;
 }
 
 .guideStrategy {
     font-size: 0.75rem;
-    color: #94a3b8;
+    color: var(--text-muted);
     font-style: italic;
     margin-top: 0.15rem;
 }
@@ -479,7 +479,7 @@
 }
 
 .hiddenGuide h4 {
-    color: #fbbf24;
+    color: var(--accent-gold);
     font-size: 0.9rem;
     margin: 0 0 0.8rem;
 }
@@ -495,18 +495,18 @@
 .hiddenCard h5 {
     margin: 0;
     font-size: 0.85rem;
-    color: #fbbf24;
+    color: var(--accent-gold);
 }
 
 .conditionText {
     font-size: 0.78rem;
-    color: #94a3b8;
+    color: var(--text-muted);
     margin: 0.3rem 0;
 }
 
 .effectText {
     font-size: 0.78rem;
-    color: #10b981;
+    color: var(--gauge-green);
     margin: 0;
 }
 
@@ -519,13 +519,13 @@
 
 .statusSuccess {
     background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
+    color: var(--gauge-green);
     border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .statusError {
     background: rgba(239, 68, 68, 0.1);
-    color: #f87171;
+    color: var(--gauge-red);
     border: 1px solid rgba(239, 68, 68, 0.2);
 }
 
@@ -533,14 +533,14 @@
     font-size: 0.82rem;
 }
 
-/* ── NotebookLM Type Badge ──────────────────────────────── */
+/* â”€â”€ NotebookLM Type Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .typeNotebookLM {
     background: linear-gradient(135deg, rgba(124, 58, 237, 0.15), rgba(59, 130, 246, 0.15));
-    color: #a78bfa;
+    color: var(--accent-purple);
     border: 1px solid rgba(124, 58, 237, 0.3);
 }
 
-/* ── NotebookLM Tab ─────────────────────────────────────── */
+/* â”€â”€ NotebookLM Tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .nbHeader {
     display: flex;
     align-items: flex-start;
@@ -552,13 +552,13 @@
 .nbHeading {
     margin: 0;
     font-size: 1.1rem;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
 }
 
 .nbSubtext {
     margin: 0.3rem 0 0;
     font-size: 0.78rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     max-width: 600px;
     line-height: 1.5;
 }
@@ -570,11 +570,11 @@
 }
 
 .nbCard {
-    background: var(--bg-card, rgba(15, 15, 25, 0.6));
+    background: var(--bg-card);
     border: 1px solid rgba(124, 58, 237, 0.2);
     border-radius: 12px;
     padding: 1rem 1.2rem;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     position: relative;
     overflow: hidden;
 }
@@ -622,20 +622,20 @@
     margin: 0;
     font-size: 0.9rem;
     font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     line-height: 1.3;
 }
 
 .nbCardMeta {
     font-size: 0.72rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     font-weight: 500;
 }
 
 .nbCardDesc {
     margin: 0.6rem 0 0;
     font-size: 0.78rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     line-height: 1.5;
 }
 
@@ -660,42 +660,42 @@
     font-size: 0.68rem;
     font-weight: 700;
     background: rgba(255, 255, 255, 0.06);
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .nbCt_podcast {
     background: rgba(124, 58, 237, 0.12);
-    color: #a78bfa;
+    color: var(--accent-purple);
     border-color: rgba(124, 58, 237, 0.25);
 }
 
 .nbCt_review {
     background: rgba(59, 130, 246, 0.12);
-    color: #60a5fa;
+    color: var(--accent-blue);
     border-color: rgba(59, 130, 246, 0.25);
 }
 
 .nbCt_quiz {
     background: rgba(16, 185, 129, 0.12);
-    color: #34d399;
+    color: var(--gauge-green);
     border-color: rgba(16, 185, 129, 0.25);
 }
 
 .nbOpenLink {
     font-size: 0.75rem;
     font-weight: 700;
-    color: #a78bfa;
+    color: var(--accent-purple);
     text-decoration: none;
     white-space: nowrap;
     transition: color 0.15s;
 }
 
 .nbOpenLink:hover {
-    color: #c4b5fd;
+    color: var(--accent-purple);
 }
 
-/* ── Content Type Picker (Form) ─────────────────────────── */
+/* â”€â”€ Content Type Picker (Form) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .nbContentTypePicker {
     display: flex;
     gap: 0.5rem;
@@ -705,13 +705,13 @@
 .nbCtBtn {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     padding: 0.4rem 0.8rem;
     border-radius: 8px;
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
 }
 
 .nbCtBtn:hover {

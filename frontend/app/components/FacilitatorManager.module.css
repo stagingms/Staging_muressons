@@ -1,4 +1,4 @@
-/* FacilitatorManager.module.css — Redesigned */
+ï»¿/* FacilitatorManager.module.css â€” Redesigned */
 
 .container {
     background: var(--bg-card);
@@ -8,7 +8,7 @@
     position: relative;
 }
 
-/* ── Header ────────────────────────────────────────── */
+/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .header {
     display: flex;
     align-items: flex-start;
@@ -52,7 +52,7 @@
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.2s;
+  transition: box-shadow 0.2s, transform 0.2s;
     font-family: inherit;
     box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
     letter-spacing: 0.02em;
@@ -72,7 +72,7 @@
     font-weight: 700;
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.2s;
+    transition: background 0.2s, border-color 0.2s, transform 0.2s;
     font-family: inherit;
     letter-spacing: 0.02em;
 }
@@ -82,7 +82,7 @@
     transform: translateY(-1px);
 }
 
-/* ── Stats Bar ────────────────────────────────────── */
+/* â”€â”€ Stats Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .statsBar {
     display: flex;
     align-items: center;
@@ -123,7 +123,7 @@
     flex-shrink: 0;
 }
 
-/* ── Search ────────────────────────────────────────── */
+/* â”€â”€ Search â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .searchBar {
     display: flex;
     align-items: center;
@@ -152,7 +152,7 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 .searchInput:focus {
-    border-color: var(--accent-cyan, #06b6d4);
+    border-color: var(--accent-cyan);
     box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.1);
 }
 
@@ -168,7 +168,7 @@
 }
 .clearSearch:hover { color: var(--text-primary); }
 
-/* ── Table ────────────────────────────────────────── */
+/* â”€â”€ Table â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tableWrap { overflow-x: auto; }
 
 .table {
@@ -212,7 +212,7 @@
 .facId {
     font-family: var(--font-mono);
     font-size: 0.75rem;
-    color: var(--accent-cyan, #06b6d4);
+    color: var(--accent-cyan);
     background: rgba(6, 182, 212, 0.08);
     padding: 3px 8px;
     border-radius: 4px;
@@ -225,7 +225,7 @@
     white-space: nowrap;
 }
 
-/* ── Contact Cell ────────────────────────────────── */
+/* â”€â”€ Contact Cell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .contactCell {
     display: flex;
     flex-direction: column;
@@ -241,11 +241,11 @@
     max-width: 180px;
 }
 
-/* ── Programme Badge ─────────────────────────────── */
+/* â”€â”€ Programme Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .programmeBadge {
     font-size: 0.68rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--text-muted);
     background: rgba(148, 163, 184, 0.08);
     padding: 2px 8px;
     border-radius: 6px;
@@ -256,7 +256,7 @@
     text-overflow: ellipsis;
 }
 
-/* ── Schedule Cell ───────────────────────────────── */
+/* â”€â”€ Schedule Cell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .scheduleCell {
     display: flex;
     flex-direction: column;
@@ -286,7 +286,7 @@
     white-space: nowrap;
 }
 
-/* ── Usage Bar ────────────────────────────────────── */
+/* â”€â”€ Usage Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .usageWrap {
     display: flex;
     align-items: center;
@@ -318,7 +318,7 @@
     min-width: 2px;
 }
 
-/* ── Action Buttons ───────────────────────────────── */
+/* â”€â”€ Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .actionBtn {
     background: none;
     border: 1px solid transparent;
@@ -326,7 +326,7 @@
     font-size: 0.85rem;
     padding: 0.25rem 0.35rem;
     border-radius: var(--radius-md);
-    transition: all 0.15s;
+    transition: opacity 0.15s, background 0.15s, border-color 0.15s;
     opacity: 0.55;
     line-height: 1;
 }
@@ -343,7 +343,7 @@
     font-size: 0.85rem;
     padding: 0.25rem 0.35rem;
     border-radius: var(--radius-md);
-    transition: all 0.2s;
+    transition: opacity 0.2s, background 0.2s, border-color 0.2s;
     opacity: 0.5;
     line-height: 1;
     white-space: nowrap;
@@ -357,7 +357,7 @@
     opacity: 1;
     background: rgba(239, 68, 68, 0.12);
     border-color: rgba(239, 68, 68, 0.4);
-    color: #ef4444;
+    color: var(--gauge-red);
     font-size: 0.65rem;
     font-weight: 700;
     padding: 0.25rem 0.5rem;
@@ -369,7 +369,7 @@
     to   { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
 }
 
-/* ── Empty State ──────────────────────────────────── */
+/* â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .empty {
     padding: 3rem 2rem;
     text-align: center;
@@ -378,12 +378,11 @@
     font-style: italic;
 }
 
-/* ── Slide-Over Drawer ────────────────────────────── */
+/* â”€â”€ Slide-Over Drawer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .drawerOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(4px);
+    background: rgba(0, 0, 0, 0.92);
     z-index: 19000;
     animation: fadeInOverlay 0.2s ease;
 }
@@ -453,16 +452,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.15s;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
     flex-shrink: 0;
 }
 .drawerClose:hover {
     background: rgba(239, 68, 68, 0.1);
     border-color: rgba(239, 68, 68, 0.3);
-    color: #ef4444;
+    color: var(--gauge-red);
 }
 
-/* ── Step indicator ──────────────────────────────── */
+/* â”€â”€ Step indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .stepIndicator {
     display: flex;
     align-items: center;
@@ -484,18 +483,18 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.25s;
+    transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
     flex-shrink: 0;
 }
 
 .stepDotActive {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.15);
     color: #a5b4fc;
 }
 
 .stepDotCurrent {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     background: #6366f1;
     color: #fff;
     box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
@@ -519,7 +518,7 @@
     overflow-y: auto;
 }
 
-/* ── Step Content ────────────────────────────────── */
+/* â”€â”€ Step Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .stepContent {
     padding: 1.25rem 1.5rem 1.5rem;
 }
@@ -553,7 +552,7 @@
     line-height: 1.5;
 }
 
-/* ── Form Grid ──────────────────────────────────── */
+/* â”€â”€ Form Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .formGrid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -583,7 +582,7 @@
 }
 
 .required {
-    color: #ef4444;
+    color: var(--gauge-red);
     font-size: 0.85em;
 }
 
@@ -601,7 +600,7 @@
     box-sizing: border-box;
 }
 .formInput:focus {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 .formInput::placeholder {
@@ -625,7 +624,7 @@
     line-height: 1.5;
 }
 .formTextarea:focus {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 .formTextarea::placeholder {
@@ -639,7 +638,7 @@
     opacity: 0.7;
 }
 
-/* ── Step Navigation ────────────────────────────── */
+/* â”€â”€ Step Navigation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .stepNavigation {
     display: flex;
     justify-content: space-between;
@@ -658,7 +657,7 @@
     font-size: 0.82rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: box-shadow 0.2s, transform 0.2s;
     font-family: inherit;
     box-shadow: 0 2px 10px rgba(99, 102, 241, 0.25);
 }
@@ -677,7 +676,7 @@
     font-size: 0.82rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s;
     font-family: inherit;
 }
 .navBtnSecondary:hover:not(:disabled) {
@@ -695,7 +694,7 @@
     font-size: 0.82rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: box-shadow 0.2s, transform 0.2s;
     font-family: inherit;
     box-shadow: 0 2px 10px rgba(16, 185, 129, 0.25);
 }
@@ -705,7 +704,7 @@
 }
 .navBtnCreate:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── Paradigm Cards (in drawer) ──────────────────── */
+/* â”€â”€ Paradigm Cards (in drawer) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .paradigmGrid {
     display: flex;
     flex-direction: column;
@@ -721,16 +720,16 @@
     border: 1.5px solid var(--border-subtle);
     border-radius: var(--radius-md, 8px);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: border-color 0.15s, background 0.15s;
     background: var(--bg-body);
     position: relative;
 }
 .paradigmCard:hover {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.04);
 }
 .paradigmCardActive {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.06);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
@@ -760,12 +759,12 @@
     right: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #6366f1;
+    color: var(--accent-blue);
     font-weight: 800;
     font-size: 0.85rem;
 }
 
-/* ── Permissions Section ─────────────────────────── */
+/* â”€â”€ Permissions Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .permissionsSection {
     margin-top: 1.25rem;
     padding-top: 1rem;
@@ -786,7 +785,7 @@
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md, 8px);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: border-color 0.15s, background 0.15s;
     background: transparent;
 }
 .permCard:hover { border-color: rgba(99, 102, 241, 0.3); }
@@ -825,7 +824,7 @@
     box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 }
 
-/* ── Review Card ─────────────────────────────────── */
+/* â”€â”€ Review Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .reviewCard {
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-md, 8px);
@@ -892,7 +891,7 @@
     line-height: 1.5;
 }
 
-/* ── Bulk Upload Styles ──────────────────────────── */
+/* â”€â”€ Bulk Upload Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bulkFormatBox {
     padding: 0.85rem 1rem;
     border: 1px solid rgba(99, 102, 241, 0.15);
@@ -943,7 +942,7 @@
     font-size: 0.72rem;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, border-color 0.15s;
     font-family: inherit;
 }
 .bulkDownloadBtn:hover {
@@ -951,14 +950,14 @@
     border-color: rgba(99, 102, 241, 0.4);
 }
 
-/* ── Dropzone ────────────────────────────────────── */
+/* â”€â”€ Dropzone â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .dropzone {
     border: 2px dashed var(--border-subtle);
     border-radius: var(--radius-md, 8px);
     padding: 2rem 1.5rem;
     text-align: center;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: border-color 0.2s, background 0.2s;
     background: transparent;
     margin-bottom: 1rem;
 }
@@ -967,7 +966,7 @@
     background: rgba(99, 102, 241, 0.02);
 }
 .dropzoneActive {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     background: rgba(99, 102, 241, 0.06);
     border-style: solid;
 }
@@ -989,7 +988,7 @@
     color: var(--text-muted);
 }
 
-/* ── Bulk Errors ─────────────────────────────────── */
+/* â”€â”€ Bulk Errors â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bulkErrors {
     border: 1px solid rgba(239, 68, 68, 0.25);
     border-radius: var(--radius-md, 8px);
@@ -1000,11 +999,11 @@
 
 .bulkErrorRow {
     font-size: 0.72rem;
-    color: #ef4444;
+    color: var(--gauge-red);
     padding: 0.2rem 0;
 }
 
-/* ── Bulk Preview ────────────────────────────────── */
+/* â”€â”€ Bulk Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .bulkPreview {
     margin-bottom: 1rem;
 }
@@ -1023,7 +1022,7 @@
     border: 1px solid var(--border-subtle);
 }
 
-/* ── Cohort Limit Input ───────────────────────────── */
+/* â”€â”€ Cohort Limit Input â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .limitInput {
     width: 60px;
     padding: 0.35rem 0.5rem;
@@ -1039,11 +1038,11 @@
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 .limitInput:focus {
-    border-color: #6366f1;
+    border-color: var(--accent-blue);
     box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-/* ── Toast ────────────────────────────────────────── */
+/* â”€â”€ Toast â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .toast {
     position: fixed;
     bottom: 2rem;
@@ -1052,10 +1051,9 @@
     border-radius: var(--radius-md);
     background: rgba(16, 185, 129, 0.15);
     border: 1px solid rgba(16, 185, 129, 0.3);
-    color: #10b981;
+    color: var(--gauge-green);
     font-size: 0.82rem;
     font-weight: 600;
-    backdrop-filter: blur(12px);
     animation: slideUp 0.3s ease-out;
     z-index: 20000;
     max-width: 360px;
@@ -1065,7 +1063,7 @@
 .toastError {
     background: rgba(239, 68, 68, 0.15);
     border-color: rgba(239, 68, 68, 0.3);
-    color: #ef4444;
+    color: var(--gauge-red);
 }
 
 @keyframes slideUp {

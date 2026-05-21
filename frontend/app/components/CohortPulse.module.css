@@ -1,28 +1,28 @@
-/* ═══════════════════════════════════════════════════
-   CohortPulse — Real-time Facilitator Heatmap
-   ═══════════════════════════════════════════════════ */
+ï»¿/* Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â
+   CohortPulse Ã¢â‚¬â€ Real-time Facilitator Heatmap
+   Ã¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢ÂÃ¢â€¢Â */
 
 .container {
   padding: 1rem;
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
 }
 
 .loading {
   text-align: center;
   padding: 2rem;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-size: 0.85rem;
 }
 
 .empty {
   text-align: center;
   padding: 2rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-size: 0.82rem;
   font-style: italic;
 }
 
-/* ── Header ────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Header Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .header {
   display: flex;
@@ -45,14 +45,14 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 800;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .headerSubtitle {
   font-size: 0.65rem;
-  color: var(--text-muted, #64748b);
-  font-family: var(--font-mono, monospace);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
   letter-spacing: 0.05em;
 }
 
@@ -61,7 +61,7 @@
   align-items: center;
 }
 
-/* ── Toggle ────────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Toggle Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .toggleLabel {
   display: flex;
@@ -72,7 +72,7 @@
   border-radius: 6px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  transition: all 0.2s ease;
+  transition: background 0.2s ease;
 }
 
 .toggleLabel:hover {
@@ -82,16 +82,16 @@
 .toggleInput {
   width: 14px;
   height: 14px;
-  accent-color: #3b82f6;
+  accent-color: var(--accent-blue);
 }
 
 .toggleText {
   font-size: 0.7rem;
   font-weight: 600;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
 }
 
-/* ── Metric Selector ───────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Metric Selector Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .metricSelector {
   display: flex;
@@ -113,17 +113,17 @@
   border-radius: 7px;
   border: none;
   background: transparent;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
   white-space: nowrap;
 }
 
 .metricBtn:hover {
   background: rgba(255, 255, 255, 0.05);
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
 }
 
 .metricBtnActive {
@@ -133,7 +133,7 @@
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);
 }
 
-/* ── Heatmap Grid ──────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Heatmap Grid Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 .heatmapGrid {
   display: flex;
@@ -155,7 +155,7 @@
 .heatmapTeamHeader {
   font-size: 0.6rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 0.4rem 0.5rem;
@@ -164,11 +164,11 @@
 .heatmapRoundHeader {
   font-size: 0.6rem;
   font-weight: 700;
-  color: #64748b;
+  color: var(--text-muted);
   letter-spacing: 0.08em;
   text-align: center;
   padding: 0.4rem 0;
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
 }
 
 .heatmapRow {
@@ -180,7 +180,7 @@
 .heatmapTeamName {
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--text-primary, #e2e8f0);
+  color: var(--text-primary);
   padding: 0.4rem 0.5rem;
   white-space: nowrap;
   overflow: hidden;
@@ -195,7 +195,7 @@
   justify-content: center;
   min-height: 32px;
   border-radius: 4px;
-  transition: all 0.3s ease;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
   cursor: default;
 }
 
@@ -213,11 +213,11 @@
   font-size: 0.68rem;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
-  font-family: var(--font-mono, monospace);
+  font-family: var(--font-mono);
   letter-spacing: 0.02em;
 }
 
-/* ── Responsive ────────────────────────────── */
+/* Ã¢â€â‚¬Ã¢â€â‚¬ Responsive Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
 
 @media (max-width: 768px) {
   .heatmapHeaderRow,
@@ -232,3 +232,4 @@
     padding: 0.35rem 0.3rem;
   }
 }
+

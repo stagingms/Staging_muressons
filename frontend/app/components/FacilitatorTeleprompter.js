@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { BRIEFINGS, HEALTHCARE_BRIEFINGS, SDG_BRIEFINGS } from './RoundBriefing';
 import TCFDScenarioDashboard from './TCFDScenarioDashboard';
+import { sanitizeHtml } from '@/app/utils/sanitize';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 /* ── Systemic Risk Intelligence Sub-Component ── */
@@ -595,11 +596,15 @@ const ENGINE_TOOLTIPS = {
     resist_integrate:           'Resist & Integrate — R10 premium option. Only available if synergy multiplier ≥ 1.20. Preserves all BUs with enhanced synergy.',
 };
 
-export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = null }) {
+export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = null, leaderboard = [], onSelectSession = null }) {
     const [scripts, setScripts] = useState({});
     const [roundConfig, setRoundConfig] = useState(null);
     const [activeRound, setActiveRound] = useState(currentRound);
     const [checkedPoints, setCheckedPoints] = useState({});
+
+    // Cohort sessions available for selection (top-level, no player sub-sessions)
+    const cohortSessions = leaderboard.filter(s => !s.player_id);
+    const selectedCohort = cohortSessions.find(s => s.session_id === sessionId);
 
     // Auto-sync activeRound whenever the live cohort advances a round
     useEffect(() => {
@@ -669,7 +674,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
             fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
         }}>
             {/* ── Header ── */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <div style={{
                         width: '32px', height: '32px', borderRadius: '8px',
@@ -686,6 +691,78 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         </div>
                     </div>
                 </div>
+
+                {/* ── Cohort Selector (syncs round + session data) ── */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: '1 1 auto', justifyContent: 'center' }}>
+                    {cohortSessions.length > 0 && onSelectSession ? (
+                        <div style={{
+                            display: 'flex', alignItems: 'center', gap: '0.5rem',
+                            padding: '0.4rem 0.75rem', borderRadius: '8px',
+                            background: sessionId ? 'rgba(34,197,94,0.06)' : 'rgba(245,158,11,0.06)',
+                            border: `1px solid ${sessionId ? 'rgba(34,197,94,0.2)' : 'rgba(245,158,11,0.2)'}`,
+                        }}>
+                            {sessionId && (
+                                <span style={{
+                                    width: '8px', height: '8px', borderRadius: '50%',
+                                    background: '#22c55e',
+                                    boxShadow: '0 0 6px rgba(34,197,94,0.6)',
+                                    animation: 'pulse 2s infinite',
+                                    flexShrink: 0,
+                                }} />
+                            )}
+                            <select
+                                value={sessionId || ''}
+                                onChange={(e) => {
+                                    const newId = e.target.value || null;
+                                    onSelectSession(newId);
+                                }}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '0.78rem',
+                                    fontWeight: 700,
+                                    fontFamily: 'var(--font-mono, monospace)',
+                                    cursor: 'pointer',
+                                    outline: 'none',
+                                    maxWidth: '260px',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                <option value="" style={{ background: '#1e293b', color: '#94a3b8' }}>
+                                    — Select Cohort —
+                                </option>
+                                {cohortSessions.map(s => (
+                                    <option key={s.session_id} value={s.session_id} style={{ background: '#1e293b', color: '#e2e8f0' }}>
+                                        {s.cohort_name || s.session_id.slice(0, 12)} — R{s.round_number || 1}
+                                    </option>
+                                ))}
+                            </select>
+                            {selectedCohort && (
+                                <span style={{
+                                    padding: '2px 8px', borderRadius: '5px', fontSize: '0.62rem', fontWeight: 800,
+                                    fontFamily: 'var(--font-mono, monospace)',
+                                    background: 'rgba(59,130,246,0.12)', color: '#60a5fa',
+                                    border: '1px solid rgba(59,130,246,0.25)',
+                                    whiteSpace: 'nowrap',
+                                }}>
+                                    R{selectedCohort.round_number || 1}
+                                </span>
+                            )}
+                        </div>
+                    ) : (
+                        <span style={{
+                            fontSize: '0.72rem', color: 'var(--text-muted)', fontStyle: 'italic',
+                            padding: '0.35rem 0.6rem', borderRadius: '6px',
+                            background: 'rgba(107,114,128,0.06)',
+                            border: '1px solid rgba(107,114,128,0.15)',
+                        }}>
+                            No cohorts available — create one from Dashboard
+                        </span>
+                    )}
+                </div>
+
                 {totalPoints > 0 && (
                     <div style={{
                         display: 'flex', alignItems: 'center', gap: '0.4rem',
@@ -723,7 +800,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                             fontWeight: isActive ? 800 : 600,
                             fontSize: '0.78rem', cursor: 'pointer',
                             fontFamily: 'var(--font-mono, monospace)',
-                            transition: 'all 0.15s',
+                            transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                             boxShadow: isActive ? '0 2px 10px rgba(201,168,76,0.35)' : 'none',
                             opacity: !isPast && !isActive ? 0.4 : 1,
                         }}>R{r}</button>
@@ -766,14 +843,14 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                             background: isChecked ? 'rgba(34,197,94,0.06)' : 'rgba(255,255,255,0.02)',
                                             border: `1px solid ${isChecked ? 'rgba(34,197,94,0.2)' : 'rgba(255,255,255,0.04)'}`,
                                             display: 'flex', alignItems: 'flex-start', gap: '0.5rem',
-                                            transition: 'all 0.2s ease', opacity: isChecked ? 0.55 : 1,
+                                            transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease', opacity: isChecked ? 0.55 : 1,
                                         }}>
                                             <span style={{
                                                 width: '18px', height: '18px', borderRadius: '4px', flexShrink: 0,
                                                 border: isChecked ? '2px solid #22c55e' : '2px solid rgba(255,255,255,0.15)',
                                                 background: isChecked ? 'rgba(34,197,94,0.15)' : 'transparent',
                                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                                fontSize: '0.6rem', color: '#22c55e', marginTop: '1px', transition: 'all 0.2s',
+                                                fontSize: '0.6rem', color: '#22c55e', marginTop: '1px', transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                             }}>{isChecked ? '✓' : ''}</span>
                                             <span style={{
                                                 fontSize: '0.82rem', color: 'var(--text-primary)', lineHeight: 1.5,
@@ -808,7 +885,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                                     fontSize: '0.68rem', fontWeight: 600,
                                                     fontFamily: 'var(--font-mono, monospace)',
                                                     cursor: 'help', letterSpacing: '0.02em',
-                                                    transition: 'all 0.15s', display: 'inline-block',
+                                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', display: 'inline-block',
                                                 }}
                                                 onMouseOver={e => {
                                                     e.currentTarget.style.background = 'rgba(245,158,11,0.18)';
@@ -873,6 +950,44 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     </div>
                 </>
             )}
+
+            {/* ── Consequence Preview Coaching (Persistent — All Rounds) ── */}
+            {script.title && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(244,114,182,0.06), rgba(251,146,60,0.04))',
+                    border: '1px solid rgba(244,114,182,0.18)',
+                    borderRadius: '10px', padding: '1rem',
+                    borderLeft: '3px solid #f472b6',
+                }}>
+                    {sectionLabel('🔮', 'Consequence Preview — Facilitator Coaching', '#f472b6')}
+                    <div style={{
+                        padding: '0.6rem 0.75rem', borderRadius: '7px',
+                        background: 'rgba(244,114,182,0.06)', border: '1px solid rgba(244,114,182,0.12)',
+                        fontSize: '0.78rem', color: '#fda4af', lineHeight: 1.6, marginBottom: '0.75rem',
+                    }}>
+                        ★ <strong>PEDAGOGICAL GAP — BY DESIGN:</strong> The Consequence Preview panel on the student cockpit shows <em>only first-order configured deltas</em> (revenue, reputation, carbon intensity, social license). It deliberately omits cascade effects (contagion, NPC reactions), engine-computed impacts (WACC adjustments, balance sheet, employer brand), multi-round compounding (NCD interest, green bond payback), stochastic events (R5 cyclone, black swans), and systemic tipping penalties. <strong>This gap is intentional</strong> — it creates metacognitive friction that forces students to ask: "What happened that I didn't predict?"
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        <div style={{
+                            padding: '0.45rem 0.65rem', borderRadius: '6px',
+                            background: 'rgba(244,114,182,0.04)',
+                            borderLeft: '2px solid rgba(244,114,182,0.3)',
+                            fontSize: '0.75rem', color: '#fecdd3', fontStyle: 'italic', lineHeight: 1.5,
+                        }}>
+                            &ldquo;Before you commit: what does the Consequence Preview show you? After you commit: what ACTUALLY happened that the preview didn't warn you about? Where did the gap come from?&rdquo;
+                        </div>
+                        <div style={{
+                            padding: '0.45rem 0.65rem', borderRadius: '6px',
+                            background: 'rgba(244,114,182,0.04)',
+                            borderLeft: '2px solid rgba(244,114,182,0.3)',
+                            fontSize: '0.75rem', color: '#fecdd3', fontStyle: 'italic', lineHeight: 1.5,
+                        }}>
+                            &ldquo;The preview is a simplified signal — like a corporate ESG rating. The engine is the real world. How reliable are simplified metrics for complex system decisions?&rdquo;
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* ── BRSR NGRBC Overlay (when track is enabled) ── */}
             {script.brsr_ngrbc_overlay && (() => {
                 const bo = script.brsr_ngrbc_overlay;
@@ -1385,7 +1500,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                                     </div>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.82rem', color: 'var(--text-secondary, #cbd5e1)', lineHeight: 1.6 }}>
                                         {activeNarrative.narrative.map((para, i) => (
-                                            <p key={i} style={{ margin: 0 }} dangerouslySetInnerHTML={{ __html: para }} />
+                                            <p key={i} style={{ margin: 0 }} dangerouslySetInnerHTML={{ __html: sanitizeHtml(para) }} />
                                         ))}
                                     </div>
                                 </div>

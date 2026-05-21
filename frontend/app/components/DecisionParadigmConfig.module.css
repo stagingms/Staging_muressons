@@ -1,6 +1,6 @@
-/* ═══════════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------
    DecisionParadigmConfig — Premium Light Theme UI
-   ═══════════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------- */
 
 .container {
   padding: 1.6rem 1.8rem 1.4rem;
@@ -9,7 +9,7 @@
   gap: 1.2rem;
 }
 
-/* ── Header ─────────────────────────────────────────────────── */
+/* -- Header --------------------------------------------------- */
 
 .header {
   display: flex;
@@ -26,7 +26,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366f1;
+  color: var(--accent-blue);
   flex-shrink: 0;
 }
 
@@ -41,7 +41,7 @@
 .headerSubtitle {
   margin: 0.2rem 0 0;
   font-size: 0.78rem;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.45;
 }
 
@@ -50,7 +50,7 @@
   font-weight: 700;
 }
 
-/* ── Session Selector ───────────────────────────────────────── */
+/* -- Session Selector ----------------------------------------- */
 
 .sessionSelect {
   display: flex;
@@ -64,7 +64,7 @@
   gap: 0.35rem;
   font-size: 0.72rem;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -91,7 +91,7 @@
 
 .select:focus {
   outline: none;
-  border-color: #818cf8;
+  border-color: var(--accent-blue);
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
@@ -100,11 +100,11 @@
   right: 0.7rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #94a3b8;
+  color: var(--text-muted);
   pointer-events: none;
 }
 
-/* ── Lock Banner ────────────────────────────────────────────── */
+/* -- Lock Banner ---------------------------------------------- */
 
 .lockBanner {
   display: flex;
@@ -120,7 +120,7 @@
   letter-spacing: 0.01em;
 }
 
-/* ── Toggle Grid ────────────────────────────────────────────── */
+/* -- Toggle Grid ---------------------------------------------- */
 
 .toggleGrid {
   display: grid;
@@ -135,7 +135,7 @@
   border: 1.5px solid #e2e8f0;
   background: #fff;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: background 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   display: flex;
   flex-direction: column;
   gap: 0.65rem;
@@ -191,7 +191,7 @@
 
 .cardDisabled:hover {
   transform: none;
-  border-color: #e2e8f0;
+  border-color: var(--text-primary);
   background: #fff;
   box-shadow: none;
 }
@@ -200,7 +200,7 @@
   display: none;
 }
 
-/* ── Badge ──────────────────────────────────────────────────── */
+/* -- Badge ---------------------------------------------------- */
 
 .badge {
   position: absolute;
@@ -227,7 +227,7 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
-/* ── Card Icon ──────────────────────────────────────────────── */
+/* -- Card Icon ------------------------------------------------ */
 
 .cardIconWrap {
   width: 48px;
@@ -240,7 +240,7 @@
   justify-content: center;
 }
 
-/* ── Card Body ──────────────────────────────────────────────── */
+/* -- Card Body ------------------------------------------------ */
 
 .cardBody {
   display: flex;
@@ -267,11 +267,11 @@
 .cardDesc {
   margin: 0.35rem 0 0;
   font-size: 0.74rem;
-  color: #64748b;
+  color: var(--text-muted);
   line-height: 1.55;
 }
 
-/* ── Feature List ───────────────────────────────────────────── */
+/* -- Feature List --------------------------------------------- */
 
 .featureList {
   list-style: none;
@@ -287,7 +287,7 @@
   align-items: center;
   gap: 0.4rem;
   font-size: 0.72rem;
-  color: #475569;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -296,33 +296,33 @@
   flex-shrink: 0;
 }
 
-/* ── Select Prompt ──────────────────────────────────────────── */
+/* -- Select Prompt -------------------------------------------- */
 
 .selectPrompt {
   margin-top: 0.3rem;
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 500;
   text-align: center;
   padding: 0.4rem;
   border-radius: 6px;
   background: #f8fafc;
   border: 1px dashed #e2e8f0;
-  transition: all 0.25s;
+  transition: background 0.25s, color 0.25s, border-color 0.25s, box-shadow 0.25s, opacity 0.25s, transform 0.25s;
 }
 
 .card:hover .selectPrompt {
-  color: #6366f1;
+  color: var(--accent-blue);
   background: #eef2ff;
   border-color: #c7d2fe;
 }
 
-/* ── Status Messages ────────────────────────────────────────── */
+/* -- Status Messages ------------------------------------------ */
 
 .saving {
   text-align: center;
   font-size: 0.8rem;
-  color: #6366f1;
+  color: var(--accent-blue);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -334,7 +334,7 @@
   width: 14px;
   height: 14px;
   border: 2px solid #e0e7ff;
-  border-top-color: #6366f1;
+  border-top-color: var(--accent-blue);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -359,7 +359,7 @@
   font-weight: 500;
 }
 
-/* ── Responsive ─────────────────────────────────────────────── */
+/* -- Responsive ----------------------------------------------- */
 
 @media (max-width: 900px) {
   .toggleGrid {
@@ -376,9 +376,9 @@
   }
 }
 
-/* ═══════════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------
    God Mode — Matrix Editor Table Styles
-   ═══════════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------- */
 
 .editorSection {
   margin-top: 1.5rem;
@@ -424,19 +424,19 @@
   text-align: left;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #475569;
+  color: var(--text-secondary);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   border-bottom: 2px solid #e2e8f0;
   white-space: nowrap;
 }
 
-/* Sub-header row: "Default → Override" labels */
+/* Sub-header row: "Default ? Override" labels */
 .defaultHeaderRow th {
   padding: 0.25rem 0.75rem 0.4rem;
   font-size: 0.68rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   border-bottom: 1px solid #f1f5f9;
@@ -447,7 +447,7 @@
 /* Muted default value shown above each input */
 .defaultValueLabel {
   font-size: 0.72rem;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   font-family: 'SF Mono', 'Fira Code', monospace;
@@ -478,7 +478,7 @@
 .roundCell {
   font-weight: 700;
   font-size: 0.76rem;
-  color: #6366f1;
+  color: var(--accent-blue);
   background: linear-gradient(90deg, #eef2ff, #fff);
   border-right: 2px solid #c7d2fe;
   white-space: nowrap;
@@ -503,7 +503,7 @@
 
 .optionId {
   font-size: 0.68rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-family: 'SF Mono', 'Fira Code', monospace;
   letter-spacing: 0.02em;
 }
@@ -533,14 +533,14 @@
 
 .inputField:focus {
   outline: none;
-  border-color: #818cf8;
+  border-color: var(--accent-blue);
   background: #fff;
   box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 /* Modified state — amber highlight */
 .modified {
-  border-color: #f59e0b !important;
+  border-color: var(--accent-gold) !important;
   background: #fffbeb !important;
   box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15);
 }
@@ -566,7 +566,7 @@
   font-size: 0.7rem;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
   box-shadow: 0 1px 4px rgba(99, 102, 241, 0.3);
 }
 
@@ -582,7 +582,7 @@
 
 .saveBtn:disabled {
   background: #e2e8f0;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -601,28 +601,28 @@
   font-weight: 600;
   font-size: 0.78rem;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
   background: #f8fafc;
-  color: #475569;
+  color: var(--text-secondary);
 }
 
 .editorTab:hover {
   background: #eef2ff;
-  border-color: #818cf8;
+  border-color: var(--accent-blue);
   color: #4f46e5;
 }
 
 .editorTabActive {
   background: #6366f1;
   color: #fff;
-  border-color: #6366f1;
+  border-color: var(--accent-blue);
 }
 
 .editorTabActive:hover {
   background: #4f46e5;
 }
 
-/* ── Gate Prompt — "Would you like to change?" ─────────────── */
+/* -- Gate Prompt — "Would you like to change?" --------------- */
 
 .gatePrompt {
   display: flex;
@@ -651,13 +651,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366f1;
+  color: var(--accent-blue);
 }
 
 .gateText {
   margin: 0;
   font-size: 0.84rem;
-  color: #475569;
+  color: var(--text-secondary);
   line-height: 1.6;
   max-width: 440px;
 }
@@ -676,7 +676,7 @@
   font-size: 0.85rem;
   font-weight: 700;
   cursor: pointer;
-  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   box-shadow: 0 3px 12px rgba(99, 102, 241, 0.3);
   letter-spacing: 0.01em;
 }
@@ -692,7 +692,7 @@
   box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
-/* ── Advanced Climate Engine Panel ───────────────────────────── */
+/* -- Advanced Climate Engine Panel ----------------------------- */
 
 .climatePanel {
   padding: 1.25rem 1.4rem;
@@ -785,7 +785,7 @@
   border-radius: 4px;
   outline: none;
   cursor: pointer;
-  accent-color: #10b981;
+  accent-color: var(--gauge-green);
 }
 
 .slider::-webkit-slider-thumb {
@@ -794,7 +794,7 @@
   height: 18px;
   border-radius: 50%;
   background: #fff;
-  border: 2px solid #10b981;
+  border: 2px solid var(--gauge-green);
   box-shadow: 0 1px 4px rgba(16, 185, 129, 0.35);
   cursor: pointer;
   transition: transform 0.1s, box-shadow 0.1s;
@@ -827,7 +827,7 @@
   font-weight: 700;
   cursor: pointer;
   letter-spacing: 0.01em;
-  transition: all 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  transition: background 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), border-color 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), box-shadow 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94);
   box-shadow: 0 3px 12px rgba(16, 185, 129, 0.3);
 }
 
@@ -865,3 +865,4 @@
     grid-template-columns: 1fr;
   }
 }
+

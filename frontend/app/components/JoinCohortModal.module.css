@@ -1,11 +1,11 @@
-/* ═══════════════════════════════════════════════════════════════
+/* ---------------------------------------------------------------
    Player Login — Dark Command Center Aesthetic
    Inspired by military/intelligence terminal interfaces
-   ═══════════════════════════════════════════════════════════════ */
+   --------------------------------------------------------------- */
 
 /* RF-1: Fonts loaded via globals.css — no duplicate @import needed */
 
-/* ── Overlay ─────────────────────────────────────────────── */
+/* -- Overlay ----------------------------------------------- */
 .overlay {
     position: fixed;
     inset: 0;
@@ -37,7 +37,7 @@
     z-index: 1;
 }
 
-/* ── Floating Particles ──────────────────────────────────── */
+/* -- Floating Particles ------------------------------------ */
 .particles {
     position: absolute;
     inset: 0;
@@ -71,7 +71,7 @@
     75% { transform: translate(20px, -15px); opacity: 0.7; }
 }
 
-/* ── Card ────────────────────────────────────────────────── */
+/* -- Card -------------------------------------------------- */
 .card {
     position: relative;
     z-index: 10;
@@ -91,7 +91,7 @@
     }
 }
 
-/* ── Logo Section ────────────────────────────────────────── */
+/* -- Logo Section ------------------------------------------ */
 .logoSection {
     text-align: center;
     margin-bottom: 2rem;
@@ -123,7 +123,7 @@
     font-size: 1.25rem;
     font-weight: 800;
     letter-spacing: 0.16em;
-    color: #e2e8f0;
+    color: var(--text-primary);
     text-transform: uppercase;
 }
 
@@ -141,13 +141,12 @@
     font-weight: 500;
 }
 
-/* ── Form Section ────────────────────────────────────────── */
+/* -- Form Section ------------------------------------------ */
 .formSection {
-    background: rgba(14, 20, 36, 0.7);
+    background: rgba(14, 20, 36, 0.97);
     border: 1px solid rgba(0, 229, 195, 0.1);
     border-radius: 12px;
     padding: 2rem 2rem 1.5rem;
-    backdrop-filter: blur(16px);
     box-shadow:
         0 0 40px rgba(0, 0, 0, 0.3),
         inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -156,18 +155,18 @@
 .title {
     font-size: 1.2rem;
     font-weight: 700;
-    color: #f1f5f9;
+    color: var(--text-primary);
     margin: 0 0 0.3rem 0;
 }
 
 .subtitle {
     font-size: 0.78rem;
-    color: #64748b;
+    color: #94a3b8;
     margin: 0 0 1.5rem 0;
     line-height: 1.5;
 }
 
-/* ── Form ────────────────────────────────────────────────── */
+/* -- Form -------------------------------------------------- */
 .form {
     display: flex;
     flex-direction: column;
@@ -185,7 +184,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.18em;
-    color: #64748b;
+    color: #94a3b8;
     margin-bottom: 0.5rem;
 }
 
@@ -211,7 +210,7 @@
 
 .input::placeholder {
     color: rgba(100, 116, 139, 0.5);
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 .input:disabled {
@@ -219,7 +218,7 @@
     cursor: not-allowed;
 }
 
-/* ── Options Row ─────────────────────────────────────────── */
+/* -- Options Row ------------------------------------------- */
 .optionsRow {
     display: flex;
     align-items: center;
@@ -235,7 +234,7 @@
     font-weight: 600;
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    color: #64748b;
+    color: var(--text-muted);
     cursor: pointer;
     user-select: none;
 }
@@ -265,13 +264,13 @@
     text-shadow: 0 0 12px rgba(245, 185, 66, 0.3);
 }
 
-/* ── Error Box ───────────────────────────────────────────── */
+/* -- Error Box --------------------------------------------- */
 .errorBox {
     padding: 0.6rem 0.8rem;
     border-radius: 6px;
     background: rgba(239, 68, 68, 0.08);
     border: 1px solid rgba(239, 68, 68, 0.2);
-    color: #f87171;
+    color: var(--gauge-red);
     font-size: 0.72rem;
     font-weight: 600;
     display: flex;
@@ -281,10 +280,10 @@
 
 .errorIcon {
     font-size: 0.85rem;
-    color: #ef4444;
+    color: var(--gauge-red);
 }
 
-/* ── Submit Button ───────────────────────────────────────── */
+/* -- Submit Button ----------------------------------------- */
 .submitBtn {
     width: 100%;
     padding: 0.85rem;
@@ -297,7 +296,7 @@
     letter-spacing: 0.14em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.3s ease;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
     box-shadow:
         0 4px 20px rgba(0, 229, 195, 0.2),
         0 0 0 1px rgba(0, 229, 195, 0.1);
@@ -339,27 +338,27 @@
     100% { transform: translateX(100%); }
 }
 
-/* ── Solo Session Button ─────────────────────────────────── */
+/* -- Solo Session Button ----------------------------------- */
 .soloBtn {
     width: 100%;
     padding: 0.75rem;
     border-radius: 8px;
     border: 1px solid rgba(100, 116, 139, 0.25);
     background: rgba(20, 27, 45, 0.5);
-    color: #94a3b8;
+    color: var(--text-muted);
     font-size: 0.72rem;
     font-weight: 700;
     letter-spacing: 0.12em;
     text-transform: uppercase;
     cursor: pointer;
-    transition: all 0.25s ease;
+    transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
     margin-top: 0.6rem;
 }
 
 .soloBtn:hover:not(:disabled) {
     background: rgba(30, 41, 59, 0.6);
     border-color: rgba(0, 229, 195, 0.3);
-    color: #e2e8f0;
+    color: var(--text-primary);
     box-shadow: 0 0 20px rgba(0, 229, 195, 0.05);
 }
 
@@ -368,7 +367,7 @@
     cursor: not-allowed;
 }
 
-/* ── Footer Status ───────────────────────────────────────── */
+/* -- Footer Status ----------------------------------------- */
 .footerStatus {
     display: flex;
     align-items: center;
@@ -379,7 +378,7 @@
     font-weight: 600;
     letter-spacing: 0.15em;
     text-transform: uppercase;
-    color: #475569;
+    color: var(--text-secondary);
 }
 
 .statusDot {
@@ -403,7 +402,7 @@
     margin: 0 0.2rem;
 }
 
-/* ── Bottom Bar ──────────────────────────────────────────── */
+/* -- Bottom Bar -------------------------------------------- */
 .bottomBar {
     position: fixed;
     bottom: 0;
@@ -417,7 +416,7 @@
     background: rgba(8, 12, 24, 0.9);
     border-top: 1px solid rgba(0, 229, 195, 0.06);
     z-index: 5001;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: var(--font-mono);
 }
 
 .bottomHash {
@@ -444,13 +443,13 @@
 
 .bottomTime {
     font-size: 0.68rem;
-    color: #64748b;
+    color: var(--text-muted);
     font-variant-numeric: tabular-nums;
 }
 
 .themeIcon {
     font-size: 0.9rem;
-    color: #64748b;
+    color: var(--text-muted);
     cursor: pointer;
     transition: color 0.2s;
 }

@@ -1,9 +1,10 @@
-/* ═══════════════════════════════════════════════════════════
-   CSRD Double Materiality Matrix — Dark Command Center Theme
+/* Tokenized: hardcoded hex/font/z-index values replaced with global design tokens */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CSRD Double Materiality Matrix â€” Dark Command Center Theme
    With light mode override at bottom
-   ═══════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* Font: Using DM Sans from global layout.js — no local import needed (AC-2 fix) */
+/* Font: Using DM Sans from global layout.js â€” no local import needed (AC-2 fix) */
 
 .overlay {
     position: fixed;
@@ -11,16 +12,16 @@
     left: 0;
     width: 100vw;
     height: 100vh;
-    background: var(--csrd-bg, #0a0e1a);
-    z-index: 1000;
+    background: var(--csrd-bg, var(--bg-primary));
+    z-index: var(--z-overlay);
     display: flex;
     flex-direction: column;
-    font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    color: var(--csrd-text, #e2e8f0);
+    font-family: var(--font-sans);
+    color: var(--csrd-text, var(--text-primary));
     -webkit-font-smoothing: antialiased;
 }
 
-/* ── Header ──────────────────────────────────────────────── */
+/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .header {
     display: flex;
     justify-content: space-between;
@@ -29,7 +30,7 @@
     background: var(--csrd-header-bg, linear-gradient(180deg, #0f1524, #0a0e1a));
     border-bottom: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
-    z-index: 100;
+    z-index: var(--z-dropdown);
 }
 
 .headerTitle {
@@ -40,7 +41,7 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .headerActions {
@@ -49,7 +50,7 @@
     align-items: center;
 }
 
-/* ── Submit / Action Buttons ─────────────────────────────── */
+/* â”€â”€ Submit / Action Buttons â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .submitBtn {
     background: linear-gradient(135deg, #00e5c3, #0dd9b0);
     color: #0a0e1a;
@@ -59,10 +60,10 @@
     font-weight: 800;
     font-size: 0.82rem;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     box-shadow: 0 2px 12px rgba(0, 229, 195, 0.25);
     letter-spacing: 0.04em;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-sans);
     text-transform: uppercase;
 }
 
@@ -78,14 +79,14 @@
     box-shadow: none;
 }
 
-/* ── Main Content ────────────────────────────────────────── */
+/* â”€â”€ Main Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .mainContent {
     display: flex;
     flex: 1;
     overflow: hidden;
 }
 
-/* ── Left Pane: Issue Bank ───────────────────────────────── */
+/* â”€â”€ Left Pane: Issue Bank â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .leftPane {
     width: 28%;
     min-width: 280px;
@@ -101,7 +102,7 @@
     border-bottom: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.06));
     font-size: 0.88rem;
     font-weight: 700;
-    color: var(--csrd-text, #e2e8f0);
+    color: var(--csrd-text, var(--text-primary));
     background: var(--csrd-bank-header-bg, rgba(14, 20, 36, 0.6));
     letter-spacing: -0.01em;
 }
@@ -124,14 +125,14 @@
     border-radius: 2px;
 }
 
-/* ── Right Pane: Matrix Grid ─────────────────────────────── */
+/* â”€â”€ Right Pane: Matrix Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .rightPane {
     flex: 1;
     display: flex;
     flex-direction: column;
     padding: 1.25rem 1.5rem;
     position: relative;
-    background: var(--csrd-bg, #0a0e1a);
+    background: var(--csrd-bg, var(--bg-primary));
 }
 
 .axesContainer {
@@ -149,7 +150,7 @@
     transform: rotate(180deg);
     text-align: center;
     font-weight: 700;
-    color: var(--csrd-axis, #64748b);
+    color: var(--csrd-axis, var(--text-muted));
     display: flex;
     align-items: center;
     justify-content: center;
@@ -163,7 +164,7 @@
     grid-column: 2;
     text-align: center;
     font-weight: 700;
-    color: var(--csrd-axis, #64748b);
+    color: var(--csrd-axis, var(--text-muted));
     letter-spacing: 0.06em;
     text-transform: uppercase;
     font-size: 0.72rem;
@@ -176,7 +177,7 @@
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 1fr 1fr;
-    background: var(--csrd-grid-bg, #0f1524);
+    background: var(--csrd-grid-bg, var(--bg-primary));
     border: 1px solid var(--csrd-grid-border, rgba(0, 229, 195, 0.15));
     border-radius: 8px;
     overflow: hidden;
@@ -184,7 +185,7 @@
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-/* ── Quadrants ───────────────────────────────────────────── */
+/* â”€â”€ Quadrants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .quadrant {
     position: relative;
     padding: 1rem;
@@ -194,7 +195,7 @@
     gap: 0.5rem;
     overflow-y: auto;
     transition: background 0.2s ease;
-    z-index: 10;
+    z-index: var(--z-sticky);
     background: transparent;
     border: 1px solid rgba(0, 229, 195, 0.04);
 }
@@ -234,14 +235,14 @@
 .quadrantHeader {
     width: 100%;
     font-size: 0.68rem;
-    color: #64748b;
+    color: var(--text-muted);
     margin-bottom: 0.35rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
 
-/* ── Issue Chips ─────────────────────────────────────────── */
+/* â”€â”€ Issue Chips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chip {
     background: var(--csrd-chip-bg, rgba(14, 20, 36, 0.8));
     border: 1px solid var(--csrd-chip-border, rgba(0, 229, 195, 0.1));
@@ -249,14 +250,14 @@
     padding: 0.5rem 0.75rem;
     font-size: 0.8rem;
     font-weight: 600;
-    color: var(--csrd-text, #e2e8f0);
+    color: var(--csrd-text, var(--text-primary));
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 0.5rem;
     cursor: grab;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
-    transition: all 0.15s ease;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
     user-select: none;
     position: relative;
     border-left: 3px solid #00e5c3;
@@ -307,7 +308,7 @@
 }
 
 .infoIcon {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.85rem;
     cursor: help;
     display: flex;
@@ -321,7 +322,7 @@
     color: #00e5c3;
 }
 
-/* ── Tooltip ─────────────────────────────────────────────── */
+/* â”€â”€ Tooltip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .tooltip {
     position: relative;
     display: inline-flex;
@@ -331,13 +332,13 @@
     visibility: hidden;
     width: max-content;
     max-width: 220px;
-    background: #0f1524;
-    color: #f1f5f9;
+    background: var(--bg-primary);
+    color: var(--text-primary);
     text-align: left;
     border-radius: 6px;
     padding: 8px 10px;
     position: absolute;
-    z-index: 9999;
+    z-index: var(--z-top);
     bottom: 130%;
     left: 50%;
     transform: translateX(-50%);
@@ -367,18 +368,18 @@
     opacity: 1;
 }
 
-/* ── Consultant Button & Badge ───────────────────────────── */
+/* â”€â”€ Consultant Button & Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .consultantBtn {
     background: transparent;
-    color: #e2e8f0;
+    color: var(--text-primary);
     border: 1px solid rgba(0, 229, 195, 0.2);
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-weight: 600;
     font-size: 0.8rem;
     cursor: pointer;
-    transition: all 0.2s;
-    font-family: 'DM Sans', sans-serif;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
+    font-family: var(--font-sans);
 }
 
 .consultantBtn:hover {
@@ -391,7 +392,7 @@
     display: inline-flex;
     align-items: center;
     background: rgba(0, 229, 195, 0.1);
-    color: #4ade80;
+    color: var(--gauge-green);
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-size: 0.8rem;
@@ -400,20 +401,19 @@
     letter-spacing: 0.01em;
 }
 
-/* ── Modal Overlay ───────────────────────────────────────── */
+/* â”€â”€ Modal Overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modalOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 14, 26, 0.85);
-    backdrop-filter: blur(8px);
+    background: rgba(10, 14, 26, 0.95);
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 10000;
+    z-index: var(--z-top);
 }
 
 .modalContent {
-    background: var(--csrd-modal-bg, #0f1524);
+    background: var(--csrd-modal-bg, var(--bg-primary));
     padding: 2rem 2.5rem;
     border-radius: 12px;
     max-width: 480px;
@@ -422,7 +422,7 @@
     box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.15));
     animation: slideUp 0.3s ease-out;
-    color: var(--csrd-text, #e2e8f0);
+    color: var(--csrd-text, var(--text-primary));
 }
 
 .modalContent h3 {
@@ -430,18 +430,18 @@
     margin-bottom: 0.75rem;
     font-size: 1.35rem;
     font-weight: 800;
-    color: var(--csrd-heading, #f1f5f9);
+    color: var(--csrd-heading, var(--text-primary));
 }
 
 .modalContent p {
-    color: var(--csrd-muted, #94a3b8);
+    color: var(--csrd-muted, var(--text-muted));
     font-size: 0.9rem;
     line-height: 1.6;
 }
 
 .modalSubtext {
     font-size: 0.82rem;
-    color: #64748b;
+    color: var(--text-muted);
     margin-bottom: 1.5rem;
 }
 
@@ -454,40 +454,40 @@
 
 .cancelBtn {
     background: var(--csrd-cancel-bg, rgba(14, 20, 36, 0.6));
-    color: var(--csrd-muted, #94a3b8);
+    color: var(--csrd-muted, var(--text-muted));
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     padding: 0.55rem 1.25rem;
     border-radius: 6px;
     font-weight: 600;
     font-size: 0.82rem;
     cursor: pointer;
-    transition: all 0.2s;
-    font-family: 'DM Sans', sans-serif;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
+    font-family: var(--font-sans);
 }
 
 .cancelBtn:hover {
     background: var(--csrd-cancel-hover, rgba(0, 229, 195, 0.06));
-    color: var(--csrd-text, #e2e8f0);
+    color: var(--csrd-text, var(--text-primary));
 }
 
-/* ── Cheat Sheet Panel ───────────────────────────────────── */
+/* â”€â”€ Cheat Sheet Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cheatSheetPanel {
     position: fixed;
     bottom: 1.5rem;
     right: 1.5rem;
     width: 380px;
-    background: var(--csrd-modal-bg, #0f1524);
+    background: var(--csrd-modal-bg, var(--bg-primary));
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.15));
     border-radius: 12px;
     padding: 1.5rem 1.75rem;
     box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-    z-index: 9999;
+    z-index: var(--z-top);
     animation: slideUp 0.4s ease-out;
 }
 
 .cheatSheetPanel h4 {
     margin: 0 0 1rem 0;
-    color: var(--csrd-heading, #f1f5f9);
+    color: var(--csrd-heading, var(--text-primary));
     font-size: 1.05rem;
     font-weight: 800;
     padding-bottom: 0.65rem;
@@ -497,19 +497,19 @@
 
 .cheatSheetPanel p {
     font-size: 0.88rem;
-    color: var(--csrd-muted, #94a3b8);
+    color: var(--csrd-muted, var(--text-muted));
     line-height: 1.7;
     margin-bottom: 0.85rem;
 }
 
 .cheatSheetPanel p strong {
-    color: var(--csrd-heading, #f1f5f9);
+    color: var(--csrd-heading, var(--text-primary));
     font-weight: 700;
 }
 
 .closeTabBtn {
     background: var(--csrd-cancel-bg, rgba(14, 20, 36, 0.6));
-    color: var(--csrd-muted, #94a3b8);
+    color: var(--csrd-muted, var(--text-muted));
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     font-size: 0.78rem;
     font-weight: 600;
@@ -517,27 +517,27 @@
     padding: 0.4rem 0.85rem;
     border-radius: 5px;
     float: right;
-    transition: all 0.15s;
-    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+    font-family: var(--font-sans);
 }
 
 .closeTabBtn:hover {
     background: rgba(0, 229, 195, 0.06);
-    color: var(--csrd-text, #e2e8f0);
+    color: var(--csrd-text, var(--text-primary));
 }
 
-/* ── Error / Success Modals ──────────────────────────────── */
+/* â”€â”€ Error / Success Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .errorModal {
     border-color: rgba(239, 68, 68, 0.3);
-    border-left: 4px solid #ef4444;
+    border-left: 4px solid var(--gauge-red);
 }
 
 .errorModal h3 {
-    color: #f87171;
+    color: var(--gauge-red);
 }
 
 .errorText {
-    color: var(--csrd-muted, #94a3b8);
+    color: var(--csrd-muted, var(--text-muted));
     font-weight: 500;
     margin-bottom: 1.5rem;
     line-height: 1.6;
@@ -549,7 +549,7 @@
 }
 
 .successModal h3 {
-    color: #4ade80;
+    color: var(--gauge-green);
 }
 
 .budgetBox {
@@ -565,7 +565,7 @@
     text-align: center;
 }
 
-/* ── Scrollbar for quadrants ─────────────────────────────── */
+/* â”€â”€ Scrollbar for quadrants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .quadrant::-webkit-scrollbar {
     width: 3px;
 }
@@ -575,7 +575,7 @@
     border-radius: 2px;
 }
 
-/* ── Animations ──────────────────────────────────────────── */
+/* â”€â”€ Animations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes slideUp {
     from {
         opacity: 0;
@@ -592,7 +592,7 @@
     to { opacity: 1; }
 }
 
-/* ── Add Custom Factor ───────────────────────────────────── */
+/* â”€â”€ Add Custom Factor â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .addFactorSection {
     padding: 0.65rem 0.75rem;
     border-top: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.06));
@@ -605,12 +605,12 @@
     background: transparent;
     border: 1.5px dashed var(--csrd-border, rgba(0, 229, 195, 0.15));
     border-radius: 8px;
-    color: var(--csrd-axis, #64748b);
+    color: var(--csrd-axis, var(--text-muted));
     font-size: 0.78rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
-    font-family: 'DM Sans', sans-serif;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+    font-family: var(--font-sans);
     letter-spacing: 0.02em;
 }
 
@@ -633,9 +633,9 @@
     background: var(--csrd-chip-bg, rgba(14, 20, 36, 0.8));
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.15));
     border-radius: 6px;
-    color: var(--csrd-text, #e2e8f0);
+    color: var(--csrd-text, var(--text-primary));
     font-size: 0.78rem;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-sans);
     outline: none;
     transition: border-color 0.15s;
     box-sizing: border-box;
@@ -657,9 +657,9 @@
     background: var(--csrd-chip-bg, rgba(14, 20, 36, 0.8));
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     border-radius: 5px;
-    color: var(--csrd-text, #e2e8f0);
+    color: var(--csrd-text, var(--text-primary));
     font-size: 0.72rem;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-sans);
     cursor: pointer;
 }
 
@@ -672,7 +672,7 @@
     font-weight: 700;
     font-size: 0.72rem;
     cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
+    font-family: var(--font-sans);
     transition: opacity 0.15s;
 }
 
@@ -686,31 +686,31 @@
     background: transparent;
     border: 1px solid var(--csrd-border, rgba(0, 229, 195, 0.1));
     border-radius: 5px;
-    color: var(--csrd-muted, #94a3b8);
+    color: var(--csrd-muted, var(--text-muted));
     font-size: 0.72rem;
     cursor: pointer;
-    font-family: 'DM Sans', sans-serif;
-    transition: all 0.15s;
+    font-family: var(--font-sans);
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 .addFactorCancel:hover {
     background: rgba(239, 68, 68, 0.1);
-    color: #ef4444;
+    color: var(--gauge-red);
     border-color: rgba(239, 68, 68, 0.3);
 }
 
-/* ── Advisor Prompt Button ───────────────────────────────── */
+/* â”€â”€ Advisor Prompt Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .advisorPromptBtn {
     background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
-    color: #a78bfa;
+    color: var(--accent-purple);
     border: 1px solid rgba(139, 92, 246, 0.3);
     padding: 0.5rem 1rem;
     border-radius: 6px;
     font-weight: 700;
     font-size: 0.8rem;
     cursor: pointer;
-    transition: all 0.2s;
-    font-family: 'DM Sans', sans-serif;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
+    font-family: var(--font-sans);
     animation: pulse-glow 2s ease-in-out infinite;
 }
 
@@ -725,12 +725,11 @@
     50% { box-shadow: 0 0 12px rgba(139, 92, 246, 0.15); }
 }
 
-/* ── Onboarding Overlay (Fix 1) ─────────────────────────── */
+/* â”€â”€ Onboarding Overlay (Fix 1) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .onboardingOverlay {
     position: fixed;
     inset: 0;
-    background: rgba(10, 14, 26, 0.88);
-    backdrop-filter: blur(12px);
+    background: rgba(10, 14, 26, 0.97);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -739,7 +738,7 @@
 }
 
 .onboardingCard {
-    background: #0f1524;
+    background: var(--bg-primary);
     border: 1px solid rgba(0, 229, 195, 0.15);
     border-radius: 16px;
     padding: 2.5rem 3rem;
@@ -753,12 +752,12 @@
     margin: 0 0 0.5rem 0;
     font-size: 1.5rem;
     font-weight: 800;
-    color: #f1f5f9;
+    color: var(--text-primary);
     letter-spacing: -0.02em;
 }
 
 .onboardingCard > p {
-    color: #94a3b8;
+    color: var(--text-muted);
     font-size: 0.88rem;
     margin-bottom: 1.75rem;
     line-height: 1.6;
@@ -804,13 +803,13 @@
     margin: 0 0 0.2rem 0;
     font-size: 0.85rem;
     font-weight: 700;
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
 .stepContent p {
     margin: 0;
     font-size: 0.78rem;
-    color: #94a3b8;
+    color: var(--text-muted);
     line-height: 1.5;
 }
 
@@ -824,8 +823,8 @@
     font-weight: 800;
     font-size: 0.88rem;
     cursor: pointer;
-    transition: all 0.2s;
-    font-family: 'DM Sans', sans-serif;
+    transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s;
+    font-family: var(--font-sans);
     letter-spacing: 0.02em;
 }
 
@@ -834,25 +833,25 @@
     transform: translateY(-1px);
 }
 
-/* ── Undo / Reset Buttons (Fix 3) ───────────────────────── */
+/* â”€â”€ Undo / Reset Buttons (Fix 3) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .undoBtn {
     background: transparent;
-    color: #94a3b8;
+    color: var(--text-muted);
     border: 1px solid rgba(148, 163, 184, 0.2);
     padding: 0.4rem 0.75rem;
     border-radius: 6px;
     font-weight: 600;
     font-size: 0.75rem;
     cursor: pointer;
-    transition: all 0.15s;
-    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
+    font-family: var(--font-sans);
     display: flex;
     align-items: center;
     gap: 0.3rem;
 }
 
 .undoBtn:hover {
-    color: #e2e8f0;
+    color: var(--text-primary);
     border-color: rgba(148, 163, 184, 0.4);
     background: rgba(148, 163, 184, 0.06);
 }
@@ -864,17 +863,17 @@
 
 .resetBtn {
     composes: undoBtn;
-    color: #ef4444;
+    color: var(--gauge-red);
     border-color: rgba(239, 68, 68, 0.2);
 }
 
 .resetBtn:hover {
-    color: #f87171;
+    color: var(--gauge-red);
     border-color: rgba(239, 68, 68, 0.4);
     background: rgba(239, 68, 68, 0.06);
 }
 
-/* ── Category Legend (Fix 5) ────────────────────────────── */
+/* â”€â”€ Category Legend (Fix 5) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .legend {
     display: flex;
     gap: 0.65rem;
@@ -890,15 +889,15 @@
     gap: 0.35rem;
     font-size: 0.68rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--text-muted);
     letter-spacing: 0.02em;
 }
 
-/* ── Cost Badge on Chips (Fix 7) ────────────────────────── */
+/* â”€â”€ Cost Badge on Chips (Fix 7) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .costBadge {
     font-size: 0.68rem;
     font-weight: 700;
-    color: #f59e0b;
+    color: var(--accent-gold);
     background: rgba(245, 158, 11, 0.1);
     border: 1px solid rgba(245, 158, 11, 0.2);
     padding: 0.1rem 0.4rem;
@@ -908,7 +907,7 @@
     letter-spacing: 0.02em;
 }
 
-/* ── ESRS Subtitle Labels (Fix 8) ───────────────────────── */
+/* â”€â”€ ESRS Subtitle Labels (Fix 8) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .esrsSubtitle {
     position: absolute;
     bottom: 6px;
@@ -923,7 +922,7 @@
     letter-spacing: 0.02em;
 }
 
-/* ── Empty Quadrant State (Fix 5) ───────────────────────── */
+/* â”€â”€ Empty Quadrant State (Fix 5) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .emptyQuadrant {
     position: absolute;
     top: 50%;
@@ -945,7 +944,7 @@
 .emptyQuadrant span:last-child {
     font-size: 0.68rem;
     font-weight: 600;
-    color: #94a3b8;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
 }
@@ -954,7 +953,7 @@
     opacity: 0.5;
 }
 
-/* ── IRO Badge (Fix 10) ─────────────────────────────────── */
+/* â”€â”€ IRO Badge (Fix 10) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .iroBadge {
     font-size: 0.68rem;
     font-weight: 800;
@@ -978,12 +977,12 @@
 }
 
 .iroBadge[data-iro="opportunity"] {
-    color: #4ade80;
+    color: var(--gauge-green);
     background: rgba(74, 222, 128, 0.1);
     border: 1px solid rgba(74, 222, 128, 0.2);
 }
 
-/* ── Softer Quadrant Boundaries (Fix 4) ─────────────────── */
+/* â”€â”€ Softer Quadrant Boundaries (Fix 4) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .matrixGrid {
     gap: 1px;
 }
@@ -997,7 +996,7 @@
 .quadrant:nth-child(3) { border-bottom-left-radius: 6px; }
 .quadrant:nth-child(4) { border-bottom-right-radius: 6px; }
 
-/* ── Responsive (Fix 9) ─────────────────────────────────── */
+/* â”€â”€ Responsive (Fix 9) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 1100px) {
     .headerActions {
         flex-wrap: wrap;
@@ -1056,9 +1055,9 @@
     }
 }
 
-/* ═══════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    LIGHT MODE OVERRIDES
-   ═══════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :global([data-theme="light"]) .overlay {
     --csrd-bg: #f0f2f7;
     --csrd-text: #1e293b;
@@ -1084,7 +1083,7 @@
 }
 
 :global([data-theme="light"]) .chip {
-    border-left-color: #3b82f6;
+    border-left-color: var(--accent-blue);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
 }
 
@@ -1112,7 +1111,7 @@
 }
 
 :global([data-theme="light"]) .infoIcon:hover {
-    color: #3b82f6;
+    color: var(--accent-blue);
 }
 
 :global([data-theme="light"]) .bankScroll::-webkit-scrollbar-thumb {
@@ -1133,10 +1132,10 @@
 }
 
 :global([data-theme="light"]) .cheatSheetPanel h4 {
-    border-bottom-color: #3b82f6;
+    border-bottom-color: var(--accent-blue);
 }
 
-/* ── ESRS Spectrum Badges ────────────────────────────────── */
+/* â”€â”€ ESRS Spectrum Badges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 /* Severity badge: H/M/L coloured dot */
 .severityBadge {
     display: inline-flex;
@@ -1163,14 +1162,14 @@
     font-weight: 700;
     flex-shrink: 0;
     background: rgba(148, 163, 184, 0.12);
-    color: #94a3b8;
+    color: var(--text-muted);
     border: 1px solid rgba(148, 163, 184, 0.2);
     letter-spacing: 0.04em;
 }
 
-/* ── R1 Blindspot Chip State ─────────────────────────────── */
+/* â”€â”€ R1 Blindspot Chip State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chipBlindspot {
-    border-left-color: #f59e0b !important;
+    border-left-color: var(--accent-gold) !important;
     opacity: 0.78;
     animation: blindspot-pulse 2.2s ease-in-out infinite;
 }
@@ -1185,13 +1184,13 @@
     align-items: center;
     justify-content: center;
     font-size: 0.72rem;
-    color: #f59e0b;
+    color: var(--accent-gold);
     flex-shrink: 0;
 }
 
-/* ── Stakeholder Boost Badge ─────────────────────────────── */
+/* â”€â”€ Stakeholder Boost Badge â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .chipBoosted {
-    border-left-color: #a78bfa !important;
+    border-left-color: var(--accent-purple) !important;
 }
 
 .boostBadge {
@@ -1199,17 +1198,17 @@
     align-items: center;
     justify-content: center;
     font-size: 0.68rem;
-    color: #a78bfa;
+    color: var(--accent-purple);
     flex-shrink: 0;
 }
 
-/* ── R1 Audit Gap Warning Pill ───────────────────────────── */
+/* â”€â”€ R1 Audit Gap Warning Pill â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .blindspotWarning {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
     background: rgba(245, 158, 11, 0.12);
-    color: #f59e0b;
+    color: var(--accent-gold);
     border: 1px solid rgba(245, 158, 11, 0.3);
     padding: 0.4rem 0.85rem;
     border-radius: 6px;
@@ -1218,9 +1217,10 @@
     animation: blindspot-pulse 2.2s ease-in-out infinite;
 }
 
-/* ── Wider success modal for ESRS debrief card ───────────── */
+/* â”€â”€ Wider success modal for ESRS debrief card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .successModal {
     border-color: rgba(0, 229, 195, 0.3);
     border-left: 4px solid #00e5c3;
     max-width: 560px !important;
 }
+

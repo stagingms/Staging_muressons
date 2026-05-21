@@ -63,7 +63,7 @@ export default function DecisionHistory({ historyData }) {
                 background: isOpen ? 'rgba(99,102,241,0.08)' : '#f8fafc',
                 borderLeft: `3px solid ${isOpen ? '#6366f1' : '#cbd5e1'}`,
                 borderRadius: '0 6px 6px 0',
-                transition: 'all 0.15s ease',
+                transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>

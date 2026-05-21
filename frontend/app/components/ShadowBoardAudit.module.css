@@ -1,14 +1,13 @@
-/* ═══════════════════════════════════════════════════════════════
-   Shadow Board Audit — R5 Reflective Middleware
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Shadow Board Audit â€” R5 Reflective Middleware
    Glassmorphism-themed modal with three persona cards
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .overlay {
     position: fixed;
     inset: 0;
-    z-index: 9500;
-    background: rgba(0, 0, 0, 0.92);
-    backdrop-filter: blur(16px);
+    z-index: var(--z-top);
+    background: rgba(0, 0, 0, 0.97);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -23,7 +22,7 @@
 }
 
 .modal {
-    background: var(--bg-card, #0f172a);
+    background: var(--bg-card);
     border: 1px solid rgba(99, 102, 241, 0.25);
     border-radius: 20px;
     width: 100%;
@@ -42,7 +41,7 @@
     to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ── Header ──────────────────────────────────────────────── */
+/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .header {
     background: linear-gradient(135deg, #1e1b4b, #0f172a, #1e1b4b);
     padding: 2rem 2.5rem 1.8rem;
@@ -92,7 +91,7 @@
 }
 
 .subtitle {
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     font-size: 0.82rem;
     margin: 0;
     line-height: 1.6;
@@ -100,7 +99,7 @@
     margin-inline: auto;
 }
 
-/* ── Context Section ─────────────────────────────────────── */
+/* â”€â”€ Context Section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .contextSection {
     padding: 1.5rem 2rem;
     border-bottom: 1px solid rgba(99, 102, 241, 0.1);
@@ -129,12 +128,12 @@
 
 .contextText p {
     font-size: 0.78rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     line-height: 1.55;
     margin: 0;
 }
 
-/* ── Personas Grid ───────────────────────────────────────── */
+/* â”€â”€ Personas Grid â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .personasSection {
     padding: 1.5rem 2rem 1rem;
 }
@@ -144,7 +143,7 @@
     font-weight: 800;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--text-muted, #475569);
+    color: var(--text-muted);
     margin-bottom: 1rem;
     text-align: center;
 }
@@ -155,13 +154,13 @@
     gap: 1rem;
 }
 
-/* ── Persona Card ────────────────────────────────────────── */
+/* â”€â”€ Persona Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .personaCard {
-    background: var(--bg-elevated, #16213e);
-    border: 1px solid var(--border-subtle, #2a2a4a);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 14px;
     overflow: hidden;
-    transition: all 0.3s ease;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
     position: relative;
 }
 
@@ -197,7 +196,7 @@
 .personaName {
     font-size: 0.85rem;
     font-weight: 700;
-    color: var(--text-primary, #e2e8f0);
+    color: var(--text-primary);
     margin: 0 0 0.15rem;
     white-space: nowrap;
     overflow: hidden;
@@ -206,7 +205,7 @@
 
 .personaTitle {
     font-size: 0.62rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     margin: 0 0 0.3rem;
     line-height: 1.3;
 }
@@ -239,7 +238,7 @@
 .personaMetricLabel {
     font-size: 0.6rem;
     font-weight: 600;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -253,7 +252,7 @@
 .personaScript {
     font-size: 0.72rem;
     line-height: 1.55;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     padding: 0.8rem 1rem;
     margin: 0 0 0.6rem;
     background: rgba(255, 255, 255, 0.02);
@@ -264,14 +263,14 @@
 
 .personaCitation {
     font-size: 0.6rem;
-    color: var(--text-muted, #475569);
+    color: var(--text-muted);
     line-height: 1.4;
     padding: 0 1.2rem;
     margin-bottom: 0.8rem;
     opacity: 0.7;
 }
 
-/* ── Reject Button ───────────────────────────────────────── */
+/* â”€â”€ Reject Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .personaFooter {
     padding: 0.8rem 1.2rem 1.2rem;
 }
@@ -286,7 +285,7 @@
     font-size: 0.72rem;
     font-weight: 700;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
     letter-spacing: 0.5px;
 }
 
@@ -304,19 +303,18 @@
     box-shadow: none;
 }
 
-/* ── Confirmation Overlay ────────────────────────────────── */
+/* â”€â”€ Confirmation Overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .confirmOverlay {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.88);
-    backdrop-filter: blur(8px);
+    background: rgba(0, 0, 0, 0.95);
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     padding: 1.5rem;
     border-radius: 14px;
-    z-index: 10;
+    z-index: var(--z-sticky);
     animation: confirmFade 0.2s ease-out;
 }
 
@@ -335,7 +333,7 @@
 
 .confirmText {
     font-size: 0.72rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     text-align: center;
     margin-bottom: 1rem;
     line-height: 1.5;
@@ -368,19 +366,19 @@
     padding: 0.6rem 1.5rem;
     background: none;
     border: 1px solid rgba(255, 255, 255, 0.15);
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     border-radius: 8px;
     font-size: 0.75rem;
     cursor: pointer;
-    transition: all 0.15s;
+    transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 .confirmNo:hover {
     border-color: rgba(255, 255, 255, 0.3);
-    color: #e2e8f0;
+    color: var(--text-primary);
 }
 
-/* ── Result Phase ────────────────────────────────────────── */
+/* â”€â”€ Result Phase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .resultPhase {
     padding: 2rem;
     text-align: center;
@@ -416,13 +414,13 @@
 
 .resultDescription {
     font-size: 0.8rem;
-    color: var(--text-secondary, #94a3b8);
+    color: var(--text-secondary);
     line-height: 1.65;
     max-width: 600px;
     margin: 0 auto 1.5rem;
 }
 
-/* ── Consequence DNA Preview ─────────────────────────────── */
+/* â”€â”€ Consequence DNA Preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .consequencePreview {
     background: rgba(99, 102, 241, 0.04);
     border: 1px solid rgba(99, 102, 241, 0.15);
@@ -437,7 +435,7 @@
     font-weight: 800;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--text-muted, #475569);
+    color: var(--text-muted);
     margin-bottom: 0.8rem;
 }
 
@@ -466,7 +464,7 @@
 .nodeEffect {
     background: rgba(245, 158, 11, 0.12);
     border: 1px solid rgba(245, 158, 11, 0.3);
-    color: #fbbf24;
+    color: var(--gauge-yellow);
 }
 
 .nodeFuture {
@@ -476,12 +474,12 @@
 }
 
 .consequenceArrow {
-    color: var(--text-muted, #475569);
+    color: var(--text-muted);
     font-size: 0.9rem;
     font-weight: 800;
 }
 
-/* ── Stakeholder Impact ──────────────────────────────────── */
+/* â”€â”€ Stakeholder Impact â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .stakeholderImpact {
     background: rgba(239, 68, 68, 0.04);
     border: 1px solid rgba(239, 68, 68, 0.12);
@@ -500,7 +498,7 @@
     font-size: 1.2rem;
 }
 
-/* ── Proceed Button ──────────────────────────────────────── */
+/* â”€â”€ Proceed Button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .proceedBtn {
     display: inline-block;
     padding: 0.8rem 3rem;
@@ -520,7 +518,7 @@
     box-shadow: 0 6px 28px rgba(99, 102, 241, 0.5);
 }
 
-/* ── Loading State ───────────────────────────────────────── */
+/* â”€â”€ Loading State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .loading {
     padding: 3rem;
     text-align: center;
@@ -530,7 +528,7 @@
     width: 40px;
     height: 40px;
     border: 3px solid rgba(99, 102, 241, 0.2);
-    border-top-color: #6366f1;
+    border-top-color: var(--accent-blue);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin: 0 auto 1rem;
@@ -542,10 +540,10 @@
 
 .loadingText {
     font-size: 0.8rem;
-    color: var(--text-muted, #64748b);
+    color: var(--text-muted);
 }
 
-/* ── Footer Instructions ─────────────────────────────────── */
+/* â”€â”€ Footer Instructions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .footerNote {
     padding: 1rem 2rem;
     border-top: 1px solid rgba(99, 102, 241, 0.1);
@@ -554,29 +552,29 @@
 
 .footerNoteText {
     font-size: 0.65rem;
-    color: var(--text-muted, #475569);
+    color: var(--text-muted);
     line-height: 1.5;
     max-width: 600px;
     margin: 0 auto;
     font-style: italic;
 }
 
-/* ── Responsive ──────────────────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 860px) {
     .personasGrid {
         grid-template-columns: 1fr;
         gap: 0.8rem;
     }
-    
+
     .modal {
         max-width: 100%;
         border-radius: 12px;
     }
-    
+
     .header {
         padding: 1.5rem;
     }
-    
+
     .title {
         font-size: 1.3rem;
     }

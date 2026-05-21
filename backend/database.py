@@ -195,6 +195,10 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
             state["session_id"] = str(row["session_id"])
         return state
 
+async def get_child_sessions(parent_id: str) -> list[dict]:
+    """Not implemented for Postgres yet. Returns empty list."""
+    return []
+
 
 async def fetch_latest_state(session_id: str) -> Optional[dict]:
     """

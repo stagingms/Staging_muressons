@@ -399,10 +399,12 @@ export default function ExecutiveCockpit({
   allocations,
   onAllocationsChange,
   onResourcesOpen,
+  hasNewResources = false,
   hasAllocated,
   hasReadBriefing,
   onLogout,
   lastSavedAt,
+  tourActive = false,
 }) {
   // Sequential gating: determine if round prerequisite is met
   const hasSecondStage = roundNumber === 1 || roundNumber === 2;
@@ -788,14 +790,16 @@ export default function ExecutiveCockpit({
   }, [hasGate, roundPrerequisiteMet, hasDecision, allocations, commitResults]);
 
   // Auto-trigger focus mode when briefing is dismissed (entering the cockpit)
+  // Suppressed while the onboarding tour is active to prevent z-index conflicts
   useEffect(() => {
     if (!hasReadBriefing || sim?.gameOver) return;
     if (focusDismissed) return;
+    if (tourActive) return; // Don't auto-trigger while intro tour is running
     // Only auto-open if no focus step is active yet
     if (focusStep === null) {
       setFocusStep(getFirstIncompleteStep());
     }
-  }, [hasReadBriefing, sim?.gameOver, focusDismissed]);
+  }, [hasReadBriefing, sim?.gameOver, focusDismissed, tourActive]);
 
   // Auto-advance: gate completed → strategy
   useEffect(() => {
@@ -818,7 +822,7 @@ export default function ExecutiveCockpit({
     setFocusPredictionText('');
   }, [roundNumber]);
 
-  const isFocusActive = focusStep !== null && !focusDismissed;
+  const isFocusActive = focusStep !== null && !focusDismissed && !tourActive;
 
   // Quick Resume: returning players (round 3+) can skip to decisions
   const isReturningPlayer = roundNumber >= 3;
@@ -1047,15 +1051,19 @@ export default function ExecutiveCockpit({
       const dismissedKey = `bs_dismissed_${latest.title}`;
       if (!sessionStorage.getItem(dismissedKey)) {
         setBlackSwanAlert(latest);
-        // Auto-dismiss after 15 seconds
-        const timer = setTimeout(() => {
-          setBlackSwanAlert(null);
-          sessionStorage.setItem(dismissedKey, '1');
-        }, 15000);
-        return () => clearTimeout(timer);
+        // No auto-dismiss — stays until player explicitly acknowledges
       }
     }
   }, [globalState, events]);
+
+  // Dismiss callback for black swan / crisis alerts — player must manually acknowledge
+  const dismissActiveAlert = useCallback(() => {
+    if (blackSwanAlert) {
+      const dismissedKey = `bs_dismissed_${blackSwanAlert.title}`;
+      sessionStorage.setItem(dismissedKey, '1');
+      setBlackSwanAlert(null);
+    }
+  }, [blackSwanAlert]);
 
   const activeAlert = blackSwanAlert
     ? {
@@ -1167,6 +1175,95 @@ export default function ExecutiveCockpit({
           globalState={globalState}
         />
       )}
+
+      {/* ═══ CRISIS INTERSTITIAL — Full-screen overlay for Black Swan / critical events ═══ */}
+      {activeAlert && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 11000,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          background: activeAlert.isBlackSwan
+            ? 'radial-gradient(ellipse at 40% 30%, rgba(127, 29, 29, 0.96) 0%, rgba(15, 10, 10, 0.98) 70%)'
+            : 'radial-gradient(ellipse at 40% 30%, rgba(120, 53, 15, 0.96) 0%, rgba(20, 12, 5, 0.98) 70%)',
+          fontFamily: "var(--font-sans, 'DM Sans', Inter, system-ui, sans-serif)",
+          animation: 'flashIn 0.4s ease-out',
+          padding: '2rem',
+        }}>
+          <div style={{
+            width: '100%', maxWidth: 600,
+            animation: 'crisisSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both',
+          }}>
+            {/* Header */}
+            <div style={{ textAlign: 'center', marginBottom: '1.4rem' }}>
+              <span style={{
+                fontSize: '3rem', display: 'block', marginBottom: '0.5rem',
+                animation: 'crisisIconPulse 1.5s ease-in-out infinite',
+              }}>
+                {activeAlert.icon || '⚠️'}
+              </span>
+              <div style={{
+                display: 'inline-block', fontSize: '0.68rem', fontWeight: 800,
+                letterSpacing: '0.16em', textTransform: 'uppercase',
+                borderRadius: 100, padding: '0.3rem 1rem', marginBottom: '0.6rem',
+                color: activeAlert.isBlackSwan ? '#fca5a5' : '#fcd34d',
+                background: activeAlert.isBlackSwan ? 'rgba(252, 165, 165, 0.12)' : 'rgba(252, 211, 77, 0.12)',
+                border: activeAlert.isBlackSwan ? '1px solid rgba(252, 165, 165, 0.25)' : '1px solid rgba(252, 211, 77, 0.25)',
+              }}>
+                {activeAlert.isBlackSwan ? '🦢 BLACK SWAN EVENT — IMMEDIATE ATTENTION REQUIRED' : '⚠️ CRITICAL ALERT — ACTION REQUIRED'}
+              </div>
+              <h1 style={{
+                fontSize: '1.5rem', fontWeight: 800, margin: 0,
+                letterSpacing: '-0.02em',
+                color: activeAlert.isBlackSwan ? '#fca5a5' : '#fcd34d',
+              }}>
+                {activeAlert.title}
+              </h1>
+            </div>
+
+            {/* Body */}
+            <div style={{
+              borderRadius: 12, padding: '1.5rem 1.8rem', marginBottom: '1.2rem',
+              boxShadow: '0 4px 24px rgba(0, 0, 0, 0.4)',
+              background: activeAlert.isBlackSwan ? 'rgba(127, 29, 29, 0.5)' : 'rgba(120, 53, 15, 0.5)',
+              border: activeAlert.isBlackSwan ? '1px solid rgba(252, 165, 165, 0.15)' : '1px solid rgba(252, 211, 77, 0.15)',
+            }}>
+              <p style={{
+                fontSize: '0.88rem', lineHeight: 1.75,
+                color: '#e2e8f0', margin: 0, whiteSpace: 'pre-line',
+              }}>
+                {activeAlert.body}
+              </p>
+            </div>
+
+            {/* Dismiss */}
+            <div style={{ textAlign: 'center' }}>
+              <button
+                onClick={dismissActiveAlert}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                  border: 'none', borderRadius: 10,
+                  padding: '0.8rem 2.2rem', fontSize: '0.8rem', fontWeight: 700,
+                  cursor: 'pointer',
+                  background: activeAlert.isBlackSwan
+                    ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                    : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                  color: '#fff',
+                  boxShadow: activeAlert.isBlackSwan
+                    ? '0 4px 16px rgba(239, 68, 68, 0.4)'
+                    : '0 4px 16px rgba(245, 158, 11, 0.4)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                  fontFamily: "var(--font-sans, 'DM Sans', Inter, sans-serif)",
+                  letterSpacing: '0.04em',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
+              >
+                Acknowledged — Return to Cockpit →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ═══ GLOBAL HEADER ═══ */}
       <header className={styles.header}>
         <div className={styles.headerLogo}>
@@ -1289,7 +1386,7 @@ export default function ExecutiveCockpit({
                   fontSize: 'var(--ck-fs-xs, 0.65rem)', fontWeight: 600, fontFamily: 'inherit',
                   letterSpacing: '0.04em', textTransform: 'uppercase',
                   borderBottom: leftPanelTab === tab.id ? '2px solid var(--ck-accent, #5eead4)' : '2px solid transparent',
-                  transition: 'all 0.15s ease',
+                  transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
                 }}
               >
                 {tab.label}
@@ -1417,6 +1514,7 @@ export default function ExecutiveCockpit({
             )}
           </div>
           </div>
+          <BenchmarksPanel sessionId={sim?.sessionId || sim?.session_id} roundNumber={roundNumber} />
           </div>
           )}
 
@@ -1435,7 +1533,7 @@ export default function ExecutiveCockpit({
             roundNumber={roundNumber}
             events={events}
           />
-          {isDeepDive && <BenchmarksPanel sessionId={sim?.sessionId || sim?.session_id} roundNumber={roundNumber} />}
+          <BenchmarksPanel sessionId={sim?.sessionId || sim?.session_id} roundNumber={roundNumber} />
           </div>
           )}
 
@@ -1451,14 +1549,14 @@ export default function ExecutiveCockpit({
                   </div>
                   {[...businessUnits]
                     .sort((a, b) => ((b.revenue_base || 0) - (b.opex_base || 0)) - ((a.revenue_base || 0) - (a.opex_base || 0)))
-                    .map((bu) => {
+                    .map((bu, idx) => {
                       const margin = bu.revenue_base > 0 ? ((bu.revenue_base - bu.opex_base) / bu.revenue_base * 100) : 0;
                       const slo = bu.social_license_to_operate || 0;
                       const govRisk = bu.governance_risk || 0;
                       const buIcons = { pharma: '💊', electronics: '🔌', consumer_goods: '🛒', software: '💻', hospitals: '🏥', clinics: '🏥', specialised_care: '🧬', telehealth: '📱', agriculture: '🌾', fisheries: '🐟', forestry: '🌲', water: '💧', retail_banking: '🏦', investment_banking: '📊', insurance: '🛡️', fintech: '📱' };
                       const icon = buIcons[bu.id] || '🏢';
                       return (
-                        <div key={bu.id} className={styles.buHealthCard}>
+                        <div key={bu.id || bu.bu_id || `bu-health-${idx}`} className={styles.buHealthCard}>
                           <div className={styles.buHealthIcon}>{icon}</div>
                           <div className={styles.buHealthInfo}>
                             <div className={styles.buHealthName}>{(bu.name || bu.id).replace(/_/g, ' ')}</div>
@@ -1617,7 +1715,7 @@ export default function ExecutiveCockpit({
                   fontSize: '0.75rem', fontWeight: 700,
                   cursor: 'pointer', display: 'flex',
                   alignItems: 'center', justifyContent: 'center', gap: '6px',
-                  transition: 'all 0.2s ease',
+                  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
                   letterSpacing: '0.03em',
                 }}
                 onMouseEnter={e => {
@@ -1741,11 +1839,11 @@ export default function ExecutiveCockpit({
                   </tr>
                 </thead>
                 <tbody>
-                  {(filterBU === 'all' ? businessUnits : businessUnits.filter(bu => bu.id === filterBU)).map(bu => {
+                  {(filterBU === 'all' ? businessUnits : businessUnits.filter(bu => bu.id === filterBU)).map((bu, idx) => {
                     const margin = bu.revenue_base > 0 ? ((bu.revenue_base - bu.opex_base) / bu.revenue_base * 100) : 0;
                     const alloc = allocations?.[bu.id] || 0;
                     return (
-                      <tr key={bu.id} style={{ borderBottom: isDark ? '1px solid rgba(148,163,184,0.05)' : '1px solid #f1f5f9' }}>
+                      <tr key={bu.id || bu.bu_id || `bu-row-${idx}`} style={{ borderBottom: isDark ? '1px solid rgba(148,163,184,0.05)' : '1px solid #f1f5f9' }}>
                         <td style={{ padding: '5px 8px', fontWeight: 700, color: isDark ? '#e2e8f0' : '#1e293b', whiteSpace: 'nowrap' }}>
                           {(bu.name || bu.id).replace(/_/g, ' ')}
                         </td>
@@ -2091,7 +2189,7 @@ export default function ExecutiveCockpit({
                     fontSize: '0.68rem',
                     fontWeight: 700,
                     cursor: 'pointer',
-                    transition: 'all 0.2s',
+                    transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                     letterSpacing: '0.04em',
                     display: 'flex',
                     alignItems: 'center',
@@ -2143,7 +2241,7 @@ export default function ExecutiveCockpit({
                     borderRadius: infraOpen ? '8px 8px 0 0' : 8,
                     background: infraOpen ? '#f8fafc' : '#f1f5f9',
                     borderLeft: '3px solid #38bdf8',
-                    cursor: 'pointer', transition: 'all 0.2s',
+                    cursor: 'pointer', transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                     fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
                   }}
                 >
@@ -2209,7 +2307,7 @@ export default function ExecutiveCockpit({
                 const isDimmed = isDeepDive && investigatedBU !== buId;
                 return (
                   <div
-                    key={buId}
+                    key={buId || `bu-${idx}`}
                     className={`${styles.buTickerItem} ${isActive ? styles.buTickerItemActive : ''} ${isDimmed ? styles.buTickerItemDimmed : ''}`}
                     onClick={() => isActive ? exitDeepDive() : enterDeepDive(buId)}
                     title={`${isActive ? 'Exit' : 'Investigate'} ${(bu.name || bu.id).replace(/_/g, ' ')} · Press ${idx + 1} or Esc`}
@@ -2270,11 +2368,13 @@ export default function ExecutiveCockpit({
 
         {/* ── RIGHT SIDEBAR ─── */}
         <aside id="tour-intelligence-target" className={styles.rightSidebar}>
-          {/* Resources link */}
-          <div className={styles.rightResources} style={{ padding: '8px 14px', cursor: 'pointer', background: '#f1f5f9', fontWeight: 600 }} onClick={onResourcesOpen}>
-            <span className={styles.resourcesLabel}>📎 Simulation Resources</span>
-            <span style={{ fontSize: '0.6rem', color: '#475569' }}>▶</span>
-          </div>
+          {/* Floating Resources Pill */}
+          <button className={styles.resourcesPill} onClick={onResourcesOpen}>
+            <span style={{ fontSize: '0.9rem' }}>📚</span>
+            <span className={styles.resourcesPillLabel}>Resources</span>
+            <span className={styles.resourcesPillArrow}>❯</span>
+            {hasNewResources && <span className={styles.resourcesPillBadge} />}
+          </button>
 
           <CompetitorIntelligence globalState={globalState} ebitda={ebitda} roundNumber={roundNumber} />
 
@@ -2303,69 +2403,48 @@ export default function ExecutiveCockpit({
               background: 'var(--bg-sidebar, #ffffff)',
               borderBottom: '1px solid var(--border-subtle, #e2e8f0)',
             }}>
-              <button
-                onClick={() => setRightPanelTab('mailbox')}
-                style={{
-                  flex: 1, padding: '8px 10px', cursor: 'pointer',
-                  fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
-                  letterSpacing: '0.06em', border: 'none',
-                  background: rightPanelTab === 'mailbox' ? 'rgba(59,130,246,0.08)' : 'transparent',
-                  color: rightPanelTab === 'mailbox' ? '#3b82f6' : '#64748b',
-                  borderBottom: rightPanelTab === 'mailbox' ? '2px solid #3b82f6' : '2px solid transparent',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                📬 Mailbox {unreadCount > 0 && (
-                  <span
-                    className={styles.mailboxBadge}
-                    style={{ animation: 'pulse 1.5s ease-in-out infinite' }}
+              {[
+                { id: 'mailbox', label: '📬 Mailbox', color: '#3b82f6', badge: unreadCount > 0 ? unreadCount : null },
+                { id: 'decisions', label: '📜 Decisions', color: '#6366f1', badge: (!commitResults && hasDecision) ? '⏳' : null },
+                { id: 'engines', label: '🌎 Engines', color: '#10b981', badge: (events && Object.keys(events).length > 0 && !commitResults) ? '•' : null },
+                { id: 'climate', label: '🌡️ Climate', color: '#38bdf8', badge: null },
+              ].map(tab => {
+                const isActive = rightPanelTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setRightPanelTab(tab.id)}
+                    style={{
+                      flex: 1, padding: '8px 6px', cursor: 'pointer',
+                      fontSize: '0.66rem', fontWeight: isActive ? 800 : 600, textTransform: 'uppercase',
+                      letterSpacing: '0.04em', border: 'none',
+                      background: isActive ? `${tab.color}15` : 'transparent',
+                      color: isActive ? tab.color : '#64748b',
+                      borderBottom: `3px solid ${isActive ? tab.color : 'transparent'}`,
+                      transition: 'all 0.15s ease',
+                      position: 'relative',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3,
+                    }}
                   >
-                    {unreadCount}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => setRightPanelTab('decisions')}
-                style={{
-                  flex: 1, padding: '8px 10px', cursor: 'pointer',
-                  fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
-                  letterSpacing: '0.06em', border: 'none',
-                  background: rightPanelTab === 'decisions' ? 'rgba(99,102,241,0.08)' : 'transparent',
-                  color: rightPanelTab === 'decisions' ? '#6366f1' : '#64748b',
-                  borderBottom: rightPanelTab === 'decisions' ? '2px solid #6366f1' : '2px solid transparent',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                📜 My Decisions
-              </button>
-              <button
-                onClick={() => setRightPanelTab('engines')}
-                style={{
-                  flex: 1, padding: '8px 10px', cursor: 'pointer',
-                  fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
-                  letterSpacing: '0.06em', border: 'none',
-                  background: rightPanelTab === 'engines' ? 'rgba(16,185,129,0.08)' : 'transparent',
-                  color: rightPanelTab === 'engines' ? '#10b981' : '#64748b',
-                  borderBottom: rightPanelTab === 'engines' ? '2px solid #10b981' : '2px solid transparent',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                🌎 Engines
-              </button>
-              <button
-                onClick={() => setRightPanelTab('climate')}
-                style={{
-                  flex: 1, padding: '8px 10px', cursor: 'pointer',
-                  fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase',
-                  letterSpacing: '0.06em', border: 'none',
-                  background: rightPanelTab === 'climate' ? 'rgba(56,189,248,0.08)' : 'transparent',
-                  color: rightPanelTab === 'climate' ? '#38bdf8' : '#64748b',
-                  borderBottom: rightPanelTab === 'climate' ? '2px solid #38bdf8' : '2px solid transparent',
-                  transition: 'all 0.15s ease',
-                }}
-              >
-                🌡️ Climate
-              </button>
+                    {tab.label}
+                    {tab.badge && (
+                      <span style={{
+                        fontSize: typeof tab.badge === 'number' ? '0.6rem' : '0.5rem',
+                        fontWeight: 800,
+                        background: typeof tab.badge === 'number' ? '#f87171' : `${tab.color}25`,
+                        color: typeof tab.badge === 'number' ? '#fff' : tab.color,
+                        padding: typeof tab.badge === 'number' ? '1px 5px' : '0 3px',
+                        borderRadius: 3,
+                        minWidth: typeof tab.badge === 'number' ? 14 : 'auto',
+                        textAlign: 'center',
+                        animation: typeof tab.badge === 'number' ? 'pulse 1.5s ease-in-out infinite' : 'none',
+                      }}>
+                        {tab.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Tab Content */}
@@ -2376,7 +2455,7 @@ export default function ExecutiveCockpit({
                     Round {roundNumber}
                     {unreadCount > 0 && <span className={styles.mailboxBadge}>{unreadCount}</span>}
                   </div>
-                  {currentMessages.map((msg) => {
+                  {currentMessages.map((msg, idx) => {
                     // NF-2: Determine severity for visual differentiation
                     const persona = getPersona(msg);
                     const isCritical = persona === BOARD_PERSONAS.crisis ||
@@ -2392,7 +2471,7 @@ export default function ExecutiveCockpit({
                       : '';
                     return (
                     <div
-                      key={msg.id}
+                      key={msg.id || `msg-${idx}`}
                       className={`${styles.feedItem} ${severityClass}`}
                       onClick={() => { onMarkRead?.(msg.id); setExpandedMessage(msg); }}
                       style={{ cursor: 'pointer', opacity: msg.read ? 0.6 : 1 }}
@@ -2443,7 +2522,7 @@ export default function ExecutiveCockpit({
           </div>
 
           {/* Market Reality Feed — with Consequence Traceability */}
-          <div className={styles.rightMarket} style={{ height: 'auto', minHeight: '20%', maxHeight: '35%' }}>
+          <div className={styles.rightMarket}>
             <MarketRealityFeed
               items={marketEvents}
               activeAlert={activeAlert}
@@ -2451,13 +2530,14 @@ export default function ExecutiveCockpit({
               traceTooltipIdx={traceTooltipIdx}
               onTraceHover={setTraceTooltipIdx}
               roundTier={roundTier}
+              onDismissAlert={dismissActiveAlert}
             />
           </div>
 
           {/* What Happened / Road Not Taken / CEO Diary — Collapsible Accordions */}
+          <div className={styles.sectionDivider} />
           <div style={{
             flex: '1 1 auto', overflowY: 'auto', padding: '8px 10px',
-            borderTop: '1px solid #1e293b',
           }}>
             <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} />
             {/* SI-2+: Autonomous Stakeholder Agents Panel */}
@@ -2506,7 +2586,7 @@ export default function ExecutiveCockpit({
                   border: '1px solid rgba(0, 229, 195, 0.2)', borderRadius: 8,
                   color: '#00e5c3', fontSize: '0.68rem', fontWeight: 700,
                   fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-                  transition: 'all 0.2s ease', letterSpacing: '0.03em',
+                  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease', letterSpacing: '0.03em',
                 }}
                 onMouseOver={e => { e.currentTarget.style.background = 'rgba(0, 229, 195, 0.12)'; e.currentTarget.style.borderColor = 'rgba(0, 229, 195, 0.4)'; }}
                 onMouseOut={e => { e.currentTarget.style.background = 'rgba(0, 229, 195, 0.06)'; e.currentTarget.style.borderColor = 'rgba(0, 229, 195, 0.2)'; }}
@@ -2518,14 +2598,17 @@ export default function ExecutiveCockpit({
 
           {/* ── Commit Footer (compact) ── */}
           <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '8px 12px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {/* #1: Decision Confidence Nudge — tier-specific reflective prompt */}
-            <div style={{ fontSize: '0.68rem', fontWeight: 600, color: '#94a3b8', textAlign: 'center', fontStyle: 'italic', lineHeight: 1.4 }}>
-              {{
-                foundation: '🌱 Are you building a strong foundation for the next 7 rounds?',
-                crisis: '🔥 Is this a reactive fix or a proactive strategy?',
-                integration: '🔗 Are your BUs working together or competing for resources?',
-                finale: '🏆 This is your final decision. The Board will ask why.',
-              }[roundTier]}
+            {/* #1: Decision Confidence Nudge — reflective prompt card */}
+            <div className={styles.reflectivePrompt}>
+              <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>💭</span>
+              <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.4 }}>
+                {{
+                  foundation: 'Are you building a strong foundation for the next 7 rounds?',
+                  crisis: 'Is this a reactive fix or a proactive strategy?',
+                  integration: 'Are your BUs working together or competing for resources?',
+                  finale: 'This is your final decision. The Board will ask why.',
+                }[roundTier]}
+              </span>
             </div>
             
             {/* Decision Quality Meter */}
@@ -2539,7 +2622,7 @@ export default function ExecutiveCockpit({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
                   <span style={{ fontSize: '0.68rem', textTransform: 'uppercase', color: '#94a3b8', whiteSpace: 'nowrap' }}>Ready</span>
                   <div style={{ flex: 1, height: 4, background: '#1e293b', borderRadius: 2, overflow: 'hidden' }}>
-                    <div style={{ width: `${quality}%`, height: '100%', background: quality > 80 ? '#10b981' : quality > 40 ? '#f59e0b' : '#ef4444', transition: 'all 0.3s ease' }} />
+                    <div style={{ width: `${quality}%`, height: '100%', background: quality > 80 ? '#10b981' : quality > 40 ? '#f59e0b' : '#ef4444', transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }} />
                   </div>
                 </div>
               );
@@ -2580,7 +2663,7 @@ export default function ExecutiveCockpit({
                   <span className={styles.projectedImpactLabel} style={{ fontSize: '0.68rem' }}>
                     {projectedCost > 0 ? '📉 Cost' : '📈 Gain'}
                   </span>
-                  <span className={styles.projectedImpactValue} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80', fontSize: '0.7rem' }}>
+                  <span className={`${styles.projectedImpactValue} ${projectedCost > 0 ? styles.lossValue : styles.gainValue}`} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80', fontSize: '0.7rem' }}>
                     {projectedCost > 0 ? '↓' : '↑'} {fmtCurrency(Math.abs(projectedCost))}
                   </span>
                 </div>
@@ -2604,7 +2687,7 @@ export default function ExecutiveCockpit({
                 return (
                   <motion.button
                     className={`${styles.commitBtn} ${commitResults ? styles.commitBtnDone : ''}`}
-                    style={{ width: '100%', height: 34, fontSize: '0.75rem', ...btnStyle, border: `1px solid ${btnStyle.borderColor}`, transition: 'all 0.3s ease' }}
+                    style={{ width: '100%', height: 34, fontSize: '0.75rem', ...btnStyle, border: `1px solid ${btnStyle.borderColor}`, transition: 'background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease' }}
                     disabled={!!commitResults}
                     onClick={() => {
                       if (!commitResults) {
@@ -3769,7 +3852,7 @@ export default function ExecutiveCockpit({
                   }
                   currentState={commitResults.globalState || globalState}
                   buStates={commitResults.businessUnits || businessUnits}
-                  tippingState={commitResults.events?.systemic_tipping?.tipping_state || {}}
+                  tippingState={commitResults.events?.systemic_tipping || {}}
                   whatIfResult={null}
                 />
               </div>
@@ -4006,7 +4089,7 @@ function ArchiveAccordion({ round, roundLabel, items, onMarkRead, onExpand }) {
           textTransform: 'uppercase',
           letterSpacing: '0.06em',
           fontFamily: 'Inter, sans-serif',
-          transition: 'all 0.15s',
+          transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
         }}
       >
         <span>{open ? '▾' : '▸'} {roundLabel || `Round ${round}`}</span>
@@ -4021,9 +4104,9 @@ function ArchiveAccordion({ round, roundLabel, items, onMarkRead, onExpand }) {
       </button>
       {open && (
         <div style={{ padding: '4px 0' }}>
-          {items.map(msg => (
+          {items.map((msg, idx) => (
             <div
-              key={msg.id}
+              key={msg.id || `archived-msg-${idx}`}
               onClick={(e) => { e.stopPropagation(); onMarkRead?.(msg.id); onExpand?.(msg); }}
               style={{
                 padding: '6px 10px 6px 18px',
@@ -4037,7 +4120,7 @@ function ArchiveAccordion({ round, roundLabel, items, onMarkRead, onExpand }) {
                 opacity: msg.read ? 0.7 : 1,
                 borderRadius: '0 4px 4px 0',
                 background: '#fafbff',
-                transition: 'all 0.15s',
+                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
               }}
             >
               <strong style={{ fontSize: '0.65rem', color: '#334155' }}>{msg.title}</strong>

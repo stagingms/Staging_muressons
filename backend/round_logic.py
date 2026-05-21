@@ -2191,8 +2191,8 @@ def _post_r10_grand_finale(
                 for item in items:
                     discovery_chain.append({
                         "round": r,
-                        "title": item.get("title", ""),
-                        "hint": item.get("narrative", ""),
+                        "headline": item.get("headline", item.get("title", "")),
+                        "detail": item.get("body", item.get("narrative", "")),
                         "flag": item.get("flag", ""),
                     })
         pathway_desc = PATHWAY_DESCRIPTIONS.get(ending_pathway, {})

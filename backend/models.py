@@ -215,6 +215,11 @@ class SaveDecisionsRequest(BaseModel):
     decision_choice: Optional[str] = None
 
 
+class JourneyResponseRequest(BaseModel):
+    key: str = Field(..., max_length=100)   # e.g. "r6_response", "r7_allocs", "r8_responses"
+    data: Any  # arbitrary JSON payload from the pedagogical panel
+
+
 class CommitTurnRequest(BaseModel):
     dividends_paid: float = Field(0.0, ge=0.0)
     crisis_severity: float = Field(0.0, ge=0.0, le=100.0)

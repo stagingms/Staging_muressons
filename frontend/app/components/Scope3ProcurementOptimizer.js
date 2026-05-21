@@ -47,7 +47,7 @@ function SemiGauge({ value, max, redAbove, label, unit, w = 200 }) {
             })()}
             {/* Needle */}
             <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="2" strokeLinecap="round"
-                style={{ transition: 'all 0.3s ease-out' }} />
+                style={{ transition: 'background 0.3s ease-out, color 0.3s ease-out, border-color 0.3s ease-out, box-shadow 0.3s ease-out, opacity 0.3s ease-out, transform 0.3s ease-out' }} />
             <circle cx={cx} cy={cy} r="5" fill="#1e293b" />
             {/* Center value */}
             <text x={cx} y={cy - r * 0.35} textAnchor="middle" fontSize={w * 0.13} fontWeight="800" fill={col}
@@ -82,7 +82,7 @@ function BarChart3({ cogs, profit, revenue }) {
                 const y = padTop + (maxV - Math.abs(v.v)) / maxV * cH;
                 return <g key={v.label}>
                     <rect x={x} y={y} width={barW} height={bH} fill={v.v < 0 ? '#ef4444' : v.col} rx="3"
-                        style={{ transition: 'all 0.3s' }} />
+                        style={{ transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s' }} />
                     <text x={x + barW / 2} y={y - 4} textAnchor="middle" fontSize="9" fontWeight="700" fill={v.v < 0 ? '#ef4444' : v.col}>{fmtK(v.v)}</text>
                     <text x={x + barW / 2} y={H - padBot + 14} textAnchor="middle" fontSize="9" fill="#64748b">{v.label}</text>
                 </g>;

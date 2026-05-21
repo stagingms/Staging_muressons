@@ -64,7 +64,7 @@ function AreaChart({ cashFlows }) {
             <path d={area} fill="rgba(59,130,246,0.15)" />
             {/* Line */}
             <polyline points={polyline} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinejoin="round"
-                style={{ transition: 'all 0.35s' }} />
+                style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
             {/* Year labels */}
             {[1, 3, 5, 7, 9, 11, 13, 15].map(yr => (
                 <text key={yr} x={toX(yr - 1)} y={H - padB + 16} textAnchor="middle" fontSize="8" fill="#94a3b8">{yr}</text>
@@ -93,7 +93,7 @@ function FleetBars({ fleetByYear }) {
                 const x = padL + i * gap + gap * 0.15;
                 const y = padT + cH - bH;
                 return <g key={i}>
-                    <rect x={x} y={y} width={barW} height={bH} fill={colFn(v)} rx="2" style={{ transition: 'all 0.35s' }} />
+                    <rect x={x} y={y} width={barW} height={bH} fill={colFn(v)} rx="2" style={{ transition: 'background 0.35s, color 0.35s, border-color 0.35s, box-shadow 0.35s, opacity 0.35s, transform 0.35s' }} />
                     {i % 2 === 0 && <text x={x + barW / 2} y={y - 3} textAnchor="middle" fontSize="7" fill="#166534" fontWeight="700">{v.toLocaleString()}</text>}
                     <text x={x + barW / 2} y={H - padB + 14} textAnchor="middle" fontSize="8" fill="#94a3b8">{i + 1}</text>
                 </g>;

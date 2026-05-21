@@ -64,18 +64,18 @@ export default function JoinCohortModal({ sim }) {
                     <div className={styles.shieldIcon}>
                         <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
                             <path d="M12 2L3 7v5c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" fill="rgba(0,229,195,0.15)" stroke="#00e5c3" strokeWidth="1.5"/>
-                            <path d="M10 12l2 2 4-4" stroke="#00e5c3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <text x="12" y="16" textAnchor="middle" fill="#00e5c3" fontSize="10" fontWeight="900" fontFamily="DM Sans, sans-serif">M</text>
                         </svg>
                     </div>
-                    <div className={styles.brandName}>
-                        MURESSONS <span className={styles.brandAccent}>GLOBAL</span>
+                    <div className={styles.brandName} style={{ color: '#f5b942' }}>
+                        MURESSONS GLOBAL
                     </div>
                     <div className={styles.brandSubtitle}>MURESSONS GLOBAL CORPORATION</div>
                 </div>
 
                 {/* Form Section */}
                 <div className={styles.formSection}>
-                    <h2 className={styles.title}>Command Access</h2>
+                    <h2 className={styles.title} style={{ color: '#00e5c3' }}>Command Access</h2>
                     <p className={styles.subtitle}>Enter credentials for secure terminal link.</p>
 
                     <form onSubmit={handleLogin} className={styles.form}>

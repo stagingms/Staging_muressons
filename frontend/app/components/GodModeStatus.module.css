@@ -1,7 +1,7 @@
-/* ═══════════════════════════════════════════════════════════════
- *  GodModeStatus — System Status Dashboard
+ï»¿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+ *  GodModeStatus â€” System Status Dashboard
  *  Premium command-center styling with amber accents
- * ═══════════════════════════════════════════════════════════════ */
+ * â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .container { max-width: 920px; }
 
@@ -26,11 +26,11 @@
     font-weight: 400;
 }
 
-/* ── Freeze Banner ───────────────────────────────── */
+/* â”€â”€ Freeze Banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .freezeBanner {
     background: rgba(239,68,68,0.08);
     border: 1px solid rgba(239,68,68,0.25);
-    color: #ef4444;
+    color: var(--gauge-red);
     padding: 0.75rem 1.2rem;
     border-radius: 8px;
     font-weight: 700;
@@ -41,7 +41,7 @@
 }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.65} }
 
-/* ── KPI Cards ───────────────────────────────────── */
+/* â”€â”€ KPI Cards â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .cardGrid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -88,7 +88,7 @@
     margin-top: 0.3rem;
 }
 
-/* ── Gauges ───────────────────────────────────────── */
+/* â”€â”€ Gauges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .gaugeRow {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -123,7 +123,7 @@
     transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Sections ────────────────────────────────────── */
+/* â”€â”€ Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .section {
     background: var(--bg-card);
     border: 1px solid rgba(255,255,255,0.04);
@@ -138,7 +138,7 @@
     color: var(--text-primary);
 }
 
-/* ── Round Distribution ──────────────────────────── */
+/* â”€â”€ Round Distribution â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .roundBars { display: flex; flex-direction: column; gap: 0.4rem; }
 .roundBar { display: flex; align-items: center; gap: 0.5rem; }
 .roundBarLabel {
@@ -169,7 +169,7 @@
     font-family: var(--font-mono);
 }
 
-/* ── Activity ────────────────────────────────────── */
+/* â”€â”€ Activity â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .activityList { display: flex; flex-direction: column; gap: 0; }
 .activityItem {
     display: flex;
@@ -191,7 +191,7 @@
     font-family: var(--font-mono);
 }
 
-/* ── Loading / Error ─────────────────────────────── */
+/* â”€â”€ Loading / Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .loading, .error {
     padding: 3rem;
     text-align: center;
@@ -204,7 +204,7 @@
     .gaugeRow { grid-template-columns: 1fr; }
 }
 
-/* ══ Platform Controls ═════════════════════════════ */
+/* â•â• Platform Controls â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .controlsGrid {
     display: flex;
     flex-direction: column;
@@ -277,4 +277,57 @@
     color: var(--text-muted);
     right: auto;
     left: 6px;
+}
+
+/* ══ Styled Scaffolding Pill Tooltip ══════════════════════════ */
+.pillWrap {
+    position: relative;
+    display: inline-flex;
+}
+
+.pillWrap::after {
+    content: attr(data-tip);
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 0;
+    transform: scale(0.95);
+    width: max-content;
+    max-width: 280px;
+    padding: 0.55rem 0.75rem;
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255,255,255,0.03);
+    color: #cbd5e1;
+    font-size: 0.68rem;
+    font-weight: 500;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    white-space: normal;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.pillWrap::before {
+    content: '';
+    position: absolute;
+    bottom: calc(100% + 2px);
+    left: 12px;
+    border: 5px solid transparent;
+    border-top-color: rgba(15, 23, 42, 0.95);
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.pillWrap:hover::after {
+    opacity: 1;
+    transform: scale(1);
+}
+.pillWrap:hover::before {
+    opacity: 1;
 }

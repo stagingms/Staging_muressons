@@ -664,7 +664,7 @@ export default function TechnicalGlossary() {
               onClick={() => setActiveCluster(f.id)}
               style={{
                 padding: '4px 12px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: 700,
-                cursor: 'pointer', transition: 'all 0.15s',
+                cursor: 'pointer', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                 background: activeCluster === f.id ? f.color : 'transparent',
                 color: activeCluster === f.id ? '#fff' : f.color,
                 border: `1.5px solid ${f.color}`,

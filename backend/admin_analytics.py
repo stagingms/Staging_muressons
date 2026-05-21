@@ -15,13 +15,37 @@ import math
 from typing import Optional
 from collections import defaultdict
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, Header, Depends, HTTPException
 from pydantic import BaseModel
 
 import database as db
-from admin_shared import _god_mode_settings, _get_session_paradigm
+from admin_shared import _god_mode_settings, _get_session_paradigm, _facilitator_registry, get_role
 
 analytics_router = APIRouter(prefix="/api/admin", tags=["Admin - Analytics"])
+
+
+def _get_fac_role(x_facilitator_id: str = Header(None)):
+    if not x_facilitator_id:
+        return 'anonymous'  # No header → unauthenticated; callers must check explicitly
+    # god_mode is a virtual admin account not in the registry
+    if x_facilitator_id == "god_mode":
+        return "super_admin"
+    fac = next(
+        (f for f in _facilitator_registry
+         if f['facilitator_id'] == x_facilitator_id and not f.get('deleted_at')),
+        None,
+    )
+    return get_role(fac) if fac else 'anonymous'
+
+
+def _require_super_admin(role: str = Depends(_get_fac_role)):
+    if role != 'super_admin':
+        raise HTTPException(status_code=403, detail='Super Admin required')
+
+def _require_facilitator(role: str = Depends(_get_fac_role)):
+    """Allow any authenticated facilitator (any role). Blocks anonymous requests."""
+    if role == 'anonymous':
+        raise HTTPException(status_code=401, detail='Facilitator authentication required')
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  GOD MODE â€” Platform Analytics (#15)
@@ -56,7 +80,7 @@ async def get_analytics_visibility():
 
 
 @analytics_router.put("/god/analytics-visibility", summary="Update analytics visibility settings")
-async def set_analytics_visibility(body: dict = Body(...)):
+async def set_analytics_visibility(body: dict = Body(...), _guard: None = Depends(_require_super_admin)):
     for role in ("facilitator", "player"):
         if role in body:
             for key, val in body[role].items():
@@ -105,7 +129,7 @@ async def get_cohort_analytics_visibility(session_id: str):
 
 
 @analytics_router.put("/cohort/{session_id}/analytics-visibility", summary="Set per-cohort analytics visibility overrides")
-async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...)):
+async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...), _guard: None = Depends(_require_facilitator)):
     sess = database_memory._sessions.get(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -252,6 +276,11 @@ async def get_platform_analytics():
                     bonuses_breakdown[category] += 1
 
     # Student bonus awards
+    try:
+        import admin_router as _ar
+        _student_bonuses = getattr(_ar, '_student_bonuses', {})
+    except Exception:
+        _student_bonuses = {}
     badges_awarded = defaultdict(int)
     total_student_bonuses = 0
     for sid_bonuses in _student_bonuses.values():
@@ -563,7 +592,7 @@ async def get_glossary():
 
 
 @analytics_router.post("/glossary", summary="Add or update a glossary term")
-async def upsert_glossary_term(item: GlossaryItem):
+async def upsert_glossary_term(item: GlossaryItem, _guard: None = Depends(_require_super_admin)):
     global _glossary_terms
     # Auto-generate ID if empty
     term_id = item.id or item.term.lower().replace(" ", "_").replace("(", "").replace(")", "")
@@ -575,7 +604,7 @@ async def upsert_glossary_term(item: GlossaryItem):
 
 
 @analytics_router.delete("/glossary/{term_id}", summary="Delete a glossary term")
-async def delete_glossary_term(term_id: str):
+async def delete_glossary_term(term_id: str, _guard: None = Depends(_require_super_admin)):
     global _glossary_terms
     _glossary_terms = [t for t in _glossary_terms if t["id"] != term_id]
     return {"status": "deleted", "term_id": term_id}

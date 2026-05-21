@@ -1,9 +1,9 @@
-/* ═══════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    SimulationSwitchboard.module.css
    God-Mode hacker / terminal aesthetic
-   ═══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Keyframes ──────────────────────────────────────────────── */
+/* â”€â”€ Keyframes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @keyframes glitch {
     0%   { transform: translate(0); clip-path: inset(0 0 100% 0); }
     10%  { transform: translate(-4px, 2px); clip-path: inset(10% 0 80% 0); }
@@ -61,7 +61,7 @@
     to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Root panel ──────────────────────────────────────────────── */
+/* â”€â”€ Root panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .root {
     display: grid;
     grid-template-columns: 360px 1fr;
@@ -89,7 +89,7 @@
     animation: shake 0.5s ease-in-out;
 }
 
-/* ── Left panel ──────────────────────────────────────────────── */
+/* â”€â”€ Left panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .leftPanel {
     border-right: 1px solid rgba(0,255,136,0.2);
     padding: 1.5rem 1.25rem;
@@ -100,7 +100,7 @@
     animation: flicker 8s infinite;
 }
 
-/* ── Section headers ─────────────────────────────────────────── */
+/* â”€â”€ Section headers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .sectionLabel {
     font-size: 0.6rem;
     font-weight: 700;
@@ -119,7 +119,7 @@
     opacity: 0.4;
 }
 
-/* ── Master switch ───────────────────────────────────────────── */
+/* â”€â”€ Master switch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .masterBlock {
     padding: 1.25rem;
     border: 1px solid rgba(0,255,136,0.3);
@@ -150,7 +150,7 @@
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: #00ff88;
-    transition: all 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
     position: relative;
     overflow: hidden;
 }
@@ -183,7 +183,7 @@
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: #888;
-    transition: all 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
     position: relative;
     overflow: hidden;
 }
@@ -206,7 +206,7 @@
     letter-spacing: 0.15em;
     text-transform: uppercase;
     color: #00ff88;
-    transition: all 0.2s;
+    transition: border-color 0.2s, box-shadow 0.2s, color 0.2s;
     position: relative;
     overflow: hidden;
     box-shadow: 0 0 20px rgba(0,255,136,0.4), inset 0 0 12px rgba(0,255,136,0.08);
@@ -221,7 +221,7 @@
     border-radius: 50%;
     margin-right: 0.6rem;
     vertical-align: middle;
-    transition: all 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s;
 }
 .indicatorOff {
     display: inline-block;
@@ -230,7 +230,7 @@
     border-radius: 50%;
     margin-right: 0.6rem;
     vertical-align: middle;
-    transition: all 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s;
     background: #333;
     box-shadow: none;
 }
@@ -241,13 +241,13 @@
     border-radius: 50%;
     margin-right: 0.6rem;
     vertical-align: middle;
-    transition: all 0.3s;
+    transition: background-color 0.3s, box-shadow 0.3s;
     background: #00ff88;
     box-shadow: 0 0 6px #00ff88, 0 0 12px #00ff88;
     animation: blink 1s ease-in-out infinite;
 }
 
-/* ── Status chip ─────────────────────────────────────────────── */
+/* â”€â”€ Status chip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .statusChip {
     margin-top: 0.75rem;
     font-size: 0.68rem;
@@ -270,7 +270,7 @@
     animation: blink 0.8s ease-in-out infinite;
 }
 
-/* ── Sliders section ─────────────────────────────────────────── */
+/* â”€â”€ Sliders section â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .slidersBlock {
     display: flex;
     flex-direction: column;
@@ -375,7 +375,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     pointer-events: none;
 }
 
-/* ── Right panel ─────────────────────────────────────────────── */
+/* â”€â”€ Right panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .rightPanel {
     display: flex;
     flex-direction: column;
@@ -411,7 +411,7 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     min-height: 320px;
 }
 
-/* ── Terminal readout ────────────────────────────────────────── */
+/* â”€â”€ Terminal readout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .terminal {
     border: 1px solid rgba(0,255,136,0.2);
     background: #000;

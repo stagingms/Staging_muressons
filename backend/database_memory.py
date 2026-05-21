@@ -643,7 +643,7 @@ async def fetch_all_sessions() -> list[dict]:
             "short_code": s.get("short_code"),
             "cohort_name": s["cohort_name"],
             "facilitator_id": s["facilitator_id"],
-            "start_time": s["start_time"].isoformat() if s.get("start_time") else None,
+            "start_time": s["start_time"].isoformat() if hasattr(s.get("start_time"), "isoformat") else s.get("start_time"),
             "is_public": s.get("is_public", False),
             "allowed_player_ids": s.get("allowed_player_ids", []),
             "player_id": s.get("player_id"),

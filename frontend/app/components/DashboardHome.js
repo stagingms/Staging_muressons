@@ -267,31 +267,7 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
                 </div>
             )}
 
-            {leaderboard.length === 0 && (
-                <div className={styles.empty}>
-                    <div className={styles.emptyIcon}>🎓</div>
-                    <h3>No Active Sessions</h3>
-                    <p>Create your first cohort to get started.</p>
-                    <button
-                        onClick={() => onCreateCohort?.()}
-                        style={{
-                            marginTop: '1rem',
-                            padding: '0.65rem 1.5rem',
-                            borderRadius: '8px',
-                            border: 'none',
-                            background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-                            color: '#fff',
-                            fontSize: '0.9rem',
-                            fontWeight: 700,
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
-                            transition: 'all 0.2s',
-                        }}
-                    >
-                        🚀 Create New Cohort
-                    </button>
-                </div>
-            )}
+
         </div>
     );
 }

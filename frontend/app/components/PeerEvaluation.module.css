@@ -1,4 +1,4 @@
-.container { display: flex; flex-direction: column; gap: 1.25rem; }
+ï»¿.container { display: flex; flex-direction: column; gap: 1.25rem; }
 .header { display: flex; align-items: flex-start; gap: 1rem; }
 .icon { font-size: 2rem; }
 .title { font-size: 1.2rem; font-weight: 800; margin: 0; color: var(--text-primary); }
@@ -11,8 +11,8 @@
 .ratingLabel { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
 .stars { display: flex; gap: 2px; }
 .star { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); transition: color 0.15s; padding: 0; }
-.starActive { color: #f59e0b; }
-.star:hover { color: #fbbf24; }
+.starActive { color: var(--accent-gold); }
+.star:hover { color: var(--accent-gold); }
 .submitBtn { background: linear-gradient(135deg, #6366f1, #3b82f6); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit; }
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .avgSection { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }

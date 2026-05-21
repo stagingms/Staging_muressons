@@ -34,8 +34,8 @@ function SemiGaugePct({ value, label }) {
                 return <path key={s} d={`M ${sx} ${sy} A ${r} ${r} 0 ${lg} 1 ${ex2} ${ey2}`} fill="none" stroke={col2} strokeWidth="22" strokeLinecap="round" />;
             })}
             {/* Progress arc */}
-            {pct > 0 && <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`} fill="none" stroke={col} strokeWidth="6" strokeLinecap="round" style={{ transition: 'all 0.3s' }} />}
-            <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" style={{ transition: 'all 0.3s' }} />
+            {pct > 0 && <path d={`M ${cx - r} ${cy} A ${r} ${r} 0 ${large} 1 ${ex} ${ey}`} fill="none" stroke={col} strokeWidth="6" strokeLinecap="round" style={{ transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s' }} />}
+            <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#1e293b" strokeWidth="2.5" strokeLinecap="round" style={{ transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s' }} />
             <circle cx={cx} cy={cy} r="5" fill="#1e293b" />
             <text x={cx} y={cy - 28} textAnchor="middle" fontSize="22" fontWeight="900" fill={col}>{value}%</text>
             <text x={cx} y={cy - 10} textAnchor="middle" fontSize="10" fill="#64748b">{label}</text>

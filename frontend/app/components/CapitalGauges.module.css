@@ -1,13 +1,14 @@
-/* CapitalGauges.module.css */
+/* CapitalGauges.module.css â€” fully tokenised */
 
 .header {
     position: sticky;
     top: 0;
-    z-index: 50;
+    z-index: var(--z-sticky, 10);
     padding: var(--space-md) var(--space-xl);
-    background: rgba(10, 14, 26, 0.88);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    /* Solid elevated background â€” backdrop-filter removed. A sticky position:fixed
+       element with blur(20px) creates a permanent GPU compositor layer that
+       re-blurs the cockpit on every scroll tick and every paint. */
+    background: var(--bg-elevated);
     border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -19,18 +20,19 @@
 }
 
 .title {
-    font-size: 1rem;
+    font-size: var(--fs-md);
     font-weight: 700;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.1em;
     background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+    text-transform: uppercase;
 }
 
 .roundBadge {
     font-family: var(--font-mono);
-    font-size: 0.75rem;
+    font-size: var(--fs-xs);
     font-weight: 500;
     color: var(--accent-gold);
     background: rgba(245, 158, 11, 0.1);
@@ -71,7 +73,7 @@
 }
 
 .gaugeLabel {
-    font-size: 0.72rem;
+    font-size: var(--fs-xs);
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.08em;
@@ -93,15 +95,15 @@
 }
 
 .bar_green {
-    background: linear-gradient(90deg, #059669, #10b981);
+    background: var(--gauge-green);
 }
 
 .bar_yellow {
-    background: linear-gradient(90deg, #d97706, #f59e0b);
+    background: var(--gauge-yellow);
 }
 
 .bar_red {
-    background: linear-gradient(90deg, #dc2626, #ef4444);
+    background: var(--gauge-red);
     box-shadow: var(--glow-red);
 }
 
@@ -113,21 +115,13 @@
 
 .gaugeValue {
     font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-size: var(--fs-xs);
     font-weight: 600;
 }
 
-.text_green {
-    color: var(--gauge-green);
-}
-
-.text_yellow {
-    color: var(--gauge-yellow);
-}
-
-.text_red {
-    color: var(--gauge-red);
-}
+.text_green  { color: var(--gauge-green); }
+.text_yellow { color: var(--gauge-yellow); }
+.text_red    { color: var(--gauge-red); }
 
 .statusDot {
     width: 8px;
@@ -145,6 +139,7 @@
     box-shadow: 0 0 6px var(--gauge-yellow);
 }
 
+/* Red dot pulses â€” it's already a critical/urgent state, animation appropriate here */
 .dot_red {
     background: var(--gauge-red);
     box-shadow: 0 0 6px var(--gauge-red);

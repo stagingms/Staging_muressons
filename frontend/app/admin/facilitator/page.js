@@ -119,12 +119,13 @@ function FacilitatorLoginGate({ onLogin }) {
 
     return (
         <div style={{
-            minHeight: '100vh',
+            height: '100vh',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             background: 'var(--bg-body)',
             padding: '2rem',
+            overflow: 'hidden',
         }}>
             <div style={{
                 background: 'var(--bg-card)',
@@ -246,7 +247,7 @@ function FacilitatorLoginGate({ onLogin }) {
                             fontWeight: 700,
                             cursor: 'pointer',
                             opacity: loading ? 0.7 : 1,
-                            transition: 'all 0.2s',
+                            transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                             boxShadow: '0 4px 16px rgba(59, 130, 246, 0.3)',
                         }}
                     >
@@ -468,18 +469,29 @@ function FacilitatorDashboard({ authData, onLogout }) {
         ]);
     }, []);
 
+    /* ── Auth-aware fetch helper for admin endpoints ─────────── */
+    const adminHeaders = { 'X-Facilitator-Id': authData.facilitator_id };
+    // Super-admin sees ALL cohorts; regular facilitators are scoped to their own
+    const isSuperAdmin = authData.role === 'super_admin' || authData.is_admin;
+    const leaderboardUrl = isSuperAdmin
+        ? `${API}/api/admin/leaderboard`
+        : `${API}/api/admin/leaderboard?facilitator_id=${authData.facilitator_id}`;
+
     /* ── Fetch leaderboard on mount ─────────────────────────── */
     const fetchLeaderboard = useCallback(async () => {
         try {
-            const res = await fetch(`${API}/api/admin/leaderboard?facilitator_id=${authData.facilitator_id}`);
+            const res = await fetch(leaderboardUrl, {
+                credentials: 'include',
+                headers: adminHeaders,
+            });
             if (res.ok) {
                 const data = await res.json();
-                if (data.leaderboard?.length) setLeaderboard(data.leaderboard);
+                setLeaderboard(data.leaderboard || []);
             }
         } catch {
-            // Backend offline — keep seed data
+            // Backend offline — keep existing data
         }
-    }, []);
+    }, [leaderboardUrl]);
 
     useEffect(() => {
         fetchLeaderboard();
@@ -488,12 +500,12 @@ function FacilitatorDashboard({ authData, onLogout }) {
     const handleOverride = useCallback(
         (result) => {
             addLog({ type: 'override', ...result });
-            fetch(`${API}/api/admin/leaderboard?facilitator_id=${authData.facilitator_id}`)
+            fetch(leaderboardUrl, { credentials: 'include', headers: adminHeaders })
                 .then((r) => r.json())
-                .then((d) => d.leaderboard?.length && setLeaderboard(d.leaderboard))
+                .then((d) => d.leaderboard && setLeaderboard(d.leaderboard))
                 .catch(() => { });
         },
-        [addLog]
+        [addLog, leaderboardUrl]
     );
 
     const handleMessageSent = useCallback(
@@ -519,7 +531,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
         
         try {
             const endpoint = `${API}/api/admin/${sid}/reset${hard ? '?hard=true' : ''}`;
-            const res = await fetch(endpoint, { method: 'DELETE' });
+            const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include', headers: adminHeaders });
             if (res.ok) {
                 const data = await res.json();
                 const msg = data.players_removed > 0
@@ -543,7 +555,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
         if (!confirm('☢️ RESET ALL SESSIONS?\nThis will DELETE every session and all data. Cannot be undone.')) return;
         if (!confirm('Are you absolutely sure? Type OK to proceed.')) return;
         try {
-            const res = await fetch(`${API}/api/admin/reset-all`, { method: 'DELETE' });
+            const res = await fetch(`${API}/api/admin/reset-all`, { method: 'DELETE', credentials: 'include', headers: adminHeaders });
             if (res.ok) {
                 const d = await res.json();
                 addLog({ type: 'system', message: `All ${d.sessions_removed} sessions reset` });
@@ -586,13 +598,14 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                 display: 'flex', flexWrap: 'wrap', gap: '0.4rem', padding: '0.75rem 1rem',
                                 background: 'var(--bg-elevated)', borderRadius: '10px',
                                 border: '1px solid var(--border-subtle)', marginBottom: '1rem',
-                                alignItems: 'center',
+                                alignItems: 'center', overflow: 'visible',
                             }}>
                                 <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginRight: '0.5rem' }}>
                                     🔧 Active Scaffolding:
                                 </span>
                                 {scaffoldingStatus.features.map(f => (
-                                    <span key={f.key} style={{
+                                    <div key={f.key} className={styles.pillWrap} data-tip={f.description || ''}>
+                                    <span style={{
                                         fontSize: '0.7rem', padding: '0.2rem 0.5rem',
                                         borderRadius: '6px', fontWeight: 600,
                                         background: f.enabled ? 'rgba(34,197,94,0.15)' : 'rgba(107,114,128,0.12)',
@@ -601,6 +614,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                     }}>
                                         {f.enabled ? '●' : '○'} {f.label}
                                     </span>
+                                    </div>
                                 ))}
                                 {scaffoldingStatus.system_frozen && (
                                     <span style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '6px', fontWeight: 700, background: 'rgba(239,68,68,0.15)', color: '#ef4444', border: '1px solid rgba(239,68,68,0.3)' }}>
@@ -631,11 +645,26 @@ function FacilitatorDashboard({ authData, onLogout }) {
                         <InterviewControlPanel sessions={leaderboard.filter(s => !s.player_id).map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }))} />
                     </div>
                 );
-            case 'teleprompter':
-                return <FacilitatorTeleprompter currentRound={leaderboard.reduce((max, s) => Math.max(max, s.round_number || 1), 1)} sessionId={selectedSession} />;
+            case 'teleprompter': {
+                // Derive round from the selected cohort session — not the global max
+                const selectedCohort = leaderboard.find(s => s.session_id === selectedSession);
+                const cohortRound = selectedCohort?.round_number || 1;
+                return (
+                    <FacilitatorTeleprompter
+                        currentRound={cohortRound}
+                        sessionId={selectedSession}
+                        leaderboard={leaderboard}
+                        onSelectSession={setSelectedSession}
+                    />
+                );
+            }
 
             // ── Monitoring tabs ──
             case 'leaderboard':
+                return (
+                    <LeaderboardMatrix leaderboard={leaderboard} selectedSession={selectedSession} onSelectSession={setSelectedSession} onDeleteSession={handleResetSession} />
+                );
+            case 'registry':
                 return (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
@@ -652,13 +681,13 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                     fontWeight: 700,
                                     cursor: 'pointer',
                                     boxShadow: '0 4px 16px rgba(59, 130, 246, 0.25)',
-                                    transition: 'all 0.2s',
+                                    transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                 }}
                             >
                                 + New Cohort
                             </button>
                         </div>
-                        <LeaderboardMatrix leaderboard={leaderboard} selectedSession={selectedSession} onSelectSession={setSelectedSession} onDeleteSession={handleResetSession} />
+                        <PlayerRegistry leaderboard={leaderboard} />
                         <CreateCohortModal
                             isOpen={createCohortOpen}
                             onClose={() => setCreateCohortOpen(false)}
@@ -670,8 +699,6 @@ function FacilitatorDashboard({ authData, onLogout }) {
                         />
                     </>
                 );
-            case 'registry':
-                return <PlayerRegistry leaderboard={leaderboard} />;
             case 'session_viewer':
                 return <SessionViewer leaderboard={leaderboard} />;
             case 'audit_trail':  // merged into Decision History
@@ -828,22 +855,28 @@ function FacilitatorDashboard({ authData, onLogout }) {
         }
     };
 
+    // If no username set, show ONLY the username prompt — no dashboard behind it
+    if (!authData.username) {
+        return (
+            <div style={{
+                position: 'fixed', inset: 0, zIndex: 16000,
+                background: '#080c18',
+            }}>
+                <UsernamePromptModal 
+                    userId={authData.facilitator_id}
+                    role="facilitator"
+                    onComplete={(newUsername) => {
+                        const updated = { ...authData, username: newUsername };
+                        localStorage.setItem('facilitator_auth', JSON.stringify(updated));
+                        window.location.reload(); 
+                    }}
+                />
+            </div>
+        );
+    }
+
     return (
         <div className={styles.dashboard} data-theme="dark">
-            {/* Choose Username Overlay */}
-            {!authData.username && (
-                <div style={{ position: 'fixed', inset: 0, zIndex: 16000 }}>
-                    <UsernamePromptModal 
-                        userId={authData.facilitator_id}
-                        role="facilitator"
-                        onComplete={(newUsername) => {
-                            const updated = { ...authData, username: newUsername };
-                            localStorage.setItem('facilitator_auth', JSON.stringify(updated));
-                            window.location.reload(); 
-                        }}
-                    />
-                </div>
-            )}
             
             {/* ── Change Password Modal ── */}
             {showChangePw && (
@@ -859,6 +892,15 @@ function FacilitatorDashboard({ authData, onLogout }) {
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
+                    <div style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.18em',
+                        color: '#f59e0b',
+                        marginBottom: '0.3rem',
+                        textShadow: '0 0 12px rgba(245,158,11,0.25)',
+                    }}>MURESSONS GLOBAL</div>
                     <h1>🎓 Facilitator</h1>
                     <div className={styles.godBadge} style={{
                         background: 'rgba(59, 130, 246, 0.08)',
@@ -900,7 +942,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                         padding: '3px 8px',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}
                                     title="Change password"
                                 >
@@ -917,7 +959,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                         padding: '3px 8px',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}
                                     title="Sign out"
                                 >
@@ -1210,7 +1252,7 @@ function QuizControlPanel({ sessions = [] }) {
                                             : '#e2e8f0',
                                         color: quizDifficulty === level ? '#fff' : '#64748b',
                                         fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
-                                        transition: 'all 0.2s',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}
                                 >
                                     {level === 'easy' ? '🟢' : level === 'medium' ? '🟡' : '🔴'} {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -1239,7 +1281,7 @@ function QuizControlPanel({ sessions = [] }) {
                                             background: enabled ? '#f0fdf4' : '#fef2f2',
                                             color: enabled ? '#166534' : '#991b1b',
                                             fontWeight: 600, fontSize: '0.72rem', cursor: 'pointer',
-                                            transition: 'all 0.2s',
+                                            transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                         }}
                                         title={`${enabled ? 'Disable' : 'Enable'} quiz for ${s.cohort_name}`}
                                     >

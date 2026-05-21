@@ -101,7 +101,7 @@ class ErrorBoundary extends React.Component {
                   fontWeight: 600,
                   fontSize: '0.85rem',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.background = 'rgba(99, 102, 241, 0.3)';
@@ -126,7 +126,7 @@ class ErrorBoundary extends React.Component {
                   fontWeight: 600,
                   fontSize: '0.85rem',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease',
                 }}
                 onMouseEnter={(e) => {
                   e.target.style.background = 'rgba(16, 185, 129, 0.3)';

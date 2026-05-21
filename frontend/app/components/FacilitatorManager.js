@@ -319,11 +319,26 @@ export default function FacilitatorManager({ onNavigate }) {
                 date_created: form.dateCreated,
             };
 
+            const getAuthHeaders = () => {
+                let headers = { 'Content-Type': 'application/json' };
+                try {
+                    const auth = JSON.parse(
+                        localStorage.getItem('godmode_auth') || 
+                        localStorage.getItem('facilitator_auth') || '{}'
+                    );
+                    if (auth.facilitator_id) {
+                        headers['x-facilitator-id'] = auth.facilitator_id;
+                    }
+                } catch (e) {}
+                return headers;
+            };
+
             if (drawerMode === 'edit' && editingFacId) {
                 // Update existing
                 const res = await fetch(`${API}/api/admin/facilitators/${editingFacId}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
                     body: JSON.stringify(payload),
                 });
                 if (res.ok) {
@@ -339,7 +354,8 @@ export default function FacilitatorManager({ onNavigate }) {
                 // Create new
                 const res = await fetch(`${API}/api/admin/facilitators`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
                     body: JSON.stringify(payload),
                 });
                 if (!res.ok) {
@@ -353,7 +369,8 @@ export default function FacilitatorManager({ onNavigate }) {
                 const cohortName = `${form.name.trim()}'s Alpha Cohort`;
                 const seedRes = await fetch(`${API}/api/simulations/start`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: getAuthHeaders(),
+                    credentials: 'include',
                     body: JSON.stringify({
                         cohort_name: cohortName,
                         decision_paradigm: form.paradigm,
@@ -1135,20 +1152,16 @@ export default function FacilitatorManager({ onNavigate }) {
                         <thead>
                             <tr>
                                 <th style={{ width: 40 }} />{/* toggle */}
-                                <th onClick={() => toggleSort('facilitator_id')} className={styles.sortable}>
-                                    Facilitator ID <SortIcon col="facilitator_id" />
-                                </th>
                                 <th onClick={() => toggleSort('name')} className={styles.sortable}>
-                                    Name <SortIcon col="name" />
+                                    Facilitator <SortIcon col="name" />
                                 </th>
-                                <th>Contact</th>
-                                <th onClick={() => toggleSort('programme')} className={styles.sortable}>
-                                    Programme <SortIcon col="programme" />
+                                <th onClick={() => toggleSort('role')} className={styles.sortable}>
+                                    Role <SortIcon col="role" />
                                 </th>
-                                <th onClick={() => toggleSort('cohorts_created')} className={styles.sortable}>
-                                    Cohorts <SortIcon col="cohorts_created" />
+                                <th onClick={() => toggleSort('created_at')} className={styles.sortable}>
+                                    Date Created <SortIcon col="created_at" />
                                 </th>
-
+                                <th>Key Details</th>
                                 <th style={{ textAlign: 'right' }}>Actions</th>
                             </tr>
                         </thead>
@@ -1187,41 +1200,57 @@ export default function FacilitatorManager({ onNavigate }) {
                                                 }} />
                                             </button>
                                         </td>
-                                        {/* Facilitator ID */}
+                                        {/* Facilitator Name & ID */}
                                         <td>
-                                            <code className={styles.facId} style={{ opacity: fac.enabled === false ? 0.5 : 1 }}>
-                                                {fac.facilitator_id}
-                                            </code>
-                                        </td>
-                                        {/* Name */}
-                                        <td className={styles.facName}>{fac.name}</td>
-                                        {/* Contact */}
-                                        <td>
-                                            <div className={styles.contactCell}>
-                                                {fac.email && <span className={styles.contactItem} title={fac.email}>✉️ {fac.email}</span>}
-                                                {fac.contact_number && <span className={styles.contactItem} title={fac.contact_number}>📱 {fac.contact_number}</span>}
-                                                {!fac.email && !fac.contact_number && <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                                <span className={styles.facName}>{fac.name}</span>
+                                                <code className={styles.facId} style={{ opacity: fac.enabled === false ? 0.5 : 1, fontSize: '0.7rem' }}>
+                                                    {fac.facilitator_id}
+                                                </code>
                                             </div>
                                         </td>
-                                        {/* Programme */}
+                                        {/* Role */}
                                         <td>
-                                            {fac.programme ? (
-                                                <span className={styles.programmeBadge}>{fac.programme}</span>
-                                            ) : (
-                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>—</span>
-                                            )}
+                                            <select
+                                                value={fac.role || (fac.is_admin ? 'super_admin' : 'facilitator')}
+                                                onChange={(e) => {
+                                                    const newRole = e.target.value;
+                                                    const currentRole = fac.role || (fac.is_admin ? 'super_admin' : 'facilitator');
+                                                    if (newRole !== currentRole) {
+                                                        openRoleChangeModal(fac.facilitator_id, fac.name, newRole, currentRole);
+                                                        e.target.value = currentRole;
+                                                    }
+                                                }}
+                                                style={{
+                                                    fontSize: '0.75rem', padding: '4px 8px', borderRadius: '6px',
+                                                    border: '1px solid var(--border-subtle)', background: 'var(--bg-elevated)',
+                                                    color: 'var(--text-primary)', cursor: 'pointer', outline: 'none'
+                                                }}
+                                                title="Change facilitator role"
+                                            >
+                                                <option value="facilitator">🎓 Facilitator</option>
+                                                <option value="lead_facilitator">⭐ Lead</option>
+                                                <option value="super_admin">👑 Super Admin</option>
+                                            </select>
                                         </td>
-                                        {/* Cohorts usage */}
+                                        {/* Date Created */}
+                                        <td style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                                                <span>{createdDate.display}</span>
+                                                {createdDate.relative && (
+                                                    <span style={{ fontSize: '0.68rem', opacity: 0.7 }}>{createdDate.relative}</span>
+                                                )}
+                                            </div>
+                                        </td>
+                                        {/* Key Details */}
                                         <td>
-                                            <div className={styles.usageWrap}>
-                                                <span className={styles.usageText} style={{ color: barColor }}>
-                                                    {created}/{max}
-                                                </span>
-                                                <div className={styles.usageBar}>
-                                                    <div
-                                                        className={styles.usageFill}
-                                                        style={{ width: `${pct}%`, background: barColor }}
-                                                    />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.75rem' }}>
+                                                {fac.programme ? (
+                                                    <span className={styles.programmeBadge} style={{ width: 'fit-content' }}>{fac.programme}</span>
+                                                ) : <span style={{ color: 'var(--text-muted)' }}>No Programme</span>}
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                                                    <span>Cohorts: <strong style={{ color: barColor }}>{created}</strong>/{max}</span>
+                                                    {fac.email && <span title={fac.email}>• ✉️ {fac.email}</span>}
                                                 </div>
                                             </div>
                                         </td>
@@ -1229,29 +1258,6 @@ export default function FacilitatorManager({ onNavigate }) {
                                         {/* Actions */}
                                         <td>
                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
-                                                {/* Role selector */}
-                                                <select
-                                                    value={fac.role || (fac.is_admin ? 'super_admin' : 'facilitator')}
-                                                    onChange={(e) => {
-                                                        const newRole = e.target.value;
-                                                        const currentRole = fac.role || (fac.is_admin ? 'super_admin' : 'facilitator');
-                                                        if (newRole !== currentRole) {
-                                                            openRoleChangeModal(fac.facilitator_id, fac.name, newRole, currentRole);
-                                                            // Reset the select to current value — the modal will apply the change
-                                                            e.target.value = currentRole;
-                                                        }
-                                                    }}
-                                                    style={{
-                                                        fontSize: '0.68rem', padding: '2px 4px', borderRadius: '4px',
-                                                        border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
-                                                        color: 'var(--text-primary)', cursor: 'pointer',
-                                                    }}
-                                                    title="Change facilitator role (requires God Mode verification)"
-                                                >
-                                                    <option value="facilitator">🎓 Facilitator</option>
-                                                    <option value="lead_facilitator">⭐ Lead</option>
-                                                    <option value="super_admin">👑 Super Admin</option>
-                                                </select>
                                                 <button className={styles.actionBtn} onClick={() => openEditDrawer(fac)} title="Edit facilitator">✏️</button>
                                                 {onNavigate && (
                                                     <button className={styles.actionBtn} onClick={() => onNavigate('cohort_manager')} title="View cohorts">🗂️</button>
@@ -1420,7 +1426,7 @@ export default function FacilitatorManager({ onNavigate }) {
                                     background: deleteConfirmInput === deleteModal.facId ? '#ef4444' : 'rgba(239,68,68,0.2)',
                                     color: deleteConfirmInput === deleteModal.facId ? '#fff' : 'rgba(239,68,68,0.4)',
                                     cursor: deleteConfirmInput === deleteModal.facId ? 'pointer' : 'not-allowed',
-                                    fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.15s',
+                                    fontSize: '0.82rem', fontWeight: 700, transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                 }}
                             >
                                 Delete Permanently
@@ -1561,7 +1567,7 @@ export default function FacilitatorManager({ onNavigate }) {
                                         ? '#fff' : 'rgba(245,158,11,0.4)',
                                     cursor: (roleVerifyFacId.trim() && roleVerifyPassword.trim() && !roleVerifyLoading)
                                         ? 'pointer' : 'not-allowed',
-                                    fontSize: '0.82rem', fontWeight: 700, transition: 'all 0.15s',
+                                    fontSize: '0.82rem', fontWeight: 700, transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                     boxShadow: (roleVerifyFacId.trim() && roleVerifyPassword.trim() && !roleVerifyLoading)
                                         ? '0 4px 16px rgba(245,158,11,0.3)' : 'none',
                                 }}

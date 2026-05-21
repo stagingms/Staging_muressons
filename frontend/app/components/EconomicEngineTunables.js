@@ -213,7 +213,7 @@ function TunableRow({ varKey, val, accentColor, trackGradient, onChange, currSym
                             background: `${accentColor}18`, border: `1px solid ${accentColor}33`,
                             borderRadius: '5px', padding: '2px 10px', cursor: 'text',
                             color: accentColor, fontFamily: 'var(--font-mono,monospace)', fontWeight: 700,
-                            fontSize: '0.88rem', whiteSpace: 'nowrap', transition: 'all 0.15s',
+                            fontSize: '0.88rem', whiteSpace: 'nowrap', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                             flexShrink: 0,
                         }}
                         onMouseOver={e => { e.currentTarget.style.background = `${accentColor}28`; e.currentTarget.style.borderColor = `${accentColor}66`; }}
@@ -432,7 +432,7 @@ export default function EconomicEngineTunables() {
                                 style={{
                                     padding: '14px 16px', borderRadius: '10px', border: `1.5px solid ${isActive ? pc.color : pc.border}`,
                                     background: isActive ? pc.bg : 'rgba(255,255,255,0.02)',
-                                    cursor: isApplying ? 'wait' : 'pointer', textAlign: 'left', transition: 'all 0.15s',
+                                    cursor: isApplying ? 'wait' : 'pointer', textAlign: 'left', transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                     boxShadow: isActive ? `0 0 0 3px ${pc.color}22` : 'none',
                                     outline: 'none', position: 'relative', opacity: isApplying ? 0.6 : 1,
                                 }}
@@ -514,7 +514,7 @@ export default function EconomicEngineTunables() {
                                             ? 'rgba(251,191,36,0.12)'
                                             : 'transparent',
                                         cursor: 'pointer',
-                                        transition: 'all 0.18s ease',
+                                        transition: 'background 0.18s ease, color 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, transform 0.18s ease',
                                         display: 'flex', flexDirection: 'column',
                                         alignItems: 'center', gap: '4px',
                                         boxShadow: isActive
@@ -662,7 +662,7 @@ export default function EconomicEngineTunables() {
                             : 'rgba(255,255,255,0.06)',
                         color: dirty ? '#fff' : 'var(--text-muted,#64748b)',
                         fontWeight: 700, fontSize: '0.85rem', cursor: dirty ? 'pointer' : 'default',
-                        transition: 'all 0.2s',
+                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                         boxShadow: dirty ? '0 4px 16px rgba(99,102,241,0.35)' : 'none',
                         opacity: saving ? 0.7 : 1,
                     }}

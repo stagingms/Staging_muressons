@@ -1,12 +1,10 @@
 /* TCFDScenarioDashboard.module.css — Climate Scenario Analysis Styling
    Design: Dark glassmorphism matching ExecutiveCockpit theme
-   Palette: Scenario-driven (green 1.5°C → amber 2°C → red 4°C) */
+   Palette: Scenario-driven (green 1.5°C ? amber 2°C ? red 4°C) */
 
-/* ═══ Container ═══ */
+/* --- Container --- */
 .container {
-  background: rgba(15, 23, 42, 0.78);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(15, 23, 42, 0.97);
   border: 1px solid rgba(148, 163, 184, 0.12);
   border-radius: 16px;
   overflow: hidden;
@@ -25,7 +23,7 @@
 
 .compact { font-size: 0.92em; }
 
-/* ═══ Header ═══ */
+/* --- Header --- */
 .header {
   display: flex;
   justify-content: space-between;
@@ -49,14 +47,14 @@
   margin: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
 .subtitle {
   display: block;
   font-size: 10px;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -77,16 +75,16 @@
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 6px;
   background: transparent;
-  color: #94a3b8;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
 }
 
-.modeToggle:hover { border-color: #38bdf8; color: #38bdf8; }
+.modeToggle:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
 .modeActive {
   background: rgba(56, 189, 248, 0.1);
   border-color: rgba(56, 189, 248, 0.3);
-  color: #38bdf8;
+  color: var(--accent-cyan);
 }
 
 .closeBtn {
@@ -95,14 +93,14 @@
   border: 1px solid rgba(148, 163, 184, 0.15);
   border-radius: 6px;
   background: transparent;
-  color: #64748b;
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 12px;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
 }
-.closeBtn:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; border-color: rgba(239, 68, 68, 0.3); }
+.closeBtn:hover { background: rgba(239, 68, 68, 0.1); color: var(--gauge-red); border-color: rgba(239, 68, 68, 0.3); }
 
-/* ═══ Scenario Tab Selector ═══ */
+/* --- Scenario Tab Selector --- */
 .scenarioTabs {
   display: flex;
   gap: 6px;
@@ -119,7 +117,7 @@
   border-radius: 10px;
   background: rgba(30, 41, 59, 0.4);
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease;
   position: relative;
   overflow: hidden;
 }
@@ -155,7 +153,7 @@
 .tabTemp {
   font-size: 13px;
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--text-primary);
   letter-spacing: -0.02em;
 }
 
@@ -176,7 +174,7 @@
   z-index: 1;
 }
 
-/* ═══ Single Scenario View ═══ */
+/* --- Single Scenario View --- */
 .singleView {
   padding: 0 16px 16px;
   display: flex;
@@ -212,7 +210,7 @@
   margin: 0 0 4px;
   font-size: 13px;
   font-weight: 700;
-  color: #f1f5f9;
+  color: var(--text-primary);
   letter-spacing: -0.01em;
 }
 
@@ -252,7 +250,7 @@
 .kpiLabel {
   font-size: 9px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 4px;
@@ -298,7 +296,7 @@
 .gaugeLabel {
   font-size: 9px;
   font-weight: 600;
-  color: #64748b;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
@@ -315,7 +313,7 @@
   justify-content: space-between;
   align-items: center;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
 }
 
 .riskBadge {
@@ -337,7 +335,7 @@
 .buHeader {
   font-size: 11px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
@@ -351,7 +349,7 @@
 .buName {
   font-size: 10px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: capitalize;
   width: 80px;
   flex-shrink: 0;
@@ -390,13 +388,13 @@
 .implHeader {
   font-size: 11px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .implItem {
   font-size: 10.5px;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   line-height: 1.5;
   padding: 6px 0;
   border-bottom: 1px solid rgba(148, 163, 184, 0.06);
@@ -415,7 +413,7 @@
 .natureHeader {
   font-size: 11px;
   font-weight: 700;
-  color: #10b981;
+  color: var(--gauge-green);
   margin-bottom: 8px;
 }
 
@@ -423,7 +421,7 @@
   display: flex;
   justify-content: space-between;
   font-size: 11px;
-  color: #94a3b8;
+  color: var(--text-muted);
   padding: 3px 0;
 }
 
@@ -435,7 +433,7 @@
   line-height: 1.4;
 }
 
-/* ═══ Compare Mode ═══ */
+/* --- Compare Mode --- */
 .compareGrid {
   display: grid;
   grid-template-columns: 1fr;
@@ -453,7 +451,7 @@
 .ccHeader {
   font-size: 11px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin-bottom: 10px;
 }
 
@@ -473,7 +471,7 @@
 .compareLabel {
   font-size: 10px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   width: 60px;
   flex-shrink: 0;
 }
@@ -495,7 +493,7 @@
 .compareVal {
   font-size: 11px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
   min-width: 55px;
   text-align: right;
@@ -512,7 +510,7 @@
 .impactLabel {
   font-size: 10px;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   width: 50px;
   flex-shrink: 0;
 }
@@ -539,7 +537,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* ═══ Insight Footer ═══ */
+/* --- Insight Footer --- */
 .insightFooter {
   display: flex;
   gap: 8px;
@@ -553,12 +551,12 @@
 .insightText {
   margin: 0;
   font-size: 10px;
-  color: #94a3b8;
+  color: var(--text-muted);
   line-height: 1.5;
   font-style: italic;
 }
 
-/* ═══ Loading / Error States ═══ */
+/* --- Loading / Error States --- */
 .loadingWrap, .errorWrap {
   display: flex;
   flex-direction: column;
@@ -572,7 +570,7 @@
   width: 32px; height: 32px;
   border-radius: 50%;
   border: 3px solid rgba(56, 189, 248, 0.15);
-  border-top-color: #38bdf8;
+  border-top-color: var(--accent-cyan);
   animation: orbSpin 0.8s linear infinite;
 }
 
@@ -582,26 +580,26 @@
 
 .loadingText, .errorText {
   font-size: 11px;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .errorIcon { font-size: 24px; }
 
-/* ═══ Light Mode ═══ */
-@media (prefers-color-scheme: light) {
-  .container {
-    background: rgba(255, 255, 255, 0.88);
-    border-color: rgba(148, 163, 184, 0.2);
-  }
-  .title { color: #0f172a; }
-  .subtitle { color: #64748b; }
-  .scenarioTab { background: rgba(241, 245, 249, 0.6); }
-  .scenarioTabActive { background: rgba(241, 245, 249, 0.9); }
-  .tabTemp { color: #0f172a; }
-  .kpiCard { background: rgba(241, 245, 249, 0.5); }
-  .kpiLabel { color: #64748b; }
-  .bannerTitle { color: #f1f5f9; }
-  .ccHeader, .buHeader, .implHeader { color: #0f172a; }
-  .compareVal { color: #0f172a; }
+/* --- Light Mode (matches app data-theme, not OS preference) --- */
+:global([data-theme="light"]) .container {
+  background: rgba(255, 255, 255, 0.88);
+  border-color: rgba(148, 163, 184, 0.2);
 }
+:global([data-theme="light"]) .title { color: #0f172a; }
+:global([data-theme="light"]) .subtitle { color: var(--text-muted); }
+:global([data-theme="light"]) .scenarioTab { background: rgba(241, 245, 249, 0.6); }
+:global([data-theme="light"]) .scenarioTabActive { background: rgba(241, 245, 249, 0.9); }
+:global([data-theme="light"]) .tabTemp { color: #0f172a; }
+:global([data-theme="light"]) .kpiCard { background: rgba(241, 245, 249, 0.5); }
+:global([data-theme="light"]) .kpiLabel { color: var(--text-muted); }
+:global([data-theme="light"]) .bannerTitle { color: var(--text-primary); }
+:global([data-theme="light"]) .ccHeader,
+:global([data-theme="light"]) .buHeader,
+:global([data-theme="light"]) .implHeader { color: #0f172a; }
+:global([data-theme="light"]) .compareVal { color: #0f172a; }

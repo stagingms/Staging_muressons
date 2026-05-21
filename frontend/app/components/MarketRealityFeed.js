@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './ExecutiveCockpit.module.css';
 
 /**
@@ -8,6 +8,7 @@ import styles from './ExecutiveCockpit.module.css';
  * Props:
  *  - items: [{ type: 'info'|'alert', text: string }]
  *  - activeAlert: { icon, title, body, isBlackSwan? } — overrides feed with stark warning
+ *  - onDismissAlert: () => void — callback to dismiss the active alert (player must acknowledge)
  *  - traceConsequence: (text) => { round, decision, roundTitle } | null  — consequence tracing
  *  - traceTooltipIdx: number | null — which item tooltip is showing
  *  - onTraceHover: (idx | null) => void — hover handler
@@ -33,16 +34,23 @@ const FILTER_CHIPS = [
 export default function MarketRealityFeed({
   items = [],
   activeAlert = null,
+  onDismissAlert = null,
   traceConsequence = null,
   traceTooltipIdx = null,
   onTraceHover = null,
   roundTier = 'foundation',
 }) {
   const [expandedItems, setExpandedItems] = useState({});
+  const [showAll, setShowAll] = useState(false);
   // #6: Default filter — ALL for early rounds, ALERTS for late rounds
   const [feedFilter, setFeedFilter] = useState(
     roundTier === 'integration' || roundTier === 'finale' ? 'alerts' : 'all'
   );
+
+  // Reset collapse when filter changes
+  useEffect(() => {
+    setShowAll(false);
+  }, [feedFilter]);
 
   const toggleExpand = (idx) => {
     setExpandedItems(prev => ({ ...prev, [idx]: !prev[idx] }));
@@ -79,6 +87,30 @@ export default function MarketRealityFeed({
           >
             {activeAlert.body}
           </div>
+          {/* Dismiss / Acknowledge button — alert stays until player acts */}
+          {onDismissAlert && (
+            <button
+              onClick={onDismissAlert}
+              style={{
+                marginTop: 12, width: '100%', padding: '10px 16px',
+                background: isBlackSwan
+                  ? 'linear-gradient(135deg, #ef4444, #dc2626)'
+                  : 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: '#fff', border: 'none', borderRadius: 8,
+                fontWeight: 800, fontSize: '0.72rem', cursor: 'pointer',
+                letterSpacing: '0.06em', textTransform: 'uppercase',
+                fontFamily: "'DM Sans', Inter, sans-serif",
+                boxShadow: isBlackSwan
+                  ? '0 4px 16px rgba(239, 68, 68, 0.35)'
+                  : '0 4px 16px rgba(245, 158, 11, 0.35)',
+                transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-1px) scale(1.02)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; }}
+            >
+              ✓ Acknowledged — Dismiss
+            </button>
+          )}
         </div>
       </div>
     );
@@ -113,7 +145,7 @@ export default function MarketRealityFeed({
                     background: feedFilter === chip.id ? 'rgba(94,234,212,0.08)' : 'transparent',
                     color: feedFilter === chip.id ? '#5eead4' : '#64748b',
                     cursor: 'pointer', fontFamily: 'inherit', textTransform: 'uppercase',
-                    letterSpacing: '0.04em', transition: 'all 0.15s ease',
+                    letterSpacing: '0.04em', transition: 'background 0.15s ease, color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease, transform 0.15s ease',
                     display: 'flex', alignItems: 'center', gap: 3,
                   }}
                 >
@@ -124,7 +156,7 @@ export default function MarketRealityFeed({
           </div>
         )}
       </div>
-      {filteredItems.map((item, i) => {
+      {(showAll ? filteredItems : filteredItems.slice(0, 5)).map((item, i) => {
         const effectiveType = item.isForeshadow ? 'foreshadow' : item.type;
         const meta = SEVERITY_META[effectiveType] || SEVERITY_META.info;
         const isExpanded = !!expandedItems[i];
@@ -145,7 +177,12 @@ export default function MarketRealityFeed({
               ...(item.isForeshadow ? {
                 borderLeft: '3px solid #f59e0b',
                 background: 'rgba(245,158,11,0.04)',
-              } : {}),
+              } : effectiveType === 'alert' ? {
+                borderLeft: '3px solid #ef4444',
+                background: 'rgba(239,68,68,0.04)',
+              } : {
+                borderLeft: '3px solid rgba(59,130,246,0.3)',
+              }),
             }}
             onClick={() => isLong && toggleExpand(i)}
             onMouseEnter={() => trace && onTraceHover?.(i)}
@@ -180,6 +217,15 @@ export default function MarketRealityFeed({
                   }}>
                     {meta.badge}
                   </span>
+                  <span style={{
+                    fontSize: '0.42rem', fontWeight: 600,
+                    padding: '1px 4px', borderRadius: 3,
+                    background: item.isCarryOver ? 'rgba(148,163,184,0.08)' : 'rgba(34,197,94,0.08)',
+                    color: item.isCarryOver ? '#94a3b8' : '#22c55e',
+                    letterSpacing: '0.03em',
+                  }}>
+                    {item.isCarryOver ? '↩ carry-over' : '• new'}
+                  </span>
                   {trace && (
                     <span style={{
                       fontSize: '0.45rem', fontWeight: 700,
@@ -200,7 +246,7 @@ export default function MarketRealityFeed({
                   )}
                 </div>
                 <div style={{
-                  fontSize: '0.7rem', lineHeight: 1.5,
+                  fontSize: effectiveType === 'alert' ? '0.74rem' : '0.7rem', lineHeight: 1.5,
                   overflow: isExpanded ? 'visible' : 'hidden',
                   display: isExpanded ? 'block' : '-webkit-box',
                   WebkitLineClamp: isExpanded ? 'unset' : 2,
@@ -208,13 +254,37 @@ export default function MarketRealityFeed({
                   maxHeight: isExpanded ? 'none' : '2.8em',
                   transition: 'max-height 0.25s ease',
                 }}>
-                  {item.text}
+                  {effectiveType === 'alert' && item.text ? (
+                    <>{(() => {
+                      const dotIdx = item.text.indexOf('.');
+                      if (dotIdx === -1) return <strong>{item.text}</strong>;
+                      return <><strong>{item.text.slice(0, dotIdx + 1)}</strong>{item.text.slice(dotIdx + 1)}</>;
+                    })()}</>
+                  ) : item.text}
                 </div>
               </div>
             </div>
           </div>
         );
       })}
+      {filteredItems.length > 5 && !showAll && (
+        <button
+          onClick={() => setShowAll(true)}
+          style={{
+            display: 'block', width: '100%', padding: '6px 0',
+            border: '1px solid rgba(148,163,184,0.12)', borderRadius: 4,
+            background: 'rgba(148,163,184,0.04)', color: '#94a3b8',
+            fontSize: '0.62rem', fontWeight: 600, cursor: 'pointer',
+            fontFamily: 'inherit', textAlign: 'center',
+            transition: 'background 0.15s ease, color 0.15s ease',
+            marginTop: 2,
+          }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(94,234,212,0.08)'; e.currentTarget.style.color = '#5eead4'; }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'rgba(148,163,184,0.04)'; e.currentTarget.style.color = '#94a3b8'; }}
+        >
+          Show {filteredItems.length - 5} more ▾
+        </button>
+      )}
       {filteredItems.length === 0 && items.length > 0 && (
         <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center', fontSize: '0.65rem' }}>
           No {feedFilter === 'alerts' ? 'alerts' : 'data items'} this round

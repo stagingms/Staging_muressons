@@ -72,12 +72,12 @@ function BarChart({ fee }) {
             <line x1={padL} y1={zeroY} x2={W - padR} y2={zeroY} stroke="#334155" strokeWidth="1.5" />
 
             {/* Bar A */}
-            <rect x={rA.x} y={rA.y} width={barW} height={Math.max(rA.h, 1)} fill={rA.col} rx="2" style={{ transition: 'all 0.3s' }} />
+            <rect x={rA.x} y={rA.y} width={barW} height={Math.max(rA.h, 1)} fill={rA.col} rx="2" style={{ transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s' }} />
             <text x={rA.x + barW / 2} y={rA.y - 5} textAnchor="middle" fontSize="10" fontWeight="700" fill={rA.col}>{fmt(pA)}</text>
             <text x={rA.x + barW / 2} y={H - padBot + 14} textAnchor="middle" fontSize="10" fill="#475569">Div A (Green)</text>
 
             {/* Bar B */}
-            <rect x={rB.x} y={rB.y} width={barW} height={Math.max(rB.h, 1)} fill={rB.col} rx="2" style={{ transition: 'all 0.3s' }} />
+            <rect x={rB.x} y={rB.y} width={barW} height={Math.max(rB.h, 1)} fill={rB.col} rx="2" style={{ transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s' }} />
             <text x={rB.x + barW / 2} y={rB.y - 5} textAnchor="middle" fontSize="10" fontWeight="700" fill={rB.col}>{fmt(pB)}</text>
             <text x={rB.x + barW / 2} y={H - padBot + 14} textAnchor="middle" fontSize="10" fill="#475569">Div B (Legacy)</text>
 
@@ -393,7 +393,7 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
                                                     border: `2px solid ${buChoices[buIdentifier] === opt.id ? opt.color : '#e2e8f0'}`,
                                                     background: buChoices[buIdentifier] === opt.id ? `${opt.color}15` : '#fff',
                                                     borderRadius: 6, cursor: 'pointer', textAlign: 'left',
-                                                    transition: 'all 0.15s',
+                                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                                 }}>
                                                 <div style={{ fontWeight: 700, fontSize: '0.78rem', color: opt.color }}>{opt.label}</div>
                                                 <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 2 }}>{opt.desc}</div>

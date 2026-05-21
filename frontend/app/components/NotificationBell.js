@@ -57,7 +57,7 @@ export default function NotificationBell({ activityLog = [] }) {
                     borderRadius: '6px',
                     cursor: 'pointer',
                     position: 'relative',
-                    transition: 'all 0.2s',
+                    transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                     animation: unreadCount > 0 ? 'bellShake 0.6s ease-in-out' : 'none',
                 }}
             >

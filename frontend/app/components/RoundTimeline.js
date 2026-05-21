@@ -1,71 +1,100 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import styles from './RoundTimeline.module.css';
 import { formatSessionId } from '../utils/sessionUtils';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
+const ROUND_LABELS = {
+    1: 'Water Crisis',
+    2: 'CFO Gate',
+    3: 'Supply Chain',
+    4: 'Data Ethics',
+    5: 'Carbon Trading',
+    6: 'Talent War',
+    7: 'Board Pressure',
+    8: 'Innovation',
+    9: 'Regulation',
+    10: 'Terminal',
+};
+
+const ROUNDS = Array.from({ length: 10 }, (_, i) => i + 1);
+
 export default function RoundTimeline({ sessionId, leaderboard = [] }) {
-    const [currentRound, setCurrentRound] = useState(1);
-    const [pacing, setPacing] = useState(null);
+    const [pacingMap, setPacingMap] = useState({});
 
-    const fetchData = useCallback(async () => {
-        if (!sessionId) return;
-        try {
-            const [dashRes, paceRes] = await Promise.all([
-                fetch(`${API}/api/simulations/${sessionId}/dashboard`),
-                fetch(`${API}/api/admin/sessions/${sessionId}/pacing`),
-            ]);
-            if (dashRes.ok) { const d = await dashRes.json(); setCurrentRound(d.current_round || 1); }
-            if (paceRes.ok) { const p = await paceRes.json(); setPacing(p); }
-        } catch { /* offline */ }
-    }, [sessionId]);
+    // ── Derive cohort groups from leaderboard ──
+    const cohorts = useMemo(() => {
+        // Cohort sessions = entries without player_id
+        const cohortSessions = leaderboard.filter(s => !s.player_id);
+        // Player sessions = entries with player_id
+        const playerSessions = leaderboard.filter(s => !!s.player_id);
 
-    useEffect(() => { fetchData(); }, [fetchData]);
+        if (cohortSessions.length === 0) return [];
 
-    const rounds = Array.from({ length: 10 }, (_, i) => i + 1);
-    const unlockedRound = pacing?.unlocked_round || 999;
+        return cohortSessions.map(cohort => {
+            // Find all player sessions that belong to this cohort
+            const players = playerSessions.filter(
+                p => p.cohort_name === cohort.cohort_name ||
+                     p.session_id?.startsWith?.(cohort.session_id?.slice(0, 8))
+            );
+            return {
+                ...cohort,
+                playerCount: players.length,
+                players,
+            };
+        });
+    }, [leaderboard]);
 
-    const getRoundStatus = (r) => {
-        if (r < currentRound) return 'completed';
-        if (r === currentRound) return 'active';
-        if (r <= unlockedRound) return 'unlocked';
+    // ── Fetch pacing for all cohort sessions ──
+    const fetchAllPacing = useCallback(async () => {
+        const cohortSessions = leaderboard.filter(s => !s.player_id);
+        if (!cohortSessions.length) return;
+
+        const results = {};
+        await Promise.all(
+            cohortSessions.map(async (s) => {
+                try {
+                    const res = await fetch(`${API}/api/admin/sessions/${s.session_id}/pacing`);
+                    if (res.ok) {
+                        results[s.session_id] = await res.json();
+                    }
+                } catch { /* offline */ }
+            })
+        );
+        setPacingMap(results);
+    }, [leaderboard]);
+
+    useEffect(() => { fetchAllPacing(); }, [fetchAllPacing]);
+
+    // ── Round status logic ──
+    const getRoundStatus = (roundNum, currentRound, unlockedRound) => {
+        if (roundNum < currentRound) return 'completed';
+        if (roundNum === currentRound) return 'active';
+        if (roundNum <= unlockedRound) return 'unlocked';
         return 'locked';
     };
 
-    const roundLabels = {
-        1: 'Water Crisis',
-        2: 'CFO Gate',
-        3: 'Supply Chain',
-        4: 'Data Ethics',
-        5: 'Carbon Trading',
-        6: 'Talent War',
-        7: 'Board Pressure',
-        8: 'Innovation',
-        9: 'Regulation',
-        10: 'Terminal',
-    };
+    // Progress percentage for the cohort
+    const getProgress = (currentRound) => Math.min(100, Math.round(((currentRound - 1) / 10) * 100));
 
-    if (!sessionId) {
+    // ── No cohorts state ──
+    if (cohorts.length === 0) {
         return (
             <div className={styles.container}>
-                <div className={styles.header}><span className={styles.icon}>📅</span><div><h2 className={styles.title}>Round Timeline</h2><p className={styles.subtitle}>Select a session from the Leaderboard to view its timeline.</p></div></div>
-                {leaderboard.length > 0 && (
-                    <div className={styles.overviewGrid}>
-                        {leaderboard.slice(0, 10).map(s => (
-                            <div key={s.session_id} className={styles.overviewCard}>
-                                <span className={styles.overviewName}>{s.cohort_name || formatSessionId(s)}</span>
-                                <div className={styles.miniTimeline}>
-                                    {rounds.map(r => (
-                                        <div key={r} className={`${styles.miniDot} ${r < (s.round_number || 1) ? styles.miniComplete : r === (s.round_number || 1) ? styles.miniActive : styles.miniLocked}`} />
-                                    ))}
-                                </div>
-                                <span className={styles.overviewRound}>R{s.round_number || 1}</span>
-                            </div>
-                        ))}
+                <div className={styles.header}>
+                    <span className={styles.icon}>📅</span>
+                    <div>
+                        <h2 className={styles.title}>Round Timeline</h2>
+                        <p className={styles.subtitle}>Visual progress through the 10-round simulation</p>
                     </div>
-                )}
+                </div>
+                <div className={styles.emptyState}>
+                    <div className={styles.emptyIcon}>📋</div>
+                    <h3 className={styles.emptyTitle}>No Active Cohorts</h3>
+                    <p className={styles.emptyText}>Create a cohort from the Dashboard or Player Registry to track round progress here.</p>
+                </div>
             </div>
         );
     }
@@ -76,43 +105,125 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
                 <span className={styles.icon}>📅</span>
                 <div>
                     <h2 className={styles.title}>Round Timeline</h2>
-                    <p className={styles.subtitle}>Visual progress through the 10-round simulation</p>
+                    <p className={styles.subtitle}>Per-cohort progress through the 10-round simulation</p>
+                </div>
+                <div className={styles.headerMeta}>
+                    <span className={styles.cohortCount}>{cohorts.length} Cohort{cohorts.length !== 1 ? 's' : ''}</span>
                 </div>
             </div>
 
-            {pacing && (
-                <div className={styles.pacingInfo}>
-                    <span className={styles.pacingMode}>Mode: <strong>{pacing.mode?.toUpperCase()}</strong></span>
-                    {pacing.next_unlock_at && (
-                        <span className={styles.pacingTimer}>Next unlock: {new Date(pacing.next_unlock_at).toLocaleTimeString()}</span>
-                    )}
-                    <span className={styles.pacingUnlocked}>Unlocked up to: R{Math.min(unlockedRound, 10)}</span>
-                </div>
-            )}
-
-            <div className={styles.timeline}>
-                <div className={styles.track} />
-                {rounds.map(r => {
-                    const status = getRoundStatus(r);
-                    return (
-                        <div key={r} className={`${styles.node} ${styles[`node_${status}`]}`}>
-                            <div className={styles.nodeCircle}>
-                                {status === 'completed' ? '✓' : status === 'active' ? '●' : status === 'unlocked' ? '○' : '🔒'}
-                            </div>
-                            <div className={styles.nodeLabel}>R{r}</div>
-                            <div className={styles.nodeDesc}>{roundLabels[r]}</div>
-                        </div>
-                    );
-                })}
-            </div>
-
+            {/* ── Legend ── */}
             <div className={styles.legend}>
                 <span className={styles.legendItem}><span className={`${styles.legendDot} ${styles.legendComplete}`} /> Completed</span>
                 <span className={styles.legendItem}><span className={`${styles.legendDot} ${styles.legendActive}`} /> Active</span>
                 <span className={styles.legendItem}><span className={`${styles.legendDot} ${styles.legendUnlocked}`} /> Unlocked</span>
                 <span className={styles.legendItem}><span className={`${styles.legendDot} ${styles.legendLocked}`} /> Locked</span>
             </div>
+
+            {/* ── Per-Cohort Timeline Cards ── */}
+            <div className={styles.cohortList}>
+                {cohorts.map(cohort => {
+                    const pacing = pacingMap[cohort.session_id];
+                    const unlockedRound = pacing?.unlocked_round ?? cohort.max_unlocked_round ?? 999;
+                    const currentRound = cohort.round_number || 1;
+                    const progress = getProgress(currentRound);
+                    const isSelected = sessionId === cohort.session_id;
+                    const isComplete = currentRound > 10;
+                    const pacingMode = pacing?.mode || cohort.pacing_mode || 'free_play';
+
+                    return (
+                        <div
+                            key={cohort.session_id}
+                            className={`${styles.cohortSection} ${isSelected ? styles.cohortSelected : ''} ${isComplete ? styles.cohortComplete : ''}`}
+                        >
+                            {/* ── Cohort Header ── */}
+                            <div className={styles.cohortHeader}>
+                                <span className={styles.cohortName}>
+                                    {cohort.cohort_name || formatSessionId(cohort)}
+                                </span>
+                                <span className={styles.cohortRoundBadge}>
+                                    {isComplete ? '✅ Complete' : `R${currentRound} / 10`}
+                                </span>
+                                {cohort.playerCount > 0 && (
+                                    <span className={styles.cohortPlayerBadge}>
+                                        👥 {cohort.playerCount} Player{cohort.playerCount !== 1 ? 's' : ''}
+                                    </span>
+                                )}
+                                <span className={styles.cohortPacing}>
+                                    {pacingMode === 'free' || pacingMode === 'free_play' ? '🟢 Free Play' :
+                                     pacingMode === 'manual' ? '🔵 Manual' :
+                                     pacingMode === 'timed' ? '⏱️ Timed' : `⚙️ ${pacingMode}`}
+                                </span>
+                                {pacing?.next_unlock_at && (
+                                    <span className={styles.cohortTimer}>
+                                        Next: {new Date(pacing.next_unlock_at).toLocaleTimeString()}
+                                    </span>
+                                )}
+                            </div>
+
+                            {/* ── Progress Bar ── */}
+                            <div className={styles.progressTrack}>
+                                <div
+                                    className={`${styles.progressFill} ${isComplete ? styles.progressComplete : ''}`}
+                                    style={{ width: `${isComplete ? 100 : progress}%` }}
+                                />
+                                <span className={styles.progressLabel}>{isComplete ? '100' : progress}%</span>
+                            </div>
+
+                            {/* ── Timeline Strip ── */}
+                            <div className={styles.timeline}>
+                                <div className={styles.track} />
+                                {ROUNDS.map(r => {
+                                    const status = isComplete ? 'completed' : getRoundStatus(r, currentRound, unlockedRound);
+                                    return (
+                                        <div key={r} className={`${styles.node} ${styles[`node_${status}`]}`}>
+                                            <div className={styles.nodeCircle}>
+                                                {status === 'completed' ? '✓' : status === 'active' ? '●' : status === 'unlocked' ? '○' : '🔒'}
+                                            </div>
+                                            <div className={styles.nodeLabel}>R{r}</div>
+                                            <div className={styles.nodeDesc}>{ROUND_LABELS[r]}</div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* ── Players sub-timeline (if players exist) ── */}
+                            {cohort.players?.length > 0 && (
+                                <div className={styles.playerSubSection}>
+                                    <div className={styles.playerSubHeader}>
+                                        <span className={styles.playerSubTitle}>Player Progress</span>
+                                    </div>
+                                    <div className={styles.playerMiniGrid}>
+                                        {cohort.players.map(p => {
+                                            const pRound = p.round_number || 1;
+                                            const pName = p.cohort_name || formatSessionId(p);
+                                            return (
+                                                <div key={p.session_id} className={styles.playerMiniRow}>
+                                                    <span className={styles.playerMiniName} title={pName}>{pName}</span>
+                                                    <div className={styles.miniTimeline}>
+                                                        {ROUNDS.map(r => (
+                                                            <div
+                                                                key={r}
+                                                                className={`${styles.miniDot} ${
+                                                                    r < pRound ? styles.miniComplete :
+                                                                    r === pRound ? styles.miniActive :
+                                                                    styles.miniLocked
+                                                                }`}
+                                                                title={`R${r}: ${ROUND_LABELS[r]}`}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                    <span className={styles.playerMiniRound}>R{pRound}</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
         </div>
     );
 }
-

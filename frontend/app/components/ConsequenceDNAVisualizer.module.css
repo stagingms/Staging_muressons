@@ -1,15 +1,14 @@
-/* ══════════════════════════════════════════════════════════════
-   Consequence DNA Visualizer — Sankey Diagram Styles
+ï»¿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   Consequence DNA Visualizer â€” Sankey Diagram Styles
    Pop-out modal with SVG Sankey, glassmorphism, cascade pulses
-   ══════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
-/* ── Pop-out Overlay ── */
+/* â”€â”€ Pop-out Overlay â”€â”€ */
 .overlay {
   position: fixed;
   inset: 0;
   z-index: 9000;
-  background: rgba(0, 0, 0, 0.65);
-  backdrop-filter: blur(6px);
+  background: rgba(0, 0, 0, 0.92);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -49,7 +48,7 @@
   animation: none;
 }
 
-/* ── Header ── */
+/* â”€â”€ Header â”€â”€ */
 .header {
   display: flex;
   align-items: center;
@@ -72,13 +71,13 @@
 .title {
   font-size: 1.1rem;
   font-weight: 700;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
   letter-spacing: 0.5px;
 }
 
 .subtitle {
   font-size: 0.75rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   margin-top: 2px;
 }
 
@@ -93,7 +92,7 @@
   align-items: center;
   gap: 6px;
   font-size: 0.68rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
 }
 
 .legendGradient {
@@ -107,15 +106,15 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 6px 10px;
   font-size: 0.8rem;
-  transition: all 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 .closeBtn:hover {
   background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  color: var(--gauge-red);
   border-color: rgba(239, 68, 68, 0.3);
 }
 
@@ -123,18 +122,18 @@
   background: rgba(99, 102, 241, 0.12);
   border: 1px solid rgba(99, 102, 241, 0.25);
   border-radius: 8px;
-  color: #818cf8;
+  color: var(--accent-blue);
   cursor: pointer;
   padding: 6px 12px;
   font-size: 0.72rem;
   font-weight: 600;
-  transition: all 0.2s;
+  transition: background 0.2s;
 }
 .captureBtn:hover {
   background: rgba(99, 102, 241, 0.25);
 }
 
-/* ── SVG Canvas ── */
+/* â”€â”€ SVG Canvas â”€â”€ */
 .sankeyContainer {
   flex: 1;
   overflow: auto;
@@ -148,7 +147,7 @@
   min-height: 500px;
 }
 
-/* ── Nodes ── */
+/* â”€â”€ Nodes â”€â”€ */
 .nodeGroup {
   cursor: pointer;
   transition: opacity 0.3s;
@@ -161,23 +160,23 @@
   rx: 6;
   ry: 6;
   stroke-width: 1.5;
-  transition: all 0.3s;
+  transition: opacity 0.3s, transform 0.3s;
 }
 
 .nodeLabel {
   font-size: 10px;
   font-weight: 600;
-  fill: var(--text-primary, #f1f5f9);
+  fill: var(--text-primary);
   pointer-events: none;
 }
 
 .nodeSublabel {
   font-size: 8px;
-  fill: var(--text-secondary, #94a3b8);
+  fill: var(--text-secondary);
   pointer-events: none;
 }
 
-/* ── Conflict Nodes ── */
+/* â”€â”€ Conflict Nodes â”€â”€ */
 .conflictNode {
   cursor: pointer;
 }
@@ -186,23 +185,23 @@
   rx: 10;
   ry: 10;
   stroke-dasharray: 4 2;
-  transition: all 0.4s;
+  transition: opacity 0.4s, transform 0.4s;
 }
 
 .conflictLabel {
   font-size: 9px;
   font-weight: 700;
-  fill: var(--text-primary, #f1f5f9);
+  fill: var(--text-primary);
 }
 
 .conflictStage {
   font-size: 7.5px;
-  fill: var(--text-secondary, #94a3b8);
+  fill: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
-/* ── Sankey Paths ── */
+/* â”€â”€ Sankey Paths â”€â”€ */
 .sankeyPath {
   fill: none;
   stroke-linecap: round;
@@ -223,13 +222,13 @@
   animation: leakPulse 2s ease-in-out infinite;
 }
 
-/* ── Cascade Pulse ── */
+/* â”€â”€ Cascade Pulse â”€â”€ */
 .cascadePulse {
   fill: #ef4444;
   filter: drop-shadow(0 0 4px #ef4444);
 }
 
-/* ── Archetype Badges ── */
+/* â”€â”€ Archetype Badges â”€â”€ */
 .badge {
   cursor: help;
 }
@@ -248,7 +247,7 @@
   fill: #f59e0b;
 }
 
-/* ── Interference Pair Arrows ── */
+/* â”€â”€ Interference Pair Arrows â”€â”€ */
 .interferenceLine {
   stroke-dasharray: 5 4;
   stroke-width: 1.5;
@@ -257,7 +256,7 @@
   stroke: #f59e0b;
 }
 
-/* ── Dormant Overlay ── */
+/* â”€â”€ Dormant Overlay â”€â”€ */
 .dormantOverlay {
   position: absolute;
   inset: 0;
@@ -265,8 +264,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.95);
   border-radius: 16px;
   z-index: 10;
 }
@@ -279,7 +277,7 @@
 
 .dormantText {
   font-size: 1rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   text-align: center;
   max-width: 400px;
   line-height: 1.6;
@@ -291,7 +289,7 @@
   margin-top: 12px;
 }
 
-/* ── Footer Stats ── */
+/* â”€â”€ Footer Stats â”€â”€ */
 .footer {
   display: flex;
   align-items: center;
@@ -316,12 +314,12 @@
 .statValue {
   font-size: 1rem;
   font-weight: 700;
-  color: var(--text-primary, #f1f5f9);
+  color: var(--text-primary);
 }
 
 .statLabel {
   font-size: 0.65rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -339,7 +337,7 @@
 
 .mrLabel {
   font-size: 0.7rem;
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
 }
 
 .archetypeBadge {
@@ -350,16 +348,16 @@
   letter-spacing: 0.3px;
 }
 
-/* ── Column Headers ── */
+/* â”€â”€ Column Headers â”€â”€ */
 .colHeader {
   font-size: 9px;
   font-weight: 700;
-  fill: var(--text-secondary, #94a3b8);
+  fill: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
-/* ── Trigger Button (in cockpit) ── */
+/* â”€â”€ Trigger Button (in cockpit) â”€â”€ */
 .triggerBtn {
   display: flex;
   align-items: center;
@@ -367,12 +365,12 @@
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(99, 102, 241, 0.12));
   border: 1px solid rgba(16, 185, 129, 0.25);
   border-radius: 10px;
-  color: #10b981;
+  color: var(--gauge-green);
   cursor: pointer;
   padding: 8px 16px;
   font-size: 0.78rem;
   font-weight: 600;
-  transition: all 0.25s;
+  transition: background 0.25s, transform 0.25s, box-shadow 0.25s;
 }
 .triggerBtn:hover {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(99, 102, 241, 0.22));
@@ -381,7 +379,7 @@
 }
 .triggerBtnDormant {
   border-color: rgba(148, 163, 184, 0.2);
-  color: var(--text-secondary, #94a3b8);
+  color: var(--text-secondary);
   background: rgba(148, 163, 184, 0.06);
 }
 
@@ -393,7 +391,7 @@
   animation: pulseGlow 2s ease-in-out infinite;
 }
 
-/* ── Mobile Vertical Layout ── */
+/* â”€â”€ Mobile Vertical Layout â”€â”€ */
 @media (max-width: 768px) {
   .panel {
     width: 96vw;
@@ -415,7 +413,7 @@
   }
 }
 
-/* ── Animations ── */
+/* â”€â”€ Animations â”€â”€ */
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -456,7 +454,7 @@
   animation: cascadeRipple 1.8s ease-in-out;
 }
 
-/* ── Path Tooltip (animated) ── */
+/* â”€â”€ Path Tooltip (animated) â”€â”€ */
 .pathTooltip {
   pointer-events: none;
   animation: tooltipFadeIn 0.15s ease-out;
@@ -467,7 +465,55 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Frozen state (for R10 report / debrief) ── */
+/* ── Node Hover Tooltip (HTML overlay) ── */
+.nodeTooltip {
+  position: absolute;
+  z-index: 100;
+  min-width: 180px;
+  max-width: 260px;
+  padding: 10px 14px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  animation: tooltipFadeIn 0.15s ease-out;
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+.nodeTooltipTitle {
+  font-size: 0.78rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  letter-spacing: 0.2px;
+}
+
+.nodeTooltipRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0;
+  gap: 12px;
+}
+
+.nodeTooltipKey {
+  font-size: 0.68rem;
+  color: var(--text-secondary, #94a3b8);
+  white-space: nowrap;
+}
+
+.nodeTooltipVal {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-primary, #e2e8f0);
+  text-align: right;
+  font-family: var(--font-mono, monospace);
+}
+
+/* â”€â”€ Frozen state (for R10 report / debrief) â”€â”€ */
 /* Allow pointer events on paths for impact score tooltips */
 .frozen .nodeGroup,
 .frozen .conflictNode {
@@ -484,6 +530,6 @@
   padding: 4px 12px;
   font-size: 0.68rem;
   font-weight: 700;
-  color: #ef4444;
+  color: var(--gauge-red);
   letter-spacing: 0.5px;
 }

@@ -59,7 +59,7 @@ export default function PlayerAnnotations({ sessionId, roundNumber }) {
       borderRadius: '8px',
       padding: collapsed ? '6px 10px' : '10px 12px',
       marginBottom: '8px',
-      transition: 'all 0.25s ease',
+      transition: 'background 0.25s ease, color 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, opacity 0.25s ease, transform 0.25s ease',
     }}>
       {/* Header */}
       <div

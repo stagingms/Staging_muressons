@@ -1,7 +1,7 @@
-/* ═══════════════════════════════════════════════════
-   CrisisAlerts — Full-screen crisis overlay
+ï»¿/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   CrisisAlerts â€” Full-screen crisis overlay
    Red flash = Activist Threat, Amber = Liquidity Panic
-   ═══════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .overlay {
   position: fixed;
@@ -10,19 +10,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans);
   animation: flashIn 0.4s ease-out;
   padding: 2rem;
 }
 
 .overlayActivist {
   background: radial-gradient(ellipse at 40% 30%, rgba(127, 29, 29, 0.96) 0%, rgba(30, 10, 10, 0.98) 70%);
-  backdrop-filter: blur(10px);
 }
 
 .overlayLiquidity {
   background: radial-gradient(ellipse at 40% 30%, rgba(120, 53, 15, 0.96) 0%, rgba(30, 15, 5, 0.98) 70%);
-  backdrop-filter: blur(10px);
 }
 
 @keyframes flashIn {
@@ -44,7 +42,7 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* ── Alert Header ──────────────────────────── */
+/* â”€â”€ Alert Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .alertHeader {
   text-align: center;
@@ -96,7 +94,7 @@
 .titleActivist { color: #fca5a5; }
 .titleLiquidity { color: #fcd34d; }
 
-/* ── Alert Body ────────────────────────────── */
+/* â”€â”€ Alert Body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .alertBody {
   border-radius: 12px;
@@ -118,7 +116,7 @@
 .alertText {
   font-size: 0.88rem;
   line-height: 1.75;
-  color: #e2e8f0;
+  color: var(--text-primary);
   margin: 0;
   white-space: pre-line;
 }
@@ -127,7 +125,7 @@
   color: #fff;
 }
 
-/* ── Metric Ribbon ─────────────────────────── */
+/* â”€â”€ Metric Ribbon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .metricRibbon {
   display: flex;
@@ -158,7 +156,7 @@
   font-weight: 800;
 }
 
-/* ── Voice Indicator ───────────────────────── */
+/* â”€â”€ Voice Indicator â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .voiceIndicator {
   display: flex;
@@ -167,7 +165,7 @@
   gap: 0.4rem;
   margin-top: 0.8rem;
   font-size: 0.7rem;
-  color: #94a3b8;
+  color: var(--text-muted);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -185,7 +183,7 @@
   50%      { opacity: 0.4; transform: scale(0.7); }
 }
 
-/* ── Actions ───────────────────────────────── */
+/* â”€â”€ Actions â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .actions {
   text-align: center;
@@ -224,7 +222,7 @@
   transform: translateY(0) scale(0.99);
 }
 
-/* ── Responsive ────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 @media (max-width: 640px) {
   .alertBody {

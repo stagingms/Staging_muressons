@@ -73,7 +73,7 @@ export default function GodModeAuditLog() {
                             border: `1px solid ${filter === qf.value ? 'rgba(59,130,246,0.4)' : 'var(--border-subtle)'}`,
                             background: filter === qf.value ? 'rgba(59,130,246,0.12)' : 'transparent',
                             color: filter === qf.value ? '#60a5fa' : 'var(--text-muted)',
-                            transition: 'all 0.15s',
+                            transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                         }}
                     >
                         {qf.label}
@@ -106,46 +106,50 @@ export default function GodModeAuditLog() {
                         return (
                             <div
                                 key={e.id || i}
-                                className={styles.entry}
+                                className={styles.entryRow}
                                 style={isRoleChange ? {
                                     borderLeft: '3px solid #f59e0b',
                                     background: 'rgba(245,158,11,0.04)',
                                 } : undefined}
                             >
-                                <div className={styles.entryHeader}>
-                                    <span className={styles.entryAction}>
-                                        {actionIcon} {e.action.replace(/_/g, ' ')}
-                                    </span>
-                                    <span className={styles.entryId}>{e.id}</span>
+                                <span className={styles.entryAction}>
+                                    {actionIcon} {e.action.replace(/_/g, ' ')}
+                                </span>
+                                
+                                <span className={styles.entryMeta}>
+                                    👤 {e.actor}
+                                </span>
+
+                                <span className={styles.entryMeta}>
+                                    🕐 {new Date(e.timestamp).toLocaleString()}
+                                </span>
+
+                                <div className={styles.entryDetailsContainer}>
+                                    {isRoleChange && e.details ? (
+                                        <div className={styles.roleChangeInline}>
+                                            <span>{e.details.facilitator_id}</span>
+                                            <span>→</span>
+                                            <span style={{
+                                                padding: '0.15rem 0.4rem', borderRadius: '4px',
+                                                background: e.details.new_role === 'super_admin' ? 'rgba(245,158,11,0.15)' :
+                                                            e.details.new_role === 'lead_facilitator' ? 'rgba(99,102,241,0.15)' : 'rgba(59,130,246,0.15)',
+                                                color: e.details.new_role === 'super_admin' ? '#f59e0b' :
+                                                       e.details.new_role === 'lead_facilitator' ? '#818cf8' : '#60a5fa',
+                                            }}>
+                                                {e.details.new_role === 'super_admin' ? '👑' :
+                                                 e.details.new_role === 'lead_facilitator' ? '⭐' : '🎓'} {(e.details.new_role || '').replace('_', ' ')}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        Object.entries(e.details || {}).map(([k, v]) => (
+                                            <span key={k} className={styles.entryDetailChip}>
+                                                <strong>{k}</strong>: {typeof v === 'object' ? JSON.stringify(v) : String(v)}
+                                            </span>
+                                        ))
+                                    )}
                                 </div>
-                                <div className={styles.entryMeta}>
-                                    <span>👤 {e.actor}</span>
-                                    <span>🕐 {new Date(e.timestamp).toLocaleString()}</span>
-                                </div>
-                                {isRoleChange && e.details && (
-                                    <div style={{
-                                        display: 'flex', gap: '0.5rem', alignItems: 'center',
-                                        padding: '0.4rem 0.6rem', borderRadius: '6px',
-                                        background: 'rgba(245,158,11,0.08)', marginTop: '0.4rem',
-                                        fontSize: '0.78rem', color: '#f59e0b', fontWeight: 600,
-                                    }}>
-                                        <span>👤 {e.details.facilitator_id}</span>
-                                        <span>→</span>
-                                        <span style={{
-                                            padding: '0.15rem 0.4rem', borderRadius: '4px',
-                                            background: e.details.new_role === 'super_admin' ? 'rgba(245,158,11,0.15)' :
-                                                        e.details.new_role === 'lead_facilitator' ? 'rgba(99,102,241,0.15)' : 'rgba(59,130,246,0.15)',
-                                            color: e.details.new_role === 'super_admin' ? '#f59e0b' :
-                                                   e.details.new_role === 'lead_facilitator' ? '#818cf8' : '#60a5fa',
-                                        }}>
-                                            {e.details.new_role === 'super_admin' ? '👑' :
-                                             e.details.new_role === 'lead_facilitator' ? '⭐' : '🎓'} {(e.details.new_role || '').replace('_', ' ')}
-                                        </span>
-                                    </div>
-                                )}
-                                {!isRoleChange && Object.keys(e.details || {}).length > 0 && (
-                                    <pre className={styles.details}>{JSON.stringify(e.details, null, 2)}</pre>
-                                )}
+
+                                <span className={styles.entryId}>{e.id}</span>
                             </div>
                         );
                     })}

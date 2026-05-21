@@ -157,7 +157,7 @@ function AgentCard({ agent, action, isExpanded, onToggle }) {
               <div className={styles.violationsList}>
                 <div className={styles.violationsHeader}>⚠ Red Line Violations</div>
                 {action.violations.map((v, i) => (
-                  <div key={i} className={styles.violationRow}>
+                  <div key={`${v.metric}-${v.direction}`} className={styles.violationRow}>
                     <span className={styles.violationMetric}>
                       {v.metric.replace(/_/g, ' ')}
                     </span>
@@ -323,7 +323,7 @@ export default function StakeholderAgentPanel({
                   const agentB = ie.agents?.[1]?.replace(/the_/g, '').replace(/_/g, ' ') || '?';
                   const pct = Math.round((ie.multiplier - 1) * 100);
                   return (
-                    <div key={i} className={styles.interferenceCard}>
+                    <div key={`${ie.agents?.[0] || 'a'}-${ie.agents?.[1] || 'b'}-${i}`} className={styles.interferenceCard}>
                       <div className={styles.interferenceAgents}>
                         <span style={{ textTransform: 'capitalize' }}>{agentA}</span>
                         <span className={styles.interferenceLink}>⇄</span>
@@ -349,7 +349,7 @@ export default function StakeholderAgentPanel({
               <div className={styles.cascadeSection}>
                 <div className={styles.cascadeTitle}>⚡ Cascade Chain</div>
                 {cascadesFired.map((c, i) => (
-                  <div key={i} className={styles.cascadeRow}>
+                  <div key={`${c.source || 'src'}->${c.target || 'tgt'}-${i}`} className={styles.cascadeRow}>
                     <span className={styles.cascadeSource}>
                       {c.source?.replace(/the_/g, '').replace(/_/g, ' ')}
                     </span>

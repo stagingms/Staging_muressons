@@ -1,8 +1,8 @@
-/* PlatformAnalytics — Comprehensive Analytics Dashboard */
+ï»¿/* PlatformAnalytics â€” Comprehensive Analytics Dashboard */
 
 .container {
-    background: var(--bg-card, #fff);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg, 16px);
     overflow: hidden;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
@@ -13,54 +13,79 @@
     align-items: center;
     gap: 0.75rem;
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+    border-bottom: 1px solid var(--border-subtle);
 }
 .header h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--text-primary); }
 .icon { font-size: 1.5rem; }
 .subtitle { margin: 0.15rem 0 0; font-size: 0.78rem; color: var(--text-muted); }
 .refreshBtn {
     margin-left: auto;
-    background: var(--bg-elevated, #f8fafc);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
     padding: 6px 14px;
     font-size: 0.75rem;
     font-weight: 700;
     cursor: pointer;
     color: var(--text-primary);
-    transition: all 0.2s;
+    transition: background 0.2s, color 0.2s;
 }
-.refreshBtn:hover { background: var(--accent-blue, #3b82f6); color: #fff; }
+.refreshBtn:hover { background: var(--accent-blue); color: #fff; }
 
-/* Tab Bar */
+/* ──────── Horizontal Tab Layout ─────────────── */
 .tabBar {
     display: flex;
+    gap: 0.2rem;
+    padding: 0 1.5rem 0 1.5rem;
+    border-bottom: 1px solid var(--border-subtle);
+    background: transparent;
     overflow-x: auto;
-    gap: 0;
-    border-bottom: 2px solid var(--border-subtle, #e2e8f0);
-    padding: 0 1rem;
     scrollbar-width: none;
+    align-items: flex-end;
 }
-.tabBar::-webkit-scrollbar { display: none; }
+.tabBar::-webkit-scrollbar {
+    display: none;
+}
+
 .tab {
-    padding: 0.75rem 1rem;
-    background: none;
-    border: none;
-    border-bottom: 3px solid transparent;
-    font-size: 0.78rem;
-    font-weight: 700;
+    padding: 0.8rem 1.2rem;
+    background: transparent;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 8px 8px 0 0;
+    font-size: 0.85rem;
+    font-weight: 600;
     color: var(--text-muted);
     cursor: pointer;
     white-space: nowrap;
-    transition: all 0.2s;
-}
-.tab:hover { color: var(--text-primary); background: rgba(59, 130, 246, 0.04); }
-.tabActive {
-    color: var(--accent-blue, #3b82f6);
-    border-bottom-color: var(--accent-blue, #3b82f6);
+    transition: all 0.2s ease;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: -1px;
 }
 
-.panel { padding: 1.5rem; }
+.tab:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.tabActive {
+    background: var(--bg-card);
+    color: var(--accent-blue);
+    border: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--bg-card);
+    font-weight: 700;
+}
+
+/* Right panel â€” content for the active tab */
+.panel {
+    flex: 1;
+    padding: 1.5rem;
+    min-width: 0;
+    overflow: auto;
+}
 
 /* Section */
 .section { min-height: 0; }
@@ -109,7 +134,7 @@
 .barTrack {
     flex: 1;
     height: 24px;
-    background: var(--bg-elevated, #f1f5f9);
+    background: var(--bg-elevated);
     border-radius: 6px;
     overflow: hidden;
     display: flex;
@@ -125,13 +150,13 @@
 /* Timing Grid */
 .timingGrid { display: flex; flex-direction: column; gap: 10px; }
 .timingCard {
-    background: var(--bg-elevated, #f8fafc);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 12px 16px;
 }
 .timingHeader { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-.timingRound { font-size: 0.85rem; font-weight: 800; color: var(--accent-blue, #3b82f6); }
+.timingRound { font-size: 0.85rem; font-weight: 800; color: var(--accent-blue); }
 .timingCount { font-size: 0.7rem; color: var(--text-muted); }
 .timingBar {
     height: 28px;
@@ -161,19 +186,19 @@
 .metricBtn {
     padding: 6px 12px;
     border-radius: 8px;
-    border: 1px solid var(--border-subtle, #e2e8f0);
-    background: var(--bg-elevated, #f8fafc);
+    border: 1px solid var(--border-subtle);
+    background: var(--bg-elevated);
     font-size: 0.72rem;
     font-weight: 700;
     cursor: pointer;
     color: var(--text-muted);
-    transition: all 0.2s;
+    transition: border-color 0.2s, background 0.2s, color 0.2s;
 }
-.metricBtn:hover { border-color: var(--accent-blue, #3b82f6); }
+.metricBtn:hover { border-color: var(--accent-blue); }
 .metricActive {
-    background: var(--accent-blue, #3b82f6);
+    background: var(--accent-blue);
     color: #fff;
-    border-color: var(--accent-blue, #3b82f6);
+    border-color: var(--accent-blue);
 }
 
 .chartContainer { display: flex; gap: 8px; margin-bottom: 1rem; }
@@ -191,15 +216,15 @@
     flex: 1;
     position: relative;
     height: 200px;
-    border-left: 1px solid var(--border-subtle, #e2e8f0);
-    border-bottom: 1px solid var(--border-subtle, #e2e8f0);
+    border-left: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
 }
 .gridLine {
     position: absolute;
     left: 0;
     right: 0;
     height: 1px;
-    background: var(--border-subtle, #e2e8f0);
+    background: var(--border-subtle);
     opacity: 0.5;
 }
 .chartSvg { position: absolute; inset: 0; width: 100%; height: calc(100% - 20px); overflow: visible; }
@@ -223,7 +248,7 @@
 .gaugeWrap { margin-bottom: 1.5rem; }
 .gauge {
     height: 24px;
-    background: var(--bg-elevated, #f1f5f9);
+    background: var(--bg-elevated);
     border-radius: 12px;
     overflow: hidden;
     margin-bottom: 6px;
@@ -236,12 +261,12 @@
 .gaugeLabels { display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); }
 .gaugeVal { font-size: 0.85rem; color: var(--text-primary); }
 
-.convergenceGrid { border: 1px solid var(--border-subtle, #e2e8f0); border-radius: 10px; overflow: hidden; }
+.convergenceGrid { border: 1px solid var(--border-subtle); border-radius: 10px; overflow: hidden; }
 .convHeader {
     display: grid;
     grid-template-columns: 60px 1fr 120px;
     padding: 8px 12px;
-    background: var(--bg-elevated, #f8fafc);
+    background: var(--bg-elevated);
     font-size: 0.7rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -251,20 +276,20 @@
     display: grid;
     grid-template-columns: 60px 1fr 120px;
     padding: 8px 12px;
-    border-top: 1px solid var(--border-subtle, #e2e8f0);
+    border-top: 1px solid var(--border-subtle);
     font-size: 0.78rem;
     align-items: center;
 }
 .convRow > span { display: flex; align-items: center; gap: 8px; }
-.convRound { font-weight: 800; color: var(--accent-blue, #3b82f6); }
-.miniBar { width: 80px; height: 8px; background: var(--bg-elevated, #f1f5f9); border-radius: 4px; overflow: hidden; }
+.convRound { font-weight: 800; color: var(--accent-blue); }
+.miniBar { width: 80px; height: 8px; background: var(--bg-elevated); border-radius: 4px; overflow: hidden; }
 .miniFill { height: 100%; border-radius: 4px; transition: width 0.4s; }
 
 /* Learning Outcomes */
 .summaryCards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 1.5rem; }
 .sumCard {
-    background: var(--bg-elevated, #f8fafc);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 12px;
     padding: 16px;
     text-align: center;
@@ -277,15 +302,15 @@
 .badgeGrid h4 { margin: 0 0 8px; font-size: 0.85rem; color: var(--text-primary); }
 .badgeRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .badgeName { font-size: 0.75rem; font-weight: 600; text-transform: capitalize; min-width: 120px; color: var(--text-primary); }
-.badgeBar { flex: 1; height: 16px; background: var(--bg-elevated, #f1f5f9); border-radius: 8px; overflow: hidden; }
+.badgeBar { flex: 1; height: 16px; background: var(--bg-elevated); border-radius: 8px; overflow: hidden; }
 .badgeFill { height: 100%; background: linear-gradient(90deg, #f59e0b, #f97316); border-radius: 8px; transition: width 0.4s; }
 .badgeCount { font-size: 0.75rem; font-weight: 800; color: var(--text-muted); min-width: 30px; }
 
 .catGrid { display: flex; flex-wrap: wrap; gap: 8px; }
 .catGrid h4 { width: 100%; margin: 0 0 4px; font-size: 0.85rem; }
 .catItem {
-    background: var(--bg-elevated, #f8fafc);
-    border: 1px solid var(--border-subtle, #e2e8f0);
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
     border-radius: 8px;
     padding: 8px 14px;
     font-size: 0.75rem;

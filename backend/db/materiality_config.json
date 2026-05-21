@@ -4,7 +4,7 @@
     {
       "id": "data_privacy_impact",
       "title": "Data Privacy Impact",
-      "hover_description": "Data breaches; severe GDPR fines & churn",
+      "hover_description": "Data breaches; GDPR fines up to 4% global revenue & customer churn",
       "category": "social",
       "financial_impact": "high",
       "societal_impact": "high",
@@ -20,7 +20,7 @@
     {
       "id": "energy_financial_risk",
       "title": "Energy Financial Risk",
-      "hover_description": "Massive data-center energy draw",
+      "hover_description": "Massive data-center energy draw; Scope 2 cost exposure at $250/tCO2",
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "medium",
@@ -36,7 +36,7 @@
     {
       "id": "api_leakage_impact",
       "title": "API Leakage Impact",
-      "hover_description": "Active Pharmaceutical Ingredients in local water",
+      "hover_description": "Active Pharmaceutical Ingredients contaminating groundwater \u2014 irreversible ecological damage",
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
@@ -52,7 +52,7 @@
     {
       "id": "drug_safety_financial_risk",
       "title": "Drug Safety Financial Risk",
-      "hover_description": "Massive liabilities and health crises",
+      "hover_description": "Post-market adverse events; massive liabilities and patient health crises",
       "category": "social",
       "financial_impact": "high",
       "societal_impact": "high",
@@ -68,7 +68,7 @@
     {
       "id": "e_waste_impact",
       "title": "E-Waste Impact",
-      "hover_description": "Toxic runoff & future EU bans",
+      "hover_description": "Toxic runoff from rare earth mining & future EU Right-to-Repair/WEEE bans",
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
@@ -84,7 +84,7 @@
     {
       "id": "supply_chain_labor_risk",
       "title": "Supply Chain Labor Risk",
-      "hover_description": "Boycotts from severe human rights abuses",
+      "hover_description": "Tier-3 forced labour & child labour; CSDDD civil liability + boycott risk",
       "category": "social",
       "financial_impact": "medium",
       "societal_impact": "high",
@@ -100,7 +100,7 @@
     {
       "id": "plastic_waste_impact",
       "title": "Plastic Waste Impact",
-      "hover_description": "15% EPR tax & ocean microplastics",
+      "hover_description": "15% EPR levy imminent; ocean microplastics and PPWR non-compliance",
       "category": "ecological",
       "financial_impact": "high",
       "societal_impact": "high",
@@ -116,7 +116,7 @@
     {
       "id": "biodiversity_financial_risk",
       "title": "Biodiversity Financial Risk",
-      "hover_description": "Deforestation and palm-oil dependency",
+      "hover_description": "Deforestation and palm-oil dependency; EUDR non-compliance = market access ban",
       "category": "ecological",
       "financial_impact": "medium",
       "societal_impact": "high",

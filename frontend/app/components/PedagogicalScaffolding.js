@@ -287,7 +287,7 @@ export function RoundRecap({ recapData }) {
             )}
             <div className={styles.rrChains}>
                 {causal_chains.map((chain, i) => (
-                    <div key={i} className={`${styles.rrChain} ${styles[`rr_${chain.source_type}`]}`}>
+                    <div key={`${chain.engine_id || 'chain'}-${i}`} className={`${styles.rrChain} ${styles[`rr_${chain.source_type}`]}`}>
                         <span className={styles.rrChainIcon}>{chain.source_icon}</span>
                         <div className={styles.rrChainContent}>
                             <span className={styles.rrChainEngine}>{chain.engine_id}</span>
@@ -659,7 +659,7 @@ export function R6RevelationPanel({ onMicroDecision, onVisible }) {
                             border: selected === key ? '2px solid #ef4444' : '1px solid var(--border-subtle, #334155)',
                             background: selected === key ? 'rgba(239, 68, 68, 0.06)' : 'var(--bg-secondary, #0f172a)',
                             color: 'var(--text-primary, #f1f5f9)', cursor: 'pointer',
-                            transition: 'all 0.15s',
+                            transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                         }}
                     >
                         <div style={{ fontWeight: 700, fontSize: '0.88rem', marginBottom: 4 }}>
@@ -769,7 +769,7 @@ export function BudgetAllocationPanel({ onAllocate, onVisible }) {
                         padding: '14px 16px', borderRadius: 10,
                         background: '#f8fafc',
                         border: '1.5px solid #e2e8f0',
-                        transition: 'all 0.2s',
+                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                             <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#0f172a' }}>{init.icon} {init.label}</span>
@@ -908,7 +908,7 @@ export function StakeholderTribunal({ onResponses, onVisible }) {
                                 border: responses[currentIdx] === key ? '2px solid #f59e0b' : '1px solid var(--border-subtle, #334155)',
                                 background: responses[currentIdx] === key ? 'rgba(245, 158, 11, 0.06)' : 'var(--bg-secondary, #0f172a)',
                                 color: 'var(--text-primary, #f1f5f9)', cursor: 'pointer',
-                                transition: 'all 0.15s',
+                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                             }}
                         >
                             <div style={{ fontWeight: 700, fontSize: '0.85rem' }}>{resp.label}</div>
@@ -1056,7 +1056,7 @@ export function OrientationPanel({ onComplete, onOpenStakeholderMap, hasComplete
                                 border: isDone ? '1px solid rgba(16, 185, 129, 0.35)' : '1px solid var(--border-subtle, #334155)',
                                 background: isDone ? 'rgba(16, 185, 129, 0.04)' : 'var(--bg-secondary, #0f172a)',
                                 color: 'var(--text-primary, #f1f5f9)', cursor: 'pointer',
-                                transition: 'all 0.15s', width: '100%',
+                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', width: '100%',
                             }}
                         >
                             <span style={{
@@ -1095,7 +1095,7 @@ export function OrientationPanel({ onComplete, onOpenStakeholderMap, hasComplete
                     color: allDone ? '#fff' : '#64748b',
                     fontWeight: 800, fontSize: '0.82rem', cursor: allDone ? 'pointer' : 'not-allowed',
                     letterSpacing: '0.05em', textTransform: 'uppercase',
-                    transition: 'all 0.2s',
+                    transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                 }}
             >
                 {allDone ? '✓ Ready to Make Your First Decision →' : `Complete ${tasks.length - completedCount} remaining task${tasks.length - completedCount !== 1 ? 's' : ''}`}

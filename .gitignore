@@ -11,10 +11,14 @@ env/
 .next/
 out/
 
-# Environment
+# Environment — NEVER commit secrets
 .env
 .env.local
 .env.production
+backend/.env
+backend/.env.*
+frontend/.env.local
+frontend/.env.production
 
 # IDE
 .vscode/
@@ -41,4 +45,5 @@ backend/data/materiality_bu_*.json
 backend/*.db
 db/*.json
 !db/seed_round1.json
+sessions.json
 

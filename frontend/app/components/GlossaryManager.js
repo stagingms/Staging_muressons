@@ -61,12 +61,12 @@ export default function GlossaryManager() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: '1.3rem' }}>📖</span>
-          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
+          <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)' }}>
             Glossary Manager
           </h3>
           <span style={{
-            fontSize: '0.6rem', fontWeight: 700, background: '#f0f4ff',
-            color: '#6366f1', padding: '2px 8px', borderRadius: 10,
+            fontSize: '0.6rem', fontWeight: 700, background: 'rgba(99,102,241,0.12)',
+            color: '#818cf8', padding: '2px 8px', borderRadius: 10,
           }}>{terms.length} terms</span>
         </div>
         <button
@@ -90,9 +90,10 @@ export default function GlossaryManager() {
         onChange={e => setSearch(e.target.value)}
         style={{
           width: '100%', padding: '8px 12px', borderRadius: 8,
-          border: '1px solid #e2e8f0', fontSize: '0.78rem',
+          border: '1px solid var(--border-subtle)', fontSize: '0.78rem',
           outline: 'none', fontFamily: 'Inter, sans-serif',
-          background: '#f8fafc', marginBottom: 12,
+          background: 'var(--bg-body)', color: 'var(--text-primary)',
+          marginBottom: 12,
         }}
       />
 
@@ -107,17 +108,17 @@ export default function GlossaryManager() {
 
       {/* Terms Table */}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8', fontSize: '0.8rem' }}>
+        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)', fontSize: '0.8rem' }}>
           Loading glossary...
         </div>
       ) : (
         <div style={{
           maxHeight: 700, overflowY: 'auto',
-          borderRadius: 10, border: '1px solid #e2e8f0',
+          borderRadius: 10, border: '1px solid var(--border-subtle)',
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem' }}>
             <thead>
-              <tr style={{ background: '#f8fafc', position: 'sticky', top: 0, zIndex: 2 }}>
+              <tr style={{ background: 'var(--bg-elevated)', position: 'sticky', top: 0, zIndex: 2 }}>
                 <th style={{ ...thStyle, width: 140 }}>Term</th>
                 <th style={{ ...thStyle, width: 200 }}>Definition</th>
                 <th style={{ ...thStyle, width: 100 }}>Tags</th>
@@ -127,34 +128,34 @@ export default function GlossaryManager() {
             </thead>
             <tbody>
               {filtered.map(t => (
-                <tr key={t.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <tr key={t.id} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                   <td style={tdStyle}>
-                    <span style={{ fontWeight: 700, color: '#1e293b' }}>{t.term}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{t.term}</span>
                   </td>
-                  <td style={{ ...tdStyle, color: '#475569', lineHeight: 1.5, maxWidth: 200, fontSize: '0.7rem' }}>
+                  <td style={{ ...tdStyle, color: 'var(--text-secondary)', lineHeight: 1.5, maxWidth: 200, fontSize: '0.7rem' }}>
                     {t.definition.length > 100 ? t.definition.slice(0, 100) + '…' : t.definition}
                   </td>
                   <td style={tdStyle}>
                     <div style={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                       {(t.tags || []).slice(0, 3).map(tag => (
                         <span key={tag} style={{
-                          background: '#f0f4ff', color: '#6366f1',
+                          background: 'rgba(99,102,241,0.12)', color: '#818cf8',
                           fontSize: '0.68rem', fontWeight: 700,
                           padding: '1px 4px', borderRadius: 3,
                         }}>{tag}</span>
                       ))}
                       {(t.tags || []).length > 3 && (
-                        <span style={{ fontSize: '0.68rem', color: '#94a3b8' }}>+{t.tags.length - 3}</span>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>+{t.tags.length - 3}</span>
                       )}
                     </div>
                   </td>
                   <td style={tdStyle}>
                     {t.weblink ? (
                       <a href={t.weblink} target="_blank" rel="noopener noreferrer"
-                         style={{ color: '#6366f1', fontSize: '0.85rem' }}
+                         style={{ color: '#818cf8', fontSize: '0.85rem' }}
                          title={t.weblink}>🔗</a>
                     ) : (
-                      <span style={{ color: '#d1d5db' }}>—</span>
+                      <span style={{ color: 'var(--text-muted)' }}>—</span>
                     )}
                   </td>
                   <td style={tdStyle}>
@@ -175,7 +176,7 @@ export default function GlossaryManager() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: '#94a3b8', fontSize: '0.78rem' }}>
+                  <td colSpan={5} style={{ textAlign: 'center', padding: '1.5rem', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
                     {search ? 'No terms match your filter' : 'No glossary terms yet'}
                   </td>
                 </tr>
@@ -190,9 +191,9 @@ export default function GlossaryManager() {
 
 const thStyle = {
   textAlign: 'left', padding: '8px 10px',
-  fontSize: '0.65rem', fontWeight: 700, color: '#64748b',
+  fontSize: '0.65rem', fontWeight: 700, color: 'var(--text-muted)',
   letterSpacing: '0.04em', textTransform: 'uppercase',
-  borderBottom: '1px solid #e2e8f0',
+  borderBottom: '1px solid var(--border-subtle)',
 };
 
 const tdStyle = {
@@ -235,11 +236,12 @@ function EditTermModal({ term, onSave, onClose }) {
       fontFamily: 'Inter, sans-serif',
     }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{
-        background: '#fff', borderRadius: 14, width: '92%', maxWidth: 480,
-        boxShadow: '0 25px 60px rgba(0,0,0,0.2)',
+        background: 'var(--bg-card)', borderRadius: 14, width: '92%', maxWidth: 480,
+        boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
         padding: '1.2rem',
+        border: '1px solid var(--border-subtle)',
       }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: '0.95rem', fontWeight: 800, color: '#0f172a' }}>
+        <h3 style={{ margin: '0 0 12px', fontSize: '0.95rem', fontWeight: 800, color: 'var(--text-primary)' }}>
           {isNew ? '➕ Add New Term' : '✏️ Edit Term'}
         </h3>
         <form onSubmit={handleSubmit}>
@@ -265,7 +267,7 @@ function EditTermModal({ term, onSave, onClose }) {
             />
           </div>
           <div style={fieldStyle}>
-            <label style={labelStyle}>Tags <span style={{ fontWeight: 400, color: '#94a3b8' }}>(comma-separated)</span></label>
+            <label style={labelStyle}>Tags <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(comma-separated)</span></label>
             <input
               value={form.tags}
               onChange={e => setForm({ ...form, tags: e.target.value })}
@@ -274,7 +276,7 @@ function EditTermModal({ term, onSave, onClose }) {
             />
           </div>
           <div style={fieldStyle}>
-            <label style={labelStyle}>Web Link <span style={{ fontWeight: 400, color: '#94a3b8' }}>(optional)</span></label>
+            <label style={labelStyle}>Web Link <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(optional)</span></label>
             <input
               value={form.weblink}
               onChange={e => setForm({ ...form, weblink: e.target.value })}
@@ -285,8 +287,8 @@ function EditTermModal({ term, onSave, onClose }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" onClick={onClose} style={{
-              padding: '7px 16px', borderRadius: 8, border: '1px solid #e2e8f0',
-              background: '#f8fafc', color: '#64748b', fontSize: '0.75rem',
+              padding: '7px 16px', borderRadius: 8, border: '1px solid var(--border-subtle)',
+              background: 'var(--bg-body)', color: 'var(--text-muted)', fontSize: '0.75rem',
               fontWeight: 700, cursor: 'pointer',
             }}>Cancel</button>
             <button type="submit" style={{
@@ -304,11 +306,11 @@ function EditTermModal({ term, onSave, onClose }) {
 const fieldStyle = { marginBottom: 10 };
 const labelStyle = {
   display: 'block', fontSize: '0.68rem', fontWeight: 700,
-  color: '#475569', marginBottom: 3,
+  color: 'var(--text-secondary)', marginBottom: 3,
 };
 const inputStyle = {
   width: '100%', padding: '7px 10px', borderRadius: 7,
-  border: '1px solid #e2e8f0', fontSize: '0.78rem',
+  border: '1px solid var(--border-subtle)', fontSize: '0.78rem',
   outline: 'none', fontFamily: 'Inter, sans-serif',
-  background: '#f8fafc',
+  background: 'var(--bg-body)', color: 'var(--text-primary)',
 };

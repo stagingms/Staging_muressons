@@ -202,7 +202,7 @@ export default function InlinePodcastPlayer({ isOpen, onClose, title, transcript
                   width: 64, height: 64, borderRadius: '50%', margin: '0 auto',
                   background: isActive ? info.color : 'rgba(255,255,255,0.1)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: '1.8rem', transition: 'all 0.3s',
+                  fontSize: '1.8rem', transition: 'background 0.3s, color 0.3s, border-color 0.3s, box-shadow 0.3s, opacity 0.3s, transform 0.3s',
                   boxShadow: isActive ? `0 0 20px ${info.color}80` : 'none',
                   animation: isActive ? 'pulse 1.5s ease-in-out infinite' : 'none',
                 }}>
@@ -230,7 +230,7 @@ export default function InlinePodcastPlayer({ isOpen, onClose, title, transcript
                   marginBottom: 6, cursor: 'pointer',
                   background: isActive ? `${info.color}20` : 'transparent',
                   borderLeft: isActive ? `3px solid ${info.color}` : '3px solid transparent',
-                  opacity: isPast ? 0.5 : 1, transition: 'all 0.2s',
+                  opacity: isPast ? 0.5 : 1, transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                 }}>
                 <span style={{ fontSize: '1.2rem', flexShrink: 0 }}>{info.avatar}</span>
                 <div>

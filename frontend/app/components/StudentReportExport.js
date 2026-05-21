@@ -78,7 +78,7 @@ th{text-align:left;padding:6px 10px;font-size:.7rem;font-weight:700;color:#64748
       width:'100%',padding:'0.7rem',
       background:'linear-gradient(135deg,rgba(99,102,241,0.12),rgba(168,85,247,0.08))',
       border:'1px solid rgba(99,102,241,0.3)',borderRadius:'10px',color:'#818cf8',
-      fontSize:'0.85rem',fontWeight:700,cursor:'pointer',transition:'all 0.15s',
+      fontSize:'0.85rem',fontWeight:700,cursor:'pointer',transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
       display:'flex',alignItems:'center',justifyContent:'center',gap:'0.5rem',
     }}>📄 Download My Strategy Report</button>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback, useEffect } from 'react';
+import React, { useMemo, useState, useCallback, useEffect } from 'react';
 import styles from './ReportsExport.module.css';
 import { formatSessionId } from '../utils/sessionUtils';
 
@@ -312,9 +312,8 @@ export default function ReportsExport({ leaderboard = [] }) {
                         </thead>
                         <tbody>
                             {sorted.map(d => (
-                                <>
+                                <React.Fragment key={d.session_id}>
                                     <tr
-                                        key={d.session_id}
                                         onClick={() => setExpandedSession(expandedSession === d.session_id ? null : d.session_id)}
                                         style={{ cursor: 'pointer', background: expandedSession === d.session_id ? 'rgba(59,130,246,0.06)' : undefined, transition: 'background 0.15s' }}
                                     >
@@ -340,7 +339,7 @@ export default function ReportsExport({ leaderboard = [] }) {
                                             </td>
                                         </tr>
                                     )}
-                                </>
+                                </React.Fragment>
                             ))}
                         </tbody>
                     </table>

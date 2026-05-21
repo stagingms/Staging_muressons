@@ -18,15 +18,16 @@ import json
 from typing import Optional
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, UploadFile, File, Body
+from fastapi import APIRouter, HTTPException, UploadFile, File, Body, Depends
 from pydantic import BaseModel
 
 import database as db
+from admin_router import manager, require_super_admin, require_facilitator
 
 resources_router = APIRouter(prefix="/api/admin", tags=["Admin - Resources"])
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#  RESOURCE LIBRARY â€” Master Library + Per-Session Unlock Control
+#  RESOURCE LIBRARY  -  Master Library + Per-Session Unlock Control
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class ResourceUnlockCondition(BaseModel):
@@ -60,10 +61,10 @@ class ResourceUnlockRequest(BaseModel):
     resource_ids: list[str]
     round_number: int
 
-# â”€â”€ In-memory stores â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ In-memory stores â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 _resource_library = [
-    # â”€â”€ Standard Resources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Standard Resources â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
         "id": "RES_001",
         "title": "The ESRS Double Materiality Handbook",
@@ -176,7 +177,7 @@ _resource_library = [
         "effect": None,
         "facilitator_strategy": "",
     },
-    # â”€â”€ Hidden Resources (Auto-Unlock via Conditions) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    # â"€â"€ Hidden Resources (Auto-Unlock via Conditions) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     {
         "id": "HIDDEN_RES_001",
         "title": "The Urban Mining Efficiency Secret",
@@ -235,18 +236,18 @@ _resource_library = [
     },
 ]
 
-# session_id â†’ list of {resource_id, unlocked_at_round, unlocked_at_time, is_strategic_drop, trigger}
+# session_id â†' list of {resource_id, unlocked_at_round, unlocked_at_time, is_strategic_drop, trigger}
 _session_resource_state = {}
 
 
-# â”€â”€ Hidden Resource Trigger Engine â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Hidden Resource Trigger Engine â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 def _extract_metric_value(metric: str, global_state: dict, bu_states: list[dict]) -> Optional[float]:
     """Extract a metric value from game state for hidden resource condition evaluation."""
     # Investment-based metrics (cumulative capex allocated to a BU category)
     if metric.startswith("Investment_"):
         bu_key = metric.replace("Investment_", "").lower()
-        # Map E5 â†’ electronics, etc.
+        # Map E5 â†' electronics, etc.
         bu_map = {"e5": "electronics", "e1": "pharma", "e2": "pharma", "s2": "electronics", "g1": "software"}
         target_bu = bu_map.get(bu_key, bu_key)
         bu = next((b for b in bu_states if b["bu_id"] == target_bu), None)
@@ -270,7 +271,7 @@ def _extract_metric_value(metric: str, global_state: dict, bu_states: list[dict]
         if pharma:
             # Derive E2 score from social license and natural capital debt inversely
             sl = pharma.get("social_license_score", 50)
-            return sl / 10.0  # Normalize 0-100 â†’ 0-10 scale
+            return sl / 10.0  # Normalize 0-100 â†' 0-10 scale
         return 0
 
     if metric == "BU_Sustainability_Score":
@@ -356,7 +357,7 @@ async def check_hidden_resource_triggers(
     return newly_triggered
 
 
-# â”€â”€ Facilitator Deployment Guide â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Facilitator Deployment Guide â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 FACILITATOR_DEPLOYMENT_GUIDE = [
     {"round": 1, "resource_id": "RES_001", "strategy": "The Baseline: Drop immediately. It sets the rules. If players don't read this, they will fail to understand the Volatility factor."},
@@ -401,7 +402,7 @@ async def get_deployment_guide():
 
 
 
-# â”€â”€ Master Library CRUD â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Master Library CRUD â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 @resources_router.get("/resources/library", summary="Get the master resource library")
 async def get_resource_library():
@@ -409,14 +410,14 @@ async def get_resource_library():
 
 
 @resources_router.put("/resources/library", summary="Upload / replace the master resource library")
-async def upload_resource_library(body: ResourceLibraryUpload):
+async def upload_resource_library(body: ResourceLibraryUpload, _guard: None = Depends(require_super_admin)):
     global _resource_library
     _resource_library = [r.dict() for r in body.Resource_Library]
     return {"status": "uploaded", "count": len(_resource_library)}
 
 
 @resources_router.post("/resources/library/item", summary="Add or update a single resource")
-async def upsert_resource_item(item: ResourceItem):
+async def upsert_resource_item(item: ResourceItem, _guard: None = Depends(require_super_admin)):
     global _resource_library
     _resource_library = [r for r in _resource_library if r["id"] != item.id]
     _resource_library.append(item.dict())
@@ -424,14 +425,14 @@ async def upsert_resource_item(item: ResourceItem):
 
 
 @resources_router.delete("/resources/library/item/{resource_id}", summary="Delete a resource from the master library")
-async def delete_resource_item(resource_id: str):
+async def delete_resource_item(resource_id: str, _guard: None = Depends(require_super_admin)):
     global _resource_library
     _resource_library = [r for r in _resource_library if r["id"] != resource_id]
     return {"status": "deleted", "resource_id": resource_id}
 
 
 @resources_router.post("/resources/upload", summary="Upload a physical resource file (PDF, image, etc)")
-async def upload_resource_file(file: UploadFile = File(...)):
+async def upload_resource_file(file: UploadFile = File(...), _guard: None = Depends(require_super_admin)):
     """Uploads a file to the static assets directory and returns its public URL."""
     # Ensure uploads directory exists in the Next.js frontend/public folder
     project_root = os.path.dirname(os.path.dirname(__file__))
@@ -448,7 +449,7 @@ async def upload_resource_file(file: UploadFile = File(...)):
     return {"status": "uploaded", "url": file_url}
 
 
-# â”€â”€ Per-Session Resource State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Per-Session Resource State â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 @resources_router.get("/sessions/{session_id}/resources", summary="Get resource state for a session")
 async def get_session_resources(session_id: str):
@@ -470,7 +471,7 @@ async def get_session_resources(session_id: str):
 
 
 @resources_router.post("/sessions/{session_id}/resources/unlock", summary="Unlock resources for a session")
-async def unlock_session_resources(session_id: str, body: ResourceUnlockRequest):
+async def unlock_session_resources(session_id: str, body: ResourceUnlockRequest, _guard: None = Depends(require_facilitator)):
     """Unlock specific resources for a session at a given round."""
     if session_id not in _session_resource_state:
         _session_resource_state[session_id] = []
@@ -502,8 +503,8 @@ async def unlock_session_resources(session_id: str, body: ResourceUnlockRequest)
     return {"status": "unlocked", "newly_unlocked": newly_unlocked, "total_unlocked": len(_session_resource_state[session_id])}
 
 
-@resources_router.post("/sessions/{session_id}/resources/drop", summary="Strategic drop â€” reveal a resource mid-round")
-async def strategic_drop_resource(session_id: str, body: ResourceUnlockRequest):
+@resources_router.post("/sessions/{session_id}/resources/drop", summary="Strategic drop - reveal a resource mid-round")
+async def strategic_drop_resource(session_id: str, body: ResourceUnlockRequest, _guard: None = Depends(require_facilitator)):
     """Drops resources mid-round as a 'breaking news' event. Marks them as strategic drops."""
     if session_id not in _session_resource_state:
         _session_resource_state[session_id] = []
@@ -540,7 +541,7 @@ async def strategic_drop_resource(session_id: str, body: ResourceUnlockRequest):
 
 
 @resources_router.post("/sessions/{session_id}/resources/lock", summary="Re-lock a resource for a session")
-async def lock_session_resource(session_id: str, body: dict = Body(...)):
+async def lock_session_resource(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Re-lock a mistakenly unlocked resource."""
     resource_id = body.get("resource_id")
     if not resource_id:
@@ -553,7 +554,7 @@ async def lock_session_resource(session_id: str, body: dict = Body(...)):
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-#  NOTEBOOKLM INTEGRATION â€” Linked Notebooks for Learners
+#  NOTEBOOKLM INTEGRATION  -  Linked Notebooks for Learners
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class NotebookLMItem(BaseModel):
@@ -586,15 +587,15 @@ _notebooklm_notebooks = [
         "category": "General",
         "podcast_transcript": [
             {"speaker": "Dr. Priya Sharma", "text": "Welcome to the ESG Fundamentals podcast. Today we're breaking down what every executive needs to know about Environmental, Social, and Governance factors."},
-            {"speaker": "Prof. James Walker", "text": "Great to be here, Priya. Let's start with the basics. ESG isn't just a compliance checkbox â€” it's become a core driver of corporate value creation."},
-            {"speaker": "Dr. Priya Sharma", "text": "Exactly. The E stands for Environmental â€” think carbon emissions, water usage, waste management, and biodiversity impact. Companies like Muressons with mining and manufacturing operations face significant environmental scrutiny."},
-            {"speaker": "Prof. James Walker", "text": "The S covers Social factors â€” labour practices, community relations, diversity, supply chain ethics. For a conglomerate operating across regions like Gobi and Deccan, this is critical."},
-            {"speaker": "Dr. Priya Sharma", "text": "And G â€” Governance â€” covers board composition, executive pay, transparency, and anti-corruption measures. Strong governance is the foundation that makes E and S credible."},
+            {"speaker": "Prof. James Walker", "text": "Great to be here, Priya. Let's start with the basics. ESG isn't just a compliance checkbox  -  it's become a core driver of corporate value creation."},
+            {"speaker": "Dr. Priya Sharma", "text": "Exactly. The E stands for Environmental  -  think carbon emissions, water usage, waste management, and biodiversity impact. Companies like Muressons with mining and manufacturing operations face significant environmental scrutiny."},
+            {"speaker": "Prof. James Walker", "text": "The S covers Social factors  -  labour practices, community relations, diversity, supply chain ethics. For a conglomerate operating across regions like Gobi and Deccan, this is critical."},
+            {"speaker": "Dr. Priya Sharma", "text": "And G  -  Governance  -  covers board composition, executive pay, transparency, and anti-corruption measures. Strong governance is the foundation that makes E and S credible."},
             {"speaker": "Prof. James Walker", "text": "Now, let's talk about Double Materiality. Under the EU's CSRD directive, companies must report on two dimensions: how sustainability issues affect the company financially, AND how the company impacts society and the environment."},
             {"speaker": "Dr. Priya Sharma", "text": "This is a paradigm shift. Traditional financial materiality only asked 'does this risk affect our bottom line?' Double materiality also asks 'does our business affect the planet and people?'"},
-            {"speaker": "Prof. James Walker", "text": "For Muressons, this means mapping every business unit â€” Pharma, Electronics, Consumer Goods, Software â€” against both dimensions. The ESG audit in Round 1 is your first step."},
+            {"speaker": "Prof. James Walker", "text": "For Muressons, this means mapping every business unit  -  Pharma, Electronics, Consumer Goods, Software  -  against both dimensions. The ESG audit in Round 1 is your first step."},
             {"speaker": "Dr. Priya Sharma", "text": "Key takeaway: ESG integration isn't optional anymore. Investors, regulators, and consumers are all demanding it. The companies that lead on ESG will have a competitive advantage in the 2030s."},
-            {"speaker": "Prof. James Walker", "text": "Absolutely. And remember â€” the depth of your initial audit determines what risks you catch early versus what surprises you later. Choose wisely."},
+            {"speaker": "Prof. James Walker", "text": "Absolutely. And remember  -  the depth of your initial audit determines what risks you catch early versus what surprises you later. Choose wisely."},
         ],
         "review_content": NLM_001_REVIEW,
         "quiz_questions": NLM_001_QUESTIONS,
@@ -620,16 +621,16 @@ _notebooklm_notebooks = [
         "target_round": 5,
         "category": "Social",
         "podcast_transcript": [
-            {"speaker": "Dr. Priya Sharma", "text": "Today we're tackling one of the most challenging aspects of ESG â€” supply chain ethics and labour rights. This is deeply relevant to Muressons' operations in the Gobi region."},
+            {"speaker": "Dr. Priya Sharma", "text": "Today we're tackling one of the most challenging aspects of ESG  -  supply chain ethics and labour rights. This is deeply relevant to Muressons' operations in the Gobi region."},
             {"speaker": "Prof. James Walker", "text": "Absolutely. The Gobi region represents a classic ethical dilemma in global supply chains. Rich mineral resources, but significant human rights concerns."},
-            {"speaker": "Dr. Priya Sharma", "text": "Let's frame the issue. Modern slavery affects an estimated 50 million people globally. Forced labour generates $150 billion in illegal profits annually. And it's not just in developing countries â€” it exists in every sector."},
+            {"speaker": "Dr. Priya Sharma", "text": "Let's frame the issue. Modern slavery affects an estimated 50 million people globally. Forced labour generates $150 billion in illegal profits annually. And it's not just in developing countries  -  it exists in every sector."},
             {"speaker": "Prof. James Walker", "text": "For mining operations like those in the Gobi region, the risks include: forced labour in artisanal mining, child labour, dangerous working conditions, and community displacement."},
             {"speaker": "Dr. Priya Sharma", "text": "Several key pieces of legislation now require companies to act. The UK Modern Slavery Act, the French Duty of Vigilance Law, and the proposed EU Corporate Sustainability Due Diligence Directive."},
             {"speaker": "Prof. James Walker", "text": "The EU CSDDD is particularly important. It requires companies to identify, prevent, and mitigate adverse human rights and environmental impacts throughout their value chains."},
             {"speaker": "Dr. Priya Sharma", "text": "So what should Muressons do? First, conduct thorough supply chain mapping. Know every tier of your suppliers. Second, implement robust due diligence processes. Third, establish grievance mechanisms for workers."},
             {"speaker": "Prof. James Walker", "text": "And critically, don't just cut and run from problematic suppliers. Responsible disengagement means working with suppliers to improve, not abandoning workers to worse conditions."},
             {"speaker": "Dr. Priya Sharma", "text": "The business case is clear too. Companies with strong supply chain ethics see fewer disruptions, better brand reputation, and increasingly, better access to capital."},
-            {"speaker": "Prof. James Walker", "text": "Bottom line: in the Muressons simulation, your choices about the Gobi region and Tier-3 mine workers aren't just ethical decisions â€” they're strategic ones that affect your reputation score, regulatory risk, and long-term viability."},
+            {"speaker": "Prof. James Walker", "text": "Bottom line: in the Muressons simulation, your choices about the Gobi region and Tier-3 mine workers aren't just ethical decisions  -  they're strategic ones that affect your reputation score, regulatory risk, and long-term viability."},
         ],
         "review_content": NLM_003_REVIEW,
         "quiz_questions": NLM_003_QUESTIONS,
@@ -643,7 +644,7 @@ async def get_notebooklm_notebooks():
 
 
 @resources_router.post("/resources/notebooklm", summary="Add or update a NotebookLM notebook link")
-async def upsert_notebooklm_notebook(item: NotebookLMItem):
+async def upsert_notebooklm_notebook(item: NotebookLMItem, _guard: None = Depends(require_super_admin)):
     global _notebooklm_notebooks
     _notebooklm_notebooks = [n for n in _notebooklm_notebooks if n["id"] != item.id]
     _notebooklm_notebooks.append(item.dict())
@@ -651,13 +652,13 @@ async def upsert_notebooklm_notebook(item: NotebookLMItem):
 
 
 @resources_router.delete("/resources/notebooklm/{notebook_id}", summary="Remove a NotebookLM notebook link")
-async def delete_notebooklm_notebook(notebook_id: str):
+async def delete_notebooklm_notebook(notebook_id: str, _guard: None = Depends(require_super_admin)):
     global _notebooklm_notebooks
     _notebooklm_notebooks = [n for n in _notebooklm_notebooks if n["id"] != notebook_id]
     return {"status": "deleted", "notebook_id": notebook_id}
 
 
-# â”€â”€ Quiz Difficulty Setting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Quiz Difficulty Setting â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
 _quiz_difficulty: str = "medium"  # "easy" | "medium" | "hard"
 
@@ -668,7 +669,7 @@ async def get_quiz_difficulty():
 
 
 @resources_router.put("/quiz-difficulty", summary="Set quiz difficulty level")
-async def set_quiz_difficulty(body: dict = Body(...)):
+async def set_quiz_difficulty(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     global _quiz_difficulty
     level = body.get("difficulty", "medium").lower()
     if level not in ("easy", "medium", "hard"):
@@ -677,9 +678,9 @@ async def set_quiz_difficulty(body: dict = Body(...)):
     return {"status": "updated", "difficulty": _quiz_difficulty}
 
 
-# â”€â”€ Per-Cohort Quiz Enabled State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Per-Cohort Quiz Enabled State â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
-_quiz_enabled = {}  # session_id â†’ enabled (default True)
+_quiz_enabled = {}  # session_id â†' enabled (default True)
 
 
 @resources_router.get("/quiz-enabled/{session_id}", summary="Check if quiz is enabled for a cohort")
@@ -689,15 +690,15 @@ async def get_quiz_enabled(session_id: str):
 
 
 @resources_router.put("/quiz-enabled/{session_id}", summary="Enable or disable quiz for a cohort")
-async def set_quiz_enabled(session_id: str, body: dict = Body(...)):
+async def set_quiz_enabled(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     enabled = body.get("quiz_enabled", True)
     _quiz_enabled[session_id] = bool(enabled)
     return {"status": "updated", "session_id": session_id, "quiz_enabled": _quiz_enabled[session_id]}
 
 
-# â”€â”€ Per-Cohort Consultant Allowed State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# â"€â"€ Per-Cohort Consultant Allowed State â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
-_consultant_allowed = {}  # session_id â†’ allowed (default True)
+_consultant_allowed = {}  # session_id â†' allowed (default True)
 
 
 @resources_router.get("/consultant-allowed/{session_id}", summary="Check if ESG consultant is allowed for a cohort")
@@ -707,7 +708,7 @@ async def get_consultant_allowed(session_id: str):
 
 
 @resources_router.put("/consultant-allowed/{session_id}", summary="Enable or disable ESG consultant for a cohort")
-async def set_consultant_allowed(session_id: str, body: dict = Body(...)):
+async def set_consultant_allowed(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     allowed = body.get("consultant_allowed", True)
     _consultant_allowed[session_id] = bool(allowed)
     return {"status": "updated", "session_id": session_id, "consultant_allowed": _consultant_allowed[session_id]}

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import styles from './ResourceManager.module.css';
+import GlossaryManager from './GlossaryManager';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -669,12 +670,17 @@ export default function ResourceManager() {
                     onClick={() => setActiveTab('notebooklm')}>
                     🧠 NotebookLM
                 </button>
+                <button className={`${styles.tabBtn} ${activeTab === 'glossary' ? styles.active : ''}`}
+                    onClick={() => setActiveTab('glossary')}>
+                    📖 Glossary
+                </button>
             </div>
 
             {activeTab === 'library' && renderLibrary()}
             {activeTab === 'sessions' && renderSessionControl()}
             {activeTab === 'guide' && renderGuide()}
             {activeTab === 'notebooklm' && renderNotebookLM()}
+            {activeTab === 'glossary' && <GlossaryManager />}
         </div>
     );
 }

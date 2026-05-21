@@ -37,7 +37,11 @@ function getFinancialMateriality(bu) {
   const opex = bu.opex_base || 8_000_000;
   const margin = (revenue - opex) / Math.max(revenue, 1);
   const ncd = Math.min(bu.natural_capital_debt || 0, 500) / 500;
-  return Math.min(1, Math.max(0, margin * 0.6 + (1 - ncd) * 0.4));
+  const ci = Math.min(bu.carbon_intensity || 50, 100) / 100;
+  // Financial materiality = how sustainability risks affect finances
+  // Lower margin → more vulnerable to cost shocks; Higher NCD → more exposed
+  // Carbon intensity adds transition risk (carbon tax, stranded assets)
+  return Math.min(1, Math.max(0, (1 - margin) * 0.4 + ncd * 0.5 + ci * 0.1));
 }
 
 function getImpactMateriality(bu) {

@@ -1,18 +1,18 @@
-/* page.module.css — Executive Cockpit Layout */
+/* page.module.css â€” Executive Cockpit Layout */
 
-/* ═════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    JOIN OVERLAY (covers cockpit before session)
-   ═════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .joinOverlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
-  background: #f8f9fb;
+  z-index: var(--z-top, 9000);
+  background: var(--bg-primary);
 }
 
-/* ═════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    SESSION LOBBY
-   ═════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .lobby {
   display: flex;
   align-items: center;
@@ -87,7 +87,7 @@
   border: 2px solid var(--border-subtle);
   border-radius: var(--radius-md);
   outline: none;
-  transition: all 0.25s;
+  transition: border-color 0.25s, box-shadow 0.25s;
   text-align: center;
 }
 
@@ -110,7 +110,7 @@
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
   position: relative;
   overflow: hidden;
 }
@@ -154,9 +154,9 @@
   border-radius: var(--radius-sm);
 }
 
-/* ═════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    ROUND PROGRESS BAR
-   ═════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .roundBar {
   display: flex;
   align-items: center;
@@ -199,7 +199,17 @@
 .progressTrack {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 0;
+}
+
+/* 44Ã—44 invisible tap zone â€” meets WCAG 2.5.5 touch target minimum */
+.progressDotWrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  cursor: default;
 }
 
 .progressDot {
@@ -208,7 +218,8 @@
   border-radius: var(--radius-full);
   border: 2px solid var(--border-subtle);
   background: transparent;
-  transition: all var(--transition-normal);
+  transition: background var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
+  flex-shrink: 0;
 }
 
 .progressDot.completed {
@@ -224,9 +235,9 @@
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
-/* ═════════════════════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    COCKPIT LAYOUT (existing, refined)
-   ═════════════════════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 .cockpit {
   display: flex;
   flex-direction: column;
@@ -257,45 +268,29 @@
   height: calc(100vh - 140px);
 }
 
-/* ── Action Bar ──────────────────────────────────────────────── */
+/* â”€â”€ Action Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .matrixTab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 10px 22px;
   background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.35);
   border-radius: var(--radius-md);
   color: var(--gauge-green);
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   font-weight: 700;
   text-align: center;
   cursor: pointer;
-  animation: pulse-border 2s infinite;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
-  transition: all 0.2s;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.08);
+  transition: background var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal), transform var(--transition-normal);
 }
 
 .matrixTab:hover {
-  background: rgba(16, 185, 129, 0.2);
-  transform: translateY(-2px);
-}
-
-@keyframes pulse-border {
-  0% {
-    border-color: rgba(16, 185, 129, 0.3);
-    box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
-  }
-
-  50% {
-    border-color: rgba(16, 185, 129, 0.8);
-    box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
-  }
-
-  100% {
-    border-color: rgba(16, 185, 129, 0.3);
-    box-shadow: 0 0 15px rgba(16, 185, 129, 0.1);
-  }
+  background: rgba(16, 185, 129, 0.18);
+  border-color: rgba(16, 185, 129, 0.6);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.2);
+  transform: translateY(-1px);
 }
 
 .actionBar {
@@ -316,7 +311,7 @@
   border: 1px solid rgba(239, 68, 68, 0.25);
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: background var(--transition-normal), border-color var(--transition-normal), box-shadow var(--transition-normal);
 }
 
 .crisisBtn:hover {
@@ -346,7 +341,7 @@
   border: none;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all var(--transition-normal);
+  transition: box-shadow var(--transition-normal), transform var(--transition-normal);
   position: relative;
   overflow: hidden;
 }
@@ -377,10 +372,11 @@
 }
 
 .commitBtn.loading {
-  animation: pulse-glow 1.5s ease-in-out infinite;
+  animation: pulse 1.5s ease-in-out infinite;
+  pointer-events: none;
 }
 
-/* ── Error Bar ───────────────────────────────────────────────── */
+/* â”€â”€ Error Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .errorBar {
   padding: var(--space-sm) var(--space-md);
   background: rgba(239, 68, 68, 0.08);
@@ -392,25 +388,21 @@
   animation: fadeInUp 0.3s ease-out;
 }
 
-/* ── Modals ────────────────────────────────────────────────── */
+/* â”€â”€ Modals â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .modalOverlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(4px);
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: var(--z-modal, 200);
 }
 
 .modalContent {
-  background: var(--bg-card, #1e293b);
-  border: 1px solid var(--border-subtle, #334155);
-  border-radius: var(--radius-lg, 0.75rem);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
   padding: 2rem;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   max-width: 90vw;
@@ -419,7 +411,7 @@
   position: relative;
 }
 
-/* ── Responsive ──────────────────────────────────────────────── */
+/* â”€â”€ Responsive â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 @media (max-width: 1024px) {
   .body {
     grid-template-columns: 1fr;
@@ -435,7 +427,5 @@
     gap: var(--space-sm);
   }
 
-  .lobbyFeatures {
-    grid-template-columns: 1fr;
-  }
+  /* .lobbyFeatures â€” removed: class never defined/used (dead code) */
 }

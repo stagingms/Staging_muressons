@@ -1,7 +1,7 @@
-/* ═══════════════════════════════════════════════════════════
+/* -----------------------------------------------------------
    StockPerformanceChart — Light-theme stock terminal card
    Clean white background, corporate blue line, gradient fill
-   ═══════════════════════════════════════════════════════════ */
+   ----------------------------------------------------------- */
 
 .container {
   flex: 0 0 auto;
@@ -11,10 +11,9 @@
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
   padding: 8px 10px 2px;
-  transition: all 0.3s ease;
+  transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
   overflow: hidden;
   max-height: 300px;
-  backdrop-filter: blur(8px);
 }
 
 .container:hover {
@@ -24,7 +23,7 @@
   background: rgba(255, 255, 255, 0.04);
 }
 
-/* ── Header Row ── */
+/* -- Header Row -- */
 .header {
   display: flex;
   align-items: center;
@@ -39,7 +38,7 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  color: #94a3b8;
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   gap: 5px;
@@ -56,7 +55,7 @@
   font-weight: 900;
   color: #f8fafc;
   font-variant-numeric: tabular-nums;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
   line-height: 1.2;
   text-shadow: 0 0 15px rgba(255,255,255,0.1);
 }
@@ -65,7 +64,7 @@
   font-size: 0.6rem;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  font-family: 'JetBrains Mono', monospace;
+  font-family: var(--font-mono);
 }
 
 .deltaUp {
@@ -73,10 +72,10 @@
 }
 
 .deltaDown {
-  color: #ef4444;
+  color: var(--gauge-red);
 }
 
-/* ── Range Selector Buttons ── */
+/* -- Range Selector Buttons -- */
 .rangeBar {
   display: flex;
   gap: 3px;
@@ -89,14 +88,14 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.04);
-  color: #94a3b8;
+  color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: 'DM Sans', sans-serif;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease;
+  font-family: var(--font-sans);
   text-align: center;
 }
 
@@ -113,27 +112,27 @@
   box-shadow: 0 0 12px rgba(0, 229, 195, 0.15);
 }
 
-/* ── Chart Area ── */
+/* -- Chart Area -- */
 .chartArea {
   width: 100%;
   height: 200px;
   min-width: 40px;
 }
 
-/* ── Recharts Tooltip Override ── */
+/* -- Recharts Tooltip Override -- */
 .tooltipContainer {
   background: #0f1524 !important;
   border: 1px solid rgba(37, 99, 235, 0.25) !important;
   border-radius: 8px !important;
   padding: 8px 12px !important;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
-  font-family: 'DM Sans', sans-serif;
+  font-family: var(--font-sans);
 }
 
 .tooltipLabel {
   font-size: 0.6rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   margin-bottom: 3px;
@@ -142,8 +141,8 @@
 .tooltipPrice {
   font-size: 0.85rem;
   font-weight: 800;
-  color: #60a5fa;
-  font-family: 'JetBrains Mono', monospace;
+  color: var(--accent-blue);
+  font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
 }
 

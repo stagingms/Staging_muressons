@@ -50,7 +50,7 @@ export default function DecisionTimeline({ sessionId, leaderboard = [] }) {
                                     color: selectedRound === i ? '#fff' : 'var(--text-primary)',
                                     fontWeight: 700, fontSize: '0.8rem', cursor: 'pointer',
                                     boxShadow: selectedRound === i ? '0 2px 8px rgba(59,130,246,0.4)' : 'inset 0 0 0 2px var(--border-subtle)',
-                                    transition: 'all 0.2s',
+                                    transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                 }}>R{r.round}</button>
                                 {i < timeline.length - 1 && (
                                     <div style={{ width: '20px', height: '2px', background: 'var(--border-subtle)' }} />

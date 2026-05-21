@@ -1,19 +1,23 @@
-/* ═══════════════════════════════════════════════════════════
-   PeerComparison — Cohort Leaderboard Modal
-   CSS Module replacement for inline styles.
-   ═══════════════════════════════════════════════════════════ */
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
+   PeerComparison â€” Cohort Leaderboard Modal
+   Fully tokenised â€” all colours via CSS variables so both
+   dark and light themes work without overrides.
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 12000;
-  background: rgba(10, 14, 26, 0.65);
-  backdrop-filter: blur(4px);
+  z-index: var(--z-overlay, 500);
+  background: rgba(10, 14, 26, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-sans);
   animation: overlayFadeIn 0.25s ease;
+}
+
+[data-theme="light"] .overlay {
+  background: rgba(15, 23, 42, 0.5);
 }
 
 @keyframes overlayFadeIn {
@@ -22,15 +26,15 @@
 }
 
 .card {
-  background: #0f1524;
-  border-radius: 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
   width: 90%;
   max-width: 640px;
   max-height: 80vh;
   overflow: auto;
-  padding: 1.5rem;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(45, 212, 191, 0.15);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-subtle);
   animation: cardSlideUp 0.3s ease;
 }
 
@@ -39,63 +43,63 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
-/* ── Round-1 Locked Gate ── */
+/* â”€â”€ Round-1 Locked Gate â”€â”€ */
 .lockedCard {
-  background: #0f1524;
-  border-radius: 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
   width: 90%;
   max-width: 480px;
-  padding: 2.5rem 2rem;
+  padding: var(--space-2xl) var(--space-xl);
   text-align: center;
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(148, 163, 184, 0.1);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--border-subtle);
   animation: cardSlideUp 0.3s ease;
 }
 
 .lockedIcon {
   font-size: 2.5rem;
-  margin-bottom: 0.8rem;
+  margin-bottom: var(--space-sm);
 }
 
 .lockedTitle {
-  margin: 0 0 0.5rem;
-  font-size: 1.1rem;
+  margin: 0 0 var(--space-xs);
+  font-size: var(--fs-lg);
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .lockedBadge {
   display: inline-block;
-  font-size: 0.6rem;
+  font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 3px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-full);
   background: rgba(245, 158, 11, 0.1);
   border: 1px solid rgba(245, 158, 11, 0.25);
-  color: #fbbf24;
-  margin-bottom: 1rem;
+  color: var(--accent-gold);
+  margin-bottom: var(--space-md);
 }
 
 .lockedBody {
-  font-size: 0.82rem;
-  color: #94a3b8;
+  font-size: var(--fs-sm);
+  color: var(--text-secondary);
   line-height: 1.6;
-  margin: 0 0 1.5rem;
+  margin: 0 0 var(--space-lg);
 }
 
 .gotItBtn {
   padding: 9px 28px;
-  border-radius: 8px;
-  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
   color: #fff;
   border: none;
   font-weight: 700;
-  font-size: 0.82rem;
+  font-size: var(--fs-sm);
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .gotItBtn:hover {
@@ -103,46 +107,48 @@
   box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
-/* ── Header ── */
+/* â”€â”€ Header â”€â”€ */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  margin-bottom: var(--space-md);
 }
 
 .title {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: var(--fs-lg);
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .closeBtn {
-  background: #1e293b;
-  border: none;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   cursor: pointer;
   font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #94a3b8;
+  color: var(--text-secondary);
   font-weight: 700;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--transition-fast), color var(--transition-fast),
+              border-color var(--transition-fast);
 }
 
 .closeBtn:hover {
-  background: #334155;
-  color: #f1f5f9;
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--border-active);
 }
 
 .subtitle {
-  font-size: 0.72rem;
-  color: #94a3b8;
-  margin: 0 0 1rem;
+  font-size: var(--fs-xs);
+  color: var(--text-secondary);
+  margin: 0 0 var(--space-md);
   line-height: 1.5;
 }
 
@@ -150,69 +156,85 @@
   display: block;
   margin-top: 4px;
   font-style: italic;
+  color: var(--text-muted);
 }
 
-/* ── Live Indicator ── */
+/* â”€â”€ Live Indicator â”€â”€ */
 .liveIndicator {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.6rem;
+  font-size: var(--fs-xs);
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: #4ade80;
+  color: var(--gauge-green);
   padding: 3px 10px;
-  border-radius: 12px;
-  background: rgba(74, 222, 128, 0.08);
-  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: var(--radius-full);
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
 .liveDot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #4ade80;
+  background: var(--gauge-green);
   animation: livePulse 2s ease-in-out infinite;
 }
 
 @keyframes livePulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.4); }
-  50%      { opacity: 0.6; box-shadow: 0 0 0 4px rgba(74, 222, 128, 0); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50%      { opacity: 0.6; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0); }
 }
 
-/* ── Loading ── */
+/* â”€â”€ Loading skeletons â”€â”€ */
 .loading {
-  text-align: center;
-  padding: 2rem;
-  color: #94a3b8;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+  padding: var(--space-md) 0;
 }
 
+.skeletonRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 6px 0;
+}
+
+/* â”€â”€ Empty state â”€â”€ */
 .emptyState {
   text-align: center;
-  padding: 2rem;
-  color: #94a3b8;
+  padding: var(--space-2xl) var(--space-xl);
+  color: var(--text-muted);
+  font-size: var(--fs-sm);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  margin: var(--space-sm) 0;
 }
 
-/* ── Table ── */
+/* â”€â”€ Table â”€â”€ */
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.73rem;
+  font-size: var(--fs-xs);
 }
 
 .tableHeader {
-  border-bottom: 2px solid #1e293b;
+  border-bottom: 2px solid var(--border-subtle);
 }
 
 .th {
-  padding: 8px 6px;
+  padding: var(--space-sm) 6px;
   text-align: left;
-  color: #64748b;
+  color: var(--text-muted);
   font-weight: 700;
-  font-size: 0.68rem;
+  font-size: var(--fs-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  cursor: default;
+  user-select: none;
 }
 
 .thRight {
@@ -225,23 +247,23 @@
   text-align: center;
 }
 
-/* ── Table Rows ── */
+/* â”€â”€ Table Rows â”€â”€ */
 .row {
-  border-bottom: 1px solid #1e293b;
-  transition: background 0.15s;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: background var(--transition-fast);
 }
 
 .row:hover {
-  background: rgba(45, 212, 191, 0.04);
+  background: var(--bg-elevated);
 }
 
 .rowYou {
   composes: row;
-  background: rgba(45, 212, 191, 0.08);
+  background: rgba(59, 130, 246, 0.06);
 }
 
 .rowYou:hover {
-  background: rgba(45, 212, 191, 0.12);
+  background: rgba(59, 130, 246, 0.1);
 }
 
 .td {
@@ -251,50 +273,51 @@
 .rankCell {
   composes: td;
   font-weight: 800;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .nameCell {
   composes: td;
   font-weight: 600;
-  color: #e2e8f0;
+  color: var(--text-primary);
 }
 
 .nameCellYou {
   composes: td;
   font-weight: 800;
-  color: #2dd4bf;
+  color: var(--accent-blue);
 }
 
 .youBadge {
-  font-size: 0.68rem;
-  background: #2dd4bf;
-  color: #0a0e1a;
-  padding: 1px 5px;
-  border-radius: 4px;
-  margin-left: 4px;
+  font-size: var(--fs-xs);
+  background: var(--accent-blue);
+  color: #fff;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  margin-left: 6px;
   font-weight: 800;
+  vertical-align: middle;
 }
 
 .treasuryCell {
   composes: td;
   text-align: right;
   font-weight: 600;
-  color: #16a34a;
+  color: var(--gauge-green);
 }
 
 .reputationCell {
   composes: td;
   text-align: right;
   font-weight: 600;
-  color: #f59e0b;
+  color: var(--accent-gold);
 }
 
 .co2Cell {
   composes: td;
   text-align: right;
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--text-secondary);
 }
 
 .bonusCell {
@@ -304,11 +327,11 @@
 }
 
 .bonusActive {
-  color: #059669;
+  color: var(--gauge-green);
 }
 
 .bonusInactive {
-  color: #64748b;
+  color: var(--text-muted);
 }
 
 .trendCell {
@@ -317,20 +340,20 @@
   font-size: 0.85rem;
 }
 
-.trendUp   { color: #16a34a; }
-.trendDown { color: #ef4444; }
-.trendFlat { color: #94a3b8; }
+.trendUp   { color: var(--gauge-green); }
+.trendDown { color: var(--gauge-red); }
+.trendFlat { color: var(--text-muted); }
 
-/* ── Reconnecting banner ── */
+/* â”€â”€ Reconnecting banner â”€â”€ */
 .reconnecting {
   padding: 6px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: rgba(245, 158, 11, 0.08);
   border: 1px solid rgba(245, 158, 11, 0.2);
-  font-size: 0.68rem;
-  color: #fbbf24;
+  font-size: var(--fs-xs);
+  color: var(--accent-gold);
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: var(--space-sm);
   animation: reconnectPulse 2s ease-in-out infinite;
 }
 

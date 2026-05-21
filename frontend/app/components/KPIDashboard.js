@@ -83,7 +83,7 @@ export default function KPIDashboard({
               fontSize: '0.65rem', fontWeight: 800,
               cursor: 'pointer',
               boxShadow: activeTab === tab.id ? '0 0 12px rgba(0, 229, 195, 0.2)' : 'none',
-              transition: 'all 0.2s',
+              transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
               letterSpacing: '0.05em',
               textTransform: 'uppercase',
             }}

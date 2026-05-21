@@ -45,15 +45,29 @@ ROLE_ALLOWED_TABS = {
 
 
 def get_role(fac: dict) -> str:
-    """Get the role for a facilitator, with backward-compat migration from is_admin."""
-    if "role" in fac:
-        return fac["role"]
+    """Get the role for a facilitator, resolving conflicts to the highest role."""
+    role_val = fac.get("role")
+    
+    # Handle multiple roles if present
+    if isinstance(role_val, list):
+        roles = role_val
+    elif isinstance(role_val, str) and "," in role_val:
+        roles = [r.strip() for r in role_val.split(",")]
+    elif isinstance(role_val, str):
+        return role_val
+    else:
+        roles = []
+        
+    if roles:
+        # Sort roles by hierarchy (highest first) and return the top operative role
+        sorted_roles = sorted(roles, key=lambda r: ROLE_HIERARCHY.get(r, 0), reverse=True)
+        return sorted_roles[0]
+        
     # Backward compatibility: migrate from is_admin boolean
     if fac.get("is_admin"):
         return "super_admin"
     return "facilitator"
-
-
+    
 def has_role_level(fac: dict, required_role: str) -> bool:
     """Check if facilitator has at least the required role level."""
     fac_role = get_role(fac)
@@ -153,12 +167,18 @@ _FAC_REGISTRY_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "db", "facilitator_registry.json"
 )
 
+def _generate_emergency_password() -> str:
+    """Generate a random 12-char alphanumeric password for the emergency fallback account."""
+    import secrets, string
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(12))
+
 _DEFAULT_FACILITATOR = {
-    "facilitator_id": "Jose",
-    "name": "Jose",
-    "password": "123",
+    "facilitator_id": "FAC-EMERGENCY",
+    "name": "Emergency Admin",
+    "password": _generate_emergency_password(),  # Random — shown once at startup in logs
     "created_at": "2026-01-01T00:00:00+00:00",
-    "max_cohorts": 5,
+    "max_cohorts": 99,
     "cohorts_created": 0,
     "role": "super_admin",
     "is_admin": True,  # backward compat — role is authoritative
@@ -175,10 +195,27 @@ def _load_facilitator_registry() -> list[dict]:
                 data = json.load(f)
             if data:
                 data = _migrate_facilitator_roles(data)
+                # Deduplicate by facilitator_id, keeping first occurrence
+                seen: set = set()
+                deduped = []
+                for fac in data:
+                    fid = fac.get("facilitator_id")
+                    if fid and fid not in seen:
+                        seen.add(fid)
+                        deduped.append(fac)
+                data = deduped
                 print(f"[persistence] Restored {len(data)} facilitator(s) from registry.")
                 return data
     except Exception as e:
         print(f"[persistence] Failed to load facilitator registry: {e}")
+    # Emergency fallback — log credentials to server console so admin can recover
+    print(
+        f"[EMERGENCY] Registry unavailable. Fallback account active:\n"
+        f"  ID: {_DEFAULT_FACILITATOR['facilitator_id']}\n"
+        f"  Password: {_DEFAULT_FACILITATOR['password']}\n"
+        f"  Role: {_DEFAULT_FACILITATOR['role']}\n"
+        f"  NOTE: Restore db/facilitator_registry.json to recover normal access."
+    )
     return [{**_DEFAULT_FACILITATOR}]
 
 
@@ -212,6 +249,7 @@ _next_player_id: int = 1
 
 _session_messages = {}
 _session_interventions = {}
+_session_journey_responses: dict[str, dict] = {}  # {session_id: {key: data}}
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -290,6 +328,8 @@ def check_and_increment_cohort_count(facilitator_id: str) -> bool:
             return False
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
     if not fac:
+        return True
+    if fac.get("deleted_at"):
         return True
     if not fac.get("enabled", True):
         return False

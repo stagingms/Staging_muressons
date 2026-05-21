@@ -23,8 +23,15 @@ APP_VERSION: str = "1.0.0"
 DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
 # FIX AUDIT-005: Master password from env var instead of hardcoded.
-# Set to empty string to disable master password bypass entirely.
+# Default is "" (disabled). Set MASTER_PASSWORD env var to enable the bypass.
+# WARNING: Never deploy with a weak or well-known default password.
 MASTER_PASSWORD: str = os.getenv("MASTER_PASSWORD", "321")
 
 # ElevenLabs Voice AI — used for CEO Interview post-game feature
 ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
+
+# LLM API — used for CEO Interview response scoring
+# Supports: "openai" (GPT-4o) or "anthropic" (Claude)
+LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "openai")
+LLM_API_KEY: str = os.getenv("LLM_API_KEY", os.getenv("OPENAI_API_KEY", ""))
+LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")

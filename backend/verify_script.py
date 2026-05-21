@@ -1,5 +1,7 @@
 import sys
 import asyncio
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 from fastapi.testclient import TestClient
 
 # Must import from current dir

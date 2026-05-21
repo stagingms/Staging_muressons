@@ -8,8 +8,9 @@ import { fmtM } from '../utils/formatCurrency';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 /**
- * LeaderboardMatrix — God Mode cohort leaderboard.
- * Columns: Terminal Value, Total Cash, Synergy, Risk Heatmap, Talent Flight Risk
+ * LeaderboardMatrix — God Mode cohort leaderboard with individual player scores.
+ * Columns: Terminal Value, Total Cash, Synergy, Risk Heatmap, Talent Flight Risk,
+ *          Stakeholder Map %, Materiality %, Learning Bonus
  *
  * Props:
  *  - leaderboard: array of session metrics from GET /api/admin/leaderboard
@@ -27,7 +28,7 @@ export default function LeaderboardMatrix({
 
     // Fetch practice mode status for all top-level cohorts
     const fetchPracticeStates = useCallback(async () => {
-        const cohorts = leaderboard.filter(s => !s.player_id);
+        const cohorts = leaderboard.filter(s => !s.player_id && !s.parent_cohort_id);
         const states = {};
         for (const cohort of cohorts) {
             try {
@@ -66,6 +67,30 @@ export default function LeaderboardMatrix({
         return styles.riskLow;
     };
 
+    // Count cohorts and players separately
+    const cohortCount = leaderboard.filter(s => !s.parent_cohort_id).length;
+    const playerCount = leaderboard.filter(s => !!s.parent_cohort_id).length;
+    const totalCount = leaderboard.length;
+
+    // Score badge helper
+    const scoreBadge = (value, maxVal, unit = '%') => {
+        if (!value && value !== 0) return <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>;
+        const pct = maxVal ? (value / maxVal) * 100 : value;
+        let bg, color;
+        if (pct >= 80) { bg = 'rgba(16, 185, 129, 0.12)'; color = '#10b981'; }
+        else if (pct >= 60) { bg = 'rgba(245, 158, 11, 0.12)'; color = '#f59e0b'; }
+        else if (pct > 0) { bg = 'rgba(239, 68, 68, 0.12)'; color = '#ef4444'; }
+        else { return <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>; }
+        return (
+            <span style={{
+                fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.5rem',
+                borderRadius: '4px', background: bg, color, fontFamily: 'var(--font-mono)',
+                border: `1px solid ${color}22`,
+            }}>
+                {typeof value === 'number' ? value.toFixed(0) : value}{unit}
+            </span>
+        );
+    };
 
 
     return (
@@ -74,7 +99,10 @@ export default function LeaderboardMatrix({
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <span className={styles.icon}>🏆</span>
                     <h2>Player Leaderboard</h2>
-                    <span className={styles.count}>{leaderboard.length} players</span>
+                    <span className={styles.count}>
+                        {cohortCount} cohort{cohortCount !== 1 ? 's' : ''}
+                        {playerCount > 0 && ` · ${playerCount} player${playerCount !== 1 ? 's' : ''}`}
+                    </span>
                 </div>
             </div>
 
@@ -91,6 +119,9 @@ export default function LeaderboardMatrix({
                             <th>Synergy</th>
                             <th title="Reputation — public perception score">Reputation</th>
                             <th title="Bonus points from quizzes & learning">Bonus</th>
+                            <th className={styles.heatCol} title="Stakeholder Map accuracy %">Stakeholder</th>
+                            <th className={styles.heatCol} title="CSRD Materiality accuracy %">Materiality</th>
+                            <th className={styles.heatCol} title="Learning activities completed (podcasts + quizzes)">Learning</th>
                             <th className={styles.heatCol}><Abbr term="NCD">NCD Risk</Abbr></th>
                             <th className={styles.heatCol}><Abbr term="SL">Social License</Abbr></th>
                             <th>Talent Risk</th>
@@ -101,27 +132,52 @@ export default function LeaderboardMatrix({
                     </thead>
                     <tbody>
                         {leaderboard.map((sess, i) => {
-                            const isCohort = !sess.player_id;
+                            const isCohort = !sess.parent_cohort_id;
+                            const isPlayer = !!sess.parent_cohort_id;
                             const isPractice = practiceStates[sess.session_id];
                             const isLoading = loadingPractice[sess.session_id];
+
+                            // Compute rank only among the same level
+                            const rank = i + 1;
 
                             return (
                                 <tr
                                     key={sess.session_id}
-                                    className={`${styles.row} ${sess.session_id === selectedSession ? styles.selectedRow : ''}`}
+                                    className={`${styles.row} ${sess.session_id === selectedSession ? styles.selectedRow : ''} ${isPlayer ? styles.playerRow : ''}`}
                                     onClick={() => onSelectSession?.(sess.session_id)}
                                     style={{ animationDelay: `${i * 50}ms` }}
                                 >
                                     <td className={styles.rank}>
-                                        <span className={i === 0 ? styles.gold : i === 1 ? styles.silver : i === 2 ? styles.bronze : ''}>
-                                            {i + 1}
-                                        </span>
+                                        {isCohort ? (
+                                            <span className={i === 0 ? styles.gold : i === 1 ? styles.silver : i === 2 ? styles.bronze : ''}>
+                                                {rank}
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>└</span>
+                                        )}
                                     </td>
                                     <td className={styles.cohortName}>
-                                        {isPractice && <span title="Practice Mode Active" style={{ marginRight: '4px' }}>🎓</span>}
-                                        {sess.cohort_name}
+                                        {isCohort && isPractice && <span title="Practice Mode Active" style={{ marginRight: '4px' }}>🎓</span>}
+                                        {isPlayer ? (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', paddingLeft: '8px' }}>
+                                                {sess.cohort_name}
+                                            </span>
+                                        ) : (
+                                            sess.cohort_name
+                                        )}
                                     </td>
-                                    <td className={styles.mono}>{sess.player_id || '–'}</td>
+                                    <td className={styles.mono}>
+                                        {sess.player_id ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                                                <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{sess.player_id}</span>
+                                                {sess.player_name && (
+                                                    <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', fontFamily: 'inherit' }}>
+                                                        {sess.player_name}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        ) : '–'}
+                                    </td>
                                     <td className={styles.mono}>{sess.round_number}/10</td>
                                     <td className={styles.mono}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -156,6 +212,38 @@ export default function LeaderboardMatrix({
                                     </td>
                                     <td className={styles.mono} style={{ color: sess.bonus_score > 0 ? '#059669' : '#94a3b8' }}>
                                         {sess.bonus_score > 0 ? `🏅 ${(sess.bonus_score || 0).toLocaleString()}` : '–'}
+                                    </td>
+                                    {/* Individual Player Scores */}
+                                    <td style={{ textAlign: 'center' }}>
+                                        {sess.stakeholder_map_completed
+                                            ? scoreBadge(sess.stakeholder_map_accuracy, 100)
+                                            : <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                        }
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {sess.csrd_completed
+                                            ? scoreBadge(sess.materiality_accuracy, 100)
+                                            : <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                        }
+                                    </td>
+                                    <td style={{ textAlign: 'center' }}>
+                                        {sess.learning_bonus_count > 0 ? (
+                                            <span style={{
+                                                fontSize: '0.72rem', fontWeight: 700, padding: '0.15rem 0.5rem',
+                                                borderRadius: '4px',
+                                                background: 'rgba(99, 102, 241, 0.12)',
+                                                color: '#6366f1',
+                                                fontFamily: 'var(--font-mono)',
+                                                border: '1px solid rgba(99, 102, 241, 0.2)',
+                                            }}>
+                                                📚 {sess.learning_bonus_count}
+                                                <span style={{ fontSize: '0.6rem', opacity: 0.7, marginLeft: '3px' }}>
+                                                    (+{sess.learning_bonus_total.toLocaleString()})
+                                                </span>
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
+                                        )}
                                     </td>
                                     <td>
                                         <div className={`${styles.heatCell} ${riskColor(sess.avg_natural_capital_debt)}`}>
@@ -259,7 +347,7 @@ export default function LeaderboardMatrix({
                         })}
                         {leaderboard.length === 0 && (
                             <tr>
-                                <td colSpan={15} className={styles.empty}>
+                                <td colSpan={18} className={styles.empty}>
                                     No active sessions. Start a simulation to see the leaderboard.
                                 </td>
                             </tr>

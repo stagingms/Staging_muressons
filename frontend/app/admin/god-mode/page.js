@@ -83,12 +83,13 @@ function GodModeLoginGate({ onLogin }) {
 
     return (
         <div style={{
-            minHeight: '100vh',
+            height: '100vh',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             background: 'var(--bg-body)',
             padding: '2rem',
+            overflow: 'hidden',
         }}>
             <div style={{
                 background: 'var(--bg-card)',
@@ -210,7 +211,7 @@ function GodModeLoginGate({ onLogin }) {
                             fontWeight: 700,
                             cursor: 'pointer',
                             opacity: loading ? 0.7 : 1,
-                            transition: 'all 0.2s',
+                            transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                             boxShadow: '0 4px 16px rgba(245, 158, 11, 0.3)',
                         }}
                     >
@@ -488,14 +489,16 @@ function GodModeDashboard({ authData, onLogout }) {
     const [selectedSession, setSelectedSession] = useState(null);
 
     useEffect(() => {
-        const fetchLb = () => fetch(`${API}/api/admin/leaderboard`)
+        const fetchLb = () => fetch(`${API}/api/admin/leaderboard`, {
+            headers: { 'x-facilitator-id': authData?.facilitator_id }
+        })
             .then(r => r.ok ? r.json() : null)
             .then(d => d?.leaderboard && setLeaderboard(d.leaderboard))
             .catch(() => {});
         fetchLb();
         const t = setInterval(fetchLb, 30000);
         return () => clearInterval(t);
-    }, []);
+    }, [authData]);
 
     const toggleCategory = (catId) => {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
@@ -554,11 +557,11 @@ function GodModeDashboard({ authData, onLogout }) {
             case 'facilitator_registry':
                 return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />;
             case 'cohort_provisioning':
-                return <SimulationManager fetchInternal={true} leaderboard={leaderboard} />;
+                return <SimulationManager fetchInternal={false} leaderboard={leaderboard} />;
             case 'cohort_orchestration':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <SimulationManager fetchInternal={true} leaderboard={leaderboard} />
+                        <SimulationManager fetchInternal={false} leaderboard={leaderboard} />
                         <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />
                     </div>
                 );
@@ -610,18 +613,13 @@ function GodModeDashboard({ authData, onLogout }) {
                                 </select>
                             </div>
                         )}
-                        <RegulatorySandboxControl sessionId={selectedSession} />
+                        <RegulatorySandboxControl sessionId={selectedSession} isGodMode={true} />
                     </div>
                 );
             }
                 
             case 'resources':
-                return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <ResourceManager />
-                        <GlossaryManager />
-                    </div>
-                );
+                return <ResourceManager />;
             case 'glossary_editor':
                 return <GlossaryManager />;
             case 'doc_reference':
@@ -688,6 +686,15 @@ function GodModeDashboard({ authData, onLogout }) {
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>
                 <div className={styles.sidebarHeader}>
+                    <div style={{
+                        fontSize: '0.72rem',
+                        fontWeight: 800,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.18em',
+                        color: '#f59e0b',
+                        marginBottom: '0.3rem',
+                        textShadow: '0 0 12px rgba(245,158,11,0.25)',
+                    }}>MURESSONS GLOBAL</div>
                     <h1>👑 God Mode</h1>
                     <div className={styles.godBadge}>Global Corporation</div>
                     {authData && (
@@ -718,7 +725,7 @@ function GodModeDashboard({ authData, onLogout }) {
                                         padding: '3px 8px',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}
                                     title="Change password"
                                 >
@@ -735,7 +742,7 @@ function GodModeDashboard({ authData, onLogout }) {
                                         padding: '3px 8px',
                                         borderRadius: '4px',
                                         cursor: 'pointer',
-                                        transition: 'all 0.2s',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}
                                     title="Sign out"
                                 >
@@ -953,7 +960,7 @@ function DangerZonePanel({ apiBase }) {
                     <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading cohorts...</div>
                 ) : (
                     <>
-                        <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '6px', marginBottom: '1rem', background: '#fff' }}>
+                        <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '6px', marginBottom: '1rem', background: 'var(--bg-card)' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                                 <thead>
                                     <tr style={{ background: 'var(--bg-body)', textAlign: 'left', borderBottom: '1px solid var(--border-subtle)' }}>
@@ -1070,7 +1077,7 @@ function DangerZonePanel({ apiBase }) {
                             background: resetPhrase === REQUIRED_PHRASE ? '#ef4444' : 'rgba(239,68,68,0.15)',
                             color: resetPhrase === REQUIRED_PHRASE ? '#fff' : 'rgba(239,68,68,0.4)',
                             fontWeight: 700, fontSize: '0.88rem', cursor: resetPhrase === REQUIRED_PHRASE ? 'pointer' : 'not-allowed',
-                            transition: 'all 0.2s',
+                            transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                             boxShadow: resetPhrase === REQUIRED_PHRASE ? '0 4px 12px rgba(239,68,68,0.3)' : 'none',
                         }}
                     >

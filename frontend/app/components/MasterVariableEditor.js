@@ -22,24 +22,29 @@ const SCOPE_COLORS = {
 };
 
 // ─── Variable definitions ──────────────────────────────────────────────────
-// Each variable: { key, formKey?, scope, boundary, logic, editable }
+// Each variable: { key, formKey?, scope, boundary, logic, editable, tooltip }
 const SECTIONS = [
     {
         id: 'economic',
         vars: [
             { key: 'corporate_treasury',  formKey: 'corporate_treasury_start',  scope: 'Global', boundary: '[-$500M, +∞]', editable: true,  step: 1000000,
+              tooltip: 'The group\'s master cash pool. All CapEx, dividends, and loan repayments are drawn from this balance. If it goes negative, cost_of_capital interest compounds automatically each round — creating a debt spiral that is very difficult to escape. Clamped at -$500M to prevent infinite insolvency.',
               logic: 'Master cash pool. If < 0, mathematically attracts |abs(treasury) × cost_of_capital| interest. Clamped rigidly at -$500,000,000 to halt infinite Javascript insolvency limits.',
               refs: ['cost_of_capital'] },
             { key: 'cost_of_capital',     formKey: 'cost_of_capital_start',     scope: 'Global', boundary: '[0.05, 1.0]', editable: true, step: 0.01,
+              tooltip: 'The interest rate charged on negative treasury balances. Starts at 5% but permanently spikes by +1.5% per round if any BU has carbon_intensity > 120 (Stranded Asset penalty). This creates a compounding financial penalty for ignoring environmental risk — a key pedagogical lever.',
               logic: 'Interest rate applied dynamically to negative treasury balances. Spikes permanently by +0.015 (1.5%) round-over-round if any single BU holds a carbon_intensity > 120.',
               refs: ['carbon_intensity'] },
             { key: 'loan_interest_rate',  formKey: 'loan_interest_rate_start',  scope: 'Global', boundary: '[0.0, 1.0]', editable: true, step: 0.01,
+              tooltip: 'Emergency loan rate triggered when total CapEx requests across all 4 BUs exceed 20% of the treasury in a single round. This models the real-world cost of overleveraging — students learn capital allocation discipline when this penalty fires unexpectedly.',
               logic: 'Instantaneous loan rate charged if total_capex_requested across all 4 BUs exceeds base_treasury × 0.20 within a single round.',
               refs: ['corporate_treasury'] },
             { key: 'dividends_paid',      formKey: null,                         scope: 'Global', boundary: '[0.0, treasury]', editable: false, defaultDisplay: '0.0',
+              tooltip: 'Player-selected dividend payout. Capped by the UI to never exceed the current treasury. High dividends boost Terminal Valuation but drain capital reserves — forcing a trade-off between short-term shareholder returns and long-term resilience.',
               logic: 'Selected explicitly by the player. Mathematically capped by the UI to never physically exceed the base_treasury balance.',
               refs: ['corporate_treasury'] },
             { key: 'historical_ebitda',   formKey: null,                         scope: 'Global', boundary: '[0.0, +∞]', editable: false, defaultDisplay: 'Derived',
+              tooltip: 'Group-level gross profit proxy: sum of (revenue − opex) across all BUs each tick. This is the financial "health signal" that drives Terminal Valuation, CAROIC calculations, and Balanced Scorecard financial scores. Not directly editable — derived from BU performance.',
               logic: 'Group-level gross profit proxy calculated each tick: Σ(revenue_base − opex_base) across all BUs.',
               formula: 'Σ(revenue_base − opex_base)', refs: ['revenue_base', 'opex_base'] },
         ],
@@ -48,15 +53,19 @@ const SECTIONS = [
         id: 'reputation',
         vars: [
             { key: 'group_reputation',    formKey: 'group_reputation_start',    scope: 'Global', boundary: '[0.0, 100.0]', editable: true, step: 1,
+              tooltip: 'The group\'s master resilience stat (0–100). High reputation suppresses crisis contagion damage; low reputation amplifies it. Hard-drops by −20 if AI Bias is exploited in R6. Feeds into talent_penalty for the Software BU and influences strike probability in R9. The single most important intangible variable.',
               logic: 'Master resilience stat. Suppresses structural damage inside calc_contagion() when crisis_severity initiates. Hard-drops −20 if AI Bias (R6) is exploited.',
               refs: ['crisis_severity'] },
             { key: 'crisis_severity',     formKey: null,                         scope: 'Global (Tick)', boundary: '[0.0, 100.0]', editable: false, defaultDisplay: '0.0 – 50.0',
+              tooltip: 'The raw damage incoming from each round\'s narrative event. This value is modulated by group_reputation through the contagion formula: actual_damage = severity × (1.0 − reputation/100). Higher reputation acts as armor. This is read-only — driven entirely by the simulation engine\'s event system.',
               logic: 'Base reputational or structural damage incoming from a round\'s narrative event.',
               formula: 'Contagion = severity × (1.0 − group_reputation/100)', refs: ['group_reputation'] },
             { key: 'synergy_multiplier',  formKey: 'synergy_multiplier_start',  scope: 'Global', boundary: '[1.0, 1.35×]', editable: true, step: 0.1,
+              tooltip: 'Lowers global OPEX across all BUs via the calc_synergy_opex formula. Option C in Round 7 (VRIO Restructuring) unlocks a massive +0.35 boost, heavily boosting profitability. But beware — the imitation_decay_rate erodes this advantage by 5% every round, simulating competitor catch-up.',
               logic: 'Lowers global OPEX through the calc_synergy_opex formula. Option C in R7 unlocks a massive +0.35 multiplier, heavily boosting profitability.',
               refs: ['opex_base'] },
             { key: 'imitation_decay_rate', formKey: null, scope: 'Universal', boundary: '[0.0, 1.0]', editable: false, defaultDisplay: '0.05 (engine constant)', step: 0.01,
+              tooltip: 'The "VRIO Advantage Bleed" — a hardcoded engine constant that decays synergy_multiplier by 5% every round. This teaches students that competitive advantages are temporary and require continuous investment. Not adjustable via admin UI by design — it represents an immutable market force.',
               logic: 'The "VRIO Advantage Bleed." Mathematically decays the synergy_multiplier passively by 5% every turn to simulate competitors catching up. This is a hardcoded engine constant — not adjustable via the admin UI.',
               refs: ['synergy_multiplier'] },
         ],
@@ -65,18 +74,23 @@ const SECTIONS = [
         id: 'climate',
         vars: [
             { key: 'market_hostility_index', formKey: 'market_hostility_index', scope: 'Global', boundary: '[1.0, 5.0]', editable: true, step: 1,
+              tooltip: 'Abstract hostility scalar (1–5) that amplifies Natural Capital Debt OPEX penalties in Advanced Climate mode. Formula: bu_opex += NCD × 50,000 × hostility. Doubles permanently if Tipping Point triggers. Setting this to 5 creates an extremely punishing climate scenario — useful for advanced cohorts.',
               logic: 'Abstract scalar. In Advanced Climate mode, determines Toxic NCD OPEX penalties: NCD × 50,000 × hostility. Multiplies by 2 if Tipping Point triggers.',
               formula: 'NCD × 50,000 × hostility', refs: ['natural_capital_debt'] },
             { key: 'tipping_point_active', formKey: null,                        scope: 'Global Toggle', boundary: 'True/False', editable: false, defaultDisplay: 'False',
+              tooltip: 'An irreversible planetary boundary flag. Triggered in Round ≥ 5 if avg(carbon_intensity) > 100 across all BUs. Once active, it permanently doubles market_hostility_index — there is no way to undo it. Teaches the concept of non-linear, irreversible environmental thresholds.',
               logic: 'Triggered irreversibly in Round ≥ 5 if the group\'s avg(carbon_intensity) > 100. Permanently doubles the market_hostility_index.',
               refs: ['carbon_intensity', 'market_hostility_index'] },
             { key: 'green_transition_fund', formKey: 'green_transition_fund_start', scope: 'Global', boundary: '[0, +∞]', editable: true, step: 1000000,
+              tooltip: 'Internal green finance pool that accrues via carbon taxation each round (green_fund += tCO₂e × carbon_fee_per_ton). Can offset systemic CapEx in Rounds 7–9. Starting this higher gives students more climate investment headroom; starting at 0 forces them to build the fund organically.',
               logic: 'Accrues via internal taxation. Every round: green_fund += tco2e_emissions × carbon_fee_per_ton. Can explicitly offset R7, R8, R9 systemic CapEx requirements.',
               formula: 'green_fund += tCO₂e × carbon_fee', refs: ['carbon_fee_per_ton'] },
             { key: 'carbon_fee_per_ton',  formKey: 'global_carbon_fee',          scope: 'Global', boundary: '[0, 1000]', editable: true, step: 10,
+              tooltip: 'Internal carbon price ($/tCO₂e) that feeds the Green Transition Fund each round. Auto-spikes to $250 at R10 Terminal Valuation. Higher values accelerate fund accumulation but reduce short-term cash. Mirrors real-world internal carbon pricing mechanisms used by companies like Microsoft and Unilever.',
               logic: 'Internal tax rate parameter. Spikes to $250 automatically at R10 (Year 5) Terminal Valuation calculation.',
               refs: ['green_transition_fund'] },
             { key: 'resilience_factor',   formKey: null,                         scope: 'Event Toggle', boundary: '[0.0, 1.0]', editable: false, defaultDisplay: '0.0',
+              tooltip: 'Infrastructure resilience value (typically 0.85) stored in pending_capex_projects. Activates after R5 Hard-Engineering CapEx completes its 2-round delay, then mitigates stochastic cyclone damage by 85%. Teaches delayed gratification vs. immediate but partial solutions.',
               logic: 'Stored in the pending_capex_projects array. When R5 Hard-Engineering completes after a 2-round delay, it is extracted as active_resilience_factor (usually 0.85) mitigating stochastic cyclone damage.',
               refs: [] },
         ],
@@ -85,32 +99,41 @@ const SECTIONS = [
         id: 'bu_metrics',
         vars: [
             { key: 'natural_capital_debt', formKey: null, scope: 'BU Level', boundary: '[0, 1,000,000]', editable: false, defaultDisplay: 'Phar: 10, Elec: 25, Other: 0',
+              tooltip: 'Per-BU environmental debt that accrues interest at cost_of_capital rate. In Advanced Climate mode, directly penalizes OPEX: bu_opex += (NCD × 50,000 × hostility) / 1,000,000. Electronics starts highest at 25 — reflecting real-world e-waste and rare earth mining impacts.',
               logic: 'Accrues cost_of_capital simple interest. Penalizes OPEX in Advanced Climate: bu_opex += (NCD × 50,000 × hostility) / 1,000,000.',
               formula: 'bu_opex += (NCD × 50k × hostility) / 1M', refs: ['cost_of_capital', 'market_hostility_index'] },
             { key: 'carbon_intensity', formKey: null, scope: 'BU Level', boundary: '[0, +∞]', editable: false, defaultDisplay: 'Phar: 45 · Elec: 72 · Cons: 38 · Soft: 28',
+              tooltip: 'Tracks each BU\'s fossil fuel reliance. Two critical thresholds: any BU > 120 triggers the Stranded Asset penalty (+1.5% permanent CoC increase), and group avg > 100 triggers the irreversible Tipping Point. Electronics (72) is the most at-risk BU. Reduced by green CapEx investments.',
               logic: 'Tracks fossil fuel reliance. > 120 = Stranded Asset (+1.5% CoC debt multiplier). Avg > 100 = Tipping Point.',
               refs: ['cost_of_capital'] },
             { key: 'social_license_score', formKey: null, scope: 'BU Level', boundary: '[0.0, 100.0]', editable: false, defaultDisplay: 'Soft: 60 · Phar: 55 · Other: ~50',
+              tooltip: 'Community trust metric per BU (0–100). Critical threshold: if avg(SL) < 50 in Round 9, strike probability overrides to 75%, potentially zeroing out all BU revenue for that round. Improved by social investment CapEx and ethical decision-making across rounds.',
               logic: 'Local community trust. Determines Strike Probability in R9: p = calc_strike_probability(base_risk, SL). If avg(SL) < 50 in R9, probability overrides to 75% for revenue zeroization.',
               formula: 'p(strike) = f(gov_risk, SL)', refs: ['governance_risk_score'] },
             { key: 'governance_risk_score', formKey: null, scope: 'BU Level', boundary: '[0.0, 100.0]', editable: false, defaultDisplay: 'Elec: 20 · Phar: 15 · Other: ≤10',
+              tooltip: 'Per-BU governance weakness indicator. Spikes by +10 from R3 Supply Chain disruptions. Acts as the base_risk multiplier in the strike probability formula, and informs the VRIO organization assessment. Electronics and Pharmaceuticals carry inherently higher governance risk.',
               logic: 'Spikes heavily (+10) via Supply Chain disruptions in R3. Acts as the base_risk multiplier for strikes, and informs the VRIO organization vector.',
               refs: ['social_license_score'] },
             { key: 'revenue_base', formKey: null, scope: 'BU Level', boundary: '[0, +∞]', editable: false, defaultDisplay: '$8M – $18M',
+              tooltip: 'Top-line revenue per BU per round. Ranges from $8M (Consumer Goods) to $18M (Software). Can be completely zeroed out by labour union strikes in R9 — one of the simulation\'s most dramatic consequences. Feeds directly into historical_ebitda and Terminal Valuation.',
               logic: 'Top-line revenue per BU unit. Mathematically zeroed out ($0) entirely by labour union strikes in R9.',
               refs: [] },
             { key: 'opex_base', formKey: null, scope: 'BU Level', boundary: '[0, +∞]', editable: false, defaultDisplay: '$4M – $11M',
+              tooltip: 'Operating expenses per BU. Reduced by synergy_multiplier (VRIO advantage) and increased by NCD penalties in Advanced Climate mode. The gap between revenue_base and opex_base determines EBITDA contribution. Managing this spread is the core financial optimization challenge.',
               logic: 'Operating expenses per BU. Drops through synergy_multiplier and spikes via NCD penalties.',
               refs: ['synergy_multiplier', 'natural_capital_debt'] },
             { key: 'water_dependency', formKey: null, scope: 'BU Level', boundary: '[0, 100]', editable: false, defaultDisplay: 'Phar: 82 · Elec: 58 · Cons: 65 · Soft: 12',
+              tooltip: 'Water stress exposure index per BU. Pharmaceuticals (82) is most vulnerable. Modified by R8 decisions: Desalination (−40, delayed 2 rounds) or Water Efficiency (−20, immediate). High values increase damage from the Round 8 Blue Stress crisis event.',
               logic: 'Modified by R8 Desalination (−40, delayed 2 rounds) or Water Efficiency (−20, immediate). High values increase exposure to Round 8 Blue Stress crisis.',
               refs: [] },
             { key: 'talent_penalty', formKey: null, scope: 'BU (Software)', boundary: '[0, opex]', editable: false, defaultDisplay: '$0',
+              tooltip: 'Software BU exclusive: models Brain-Drain overhead that escalates exponentially as group_reputation drops. Represents the real-world phenomenon of top talent leaving ethically-compromised organizations. The only BU-specific penalty that directly links reputation to financial performance.',
               logic: 'Exclusive to the Software BU. Emulates Brain-Drain by adding overhead. Derived exponentially against dropping group_reputation.',
               refs: ['group_reputation'] },
         ],
     },
 ];
+
 
 // ─── Human label from snake_case ─────────────────────────────────────────
 function humanize(key) {
@@ -140,13 +163,16 @@ function VariableCard({ v, formValue, onChangeForm, sectionColor }) {
             <div style={{ padding: '16px 18px 14px' }}>
                 {/* Row 1: Variable name + scope + boundary */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', flexWrap: 'wrap' }}>
-                    {/* Variable name */}
-                    <code style={{
-                        fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono,monospace)',
-                        color: sectionColor, background: `${sectionColor}12`,
-                        padding: '3px 9px', borderRadius: '5px', border: `1px solid ${sectionColor}30`,
-                        letterSpacing: '0.02em',
-                    }}>
+                    {/* Variable name — tooltip trigger */}
+                    <code
+                        data-tooltip={v.tooltip || v.logic}
+                        data-tooltip-pos="below"
+                        style={{
+                            fontSize: '0.78rem', fontWeight: 700, fontFamily: 'var(--font-mono,monospace)',
+                            color: sectionColor, background: `${sectionColor}12`,
+                            padding: '3px 9px', borderRadius: '5px', border: `1px solid ${sectionColor}30`,
+                            letterSpacing: '0.02em', cursor: 'help',
+                        }}>
                         {v.key}
                     </code>
 
@@ -516,7 +542,7 @@ export default function MasterVariableEditor() {
                         background: hasChanges ? 'linear-gradient(135deg, #6366f1, #8b5cf6)' : 'rgba(255,255,255,0.06)',
                         color: hasChanges ? '#fff' : 'var(--text-muted,#64748b)',
                         fontWeight: 700, fontSize: '0.82rem', cursor: hasChanges ? 'pointer' : 'default',
-                        transition: 'all 0.2s',
+                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                         boxShadow: hasChanges ? '0 4px 16px rgba(99,102,241,0.35)' : 'none',
                         opacity: saving ? 0.7 : 1, whiteSpace: 'nowrap',
                     }}

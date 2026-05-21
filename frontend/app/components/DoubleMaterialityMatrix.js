@@ -734,7 +734,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         background: horizonFilter === val ? `${color}22` : 'transparent',
                                         color: horizonFilter === val ? color : '#64748b',
                                         fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
-                                        transition: 'all 0.15s',
+                                        transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                     }}>{label}</button>
                             ))}
                             {horizonFilter !== 'all' && (
@@ -837,7 +837,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                         border: `1px solid ${activePanelGroup === g.key ? g.color : 'rgba(255,255,255,0.1)'}`,
                                         background: activePanelGroup === g.key ? `${g.color}22` : 'rgba(255,255,255,0.03)',
                                         color: activePanelGroup === g.key ? g.color : '#94a3b8',
-                                        fontSize: '0.72rem', fontWeight: 700, transition: 'all 0.15s',
+                                        fontSize: '0.72rem', fontWeight: 700, transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                     }}>{g.label}</button>
                             ))}
                         </div>
@@ -925,7 +925,10 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         ) : (
                             <>
                                 <h3>✅ Materiality Matrix Approved</h3>
-                                <div className={styles.budgetBox}>
+                                <div 
+                                    className={styles.budgetBox}
+                                    title={submitStatus.debrief ? `Calculated as: Total Materiality Budget ($15,000,000) × ${submitStatus.debrief.full_accuracy_pct}% Accuracy\nMinus Consultant Fees ($${(consultantFee || 0).toLocaleString()})\n${submitStatus.debrief.clawback_applied > 0 ? `Minus Governance Penalty / Clawback ($${submitStatus.debrief.clawback_applied.toLocaleString()})\n` : ''}= $${submitStatus.amount?.toLocaleString()} Final Unlocked Budget` : `Allocated Budget: $${submitStatus.amount?.toLocaleString()}`}
+                                >
                                     + ${submitStatus.amount?.toLocaleString()} Unlocked
                                 </div>
                                 {submitStatus.debrief && (

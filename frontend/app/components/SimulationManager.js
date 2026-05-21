@@ -178,7 +178,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                 cursor: refreshing ? 'not-allowed' : 'pointer',
                                 fontSize: '0.8rem', fontWeight: 600,
                                 display: 'flex', alignItems: 'center', gap: '5px',
-                                transition: 'all 0.15s',
+                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                 opacity: refreshing ? 0.6 : 1,
                             }}
                         >
@@ -234,7 +234,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                                     background: 'none', border: 'none', cursor: 'pointer',
                                                                     color: expandedConfigRow === s.session_id ? '#818cf8' : 'var(--text-muted)',
                                                                     fontSize: '0.72rem', padding: '2px 4px', borderRadius: 4,
-                                                                    transition: 'all 0.15s',
+                                                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                                                 }}
                                                                 title="Toggle cohort configuration details"
                                                             >
