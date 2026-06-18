@@ -18,6 +18,11 @@ from __future__ import annotations
 
 try:
     import bcrypt as _bcrypt
+    # Public flag: True when bcrypt is available.
+    # The module already raises RuntimeError on import if bcrypt is missing,
+    # so this constant will always be True when the module loads successfully.
+    # Exported so tests can introspect availability (e.g. pytest.skip guards).
+    _BCRYPT_AVAILABLE: bool = True
 except ImportError:
     raise RuntimeError(
         "[AUTH] bcrypt is not installed. "
@@ -55,7 +60,9 @@ def verify_password(plaintext: str, stored: str) -> bool:
         except Exception:
             return False
     # Legacy plaintext — compared only during the migration window
-    return plaintext == stored
+    # H-1 security fix: use constant-time comparison to prevent timing attacks
+    import hmac
+    return hmac.compare_digest(plaintext, stored)
 
 
 def maybe_upgrade_password(plaintext: str, stored: str) -> str | None:

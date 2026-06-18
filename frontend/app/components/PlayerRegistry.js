@@ -1,21 +1,56 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './PlayerRegistry.module.css';
 import { getShortCode } from '../utils/sessionUtils';
+import CohortSummaryTooltip from './CohortSummaryTooltip';
 
 const ADJECTIVES = ["blue", "swift", "brave", "quiet", "lucky", "bold", "calm", "proud", "wild", "smart"];
 const NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "hawk", "owl"];
 
 function generatePassword() {
-    return '123';
+    // Passwords are now generated server-side — this is only a last-resort fallback.
+    // Returning empty string forces the client to use the server-provided password.
+    return '';
 }
 
-export default function PlayerRegistry({ leaderboard }) {
+const TOOLTIP_ROLES = new Set(['super_admin', 'god_mode', 'lead_facilitator']);
+
+export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmin = false, onEditCohort, currentFacilitatorRole = 'facilitator' }) {
     const [players, setPlayers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [sessions, setSessions] = useState([]);
     // Generated credentials: { sessionId: [{player_id, password}, ...] }
     const [generatedCreds, setGeneratedCreds] = useState({});
     const API = process.env.NEXT_PUBLIC_API_URL || '';
+    // Cohort summary tooltip
+    const [hoveredSession, setHoveredSession] = useState(null);
+    const [hoverAnchorRect, setHoverAnchorRect] = useState(null);
+    const hoverTimerRef = useRef(null);
+    const canSeeSummaryTooltip = TOOLTIP_ROLES.has(currentFacilitatorRole);
+    // Password reset toast
+    const [resetToast, setResetToast] = useState(null); // { playerId, password }
+    const resetToastTimerRef = useRef(null);
+
+    const copyToClipboard = (text) => {
+        if (navigator.clipboard?.writeText) {
+            navigator.clipboard.writeText(text).catch(() => {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.cssText = 'position:fixed;opacity:0';
+                document.body.appendChild(ta);
+                ta.select();
+                document.execCommand('copy');
+                document.body.removeChild(ta);
+            });
+        } else {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.cssText = 'position:fixed;opacity:0';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+    };
 
     useEffect(() => {
         if (leaderboard && leaderboard.length > 0) {
@@ -25,7 +60,7 @@ export default function PlayerRegistry({ leaderboard }) {
 
     const fetchPlayers = useCallback(async () => {
         try {
-            const res = await fetch(`${API}/api/admin/players`);
+            const res = await fetch(`${API}/api/admin/players`, { credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 setPlayers(data.players || []);
@@ -52,16 +87,19 @@ export default function PlayerRegistry({ leaderboard }) {
             const regPlayers = session.registered_players || [];
             const allowedIds = session.allowed_player_ids || [];
             const creds = [];
-            // Build from registered_players (has password)
+            // Build from registered_players (plaintext_password is set by the server on generate-player)
             regPlayers.forEach(rp => {
                 if (rp.player_id && !creds.some(c => c.player_id === rp.player_id)) {
-                    creds.push({ player_id: rp.player_id, password: rp.password || '123' });
+                    // plaintext_password is the temp password shown once at generation time.
+                    // If it's missing (e.g. old record), show a hint rather than a wrong default.
+                    creds.push({ player_id: rp.player_id, password: rp.plaintext_password || '(see facilitator)' });
                 }
             });
             // Also include allowed_player_ids that aren't in registered_players
             allowedIds.forEach(pid => {
                 if (!creds.some(c => c.player_id === pid)) {
-                    creds.push({ player_id: pid, password: '123' });
+                    // No plaintext_password available for legacy entries
+                    creds.push({ player_id: pid, password: '(see facilitator)' });
                 }
             });
             if (creds.length > 0) {
@@ -131,6 +169,7 @@ export default function PlayerRegistry({ leaderboard }) {
             await fetch(`${API}/api/admin/${sessionId}/public-status`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ is_public: newStatus })
             });
         } catch (e) {
@@ -142,7 +181,7 @@ export default function PlayerRegistry({ leaderboard }) {
 
     const handleGenerateId = async (sessionId) => {
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/generate-player`, { method: 'POST' });
+            const res = await fetch(`${API}/api/admin/${sessionId}/generate-player`, { method: 'POST', credentials: 'include' });
             if (!res.ok) {
                 const errText = await res.text();
                 alert(`Failed to generate player: ${res.status} — ${errText}`);
@@ -152,19 +191,10 @@ export default function PlayerRegistry({ leaderboard }) {
             const playerId = data.player_id;
             if (!playerId) return;
 
-            // Use server password if provided, otherwise generate client-side
-            const password = data.password || generatePassword();
-
-            // If server didn't return password, register it separately
-            if (!data.password) {
-                try {
-                    // Save the client-generated password to the player registry
-                    await fetch(`${API}/api/admin/players/set-password`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ player_id: playerId, password: password })
-                    });
-                } catch (e) { console.error('Failed to save password:', e); }
+            // Server always returns the password now (random temp password generated server-side)
+            const password = data.password;
+            if (!password) {
+                console.warn('[PlayerRegistry] generate-player did not return a password — player may not be able to log in.');
             }
 
             setSessions(prev => prev.map(s =>
@@ -175,17 +205,57 @@ export default function PlayerRegistry({ leaderboard }) {
 
             setGeneratedCreds(prev => ({
                 ...prev,
-                [sessionId]: [...(prev[sessionId] || []), { player_id: playerId, password }]
+                [sessionId]: [...(prev[sessionId] || []), { player_id: playerId, password: password || '(generating...)' }]
             }));
         } catch (e) {
             console.error('Failed to generate Player ID:', e);
         }
     };
 
+    const handleResetPassword = async (playerId, sessionId) => {
+        if (!confirm(`Reset password for ${playerId}? A new random password will be generated. You must share it with the player.`)) return;
+        try {
+            const res = await fetch(`${API}/api/admin/players/${playerId}/reset-password`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            if (!res.ok) {
+                const errText = await res.text();
+                alert(`Failed to reset password: ${res.status} — ${errText}`);
+                return;
+            }
+            const data = await res.json();
+            const newPassword = data.new_password;
+            // Update displayed credentials
+            setGeneratedCreds(prev => {
+                const sessId = sessionId;
+                const existing = prev[sessId] || [];
+                const updated = existing.map(c =>
+                    c.player_id === playerId ? { ...c, password: newPassword } : c
+                );
+                // If not found in existing creds, add it
+                if (!updated.some(c => c.player_id === playerId)) {
+                    updated.push({ player_id: playerId, password: newPassword });
+                }
+                return { ...prev, [sessId]: updated };
+            });
+            // Auto-copy to clipboard
+            copyToClipboard(newPassword);
+            // Show inline toast with copiable password
+            clearTimeout(resetToastTimerRef.current);
+            setResetToast({ playerId, password: newPassword });
+            resetToastTimerRef.current = setTimeout(() => setResetToast(null), 15000);
+        } catch (e) {
+            console.error('Failed to reset password:', e);
+            alert('Failed to reset password. Please try again.');
+        }
+    };
+
+
     const handleDeletePlayer = async (playerId) => {
         if (!confirm(`Remove player ${playerId}?`)) return;
         try {
-            await fetch(`${API}/api/admin/players/${playerId}`, { method: 'DELETE' });
+            await fetch(`${API}/api/admin/players/${playerId}`, { method: 'DELETE', credentials: 'include' });
             setPlayers(prev => prev.filter(p => p.player_id !== playerId));
         } catch (e) {
             console.error('Failed to remove player:', e);
@@ -195,7 +265,7 @@ export default function PlayerRegistry({ leaderboard }) {
     const handleDeleteSession = async (sessionId) => {
         if (!confirm('Delete this entire cohort and all its players? This cannot be undone.')) return;
         try {
-            await fetch(`${API}/api/admin/sessions/${sessionId}`, { method: 'DELETE' });
+            await fetch(`${API}/api/admin/sessions/${sessionId}`, { method: 'DELETE', credentials: 'include' });
             setSessions(prev => prev.filter(s => s.session_id !== sessionId));
             setPlayers(prev => prev.filter(p => p.session_id !== sessionId));
             setGeneratedCreds(prev => { const copy = { ...prev }; delete copy[sessionId]; return copy; });
@@ -207,7 +277,7 @@ export default function PlayerRegistry({ leaderboard }) {
     const handleClearOrphans = async () => {
         if (!confirm('Remove all orphaned players?')) return;
         try {
-            await fetch(`${API}/api/admin/players/orphans`, { method: 'DELETE' });
+            await fetch(`${API}/api/admin/players/orphans`, { method: 'DELETE', credentials: 'include' });
             await fetchPlayers();
         } catch (e) {
             console.error('Failed to clear orphans:', e);
@@ -215,6 +285,7 @@ export default function PlayerRegistry({ leaderboard }) {
     };
 
     return (
+        <>
         <section className={styles.panel}>
             <div className={styles.header}>
                 <div className={styles.titleRow}>
@@ -225,6 +296,75 @@ export default function PlayerRegistry({ leaderboard }) {
                     <span className={styles.statBadge}>{players.length} Total Registered</span>
                 </div>
             </div>
+
+            {/* Password reset toast */}
+            {resetToast && (
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(5,150,105,0.08) 100%)',
+                    border: '1px solid rgba(16,185,129,0.35)',
+                    borderRadius: '10px',
+                    padding: '0.75rem 1rem',
+                    margin: '0.75rem 1rem 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    flexWrap: 'wrap',
+                    animation: 'fadeIn 0.25s ease',
+                }}>
+                    <span style={{ fontSize: '1.2rem' }}>✅</span>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#34d399', marginBottom: '2px' }}>
+                            Password reset for {resetToast.playerId}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+                            New password (copied to clipboard):
+                        </div>
+                    </div>
+                    <span
+                        style={{
+                            fontFamily: 'monospace',
+                            fontSize: '1.05rem',
+                            fontWeight: 800,
+                            color: '#fcd34d',
+                            background: 'rgba(15,23,42,0.6)',
+                            padding: '6px 14px',
+                            borderRadius: '6px',
+                            border: '1px solid rgba(245,158,11,0.3)',
+                            letterSpacing: '0.08em',
+                            userSelect: 'all',
+                            cursor: 'text',
+                        }}
+                        title="Click to select, then Ctrl+C to copy"
+                    >
+                        {resetToast.password}
+                    </span>
+                    <button
+                        onClick={() => {
+                            copyToClipboard(resetToast.password);
+                            // Brief visual feedback
+                            const btn = document.activeElement;
+                            if (btn) { btn.textContent = '✓ Copied!'; setTimeout(() => { btn.textContent = '📋 Copy'; }, 1200); }
+                        }}
+                        style={{
+                            background: 'rgba(99,102,241,0.15)',
+                            border: '1px solid rgba(99,102,241,0.3)',
+                            borderRadius: '6px', cursor: 'pointer',
+                            padding: '5px 12px', fontSize: '0.75rem',
+                            fontWeight: 600, color: '#a5b4fc', whiteSpace: 'nowrap',
+                            transition: 'all 0.15s ease',
+                        }}
+                    >📋 Copy</button>
+                    <button
+                        onClick={() => { clearTimeout(resetToastTimerRef.current); setResetToast(null); }}
+                        style={{
+                            background: 'none', border: 'none',
+                            color: '#64748b', cursor: 'pointer',
+                            fontSize: '1.1rem', padding: '2px 4px', lineHeight: 1,
+                        }}
+                        title="Dismiss"
+                    >×</button>
+                </div>
+            )}
 
             {loading ? (
                 <div className={styles.loading}>Loading player database...</div>
@@ -242,7 +382,30 @@ export default function PlayerRegistry({ leaderboard }) {
                             <div key={session.session_id} className={styles.sessionGroup}>
                                 <div className={styles.sessionHeader}>
                                     <div>
-                                        <h3>{session.cohort_name} <span>({session.short_code || session.session_id.slice(0, 8)})</span></h3>
+                                        <h3
+                                            style={canSeeSummaryTooltip ? { cursor: 'help', display: 'inline-flex', alignItems: 'center', gap: '4px' } : undefined}
+                                            onMouseEnter={canSeeSummaryTooltip ? (e) => {
+                                                clearTimeout(hoverTimerRef.current);
+                                                const rect = e.currentTarget.getBoundingClientRect();
+                                                hoverTimerRef.current = setTimeout(() => {
+                                                    setHoverAnchorRect(rect);
+                                                    setHoveredSession(session);
+                                                }, 220);
+                                            } : undefined}
+                                            onMouseLeave={canSeeSummaryTooltip ? () => {
+                                                clearTimeout(hoverTimerRef.current);
+                                                hoverTimerRef.current = setTimeout(() => setHoveredSession(null), 120);
+                                            } : undefined}
+                                        >
+                                            {session.cohort_name}
+                                            <span>({session.short_code || session.session_id.slice(0, 8)})</span>
+                                            {canSeeSummaryTooltip && (
+                                                <span style={{
+                                                    fontSize: '0.6rem', fontWeight: 400,
+                                                    color: 'var(--text-muted)', opacity: 0.55,
+                                                }}>ⓘ</span>
+                                            )}
+                                        </h3>
                                         <div style={{ display: 'flex', gap: '1rem', marginTop: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
                                             <span style={{
                                                 fontSize: '0.72rem', fontWeight: 700,
@@ -252,12 +415,13 @@ export default function PlayerRegistry({ leaderboard }) {
                                                 border: '1px solid rgba(99,102,241,0.25)',
                                             }} title="Active Simulation Edition">
                                                 {(() => {
-                                                    const pd = session.decision_paradigm || 'legacy_abc';
+                                                                                    const pd = session.decision_paradigm || 'legacy_abc';
                                                     if (pd === 'legacy_abc') return '🏭 Legacy (Mfg)';
                                                     if (pd === 'healthcare') return '🏥 Healthcare';
                                                     if (pd === 'un_sdg') return '🌍 UN SDG';
                                                     if (pd === 'multi_toggles') return '🎛️ Strategic Pillars';
                                                     if (pd === 'defense') return '🚀 Defense/Aero';
+                                                    if (pd === 'brsr_ngrbc') return '🇮🇳 BRSR NGRBC';
                                                     return pd;
                                                 })()}
                                             </span>
@@ -271,7 +435,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                     {isPublic ? '🌍 Publicly Joinable' : '🔒 Private / Hidden'}
                                                 </span>
                                             </label>
-                                            <span className={styles.playerCount}>{sessionPlayers.length}/5 Inducted</span>
+                                            <span className={styles.playerCount}>{sessionPlayers.length}/10 Inducted</span>
                                         </div>
                                     </div>
 
@@ -283,17 +447,45 @@ export default function PlayerRegistry({ leaderboard }) {
                                             >
                                                 + Generate Player ID
                                             </button>
-                                            <button
-                                                onClick={() => handleDeleteSession(session.session_id)}
-                                                style={{
-                                                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
-                                                    color: '#f87171', borderRadius: '6px', padding: '0.4rem 0.8rem',
-                                                    cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
-                                                }}
-                                                title="Delete this cohort"
-                                            >
-                                                🗑️ Delete Cohort
-                                            </button>
+                                            {/* ✏️ Edit Cohort — lead_facilitator / super_admin, zero players, pre-game only */}
+                                            {isLeadOrAdmin && (!session.round_number || session.round_number <= 1) && (allowedIds.length === 0) && onEditCohort && (
+                                                <button
+                                                    onClick={() => onEditCohort(session)}
+                                                    style={{
+                                                        background: 'rgba(59,130,246,0.10)',
+                                                        border: '1px solid rgba(59,130,246,0.35)',
+                                                        color: '#60a5fa',
+                                                        borderRadius: '6px',
+                                                        padding: '0.4rem 0.85rem',
+                                                        cursor: 'pointer',
+                                                        fontSize: '0.72rem',
+                                                        fontWeight: 700,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px',
+                                                        transition: 'background 0.15s, border-color 0.15s',
+                                                    }}
+                                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.2)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.6)'; }}
+                                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(59,130,246,0.10)'; e.currentTarget.style.borderColor = 'rgba(59,130,246,0.35)'; }}
+                                                    data-tooltip="Edit cohort settings (only available before game starts and before any players are inducted)"
+                                                    title=""
+                                                >
+                                                    ✏️ Edit Cohort
+                                                </button>
+                                            )}
+                                            {isSuperAdmin && (
+                                                <button
+                                                    onClick={() => handleDeleteSession(session.session_id)}
+                                                    style={{
+                                                        background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)',
+                                                        color: '#f87171', borderRadius: '6px', padding: '0.4rem 0.8rem',
+                                                        cursor: 'pointer', fontSize: '0.72rem', fontWeight: 600,
+                                                    }}
+                                                    title="Delete this cohort"
+                                                >
+                                                    🗑️ Delete Cohort
+                                                </button>
+                                             )}
                                         </div>
 
                                         {/* Generated credentials */}
@@ -303,7 +495,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                     <div key={cred.player_id} style={{
                                                         display: 'flex', gap: '8px', alignItems: 'center',
                                                         background: 'rgba(15,23,42,0.55)',
-                                                        border: '1px solid rgba(148,163,184,0.15)',
+                                                        border: cred.password === '(see facilitator)' ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(148,163,184,0.15)',
                                                         borderRadius: '8px', padding: '6px 10px',
                                                     }}>
                                                         <span style={{
@@ -318,10 +510,10 @@ export default function PlayerRegistry({ leaderboard }) {
                                                         </span>
                                                         <span style={{
                                                             fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700,
-                                                            color: '#fcd34d',
-                                                            background: 'rgba(245,158,11,0.12)',
+                                                            color: cred.password === '(see facilitator)' ? '#f87171' : '#fcd34d',
+                                                            background: cred.password === '(see facilitator)' ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.12)',
                                                             padding: '2px 8px', borderRadius: '4px',
-                                                            border: '1px solid rgba(245,158,11,0.25)',
+                                                            border: cred.password === '(see facilitator)' ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(245,158,11,0.25)',
                                                             whiteSpace: 'nowrap',
                                                         }}>
                                                             🔑 {cred.password}
@@ -335,7 +527,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                                 fontWeight: 600, color: '#94a3b8', whiteSpace: 'nowrap',
                                                             }}
                                                             onClick={() => {
-                                                                const text = `Player ID: ${cred.player_id}\nPassword: ${cred.password}`;
+                                                                const text = cred.password;
                                                                 if (navigator.clipboard?.writeText) {
                                                                     navigator.clipboard.writeText(text).catch(() => {
                                                                         // Fallback for non-secure contexts
@@ -361,6 +553,18 @@ export default function PlayerRegistry({ leaderboard }) {
                                                                 alert('Copied to clipboard!');
                                                             }}
                                                         >📋 Copy</button>
+                                                        {/* Reset Password button — shown for all entries; especially useful when password is unknown */}
+                                                        <button
+                                                            style={{
+                                                                background: 'rgba(239,68,68,0.1)',
+                                                                border: '1px solid rgba(239,68,68,0.25)',
+                                                                borderRadius: '4px', cursor: 'pointer',
+                                                                padding: '4px 8px', fontSize: '0.72rem',
+                                                                fontWeight: 600, color: '#f87171', whiteSpace: 'nowrap',
+                                                            }}
+                                                            onClick={() => handleResetPassword(cred.player_id, session.session_id)}
+                                                            title="Generate a new random password for this player"
+                                                        >🔄 Reset</button>
                                                         <button
                                                             style={{
                                                                 background: 'rgba(99,102,241,0.12)',
@@ -371,7 +575,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                             }}
                                                             onClick={() => {
                                                                 // Find the player's child session and open it
-                                                                fetch(`${API}/api/admin/${session.session_id}/player-sessions`)
+                                                                fetch(`${API}/api/admin/${session.session_id}/player-sessions`, { credentials: 'include' })
                                                                     .then(r => r.json())
                                                                     .then(data => {
                                                                         const match = (data.players || []).find(p => p.player_id === cred.player_id);
@@ -411,7 +615,7 @@ export default function PlayerRegistry({ leaderboard }) {
                                                     <th>Player ID</th>
                                                     <th>Assigned BU</th>
                                                     <th style={{ textAlign: 'right' }}>Joined At</th>
-                                                    <th style={{ width: '40px' }}></th>
+                                                    <th style={{ textAlign: 'center', minWidth: '120px' }}>Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -430,24 +634,47 @@ export default function PlayerRegistry({ leaderboard }) {
                                                             </span>
                                                         </td>
                                                         <td>
-                                                            {p.assigned_bu ? (
-                                                                <span className={`${styles.buBadge} ${styles['bu_' + (p.assigned_bu || '').toLowerCase()]}`}>
-                                                                    {p.assigned_bu}
-                                                                </span>
-                                                            ) : '—'}
+                                                            {(() => {
+                                                            // In single_bu mode, show the industry vertical as the assigned BU
+                                                            const bu = p.assigned_bu || (session.simulation_mode === 'single_bu' ? (session.industry_vertical || 'Single BU') : '');
+                                                            if (bu) {
+                                                                return (
+                                                                    <span className={`${styles.buBadge} ${styles['bu_' + bu.toLowerCase()]}`}>
+                                                                        {bu.replace(/_/g, ' ')}
+                                                                    </span>
+                                                                );
+                                                            }
+                                                            return '—';
+                                                        })()}
                                                         </td>
                                                         <td style={{ textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                                                             {p.created_at ? new Date(p.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}
                                                         </td>
-                                                        <td>
-                                                            <button
-                                                                onClick={() => handleDeletePlayer(p.player_id)}
-                                                                style={{
-                                                                    background: 'none', border: 'none', color: '#ef4444',
-                                                                    cursor: 'pointer', fontSize: '1rem', padding: '2px',
-                                                                }}
-                                                                title={`Remove ${p.name || p.player_id}`}
-                                                            >✕</button>
+                                                        <td style={{ textAlign: 'center' }}>
+                                                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center', alignItems: 'center' }}>
+                                                                <button
+                                                                    onClick={() => handleResetPassword(p.player_id, session.session_id)}
+                                                                    style={{
+                                                                        background: 'rgba(245,158,11,0.1)',
+                                                                        border: '1px solid rgba(245,158,11,0.3)',
+                                                                        borderRadius: '5px', cursor: 'pointer',
+                                                                        padding: '3px 8px', fontSize: '0.7rem',
+                                                                        fontWeight: 600, color: '#fbbf24', whiteSpace: 'nowrap',
+                                                                        transition: 'all 0.15s ease',
+                                                                    }}
+                                                                    onMouseEnter={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.2)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.5)'; }}
+                                                                    onMouseLeave={e => { e.currentTarget.style.background = 'rgba(245,158,11,0.1)'; e.currentTarget.style.borderColor = 'rgba(245,158,11,0.3)'; }}
+                                                                    title={`Reset password for ${p.player_id} — generates a new random password`}
+                                                                >🔄 Reset Pwd</button>
+                                                                <button
+                                                                    onClick={() => handleDeletePlayer(p.player_id)}
+                                                                    style={{
+                                                                        background: 'none', border: 'none', color: '#ef4444',
+                                                                        cursor: 'pointer', fontSize: '1rem', padding: '2px',
+                                                                    }}
+                                                                    title={`Remove ${p.name || p.player_id}`}
+                                                                >✕</button>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 ))}
@@ -499,5 +726,14 @@ export default function PlayerRegistry({ leaderboard }) {
                 </div>
             )}
         </section>
+        {/* Cohort Summary Tooltip — portal renders at document.body */}
+        {canSeeSummaryTooltip && (
+            <CohortSummaryTooltip
+                session={hoveredSession}
+                anchorRect={hoverAnchorRect}
+                visible={!!hoveredSession}
+            />
+        )}
+    </>
     );
 }

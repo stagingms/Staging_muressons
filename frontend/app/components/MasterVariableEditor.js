@@ -313,7 +313,7 @@ export default function MasterVariableEditor() {
     const [search, setSearch] = useState('');
 
     const [form, setForm] = useState({
-        corporate_treasury_start: 25000000,
+        corporate_treasury_start: 50000000,
         cost_of_capital_start: 0.05,
         loan_interest_rate_start: 0.12,
         group_reputation_start: 50.0,

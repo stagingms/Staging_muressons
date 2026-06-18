@@ -1,0 +1,81 @@
+{
+  "bu_id": "oil_gas",
+  "region_id": "africa",
+  "stakeholders": [
+    {
+      "id": "national_oil_companies",
+      "name": "National Oil Companies & Host Governments",
+      "icon": "🏦",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "NNPC (Nigeria), TotalEnergies Angola, and Petro Sudan are both partners and regulators. Production sharing agreements, local content requirements, and environmental bond obligations are all negotiated with host governments that have absolute veto power over operations.",
+      "engagement_tactics": [
+        { "option": "Commit to local content hiring quotas above regulatory minimum", "rationale": "Builds political capital and social licence with the primary power holder", "is_correct": true },
+        { "option": "Challenge local content requirements in international arbitration", "rationale": "Destroys relationship with the entity that controls your operating licence", "is_correct": false }
+      ]
+    },
+    {
+      "id": "host_communities",
+      "name": "Niger Delta / Host Communities",
+      "icon": "🏡",
+      "power": "medium",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "Communities surrounding extraction zones have experienced pipeline vandalism, oil spills, and loss of fishing and farming livelihoods. The Nigeria Host Communities Development Trust (HCDT) gives communities legal rights to benefit-sharing under the 2021 Petroleum Industry Act.",
+      "engagement_tactics": [
+        { "option": "Establish community development trusts with transparent fund governance", "rationale": "Required by the 2021 PIA; builds SLO and reduces sabotage risk", "is_correct": true },
+        { "option": "Rely on government security forces to protect infrastructure", "rationale": "Amplifies community grievances and triggers international NGO campaigns", "is_correct": false }
+      ]
+    },
+    {
+      "id": "ifc_development_banks",
+      "name": "IFC / Development Finance Institutions",
+      "icon": "🌍",
+      "power": "high",
+      "interest": "medium",
+      "quadrant": "keep_satisfied",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "The IFC, AfDB, and European Investment Bank provide project financing but apply IFC Performance Standards and Equator Principles as conditions. FPIC (Free, Prior and Informed Consent) from local communities is a pre-condition for disbursement.",
+      "engagement_tactics": [
+        { "option": "Conduct IFC PS-aligned community consultation and FPIC process", "rationale": "Unlocks development finance and provides international ESG credibility", "is_correct": true },
+        { "option": "Use only commercial bank financing to avoid IFC conditions", "rationale": "Avoids standards but loses access to concessional development finance", "is_correct": false }
+      ]
+    },
+    {
+      "id": "international_ngos",
+      "name": "International ESG Campaigners",
+      "icon": "📣",
+      "power": "medium",
+      "interest": "high",
+      "quadrant": "keep_informed",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "Amnesty International, Global Witness, and Friends of the Earth monitor gas flaring, oil spill remediation, and human rights abuses in African extraction zones. Their reports directly influence institutional investor and consumer brand ratings.",
+      "engagement_tactics": [
+        { "option": "End routine gas flaring and publish real-time spill disclosure", "rationale": "Removes the two most prominent campaign triggers", "is_correct": true },
+        { "option": "Issue legal notices against critical NGO publications", "rationale": "Amplifies international attention and reputational damage", "is_correct": false }
+      ]
+    },
+    {
+      "id": "decommissioning_regulators",
+      "name": "Decommissioning & Environmental Regulators",
+      "icon": "⚖️",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "DPR (Nigeria), NEMA, and country-specific environmental agencies are increasingly enforcing well decommissioning bonds and post-closure liability frameworks modelled on Norwegian standards. Stranded well liabilities can exceed initial capital costs.",
+      "engagement_tactics": [
+        { "option": "Establish a decommissioning trust fund from first production revenues", "rationale": "Demonstrates long-term responsibility and reduces regulatory scrutiny", "is_correct": true },
+        { "option": "Defer decommissioning provisions to extend reported profits", "rationale": "Creates contingent liability and triggers regulatory enforcement", "is_correct": false }
+      ]
+    }
+  ]
+}

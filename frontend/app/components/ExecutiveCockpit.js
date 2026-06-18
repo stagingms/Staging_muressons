@@ -21,6 +21,7 @@ import BenchmarksPanel from './BenchmarksPanel';
 import FocusOverlay, { KPIStrip } from './FocusOverlay';
 // Phase 1.4: Deduplicated decision tile components
 import DecisionTile, { PillarTile } from './DecisionTile';
+import PillarSelectDropdown from './PillarSelectDropdown';
 // Phase 3: Progressive Disclosure components
 import ConsequenceDNA from './ConsequenceDNA';
 import ConsequenceDNAVisualizer, { ConsequenceDNATrigger } from './ConsequenceDNAVisualizer';
@@ -565,7 +566,8 @@ export default function ExecutiveCockpit({
     const t = setTimeout(() => setLogoutConfirm(false), 3500);
     return () => clearTimeout(t);
   }, [logoutConfirm]);
-  const hasDecision = decisionParadigm === 'multi_toggles'
+  const isPillarMode = decisionParadigm === 'multi_toggles' || decisionParadigm === 'brsr_ngrbc';
+  const hasDecision = isPillarMode
     ? Object.keys(pillarSelections || {}).length > 0
     : !!decisionChoice;
   // For capital allocation gating: strategic decision must be made
@@ -729,6 +731,9 @@ export default function ExecutiveCockpit({
   // ── Metacognitive Friction: Pre-Commit Prediction ──
   const [showPredictionModal, setShowPredictionModal] = useState(false);
   const [predictionText, setPredictionText] = useState('');
+
+  // ── Results-level Balance Sheet Modal ──
+  const [resultsBsModalOpen, setResultsBsModalOpen] = useState(false);
 
   // ── Consequence Traceability: tooltip index for market feed ──
   const [traceTooltipIdx, setTraceTooltipIdx] = useState(null);
@@ -1326,7 +1331,8 @@ export default function ExecutiveCockpit({
                 'multi_toggles': 'Pillars',
                 'advanced_climate': 'Climate',
                 'healthcare': 'Healthcare',
-                'un_sdg': 'UN SDG'
+                'un_sdg': 'UN SDG',
+                'brsr_ngrbc': 'BRSR NGRBC'
               }[decisionParadigm] || 'Active'}
             </span>
             {lastSavedAt && (
@@ -1652,7 +1658,89 @@ export default function ExecutiveCockpit({
 
           {/* Action Toolbar placed at the bottom of the left panel */}
           {actionToolbar && (
-            <div style={{ borderTop: '1px solid rgba(0, 229, 195, 0.2)', background: '#0a0e1a', paddingTop: 10, paddingBottom: 10, display: 'flex', justifyContent: 'center' }}>
+            <div id="tour-player-guides-target" style={{
+              borderTop: '1px solid rgba(0, 229, 195, 0.2)',
+              background: '#0a0e1a',
+              padding: '10px 6px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              gap: 6,
+              fontFamily: 'Inter, sans-serif',
+              marginTop: 'auto',
+              flexShrink: 0,
+            }}>
+              {/* Decision Paradigm Tab */}
+              <div style={{
+                padding: '4px 12px', borderRadius: 14, 
+                background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)',
+                display: 'flex', alignItems: 'center', gap: 6,
+                marginBottom: 6, width: '100%', justifyContent: 'center'
+              }}>
+                <span style={{ fontSize: '0.85rem' }}>⚙️</span>
+                <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#818cf8', whiteSpace: 'nowrap' }}>
+                  {{
+                    'legacy_abc': 'Narrative Crises',
+                    'multi_toggles': 'Strategic Pillars',
+                    'advanced_climate': 'Advanced Climate',
+                    'healthcare': 'Healthcare Edition',
+                    'un_sdg': 'UN SDG Edition',
+                    'brsr_ngrbc': 'BRSR NGRBC Edition'
+                  }[decisionParadigm] || 'Simulation Active'}
+                </span>
+              </div>
+
+              {/* Focus Mode button */}
+              {!sim?.gameOver && (
+                <div style={{ width: '100%', padding: '0 6px 6px', flexShrink: 0 }}>
+                  <button
+                    onClick={() => {
+                      setLeftPanelTab('focus');
+                      handleFocusReenter();
+                    }}
+                    style={{
+                      width: '100%', padding: '8px 14px', border: 'none', cursor: 'pointer',
+                      borderRadius: 8,
+                      background: isFocusActive
+                        ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(245, 158, 11, 0.10))'
+                        : focusDismissed
+                          ? 'rgba(251, 191, 36, 0.06)'
+                          : 'rgba(255, 255, 255, 0.04)',
+                      border: isFocusActive
+                        ? '1px solid rgba(251, 191, 36, 0.35)'
+                        : focusDismissed
+                          ? '1px solid rgba(245, 158, 11, 0.2)'
+                          : '1px solid rgba(255, 255, 255, 0.08)',
+                      color: isFocusActive ? '#fbbf24' : focusDismissed ? '#f59e0b' : '#94a3b8',
+                      fontSize: '0.72rem', fontWeight: 700, fontFamily: 'inherit',
+                      letterSpacing: '0.04em', textTransform: 'uppercase',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                      transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease',
+                      position: 'relative',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.02)'; e.currentTarget.style.background = 'rgba(251, 191, 36, 0.12)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = isFocusActive ? 'linear-gradient(135deg, rgba(251, 191, 36, 0.18), rgba(245, 158, 11, 0.10))' : focusDismissed ? 'rgba(251, 191, 36, 0.06)' : 'rgba(255, 255, 255, 0.04)'; }}
+                  >
+                    <span style={{ fontSize: '0.9rem' }}>🎯</span>
+                    <span>Focus Mode</span>
+                    {focusDismissed && !isFocusActive && (
+                      <span style={{
+                        width: 6, height: 6, borderRadius: '50%',
+                        background: '#f59e0b',
+                        display: 'inline-block',
+                        boxShadow: '0 0 6px rgba(245, 158, 11, 0.5)',
+                      }} />
+                    )}
+                    {isFocusActive && (
+                      <span style={{ fontSize: '0.6rem', opacity: 0.7 }}>ACTIVE</span>
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* Action Toolbar buttons */}
               {actionToolbar}
             </div>
           )}
@@ -1913,7 +2001,7 @@ export default function ExecutiveCockpit({
             <div className={`${styles.decisionArea} ${styles.glanceEnter}`} style={{ flex: 'none', overflow: 'visible', position: 'relative', marginTop: '12px' }}>
               <div className={styles.decisionHeader}>
                 <span className={styles.decisionLabel}>
-                  {decisionParadigm === 'multi_toggles' ? '🎛️ Strategic Pillars' : '📋 Strategic Options'}
+                  {isPillarMode ? '🎛️ Strategic Pillars' : '📋 Strategic Options'}
                 </span>
                 {decisionChoice && (
                   <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -1974,7 +2062,7 @@ export default function ExecutiveCockpit({
             )}
             <div className={styles.decisionHeader}>
               <span className={styles.decisionLabel}>
-                {decisionParadigm === 'multi_toggles' ? '🎛️ Strategic Pillars' : '📋 Strategic Options'}
+                {isPillarMode ? '🎛️ Strategic Pillars' : '📋 Strategic Options'}
               </span>
               {projectedCost !== 0 && (
                 <span className={`${styles.projectedDelta} ${projectedCost > 0 ? styles.projectedDown : styles.projectedUp}`}>
@@ -2026,7 +2114,7 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
-            {decisionParadigm === 'multi_toggles' ? (
+            {isPillarMode ? (
               /* ── Multi-Toggles: 4 pillar tiles ── */
               <div className={styles.pillarTiles}>
                 {pillarConfig?.areas && Object.entries(pillarConfig.areas).map(([areaKey, area]) => {
@@ -2038,23 +2126,13 @@ export default function ExecutiveCockpit({
                     >
                       <div className={styles.pillarIcon}>{AREA_ICONS[areaKey] || '📌'}</div>
                       <div className={styles.pillarLabel}>{area.label}</div>
-                      <select
-                        className={styles.pillarSelect}
-                        value={selectedOpt || ''}
-                        onChange={(e) => handlePillarSelect(areaKey, e.target.value || null)}
-                        onMouseEnter={() => selectedOpt && setHoveredOpt({
-                          title: area.options[selectedOpt]?.title,
-                          desc: DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey]?.[selectedOpt] || area.options[selectedOpt]?.description
-                        })}
-                        onMouseLeave={() => setHoveredOpt(null)}
-                      >
-                        <option key="__default__" value="">— Select —</option>
-                        {area.options && Object.entries(area.options).map(([optKey, opt]) => (
-                          <option key={optKey} value={optKey}>
-                            {opt.title} ({fmtCurrency(opt.cost || 0)})
-                          </option>
-                        ))}
-                      </select>
+                      <PillarSelectDropdown
+                        options={area.options || {}}
+                        value={selectedOpt || null}
+                        onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
+                        fmtCurrency={fmtCurrency}
+                        detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
+                      />
                     </div>
                   );
                 })}
@@ -2097,7 +2175,29 @@ export default function ExecutiveCockpit({
               </div>
               <div className={styles.breakdownContent}>
                 {hoveredOpt ? (
-                  <p><strong>{hoveredOpt.title}:</strong> {hoveredOpt.desc}</p>
+                  <div>
+                    <p><strong>{hoveredOpt.title}:</strong> {hoveredOpt.desc}</p>
+                    {hoveredOpt.regulatoryTooltip && (
+                      <div style={{
+                        marginTop: '8px',
+                        padding: '8px 10px',
+                        background: 'rgba(26, 54, 93, 0.08)',
+                        border: '1px solid rgba(112, 128, 144, 0.3)',
+                        borderLeft: '3px solid #1a365d',
+                        borderRadius: '2px',
+                        fontFamily: "'Courier New', monospace",
+                        fontSize: '0.65rem',
+                        lineHeight: '1.5',
+                        color: '#475569',
+                        letterSpacing: '0.01em',
+                      }}>
+                        <div style={{ fontWeight: 700, fontSize: '0.6rem', color: '#1a365d', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          NGRBC Regulatory Advisory
+                        </div>
+                        {hoveredOpt.regulatoryTooltip}
+                      </div>
+                    )}
+                  </div>
                 ) : decisionParadigm === 'legacy_abc' ? (
                   <div style={{ marginTop: 4 }}>
                     <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: '#64748b', marginBottom: 6 }}>Comparison Matrix</div>
@@ -2616,7 +2716,7 @@ export default function ExecutiveCockpit({
               const allocTotal = Object.values(allocations).reduce((a, b) => a + b, 0);
               let quality = 0;
               if (hasReadBriefing) quality += 10;
-              if (decisionParadigm === 'multi_toggles' ? Object.keys(pillarSelections || {}).length > 0 : !!decisionChoice) quality += 40;
+              if (isPillarMode ? Object.keys(pillarSelections || {}).length > 0 : !!decisionChoice) quality += 40;
               quality += Math.min(50, (allocTotal / (csfPool || 1)) * 50);
               return (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
@@ -2830,6 +2930,7 @@ export default function ExecutiveCockpit({
         steps={focusSteps}
         onClose={handleFocusDismiss}
         onBack={handleFocusAdvance}
+        onReenter={handleFocusReenter}
       >
         {/* ── GATE STEP ── */}
         {focusStep === 'gate' && (
@@ -2887,8 +2988,8 @@ export default function ExecutiveCockpit({
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
 
             <div className={focusStyles.sectionTitle}>
-              <span>{decisionParadigm === 'multi_toggles' ? '🎛️' : '📋'}</span>
-              {decisionParadigm === 'multi_toggles' ? 'Strategic Pillars' : 'Strategic Options'}
+              <span>{isPillarMode ? '🎛️' : '📋'}</span>
+              {isPillarMode ? 'Strategic Pillars' : 'Strategic Options'}
               {projectedCost !== 0 && (
                 <span style={{ marginLeft: 'auto', color: projectedCost > 0 ? '#f87171' : '#4ade80', fontWeight: 800, fontSize: '0.72rem' }}>
                   Impact: {fmtCurrency(projectedCost)}
@@ -2896,7 +2997,7 @@ export default function ExecutiveCockpit({
               )}
             </div>
 
-            {decisionParadigm === 'multi_toggles' ? (
+            {isPillarMode ? (
               <div className={focusStyles.focusPillarTiles}>
                 {pillarConfig?.areas && Object.entries(pillarConfig.areas).map(([areaKey, area]) => {
                   const selectedOpt = pillarSelections?.[areaKey];
@@ -2904,18 +3005,13 @@ export default function ExecutiveCockpit({
                     <div key={areaKey} className={`${styles.pillarTile} ${selectedOpt ? styles.pillarTileActive : ''}`}>
                       <div className={styles.pillarIcon}>{AREA_ICONS[areaKey] || '📌'}</div>
                       <div className={styles.pillarLabel}>{area.label}</div>
-                      <select
-                        className={styles.pillarSelect}
-                        value={selectedOpt || ''}
-                        onChange={(e) => handlePillarSelect(areaKey, e.target.value || null)}
-                      >
-                        <option key="__default__" value="">— Select —</option>
-                        {area.options && Object.entries(area.options).map(([optKey, opt]) => (
-                          <option key={optKey} value={optKey}>
-                            {opt.title} ({fmtCurrency(opt.cost || 0)})
-                          </option>
-                        ))}
-                      </select>
+                      <PillarSelectDropdown
+                        options={area.options || {}}
+                        value={selectedOpt || null}
+                        onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
+                        fmtCurrency={fmtCurrency}
+                        detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
+                      />
                     </div>
                   );
                 })}
@@ -2976,7 +3072,7 @@ export default function ExecutiveCockpit({
             )}
 
             {/* Comparison Matrix for legacy A/B/C */}
-            {decisionParadigm !== 'multi_toggles' && Object.keys(options).length > 0 && (
+            {!isPillarMode && Object.keys(options).length > 0 && (
               <div style={{ marginTop: 16, padding: '12px 14px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f8fafc', borderRadius: 10, border: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0' }}>
                 <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: isDark ? '#94a3b8' : '#475569', marginBottom: 8 }}>Comparison Matrix</div>
                 <table style={{ width: '100%', fontSize: '0.7rem', borderCollapse: 'collapse', color: isDark ? '#d1d9e6' : '#1e293b' }}>
@@ -3052,7 +3148,7 @@ export default function ExecutiveCockpit({
             {/* Locked decision summary */}
             <div className={focusStyles.decisionSummary}>
               <div className={focusStyles.decisionSummaryTitle}>📋 Locked Strategic Decision</div>
-              {decisionParadigm === 'multi_toggles' ? (
+              {isPillarMode ? (
                 Object.entries(pillarSelections || {}).map(([areaKey, optKey]) => (
                   <div key={areaKey} className={focusStyles.decisionSummaryRow}>
                     <span>{AREA_ICONS[areaKey] || '📌'} {pillarConfig?.areas?.[areaKey]?.label || areaKey}</span>
@@ -3154,7 +3250,7 @@ export default function ExecutiveCockpit({
               <div className={focusStyles.commitRecapRow}>
                 <span>Strategy</span>
                 <span className={focusStyles.commitRecapValue} style={{ position: 'relative' }}>
-                  {decisionParadigm === 'multi_toggles'
+                  {isPillarMode
                     ? `${Object.keys(pillarSelections || {}).length} pillars selected`
                     : (() => {
                         const opt = options[decisionChoice];
@@ -3284,20 +3380,21 @@ export default function ExecutiveCockpit({
                         {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()}t
                       </div>
                     </div>
-                    {/* Balance Sheet (Focus Results) */}
+                    {/* Balance Sheet (Focus Results) — clickable */}
                     {(() => {
                       const bsF = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
                       if (!bsF || typeof bsF !== 'object' || bsF.net_assets == null) return null;
                       const cColor = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
                       const cIcon = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
                       return (
-                        <div className={focusStyles.focusResultCard}>
+                        <div className={focusStyles.focusResultCard} style={{ cursor: 'pointer' }} onClick={() => setResultsBsModalOpen(true)} title="Click to view full Balance Sheet">
                           <div className={focusStyles.focusResultIcon}>📊</div>
                           <div className={focusStyles.focusResultLabel}>Net Assets</div>
                           <div className={focusStyles.focusResultValue}>${((bsF.net_assets || 0) / 1_000_000).toFixed(0)}M</div>
                           <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cColor[bsF.covenant_status] || '#38bdf8', marginTop: 2 }}>
                             {cIcon[bsF.covenant_status] || '📊'} D/E: {(bsF.debt_to_equity || 0).toFixed(2)}×
                           </div>
+                          <div style={{ fontSize: '0.55rem', color: '#64748b', marginTop: 4, fontWeight: 600 }}>🔍 Click to expand</div>
                         </div>
                       );
                     })()}
@@ -3411,6 +3508,16 @@ export default function ExecutiveCockpit({
           </div>
         )}
       </FocusOverlay>
+
+      {/* Balance Sheet full modal — for Focus Mode BS card clicks */}
+      {resultsBsModalOpen && commitResults && (
+        <BalanceSheetModal
+          balanceSheet={commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet || null}
+          isOpen={resultsBsModalOpen}
+          onClose={() => setResultsBsModalOpen(false)}
+          fmtCurrency={fmtCurrency}
+        />
+      )}
 
       {/* ═══ PRE-COMMIT PREDICTION MODAL (Metacognitive Friction) ═══ */}
       {showPredictionModal && (
@@ -3584,7 +3691,7 @@ export default function ExecutiveCockpit({
                           </span>
                         </div>
                       </div>
-                      {/* Balance Sheet Health Card */}
+                      {/* Balance Sheet Health Card — clickable to open full IFRS balance sheet */}
                       {(() => {
                         const bsData = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
                         if (!bsData) return null;
@@ -3596,19 +3703,27 @@ export default function ExecutiveCockpit({
                         const cColors = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
                         const cIcons = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
                         return (
-                          <div className={styles.resultCard} style={{ borderTop: `2px solid ${cColors[cStatus] || '#38bdf8'}` }}>
+                          <div
+                            className={styles.resultCard}
+                            style={{ borderTop: `2px solid ${cColors[cStatus] || '#38bdf8'}`, cursor: 'pointer' }}
+                            onClick={() => setResultsBsModalOpen(true)}
+                            title="Click to view full Balance Sheet"
+                          >
                             <div className={styles.resultCardIcon}>📊</div>
                             <div className={styles.resultCardLabel}>Balance Sheet</div>
                             <div className={styles.resultCardValue} style={{ fontSize: '0.85rem' }}>
                               {fmtMShort(netAssets)} net
                             </div>
-                            <div style={{ display: 'flex', gap: 6, marginTop: 4, fontSize: '0.68rem' }}>
+                            <div style={{ display: 'flex', gap: 6, marginTop: 4, fontSize: '0.68rem', justifyContent: 'center' }}>
                               <span style={{ color: deRatio < 2.0 ? '#4ade80' : '#f59e0b', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
                                 D/E: {deRatio.toFixed(2)}×
                               </span>
                               <span style={{ color: cColors[cStatus] || '#38bdf8' }}>
                                 {cIcons[cStatus] || '📊'} {cStatus}
                               </span>
+                            </div>
+                            <div style={{ fontSize: '0.58rem', color: '#64748b', marginTop: 5, fontWeight: 600, letterSpacing: '0.03em' }}>
+                              🔍 Click to expand
                             </div>
                           </div>
                         );
@@ -3648,10 +3763,10 @@ export default function ExecutiveCockpit({
                     marginBottom: '1rem',
                   }}>
                     {[
-                      { key: 'treasury', label: 'Treasury Trend', color: '#3b82f6', fmt: (v) => fmtCurrency(v) },
-                      { key: 'ebitda', label: 'EBITDA Trend', color: '#16a34a', fmt: (v) => fmtCurrency(v) },
-                      { key: 'reputation', label: 'Reputation Trend', color: '#f59e0b', fmt: (v) => v?.toFixed(0) },
-                      { key: 'tco2e', label: 'CO₂ Emissions Trend', color: '#ef4444', fmt: (v) => `${(v || 0).toLocaleString()} t` },
+                      { key: 'treasury', label: 'Treasury Trend', color: '#e2e8f0', fmt: (v) => fmtCurrency(v) },
+                      { key: 'ebitda', label: 'EBITDA Trend', color: '#e2e8f0', fmt: (v) => fmtCurrency(v) },
+                      { key: 'reputation', label: 'Reputation Trend', color: '#e2e8f0', fmt: (v) => v?.toFixed(0) },
+                      { key: 'tco2e', label: 'CO₂ Emissions Trend', color: '#e2e8f0', fmt: (v) => `${(v || 0).toLocaleString()} t` },
                     ].map(({ key, label, color, fmt }) => {
                       const values = historyData.map(d => d[key] || 0);
                       const minVal = Math.min(...values);
@@ -3672,16 +3787,9 @@ export default function ExecutiveCockpit({
                           <AreaChart data={historyData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
                             <defs>
                               <linearGradient id={`grad-${key}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={color} stopOpacity={0.35} />
-                                <stop offset="95%" stopColor={color} stopOpacity={0.02} />
+                                <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.18} />
+                                <stop offset="95%" stopColor="#e2e8f0" stopOpacity={0.02} />
                               </linearGradient>
-                              <filter id={`glow-${key}`}>
-                                <feGaussianBlur stdDeviation="2" result="coloredBlur" />
-                                <feMerge>
-                                  <feMergeNode in="coloredBlur" />
-                                  <feMergeNode in="SourceGraphic" />
-                                </feMerge>
-                              </filter>
                             </defs>
                             <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <YAxis hide domain={yDomain} />
@@ -3690,7 +3798,7 @@ export default function ExecutiveCockpit({
                               formatter={(v) => [fmt(v), label.replace(' Trend', '')]}
                               labelFormatter={(year) => `Year ${year}`}
                             />
-                            <Area type="monotone" dataKey={key} stroke={color} strokeWidth={2.5} fill={`url(#grad-${key})`} filter={`url(#glow-${key})`} dot={{ r: 3, fill: color, strokeWidth: 0 }} activeDot={{ r: 5, fill: color, stroke: '#fff', strokeWidth: 2 }} />
+                            <Area type="monotone" dataKey={key} stroke="#e2e8f0" strokeWidth={1.5} fill={`url(#grad-${key})`} dot={{ r: 2.5, fill: '#e2e8f0', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#fff', stroke: '#94a3b8', strokeWidth: 1 }} />
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
@@ -3706,9 +3814,7 @@ export default function ExecutiveCockpit({
                         textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem',
                       }} className={styles.resultCardLabel}>
                         <span>📈 Stock Price</span>
-                        <span style={{
-                          color: pctChg >= 0 ? '#16a34a' : '#ef4444', fontFamily: 'JetBrains Mono, monospace',
-                        }}>
+                        <span style={{ fontFamily: 'JetBrains Mono, monospace' }}>
                           ${latestPrice.toFixed(2)}
                         </span>
                       </div>
@@ -3716,8 +3822,8 @@ export default function ExecutiveCockpit({
                         <AreaChart data={stockData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
                           <defs>
                             <linearGradient id="grad-stock-res" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.35} />
-                              <stop offset="95%" stopColor="#7c3aed" stopOpacity={0.02} />
+                              <stop offset="5%" stopColor="#e2e8f0" stopOpacity={0.18} />
+                              <stop offset="95%" stopColor="#e2e8f0" stopOpacity={0.02} />
                             </linearGradient>
                           </defs>
                           <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
@@ -3727,8 +3833,8 @@ export default function ExecutiveCockpit({
                             formatter={(v) => [`$${v.toFixed(2)}`, 'Stock Price']}
                             labelFormatter={(year) => year === 'IPO' ? 'IPO' : `Year ${year}`}
                           />
-                          <ReferenceLine y={IPO_PRICE} stroke="#94a3b8" strokeDasharray="3 3" />
-                          <Area type="monotone" dataKey="price" stroke="#7c3aed" strokeWidth={2.5} fill="url(#grad-stock-res)" dot={{ r: 3, fill: '#7c3aed', strokeWidth: 0 }} activeDot={{ r: 5, fill: '#7c3aed', stroke: '#fff', strokeWidth: 2 }} />
+                          <ReferenceLine y={IPO_PRICE} stroke="#475569" strokeDasharray="3 3" />
+                          <Area type="monotone" dataKey="price" stroke="#e2e8f0" strokeWidth={1.5} fill="url(#grad-stock-res)" dot={{ r: 2.5, fill: '#e2e8f0', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#fff', stroke: '#94a3b8', strokeWidth: 1 }} />
                         </AreaChart>
                       </ResponsiveContainer>
                     </div>
@@ -3768,16 +3874,16 @@ export default function ExecutiveCockpit({
                     </div>
                   )}
                   {commitResults.events.covenant_surcharge > 0 && (
-                    <div className={styles.resultsEventItem} style={{ color: '#f87171' }}>📊 Covenant Penalty: -{fmtCurrency(commitResults.events.covenant_surcharge)} interest surcharge on breached debt covenants</div>
+                    <div className={styles.resultsEventItem}>📊 Covenant Penalty: -{fmtCurrency(commitResults.events.covenant_surcharge)} interest surcharge on breached debt covenants</div>
                   )}
                   {commitResults.events.covenant_warning && (
-                    <div className={styles.resultsEventItem} style={{ color: '#fbbf24' }}>⚠️ {typeof commitResults.events.covenant_warning === 'string' ? commitResults.events.covenant_warning : 'Debt covenant under pressure — review leverage'}</div>
+                    <div className={styles.resultsEventItem}>⚠️ {typeof commitResults.events.covenant_warning === 'string' ? commitResults.events.covenant_warning : 'Debt covenant under pressure — review leverage'}</div>
                   )}
                   {commitResults.events.esg_adjusted_wacc && commitResults.events.esg_adjusted_wacc.adjusted_wacc > 0.08 && (
-                    <div className={styles.resultsEventItem} style={{ color: '#f87171' }}>📊 ESG-WACC at {(commitResults.events.esg_adjusted_wacc.adjusted_wacc * 100).toFixed(1)}% — lender covenant triggers tightening due to ESG risk premium</div>
+                    <div className={styles.resultsEventItem}>📊 ESG-WACC at {(commitResults.events.esg_adjusted_wacc.adjusted_wacc * 100).toFixed(1)}% — lender covenant triggers tightening due to ESG risk premium</div>
                   )}
                   {commitResults.events.employer_brand_opex_penalty && (
-                    <div className={styles.resultsEventItem} style={{ color: '#f87171' }}>👥 Talent Crisis: Employer brand at {(commitResults.events.employer_brand_opex_penalty.employer_brand_score || 0).toFixed(0)}/100 — +{((commitResults.events.employer_brand_opex_penalty.multiplier || 0) * 100).toFixed(1)}% OPEX surcharge across all {commitResults.events.employer_brand_opex_penalty.affected_bus || '?'} business units</div>
+                    <div className={styles.resultsEventItem}>👥 Talent Crisis: Employer brand at {(commitResults.events.employer_brand_opex_penalty.employer_brand_score || 0).toFixed(0)}/100 — +{((commitResults.events.employer_brand_opex_penalty.multiplier || 0) * 100).toFixed(1)}% OPEX surcharge across all {commitResults.events.employer_brand_opex_penalty.affected_bus || '?'} business units</div>
                   )}
                 </div>
               )}
@@ -4049,6 +4155,13 @@ export default function ExecutiveCockpit({
                   </motion.button>
                 );
               })()}
+              {/* Balance Sheet full modal — triggered from results card */}
+              <BalanceSheetModal
+                balanceSheet={commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet || null}
+                isOpen={resultsBsModalOpen}
+                onClose={() => setResultsBsModalOpen(false)}
+                fmtCurrency={fmtCurrency}
+              />
             </motion.div>
           </motion.div>
         )}

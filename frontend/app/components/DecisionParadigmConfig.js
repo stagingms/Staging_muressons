@@ -97,7 +97,7 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
     multi_toggles: 'Strategic Pillars (4-Area)',
     advanced_climate: 'Advanced Climate Engine',
     healthcare: 'Healthcare Edition',
-
+    brsr_ngrbc: 'BRSR NGRBC Edition',
   };
 
   const handleToggle = async (paradigm) => {
@@ -312,6 +312,20 @@ export default function DecisionParadigmConfig({ sessions: propSessions, apiBase
       description: 'Ten rounds adapted specifically for the healthcare sector, focusing on compliance, patient outcomes, digital transformation, and clinical burnout.',
       features: ['Industry-specific crisis scenarios', 'Clinical burnout & patient outcome metrics', 'Optimized for hospital board structures'],
       color: '#0ea5e9',
+    },
+    {
+      key: 'brsr_ngrbc',
+      icon: (
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+          <rect x="3" y="3" width="22" height="22" rx="4" stroke="currentColor" strokeWidth="2" fill="none" opacity="0.6"/>
+          <path d="M7 10h14M7 14h14M7 18h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" opacity="0.8"/>
+        </svg>
+      ),
+      title: 'BRSR NGRBC Edition',
+      subtitle: 'India ESG Framework',
+      description: '10-round standalone paradigm focused on Business Responsibility and Sustainability Reporting under SEBI/NGRBC frameworks, defaulting display currency to Indian Rupees (₹).',
+      features: ['10-round India regulatory focused track', 'Currency displays in INR (₹)', 'Nine NGRBC ESG Principles'],
+      color: '#f97316',
     },
     {
       key: 'DELETED',

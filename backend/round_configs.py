@@ -196,6 +196,7 @@ ROUND_CONFIGS = {
                     "gain a strategic advantage in circular economy."
                 ),
                 "flags_set": ["supply_chain_disruption_risk", "early_decarboniser"],
+                "ci_routing": "scope3_weighted",  # I2: affects Scope3-heavy BUs most
                 "impacts": {
                     "treasury": -4_000_000,
                     "carbon_intensity_delta": -15,
@@ -215,6 +216,7 @@ ROUND_CONFIGS = {
                     "Natural Capital Debt over 3 rounds."
                 ),
                 "flags_set": ["green_bond_active"],
+                "ci_routing": "scope3_weighted",  # I2: green bond targets supply chain
                 "impacts": {
                     "treasury": -2_000_000,
                     "natural_capital_debt_delta": -15,
@@ -459,6 +461,7 @@ ROUND_CONFIGS = {
                 "title": "Full Circular Redesign",
                 "description": "Redesign products for full disassembly and reuse.",
                 "flags_set": ["circular_redesign"],
+                "ci_routing": "scope3_weighted",  # I2: circular design reduces product-lifecycle (Scope3)
                 "impacts": {
                     "treasury": -10_000_000,
                     "natural_capital_debt_delta": -12,
@@ -474,6 +477,7 @@ ROUND_CONFIGS = {
                 "title": "Extended Producer Responsibility",
                 "description": "Fund take-back programs and recycling partnerships.",
                 "flags_set": ["epr_program"],
+                "ci_routing": "scope3_weighted",  # I2: EPR targets product-end-of-life Scope3
                 "impacts": {
                     "treasury": -5_000_000,
                     "natural_capital_debt_delta": -6,
@@ -492,6 +496,7 @@ ROUND_CONFIGS = {
                     "multiplier across BUs."
                 ),
                 "flags_set": ["waste_to_energy", "synergy_unlock"],
+                "ci_routing": "scope3_weighted",  # I2: waste-to-energy primarily reduces operational Scope3
                 "impacts": {
                     "treasury": -7_000_000,
                     "synergy_multiplier_boost": 0.30,  # Fix #4: harmonised to match M_R +0.30 in _post_r10

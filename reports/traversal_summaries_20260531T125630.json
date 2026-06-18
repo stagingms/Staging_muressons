@@ -1,0 +1,70 @@
+[
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  }
+]

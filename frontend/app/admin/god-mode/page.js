@@ -1,12 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import styles from '../page.module.css';
 
 import MaterialityConfig from '../../components/MaterialityConfig';
 import MasterInterventions from '../../components/MasterInterventions';
-import RoundPacingControl from '../../components/RoundPacingControl';
 import ResourceManager from '../../components/ResourceManager';
 
 import FacilitatorManager from '../../components/FacilitatorManager';
@@ -17,7 +16,6 @@ import GodModeAuditLog from '../../components/GodModeAuditLog';
 import UniversalBroadcast from '../../components/UniversalBroadcast';
 import SystemExport from '../../components/SystemExport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
-import AnalyticsControlPanel from '../../components/AnalyticsControlPanel';
 import GlossaryManager from '../../components/GlossaryManager';
 import TechnicalGlossary from '../../components/TechnicalGlossary';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
@@ -33,8 +31,11 @@ import DNAComparison from '../../components/DNAComparison';
 import DebriefReport from '../../components/DebriefReport';
 import SimulationReference from '../../components/SimulationReference';
 import RegulatorySandboxControl from '../../components/RegulatorySandboxControl';
+import SimulationSwitchboard from '../../components/SimulationSwitchboard';
 import { GOD_MODE_SIDEBAR, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
 import OnboardingWizard from '../../components/OnboardingWizard';
+import StakeholderConfig from '../../components/StakeholderConfig';
+import PillarConfigurator from '../../components/PillarConfigurator';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -62,6 +63,11 @@ function GodModeLoginGate({ onLogin }) {
                     facilitator_id: facId.trim(),
                     password: password.trim(),
                 }),
+                // C-3: credentials:'include' is required so the browser stores
+                // the HttpOnly mur_session JWT cookie returned by the server.
+                // Without this the Set-Cookie response header is silently ignored
+                // and all subsequent authenticated requests (password reset, etc.) fail.
+                credentials: 'include',
             });
             if (res.ok) {
                 const data = await res.json();
@@ -69,7 +75,12 @@ function GodModeLoginGate({ onLogin }) {
                     setError('Unauthorized: God Mode requires Super Administrator privileges. Contact your system administrator to request God Mode access, or use the Facilitator dashboard instead.');
                     return;
                 }
-                localStorage.setItem('godmode_auth', JSON.stringify(data));
+                // H-3 security fix: Store only display-safe subset in localStorage.
+                // Mirrors the facilitator page pattern — XSS can read localStorage.
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name } = data;
+                localStorage.setItem('godmode_auth', JSON.stringify(
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name }
+                ));
                 onLogin(data);            } else {
                 const err = await res.json();
                 setError(err.detail || 'Login failed');
@@ -266,13 +277,14 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        if (newPw.length < 3) { setError('New password must be at least 3 characters.'); return; }
+        if (newPw.length < 8) { setError('New password must be at least 8 characters.'); return; }
         if (newPw !== confirmPw) { setError('Passwords do not match.'); return; }
         setLoading(true);
         try {
             const res = await fetch(`${API}/api/admin/facilitators/change-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',  // O4: send JWT cookie for god-mode auth
                 body: JSON.stringify({
                     facilitator_id: facilitatorId,
                     old_password: oldPw,
@@ -344,7 +356,7 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
                         </div>
                         <div>
                             <label style={labelStyle}>New Password</label>
-                            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 3 characters" required style={inputStyle} />
+                            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" required style={inputStyle} />
                         </div>
                         <div>
                             <label style={labelStyle}>Confirm New Password</label>
@@ -377,6 +389,7 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
 export default function GodModePage() {
     const [authData, setAuthData] = useState(null);
     const [checked, setChecked] = useState(false);
+    const [sessionExpired, setSessionExpired] = useState(false);
 
     useEffect(() => {
         try {
@@ -386,18 +399,57 @@ export default function GodModePage() {
         setChecked(true);
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        // C-2: Call the server-side logout endpoint so the HttpOnly JWT cookie
+        // is properly cleared by the server.  We clear localStorage regardless
+        // of whether the server call succeeds (network failure must not trap
+        // the user in an authenticated state).
+        // M5: Also clear facilitator_auth — a super_admin may be simultaneously
+        // logged in on the facilitator dashboard; logout here clears both.
+        try {
+            await fetch(`${API}/api/admin/auth/logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch { /* ignore — clear local state regardless */ }
         localStorage.removeItem('godmode_auth');
+        localStorage.removeItem('facilitator_auth');
         setAuthData(null);
+        setSessionExpired(false);
+    };
+
+    const handleSessionExpired = () => {
+        localStorage.removeItem('godmode_auth');
+        localStorage.removeItem('facilitator_auth');
+        setAuthData(null);
+        setSessionExpired(true);
     };
 
     if (!checked) return null;
 
     if (!authData) {
-        return <GodModeLoginGate onLogin={setAuthData} />;
+        return (
+            <>
+                {sessionExpired && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
+                        background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
+                        color: '#fff', padding: '0.75rem 1.5rem',
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        fontSize: '0.85rem', fontWeight: 600,
+                    }}>
+                        <span>⏱️</span>
+                        <span>Your session has expired. Please sign in again to continue.</span>
+                    </div>
+                )}
+                <div style={{ paddingTop: sessionExpired ? '3rem' : 0 }}>
+                    <GodModeLoginGate onLogin={(data) => { setAuthData(data); setSessionExpired(false); }} />
+                </div>
+            </>
+        );
     }
 
-    return <GodModeDashboard authData={authData} onLogout={handleLogout} />;
+    return <GodModeDashboard authData={authData} onLogout={handleLogout} onSessionExpired={handleSessionExpired} />;
 }
 
 
@@ -473,7 +525,7 @@ function SystemContextBar() {
     );
 }
 
-function GodModeDashboard({ authData, onLogout }) {
+function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
     const [activeTab, setActiveTab] = useState('system_overview');
     const [showChangePw, setShowChangePw] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -490,7 +542,9 @@ function GodModeDashboard({ authData, onLogout }) {
 
     useEffect(() => {
         const fetchLb = () => fetch(`${API}/api/admin/leaderboard`, {
-            headers: { 'x-facilitator-id': authData?.facilitator_id }
+            // M2: use JWT cookie (credentials:'include') instead of the
+            // deprecated x-facilitator-id header for god-mode data fetches.
+            credentials: 'include',
         })
             .then(r => r.ok ? r.json() : null)
             .then(d => d?.leaderboard && setLeaderboard(d.leaderboard))
@@ -499,6 +553,25 @@ function GodModeDashboard({ authData, onLogout }) {
         const t = setInterval(fetchLb, 30000);
         return () => clearInterval(t);
     }, [authData]);
+
+    // Auto-refresh JWT cookie so a long session doesn't expire mid-workshop.
+    // Calls /auth/refresh immediately on mount then every 30 minutes.
+    // The backend will re-issue a fresh cookie (8h expiry) while the current one is still valid.
+    useEffect(() => {
+        const refresh = () => fetch(`${API}/api/admin/auth/refresh`, {
+            method: 'POST',
+            credentials: 'include',
+        }).then(r => {
+            // If refresh itself returns 401 the cookie has fully expired — trigger re-login
+            if (r.status === 401 && onSessionExpired) onSessionExpired();
+        }).catch(() => {});
+        refresh(); // refresh on mount in case token is already close to expiry
+        const t = setInterval(refresh, 30 * 60 * 1000); // refresh every 30 min
+        // Also refresh on window focus (catches overnight/long-idle scenarios)
+        const onFocus = () => refresh();
+        window.addEventListener('focus', onFocus);
+        return () => { clearInterval(t); window.removeEventListener('focus', onFocus); };
+    }, [onSessionExpired]);
 
     const toggleCategory = (catId) => {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
@@ -544,7 +617,8 @@ function GodModeDashboard({ authData, onLogout }) {
                         <SessionHealthDashboard />
                     </div>
                 );
-            case 'activity_log':
+            // O2: renamed from 'activity_log' — see sidebarConfig.js for explanation
+            case 'god_activity_log':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         <GodModeAuditLog />
@@ -552,17 +626,19 @@ function GodModeDashboard({ authData, onLogout }) {
                     </div>
                 );
             case 'platform_analytics':
-                return <PlatformAnalytics />;
+                // O3: pass leaderboard and navigation handlers so god-mode has
+                // the same prop contract as the facilitator dashboard.
+                return <PlatformAnalytics leaderboard={leaderboard} onNavigate={setActiveTab} onSelectSession={setSelectedSession} />;
                 
             case 'facilitator_registry':
-                return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />;
+                return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} authContext={authData} />;
             case 'cohort_provisioning':
-                return <SimulationManager fetchInternal={false} leaderboard={leaderboard} />;
+                return <SimulationManager fetchInternal={false} leaderboard={leaderboard} currentFacilitatorId={authData.facilitator_id} currentFacilitatorRole={authData.role} />;
             case 'cohort_orchestration':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <SimulationManager fetchInternal={false} leaderboard={leaderboard} />
-                        <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} />
+                        <SimulationManager fetchInternal={false} leaderboard={leaderboard} currentFacilitatorId={authData.facilitator_id} currentFacilitatorRole={authData.role} />
+                        <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} authContext={authData} />
                     </div>
                 );
             case 'session_controls':
@@ -586,6 +662,21 @@ function GodModeDashboard({ authData, onLogout }) {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         <EconomicEngineTunables />
                         <MasterVariableEditor />
+                    </div>
+                );
+            case 'sim_switchboard':
+                return (
+                    <div style={{ padding: '1.5rem' }}>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                                🛤️ Simulation Switchboard
+                            </h2>
+                            <p style={{ margin: '0.25rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                Toggle the Advanced Climate Engine and set global climate parameters.
+                                Enable Side Track Simulations platform-wide — lead facilitators may always assign any registered track to their cohorts.
+                            </p>
+                        </div>
+                        <SimulationSwitchboard />
                     </div>
                 );
             case 'materiality_config':
@@ -660,6 +751,12 @@ function GodModeDashboard({ authData, onLogout }) {
                     </div>
                 );
             }
+
+            case 'stakeholder_config':
+                return <StakeholderConfig />;
+
+            case 'pillar_config':
+                return <PillarConfigurator />;
 
             default:
                 return (

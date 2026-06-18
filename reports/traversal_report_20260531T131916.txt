@@ -1,0 +1,36 @@
+======================================================================
+  MURESSONS GLOBAL STATE TRAVERSAL -- TRACE REPORT
+  Generated: 2026-05-31T13:19:16.457689+00:00
+======================================================================
+
+  SUMMARY
+  -------------------------------------
+  Total runs       : 2
+  Passed           : 1  (50%)
+  Failed           : 1
+  TV flags (+/-5%) : 8
+  Avg collab gap   : +0.00
+  Avg latency (ms) : 66.4
+
+  PARADIGM BREAKDOWN
+  -------------------------------------
+  un_sdg               pass=1/1  flags=8  avg_gap=+0.00
+  brsr_ngrbc           pass=0/1  flags=0  avg_gap=+0.00
+
+  PATHWAY BREAKDOWN
+  -------------------------------------
+  activist_ultimatum        pass=1/2  flags=8
+
+  BU MODE BREAKDOWN
+  -------------------------------------
+  4bu             pass=1/2  flags=8
+
+  TERMINAL VALUE DEVIATION FLAGS  (threshold +/-5%)
+  -------------------------------------
+  [un_sdg / activist_ultimatum / 4bu]  session=7d240c9c-c2f...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 10]
+
+  FAILURES
+  -------------------------------------
+  [brsr_ngrbc / activist_ultimatum / 4bu]  rounds=0  errors=["exception: 'DataBridgeOutput' object has no attribute 'items'"]
+
+======================================================================

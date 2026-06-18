@@ -1,0 +1,953 @@
+# Muressons Global Corporation — Simulation Context Summary
+
+> **Purpose**: This is the canonical, living reference document for the complete Muressons simulation.
+> It covers the narrative world, all 10 main rounds, decision pillars, ending pathways, side tracks,
+> business unit profiles, scoring mechanics, and supporting engine systems.
+> Any AI assistant, new developer, or facilitator should read this file *first*.
+
+---
+
+## Table of Contents
+
+1. [Simulation Overview](#1-simulation-overview)
+2. [Business Units](#2-business-units)
+3. [Game State KPIs](#3-game-state-kpis)
+4. [Main Simulation — 10 Rounds](#4-main-simulation--10-rounds)
+5. [Decision Pillars (Multi-Toggle Paradigm)](#5-decision-pillars-multi-toggle-paradigm)
+6. [Ending Pathways (5 Alternate Ends)](#6-ending-pathways-5-alternate-ends)
+7. [Side Tracks (6 Parallel Mini-Simulations)](#7-side-tracks-6-parallel-mini-simulations)
+8. [Terminal Valuation & Archetypes](#8-terminal-valuation--archetypes)
+9. [Stochastic Systems](#9-stochastic-systems)
+10. [Black Swan Events](#10-black-swan-events)
+11. [Flag Dependency Graph](#11-flag-dependency-graph)
+12. [Core Engine Modules](#12-core-engine-modules)
+13. [Simulation Config & Tuneable Parameters](#13-simulation-config--tuneable-parameters)
+14. [Industry Verticals (BU Substitutions)](#14-industry-verticals-bu-substitutions)
+15. [Role Hierarchy: God Mode → Facilitator → Player](#15-role-hierarchy-god-mode--facilitator--player)
+
+---
+
+## 1. Simulation Overview
+
+**Name**: Muressons Global Corporation  
+**Format**: Multi-round ESG & sustainability strategy simulation for executive/MBA education  
+**Duration**: 10 main rounds (each represents a 6-month decision period, spanning 5 years)  
+**Paradigm**: Dual-track — main simulation runs sequentially, side tracks can be injected at any point  
+**Starting Date**: Simulation opens at Year 0; R10 represents the Year 5 terminal-valuation moment  
+
+### Core Learning Objectives
+- Double materiality and CSRD/ESRS compliance decision-making  
+- Scope 1/2/3 carbon accounting under real supply-chain pressure  
+- Crisis management, stakeholder fatigue, and social licence to operate  
+- Terminal valuation as a function of ESG quality (the Regenerative Multiple, M_R)  
+- Trade-offs between short-term cash extraction and long-run enterprise value  
+
+### Simulation Architecture
+```
+God Mode (platform admin)
+  └── Facilitator (session designer)
+        └── Player (team making decisions)
+              ├── Main Simulation (10 rounds)
+              │     ├── Round Crisis Decision (A/B/C)
+              │     └── Pillar Decisions (5 areas × 3 options each)
+              └── Side Tracks (1–6 parallel tracks, assigned by facilitator)
+                    ├── Supply Chain
+                    ├── Ethics & Sustainability
+                    ├── Stakeholder Management
+                    ├── Sustainability Reporting
+                    ├── Corporate SDG Deep Track
+                    └── BRSR NGRBC Deep Dive
+```
+
+---
+
+## 2. Business Units
+
+Muressons is a conglomerate with **4 active BU slots**. Each slot can be filled by a default BU or an industry vertical substitute. All values are initialised at session start.
+
+### Default 4-Slot Lineup
+
+| BU | Icon | Revenue (USD) | OPEX (USD) | Carbon Intensity (tCO₂e/\$M rev) | Water Dependency | Natural Capital Debt | Governance Risk |
+|---|---|---|---|---|---|---|---|
+| **Pharma** | 💊 | $18,000,000 | $12,000,000 | 35 | 82 | 120 | 15 |
+| **Electronics** | ⚡ | $16,500,000 | $11,500,000 | 72 | 58 | 200 | 20 |
+| **Consumer Goods** | 🛒 | $10,500,000 | $7,500,000 | 48 | 65 | 150 | 10 |
+| **Software** | 💻 | $8,500,000 | $5,500,000 | 12 | 12 | 30 | 25 |
+
+**All BUs start with:**  Social Licence Score = 50 · Reputation Score = 55 · Burnout Index = 10 · VRIO Advantage = 0.80
+
+### Key BU Mechanics
+- **Electronics** is the `blindspot` BU — Round 1 audit decisions determine whether `electronics_blindspot` flag is set, which doubles crisis severity in Round 4.
+- **Carbon Intensity** is the primary emissions metric: `tonnes_CO₂e = CI × revenue / 1,000,000`.
+- **Revenue-weighted group avg CI** = Σ(CI × rev) / Σrev — used for terminal valuation carbon tax.
+- **Natural Capital Debt (NCD)** accumulates if green investments are not made; it raises the cost of debt.
+
+---
+
+## 3. Game State KPIs
+
+| KPI | Scope | Range | Notes |
+|---|---|---|---|
+| `corporate_treasury` | Group | Starts $50M | Can go negative (crisis) |
+| `group_reputation` | Group | 0–100 | S-curve contagion model |
+| `synergy_multiplier` | Group | 0–2.0 | Diminishing-returns sqrt model |
+| `cost_of_capital` / WACC | Group | 0.05–0.20+ | NCD and macro rate environment |
+| `workforce_readiness` | Group | 0–100 | Starts 50; affects terminal valuation |
+| `carbon_intensity` | Per BU | ≥0 | tCO₂e per $1M revenue |
+| `social_license_score` (SLO) | Per BU | 0–100 | Stakeholder fatigue engine |
+| `staff_burnout_index` | Per BU | 0–100 | OPEX quadratic penalty above 20 |
+| `natural_capital_debt` | Per BU | ≥0 | Raises cost of debt by 0.01% per unit |
+| `governance_risk_score` | Per BU | 0–100 | Greenwash probability, litigation risk |
+| `vrio_advantage` | Per BU | 0–1.0 | Decays 2%/round unless reinvested |
+| `sdg_impact_score` | Group | −11 to 105 | From Corporate SDG side track only |
+
+---
+
+## 4. Main Simulation — 10 Rounds
+
+Each round has:
+1. **A thematic crisis** with three strategic response options (A/B/C).
+2. **Five pillar decisions** (Energy, Operations, Supply Chain, Offsetting, Human Resources) — each with 3 options.
+3. **Post-round engine calculations** (see §12).
+4. **Foreshadowing events** injected from Rounds 5–8 based on the chosen ending pathway (invisible to players).
+
+---
+
+### Round 1 — Foundations: ESG Baseline Assessment 📋
+
+**Crisis**: Board-mandated ESG audit. Depth of audit sets the game's risk baseline.
+
+| Option | Title | Treasury | Reputation | Key Effect |
+|---|---|---|---|---|
+| A | Surface-Level Scan | $0 | −2 | Sets `electronics_blindspot` (hidden risk; doubles R4 severity) |
+| B | Deep Forensic Audit | −$3M | +5 | Sets `deep_audit_completed`; CI −5; SLO +5 |
+| C | Phased Audit Rollout | −$1.5M | +2 | Sets `deferred_audit`; partial blind spots remain |
+
+**Strategic Consequence**: Option A is the highest-risk short-term choice. `electronics_blindspot` is a "time bomb" flag that detonates in Round 4 (Contagion), doubling crisis severity from 40 to 80.
+
+---
+
+### Round 2 — Double Materiality: Materiality-Based Budget Allocation 📊
+
+**Crisis**: CFO requires all investment proposals to align with the High Financial Impact / High ESG Impact quadrant per the Double Materiality framework (ESRS 1).
+
+**Special Mechanics**:
+- **CFO Materiality Gate**: Materiality accuracy ≥ 90% unlocks a $2M treasury bonus.
+- **CSRD/ESRS Climate Bonus**: Option A with Advanced Climate mode unlocks NCD forgiveness (+25%).
+
+| Option | Title | Treasury | Reputation | Key Effect |
+|---|---|---|---|---|
+| A | Full Materiality Alignment | −$2.5M | +5 | Sets `materiality_aligned`; +0.10 M_R at R10 |
+| B | Strategic Exceptions | $0 | +2 | Partial compliance; sets `materiality_exceptions` |
+| C | CEO-Only Sign-Off | $0 | −5 | ESRS 1 §1.51 violation; 40% budget clawback; Gov Risk +10 |
+
+**Regulatory Context**: Option C represents a real ESRS 1 violation — the management body must oversee the materiality process. Institutional investors apply a risk premium.
+
+---
+
+### Round 3 — Scope 3: Supply Chain Decarbonisation 🏭
+
+**Crisis**: Regulators signal mandatory Scope 3 disclosures. Supply chain carbon is 4× direct emissions.
+
+| Option | Title | Treasury | Key Effect |
+|---|---|---|---|
+| A | Rapid Supplier Switch | −$4M | `early_decarboniser` flag; CI −15 (scope3-weighted routing); supply disruption risk |
+| B | Green Bond Investment | −$2M | `green_bond_active`; NCD −15; CI −8 (scope3-weighted) |
+| C | Offset & Defer | −$1M | `carbon_deferred`; NCD +5; Reputation −3 |
+
+**Scope-Routing**: Options A and B use `scope3_weighted` CI routing — impacts are weighted by each BU's Scope 3 ratio, so Electronics and Consumer Goods absorb more of the CI reduction.
+
+---
+
+### Round 4 — Contagion: Reputation Crisis Cascade 🔥
+
+**Crisis**: Labour-rights exposé in Electronics supply chain goes viral. The Contagion Engine propagates reputation damage using an S-curve sigmoid formula.
+
+**Special Mechanics**:
+- If `electronics_blindspot` is active: crisis severity doubles (40 → 80).
+- If `deep_audit_completed` is active: severity halved.
+
+| Option | Title | Treasury | Reputation | Key Effect |
+|---|---|---|---|---|
+| A | Full Transparency & Remediation | −$6M | +10 | `remediation_active`; SLO +8; Gov Risk −5 |
+| B | Damage Control PR | −$2M | +2 | `pr_containment`; SLO −3; root cause unaddressed |
+| C | Deny & Deflect | $0 | −15 | `deny_and_deflect`; SLO −10; Gov Risk +8; NCD +5 |
+
+**Sigmoid Formula**: `Group_Rep = Avg_Rep − 50 × sigmoid((severity − 30) / 15)`
+
+---
+
+### Round 5 — Climate: Physical Climate Risk Event 🌪️
+
+**Crisis**: Category 4 cyclone projected. Base damage $12M. A stochastic roll determines actual impact.
+
+**Special Mechanics**:
+- **Stochastic Event**: roll > 0.75 → full $12M damage applied.
+- **Shadow Board** activates in Round 5 — a virtual board of 3 directors (Planet, People, Shareholder) each advocate their preferred option. Players may reject their advice, but each rejection sets a permanent penalty flag.
+
+| Option | Title | Resilience Factor | Treasury | Key Effect |
+|---|---|---|---|---|
+| A | Hard Engineering Defence | 0.85 | −$8M | `hard_engineering`; NCD +10; CI +3 (2-round delay before protection) |
+| B | Nature-Based Solutions | 0.60 | −$5M | `nature_based_resilience`; NCD −8; CI −6 (2-round delay) |
+| C | Insurance Only | 0.00 | −$2M | `insurance_only`; **BLOCKS** +0.20 Resilience Bonus at terminal valuation |
+
+**Shadow Board Flags** (set if player *rejects* director advice):
+- Reject Planet director → `planet_expendable` → −0.20 M_R penalty  
+- Reject Shareholder director → `shareholder_alienated` → −0.20 M_R (Hostile Takeover pathway)  
+- Reject Governance director → `governance_fragility` → −0.25 M_R (Regulatory Shutdown pathway)  
+
+---
+
+### Round 6 — AI Bias: Algorithmic Ethics & Brand Risk 🤖
+
+**Crisis**: Software BU's AI recruitment tool systematically discriminates. Story reaches mainstream media.
+
+**Macro Context**: Rounds 6–8 enter the "interest rate tightening" phase — WACC increases, reducing the terminal exit multiple.
+
+| Option | Title | Treasury | Key Effect |
+|---|---|---|---|
+| A | Monetise the Algorithm | +$10M (Software Rev) | `ai_monetised`; Reputation −20; SLO −15; EU AI Act costs from R7 |
+| B | Ethical AI Overhaul | −$8M | `ethical_ai_overhaul`; +0.15 Truth Premium M_R; SLO +15 |
+| C | Quiet Patch | −$1M | `quiet_patch`; Gov Risk +10; risk of future leak |
+
+---
+
+### Round 7 — Circularity: Circular Economy Transition ♻️
+
+**Crisis**: EU circular economy regulations mandate 60% waste diversion. Non-compliance fine: $15M.
+
+| Option | Title | Treasury | Key Effect |
+|---|---|---|---|
+| A | Full Circular Redesign | −$10M | `circular_redesign`; NCD −12; CI −8 (scope3-weighted); Rep +8 |
+| B | Extended Producer Responsibility | −$5M | `epr_program`; NCD −6; CI −5 (scope3-weighted) |
+| C | Waste-to-Energy Partnership | −$7M | `waste_to_energy` + `synergy_unlock`; Synergy boost +0.30; CI −6 (scope3-weighted) |
+
+**Key**: Option C sets the `synergy_unlock` flag → +0.15 M_R Strategic Synergy Premium at terminal valuation (OPEX savings separately captured in EBITDA).
+
+---
+
+### Round 8 — Blue Stress: Water Scarcity Emergency 🌊
+
+**Crisis**: Multi-year drought depletes watershed serving Pharma and Electronics. Government water rationing imminent.
+
+| Option | Title | Treasury | Key Effect |
+|---|---|---|---|
+| A | Water Efficiency for All BUs | −$12M | `water_efficiency_all`; Water −20; CI −3; SLO +5 |
+| B | Prioritise Electronics | −$4M | `electronics_water_priority`; **BLOCKS** +0.20 Resilience M_R; SLO −25 for Pharma/Consumer Goods |
+| C | Desalination Mega-Project | −$30M | `desalination_built`; NCD −30; Water −40; generates $5M/round from R10 (3-round payback) |
+
+**Macro Context**: Interest rate "crisis premium" enters in R9–R10 — WACC at highest point.
+
+---
+
+### Round 9 — Just Transition: Workforce & Community Justice ✊
+
+**Crisis**: Decarbonisation requires closing 3 legacy factories. 2,000 jobs at risk.
+
+**Special Mechanics**:
+- If Social Licence < threshold: 50% chance of strike that zeros revenue.
+- `regulatory_friction_enabled` — governance risk increases add OPEX drag.
+
+| Option | Title | Treasury | Key Effect |
+|---|---|---|---|
+| A | Immediate Closure | +$5M | `immediate_closure`; SLO −20; Rep −15; 75% strike chance if SLO low |
+| B | Managed Transition | −$12M | `managed_transition`; SLO +10; Rep +8; +0.12 M_R Just Transition bonus (×JT scaling) |
+| C | Community Investment Fund | −$20M | `community_fund`; SLO +18; Rep +12; +0.18 M_R Community Champion bonus (×JT scaling) |
+
+**JT Scaling**: Both managed_transition and community_fund bonuses are multiplied by 1 + (HR_investment_rounds × 0.10), capped at 1.5×. Teams that consistently invested in HR earn a higher M_R bonus.
+
+---
+
+### Round 10 — Grand Finale: Activist Ultimatum 🏛️
+
+**Default Crisis**: An activist consortium holds a blocking stake and demands strategic restructuring.
+
+> **Note**: The actual R10 crisis and options are **pathway-dependent**. The default ("Activist Ultimatum") is only shown if no ending pathway override is active. See §6 for all 5 pathway variants.
+
+| Option | Title | Treasury | Key Effect |
+|---|---|---|---|
+| A | Resist & Integrate | −$5M | Requires Synergy Score > 80; synergy bonus + terminal valuation calculated |
+| B | Spin-off | +$10M | Spins off weakest BU; partial value unlock |
+| C | Divest | +$25M | `synergy_wipe`; divests all; short-term cash max, long-run value destroyed |
+
+**Terminal Valuation** runs after R10 options are applied (see §8).
+
+---
+
+## 5. Decision Pillars (Multi-Toggle Paradigm)
+
+In the `multi_toggles` game paradigm, each round presents **5 strategic pillars**, each with **3 investment choices**. Players select one option per pillar simultaneously, in addition to the round's main crisis decision.
+
+| Pillar | Icon | Focus Area |
+|---|---|---|
+| **Energy** | ⚡ | Carbon intensity, renewable transition, infrastructure |
+| **Operations** | 🏭 | Process efficiency, governance, physical resilience |
+| **Supply Chain** | 🔗 | Supplier ESG, transparency, resilience |
+| **Offsetting** | 🌱 | Carbon credits, community impact, adaptation finance |
+| **Human Resources** | 👥 | Talent, culture, wellbeing, green skills |
+
+### Pillar Option Structure per Round
+
+Each pillar option contains:
+- `cost`: Treasury delta (negative = spend, positive = gain)
+- `impacts`: Dict of KPI deltas (reputation, carbon_intensity_delta, social_license_delta, governance_risk_delta, natural_capital_debt_delta, burnout_delta)
+- `flags_set`: List of boolean flags that carry consequences forward
+
+### Round-by-Round Pillar Themes
+
+| Round | Energy Focus | Operations Focus | Supply Chain Focus | Offsetting Focus | HR Focus |
+|---|---|---|---|---|---|
+| 1 | Renewable PPA / Solar CapEx | Lean Process / Digital Twin | Supplier Audit | Nature-Based Offsets | DEI Program / Leadership Dev |
+| 2 | Green Tariff / Efficiency | Materiality Board | Blockchain Traceability | Community Impact Fund | People Analytics |
+| 3 | Fleet Electrification | Closed-Loop Mfg | Rapid Supplier Switch | Science-Based Targets (SBTi) | Green Skills Academy |
+| 4 | Green Energy Pivot | Full Factory Transparency | Supply Chain Remediation | Stakeholder Compensation Fund | Crisis Employee Support |
+| 5 | Distributed Microgrids | Hard Engineering / Nature-Based | Geographic Diversification | Climate Adaptation Fund | Emergency Response Training |
+| 6 | Green Data Centers | Ethical AI Overhaul | Scope 3 transparency | Impact Reporting | Upskilling & Reskilling |
+| 7 | H2 / Long-Duration Storage | Circular Product Redesign | Supplier Circularity | Biodiversity Credits | Just Transition Training |
+| 8 | Water-Energy Nexus | Water Efficiency Tech | Supply Chain Nearshoring | Watershed Restoration | Worker Wellbeing |
+| 9 | Decarbonisation Capex | Factory Repurposing | Community Procurement | Just Transition Fund | Retraining Programs |
+| 10 | Terminal Green Infra | Integrated Reporting | Stakeholder Compact | ESG Bond Refinancing | Leadership Legacy |
+
+---
+
+## 6. Ending Pathways (5 Alternate Ends)
+
+The simulation has **5 ending pathways** that replace the default "Activist Ultimatum" R10 crisis. The pathway is selected by the **Facilitator** or **God Mode** at session creation. Players *never see the pathway name* — they only receive **foreshadowing events** (news items, market intelligence) injected from Rounds 5–8 that hint at what's coming.
+
+### Pathway Overview
+
+| ID | Name | R10 Crisis Title | Icon | Core Tension |
+|---|---|---|---|---|
+| `activist_ultimatum` | Activist Ultimatum *(default)* | Activist Ultimatum | 🏛️ | Integration vs. divestiture under activist pressure |
+| `climate_black_swan` | Climate Black Swan | The Stranded Asset Reckoning | 🌋 | Decarbonise or face carbon Minsky Moment |
+| `stakeholder_revolt` | Stakeholder Revolt | The Social Reckoning | 🪧 | Triple stakeholder ultimatum (employees + community + consumers) |
+| `hostile_takeover` | Hostile Takeover | The Corporate Raider | 🦈 | Defend or capitulate to Cerberus Capital |
+| `regulatory_shutdown` | Regulatory Shutdown | The Compliance Reckoning | ⚖️ | CSDDD enforcement — remediate, settle, or contest |
+
+---
+
+### Pathway 1: Activist Ultimatum (Default) 🏛️
+
+**Foreshadowing**:
+- R6: "Activist Fund Files 13D — 4.9% Stake Acquired"
+- R7: "Analyst Note: 'Muressons Ripe for Restructuring'"
+- R8: "Blocking Stake Reached — Board Engagement Imminent"
+
+**R10 Options**:
+| Option | Title | Effect |
+|---|---|---|
+| A | Resist & Integrate | Requires Synergy > 80; synergy bonus applied; −$5M |
+| B | Spin-off | Divests weakest BU; +$10M; SLO −5 |
+| C | Divest | Full divestiture; +$25M; `synergy_wipe`; Rep −10 |
+
+---
+
+### Pathway 2: Climate Black Swan 🌋
+
+**Trigger Logic**: Activated when world crosses 1.5°C threshold (foreshadowed via IPCC reports).
+
+**Special Rules**: Carbon tax **tripled** to $750/tonne. Exit multiple is **haircut by CI**: `Exit_Multiple = 12 × (1 − max(0, (avg_CI − 25) × 0.01))`.
+
+**Foreshadowing**:
+- R5: "IPCC: 1.5°C Overshoot Now 'Likely'"
+- R6: "Carbon Futures Surge 40% — EU ETS Hits Record"
+- R7: "Insurance Consortium: 'Uninsurable Assets by 2035'"
+- R8: "ALERT: 1.5°C Threshold Breached — Carbon Markets in Turmoil" (sets `climate_threshold_breached`)
+
+**R10 Options**:
+| Option | Title | Effect |
+|---|---|---|
+| A | Emergency Decarbonisation | −$20M; all CI halved; NCD halved; +0.30 M_R if avg CI < 25 |
+| B | Climate Adaptation Portfolio | Divests BUs with CI > 40 at 50% book value; reallocation capital |
+| C | Deny & Delay | +$5M; carbon tax **tripled**; NCD doubled; exit multiple drops to 6×; M_R −0.40 |
+
+**Pathway M_R Bonuses/Penalties**:
+- +0.30 Climate Leader (avg CI < 25)
+- +0.20 Adaptation Premium (nature_based_resilience + early_decarboniser)
+- +0.15 Carbon Transition (CI reduced ≥ 40% from R1 baseline)
+- −0.40 Stranded Asset Penalty (avg CI > 50)
+- −0.20 Shadow Board (planet_expendable flag)
+
+**Archetypes**: The Climate Pioneer · The Adapted Enterprise · The Stranded Giant · The Fossil Relic
+
+---
+
+### Pathway 3: Stakeholder Revolt 🪧
+
+**Trigger Logic**: Employee burnout + community coalition + consumer boycott converge simultaneously.
+
+**Special Rules**: SLO collapse threshold = 40; Burnout collapse threshold = 70.
+
+**Foreshadowing**:
+- R5: "Glassdoor Review: 'Muressons Culture is Toxic'"
+- R6: "Community Coalition Forms Against Industrial Operations"
+- R7: "Consumer Boycott Hashtag Gains 2M Impressions"
+- R8: "#MuressonsExposed — Triple Stakeholder Ultimatum" (sets `social_media_campaign`)
+
+**R10 Options**:
+| Option | Title | Effect |
+|---|---|---|
+| A | Total Stakeholder Compact | −$18M; Revenue +15%; +0.35 M_R if avg SLO ≥ 70 AND burnout < 30 |
+| B | Selective Appeasement | −$8M; fixes worst metric; unaddressed groups SLO −10 |
+| C | Corporate Hardball | +$10M; all SLO −25; all burnout +20; shutters any BU with SLO = 0; M_R −0.30 |
+
+**Pathway M_R Bonuses/Penalties**:
+- +0.35 Social Regeneration (avg SLO ≥ 70 AND burnout < 30)
+- +0.15 Employee Champion (burnout < 25 AND readiness ≥ 70)
+- +0.15 Community Trust (avg SLO ≥ 80)
+- −0.50 Social Collapse (avg SLO < 40 OR burnout > 70)
+
+**Archetypes**: The People's Corporation · The Responsible Employer · The Contested Enterprise · The Social Pariah
+
+---
+
+### Pathway 4: Hostile Takeover 🦈
+
+**Trigger Logic**: Weak governance + low market cap makes Muressons vulnerable to Cerberus Capital.
+
+**Special Rules**: Defence viability threshold: synergy ≥ 1.3 (White Knight option). Takeover premium: +15%.
+
+**Foreshadowing**:
+- R6: "Unusual Share Volume Detected in Muressons Stock"
+- R7: "PE Firm 'Cerberus Capital' Denies Acquisition Interest"
+- R8: "Cerberus Files Preliminary Offer with Regulator" (sets `takeover_rumour`)
+
+**R10 Options**:
+| Option | Title | Effect |
+|---|---|---|
+| A | White Knight Defence | −$15M; Revenue −5%; +0.25 M_R if synergy ≥ 1.3 AND treasury > $30M |
+| B | Poison Pill + Crown Jewel Lock-Up | −$25M; exit multiple overridden to 10× (debt overhang) |
+| C | Accept the Bid | +$20M; exit multiple locked to 8×; M_R capped at 1.0; M_R −0.50 |
+
+**Pathway M_R Bonuses/Penalties**:
+- +0.25 Strategic Integration (synergy ≥ 1.3 AND treasury > $30M)
+- +0.20 Fortress Premium (EBITDA margin > 20% AND no scandal flags)
+- +0.15 Conglomerate Premium (synergy ≥ 1.5)
+- −0.40 Vulnerable Target (synergy < 1.1 AND treasury < $10M)
+- −0.20 Shadow Board (shareholder_alienated flag)
+
+**Takeover Vulnerability Index (TVI)**: `100 − (synergy × 30) − (treasury_M × 5) − (EBITDA_margin × 50)` — displayed as a live foreshadowing KPI.
+
+**Archetypes**: The Untouchable Fortress · The Defended Platform · The Vulnerable Target · The Broken Conglomerate
+
+---
+
+### Pathway 5: Regulatory Shutdown ⚖️
+
+**Trigger Logic**: Whistleblower triggers CSDDD investigation. Years of governance failures exposed.
+
+**Special Rules**: Carbon tax elevated to $350/tonne. Base fine: $30M. Compliance cost: $4M per BU.
+
+**Ethical Score**: `(avg_SLO × 0.3 + (100 − avg_CI) × 0.3 + group_reputation × 0.4) / 10` — gates M_R bonuses.
+
+**Foreshadowing**:
+- R5: "EU Adopts Corporate Sustainability Due Diligence Directive (CSDDD)"
+- R6: "Sector Peers Face €50M+ CSDDD Compliance Costs"
+- R7: "Whistleblower Contacts Environmental Regulator"
+- R8: "Regulator Issues Show Cause Notice to Muressons" (sets `whistleblower_investigation`)
+
+**R10 Options**:
+| Option | Title | Effect |
+|---|---|---|
+| A | Full Remediation Programme | $4M per BU; +0.30 M_R if ethical_score > 7 AND no scandal flags |
+| B | Negotiate Consent Decree | −$30M; exit multiple to 10×; third-party monitoring for 3 years |
+| C | Contest the Ruling | −$10M legal costs; if ethical_score < 5: double fine ($60M); exit multiple to 7×; Rep −30; M_R −0.35 |
+
+**Pathway M_R Bonuses/Penalties**:
+- +0.30 Regulatory Exemplar (ethical_score > 7 AND no scandal flags)
+- +0.20 Supply Chain Transparency (scope_3_transparency OR full_remediation)
+- +0.15 Proactive Compliance (ethical_score > 6 AND avg SLO > 60)
+- −0.45 Regulatory Failure (ethical_score < 4)
+- −0.25 Shadow Board (governance_fragility flag)
+
+**Compliance Risk Index (CRI)**: `(avg_CI × 0.4) + ((100 − avg_SLO) × 0.3) + ((100 − group_rep) × 0.3)` — foreshadowing KPI.
+
+**Archetypes**: The Compliance Champion · The Regulated Enterprise · The Monitored Entity · The Suspended Operation
+
+---
+
+### Foreshadowing KPIs (displayed live from R5)
+
+| KPI | Formula | Pathway Relevance |
+|---|---|---|
+| Stranded Asset Exposure (SAE) | `avg_CI × total_NCD / 1000` | Climate Black Swan |
+| Social Capital Index (SCI) | `avg_SLO×0.4 + (100−burnout)×0.3 + group_rep×0.3` | Stakeholder Revolt |
+| Takeover Vulnerability Index (TVI) | `100 − synergy×30 − treasury_M×5 − EBITDA_margin×50` | Hostile Takeover |
+| Compliance Risk Index (CRI) | `avg_CI×0.4 + (100−avg_SLO)×0.3 + (100−group_rep)×0.3` | Regulatory Shutdown |
+
+---
+
+## 7. Side Tracks (6 Parallel Mini-Simulations)
+
+Side tracks are **self-contained mini-simulations** (4–7 rounds each) that run **sequentially** — the main simulation pauses while a side track is active. All side tracks share the same `process_tick()` engine with full formula support.
+
+### Control Hierarchy
+- **God Mode**: Enables/disables tracks globally and per-facilitator.
+- **Facilitator**: Assigns enabled tracks to cohorts and sets injection timing.
+- **Player**: Plays through assigned tracks sequentially.
+
+### Data Bridge Contract (both directions)
+- **`seed_from_main_state()`**: Reads main sim state → initialises side track state.
+- **`write_back_to_main()`**: Outputs flags/modifiers → merged into main sim `active_event_flags`.
+
+---
+
+### Side Track 1: Supply Chain 🔗
+
+**Focus**: Supply chain visibility, supplier risk scoring, circular economy integration.  
+**Rounds**: Available R3–R7 (5 rounds).  
+**Scoring Dimensions**: Supply Visibility, Supplier Risk, ESG Compliance, Circular Economy Score.  
+**Write-back Flags**: supply chain transparency metrics → affects Black Swan probability reduction.
+
+---
+
+### Side Track 2: Ethics & Sustainability 🌿
+
+**Focus**: Ethical governance, anti-corruption, human rights due diligence.  
+**Rounds**: Available R2–R7.  
+**Cross-Track Prerequisite**: None.  
+**Write-back Flags**: ethics integrity flags → improve BRSR NGRBC starting position.
+
+---
+
+### Side Track 3: Stakeholder Management 🤝
+
+**Focus**: NPC stakeholder dynamics, trust building, coalition management.  
+**Rounds**: Available R3–R8.  
+**Write-back Flags**: Stakeholder Fatigue Engine modifiers; SLO floor improvements.
+
+---
+
+### Side Track 4: Sustainability Reporting 📋
+
+**Focus**: CSRD/ESRS report building, assurance, disclosure quality.  
+**Rounds**: Available R4–R8.  
+**Write-back Flags**: `regulatory_readiness` score → boosts BRSR NGRBC starting position.
+
+---
+
+### Side Track 5: Corporate SDG Deep Track 🌐
+
+**Focus**: UN SDG alignment across 5 thematic rounds.  
+**Rounds**: 5 rounds; available R1–R8.  
+**Scoring**: SDG Impact Score (−11 to 105 raw points).
+
+**Round Themes**:
+| ST Round | Theme | Target BUs |
+|---|---|---|
+| 1 | PAI Audit & Baseline | Group-wide |
+| 2 | Living Wage Commitment | Electronics, Consumer Goods |
+| 3 | Circular Procurement | Electronics, Consumer Goods |
+| 4 | Biodiversity Net-Gain | Consumer Goods, Pharma |
+| 5 | Integrated Reporting | Group-wide |
+
+**Terminal Valuation Integration**:
+```
+M_SDG = 1.0 + (SDG_Impact_Score / 100) × 0.25
+Range: 0.97 (all C, score -11) → 1.26 (all A, score 105)
+```
+M_SDG is a **multiplier** on the full terminal valuation formula: `TV = EBITDA × Exit × M_R × M_SDG`
+
+**SDG Drag/Boost System**:
+- Score < 40 → `regulatory_ratchet_active` (OPEX uplift next round)
+- Score > 70 → +2 group reputation per SDG round
+- `circular_leader` flag → synergy multiplier protected from erosion (floor 1.10)
+- `nature_positive` flag → NCD interest rate reduced −1% per round
+
+**SDG Archetypes**: SDG Champion (A+) · SDG Leader (A) · SDG Performer (B) · SDG Starter (C) · SDG Laggard (D)
+
+---
+
+### Side Track 6: BRSR NGRBC Deep Dive 🇮🇳
+
+**Focus**: SEBI BRSR framework — all 9 NGRBC principles, Essential vs Leadership indicators, BRSR Core assurance.  
+**Rounds**: 5 rounds; available R2–R8.  
+**Cross-Track Prerequisites**: `sustainability_reporting`, `ethics_sustainability` (enrich starting position).
+
+**Round Themes**:
+| ST Round | NGRBC Principles |
+|---|---|
+| 1 | Governance & Ethics (P1/P7) |
+| 2 | Human Capital (P3/P5) |
+| 3 | Environmental Stewardship (P6/P2) |
+| 4 | Value Chain & Stakeholder (P4/P8/P9) |
+| 5 | Integrated BRSR Core Disclosure |
+
+**Scoring Dimensions** (weighted composite):
+- Governance & Ethics (P1/P7): 20%
+- Human Capital (P3/P5): 20%
+- Environmental Stewardship (P6/P2): 25%
+- Value Chain & Stakeholder (P4/P8/P9): 20%
+- Integrated Disclosure Quality: 15%
+
+**Write-back Flags**:
+- Score ≥ 80 → `brsr_net_positive_dividend` (+0.05 M_R ESG Alpha Dividend at terminal valuation)
+- `brsr_pioneer`, `brsr_core_assured`, `brsr_living_wage` → individual archetype flags
+- `governance_fragility` → `brsr_truth_premium_cost_doubled`
+- `brsr_greenwash_risk` → SEBI show-cause notice in ST-R4 (−12 reputation, −$2.5M)
+
+**Special Events**:
+- ST-R4 with `brsr_greenwash_risk`: SEBI issues show-cause notice on unverifiable Scope 3 claims.
+- ST-R5 with `governance_fragility`: Whistleblower leak triggers SEBI scrutiny; treasury −$2.5M.
+- ST-R5 with `brsr_core_assured`: Crisis severity −10 (assurance bonus).
+
+**BRSR Archetypes**: BRSR Pioneer · Responsible Steward · Compliance Pragmatist · Regulatory Laggard
+
+---
+
+## 8. Terminal Valuation & Archetypes
+
+Terminal valuation runs after all Round 10 decisions are applied. It is a comprehensive model connecting every ESG decision made across the simulation into a single enterprise value.
+
+### Formula
+
+```
+Terminal_EBITDA = Σ(BU Revenue − BU OPEX) − (Total_tCO₂e × Carbon_Tax_Per_Tonne)
+
+Terminal Value (EV) = (Terminal_EBITDA + Green_Fund) × Exit_Multiple × M_R × M_SDG
+
+Equity Value = Terminal Value − Net Debt
+
+Price Per Share = Equity Value / 100,000,000 shares
+```
+
+**IPO Price**: $50.00/share (100M shares outstanding)
+
+---
+
+### Exit Multiple
+
+**Default (fixed)**: 12.0×  
+**Dynamic (WACC-linked)**: `(1 + g) / (WACC − g)` where g = 2% long-run growth.
+- Floor: 6.0×, Ceiling: 18.0×  
+- WACC > 9% triggers a visible "WACC Penalty" warning in the UI.
+- NCD raises WACC. Macro rate cycles also affect WACC.
+
+**Pathway Overrides**: Hostile Takeover can reduce to 8–10×; Climate Black Swan haircuts by CI; Regulatory Shutdown to 7–10×.
+
+---
+
+### Regenerative Multiple (M_R)
+
+M_R is the ESG quality / risk modifier. It ranges from 0.0 to ~2.03.
+
+| M_R Component | Trigger | Value |
+|---|---|---|
+| Base | Always | +1.00 |
+| Materiality Governance | `materiality_aligned` flag | +0.10 |
+| Synergy Strategic Premium | `synergy_unlock` AND synergy ≥ 0.80 | +0.15 |
+| Resilience Champion | No `insurance_only` AND no `electronics_water_priority` | +0.20 |
+| Truth Premium | `ethical_ai_overhaul` | +0.15 |
+| Community Champion | `community_fund` (×JT scaling) | +0.18 |
+| Just Transition | `managed_transition` (×JT scaling) | +0.12 |
+| Workforce Excellence | workforce_readiness ≥ 75 | +0.10 |
+| Wellbeing Champion | avg burnout < 20 | +0.05 |
+| BRSR ESG Alpha Dividend | `brsr_net_positive_dividend` | +0.05 |
+| **Planet Expendable Penalty** | `planet_expendable` | −0.20 |
+| **Instability Discount** | avg SLO < 75 | −0.40 |
+
+**JT Scaling Factor**: `min(1.5, 1.0 + HR_investment_rounds × 0.10)` — rewards consistent HR investment.
+
+**Max Achievable M_R**: ~1.93 (without JT scaling; ~2.03 with max JT scaling).
+
+---
+
+### SDG Multiplier (M_SDG)
+
+`M_SDG = 1.0 + (SDG_Impact_Score / 100) × 0.25`
+
+- Sessions without the Corporate SDG side track: M_SDG = 1.0 (neutral).
+- Range: 0.97 → 1.26.
+
+---
+
+### Company Archetypes (by M_R)
+
+| M_R Range | Archetype | Icon | Default Gradient |
+|---|---|---|---|
+| ≥ 1.8 | **The Regenerative Titan** | 🌱 | Emerald green |
+| 1.2–1.79 | **The De-risked Safe-Haven** | 🏦 | Blue |
+| 0.8–1.19 | **The Fragile Giant** | ⚠️ | Amber |
+| < 0.8 | **The Stranded Relic** | 💀 | Red |
+| Survival Mode | **The Turnaround Manager** | 🔧 | Purple (M_R capped 0.80) |
+
+> Each ending pathway has its own **archetype override titles/icons** that replace the defaults.
+
+---
+
+### Cross-Pathway M_R Normalization (Leaderboard)
+
+To enable fair comparison across sessions with different pathways, M_R is normalized:
+`Normalized_M_R = Raw_M_R × Pathway_Difficulty_Coefficient`
+
+| Pathway | Difficulty Coefficient |
+|---|---|
+| Activist Ultimatum | 1.00 |
+| Climate Black Swan | 1.15 |
+| Stakeholder Revolt | 1.10 |
+| Hostile Takeover | 1.20 |
+| Regulatory Shutdown | 1.12 |
+
+---
+
+## 9. Stochastic Systems
+
+### Round 5: Cyclone Damage Roll
+- If random roll > 0.75: full $12M base damage applied.
+- Resilience Factor from chosen option reduces damage: `actual_damage = base_damage × (1 − resilience_factor)`.
+- Option A (Hard Engineering) or Option B (Nature-Based): protection active from R7 onward (2-round delay).
+
+### Round 9: Strike Probability
+- Triggered if Social Licence is low and `immediate_closure` flag is set.
+- Strike probability override: 75% chance of strike zeroing revenue for that round.
+
+### Greenwashing Engine
+- Activates when a player selects a "green" option (A or C) without backing it with ≥ 15% investment ratio.
+- Penalty: −15 reputation (group level), sets auditor tolerance to Hostile.
+- Moderate choices (B): lower threshold at 10%.
+
+### Macro Interest Rate Cycles
+| Rounds | Regime | WACC Modifier |
+|---|---|---|
+| R1–R2 | Easing | −1% |
+| R3–R5 | Neutral | 0% |
+| R6–R8 | Tightening | +2% |
+| R9–R10 | Crisis Premium | +3% |
+
+---
+
+## 10. Black Swan Events
+
+Black Swan events are **stochastic, low-probability, high-impact events** evaluated each round via `evaluate_black_swans()`. They are drawn from Taleb's fat-tail theory and Weick & Sutcliffe's High Reliability Organisation framework.
+
+### Difficulty Scaling
+| Tier | Prob. Multiplier | Impact Multiplier | Treasury Floor |
+|---|---|---|---|
+| Easy (Introductory) | 0.5× | 0.7× | −$500M |
+| Standard (Professional) | 1.0× | 1.0× | −$200M |
+| Expert (Executive) | 1.5× | 1.3× | −$50M |
+
+### Global Black Swan Events
+
+| Event | Icon | Round Range | Base Prob | Key Impact |
+|---|---|---|---|---|
+| Sovereign Debt Crisis | 🏦 | R4–R8 | 8% | −12% treasury, +300bps interest, −10% revenue |
+| Internal Whistleblower Scandal | 🔔 | R3–R9 | 6% | Rep −20, treasury −8%, SLO −15, Gov Risk +15 |
+| Pandemic Disruption Wave | 🦠 | R5–R9 | 6% | 30% workforce loss, OPEX +15%, burnout +20 |
+| AI Disruption Wave | 🤖 | R6–R10 | 10% | Software Rev +20%, ops displacement 15%, burnout +10 |
+| Climate Litigation Ruling | ⚖️ | R7–R10 | 5% | −$8M, asset writedown 10%, Rep −10 |
+| Critical Mineral Embargo | 🚫 | R4–R9 | 7% | Electronics/Pharma Rev −15%, OPEX +10% |
+| Ransomware Attack | 💀 | R3–R10 | 7% | −$5M, Revenue −5%, Rep −8, Gov Risk +12 |
+| Viral Consumer Boycott | 📱 | R4–R9 | 5% | Consumer Goods Rev −20%, Rep −12, SLO −10 |
+
+### Region-Specific Events
+
+| Event | Icon | Region | Round Range | Base Prob |
+|---|---|---|---|---|
+| ASEAN Trade Corridor Dispute | 🚢 | ASEAN | R3–R8 | 10% |
+| South Asia Extreme Monsoon | 🌧️ | South Asia | R2–R7 | 9% |
+| EU Carbon Border Adjustment (CBAM) | 🌿 | Europe | R4–R9 | 11% |
+| SEC Climate Disclosure Enforcement | 📋 | North America | R5–R9 | 8% |
+| African Resource Nationalisation | ⛏️ | Africa | R3–R9 | 7% |
+
+**Conditional Modifiers**: Many events have higher probability when specific metrics are poor. E.g., Whistleblower probability +15% if `greenwashing_detected` is active. This creates compounding risk curves.
+
+---
+
+## 11. Flag Dependency Graph
+
+Flags are boolean state markers set by decisions that carry cross-round consequences. Below is the complete causal dependency graph.
+
+| Source Round | Flag | Target Round | Effect | Category |
+|---|---|---|---|---|
+| R1 | `deep_audit_completed` | R4 | Halves crisis severity (40 vs 80) | governance |
+| R1 | `electronics_blindspot` | R4 | Doubles crisis severity to 80 | risk |
+| R2 | `materiality_aligned` | R10 | +0.10 M_R Governance bonus | governance |
+| R2 | `blockchain_traceability` | R8 | Prevents supply chain scandal | supply_chain |
+| R3 | `early_decarboniser` | R7 | +0.10 synergy multiplier bonus | climate |
+| R3 | `greenwash_risk` | R5 | Triggers greenwash if inv < 15% | risk |
+| R5 | `insurance_only` | R10 | BLOCKS +0.20 Resilience M_R bonus | climate |
+| R6 | `ethical_ai_overhaul` | R10 | +0.15 Truth Premium M_R | governance |
+| R6 | `ai_monetised` | R7 | EU AI Act costs from R7+ | risk |
+| R7 | `synergy_unlock` | R10 | +0.15 Synergy M_R (strategic premium; OPEX savings already in EBITDA) | strategic |
+| R8 | `electronics_water_priority` | R10 | BLOCKS +0.20 Resilience M_R bonus | risk |
+| R9 | `community_fund` | R10 | +0.18 Community Champion M_R (×JT) | social |
+| R9 | `managed_transition` | R10 | +0.12 Just Transition M_R (×JT) | social |
+| BRSR-R1 | `brsr_pioneer` | R10 | Enables BRSR Pioneer archetype path | governance |
+| BRSR-R1 | `governance_fragility` | BRSR-R5 | Triggers Whistleblower Governance Leak (−$2.5M) | governance |
+| BRSR-R4 | `brsr_greenwash_risk` | BRSR-R4 | SEBI Show-Cause Notice (−12 Reputation) | risk |
+| BRSR-R5 | `brsr_net_positive_dividend` | R10 | +0.05 ESG Alpha Dividend M_R (BRSR Pioneer) | governance |
+
+**Shadow Board Flags** (R5 — if player rejects director recommendation):
+- Reject Planet director → `planet_expendable` → −0.20 M_R (all pathways) + amplifies Climate Black Swan
+- Reject Shareholder director → `shareholder_alienated` → −0.20 M_R (Hostile Takeover pathway)
+- Reject Governance director → `governance_fragility` → −0.25 M_R (Regulatory Shutdown) + BRSR leak
+
+---
+
+## 12. Core Engine Modules
+
+All 30 registered modules live primarily in `backend/engine.py` and satellite files. They run inside `process_tick()` each round.
+
+| # | Module | Key Formula | Trigger |
+|---|---|---|---|
+| 1 | Carbon Accounting | `tCO₂e = CI × rev / 1M`; revenue-weighted avg CI | Every round |
+| 2 | Corporate Strategic Fund (CSF) | `CSF = Σ(Rev − OPEX) − Dividends` | Every round |
+| 3 | Contagion Engine | `Rep = Avg_Rep − 50 × sigmoid((severity − 30) / 15)` | Crisis rounds |
+| 4 | Synergy Engine | `New_OPEX = Old_OPEX × (1 − sqrt(ratio) × 0.7 × Synergy)` | When invested |
+| 5 | Natural Capital Cost of Debt | `rate = base_rate + NCD × 0.0001` | Every round |
+| 6 | VRIO Decay | 2% decay per round unless reinvested | Every round |
+| 7 | Burnout Accumulation | Natural drift +6/round; OPEX quadratic penalty > 20 | Every round |
+| 8 | Workforce Readiness | ±8–16 per round; penalty < 40; bonus > 75 | Every round |
+| 9 | Talent Brain-Drain | Attrition from high burnout + low readiness | Every round |
+| 10 | Strike Probability | SLO + burnout → probability of revenue-zeroing strike | Every round |
+| 11 | Natural Decay | Scores decay toward baseline when uninvested | Every round |
+| 12 | Macroeconomic Inflation | OPEX inflation per macro cycle | Every round |
+| 13 | Execution Overrun Risk | Investment budget overruns add OPEX drag | Every round |
+| 14 | Technical Debt | Deferred IT/ops investment accumulates latent cost | Every round |
+| 15 | Revenue Cannibalization | BUs > 15% above avg revenue cannibalize overlapping BUs | Every round |
+| 16 | Stakeholder Fatigue | `efficiency = 1 / (1 + 0.3 × crisis_count)` | After crises |
+| 17 | Supply Chain Contagion | SC disruption propagates revenue/OPEX shocks | When flagged |
+| 18 | Competitor Pressure | Market share erosion when peers decarbonise faster | R5+ |
+| 19 | Cash Conversion | Treasury → liquidity ratio → covenant trigger | Every round |
+| 20 | Dividend Ratchet | Dividend expectations grow with profitability history | R4+ |
+| 21 | Talent Allocation Pressure | Cross-BU talent competition reduces marginal returns | R3+ |
+| 22 | Technology Lock-In | Early tech choices create switching costs | R4+ |
+| 23 | ESG Greenwashing Risk | Green option + inv < 15% → reputation penalty −15 | When flagged |
+| 24 | Macro Interest Rate | 4-phase rate cycle modifies WACC | Every round |
+| 25 | Biodiversity Engine | `biodiversity_engine.py` | When NCD or nature flags set |
+| 26 | Balance Sheet Engine | IAS 1 format; liquidity ratio covenant | Every round |
+| 27 | Systemic Risk Engine | `systemic_risk_engine.py`; emissions cap breach | Every round |
+| 28 | Terminal Valuation | `terminal_valuation.py`; EBITDA × Exit × M_R × M_SDG | R10 only |
+| 29 | Regulatory Sandbox | `regulatory_sandbox.py`; CSRD/ESRS gate logic | R2+, R7+ |
+| 30 | Black Swan Registry | `black_swan_registry.py`; fat-tail stochastic events | R2–R10 |
+
+---
+
+## 13. Simulation Config & Tuneable Parameters
+
+All parameters live in `simulation_config.json` and are loaded as typed constants by `backend/config.py`. **Never hardcode these values in engine logic.**
+
+| JSON Path | Config Constant | Default | Description |
+|---|---|---|---|
+| `simulation_settings.rounds` | `SIM_ROUNDS` | 10 | Total main simulation rounds |
+| `simulation_settings.agents` | `SIM_AGENTS` | 50 | Number of NPC / autonomous stakeholder agents (DOC-2: this is the NPC agent pool, **not** the 4 business-unit slots — BUs come from the seed JSON / `bu_profiles.py`) |
+| `simulation_settings.initial_budget` | `SIM_INITIAL_BUDGET` | $50,000,000 | Starting Corporate Strategic Fund |
+| `economic_parameters.carbon_price_base` | `ECONOMIC_CARBON_PRICE_BASE` | $50.00 | Base carbon price (USD/tCO₂e) — DOC-1: reconciled to match `simulation_config.json` (source of truth) |
+| `economic_parameters.carbon_price_growth_rate` | `ECONOMIC_CARBON_PRICE_GROWTH` | 0.05 | Annual carbon price escalation — DOC-1: reconciled to match `simulation_config.json` |
+| `economic_parameters.circular_economy_efficiency_bonus` | `ECONOMIC_CIRCULAR_ECONOMY_BONUS` | 0.15 | OPEX bonus from circular decisions |
+| `constraints.max_carbon_emissions` | `CONSTRAINT_MAX_CARBON_EMISSIONS` | 5,000 tCO₂e | Group-wide emissions cap |
+| `constraints.min_liquidity_ratio` | `CONSTRAINT_MIN_LIQUIDITY_RATIO` | 0.2 | Minimum cash/assets ratio |
+
+### Terminal Valuation Constants
+- Shares outstanding: 100,000,000 (fixed)
+- IPO opening price: $50.00/share
+- Long-run terminal growth: 2%
+- Exit multiple floor: 6×, ceiling: 18×
+
+---
+
+## 14. Industry Verticals (BU Substitutions)
+
+Facilitators can replace any of the 4 default BU slots with an industry vertical. Slot-fit restrictions ensure pedagogical coherence.
+
+| Vertical | Icon | Replaces Slot | Carbon Intensity | Key Character |
+|---|---|---|---|---|
+| Oil & Gas | 🛢️ | Pharma | 95 | Extreme carbon; stranded asset risk; NCD 350 |
+| Banking & Financial Services | 🏦 | Software | 8 | Financed emissions; systemic risk; Gov Risk 30 |
+| Retail/FMCG | 🛍️ | Consumer Goods | 42 | Packaging; labour-intensive; brand-risk |
+| Agriculture | 🌾 | Consumer Goods | 55 | Water 90; biodiversity; land-use emissions |
+| Technology (AI/Cloud) | 🧠 | Software | 15 | Data centre energy; talent brain-drain; Gov Risk 28 |
+
+### Slot-Fit Rules
+```
+pharma    → [oil_gas]
+electronics → [oil_gas]
+consumer_goods → [retail_fmcg, agriculture]
+software  → [banking_financial_services, technology]
+```
+
+### Vertical Blindspot Flags
+Each vertical has its own "blindspot" equivalent set in Round 1 if players choose a shallow audit:
+- Oil & Gas: `refinery_blindspot`
+- Banking: `governance_blindspot`
+- Retail/FMCG: `supply_chain_blindspot`
+- Agriculture: `land_use_blindspot`
+- Technology: `data_centre_blindspot`
+
+---
+
+## 15. Role Hierarchy: God Mode → Facilitator → Player
+
+### God Mode (Platform Admin)
+- Enables/disables side tracks globally and per-facilitator
+- Sets difficulty tier (Easy / Standard / Expert)
+- Injects specific Black Swan events (forced event ID)
+- Sets the ending pathway (or `random`)
+- Sets the region (ASEAN, South Asia, Europe, North America, Africa) for region-specific Black Swan events
+- Manages player passwords, session codes, benchmark data
+
+### Facilitator
+- Creates sessions for their cohort
+- Assigns which side tracks players will encounter and their injection timing
+- Can override round decisions (decision_overrides.json)
+- Views the Teleprompter (admin_teleprompter.py) for guided facilitation scripts
+- Accesses the Admin Analytics dashboard for real-time session monitoring
+
+### Player (Team)
+- Receives Player Briefing (company background, starting position)
+- Makes crisis decisions (A/B/C) each round
+- Makes pillar decisions (5 areas) each round
+- Plays through assigned side tracks when activated
+- Sees their KPI dashboard, event narratives, and foreshadowing items (but NOT the pathway name)
+- At R10: sees full terminal valuation breakdown, company archetype, and score vs benchmarks
+
+---
+
+## Appendix A: Key Codebase Files
+
+| File | Role |
+|---|---|
+| `backend/engine.py` | Core 30+ formula modules; `process_tick()` |
+| `backend/round_configs.py` | All 10 main round crisis configs (A/B/C) |
+| `backend/pillar_configs.py` | All 10 rounds × 5 pillars × 3 options |
+| `backend/ending_pathways.py` | 5 pathway R10 configs, foreshadowing, M_R calculators |
+| `backend/terminal_valuation.py` | M_R, M_SDG, Exit Multiple, Equity Bridge, Archetypes |
+| `backend/black_swan_registry.py` | 13 Black Swan events, evaluation engine |
+| `backend/bu_profiles.py` | Default BU profiles + 5 industry verticals |
+| `backend/side_tracks/__init__.py` | Side track registry + auto-registration |
+| `backend/side_tracks/corporate_sdg/` | Corporate SDG 5-round track |
+| `backend/side_tracks/brsr_ngrbc/` | BRSR NGRBC 5-round track |
+| `backend/round_logic.py` | Session-level tick orchestration |
+| `backend/router.py` | FastAPI routes for all player actions |
+| `backend/admin_router.py` | Facilitator/God Mode admin routes |
+| `backend/database.py` | SQLite session persistence |
+| `backend/config.py` | Typed config constants from simulation_config.json |
+| `blueprint.md` | Module blueprint & registry for all engine modules |
+| `simulation_config.json` | Tuneable parameters (source of truth) |
+
+---
+
+## Appendix B: Optimal Strategy Heuristics
+
+Understanding what constitutes a "high M_R" path:
+
+1. **R1**: Choose Deep Forensic Audit (B) → avoids R4 severity doubling.
+2. **R2**: Choose Full Materiality Alignment (A) → +0.10 M_R + ESRS compliance.
+3. **R3**: Choose Green Bond (B) or Rapid Switch (A) → set `early_decarboniser` for R7 synergy bonus.
+4. **R4**: Full Transparency (A) → prevents ongoing SLO erosion.
+5. **R5**: Nature-Based Solutions (B) → sets resilience, avoids insurance_only penalty, reduces NCD.
+6. **R6**: Ethical AI Overhaul (B) → +0.15 Truth Premium.
+7. **R7**: Waste-to-Energy (C) → `synergy_unlock` → +0.15 Synergy M_R.
+8. **R8**: Water Efficiency for All (A) → preserves Resilience M_R bonus; avoids `electronics_water_priority`.
+9. **R9**: Community Investment Fund (C) → +0.18 Community Champion M_R (amplified by consistent HR investment).
+10. **R10**: Resist & Integrate (A) → requires synergy > 80 from R7 synergy unlock.
+
+**Maximum achievable M_R without side tracks**: ~1.93 (before JT scaling)  
+**Maximum M_R with BRSR Pioneer**: ~1.98  
+**Maximum M_R with Corporate SDG (all A, score 105)**: M_SDG = 1.26 → TV boosted by 26%.
+
+---
+
+*Last updated: 2026-05-28 | Maintained by the Muressons simulation engineering team.*
+*Reference files: `round_configs.py`, `pillar_configs.py`, `ending_pathways.py`, `terminal_valuation.py`, `black_swan_registry.py`, `bu_profiles.py`, `side_tracks/`*

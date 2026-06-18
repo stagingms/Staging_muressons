@@ -9,6 +9,7 @@ import ExecutiveCockpit from './components/ExecutiveCockpit';
 import BoardroomShowdown from './components/BoardroomShowdown';
 import SustainabilityBalancedScorecard from './components/SustainabilityBalancedScorecard';
 import GameOverSummary from './components/GameOverSummary';
+import ArchetypeReveal from './components/ArchetypeReveal';
 import StakeholderMapModal from './components/StakeholderMapModal';
 import CFOOverrideModal from './components/CFOOverrideModal';
 const FullScreenLoader = () => <div style={{position: 'fixed', inset: 0, background: '#080c18', zIndex: 20000}}></div>;
@@ -17,7 +18,7 @@ const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { 
 const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false, loading: FullScreenLoader });
 import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
-import CrisisAlerts from './components/CrisisAlerts';
+import CrisisAlerts, { CrisisScreen } from './components/CrisisAlerts';
 import useSimulation from './hooks/useSimulation';
 
 // ── New Improvement Components ──────────────────────────────────
@@ -234,7 +235,33 @@ export default function CockpitPage() {
   const _tempBus = sim.businessUnits?.length ? sim.businessUnits : null;
   const isHealthcare = _tempBus ? _tempBus.some(b => b.bu_id === 'hospitals') : (globalState?.industry === 'healthcare');
   
-  const businessUnits = _tempBus || (isHealthcare ? SEED_BUS_HEALTHCARE : SEED_BUS);
+  // Single-BU mode: when set, the investment matrix shows only this BU
+  const [assignedBu, setAssignedBu] = useState('');
+
+  const businessUnits = useMemo(() => {
+    const all = _tempBus || (isHealthcare ? SEED_BUS_HEALTHCARE : SEED_BUS);
+    // Single-BU mode: filter to only the player's assigned BU
+    if (assignedBu) {
+      const filtered = all.filter(b => b.bu_id === assignedBu);
+      if (filtered.length > 0) return filtered;
+    }
+    return all;
+  }, [_tempBus, isHealthcare, assignedBu]);
+
+  // ── Single-BU briefing: prepend BU-specific context to podcast transcripts ──
+  const BU_LABELS = { pharma: 'Pharma Division', software: 'Software Division', consumer_goods: 'Consumer Goods Division', electronics: 'Electronics Division' };
+  const activeBriefing = useMemo(() => {
+    if (!assignedBu) return PODCAST_TRANSCRIPTS;
+    const label = BU_LABELS[assignedBu] || assignedBu;
+    const modified = {};
+    for (const [round, lines] of Object.entries(PODCAST_TRANSCRIPTS)) {
+      modified[round] = [
+        { speaker: 'Facilitator', text: `This briefing focuses on your ${label}. All metrics, investment decisions, and crisis impacts apply exclusively to your division.` },
+        ...lines,
+      ];
+    }
+    return modified;
+  }, [assignedBu]);
   const roundNumber = sim.roundNumber || 1;
 
   // Synergy score for R10 gate (multiplier × 100)
@@ -247,18 +274,24 @@ export default function CockpitPage() {
     () => {
       const treasury = globalState?.corporate_treasury ?? SEED_GLOBAL.corporate_treasury;
       const pool = treasury * 0.20;
-      // Emergency floor: even bankrupt teams can make $1M in strategic
-      // investments (via emergency credit line). Without this, negative
-      // treasury permanently deadlocks the investment matrix.
-      return Math.max(pool, 1_000_000);
+      // Emergency floor: ₹5M ensures teams can make meaningful ESG investments
+      // even under liquidity stress. Rationale:
+      //   EBITDA at seed = ₹19.2M across 4 BUs
+      //   ₹1M floor → ~₹250K per BU (far below any meaningful ESG threshold)
+      //   ₹5M floor → ~₹1.25M per BU (≈ 6.5% of total revenue; within the
+      //   5–10% of EBITDA benchmark for ESG investment programmes)
+      // Without this floor, negative/depleted treasury permanently deadlocks
+      // the investment matrix with trivially small allocations.
+      return Math.max(pool, 5_000_000);
     },
     [globalState?.corporate_treasury]
   );
 
-  // Auto-detect when emergency credit line is active (treasury × 20% < $1M)
+  // Auto-detect when emergency credit line is active (treasury × 20% < ₹5M floor)
   const emergencyCreditActive = useMemo(() => {
-    const treasury = globalState?.corporate_treasury ?? SEED_GLOBAL.corporate_treasury;
-    return treasury * 0.20 < 1_000_000;
+    const treasury = globalState?.corporate_treasury;
+    if (treasury == null) return false;  // state not yet loaded — treat as normal
+    return treasury * 0.20 < 5_000_000;
   }, [globalState?.corporate_treasury]);
 
   // ── Decision modal state ──────────────────────────────────
@@ -312,7 +345,7 @@ export default function CockpitPage() {
   const [r2BuSelection, setR2BuSelection] = useState(null); // { selected_bu, bu_label }
   const [csrdDone, setCsrdDone] = useState(false);
 
-  // Detect paradigm from session (poll every 8s for facilitator changes)
+  // Detect paradigm + assigned_bu from session (poll every 8s for facilitator changes)
   useEffect(() => {
     if (!sim.sessionId || sim.sessionId === 'demo') return;
     let cancelled = false;
@@ -322,7 +355,39 @@ export default function CockpitPage() {
         .then(data => { if (!cancelled) setDecisionParadigm(data.decision_paradigm || 'legacy_abc'); })
         .catch(() => {});
     };
+    // Resolve assigned_bu: check session-info first (per-player), fall back to global-settings (whole deployment)
+    const fetchAssignedBu = async () => {
+      try {
+        const API = process.env.NEXT_PUBLIC_API_URL || '';
+        // 1. Try session-info (per-player or per-cohort assigned_bu)
+        const siRes = await fetch(`${API}/api/simulations/${sim.sessionId}/session-info`);
+        if (siRes.ok) {
+          const siData = await siRes.json();
+          // Capture full session metadata for briefing context (cohort_name, etc.)
+          if (!cancelled) {
+            sim.setSessionMeta({
+              cohort_name:       siData.cohort_name       || null,
+              simulation_mode:   siData.simulation_mode   || null,
+              assigned_bu:       siData.assigned_bu       || null,
+              industry_vertical: siData.industry_vertical || null,
+            });
+          }
+          const sessionBu = siData.assigned_bu || '';
+          if (sessionBu) {
+            if (!cancelled) setAssignedBu(sessionBu);
+            return; // session-level takes priority
+          }
+        }
+        // 2. Fall back to global-settings (deployment-wide single-BU mode)
+        const gsRes = await fetch(`${API}/api/admin/global-settings`);
+        if (gsRes.ok) {
+          const gsData = await gsRes.json();
+          if (!cancelled) setAssignedBu(gsData.assigned_bu || '');
+        }
+      } catch { /* keep assignedBu as empty — show all BUs */ }
+    };
     fetchParadigm(); // immediate first check
+    fetchAssignedBu();
     const interval = setInterval(fetchParadigm, 8000);
     return () => { cancelled = true; clearInterval(interval); };
   }, [sim.sessionId]);
@@ -344,8 +409,10 @@ export default function CockpitPage() {
             blocking_track_id: data.blocking_track_id || null,
             mainBlocked: data.main_sim_blocked || false,
           });
-          // Auto-open side tracks panel when a blocking track requires attention
-          if (data.blocking_track_id && !sideTracksOpen) {
+          // Auto-open side tracks panel when a blocking track requires attention,
+          // but only AFTER the player has dismissed the round briefing screen.
+          // Prevents the side track panel from hijacking the very first screen on login.
+          if (data.blocking_track_id && !sideTracksOpen && !showDesktop) {
             setSideTracksOpen(true);
           }
         })
@@ -357,18 +424,19 @@ export default function CockpitPage() {
     return () => { cancelled = true; clearInterval(interval); };
   }, [sim.sessionId, roundNumber]);
 
-  // Fetch pillar config for multi_toggles
+  // Fetch pillar config for multi_toggles or brsr_ngrbc
   useEffect(() => {
-    if (decisionParadigm !== 'multi_toggles') return;
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/pillar-config/${roundNumber}`)
+    if (decisionParadigm !== 'multi_toggles' && decisionParadigm !== 'brsr_ngrbc') return;
+    const paradigmParam = decisionParadigm === 'brsr_ngrbc' ? '?paradigm=brsr_ngrbc' : '';
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/pillar-config/${roundNumber}${paradigmParam}`)
       .then(r => r.ok ? r.json() : null)
       .then(data => setPillarConfig(data))
       .catch(() => setPillarConfig(null));
   }, [decisionParadigm, roundNumber]);
 
-  // Fetch R2 BU selection for multi_toggles
+  // Fetch R2 BU selection for multi_toggles / brsr_ngrbc
   useEffect(() => {
-    if (decisionParadigm !== 'multi_toggles' || roundNumber !== 2 || !sim.sessionId || sim.sessionId === 'demo') return;
+    if ((decisionParadigm !== 'multi_toggles' && decisionParadigm !== 'brsr_ngrbc') || roundNumber !== 2 || !sim.sessionId || sim.sessionId === 'demo') return;
     fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/${sim.sessionId}/r2-bu-selection`)
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setR2BuSelection(data); })
@@ -414,6 +482,27 @@ export default function CockpitPage() {
   // Block alert state
   const [blockAlert, setBlockAlert] = useState(null);
 
+  // ── Crisis Screen state — lifted from CrisisAlerts ───────────
+  // crisisFiredRef tracks which alerts have fired per round. It lives HERE
+  // (not inside CrisisAlerts) because CrisisAlerts unmounts whenever
+  // CrisisScreen is the active early return. A ref inside CrisisAlerts
+  // would reset on remount, causing the just-dismissed crisis to immediately
+  // re-fire. Stable ref in page.js survives the full session lifecycle.
+  const crisisFiredRef = useRef({});
+  useEffect(() => {
+    // Reset fired markers when a new session starts
+    crisisFiredRef.current = {};
+  }, [sim.sessionId]);
+
+  const [activeCrisis, setActiveCrisis] = useState(null); // { crisisType, cfg, delivery } | null
+  const handleCrisisActivate = useCallback((crisisType, cfg, delivery) => {
+    setActiveCrisis({ crisisType, cfg, delivery });
+  }, []);
+  const handleCrisisDismiss = useCallback(() => {
+    setActiveCrisis(null);
+  }, []);
+
+
   // Derived state ─────────────────────────────────────────
   // NEW-04: Only re-open round briefing for rounds the player hasn't acknowledged yet
   useEffect(() => {
@@ -423,6 +512,14 @@ export default function CockpitPage() {
       }
     }
   }, [sim.sessionId, sim.roundChanged, sim.gameOver, roundNumber]);
+
+  // Wrap advanceToNextRound to set showDesktop synchronously in the same
+  // React batch, preventing a 1-frame flash of the bare dashboard between
+  // the round results screen and the next round's briefing.
+  const handleAdvance = useCallback(() => {
+    setShowDesktop(true);
+    sim.advanceToNextRound();
+  }, [sim.advanceToNextRound]);
 
   // Clear transient decision state when the round actually advances.
   // This is deferred from handleCommitTurn so the post-commit results
@@ -464,11 +561,11 @@ export default function CockpitPage() {
       bu_id: bu.bu_id,
       investment_ratio: csfPool > 0 ? Math.min((allocations[bu.bu_id] || 0) / csfPool, 1.0) : 0,
       capex_allocated: Math.max(1, allocations[bu.bu_id] || 1),
-      choice_selected: decisionParadigm === 'multi_toggles' ? '' : (decisionChoice || 'option_b'),
+      choice_selected: isPillarMode ? '' : (decisionChoice || 'option_b'),
       decision_node_id: `round_${roundNumber}_${bu.bu_id}`,
       time_to_decision_seconds: 0,
       team_consensus: 'majority',
-      pillar_decisions: decisionParadigm === 'multi_toggles' ? pillarSelections : null,
+      pillar_decisions: isPillarMode ? pillarSelections : null,
     }));
 
     try {
@@ -573,7 +670,7 @@ export default function CockpitPage() {
   }, [sim, pendingDecisions]);
 
   // ── Game Over → Scorecard → BoardroomShowdown → Done ─────────
-  const [gameOverPhase, setGameOverPhase] = useState('scorecard'); // 'scorecard' | 'boardroom' | 'done'
+  const [gameOverPhase, setGameOverPhase] = useState('archetype'); // 'archetype' | 'scorecard' | 'boardroom' | 'done'
   const [showPodcast, setShowPodcast] = useState(false);
   const [boardroomDone, setBoardroomDone] = useState(false);
   // EX-2/NF-4: Commit Ceremony state (must be before any early return)
@@ -643,8 +740,9 @@ export default function CockpitPage() {
   const hasSubmittedMatrix = csrdDone || globalState?.csrd_completed === true ||
     (Array.isArray(globalState?.materiality_budget_allocated) && globalState.materiality_budget_allocated.length > 0);
   const hasCompletedStakeholderMap = globalState?.stakeholder_map_completed === true || stakeholderDone;
-  // In multi_toggles mode, at least one pillar must be selected
-  const hasDecision = decisionParadigm === 'multi_toggles'
+  // In multi_toggles / brsr_ngrbc mode, at least one pillar must be selected
+  const isPillarMode = decisionParadigm === 'multi_toggles' || decisionParadigm === 'brsr_ngrbc';
+  const hasDecision = isPillarMode
     ? Object.keys(pillarSelections).length > 0
     : !!decisionChoice;
   // Gate enforcement: R1 stakeholder map and R2 materiality matrix are mandatory in ALL modes
@@ -695,9 +793,9 @@ export default function CockpitPage() {
       const msgs = [...prev];
       let changed = false;
 
-      const addMsg = (id, title, body) => {
+      const addMsg = (id, title, body, isHtml = false) => {
         if (!msgs.some(m => m.id === id)) {
-          msgs.push({ id, round: roundNumber, type: 'alert', title, body, read: false });
+          msgs.push({ id, round: roundNumber, type: 'alert', title, body, read: false, ...(isHtml && { html: true }) });
           changed = true;
         }
       };
@@ -720,11 +818,18 @@ export default function CockpitPage() {
       }
 
       if (sim.events?.brsr_greenwash_crisis) {
-        addMsg(`evt-brsr-gw-${roundNumber}`, '💧 SEBI Show-Cause Notice', sim.events.brsr_greenwash_crisis);
+        const isHtml = !!sim.events?.brsr_greenwash_crisis_is_html;
+        addMsg(`evt-brsr-gw-${roundNumber}`, '📰 SEBI Show-Cause Notice', sim.events.brsr_greenwash_crisis, isHtml);
       }
 
       if (sim.events?.brsr_governance_crisis) {
-        addMsg(`evt-brsr-gov-${roundNumber}`, '⛔ Governance Leak', sim.events.brsr_governance_crisis);
+        const isHtml = !!sim.events?.brsr_governance_crisis_is_html;
+        addMsg(`evt-brsr-gov-${roundNumber}`, '🔔 Whistleblower Leak', sim.events.brsr_governance_crisis, isHtml);
+      }
+
+      if (sim.events?.spcb_show_cause) {
+        const isHtml = !!sim.events?.spcb_show_cause_is_html;
+        addMsg(`evt-spcb-${roundNumber}`, '🏭 SPCB Closure Notice', sim.events.spcb_show_cause, isHtml);
       }
 
       return changed ? msgs : prev;
@@ -792,6 +897,28 @@ export default function CockpitPage() {
 
 
   if (sim.gameOver) {
+    if (gameOverPhase === 'archetype') {
+      // Build the terminal state payload from available sim data
+      const terminalData = {
+        final_mr:              sim.finalReport?.regenerative_multiple
+                               ?? sim.globalState?.regenerative_multiple
+                               ?? 1.0,
+        final_treasury:        sim.globalState?.corporate_treasury ?? 0,
+        total_ncd:             (sim.businessUnits ?? []).reduce(
+                                 (acc, bu) => acc + (bu.natural_capital_debt ?? 0), 0
+                               ),
+        archetype:             sim.finalReport?.archetype ?? 'SAFE_HAVEN',
+        triggered_black_swans: sim.globalState?.active_event_flags
+                                 ?.triggered_black_swans ?? [],
+      };
+      return (
+        <ArchetypeReveal
+          payload={terminalData}
+          onContinue={() => setGameOverPhase('scorecard')}
+          onLogout={sim.logout}
+        />
+      );
+    }
     if (gameOverPhase === 'scorecard') {
       return (
       <SustainabilityBalancedScorecard
@@ -799,6 +926,7 @@ export default function CockpitPage() {
           businessUnits={sim.businessUnits}
           globalState={sim.globalState}
           history={sim.history}
+          decisionParadigm={decisionParadigm}
           onProceed={!boardroomDone ? () => setGameOverPhase('boardroom') : undefined}
           onClose={() => setGameOverPhase('done')}
           onLogout={sim.logout}
@@ -853,7 +981,7 @@ export default function CockpitPage() {
     } else if (roundNumber === 2 && !hasSubmittedMatrix) {
       setBlockAlert("You must complete and submit the CSRD Materiality Assessment before advancing.");
     } else if (!hasDecision) {
-      setBlockAlert(decisionParadigm === 'multi_toggles'
+      setBlockAlert(isPillarMode
         ? "You must select at least one strategic pillar action before committing your turn."
         : "You must select a strategic option from the Decision section before committing your turn.");
     } else if (Object.keys(allocations).length === 0) {
@@ -868,6 +996,71 @@ export default function CockpitPage() {
   // ── Main Cockpit ──────────────────────────────────────────
   if (!isHydrated) {
     return <div style={{ height: '100vh', width: '100%', background: '#1b2a4a' }} />;
+  }
+
+  // ── Username Screen — architectural early return ───────────
+  // Step 1 after login: player must choose a username before seeing
+  // the round briefing or the cockpit. Implemented as an early return
+  // (same pattern as RoundBriefing) so the entire cockpit tree —
+  // audio, timers, WebSocket subscriptions — never mounts until the
+  // player has identified themselves.
+  if (sim.sessionId && !sim.username && sim.sessionId !== 'demo') {
+    return (
+      <div style={{
+        position: 'fixed', inset: 0,
+        background: '#080c18',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 20000,
+      }}>
+        <UsernamePromptModal
+          userId={sim.playerId || (typeof window !== 'undefined' ? localStorage.getItem('muressons_playerId') : null) || sim.sessionId}
+          role="player"
+          onComplete={sim.setUsername}
+        />
+      </div>
+    );
+  }
+
+  // ── Briefing Screen — architectural early return ──────────
+  // The briefing is a SEPARATE SCREEN, not an overlay.
+  // Returning here means the entire cockpit tree (audio, timers,
+  // WebSocket subscriptions, z-index stacking) never mounts
+  // while the briefing is active. This is the only pattern that
+  // permanently prevents audio bleed-through, scroll bleed-through,
+  // and z-index arms races from recurring.
+  if (sim.sessionId && showDesktop && !sim.gameOver) {
+    return (
+      <RoundBriefing
+        roundNumber={roundNumber}
+        isHealthcare={isHealthcare}
+        isSDG={decisionParadigm === 'un_sdg'}
+        decisionParadigm={decisionParadigm}
+        globalState={globalState}
+        businessUnits={businessUnits}
+        sessionMeta={sim.sessionMeta}
+        onProceed={handleProceedFromDesktop}
+        prevRoundData={sim.history?.[sim.history.length - 1]}
+        activeFlags={Object.keys(globalState?.active_event_flags || {})}
+        onLogout={sim.logout}
+      />
+    );
+  }
+
+  // ── Crisis Screen — architectural early return ────────────
+  // Same pattern as RoundBriefing: the cockpit tree is never mounted
+  // while a crisis alert is active. CrisisAlerts (headless) calls
+  // onActivate(), which sets activeCrisis here; we return CrisisScreen
+  // as a standalone page; on dismiss we clear activeCrisis.
+  if (sim.sessionId && activeCrisis && !sim.gameOver) {
+    return (
+      <CrisisScreen
+        crisisType={activeCrisis.crisisType}
+        cfg={activeCrisis.cfg}
+        globalState={globalState}
+        onDismiss={handleCrisisDismiss}
+        onLogout={sim.logout}
+      />
+    );
   }
 
   return (
@@ -932,16 +1125,7 @@ export default function CockpitPage() {
       {/* Join/Login overlay */}
       {!sim.sessionId && <div className={styles.joinOverlay}><JoinCohortModal sim={sim} /></div>}
 
-      {/* Choose Username Overlay */}
-      {sim.sessionId && !sim.username && sim.sessionId !== 'demo' && (
-        <div style={{ position: 'relative', zIndex: 16000 }}>
-          <UsernamePromptModal 
-            userId={sim.playerId || (typeof window !== 'undefined' ? localStorage.getItem('muressons_playerId') : null) || sim.sessionId}
-            role="player"
-            onComplete={sim.setUsername}
-          />
-        </div>
-      )}
+      {/* Username screen is now an architectural early return above — no overlay needed here */}
 
       {/* Round Locked overlay */}
       {sim.roundLocked && (
@@ -1029,19 +1213,7 @@ export default function CockpitPage() {
         return null;
       })()}
 
-      {/* Desktop Intro → Round Briefing */}
-      {sim.sessionId && showDesktop && (
-        <RoundBriefing
-          roundNumber={roundNumber}
-          isHealthcare={isHealthcare}
-          isSDG={decisionParadigm === 'un_sdg'}
-          decisionParadigm={decisionParadigm}
-          globalState={globalState}
-          onProceed={handleProceedFromDesktop}
-          prevRoundData={sim.history?.[sim.history.length - 1]}
-          activeFlags={Object.keys(globalState?.active_event_flags || {})}
-        />
-      )}
+      {/* RoundBriefing is handled by the early-return above — not an overlay */}
 
       {/* ═══ NEW EXECUTIVE COCKPIT ═══ */}
       <ExecutiveCockpit
@@ -1055,29 +1227,10 @@ export default function CockpitPage() {
         decisionParadigm={decisionParadigm}
         actionToolbar={
           sim.sessionId && !sim.gameOver ? (
-            <div id="tour-player-guides-target" style={{
+            <div style={{
               display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 6,
               fontFamily: 'Inter, sans-serif', width: '100%', padding: '6px',
             }}>
-              {/* Paradigm Indicator */}
-              <div style={{
-                padding: '4px 12px', borderRadius: 14, 
-                background: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)',
-                display: 'flex', alignItems: 'center', gap: 6,
-                marginBottom: 6, width: '100%', justifyContent: 'center'
-              }}>
-                <span style={{ fontSize: '0.85rem' }}>⚙️</span>
-                <span style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#818cf8', whiteSpace: 'nowrap' }}>
-                  {{
-                    'legacy_abc': 'Narrative Crises',
-                    'multi_toggles': 'Strategic Pillars',
-                    'advanced_climate': 'Advanced Climate',
-                    'healthcare': 'Healthcare Edition',
-                    'un_sdg': 'UN SDG Edition'
-                  }[decisionParadigm] || 'Simulation Active'}
-                </span>
-              </div>
-              
               {[
                 { icon: '🎧', label: 'Podcast', shortcut: null, onClick: () => setShowPodcast(true) },
                 { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
@@ -1090,7 +1243,7 @@ export default function CockpitPage() {
                 { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
                 { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
                 { icon: '🌐', label: 'SDG Radar', shortcut: null, onClick: () => setSdgRadarOpen(true) },
-                { icon: '🇮🇳', label: 'BRSR', shortcut: null, onClick: () => setBrsrDashboardOpen(true) },
+                ...(decisionParadigm === 'brsr_ngrbc' ? [{ icon: '🇮🇳', label: 'BRSR', shortcut: null, onClick: () => setBrsrDashboardOpen(true) }] : []),
                 { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
                 { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound' : 'Muted', shortcut: null, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
                 { icon: '👋', label: 'Log Out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
@@ -1137,7 +1290,7 @@ export default function CockpitPage() {
         onDecisionChoice={setDecisionChoice}
         decisionChoice={decisionChoice}
         onCommit={attemptCommitTurn}
-        onAdvance={sim.advanceToNextRound}
+        onAdvance={handleAdvance}
         commitResults={sim.commitResults}
         isCommitBlocked={isCommitBlocked}
         events={sim.events}
@@ -1167,7 +1320,7 @@ export default function CockpitPage() {
           isOpen={showPodcast}
           onClose={() => setShowPodcast(false)}
           title={`Round ${roundNumber} — Boardroom Briefing Podcast`}
-          transcript={PODCAST_TRANSCRIPTS[roundNumber] || PODCAST_TRANSCRIPTS[1]}
+          transcript={activeBriefing[roundNumber] || activeBriefing[1]}
           sessionId={sim.sessionId}
           notebookId={`round_${roundNumber}_podcast`}
         />
@@ -1199,13 +1352,17 @@ export default function CockpitPage() {
         />
       )}
 
-      {/* ═══ CRISIS ALERTS (auto-trigger + manual inject) ═══ */}
+      {/* ═══ CRISIS ALERTS — headless trigger logic only ═══ */}
+      {/* Display is handled by the CrisisScreen early return above. */}
       {sim.sessionId && (
         <CrisisAlerts
           globalState={globalState}
           roundNumber={roundNumber}
           onInjectMessage={handleCrisisInject}
           briefingActive={showDesktop}
+          sessionId={sim.sessionId}
+          onActivate={handleCrisisActivate}
+          firedRef={crisisFiredRef}
         />
       )}
 
@@ -1272,10 +1429,10 @@ export default function CockpitPage() {
               padding: '1rem 1.2rem', marginBottom: '1rem',
             }}>
               <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280', marginBottom: '0.6rem' }}>
-                {decisionParadigm === 'multi_toggles' ? '🎛️ Strategic Pillar Selections' : '📋 Strategic Decision'}
+                {isPillarMode ? '🎛️ Strategic Pillar Selections' : '📋 Strategic Decision'}
               </div>
 
-              {decisionParadigm === 'multi_toggles' ? (
+              {isPillarMode ? (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {pillarConfig?.areas && Object.entries(pillarConfig.areas).map(([areaKey, area]) => {
                     const selectedOpt = pillarSelections?.[areaKey];
@@ -1404,8 +1561,8 @@ export default function CockpitPage() {
               csfPool={csfPool}
               globalState={sim?.globalState}
               initialQ1={globalState?.materiality_budget_allocated || []}
-              buId={decisionParadigm === 'multi_toggles' ? r2BuSelection?.selected_bu : null}
-              buLabel={decisionParadigm === 'multi_toggles' ? r2BuSelection?.bu_label : null}
+              buId={isPillarMode ? r2BuSelection?.selected_bu : null}
+              buLabel={isPillarMode ? r2BuSelection?.bu_label : null}
               sessionId={sim.sessionId}
               onOpenAdvisor={() => setAiAdvisorOpen(true)}
               onClose={() => setIsMatrixOpen(false)}

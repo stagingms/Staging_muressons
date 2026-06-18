@@ -1,0 +1,98 @@
+{
+  "bu_id": "agriculture",
+  "region_id": "south_asia",
+  "stakeholders": [
+    {
+      "id": "smallholder_farmers",
+      "name": "Smallholder Farmer Community",
+      "icon": "🌾",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "~85 million smallholder farming households across Punjab, Maharashtra, and Andhra Pradesh depend on input pricing, water access, and market linkages. They have high political power through farmer unions and cooperative networks.",
+      "engagement_tactics": [
+        { "option": "Co-invest in farmer training and soil health programs", "rationale": "Builds long-term social licence, aligns with SDG 2 (Zero Hunger), reduces input cost volatility", "is_correct": true },
+        { "option": "Acquire farmland to scale production", "rationale": "Creates land displacement and social conflict", "is_correct": false },
+        { "option": "Issue annual CSR report on farmer welfare", "rationale": "Reporting without action does not build trust", "is_correct": false }
+      ]
+    },
+    {
+      "id": "groundwater_regulators",
+      "name": "State Groundwater Boards",
+      "icon": "💧",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "Regulatory bodies with authority to issue extraction limits, impose penalties, and revoke agricultural licences in water-stressed districts across Rajasthan, Gujarat, and Tamil Nadu.",
+      "engagement_tactics": [
+        { "option": "Implement drip irrigation and water recycling across operations", "rationale": "Demonstrates stewardship, reduces regulatory risk", "is_correct": true },
+        { "option": "Lobby for extraction limit exemptions", "rationale": "Creates adversarial relationship with regulators", "is_correct": false },
+        { "option": "Commission third-party water audits and share results proactively", "rationale": "Builds credibility and pre-empts enforcement actions", "is_correct": true }
+      ]
+    },
+    {
+      "id": "sebi_brsr_regulators",
+      "name": "SEBI / BRSR Reporting Authority",
+      "icon": "🏦",
+      "power": "high",
+      "interest": "medium",
+      "quadrant": "keep_satisfied",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "The Securities and Exchange Board of India mandates BRSR (Business Responsibility and Sustainability Report) compliance for top listed companies. Non-compliance triggers penalties and analyst downgrades.",
+      "engagement_tactics": [
+        { "option": "File comprehensive BRSR with all 9 NGRBC principles", "rationale": "Demonstrates full compliance and ESG leadership", "is_correct": true },
+        { "option": "File minimum mandatory disclosures only", "rationale": "Meets baseline but signals low ESG ambition to investors", "is_correct": false }
+      ]
+    },
+    {
+      "id": "agri_ngos",
+      "name": "Agri-Environmental NGOs",
+      "icon": "🌱",
+      "power": "medium",
+      "interest": "high",
+      "quadrant": "keep_informed",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "Civil society organisations including Navdanya, IFOAM South Asia, and WWF-India monitor agrochemical use, biodiversity loss, and farmer welfare. They have strong media relationships and can escalate campaigns.",
+      "engagement_tactics": [
+        { "option": "Partner with NGOs on regenerative agriculture pilots", "rationale": "Converts critics into co-investors in your ESG narrative", "is_correct": true },
+        { "option": "Deny NGO access to farm sites for audits", "rationale": "Triggers adversarial campaigns and reputational damage", "is_correct": false }
+      ]
+    },
+    {
+      "id": "institutional_investors",
+      "name": "ESG-Mandated Institutional Investors",
+      "icon": "📊",
+      "power": "high",
+      "interest": "medium",
+      "quadrant": "keep_satisfied",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "FIIs and domestic mutual funds with ESG mandates (including SBI Mutual Fund ESG funds and global LPs like Norges Bank) evaluate water risk, governance quality, and BRSR compliance in allocation decisions.",
+      "engagement_tactics": [
+        { "option": "Publish TCFD-aligned climate risk report annually", "rationale": "Directly addresses investor disclosure expectations", "is_correct": true },
+        { "option": "Focus investor relations on earnings only", "rationale": "Ignores the ESG screening criteria used by major funds", "is_correct": false }
+      ]
+    },
+    {
+      "id": "local_communities",
+      "name": "Rural Village Panchayats",
+      "icon": "🏡",
+      "power": "medium",
+      "interest": "high",
+      "quadrant": "keep_informed",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "Village-level governance bodies hold social licence to operate in rural areas. They can block land access, organise labour actions, and escalate to district collectors if operations harm local livelihoods.",
+      "engagement_tactics": [
+        { "option": "Establish community advisory boards and rural livelihood funds", "rationale": "Builds structural SLO at the community level", "is_correct": true },
+        { "option": "Offer one-time cash payments in lieu of ongoing engagement", "rationale": "Transactional approach does not build durable SLO", "is_correct": false }
+      ]
+    }
+  ]
+}

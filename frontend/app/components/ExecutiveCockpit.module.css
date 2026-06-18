@@ -1167,8 +1167,8 @@
   border: 1px solid rgba(0, 229, 195, 0.15);
   border-radius: 16px;
   padding: 2rem 2.5rem;
-  max-width: 820px;
-  width: 92%;
+  max-width: 960px;
+  width: 94%;
   max-height: 92vh;
   overflow-y: auto;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5), 0 0 40px rgba(0, 229, 195, 0.05);
@@ -1205,7 +1205,7 @@
 
 .resultsGrid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 10px;
   margin-bottom: 18px;
 }
@@ -2657,7 +2657,7 @@
 .bsModalOverlay {
   position: fixed;
   inset: 0;
-  z-index: 900;
+  z-index: 9500;
   background: rgba(6, 8, 16, 0.95);
   display: flex;
   align-items: center;

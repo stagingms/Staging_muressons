@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import styles from './CreateCohortModal.module.css';
 import { CURRENCIES } from '../contexts/CurrencyContext';
 
@@ -64,7 +64,12 @@ const AccordionItem = ({ id, title, summary, children, isOpen, onToggle }) => {
     );
 };
 
-export default function CreateCohortModal({ isOpen, onClose, onCreated, currentFacilitatorId }) {
+export default function CreateCohortModal({ isOpen, onClose, onCreated, currentFacilitatorId, currentFacilitatorRole = 'facilitator', editSession = null }) {
+    const isSuperAdmin = currentFacilitatorRole === 'super_admin' || currentFacilitatorRole === 'admin';
+    const isLeadFacilitator = currentFacilitatorRole === 'lead_facilitator';
+    const isBaseFacilitator = currentFacilitatorRole === 'facilitator' || (!isSuperAdmin && !isLeadFacilitator);
+    const isEditMode = !!editSession; // true = editing existing cohort, false = creating new
+
     const [cohortName, setCohortName] = useState('');
     const [facilitatorId, setFacilitatorId] = useState('');
     const [availableFacilitators, setAvailableFacilitators] = useState([]);
@@ -108,6 +113,17 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [maxUnlockedRound, setMaxUnlockedRound] = useState(10);
     const [roundSchedules, setRoundSchedules] = useState({});
 
+    // Simulation mode & industry localisation
+    const [simulationMode, setSimulationMode] = useState('conglomerate'); // 'conglomerate' | 'single_bu'
+    const [industryVertical, setIndustryVertical] = useState('');
+    const [regionId, setRegionId] = useState('');
+    const [buRegions, setBuRegions] = useState({
+        pharma: '',
+        electronics: '',
+        consumer_goods: '',
+        software: '',
+    });
+
     // Industry Vertical BU Substitution (cohort-formation-time)
     const [buSubstitutions, setBuSubstitutions] = useState({});
 
@@ -117,6 +133,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         facilitator: {},
         player: {},
     });
+
+    const [engageAdvancedClimate, setEngageAdvancedClimate] = useState(false);
+    const [carbonFee, setCarbonFee] = useState(40);
+    const [hostility, setHostility] = useState(5);
+    const [scope3, setScope3] = useState(2.5);
 
     const [pedagogicalToggles, setPedagogicalToggles] = useState(
         Object.fromEntries(PEDAGOGICAL_TOGGLES.map(t => [t.key, t.default]))
@@ -129,25 +150,70 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
+    const errorRef = useRef(null);
+
+    // Scroll to error banner and open the relevant tab whenever an error is set
+    const setValidationError = (msg, tab = null) => {
+        setError(msg);
+        if (tab) setOpenTab(tab);
+        // Defer scroll so the DOM updates first
+        setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+    };
+
+    // lead_facilitator and super_admin may assign any registered track without
+    // needing a global God Mode pre-authorization.
+    const canAssignAllTracks = currentFacilitatorRole === 'lead_facilitator' || currentFacilitatorRole === 'super_admin';
 
     useEffect(() => {
         if (!isOpen) return;
-        setCohortName('');
         setError(null);
-        setSelectedExperienceLevel('workshop_standard');
-        setPedagogyCustomised(false);
-        setSelectedCurrency('INR');
-        setSelectedParadigm('legacy_abc');
-        setBuSubstitutions({});
-        setCreatedBy('');
-        setCreatedWhen(new Date().toISOString().slice(0, 10)); // default to today
-        setStartDate(new Date().toISOString().slice(0, 10)); // default to today
-        setEndDate(''); // no default end date
-        
         setOpenTab('core');
 
+        if (isEditMode && editSession) {
+            // ── Edit mode: pre-populate from existing session ──
+            setCohortName(editSession.cohort_name || '');
+            setSelectedParadigm(editSession.decision_paradigm || 'legacy_abc');
+            setSelectedCurrency(
+                editSession.currency_symbol
+                    ? (CURRENCIES.find(c => c.symbol === editSession.currency_symbol)?.code || 'INR')
+                    : 'INR'
+            );
+            setCreatedBy(editSession.created_by || '');
+            setCreatedWhen(editSession.created_when || new Date().toISOString().slice(0, 10));
+            setStartDate(editSession.start_date || '');
+            setEndDate(editSession.end_date || '');
+            setSelectedPathway(editSession.ending_pathway || 'activist_ultimatum');
+            setSimulationMode(editSession.simulation_mode === 'single_bu' ? 'single_bu' : 'conglomerate');
+            setIndustryVertical(editSession.industry_vertical || '');
+            setRegionId(editSession.region_id || '');
+            setFacilitatorId(editSession.facilitator_id || currentFacilitatorId || '');
+            setSelectedExperienceLevel(editSession.scenario_preset || editSession.experience_level || 'workshop_standard');
+            setPedagogyCustomised(false);
+            setEngageAdvancedClimate(editSession.simulation_mode === 'advanced_climate');
+            setCarbonFee(editSession.global_carbon_fee ?? 40);
+            setHostility(editSession.market_hostility_index ?? 5);
+            setScope3(editSession.scope_3_threshold ?? 2.5);
+            setBuSubstitutions(editSession.bu_substitutions || {});
+        } else {
+            // ── Create mode: reset to defaults ──
+            setCohortName('');
+            setSelectedExperienceLevel('workshop_standard');
+            setPedagogyCustomised(false);
+            setSelectedCurrency('INR');
+            setSelectedParadigm('legacy_abc');
+            setBuSubstitutions({});
+            setCreatedBy('');
+            setCreatedWhen(new Date().toISOString().slice(0, 10));
+            setStartDate(new Date().toISOString().slice(0, 10));
+            setEndDate('');
+            setEngageAdvancedClimate(false);
+            setCarbonFee(40);
+            setHostility(5);
+            setScope3(2.5);
+        }
+
         // Fetch experience level presets
-        fetch(`${API}/api/admin/scenario-presets`)
+        fetch(`${API}/api/admin/scenario-presets`, { credentials: 'include' })
             .then(r => r.json()).then(d => {
                 const presets = d.presets || [];
                 setScenarioPresets(presets);
@@ -159,7 +225,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             }).catch(() => {});
 
         // Fetch available ending pathways
-        fetch(`${API}/api/admin/ending-pathways`)
+        fetch(`${API}/api/admin/ending-pathways`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => {
                 setEndingPathways(d.pathways || []);
@@ -168,7 +234,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             .catch(() => {});
 
         // Fetch CEO Interview state from global settings
-        fetch(`${API}/api/admin/global-settings`)
+        fetch(`${API}/api/admin/global-settings`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => {
                 setCeoInterviewEnabled(d.ceo_interview_enabled || false);
@@ -177,13 +243,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             .catch(() => {});
 
         // Fetch ElevenLabs TTS API status
-        fetch(`${API}/api/simulations/elevenlabs/status`)
+        fetch(`${API}/api/simulations/elevenlabs/status`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(d => { if (d) setElevenlabsStatus(d); })
             .catch(() => {});
 
         // Fetch side track catalog
-        fetch(`${API}/api/admin/side-tracks/catalog`)
+        fetch(`${API}/api/admin/side-tracks/catalog`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(d => {
                 if (d?.catalog) {
@@ -195,7 +261,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             .catch(() => {});
 
         // Fetch global analytics visibility defaults
-        fetch(`${API}/api/admin/god/analytics-visibility`)
+        fetch(`${API}/api/admin/god/analytics-visibility`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
                 setVisibilityDefaults(data);
@@ -207,7 +273,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             .catch(() => {});
 
         // Fetch master lists
-        fetch(`${API}/api/admin/interventions/master`)
+        fetch(`${API}/api/admin/interventions/master`, { credentials: 'include' })
             .then(res => res.json())
             .then(data => {
                 setMasterOverrides(data.overrides || []);
@@ -219,9 +285,26 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             .catch(() => {});
 
         // Fetch facilitators
-        fetch(`${API}/api/admin/facilitators`)
+        fetch(`${API}/api/admin/facilitators`, { credentials: 'include' })
             .then(res => res.json())
-            .then(data => setAvailableFacilitators(data.facilitators || []))
+            .then(data => {
+                const facs = data.facilitators || [];
+                setAvailableFacilitators(facs);
+                const activeId = currentFacilitatorId || facilitatorId;
+                if (activeId) {
+                    const currentFac = facs.find(f => f.facilitator_id === activeId);
+                    if (currentFac) {
+                        if (currentFac.decision_paradigm) setSelectedParadigm(currentFac.decision_paradigm);
+                        if (currentFac.ending_pathway) setSelectedPathway(currentFac.ending_pathway);
+                        if (currentFac.side_tracks) setSelectedSideTracks(currentFac.side_tracks);
+                        if (currentFac.simulation_mode) setSimulationMode(currentFac.simulation_mode);
+                        if (currentFac.industry_vertical) setIndustryVertical(currentFac.industry_vertical);
+                        if (currentFac.bu_substitutions) setBuSubstitutions(currentFac.bu_substitutions);
+                        // Auto-populate Created By with facilitator's display name (create mode only)
+                        if (!isEditMode && currentFac.name) setCreatedBy(currentFac.name);
+                    }
+                }
+            })
             .catch(() => {});
 
         if (currentFacilitatorId) {
@@ -242,6 +325,33 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
         );
     };
+
+    const INDUSTRY_VERTICALS = [
+        { id: 'agriculture',                label: 'Agriculture',         icon: '🌾' },
+        { id: 'banking_financial_services', label: 'Banking & Finance',   icon: '🏦' },
+        { id: 'oil_gas',                    label: 'Oil & Gas',           icon: '⛽' },
+        { id: 'retail_fmcg',               label: 'Retail / FMCG',       icon: '🛒' },
+        { id: 'technology',                 label: 'Technology',          icon: '💻' },
+        { id: 'pharma',                     label: 'Pharma / Healthcare', icon: '💊' },
+    ];
+
+    const REGIONS = [
+        { id: 'asean',         label: 'ASEAN',          flag: '🌏' },
+        { id: 'south_asia',    label: 'India',           flag: '🇮🇳' },
+        { id: 'europe',        label: 'Europe',          flag: '🇪🇺' },
+        { id: 'north_america', label: 'North America',   flag: '🇺🇸' },
+        { id: 'africa',        label: 'Africa',          flag: '🌍' },
+    ];
+
+    // Cohort-level region options: extends REGIONS with the multi-region composite.
+    // REGIONS itself stays clean for BU-level selects (which must be single regions).
+    const COHORT_REGIONS = [
+        ...REGIONS,
+        { id: 'multi_region', label: 'Multi-Region', flag: '🌐', isComposite: true },
+    ];
+
+    // Derived flag — drives conditional UI and validation
+    const isMultiRegion = regionId === 'multi_region';
 
     const PARADIGM_OPTIONS = [
         {
@@ -294,6 +404,16 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             bg: 'rgba(14,165,233,0.1)',
             border: 'rgba(14,165,233,0.3)',
         },
+        {
+            id: 'brsr_ngrbc',
+            label: 'BRSR NGRBC Edition',
+            sub: 'India ESG Framework',
+            icon: '🇮🇳',
+            desc: 'A 10-round standalone paradigm focused on Business Responsibility and Sustainability Reporting under SEBI/NGRBC frameworks, defaulting display currency to Indian Rupees (₹).',
+            color: '#f97316',
+            bg: 'rgba(249,115,22,0.1)',
+            border: 'rgba(249,115,22,0.3)',
+        },
     ];
 
     const toggleVis = (role, key) => {
@@ -314,18 +434,134 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         return false;
     };
 
+    // ── Edit handler: PATCH metadata + re-apply all sub-configs ──────────────
+    const handleEdit = async (e) => {
+        e.preventDefault();
+        setError(null);
+        if (!editSession?.session_id) return;
+        setLoading(true);
+        const sid = editSession.session_id;
+        const configWarnings = [];
+
+        const runSubConfig = async (name, url, payload, method = 'PUT') => {
+            try {
+                const subRes = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(payload),
+                });
+                if (!subRes.ok) {
+                    const errData = await subRes.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${subRes.status}`);
+                }
+            } catch (err) {
+                console.error(`[Cohort Edit] Failed to apply ${name}:`, err);
+                configWarnings.push(`${name}: ${err.message}`);
+            }
+        };
+
+        try {
+            // 1. PATCH core session metadata
+            const metaRes = await fetch(`${API}/api/admin/sessions/${sid}/metadata`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    cohort_name: cohortName.trim() || editSession.cohort_name,
+                    facilitator_id: facilitatorId,
+                    decision_paradigm: selectedParadigm,
+                    ending_pathway: selectedPathway || null,
+                    created_by: createdBy.trim(),
+                    created_when: createdWhen,
+                    start_date: startDate || null,
+                    end_date: endDate || null,
+                    simulation_mode: simulationMode === 'single_bu' ? 'single_bu' : 'standard',
+                    industry_vertical: simulationMode === 'single_bu' ? industryVertical : null,
+                    region_id: regionId,
+                    currency_symbol: (CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0]).symbol,
+                    scenario_preset: selectedExperienceLevel || null,
+                    experience_level: selectedExperienceLevel || null,
+                    difficulty_tier: (scenarioPresets.find(p => p.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
+                }),
+            });
+            if (!metaRes.ok) {
+                const d = await metaRes.json().catch(() => ({}));
+                throw new Error(d.detail || `Metadata update failed (${metaRes.status})`);
+            }
+
+            // 2. Re-apply all sub-configs (same endpoints as create, already accept existing sessions)
+            if (hasVisibilityOverrides()) {
+                await runSubConfig('Visibility', `${API}/api/admin/cohort/${sid}/analytics-visibility`, visibility);
+            }
+            await runSubConfig('Pedagogical Settings', `${API}/api/admin/cohort/${sid}/pedagogical-settings`, {
+                experience_level: selectedExperienceLevel,
+                difficulty_tier: (scenarioPresets.find(p => p.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
+                ...pedagogicalToggles,
+                ...engineModuleToggles,
+            });
+            await runSubConfig('CEO Interview', `${API}/api/admin/sessions/${sid}/ceo-interview`, {
+                ceo_interview_enabled: ceoInterviewEnabled,
+                ceo_interview_voice_gender: ceoVoiceGender,
+            });
+            if (selectedSideTracks.length > 0) {
+                await runSubConfig('Side Tracks', `${API}/api/admin/cohorts/${sid}/side-tracks`, { tracks: selectedSideTracks });
+            }
+            await runSubConfig('Pacing', `${API}/api/admin/cohort/${sid}/pacing`, {
+                pacing_mode: pacingMode,
+                max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
+                round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
+            });
+            await runSubConfig('Switchboard', `${API}/api/admin/sessions/${sid}/cohort-settings`, {
+                simulation_mode: engageAdvancedClimate ? 'advanced_climate' : 'standard',
+                global_carbon_fee: carbonFee,
+                market_hostility_index: hostility,
+                scope_3_threshold: scope3,
+            }, 'PATCH');
+            if (Object.keys(buSubstitutions).length > 0 || Object.values(buRegions).some(v => v)) {
+                await runSubConfig('BU Substitutions', `${API}/api/admin/${sid}/bu-composition`, {
+                    substitutions: buSubstitutions,
+                    bu_regions: buRegions,
+                });
+            }
+
+            if (configWarnings.length > 0) {
+                setError(`Cohort updated, but some settings failed: ${configWarnings.join(' | ')}`);
+            } else {
+                onCreated({ session_id: sid, cohort_name: cohortName.trim() });
+            }
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleCreate = async (e) => {
         e.preventDefault();
         setError(null);
 
         // Validate mandatory fields
-        if (!createdBy.trim()) {
-            setError('"Created By" is required.');
+        if (!regionId) {
+            setValidationError('Geographic Region is required. Please select a region.', 'core');
             return;
         }
-        if (!createdWhen) {
-            setError('"Created When" date is required.');
+        if (simulationMode === 'single_bu' && !industryVertical) {
+            setValidationError('Industry Vertical is required for Single Business mode.', 'core');
             return;
+        }
+        // Multi-region mode: every BU slot must carry an explicit region because
+        // there is no single cohort-level region to fall back to.
+        if (isMultiRegion && simulationMode !== 'single_bu') {
+            const BU_SLOTS = ['pharma', 'electronics', 'consumer_goods', 'software'];
+            const unassigned = BU_SLOTS.filter(slot => !buRegions[slot]);
+            if (unassigned.length > 0) {
+                setValidationError(
+                    `Multi-Region mode: all BU slots must have a region. Missing: ${unassigned.map(s => s.replace(/_/g, ' ')).join(', ')}.`,
+                    'verticals'
+                );
+                return;
+            }
         }
 
         setLoading(true);
@@ -334,6 +570,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             const res = await fetch(`${API}/api/simulations/start`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     cohort_name: cohortName.trim() || `Cohort_${Date.now()}`,
                     facilitator_id: facilitatorId,
@@ -349,6 +586,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     created_when: createdWhen,
                     start_date: startDate || null,
                     end_date: endDate || null,
+                    simulation_mode: simulationMode === 'single_bu' ? 'single_bu' : 'standard',
+                    industry_vertical: simulationMode === 'single_bu' ? industryVertical : undefined,
+                    region_id: regionId,
                 })
             });
 
@@ -361,11 +601,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             const configWarnings = [];
 
             // Helper to handle sub-config fetch with telemetry
-            const runSubConfig = async (name, url, payload) => {
+            const runSubConfig = async (name, url, payload, method = 'PUT') => {
                 try {
                     const subRes = await fetch(url, {
-                        method: 'PUT',
+                        method,
                         headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
                         body: JSON.stringify(payload),
                     });
                     if (!subRes.ok) {
@@ -417,10 +658,21 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 });
             }
 
+            // Save simulation switchboard override settings
+            if (newSession.session_id) {
+                await runSubConfig('Simulation Switchboard Settings', `${API}/api/admin/sessions/${newSession.session_id}/cohort-settings`, {
+                    simulation_mode: engageAdvancedClimate ? 'advanced_climate' : 'standard',
+                    global_carbon_fee: carbonFee,
+                    market_hostility_index: hostility,
+                    scope_3_threshold: scope3,
+                }, 'PATCH');
+            }
+
             // Apply BU vertical substitutions (at cohort formation time)
-            if (newSession.session_id && Object.keys(buSubstitutions).length > 0) {
-                await runSubConfig('BU Substitutions', `${API}/api/admin/${newSession.session_id}/bu-composition`, { 
-                    substitutions: buSubstitutions 
+            if (newSession.session_id && (Object.keys(buSubstitutions).length > 0 || Object.values(buRegions).some(v => v))) {
+                await runSubConfig('BU Substitutions', `${API}/api/admin/${newSession.session_id}/bu-composition`, {
+                    substitutions: buSubstitutions,
+                    bu_regions: buRegions,
                 });
             }
 
@@ -439,14 +691,19 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     return (
         <div className={styles.overlay}>
             <div className={styles.modal}>
-                <div className={styles.header}>
-                    <h2>🚀 Set Up New Cohort</h2>
+                <div className={styles.header} style={isEditMode ? { borderBottom: '2px solid rgba(251,191,36,0.4)', background: 'rgba(251,191,36,0.06)' } : {}}>
+                    <h2>{isEditMode ? '✏️ Edit Cohort' : '🚀 Set Up New Cohort'}</h2>
+                    {isEditMode && (
+                        <span style={{ fontSize: '0.72rem', fontWeight: 600, color: '#fbbf24', background: 'rgba(251,191,36,0.12)', border: '1px solid rgba(251,191,36,0.3)', borderRadius: '6px', padding: '3px 10px' }}>
+                            Editing: {editSession?.cohort_name}
+                        </span>
+                    )}
                     <button className={styles.closeBtn} onClick={onClose} disabled={loading}>×</button>
                 </div>
 
                 <div className={styles.body}>
-                    <form onSubmit={handleCreate} className={styles.form}>
-                        {error && <div className={styles.errorBox}>{error}</div>}
+                    <form onSubmit={isEditMode ? handleEdit : handleCreate} className={styles.form}>
+                        {error && <div ref={errorRef} className={styles.errorBox}>{error}</div>}
 
                         
 
@@ -481,9 +738,63 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         />
                                     </div>
 
+{/* ── Simulation Mode toggle ── */}
+                                    <div className={styles.formGroup}>
+                                        <label>Simulation Mode</label>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            {[{v: 'conglomerate', label: '🏢 4-BU Conglomerate'}, {v: 'single_bu', label: '🏭 Single Business'}].map(m => (
+                                                <button
+                                                    key={m.v}
+                                                    type="button"
+                                                    onClick={() => setSimulationMode(m.v)}
+                                                    style={{
+                                                        flex: 1,
+                                                        padding: '8px 12px',
+                                                        borderRadius: '8px',
+                                                        border: simulationMode === m.v ? '2px solid #6366f1' : '2px solid rgba(255,255,255,0.1)',
+                                                        background: simulationMode === m.v ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.05)',
+                                                        color: 'white',
+                                                        cursor: 'pointer',
+                                                        fontWeight: simulationMode === m.v ? 600 : 400,
+                                                        transition: 'all 0.2s',
+                                                    }}
+                                                >{m.label}</button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+{/* ── Industry Vertical (single_bu only) ── */}
+                                    {simulationMode === 'single_bu' && (
+                                        <div className={styles.formGroup}>
+                                            <label>Industry Vertical <span style={{color:'#ef4444'}}>*</span></label>
+                                            <select value={industryVertical} onChange={e => setIndustryVertical(e.target.value)} required>
+                                                <option value="">-- Select Industry --</option>
+                                                {INDUSTRY_VERTICALS.map(v => (
+                                                    <option key={v.id} value={v.id}>{v.icon} {v.label}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    )}
+
+{/* ── Geographic Region (always visible, mandatory) ── */}
+                                    <div className={styles.formGroup}>
+                                        <label>Geographic Region <span style={{color:'#ef4444'}}>*</span></label>
+                                        <select value={regionId} onChange={e => setRegionId(e.target.value)} required>
+                                            <option value="">-- Select Region --</option>
+                                            {COHORT_REGIONS.map(r => (
+                                                <option key={r.id} value={r.id}>{r.flag} {r.label}</option>
+                                            ))}
+                                        </select>
+                                        <small style={{color: isMultiRegion ? '#f59e0b' : '#94a3b8'}}>
+                                            {isMultiRegion
+                                                ? '⚠ Multi-Region: each Business Unit must be assigned its own region in the Industry Verticals tab.'
+                                                : 'Determines stakeholder grid, materiality matrix, and applicable regulations.'}
+                                        </small>
+                                    </div>
+
                                     <div className={styles.formGroup}>
                                         <label>Assigned Facilitator</label>
-                                        {currentFacilitatorId && currentFacilitatorId !== 'admin' ? (
+                                        {!isSuperAdmin ? (
                                             <input
                                                 type="text"
                                                 value={currentFacilitatorId}
@@ -493,7 +804,21 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         ) : (
                                             <select
                                                 value={facilitatorId}
-                                                onChange={(e) => setFacilitatorId(e.target.value)}
+                                                onChange={(e) => {
+                                                    const selectedId = e.target.value;
+                                                    setFacilitatorId(selectedId);
+                                                    const facObj = availableFacilitators.find(f => f.facilitator_id === selectedId);
+                                                    if (facObj) {
+                                                        if (facObj.decision_paradigm) setSelectedParadigm(facObj.decision_paradigm);
+                                                        if (facObj.ending_pathway) setSelectedPathway(facObj.ending_pathway);
+                                                        if (facObj.side_tracks) setSelectedSideTracks(facObj.side_tracks);
+                                                        if (facObj.simulation_mode) setSimulationMode(facObj.simulation_mode);
+                                                        if (facObj.industry_vertical) setIndustryVertical(facObj.industry_vertical);
+                                                        if (facObj.bu_substitutions) setBuSubstitutions(facObj.bu_substitutions);
+                                                        // Keep Created By in sync with the selected facilitator's name
+                                                        if (facObj.name) setCreatedBy(facObj.name);
+                                                    }
+                                                }}
                                                 required
                                                 className={styles.selectFacilitator}
                                             >
@@ -507,44 +832,8 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         )}
                                     </div>
 
-{/* ── Created By / When (mandatory authorship metadata) ── */}
-                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 4 }}>
-                                        <div className={styles.formGroup}>
-                                            <label>
-                                                Created By <span style={{ color: '#ef4444', fontWeight: 700 }}>*</span>
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={createdBy}
-                                                onChange={(e) => setCreatedBy(e.target.value)}
-                                                placeholder="e.g. Prof. Sharma"
-                                                required
-                                                style={{
-                                                    borderColor: !createdBy.trim() && error ? '#ef4444' : undefined,
-                                                }}
-                                            />
-                                            <span style={{ fontSize: '0.65rem', color: '#64748b', marginTop: 2 }}>
-                                                Name of the person setting up this cohort
-                                            </span>
-                                        </div>
-                                        <div className={styles.formGroup}>
-                                            <label>
-                                                Created When <span style={{ color: '#ef4444', fontWeight: 700 }}>*</span>
-                                            </label>
-                                            <input
-                                                type="date"
-                                                value={createdWhen}
-                                                onChange={(e) => setCreatedWhen(e.target.value)}
-                                                required
-                                                style={{
-                                                    borderColor: !createdWhen && error ? '#ef4444' : undefined,
-                                                }}
-                                            />
-                                            <span style={{ fontSize: '0.65rem', color: '#64748b', marginTop: 2 }}>
-                                                Date this cohort session is being created
-                                            </span>
-                                        </div>
-                                    </div>
+{/* ── Created By / When — auto-populated, not shown as inputs ── */}
+                                    {/* createdBy is auto-set to the facilitator's name; createdWhen defaults to today */}
 
 {/* ── Cohort Schedule (Start / End dates) ── */}
                                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
@@ -696,344 +985,488 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         </section>
                         </AccordionItem>
 
-                        <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway" isOpen={openTab === 'engine'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
-{/* ── Section 2: Decision Paradigm ── */}
+                        {!isBaseFacilitator && (
+                            <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway" isOpen={openTab === 'engine'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+    {/* ── Section 2: Decision Paradigm ── */}
+                                    <section className={styles.configSection}>
+                                        <div className={styles.sectionHeader}>
+                                            <h3>2. Decision Paradigm</h3>
+                                            <p>
+                                                Choose the simulation engine for this cohort.
+                                                
+                                            </p>
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                            {PARADIGM_OPTIONS.map(p => {
+                                                const isSelected = selectedParadigm === p.id;
+                                                return (
+                                                    <button
+                                                        key={p.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedParadigm(p.id)}
+                                                        style={{
+                                                            display: 'flex', alignItems: 'center', gap: 12,
+                                                            padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+                                                            border: isSelected ? `2px solid ${p.color}` : '1.5px solid rgba(100,116,139,0.3)',
+                                                            background: isSelected ? p.bg : 'rgba(15,23,42,0.5)',
+                                                            transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
+                                                            textAlign: 'left', width: '100%',
+                                                            opacity: 1,
+                                                        }}
+                                                    >
+                                                        <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{p.icon}</span>
+                                                        <span style={{ flex: 1 }}>
+                                                            <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: isSelected ? p.color : '#e2e8f0' }}>
+                                                                {p.label}
+                                                                <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: isSelected ? p.color : '#64748b', opacity: 0.85 }}>({p.sub})</span>
+                                                            </span>
+                                                            <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>{p.desc}</span>
+                                                        </span>
+                                                        {isSelected && (
+                                                            <span style={{
+                                                                flexShrink: 0, fontSize: '0.68rem', fontWeight: 700,
+                                                                padding: '2px 10px', borderRadius: 20,
+                                                                background: p.bg, color: p.color,
+                                                                border: `1px solid ${p.border}`,
+                                                            }}>
+                                                                Selected
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </section>
+
+                                    {/* ── Section 2b: Switchboard Parameters ── */}
+                                    <section className={styles.configSection} style={{ marginTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '1.25rem' }}>
+                                        <div className={styles.sectionHeader}>
+                                            <h3>⚙️ Simulation Switchboard</h3>
+                                            <p>Configure default switchboard values and live engine variables for this cohort.</p>
+                                        </div>
+
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', background: 'rgba(255,255,255,0.02)', padding: '16px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                            {/* Advanced Climate Mode Toggle */}
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0', display: 'block' }}>🌍 Advanced Climate Mode</span>
+                                                    <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Activates the carbon tax, ETS credits, and carbon market dynamics.</span>
+                                                </div>
+                                                <div
+                                                    onClick={() => setEngageAdvancedClimate(!engageAdvancedClimate)}
+                                                    style={{
+                                                        position: 'relative',
+                                                        width: '38px',
+                                                        height: '22px',
+                                                        borderRadius: '11px',
+                                                        cursor: 'pointer',
+                                                        background: engageAdvancedClimate ? '#10b981' : '#475569',
+                                                        transition: 'background 0.2s',
+                                                    }}
+                                                >
+                                                    <div
+                                                        style={{
+                                                            position: 'absolute',
+                                                            top: '2px',
+                                                            left: engageAdvancedClimate ? '18px' : '2px',
+                                                            width: '18px',
+                                                            height: '18px',
+                                                            borderRadius: '50%',
+                                                            background: '#fff',
+                                                            transition: 'left 0.2s',
+                                                            boxShadow: '0 1px 2px rgba(0,0,0,0.2)',
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            {/* Global Carbon Fee Slider */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>💸 Global Carbon Fee</span>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#10b981' }}>{selectedCurrency === 'INR' ? '₹' : '$'}{carbonFee}/t</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="20"
+                                                    max="150"
+                                                    step="5"
+                                                    value={carbonFee}
+                                                    onChange={(e) => setCarbonFee(parseInt(e.target.value, 10))}
+                                                    style={{
+                                                        width: '100%',
+                                                        accentColor: '#10b981',
+                                                        cursor: 'pointer',
+                                                        background: 'rgba(255,255,255,0.1)',
+                                                        height: '6px',
+                                                        borderRadius: '3px',
+                                                        outline: 'none',
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Permitted tax bracket range: 20 to 150 carbon units.</span>
+                                            </div>
+
+                                            {/* Market Hostility Index Slider */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>🌋 Market Hostility Index</span>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f59e0b' }}>Level {hostility}/10</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="1"
+                                                    max="10"
+                                                    step="1"
+                                                    value={hostility}
+                                                    onChange={(e) => setHostility(parseInt(e.target.value, 10))}
+                                                    style={{
+                                                        width: '100%',
+                                                        accentColor: '#f59e0b',
+                                                        cursor: 'pointer',
+                                                        background: 'rgba(255,255,255,0.1)',
+                                                        height: '6px',
+                                                        borderRadius: '3px',
+                                                        outline: 'none',
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Determines competitor pricing strategy aggressiveness and supplier volatility.</span>
+                                            </div>
+
+                                            {/* Scope 3 Threshold Slider */}
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#e2e8f0' }}>🔗 Scope 3 Penalty Threshold</span>
+                                                    <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#ef4444' }}>{scope3}x</span>
+                                                </div>
+                                                <input
+                                                    type="range"
+                                                    min="1.0"
+                                                    max="5.0"
+                                                    step="0.5"
+                                                    value={scope3}
+                                                    onChange={(e) => setScope3(parseFloat(e.target.value))}
+                                                    style={{
+                                                        width: '100%',
+                                                        accentColor: '#ef4444',
+                                                        cursor: 'pointer',
+                                                        background: 'rgba(255,255,255,0.1)',
+                                                        height: '6px',
+                                                        borderRadius: '3px',
+                                                        outline: 'none',
+                                                    }}
+                                                />
+                                                <span style={{ fontSize: '0.65rem', color: '#64748b' }}>Cap multiplier on upstream supplier emissions before triggering Tier 3 supply chain penalties.</span>
+                                            </div>
+                                        </div>
+                                    </section>
+
+    {/* ── Section 3.5: Ending Pathway ── */}
+                            {endingPathways.length > 0 && (
                                 <section className={styles.configSection}>
                                     <div className={styles.sectionHeader}>
-                                        <h3>2. Decision Paradigm</h3>
-                                        <p>
-                                            Choose the simulation engine for this cohort.
-                                            
-                                        </p>
+                                        <h3>🎯 Ending Pathway</h3>
+                                        <p>Choose the R10 endgame crisis scenario. Players will never see the pathway name — only indirect hints between R5–R8.</p>
                                     </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                                        {PARADIGM_OPTIONS.map(p => {
-                                            const isSelected = selectedParadigm === p.id;
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                        {/* Random option */}
+                                        <button
+                                            type="button"
+                                            onClick={() => setSelectedPathway('random')}
+                                            style={{
+                                                display: 'flex', alignItems: 'center', gap: 10,
+                                                padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+                                                border: selectedPathway === 'random' ? '2px solid #a78bfa' : '1.5px solid rgba(100,116,139,0.3)',
+                                                background: selectedPathway === 'random' ? 'rgba(167,139,250,0.1)' : 'rgba(15,23,42,0.5)',
+                                                textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
+                                            }}
+                                        >
+                                            <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>🎲</span>
+                                            <span style={{ flex: 1 }}>
+                                                <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: selectedPathway === 'random' ? '#a78bfa' : '#e2e8f0' }}>
+                                                    Random
+                                                    <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#64748b' }}>(Surprise ending)</span>
+                                                </span>
+                                                <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>System randomly selects a pathway at session creation. Maximum surprise for facilitator and players.</span>
+                                            </span>
+                                        </button>
+                                        {/* Pathway options */}
+                                        {endingPathways.filter(p => p.implemented).map(p => {
+                                            const isSelected = selectedPathway === p.id;
                                             return (
                                                 <button
                                                     key={p.id}
                                                     type="button"
-                                                    onClick={() => setSelectedParadigm(p.id)}
+                                                    onClick={() => setSelectedPathway(p.id)}
                                                     style={{
-                                                        display: 'flex', alignItems: 'center', gap: 12,
+                                                        display: 'flex', alignItems: 'center', gap: 10,
                                                         padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                                                        border: isSelected ? `2px solid ${p.color}` : '1.5px solid rgba(100,116,139,0.3)',
-                                                        background: isSelected ? p.bg : 'rgba(15,23,42,0.5)',
-                                                        transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
-                                                        textAlign: 'left', width: '100%',
-                                                        opacity: 1,
+                                                        border: isSelected ? '2px solid #6366f1' : '1.5px solid rgba(100,116,139,0.3)',
+                                                        background: isSelected ? 'rgba(99,102,241,0.1)' : 'rgba(15,23,42,0.5)',
+                                                        textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
+                                                        opacity: p.implemented ? 1 : 0.4,
                                                     }}
+                                                    disabled={!p.implemented}
                                                 >
                                                     <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{p.icon}</span>
                                                     <span style={{ flex: 1 }}>
-                                                        <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: isSelected ? p.color : '#e2e8f0' }}>
-                                                            {p.label}
-                                                            <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: isSelected ? p.color : '#64748b', opacity: 0.85 }}>({p.sub})</span>
+                                                        <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: isSelected ? '#818cf8' : '#e2e8f0' }}>
+                                                            {p.title}
+                                                            {!p.implemented && <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#f59e0b' }}>(Coming Soon)</span>}
                                                         </span>
-                                                        <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>{p.desc}</span>
+                                                        <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2, lineHeight: 1.4 }}>{p.description?.substring(0, 120)}{p.description?.length > 120 ? '…' : ''}</span>
                                                     </span>
                                                     {isSelected && (
-                                                        <span style={{
-                                                            flexShrink: 0, fontSize: '0.68rem', fontWeight: 700,
-                                                            padding: '2px 10px', borderRadius: 20,
-                                                            background: p.bg, color: p.color,
-                                                            border: `1px solid ${p.border}`,
-                                                        }}>
-                                                            Selected
-                                                        </span>
+                                                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Selected</span>
                                                     )}
                                                 </button>
                                             );
                                         })}
                                     </div>
                                 </section>
-{/* ── Section 3.5: Ending Pathway ── */}
-                        {endingPathways.length > 0 && (
+                            )}
+                            </AccordionItem>
+                        )}
+
+                        {!isBaseFacilitator && simulationMode !== 'single_bu' && (
+                            <AccordionItem id="verticals" title="2b. Industry Verticals" summary="Optional: Replace default BUs with industry-specific units" isOpen={openTab === 'verticals'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+{/* ── BU Vertical Substitution (selected at cohort creation) ── */}
                             <section className={styles.configSection}>
                                 <div className={styles.sectionHeader}>
-                                    <h3>🎯 Ending Pathway</h3>
-                                    <p>Choose the R10 endgame crisis scenario. Players will never see the pathway name — only indirect hints between R5–R8.</p>
+                                    <h3>🏭 Industry Vertical Selection</h3>
+                                    <p>
+                                        Optionally replace default Muressons business units with industry-specific verticals.
+                                        This changes the stakeholder map, materiality matrix, and engine parameters.
+                                        <strong> Cannot be changed after the simulation begins.</strong>
+                                    </p>
                                 </div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                                    {/* Random option */}
-                                    <button
-                                        type="button"
-                                        onClick={() => setSelectedPathway('random')}
-                                        style={{
-                                            display: 'flex', alignItems: 'center', gap: 10,
-                                            padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                                            border: selectedPathway === 'random' ? '2px solid #a78bfa' : '1.5px solid rgba(100,116,139,0.3)',
-                                            background: selectedPathway === 'random' ? 'rgba(167,139,250,0.1)' : 'rgba(15,23,42,0.5)',
-                                            textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
-                                        }}
-                                    >
-                                        <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>🎲</span>
-                                        <span style={{ flex: 1 }}>
-                                            <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: selectedPathway === 'random' ? '#a78bfa' : '#e2e8f0' }}>
-                                                Random
-                                                <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#64748b' }}>(Surprise ending)</span>
-                                            </span>
-                                            <span style={{ display: 'block', fontSize: '0.72rem', color: '#64748b', marginTop: 2 }}>System randomly selects a pathway at session creation. Maximum surprise for facilitator and players.</span>
-                                        </span>
-                                    </button>
-                                    {/* Pathway options */}
-                                    {endingPathways.filter(p => p.implemented).map(p => {
-                                        const isSelected = selectedPathway === p.id;
+                                {[
+                                    // Slot order = DEFAULT_SLOTS; alternatives = SLOT_FIT_MAP (bu_profiles.py)
+                                    {
+                                        slot: 'pharma', slotLabel: 'Pharma', slotIcon: '💊',
+                                        // SLOT_FIT_MAP['pharma'] = [oil_gas, chemical, cosmetics, food_beverage, power_utilities]
+                                        alternatives: [
+                                            { id: 'oil_gas',        label: 'Oil & Gas',               icon: '🛢️', desc: 'Upstream E&P, midstream pipelines, downstream refining. Extreme carbon intensity and stranded-asset risk.' },
+                                            { id: 'chemical',       label: 'Chemical',                icon: '⚗️', desc: 'Specialty & bulk chemicals. High process-heat emissions, toxic discharge liability, REACH/TSCA compliance.' },
+                                            { id: 'cosmetics',      label: 'Cosmetics & Personal Care', icon: '💄', desc: 'Beauty and personal care. Ingredient sourcing controversy, microplastics liability, animal-testing regulation.' },
+                                            { id: 'food_beverage',  label: 'Food & Beverage',         icon: '🍽️', desc: 'Food processing & branded beverages. Extreme water intensity, deforestation-linked sourcing, food-safety recall risk.' },
+                                            { id: 'power_utilities', label: 'Power & Utilities',      icon: '⚡', desc: 'Electricity generation & distribution. Highest carbon intensity of all verticals, stranded-asset exposure, energy-transition capex.' },
+                                        ],
+                                    },
+                                    {
+                                        slot: 'electronics', slotLabel: 'Electronics', slotIcon: '⚡',
+                                        // SLOT_FIT_MAP['electronics'] = [semiconductor, medical_devices, automotive, telecom]
+                                        alternatives: [
+                                            { id: 'semiconductor',   label: 'Semiconductor',    icon: '💎', desc: 'Wafer fab & chip design. Extreme water/energy intensity, rare-mineral supply risk, geopolitical fab concentration.' },
+                                            { id: 'medical_devices', label: 'Medical Devices',  icon: '🩺', desc: 'Implantables, diagnostics & surgical equipment. Heavy FDA/CE burden, IP-intensive R&D, single-use plastics exposure.' },
+                                            { id: 'automotive',      label: 'Automotive',       icon: '🚗', desc: 'ICE & EV manufacturing. Scope 3 tailpipe dominance, battery mineral dependency, EV transition capex.' },
+                                            { id: 'telecom',         label: 'Telecom',          icon: '📶', desc: 'Mobile & fixed-line networks. Spectrum licensing risk, e-waste obligations, tower energy intensity, data privacy.' },
+                                        ],
+                                    },
+                                    {
+                                        slot: 'consumer_goods', slotLabel: 'Consumer Goods', slotIcon: '🛒',
+                                        // SLOT_FIT_MAP['consumer_goods'] = [retail_fmcg, agriculture]
+                                        alternatives: [
+                                            { id: 'retail_fmcg',  label: 'Retail / FMCG',  icon: '🛍️', desc: 'Fast-moving consumer goods. Packaging waste, plastic lifecycle, sustainable supply chain, consumer sentiment.' },
+                                            { id: 'agriculture',  label: 'Agriculture',     icon: '🌾', desc: 'Industrial farming & agri-tech. Extreme water dependency, biodiversity impact, land-use emissions.' },
+                                        ],
+                                    },
+                                    {
+                                        slot: 'software', slotLabel: 'Software', slotIcon: '💻',
+                                        // SLOT_FIT_MAP['software'] = [banking_financial_services, technology]
+                                        alternatives: [
+                                            { id: 'technology',                 label: 'Technology',                  icon: '🧠', desc: 'Cloud, AI/ML platforms & data centres. Governance sensitivity, energy growth trajectory, talent risk.' },
+                                            { id: 'banking_financial_services', label: 'Banking & Financial Services', icon: '🏦', desc: 'Systemic risk, prudential regulation, ESG lending, financed emissions, digital banking disruption.' },
+                                        ],
+                                    },
+                                ].map(({ slot, slotLabel, slotIcon, alternatives }) => {
+                                    const currentVertical = buSubstitutions[slot] || '';
+                                    return (
+                                        <div key={slot} className={styles.formGroup} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.75rem' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 700, fontSize: '0.85rem' }}>
+                                                <span>{slotIcon}</span>
+                                                Business Unit Slot: {slotLabel}
+                                            </label>
+                                            <div style={{ display: 'flex', gap: 8, marginTop: 6, flexWrap: 'wrap' }}>
+                                                {/* Default option */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setBuSubstitutions(prev => {
+                                                        const copy = { ...prev };
+                                                        delete copy[slot];
+                                                        return copy;
+                                                    })}
+                                                    style={{
+                                                        padding: '6px 12px', borderRadius: 8,
+                                                        border: !currentVertical ? '2px solid #6366f1' : '1.5px solid rgba(100,116,139,0.3)',
+                                                        background: !currentVertical ? 'rgba(99,102,241,0.1)' : 'rgba(15,23,42,0.5)',
+                                                        color: 'white', cursor: 'pointer', fontSize: '0.75rem', fontWeight: !currentVertical ? 600 : 400,
+                                                        transition: 'all 0.15s',
+                                                    }}
+                                                >
+                                                    Standard {slotLabel}
+                                                </button>
+                                                {/* Substitute options */}
+                                                {alternatives.map(alt => {
+                                                    const isSelected = currentVertical === alt.id;
+                                                    return (
+                                                        <button
+                                                            key={alt.id}
+                                                            type="button"
+                                                            onClick={() => setBuSubstitutions(prev => ({ ...prev, [slot]: alt.id }))}
+                                                            style={{
+                                                                padding: '6px 12px', borderRadius: 8,
+                                                                border: isSelected ? '2px solid #6366f1' : '1.5px solid rgba(100,116,139,0.3)',
+                                                                background: isSelected ? 'rgba(99,102,241,0.1)' : 'rgba(15,23,42,0.5)',
+                                                                color: 'white', cursor: 'pointer', fontSize: '0.75rem', fontWeight: isSelected ? 600 : 400,
+                                                                transition: 'all 0.15s',
+                                                            }}
+                                                            title={alt.desc}
+                                                        >
+                                                            {alt.icon} {alt.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            {/* Per-BU Region — optional override in standard mode, required in Multi-Region mode */}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
+                                                <span style={{
+                                                    fontSize: '0.72rem',
+                                                    color: isMultiRegion && !buRegions[slot] ? '#ef4444' : isMultiRegion ? '#67e8f9' : 'var(--text-muted)',
+                                                    fontWeight: isMultiRegion ? 600 : 400,
+                                                }}>
+                                                    📍 {isMultiRegion ? 'BU Region' : 'Local Region override:'}
+                                                    {isMultiRegion && <span style={{ color: '#ef4444', marginLeft: 2 }}>*</span>}
+                                                </span>
+                                                <select
+                                                    value={buRegions[slot] || ''}
+                                                    onChange={e => setBuRegions(prev => ({ ...prev, [slot]: e.target.value }))}
+                                                    style={{
+                                                        width: 'auto', padding: '3px 8px', fontSize: '0.72rem',
+                                                        borderRadius: 4, color: 'white',
+                                                        background: 'rgba(15,23,42,0.6)',
+                                                        border: isMultiRegion && !buRegions[slot]
+                                                            ? '1.5px solid rgba(239,68,68,0.7)'
+                                                            : '1px solid rgba(100,116,139,0.3)',
+                                                    }}
+                                                >
+                                                    {/* In Multi-Region mode, hide the fallback option — a selection is mandatory */}
+                                                    {!isMultiRegion && (
+                                                        <option value="">Same as Cohort ({regionId ? (REGIONS.find(r => r.id === regionId)?.label || regionId) : 'None'})</option>
+                                                    )}
+                                                    {isMultiRegion && !buRegions[slot] && (
+                                                        <option value="" disabled>-- Select region --</option>
+                                                    )}
+                                                    {REGIONS.map(r => (
+                                                        <option key={r.id} value={r.id}>{r.flag} {r.label}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                        </section>
+                        </AccordionItem>
+                        )}
+
+                        {!isBaseFacilitator && (
+                            <AccordionItem id="modules" title="3. Optional Modules" summary="Engine Modules, Side Tracks & CEO" isOpen={openTab === 'modules'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+{/* ── Engine Module Toggles ── */}
+                        {isSuperAdmin && (
+                            <section className={styles.configSection}>
+                                <div className={styles.sectionHeader}>
+                                    <h3>🔬 System Engine Modules</h3>
+                                    <p>Toggle high-fidelity engines ON/OFF for this cohort. Disabled engines are safely skipped — no crash risk.</p>
+                                </div>
+                                <div style={{
+                                    display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
+                                }}>
+                                    {ENGINE_MODULE_TOGGLES.map(t => {
+                                        const isOn = engineModuleToggles[t.key];
                                         return (
                                             <button
-                                                key={p.id}
+                                                key={t.key}
                                                 type="button"
-                                                onClick={() => setSelectedPathway(p.id)}
+                                                title={t.tooltip}
+                                                onClick={() => setEngineModuleToggles(prev => ({ ...prev, [t.key]: !prev[t.key] }))}
                                                 style={{
-                                                    display: 'flex', alignItems: 'center', gap: 10,
-                                                    padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-                                                    border: isSelected ? '2px solid #6366f1' : '1.5px solid rgba(100,116,139,0.3)',
-                                                    background: isSelected ? 'rgba(99,102,241,0.1)' : 'rgba(15,23,42,0.5)',
-                                                    textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
-                                                    opacity: p.implemented ? 1 : 0.4,
+                                                    display: 'flex', alignItems: 'center', gap: 6,
+                                                    padding: '7px 10px', borderRadius: 8, cursor: 'pointer',
+                                                    border: isOn ? '1.5px solid rgba(16,185,129,0.4)' : '1.5px solid rgba(100,116,139,0.2)',
+                                                    background: isOn ? 'rgba(16,185,129,0.08)' : 'rgba(15,23,42,0.3)',
+                                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', textAlign: 'left',
                                                 }}
-                                                disabled={!p.implemented}
                                             >
-                                                <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{p.icon}</span>
-                                                <span style={{ flex: 1 }}>
-                                                    <span style={{ display: 'block', fontWeight: 700, fontSize: '0.88rem', color: isSelected ? '#818cf8' : '#e2e8f0' }}>
-                                                        {p.title}
-                                                        {!p.implemented && <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#f59e0b' }}>(Coming Soon)</span>}
-                                                    </span>
-                                                    <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2, lineHeight: 1.4 }}>{p.description?.substring(0, 120)}{p.description?.length > 120 ? '…' : ''}</span>
+                                                <span style={{ fontSize: '1rem', flexShrink: 0 }}>{t.icon}</span>
+                                                <span style={{
+                                                    flex: 1, fontSize: '0.72rem', fontWeight: 700,
+                                                    color: isOn ? '#4ade80' : '#64748b',
+                                                }}>
+                                                    {t.label}
                                                 </span>
-                                                {isSelected && (
-                                                    <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#818cf8', background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)', padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }}>Selected</span>
-                                                )}
+                                                <span style={{
+                                                    width: 8, height: 8, borderRadius: '50%',
+                                                    background: isOn ? '#10b981' : '#334155',
+                                                    flexShrink: 0,
+                                                }} />
                                             </button>
                                         );
                                     })}
                                 </div>
+                                <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
+                                    <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, true])))}
+                                        style={{ fontSize: '0.65rem', color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                        ● Enable All
+                                    </button>
+                                    <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, false])))}
+                                        style={{ fontSize: '0.65rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                        ○ Disable All
+                                    </button>
+                                    <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, t.default])))}
+                                        style={{ fontSize: '0.65rem', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
+                                        ↺ Reset Defaults
+                                    </button>
+                                </div>
                             </section>
                         )}
-                        </AccordionItem>
-
-                        <AccordionItem id="verticals" title="2b. Industry Verticals" summary="Optional: Replace default BUs with industry-specific units" isOpen={openTab === 'verticals'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
-{/* ── BU Vertical Substitution (selected at cohort creation) ── */}
-                        <section className={styles.configSection}>
-                            <div className={styles.sectionHeader}>
-                                <h3>🏭 Industry Vertical Selection</h3>
-                                <p>
-                                    Optionally replace default Muressons business units with industry-specific verticals.
-                                    This changes the stakeholder map, materiality matrix, and engine parameters.
-                                    <strong> Cannot be changed after the simulation begins.</strong>
-                                </p>
-                            </div>
-                            {[
-                                {
-                                    slot: 'pharma', slotLabel: 'Pharma', slotIcon: '💊',
-                                    alternatives: [
-                                        { id: 'oil_gas', label: 'Oil & Gas', icon: '🛢️', desc: 'Fossil fuel extraction, refining, and transition risk. High carbon intensity and regulatory exposure.' },
-                                    ],
-                                },
-                                {
-                                    slot: 'software', slotLabel: 'Software', slotIcon: '💻',
-                                    alternatives: [
-                                        { id: 'technology', label: 'Technology', icon: '🧠', desc: 'Platform tech, AI ethics, data privacy, and talent competition. High innovation velocity.' },
-                                        { id: 'banking_financial_services', label: 'Banking & Financial Services', icon: '🏦', desc: 'Systemic risk, prudential regulation, ESG lending, and digital banking disruption.' },
-                                    ],
-                                },
-                                {
-                                    slot: 'consumer_goods', slotLabel: 'Consumer Goods', slotIcon: '🛒',
-                                    alternatives: [
-                                        { id: 'retail_fmcg', label: 'Retail / FMCG', icon: '🛍️', desc: 'Fast-moving consumer goods, supply chain sustainability, packaging waste, and fair trade.' },
-                                        { id: 'agriculture', label: 'Agriculture', icon: '🌾', desc: 'Food systems, water stewardship, biodiversity, and smallholder farmer welfare.' },
-                                    ],
-                                },
-                            ].map(slotConfig => {
-                                const currentSub = buSubstitutions[slotConfig.slot];
-                                return (
-                                    <div key={slotConfig.slot} style={{
-                                        marginBottom: 12, padding: '12px 14px', borderRadius: 10,
-                                        background: currentSub ? 'rgba(99,102,241,0.06)' : 'rgba(15,23,42,0.4)',
-                                        border: currentSub ? '1.5px solid rgba(99,102,241,0.3)' : '1.5px solid rgba(100,116,139,0.2)',
-                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
-                                    }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                                            <span style={{ fontSize: '1.2rem' }}>{slotConfig.slotIcon}</span>
-                                            <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#e2e8f0' }}>
-                                                Slot: {slotConfig.slotLabel}
-                                            </span>
-                                            {currentSub && (
-                                                <span style={{
-                                                    fontSize: '0.68rem', fontWeight: 700, padding: '2px 8px',
-                                                    borderRadius: 999, background: 'rgba(99,102,241,0.15)',
-                                                    color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)',
-                                                }}>SUBSTITUTED</span>
-                                            )}
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                            {/* Default option */}
-                                            <button
-                                                type="button"
-                                                onClick={() => setBuSubstitutions(prev => {
-                                                    const next = { ...prev };
-                                                    delete next[slotConfig.slot];
-                                                    return next;
-                                                })}
-                                                style={{
-                                                    display: 'flex', alignItems: 'center', gap: 6,
-                                                    padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
-                                                    border: !currentSub ? '2px solid rgba(16,185,129,0.5)' : '1.5px solid rgba(100,116,139,0.25)',
-                                                    background: !currentSub ? 'rgba(16,185,129,0.08)' : 'transparent',
-                                                    transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', flex: '1 1 auto', minWidth: 120,
-                                                }}
-                                            >
-                                                <span style={{ fontSize: '1rem' }}>{slotConfig.slotIcon}</span>
-                                                <span style={{
-                                                    fontSize: '0.72rem', fontWeight: 700,
-                                                    color: !currentSub ? '#4ade80' : '#94a3b8',
-                                                }}>
-                                                    {slotConfig.slotLabel} (Default)
-                                                </span>
-                                                {!currentSub && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', flexShrink: 0 }} />}
-                                            </button>
-                                            {/* Vertical alternatives */}
-                                            {slotConfig.alternatives.map(alt => {
-                                                const isSelected = currentSub === alt.id;
-                                                return (
-                                                    <button
-                                                        key={alt.id}
-                                                        type="button"
-                                                        title={alt.desc}
-                                                        onClick={() => setBuSubstitutions(prev => ({
-                                                            ...prev,
-                                                            [slotConfig.slot]: alt.id,
-                                                        }))}
-                                                        style={{
-                                                            display: 'flex', alignItems: 'center', gap: 6,
-                                                            padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
-                                                            border: isSelected ? '2px solid rgba(99,102,241,0.5)' : '1.5px solid rgba(100,116,139,0.25)',
-                                                            background: isSelected ? 'rgba(99,102,241,0.1)' : 'transparent',
-                                                            transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', flex: '1 1 auto', minWidth: 120,
-                                                        }}
-                                                    >
-                                                        <span style={{ fontSize: '1rem' }}>{alt.icon}</span>
-                                                        <span style={{
-                                                            fontSize: '0.72rem', fontWeight: 700,
-                                                            color: isSelected ? '#818cf8' : '#94a3b8',
-                                                        }}>
-                                                            {alt.label}
-                                                        </span>
-                                                        {isSelected && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#6366f1', flexShrink: 0 }} />}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                        {currentSub && (() => {
-                                            const alt = slotConfig.alternatives.find(a => a.id === currentSub);
-                                            return alt ? (
-                                                <div style={{
-                                                    marginTop: 6, fontSize: '0.68rem', color: '#94a3b8',
-                                                    padding: '4px 8px', borderRadius: 6,
-                                                    background: 'rgba(15,23,42,0.5)',
-                                                }}>
-                                                    {alt.icon} {alt.desc}
-                                                </div>
-                                            ) : null;
-                                        })()}
-                                    </div>
-                                );
-                            })}
-                            {Object.keys(buSubstitutions).length > 0 && (
-                                <div style={{
-                                    marginTop: 8, padding: '8px 12px', borderRadius: 8,
-                                    background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
-                                    fontSize: '0.7rem', color: '#a5b4fc',
-                                }}>
-                                    <strong>Active Substitutions:</strong>{' '}
-                                    {Object.entries(buSubstitutions).map(([slot, vid]) => (
-                                        <span key={slot} style={{ marginRight: 10 }}>
-                                            {slot} → <strong>{vid.replace(/_/g, ' ')}</strong>
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-                        </section>
-                        </AccordionItem>
-
-                        <AccordionItem id="modules" title="3. Optional Modules" summary="Engine Modules, Side Tracks & CEO" isOpen={openTab === 'modules'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
-{/* ── Engine Module Toggles ── */}
-                        <section className={styles.configSection}>
-                            <div className={styles.sectionHeader}>
-                                <h3>🔬 System Engine Modules</h3>
-                                <p>Toggle high-fidelity engines ON/OFF for this cohort. Disabled engines are safely skipped — no crash risk.</p>
-                            </div>
-                            <div style={{
-                                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6,
-                            }}>
-                                {ENGINE_MODULE_TOGGLES.map(t => {
-                                    const isOn = engineModuleToggles[t.key];
-                                    return (
-                                        <button
-                                            key={t.key}
-                                            type="button"
-                                            title={t.tooltip}
-                                            onClick={() => setEngineModuleToggles(prev => ({ ...prev, [t.key]: !prev[t.key] }))}
-                                            style={{
-                                                display: 'flex', alignItems: 'center', gap: 6,
-                                                padding: '7px 10px', borderRadius: 8, cursor: 'pointer',
-                                                border: isOn ? '1.5px solid rgba(16,185,129,0.4)' : '1.5px solid rgba(100,116,139,0.2)',
-                                                background: isOn ? 'rgba(16,185,129,0.08)' : 'rgba(15,23,42,0.3)',
-                                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s', textAlign: 'left',
-                                            }}
-                                        >
-                                            <span style={{ fontSize: '1rem', flexShrink: 0 }}>{t.icon}</span>
-                                            <span style={{
-                                                flex: 1, fontSize: '0.72rem', fontWeight: 700,
-                                                color: isOn ? '#4ade80' : '#64748b',
-                                            }}>
-                                                {t.label}
-                                            </span>
-                                            <span style={{
-                                                width: 8, height: 8, borderRadius: '50%',
-                                                background: isOn ? '#10b981' : '#334155',
-                                                flexShrink: 0,
-                                            }} />
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                            <div style={{ marginTop: 6, display: 'flex', gap: 8 }}>
-                                <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, true])))}
-                                    style={{ fontSize: '0.65rem', color: '#10b981', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-                                    ● Enable All
-                                </button>
-                                <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, false])))}
-                                    style={{ fontSize: '0.65rem', color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-                                    ○ Disable All
-                                </button>
-                                <button type="button" onClick={() => setEngineModuleToggles(Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, t.default])))}
-                                    style={{ fontSize: '0.65rem', color: '#94a3b8', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 700 }}>
-                                    ↺ Reset Defaults
-                                </button>
-                            </div>
-                        </section>
 {/* ── Section 3.9: Side Tracks ── */}
                         {sideTrackCatalog.length > 0 && (
                             <section className={styles.configSection}>
                                 <div className={styles.sectionHeader}>
                                     <h3 style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                                         🛤️ Side Track Simulations
+                                        {canAssignAllTracks && (
+                                            <span style={{
+                                                fontSize: '0.62rem', fontWeight: 700, padding: '2px 7px',
+                                                borderRadius: 999, background: 'rgba(99,102,241,0.15)',
+                                                color: '#818cf8', border: '1px solid rgba(99,102,241,0.3)',
+                                            }}>
+                                                All tracks unlocked for your role
+                                            </span>
+                                        )}
                                     </h3>
-                                    <p>Enable optional mini-simulations that run alongside the main game. Players can access these between rounds.</p>
+                                    <p>
+                                        Enable optional mini-simulations that run alongside the main game. Players can access these between rounds.
+                                        {!canAssignAllTracks && (
+                                            <span style={{ color: '#f59e0b', marginLeft: 4 }}>
+                                                Greyed-out tracks require God Mode authorization — ask a super_admin to enable them globally.
+                                            </span>
+                                        )}
+                                    </p>
                                 </div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                     {sideTrackCatalog.map(track => {
                                         const isSelected = selectedSideTracks.includes(track.track_id);
+                                        // Lead facilitators and super admins can always assign; regular facilitators
+                                        // need the track to be globally enabled or explicitly permitted.
+                                        const canAssign = canAssignAllTracks || track.enabled_globally || track.facilitator_can_assign;
                                         return (
                                             <button
                                                 key={track.track_id}
                                                 type="button"
-                                                disabled={!track.enabled_globally}
-                                                title={!track.enabled_globally ? "Requires God Mode authorization to assign" : ""}
+                                                disabled={!canAssign}
+                                                title={!canAssign ? 'Requires God Mode authorization — ask a super_admin to enable this track globally' : ''}
                                                 onClick={() => {
-                                                    if (!track.enabled_globally) return;
+                                                    if (!canAssign) return;
                                                     setSelectedSideTracks(prev =>
                                                         prev.includes(track.track_id)
                                                             ? prev.filter(t => t !== track.track_id)
@@ -1042,12 +1475,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 }}
                                                 style={{
                                                     display: 'flex', alignItems: 'center', gap: 10,
-                                                    padding: '10px 14px', borderRadius: 10, 
-                                                    cursor: track.enabled_globally ? 'pointer' : 'not-allowed',
+                                                    padding: '10px 14px', borderRadius: 10,
+                                                    cursor: canAssign ? 'pointer' : 'not-allowed',
                                                     border: isSelected ? '2px solid #6366f1' : '1.5px solid rgba(100,116,139,0.3)',
                                                     background: isSelected ? 'rgba(99,102,241,0.1)' : 'rgba(15,23,42,0.5)',
-                                                    textAlign: 'left', width: '100%', transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
-                                                    opacity: track.enabled_globally ? 1 : 0.4,
+                                                    textAlign: 'left', width: '100%',
+                                                    transition: 'background 0.18s, color 0.18s, border-color 0.18s, box-shadow 0.18s, opacity 0.18s, transform 0.18s',
+                                                    opacity: canAssign ? 1 : 0.4,
                                                 }}
                                             >
                                                 <span style={{ fontSize: '1.5rem', flexShrink: 0 }}>{track.icon || '📦'}</span>
@@ -1057,6 +1491,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         <span style={{ fontWeight: 400, fontSize: '0.72rem', marginLeft: 6, color: '#64748b' }}>
                                                             ({track.num_rounds || '?'} rounds)
                                                         </span>
+                                                        {!track.enabled_globally && canAssign && (
+                                                            <span style={{ marginLeft: 6, fontSize: '0.62rem', color: '#f59e0b', fontWeight: 600 }}>
+                                                                ● Lead-only
+                                                            </span>
+                                                        )}
                                                     </span>
                                                     <span style={{ display: 'block', fontSize: '0.72rem', color: isSelected ? '#cbd5e1' : '#64748b', marginTop: 2 }}>
                                                         {track.description?.substring(0, 140) || 'No description available'}
@@ -1103,6 +1542,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             await fetch(`${API}/api/admin/global-settings`, {
                                                 method: 'PATCH',
                                                 headers: { 'Content-Type': 'application/json' },
+                                                credentials: 'include',
                                                 body: JSON.stringify({ ceo_interview_enabled: next }),
                                             });
                                         } catch {}
@@ -1136,6 +1576,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     await fetch(`${API}/api/admin/global-settings`, {
                                                         method: 'PATCH',
                                                         headers: { 'Content-Type': 'application/json' },
+                                                        credentials: 'include',
                                                         body: JSON.stringify({ ceo_interview_voice_gender: e.target.value }),
                                                     });
                                                 } catch {}
@@ -1183,8 +1624,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                             )}
                         </section>
                         </AccordionItem>
+                        )}
 
-                        <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing" isOpen={openTab === 'interventions'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                        {!isBaseFacilitator && (
+                            <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing" isOpen={openTab === 'interventions'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 4: Team Interventions ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
@@ -1311,7 +1754,8 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         </section>
 
                         
-                        </AccordionItem>
+                            </AccordionItem>
+                        )}
 
                         <AccordionItem id="pedagogy" title="5. Pedagogy &amp; Analytics" summary="Toggles and Visibility" isOpen={openTab === 'pedagogy'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 5: Pedagogical Scaffolding ── */}
@@ -1411,22 +1855,432 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         </AccordionItem>
 
                         <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTab === 'lock'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
-                            <div style={{ padding: '0.5rem 0' }}>
-                                <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '12px 16px', borderRadius: 8, color: '#fcd34d', fontSize: '0.85rem', display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                                    <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>⚠️</span>
-                                    <div>
-                                        <strong style={{ display: 'block', marginBottom: 4, color: '#f59e0b' }}>PERMANENT COHORT CONFIGURATION</strong>
-                                        By proceeding, choices made here (Decision Paradigm, Scenario Preset, Currency, Ending Pathway, Side Tracks, etc.) become <strong>permanent</strong> for this cohort and cannot be changed later.
+                            {(() => {
+                                // ── Derived values for summary display ──
+                                const facId = currentFacilitatorId || facilitatorId;
+                                const facObj = availableFacilitators.find(f => f.facilitator_id === facId);
+                                const facilitatorDisplay = facObj ? `${facObj.name} (${facId})` : facId || '—';
+                                const presetInfo = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+                                const currencyInfo = CURRENCIES.find(c => c.code === selectedCurrency);
+                                const paradigmInfo = PARADIGM_OPTIONS.find(p => p.id === selectedParadigm);
+                                const pathwayInfo = selectedPathway === 'random'
+                                    ? { icon: '🎲', title: 'Random (Surprise)' }
+                                    : endingPathways.find(p => p.id === selectedPathway);
+                                const enabledModules = ENGINE_MODULE_TOGGLES.filter(t => engineModuleToggles[t.key]);
+                                // Region & BU lookups for Core Config card
+                                const regionInfo = COHORT_REGIONS.find(r => r.id === regionId);
+                                const regionDisplay = regionInfo ? `${regionInfo.flag} ${regionInfo.label}` : (regionId ? regionId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null);
+                                const buInfo = INDUSTRY_VERTICALS.find(v => v.id === industryVertical);
+                                const buDisplay = buInfo ? `${buInfo.icon} ${buInfo.label}` : (industryVertical ? industryVertical.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : null);
+                                const nonDefaultModules = ENGINE_MODULE_TOGGLES.filter(t => engineModuleToggles[t.key] !== t.default);
+                                const selectedTrackDetails = sideTrackCatalog.filter(t => selectedSideTracks.includes(t.track_id));
+                                const enabledPedagogy = PEDAGOGICAL_TOGGLES.filter(t => pedagogicalToggles[t.key]);
+                                const visOverrideCount = (() => {
+                                    if (!visibilityDefaults) return 0;
+                                    let n = 0;
+                                    for (const role of ['facilitator', 'player']) {
+                                        for (const [k, v] of Object.entries(visibility[role] || {})) {
+                                            if ((visibilityDefaults[role] || {})[k] !== v) n++;
+                                        }
+                                    }
+                                    return n;
+                                })();
+
+                                // ── Shared micro-styles ──
+                                const cardS = {
+                                    background: 'rgba(15,23,42,0.65)',
+                                    border: '1px solid rgba(100,116,139,0.22)',
+                                    borderRadius: 10, padding: '11px 13px',
+                                };
+                                const headS = {
+                                    display: 'flex', alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: 8, paddingBottom: 7,
+                                    borderBottom: '1px solid rgba(100,116,139,0.14)',
+                                };
+                                const titleS = {
+                                    fontSize: '0.64rem', fontWeight: 800,
+                                    color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em',
+                                };
+                                const editS = {
+                                    fontSize: '0.6rem', fontWeight: 700, color: '#6366f1',
+                                    background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.28)',
+                                    borderRadius: 5, padding: '2px 8px', cursor: 'pointer',
+                                };
+                                const rowS = { display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: '0.71rem', lineHeight: 1.45 };
+                                const lblS = { color: '#64748b', flexShrink: 0, minWidth: 88 };
+                                const valS = { color: '#e2e8f0', fontWeight: 600, flex: 1, wordBreak: 'break-word' };
+                                const onChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: '0.6rem', fontWeight: 700, background: 'rgba(16,185,129,0.12)', color: '#4ade80', border: '1px solid rgba(16,185,129,0.28)', marginRight: 3, marginBottom: 2 };
+                                const offChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: '0.6rem', fontWeight: 700, background: 'rgba(100,116,139,0.1)', color: '#64748b', border: '1px solid rgba(100,116,139,0.2)', marginRight: 3, marginBottom: 2 };
+                                const indigoChip = { display: 'inline-block', padding: '1px 6px', borderRadius: 999, fontSize: '0.6rem', fontWeight: 700, background: 'rgba(99,102,241,0.14)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.28)', marginRight: 3, marginBottom: 2 };
+
+                                return (
+                                    <div style={{ padding: '0.5rem 0' }}>
+
+                                        {/* ── Summary cards grid ── */}
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+
+                                            {/* Card 1 — Core Configuration */}
+                                            <div style={cardS}>
+                                                <div style={headS}>
+                                                    <span style={titleS}>📋 Core Configuration</span>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('core')}>✎ Edit</button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Cohort</span>
+                                                        <span style={{ ...valS, color: cohortName.trim() ? '#e2e8f0' : '#ef4444' }}>
+                                                            {cohortName.trim() || '⚠ Name required'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Facilitator</span>
+                                                        <span style={valS}>{facilitatorDisplay}</span>
+                                                    </div>
+                                                    {createdBy.trim() && (
+                                                        <div style={rowS}>
+                                                            <span style={lblS}>Created By</span>
+                                                            <span style={valS}>{createdBy}</span>
+                                                        </div>
+                                                    )}
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Dates</span>
+                                                        <span style={valS}>
+                                                            {startDate || createdWhen || '—'}
+                                                            {endDate ? ` → ${endDate}` : ''}
+                                                        </span>
+                                                    </div>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Region</span>
+                                                        <span style={{ ...valS, color: regionDisplay ? '#67e8f9' : '#f59e0b' }}>
+                                                            {regionDisplay || '⚠ Not selected'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Business Unit</span>
+                                                        <span style={{ ...valS, color: simulationMode === 'single_bu' ? (buDisplay ? '#a5b4fc' : '#f59e0b') : '#64748b' }}>
+                                                            {simulationMode === 'single_bu'
+                                                                ? (buDisplay || '⚠ Not selected')
+                                                                : '🏢 4-BU Conglomerate (default)'}
+                                                        </span>
+                                                    </div>
+                                                    {presetInfo && (
+                                                        <div style={rowS}>
+                                                            <span style={lblS}>Level</span>
+                                                            <span style={valS}>
+                                                                {presetInfo.icon} {presetInfo.name}
+                                                                {pedagogyCustomised && <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#f59e0b', fontWeight: 700 }}>⚙ customised</span>}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {currencyInfo && (
+                                                        <div style={rowS}>
+                                                            <span style={lblS}>Currency</span>
+                                                            <span style={valS}>{currencyInfo.flag} {currencyInfo.symbol} — {currencyInfo.code}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Card 2 — Simulation Engine */}
+                                            <div style={cardS}>
+                                                <div style={headS}>
+                                                    <span style={titleS}>⚙️ Simulation Engine</span>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('engine')}>✎ Edit</button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Paradigm</span>
+                                                        <span style={valS}>
+                                                            {paradigmInfo ? `${paradigmInfo.icon} ${paradigmInfo.label}` : selectedParadigm}
+                                                        </span>
+                                                    </div>
+                                                    {paradigmInfo && (
+                                                        <div style={rowS}>
+                                                            <span style={lblS} />
+                                                            <span style={{ fontSize: '0.63rem', color: '#64748b', flex: 1 }}>{paradigmInfo.sub}</span>
+                                                        </div>
+                                                    )}
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Ending</span>
+                                                        <span style={valS}>
+                                                            {pathwayInfo
+                                                                ? `${pathwayInfo.icon} ${pathwayInfo.title}`
+                                                                : selectedPathway || '—'}
+                                                        </span>
+                                                    </div>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Mode</span>
+                                                        <span style={valS}>
+                                                            {simulationMode === 'single_bu'
+                                                                ? '🏭 Single Business Unit'
+                                                                : '🏢 4-BU Conglomerate'}
+                                                        </span>
+                                                    </div>
+                                                    {simulationMode === 'single_bu' && industryVertical && (
+                                                        <div style={rowS}>
+                                                            <span style={lblS}>BU Selected</span>
+                                                            <span style={{ ...valS, color: '#a5b4fc' }}>
+                                                                {industryVertical.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    {regionId && (
+                                                        <div style={rowS}>
+                                                            <span style={lblS}>Region</span>
+                                                            <span style={{ ...valS, color: '#67e8f9' }}>
+                                                                🌐 {regionId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Card 3 — Industry Verticals (hidden in single_bu mode) */}
+                                            {simulationMode !== 'single_bu' && (() => {
+                                                // Slot definitions mirroring the 2B form
+                                                const BU_SLOTS = [
+                                                    { slot: 'pharma',         slotLabel: 'Pharma',         slotIcon: '💊' },
+                                                    { slot: 'electronics',    slotLabel: 'Electronics',    slotIcon: '⚡' },
+                                                    { slot: 'consumer_goods', slotLabel: 'Consumer Goods', slotIcon: '🛍️' },
+                                                    { slot: 'software',       slotLabel: 'Software',       slotIcon: '💻' },
+                                                ];
+                                                // Flat lookup — must contain every vertical in SLOT_FIT_MAP (bu_profiles.py)
+                                                const ALL_VERTICALS = [
+                                                    // pharma-slot alternatives
+                                                    { id: 'oil_gas',                    label: 'Oil & Gas',                   icon: '🛢️' },
+                                                    { id: 'chemical',                   label: 'Chemical',                    icon: '⚗️' },
+                                                    { id: 'cosmetics',                  label: 'Cosmetics & Personal Care',   icon: '💄' },
+                                                    { id: 'food_beverage',              label: 'Food & Beverage',             icon: '🍽️' },
+                                                    { id: 'power_utilities',            label: 'Power & Utilities',           icon: '⚡' },
+                                                    // electronics-slot alternatives
+                                                    { id: 'semiconductor',              label: 'Semiconductor',               icon: '💎' },
+                                                    { id: 'medical_devices',            label: 'Medical Devices',             icon: '🩺' },
+                                                    { id: 'automotive',                 label: 'Automotive',                  icon: '🚗' },
+                                                    { id: 'telecom',                    label: 'Telecom',                     icon: '📶' },
+                                                    // consumer_goods-slot alternatives
+                                                    { id: 'retail_fmcg',               label: 'Retail / FMCG',               icon: '🛍️' },
+                                                    { id: 'agriculture',                label: 'Agriculture',                 icon: '🌾' },
+                                                    // software-slot alternatives
+                                                    { id: 'technology',                 label: 'Technology',                  icon: '🧠' },
+                                                    { id: 'banking_financial_services', label: 'Banking & Financial Services', icon: '🏦' },
+                                                ];
+                                                return (
+                                                <div style={cardS}>
+                                                    <div style={headS}>
+                                                        <span style={titleS}>🏭 Industry Verticals</span>
+                                                        <button type="button" style={editS} onClick={() => setOpenTab('verticals')}>✎ Edit</button>
+                                                    </div>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                                        {BU_SLOTS.map(({ slot, slotLabel, slotIcon }) => {
+                                                            const subVid = buSubstitutions[slot];
+                                                            const subInfo = subVid ? ALL_VERTICALS.find(v => v.id === subVid) : null;
+                                                            const vertLabel = subInfo
+                                                                ? `${subInfo.icon} ${subInfo.label}`
+                                                                : `${slotIcon} Standard ${slotLabel}`;
+                                                            const buRegionId = buRegions[slot];
+                                                            const buRegionInfo = buRegionId ? REGIONS.find(r => r.id === buRegionId) : null;
+                                                            const regionLabel = buRegionInfo
+                                                                ? `${buRegionInfo.flag} ${buRegionInfo.label}`
+                                                                : `Same as Cohort${regionDisplay ? ` (${regionDisplay})` : ''}`;
+                                                            return (
+                                                                <div key={slot} style={{ paddingBottom: 5, borderBottom: '1px solid rgba(100,116,139,0.12)' }}>
+                                                                    <div style={rowS}>
+                                                                        <span style={{ ...lblS, minWidth: 96 }}>{slotIcon} {slotLabel}</span>
+                                                                        <span style={{ ...valS, color: subVid ? '#a5b4fc' : '#e2e8f0' }}>{vertLabel}</span>
+                                                                    </div>
+                                                                    <div style={{ ...rowS, marginTop: 2 }}>
+                                                                        <span style={{ ...lblS, minWidth: 96, fontSize: '0.63rem' }}>📍 Region</span>
+                                                                        <span style={{ fontSize: '0.63rem', color: buRegionId ? '#67e8f9' : '#64748b', fontWeight: buRegionId ? 600 : 400 }}>
+                                                                            {regionLabel}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                );
+                                            })()}
+
+                                            {/* Card 4 — Optional Modules */}
+                                            <div style={cardS}>
+                                                <div style={headS}>
+                                                    <span style={titleS}>🔬 Optional Modules</span>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('modules')}>✎ Edit</button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Engine</span>
+                                                        <span style={valS}>
+                                                            {enabledModules.length}/{ENGINE_MODULE_TOGGLES.length} on
+                                                            {nonDefaultModules.length > 0 && (
+                                                                <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#f59e0b', fontWeight: 700 }}>
+                                                                    {nonDefaultModules.length} non-default
+                                                                </span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                    {nonDefaultModules.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2, marginTop: 1 }}>
+                                                            {nonDefaultModules.map(t => (
+                                                                <span key={t.key} style={engineModuleToggles[t.key] ? onChip : offChip}>
+                                                                    {t.icon} {engineModuleToggles[t.key] ? '+' : '−'}{t.label}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Side Tracks</span>
+                                                        <span style={valS}>
+                                                            {selectedTrackDetails.length === 0
+                                                                ? <span style={{ color: '#64748b' }}>None selected</span>
+                                                                : `${selectedTrackDetails.length} selected`}
+                                                        </span>
+                                                    </div>
+                                                    {selectedTrackDetails.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                                            {selectedTrackDetails.map(t => (
+                                                                <span key={t.track_id} style={indigoChip}>
+                                                                    {t.icon || '📦'} {t.display_name || t.track_id}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>CEO Interview</span>
+                                                        <span style={ceoInterviewEnabled ? onChip : offChip}>
+                                                            {ceoInterviewEnabled ? '● Enabled' : '○ Disabled'}
+                                                        </span>
+                                                        {ceoInterviewEnabled && (
+                                                            <span style={{ fontSize: '0.63rem', color: '#64748b' }}>
+                                                                {ceoVoiceGender === 'female' ? '👩‍💼 Victoria' : '👨‍💼 Alexander'}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Card 5 — Team Interventions */}
+                                            <div style={cardS}>
+                                                <div style={headS}>
+                                                    <span style={titleS}>⚡ Team Interventions</span>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('interventions')}>✎ Edit</button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Overrides</span>
+                                                        <span style={valS}>
+                                                            {selectedOverrides.length}/{masterOverrides.length} selected
+                                                            {selectedOverrides.length > 0 && selectedOverrides.length === masterOverrides.length && (
+                                                                <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#4ade80', fontWeight: 700 }}>All</span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Swipe Files</span>
+                                                        <span style={valS}>
+                                                            {selectedSwipes.length}/{masterSwipes.length} selected
+                                                            {selectedSwipes.length > 0 && selectedSwipes.length === masterSwipes.length && (
+                                                                <span style={{ marginLeft: 5, fontSize: '0.6rem', color: '#4ade80', fontWeight: 700 }}>All</span>
+                                                            )}
+                                                        </span>
+                                                    </div>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Round Pacing</span>
+                                                        <span style={valS}>
+                                                            {pacingMode === 'free_play' && '🔓 Free Play'}
+                                                            {pacingMode === 'manual' && `✋ Manual (up to R${maxUnlockedRound})`}
+                                                            {pacingMode === 'scheduled' && `📅 Scheduled (${Object.keys(roundSchedules).length} rounds set)`}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Card 6 — Pedagogy & Analytics */}
+                                            <div style={cardS}>
+                                                <div style={headS}>
+                                                    <span style={titleS}>🎓 Pedagogy &amp; Analytics</span>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('pedagogy')}>✎ Edit</button>
+                                                </div>
+                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Scaffolding</span>
+                                                        <span style={valS}>
+                                                            {enabledPedagogy.length === 0
+                                                                ? <span style={{ color: '#64748b' }}>None enabled</span>
+                                                                : `${enabledPedagogy.length} feature${enabledPedagogy.length !== 1 ? 's' : ''} active`}
+                                                        </span>
+                                                    </div>
+                                                    {enabledPedagogy.length > 0 && (
+                                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                                                            {enabledPedagogy.map(t => (
+                                                                <span key={t.key} style={onChip}>{t.icon} {t.label}</span>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                    <div style={rowS}>
+                                                        <span style={lblS}>Visibility</span>
+                                                        <span style={valS}>
+                                                            {visOverrideCount === 0
+                                                                ? <span style={{ color: '#4ade80' }}>✓ Global defaults</span>
+                                                                : <span style={{ color: '#f59e0b' }}>{visOverrideCount} custom override{visOverrideCount !== 1 ? 's' : ''}</span>}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                        </div>{/* end grid */}
+
+                                        {/* ── Permanent-lock warning (create only) ── */}
+                                        {!isEditMode && (
+                                        <div style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.3)', padding: '12px 16px', borderRadius: 8, color: '#fcd34d', fontSize: '0.83rem', display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                            <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>⚠️</span>
+                                            <div>
+                                                <strong style={{ display: 'block', marginBottom: 4, color: '#f59e0b' }}>PERMANENT COHORT CONFIGURATION</strong>
+                                                By proceeding, choices made here (Decision Paradigm, Scenario Preset, Currency, Ending Pathway, Side Tracks, etc.) become <strong>permanent</strong> for this cohort and cannot be changed later.
+                                            </div>
+                                        </div>
+                                        )}
+                                        {isEditMode && (
+                                        <div style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)', padding: '12px 16px', borderRadius: 8, color: '#93c5fd', fontSize: '0.83rem', display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '1rem' }}>
+                                            <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>ℹ️</span>
+                                            <div>
+                                                <strong style={{ display: 'block', marginBottom: 4, color: '#60a5fa' }}>EDITING PRE-GAME COHORT</strong>
+                                                Changes apply immediately. Only allowed while zero players are inducted and the game has not begun.
+                                            </div>
+                                        </div>
+                                        )}
+
+                                        <div className={styles.footer} style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
+                                            {/* Inline error at point of action — visible without scrolling */}
+                                            {error && (
+                                                <div style={{
+                                                    width: '100%', marginBottom: 10,
+                                                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)',
+                                                    borderRadius: 7, padding: '8px 12px',
+                                                    color: '#fca5a5', fontSize: '0.75rem', fontWeight: 600,
+                                                    display: 'flex', alignItems: 'center', gap: 8,
+                                                }}>
+                                                    <span>⚠️</span>
+                                                    <span>{error}</span>
+                                                </div>
+                                            )}
+                                            <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={loading}>Cancel</button>
+                                            {isEditMode ? (
+                                                <button type="submit" className={styles.submitBtn} disabled={loading || !cohortName.trim()} style={{ background: 'linear-gradient(135deg,#3b82f6,#06b6d4)', color: '#fff' }}>
+                                                    {loading ? '⏳ Saving...' : '✏️ Save Changes'}
+                                                </button>
+                                            ) : (
+                                                <button type="submit" className={styles.submitBtn} disabled={loading || !cohortName.trim()} style={{ background: '#f59e0b', color: '#1e293b' }}>
+                                                    {loading ? 'Initializing Server...' : 'Permanently Lock & Create Cohort'}
+                                                </button>
+                                            )}
+                                        </div>
+
                                     </div>
-                                </div>
-                                
-                                <div className={styles.footer} style={{ borderTop: 'none', paddingTop: 0, marginTop: 0 }}>
-                                    <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={loading}>Cancel</button>
-                                    <button type="submit" className={styles.submitBtn} disabled={loading || !cohortName.trim()} style={{ background: '#f59e0b', color: '#1e293b' }}>
-                                        {loading ? 'Initializing Server...' : 'Permanently Lock & Create Cohort'}
-                                    </button>
-                                </div>
-                            </div>
+                                );
+                            })()}
                         </AccordionItem>
                     </form>
                 </div>

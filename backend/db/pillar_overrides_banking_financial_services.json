@@ -1,0 +1,35 @@
+{
+  "bu_id": "banking_financial_services",
+  "description": "Pillar overrides for Banking & Finance. Replaces Supply Chain with Financial Inclusion, the primary social sustainability lever for financial institutions.",
+  "override_areas": {
+    "supply_chain": {
+      "label": "Financial Inclusion",
+      "icon": "🏦",
+      "description_override": "Extend financial services access to underserved populations.",
+      "options": {
+        "mobile_banking_rural": {
+          "title": "Rural Mobile Banking Platform",
+          "description": "Launch a mobile-first banking platform targeting unbanked populations in rural and peri-urban areas.",
+          "cost": -4000000,
+          "impacts": { "social_license_delta": 8, "reputation": 5 },
+          "flags_set": ["mobile_banking_rural"]
+        },
+        "microlending_program": {
+          "title": "SME Micro-Lending Program",
+          "description": "Create a dedicated micro-lending facility for small businesses with simplified KYC.",
+          "cost": -2000000,
+          "impacts": { "social_license_delta": 4, "reputation": 3 },
+          "flags_set": ["microlending"]
+        },
+        "no_inclusion_action": {
+          "title": "No Inclusion Investment",
+          "description": "Focus entirely on existing customer segments. Inclusion gap widens.",
+          "cost": 0,
+          "impacts": { "social_license_delta": -2, "reputation": -1 },
+          "flags_set": []
+        }
+      }
+    }
+  },
+  "custom_areas": []
+}

@@ -15,24 +15,48 @@ import math
 from typing import Optional
 from collections import defaultdict
 
-from fastapi import APIRouter, Body, Header, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 import database as db
+import database_memory
 from admin_shared import _god_mode_settings, _get_session_paradigm, _facilitator_registry, get_role
 
 analytics_router = APIRouter(prefix="/api/admin", tags=["Admin - Analytics"])
 
 
-def _get_fac_role(x_facilitator_id: str = Header(None)):
-    if not x_facilitator_id:
-        return 'anonymous'  # No header → unauthenticated; callers must check explicitly
-    # god_mode is a virtual admin account not in the registry
-    if x_facilitator_id == "god_mode":
-        return "super_admin"
+def _get_fac_role(request: Request):
+    """Resolve facilitator role from signed JWT cookie (preferred) or
+    X-Facilitator-Id header (backward-compat for non-god_mode accounts).
+
+    SECURITY-CRIT-002: The former shortcut that unconditionally granted
+    super_admin to any request with header value "god_mode" has been removed.
+    god_mode privilege is now only granted when a valid signed JWT cookie
+    carries sub=god_mode and role=super_admin.
+    """
+    from auth_jwt import get_facilitator_from_request, decode_facilitator_token, COOKIE_NAME
+    fac_id = get_facilitator_from_request(request)
+    if not fac_id:
+        return 'anonymous'
+
+    # JWT cookie: validate the signed token and honour the role it carries.
+    # This is the only path through which god_mode obtains super_admin.
+    cookie_token = request.cookies.get(COOKIE_NAME)
+    if cookie_token:
+        try:
+            payload = decode_facilitator_token(cookie_token)
+            token_sub = payload.get("sub")
+            token_role = payload.get("role")
+            if token_sub == fac_id and token_role in ("super_admin", "admin", "facilitator"):
+                return token_role
+        except Exception:
+            pass
+
+    # Registry lookup — covers header-based backward-compat for facilitators
+    # that are not using cookie-based auth yet.
     fac = next(
         (f for f in _facilitator_registry
-         if f['facilitator_id'] == x_facilitator_id and not f.get('deleted_at')),
+         if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
         None,
     )
     return get_role(fac) if fac else 'anonymous'
@@ -608,4 +632,69 @@ async def delete_glossary_term(term_id: str, _guard: None = Depends(_require_sup
     global _glossary_terms
     _glossary_terms = [t for t in _glossary_terms if t["id"] != term_id]
     return {"status": "deleted", "term_id": term_id}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  COHORT DIVERSITY — Industry × Region heatmap (Phase 5)
+# ═════════════════════════════════════════════════════════════════
+
+def get_cohort_diversity(cohort_id: str) -> dict:
+    """
+    Compute the Industry Vertical × Region distribution of players in a cohort.
+
+    Returns a dict with:
+      - heatmap:       { vertical: { region: count } }
+      - players_by_cell: { "vertical__region": [player_id, ...] }
+      - by_vertical / by_region summary counts
+    """
+    from admin_shared import _player_registry
+    from collections import defaultdict
+
+    players = [
+        p for p in _player_registry
+        if p.get("cohort_id") == cohort_id or p.get("session_id") == cohort_id
+    ]
+
+    heatmap: dict = defaultdict(lambda: defaultdict(list))
+    by_vertical: dict = defaultdict(int)
+    by_region: dict = defaultdict(int)
+
+    for p in players:
+        vertical = p.get("assigned_bu") or p.get("industry_vertical") or "unassigned"
+        region = p.get("region_id") or "unassigned"
+        pid = p.get("player_id", "?")
+        heatmap[vertical][region].append(pid)
+        by_vertical[vertical] += 1
+        by_region[region] += 1
+
+    heatmap_counts = {
+        v: {r: len(plist) for r, plist in regions.items()}
+        for v, regions in heatmap.items()
+    }
+    players_by_cell = {
+        f"{v}__{r}": plist
+        for v, regions in heatmap.items()
+        for r, plist in regions.items()
+    }
+
+    return {
+        "cohort_id": cohort_id,
+        "total_players": len(players),
+        "heatmap": heatmap_counts,
+        "players_by_cell": players_by_cell,
+        "by_vertical": dict(by_vertical),
+        "by_region": dict(by_region),
+    }
+
+
+@analytics_router.get(
+    "/{session_id}/cohort-diversity",
+    summary="Get Industry × Region player distribution for a cohort",
+)
+async def get_cohort_diversity_endpoint(
+    session_id: str,
+    _guard: None = Depends(_require_facilitator),
+):
+    """Return cohort diversity heatmap — Industry Vertical × Region player counts."""
+    return get_cohort_diversity(session_id)
 

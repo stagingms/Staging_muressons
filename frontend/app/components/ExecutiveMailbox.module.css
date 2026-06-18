@@ -269,9 +269,9 @@
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    width: 480px;
+    width: 680px;
     max-width: 92vw;
-    max-height: 75vh;
+    max-height: 80vh;
     overflow-y: auto;
     padding: 1.5rem;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.04);
@@ -337,4 +337,31 @@
     color: #334155;
     line-height: 1.7;
     white-space: pre-line;
+}
+
+/* -- HTML Artifact Containment (BRSR regulatory notices) ---- */
+.htmlArtifact {
+    white-space: normal;
+    overflow: hidden;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+.htmlArtifact > div {
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
+.htmlArtifact h2,
+.htmlArtifact h3 {
+    margin-top: 0;
+}
+
+.htmlArtifact p {
+    margin-bottom: 0.6rem;
+}
+
+.htmlArtifact img {
+    max-width: 100%;
+    height: auto;
 }

@@ -1,8 +1,9 @@
 """
 Muressons UN SDG — Comprehensive API Audit Script
 Tests all roles, session lifecycles, and SDG-specific mechanics
-Credentials: Jose / 123 (is_admin=True)
+Credentials loaded from TEST_FAC_ID / TEST_FAC_PW env vars (is_admin=True).
 """
+import os
 import urllib.request
 import urllib.error
 import json
@@ -10,6 +11,12 @@ import sys
 import random
 
 API = "http://localhost:8000"
+# MED-001: Credentials come from env vars — no hardcoded secrets in source.
+# Set TEST_FAC_ID and TEST_FAC_PW before running:
+#   export TEST_FAC_ID=Jose
+#   export TEST_FAC_PW=<hashed-or-plain-password>
+_TEST_FAC_ID: str = os.getenv("TEST_FAC_ID", "")
+_TEST_FAC_PW: str = os.getenv("TEST_FAC_PW", "")
 issues = []
 warnings = []
 passed = []
@@ -62,20 +69,20 @@ s, d = req("GET", "/api/admin/facilitators")
 if s == 200:
     facs = d if isinstance(d, list) else d.get("facilitators", [])
     ok(f"Facilitator list loaded — {len(facs)} facilitators")
-    jose_exists = any(f.get("facilitator_id") == "Jose" and not f.get("deleted_at") for f in facs)
+    jose_exists = any(f.get("facilitator_id") == _TEST_FAC_ID and not f.get("deleted_at") for f in facs)
     if not jose_exists:
-        fail("No active 'Jose' facilitator found — login will fail", critical=False)
+        fail(f"No active '{_TEST_FAC_ID}' facilitator found — login will fail", critical=False)
     else:
-        ok("'Jose' facilitator account exists and active")
+        ok(f"'{_TEST_FAC_ID}' facilitator account exists and active")
 else:
     fail(f"Facilitator list failed ({s}): {d}")
 
-# Admin login - God Mode (Jose / 123)
+# Admin login - God Mode
 s, d = req("POST", "/api/admin/facilitators/login",
-           {"facilitator_id": "Jose", "password": "123"})
+           {"facilitator_id": _TEST_FAC_ID, "password": _TEST_FAC_PW})
 if s == 200:
     is_admin = d.get("is_admin", False)
-    ok(f"God Mode login OK (Jose/123) — is_admin={is_admin}")
+    ok(f"God Mode login OK ({_TEST_FAC_ID}) — is_admin={is_admin}")
     if not is_admin:
         fail("Login succeeded but is_admin=False — God Mode will deny entry")
 else:
@@ -99,7 +106,7 @@ for paradigm in PARADIGMS:
     s, d = req("POST", "/api/simulations/start", {
         "team_name": f"AuditTeam_{paradigm}",
         "cohort_name": f"Audit_{paradigm}_2025",
-        "facilitator_id": "Jose",
+        "facilitator_id": _TEST_FAC_ID,
         "decision_paradigm": paradigm
     })
     sid = d.get("session_id", "")
@@ -276,7 +283,7 @@ section("PHASE 6 — EDGE CASES & VULNERABILITIES")
 # Test invalid paradigm
 s, d = req("POST", "/api/simulations/start", {
     "team_name": "Hacker", "cohort_name": "HackTest_9999",
-    "facilitator_id": "Jose", "decision_paradigm": "INVALID_PARADIGM"
+    "facilitator_id": _TEST_FAC_ID, "decision_paradigm": "INVALID_PARADIGM"
 })
 if s in (400, 422):
     ok(f"Invalid paradigm correctly rejected ({s})")

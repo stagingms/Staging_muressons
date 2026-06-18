@@ -24,9 +24,11 @@ export default function UsernamePromptModal({ userId, role, onComplete }) {
         setSubmitting(true);
 
         try {
-            const res = await fetch('/api/simulations/set-username', {
+            const API = process.env.NEXT_PUBLIC_API_URL || '';
+            const res = await fetch(`${API}/api/simulations/set-username`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     user_id: userId,
                     role: role,

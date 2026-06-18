@@ -15,7 +15,7 @@ def append_brsr_to_student_manual(file_path):
     
     p = doc.add_paragraph()
     p.add_run("The Business Responsibility and Sustainability Reporting (BRSR) Track").bold = True
-    p.add_run(" is a 5-round, rigorous module designed around the Securities and Exchange Board of India (SEBI) guidelines and the National Guidelines on Responsible Business Conduct (NGRBC).")
+    p.add_run(" is a 10-round, rigorous module designed around the Securities and Exchange Board of India (SEBI) guidelines and the National Guidelines on Responsible Business Conduct (NGRBC).")
     
     doc.add_heading("Overview & Mechanics", level=2)
     doc.add_paragraph(
@@ -53,7 +53,7 @@ def append_brsr_to_facilitator_manual(file_path):
     
     doc.add_paragraph(
         "The BRSR NGRBC side track has been integrated into the central Muressons pedagogical engine. "
-        "It acts as a stringent, 5-round gauntlet focusing on Indian and global sustainability reporting standards."
+        "It acts as a stringent, 10-round gauntlet focusing on Indian and global sustainability reporting standards."
     )
     
     doc.add_heading("Pedagogical Goals", level=2)

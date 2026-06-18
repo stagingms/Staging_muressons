@@ -15,16 +15,18 @@ Architecture:
   Facilitators can also inject specific events via admin API.
 
 Difficulty Scaling:
-  Event probabilities are multiplied by a difficulty coefficient:
-    - Easy:    0.5× base probability
-    - Standard: 1.0× base probability
-    - Expert:  1.5× base probability
+  The difficulty_multiplier now applies ONLY to event IMPACTS (financial /
+  reputational damage deltas), NOT to the probability of an event occurring.
+  Probability is determined purely by base_prob + conditional modifiers + the
+  hard 12% ceiling.  This ensures the game remains playable at all tiers.
 """
 
 from __future__ import annotations
 from typing import Any
 import random
 import math
+from rng_util import event_rng  # GAME-4: deterministic per-cohort RNG
+from config import BLACK_SWAN_MAX_EVENT_PROBABILITY
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -84,7 +86,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [4, 8],
-            "base_probability": 0.08,
+            "base_probability": 0.0267,  # was 0.08 ÷ 3
             "conditional_modifiers": [],   # Always possible
         },
         "impacts": {
@@ -104,6 +106,7 @@ BLACK_SWAN_EVENTS = {
             "government bonds. Currency has crashed 15%, trade finance is frozen, "
             "and demand has collapsed. Your treasury absorbs a {impact_amount} hit."
         ),
+        "applicable_regions": None,  # None = all regions
     },
 
     "whistleblower_scandal": {
@@ -116,7 +119,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [3, 9],
-            "base_probability": 0.06,
+            "base_probability": 0.0200,  # was 0.06 ÷ 3
             "conditional_modifiers": [
                 {"metric": "governance_risk_avg", "above": 50, "probability_add": 0.12},
                 {"flag": "greenwashing_detected", "probability_add": 0.15},
@@ -139,6 +142,7 @@ BLACK_SWAN_EVENTS = {
             "public with evidence of systematic ESG metric manipulation. "
             "Regulators are launching an investigation. Share price drops {impact_pct}%."
         ),
+        "applicable_regions": None,
     },
 
     "pandemic_wave": {
@@ -151,7 +155,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [5, 9],
-            "base_probability": 0.06,
+            "base_probability": 0.0200,  # was 0.06 ÷ 3
             "conditional_modifiers": [],
         },
         "impacts": {
@@ -172,6 +176,7 @@ BLACK_SWAN_EVENTS = {
             "facility shutdowns. {workforce_pct}% of your workforce is unavailable. "
             "OPEX surges {opex_pct}% from health & safety measures."
         ),
+        "applicable_regions": None,
     },
 
     "ai_disruption_wave": {
@@ -184,7 +189,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [6, 10],
-            "base_probability": 0.10,
+            "base_probability": 0.0333,  # was 0.10 ÷ 3
             "conditional_modifiers": [
                 {"flag": "ethical_ai_overhaul", "probability_add": -0.05},
                 {"flag": "ai_monetised", "probability_add": +0.08},
@@ -208,6 +213,7 @@ BLACK_SWAN_EVENTS = {
             "of operational roles. Software BU revenue surges 20%, but industrial "
             "BUs face workforce displacement and ethics scrutiny."
         ),
+        "applicable_regions": None,
     },
 
     "climate_litigation": {
@@ -220,7 +226,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [7, 10],
-            "base_probability": 0.05,
+            "base_probability": 0.0167,  # was 0.05 ÷ 3
             "conditional_modifiers": [
                 {"metric": "carbon_intensity_avg", "above": 60, "probability_add": 0.12},
                 {"metric": "carbon_intensity_avg", "above": 80, "probability_add": 0.15},
@@ -243,6 +249,7 @@ BLACK_SWAN_EVENTS = {
             "climate damages under the 'duty of care' doctrine. Legal costs: "
             "${legal_cost:,.0f}. {writedown_pct}% of carbon-intensive assets written down."
         ),
+        "applicable_regions": None,
     },
 
     "supply_chain_embargo": {
@@ -255,7 +262,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [4, 9],
-            "base_probability": 0.07,
+            "base_probability": 0.0233,  # was 0.07 ÷ 3
             "conditional_modifiers": [
                 {"metric": "supply_chain_transparency", "below": 40, "probability_add": 0.10},
             ],
@@ -277,6 +284,7 @@ BLACK_SWAN_EVENTS = {
             "imposed export restrictions on rare earth elements. Electronics "
             "and Pharma BUs face 15% revenue loss and 10% OPEX increase."
         ),
+        "applicable_regions": None,
     },
 
     "cyber_attack": {
@@ -289,7 +297,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [3, 10],
-            "base_probability": 0.07,
+            "base_probability": 0.0233,  # was 0.07 ÷ 3
             "conditional_modifiers": [
                 {"metric": "governance_risk_avg", "above": 45, "probability_add": 0.08},
             ],
@@ -311,6 +319,7 @@ BLACK_SWAN_EVENTS = {
             "Ransom demand: $5M. Operations disrupted for {duration} round(s). "
             "Regulators demand explanation of cyber governance failures."
         ),
+        "applicable_regions": None,
     },
 
     "social_media_boycott": {
@@ -323,7 +332,7 @@ BLACK_SWAN_EVENTS = {
         ),
         "trigger_conditions": {
             "round_range": [4, 9],
-            "base_probability": 0.05,
+            "base_probability": 0.0167,  # was 0.05 ÷ 3
             "conditional_modifiers": [
                 {"metric": "social_license_avg", "below": 40, "probability_add": 0.15},
                 {"metric": "group_reputation", "below": 35, "probability_add": 0.12},
@@ -346,6 +355,190 @@ BLACK_SWAN_EVENTS = {
             "an undercover video from a Consumer Goods supplier goes viral. "
             "Consumer Goods revenue drops 20%. Brand value under siege."
         ),
+        "applicable_regions": None,
+    },
+
+    # ── Region-specific events ───────────────────────────────────
+
+    "asean_trade_dispute": {
+        "id": "asean_trade_dispute",
+        "title": "ASEAN Trade Corridor Dispute",
+        "icon": "🚢",
+        "description": (
+            "A territorial dispute in the South China Sea disrupts "
+            "shipping lanes used by ASEAN-based supply chains."
+        ),
+        "trigger_conditions": {
+            "round_range": [3, 8],
+            "base_probability": 0.0333,  # was 0.10 ÷ 3
+            "conditional_modifiers": [],
+        },
+        "impacts": {
+            "treasury_pct_hit": -0.08,
+            "opex_pct_increase": 0.12,
+            "revenue_pct_reduction": -0.06,
+            "reputation_delta": -4,
+        },
+        "duration_rounds": 2,
+        "cascading_npcs": [],
+        "pedagogical_note": (
+            "Tests geographic diversification. ASEAN players must invest "
+            "in alternative shipping routes and local buffer stocks."
+        ),
+        "narrative_trigger": (
+            "🚢 **ASEAN TRADE DISPUTE**: Escalating tensions in the South China Sea "
+            "have forced container ships onto longer, more expensive routes. "
+            "OPEX surges {opex_pct}%. Treasury hit: {impact_amount}."
+        ),
+        "applicable_regions": ["asean"],
+    },
+
+    "south_asia_monsoon_crisis": {
+        "id": "south_asia_monsoon_crisis",
+        "title": "South Asia Extreme Monsoon",
+        "icon": "🌧️",
+        "description": (
+            "An extreme monsoon season devastates agricultural supply chains "
+            "and forces factory closures across South Asia."
+        ),
+        "trigger_conditions": {
+            "round_range": [2, 7],
+            "base_probability": 0.0300,  # was 0.09 ÷ 3
+            "conditional_modifiers": [
+                {"metric": "governance_risk_avg", "above": 40, "probability_add": 0.06},
+            ],
+        },
+        "impacts": {
+            "opex_pct_increase": 0.10,
+            "revenue_pct_reduction": -0.08,
+            "social_license_delta": -6,
+            "burnout_delta": +12,
+        },
+        "duration_rounds": 2,
+        "bu_differential": True,
+        "cascading_npcs": ["community_leader_concerned"],
+        "pedagogical_note": (
+            "South Asian businesses face systemic climate-physical risk. "
+            "Students learn that climate adaptation spending is an insurance premium."
+        ),
+        "narrative_trigger": (
+            "🌧️ **EXTREME MONSOON**: Record rainfall has flooded industrial zones "
+            "across South Asia. Factory closures, supply disruption, and community "
+            "health impacts push OPEX up {opex_pct}% for {duration} round(s)."
+        ),
+        "applicable_regions": ["south_asia"],
+    },
+
+    "europe_carbon_border_tax": {
+        "id": "europe_carbon_border_tax",
+        "title": "EU Carbon Border Adjustment Mechanism",
+        "icon": "🌿",
+        "description": (
+            "The EU's Carbon Border Adjustment Mechanism (CBAM) "
+            "imposes tariffs on carbon-intensive imports, raising costs "
+            "for Europe-facing business units."
+        ),
+        "trigger_conditions": {
+            "round_range": [4, 9],
+            "base_probability": 0.0367,  # was 0.11 ÷ 3
+            "conditional_modifiers": [
+                {"metric": "carbon_intensity_avg", "above": 50, "probability_add": 0.10},
+            ],
+        },
+        "impacts": {
+            "treasury_flat_hit": -4_000_000,
+            "opex_pct_increase": 0.08,
+            "reputation_delta": -6,
+            "governance_risk_delta": +5,
+        },
+        "duration_rounds": 1,
+        "cascading_npcs": ["eu_regulators", "activist_investor_hostile"],
+        "pedagogical_note": (
+            "CBAM is now live in transition. High-carbon European businesses "
+            "face both compliance costs and reputational risk from institutional "
+            "investors subject to EU Taxonomy alignment obligations."
+        ),
+        "narrative_trigger": (
+            "🌿 **EU CBAM TARIFF**: The Carbon Border Adjustment Mechanism now "
+            "applies to your European operations. Carbon surcharge: {impact_amount}. "
+            "OPEX increases {opex_pct}% to meet compliance standards."
+        ),
+        "applicable_regions": ["europe"],
+    },
+
+    "north_america_sec_climate_rule": {
+        "id": "north_america_sec_climate_rule",
+        "title": "SEC Climate Disclosure Enforcement",
+        "icon": "📋",
+        "description": (
+            "The SEC enforces its mandatory climate risk disclosure rules, "
+            "triggering audit requirements and potential restatements for "
+            "North American-listed entities."
+        ),
+        "trigger_conditions": {
+            "round_range": [5, 9],
+            "base_probability": 0.0267,  # was 0.08 ÷ 3
+            "conditional_modifiers": [
+                {"metric": "governance_risk_avg", "above": 45, "probability_add": 0.10},
+                {"flag": "greenwashing_detected", "probability_add": 0.12},
+            ],
+        },
+        "impacts": {
+            "treasury_flat_hit": -6_000_000,
+            "reputation_delta": -10,
+            "governance_risk_delta": +10,
+            "social_license_delta": -5,
+        },
+        "duration_rounds": 1,
+        "cascading_npcs": ["regulator_investigation", "activist_investor_hostile"],
+        "pedagogical_note": (
+            "SEC climate disclosure applies to all US-listed entities. "
+            "Students who invested in governance infrastructure are better "
+            "positioned to respond quickly without costly restatements."
+        ),
+        "narrative_trigger": (
+            "📋 **SEC CLIMATE ENFORCEMENT**: The Securities and Exchange Commission "
+            "has issued a deficiency notice citing incomplete Scope 3 disclosures. "
+            "Remediation costs: {impact_amount}. Governance risk spikes."
+        ),
+        "applicable_regions": ["north_america"],
+    },
+
+    "africa_resource_nationalisation": {
+        "id": "africa_resource_nationalisation",
+        "title": "African Resource Nationalisation Wave",
+        "icon": "⛏️",
+        "description": (
+            "A coalition of African nations enacts new resource "
+            "nationalisation laws, threatening assets and licences "
+            "held by foreign multinationals."
+        ),
+        "trigger_conditions": {
+            "round_range": [3, 9],
+            "base_probability": 0.0233,  # was 0.07 ÷ 3
+            "conditional_modifiers": [
+                {"metric": "social_license_avg", "below": 45, "probability_add": 0.10},
+            ],
+        },
+        "impacts": {
+            "treasury_pct_hit": -0.10,
+            "revenue_pct_reduction": -0.07,
+            "reputation_delta": -8,
+            "social_license_delta": -10,
+        },
+        "duration_rounds": 2,
+        "cascading_npcs": ["community_leader_concerned", "regulator_monitoring"],
+        "pedagogical_note": (
+            "Social licence to operate is the primary defence against "
+            "nationalisation risk. Students learn that community investment "
+            "and local equity participation are value-preserving, not altruistic."
+        ),
+        "narrative_trigger": (
+            "⛏️ **RESOURCE NATIONALISATION**: Three African partner governments "
+            "have enacted mining and resource sector nationalisation bills. "
+            "Treasury hit: {impact_amount}. Operating licences under review."
+        ),
+        "applicable_regions": ["africa"],
     },
 }
 
@@ -354,6 +547,12 @@ BLACK_SWAN_EVENTS = {
 #  BLACK SWAN EVALUATION ENGINE
 # ═══════════════════════════════════════════════════════════════
 
+# Hard ceiling on effective probability for any single Black Swan event per round.
+# Prevents conditional modifier stacking from making events near-certain even
+# for teams in severe distress — preserves game playability.
+_MAX_EVENT_PROBABILITY: float = BLACK_SWAN_MAX_EVENT_PROBABILITY
+
+
 def evaluate_black_swans(
     gs: dict,
     bus: list[dict],
@@ -361,6 +560,7 @@ def evaluate_black_swans(
     difficulty_tier: str = "standard",
     active_black_swans: list[dict] | None = None,
     forced_event_id: str | None = None,
+    region_id: str | None = None,
 ) -> dict:
     """
     Evaluate all Black Swan events for this round.
@@ -370,15 +570,31 @@ def evaluate_black_swans(
         gs: Current global state
         bus: Current business unit states
         round_number: Current round number
-        difficulty_tier: Difficulty tier for probability scaling
+        difficulty_tier: Difficulty tier — applies ONLY to impact magnitude,
+            NOT to probability. This ensures every difficulty tier has the
+            same base risk of events occurring; harder tiers hurt more when
+            they do occur.
         active_black_swans: Currently active multi-round events
         forced_event_id: If set, forces this specific event (facilitator injection)
+        region_id: If set, filters events to those applicable to this region
+
+    Cool-down contract:
+        If any Black Swan fired in round N, the key
+        ``gs["active_event_flags"]["last_black_swan_round"]`` is set to N.
+        In round N+1, all stochastic rolls are skipped (forced events still fire).
+        This guarantees at least one grace round between consecutive Black Swans.
     """
     difficulty = get_difficulty_config(difficulty_tier)
-    prob_mult = difficulty["probability_multiplier"]
+    # ── Difficulty isolation: impact only, NOT probability ──────────────────
+    # prob_mult is intentionally NOT read here — see docstring above.
     impact_mult = difficulty["impact_multiplier"]
     flags = gs.get("active_event_flags", {})
     n = max(len(bus), 1)
+
+    # ── Global 1-round cool-down check ─────────────────────────────────────
+    # If a Black Swan fired last round, skip all stochastic rolls this round.
+    last_bs_round = flags.get("last_black_swan_round", -999)
+    in_cooldown = (last_bs_round == round_number - 1)
 
     # Compute aggregate metrics for conditional modifiers
     metrics = {
@@ -407,6 +623,15 @@ def evaluate_black_swans(
         if event_id in active_types:
             continue
 
+        # Region filter: skip events that don't apply to this region
+        applicable_regions = event.get("applicable_regions")
+        if applicable_regions is not None and region_id:
+            if region_id not in applicable_regions:
+                continue
+        elif applicable_regions is not None and not region_id:
+            # Region-specific event but no region set on session — skip it
+            continue
+
         tc = event["trigger_conditions"]
 
         # Check round range
@@ -414,9 +639,16 @@ def evaluate_black_swans(
         if round_number < r_range[0] or round_number > r_range[1]:
             continue
 
-        # Calculate effective probability
+        is_forced = forced_event_id == event_id
+
+        # ── Cool-down gate: suppress stochastic rolls for one grace round ──
+        # Forced facilitator injections bypass the cool-down intentionally.
+        if in_cooldown and not is_forced:
+            continue
+
+        # ── Probability calculation (difficulty-independent) ───────────────
         base_prob = tc.get("base_probability", 0.05)
-        effective_prob = base_prob * prob_mult
+        effective_prob = base_prob  # difficulty multiplier NOT applied here
 
         # Apply conditional modifiers
         for mod in tc.get("conditional_modifiers", []):
@@ -427,21 +659,25 @@ def evaluate_black_swans(
                 elif "below" in mod and metric_val < mod["below"]:
                     effective_prob += mod["probability_add"]
             elif "flag" in mod:
-                if mod["flag"] in flags or mod["flag"] in (flags.get("flags_set", []) if isinstance(flags.get("flags_set"), list) else []):
+                flag_set = flags.get("flags_set", [])
+                flag_list = flag_set if isinstance(flag_set, list) else []
+                if mod["flag"] in flags or mod["flag"] in flag_list:
                     effective_prob += mod["probability_add"]
 
-        effective_prob = max(0.0, min(0.95, effective_prob))
+        # ── Hard probability ceiling: max 12% regardless of penalty stacking ─
+        effective_prob = max(0.0, min(_MAX_EVENT_PROBABILITY, effective_prob))
 
-        # Roll the dice (or force)
-        roll = round(random.random(), 4)
-        is_forced = forced_event_id == event_id
+        # Roll the dice (or force). GAME-4: per-event seeded stream so all teams
+        # in a cohort face the same black-swan luck (independent per event_id, so
+        # differing per-team probabilities never desync each other's rolls).
+        roll = round(event_rng(flags, round_number, f"blackswan:{event_id}").random(), 4)
 
         if roll < effective_prob or is_forced:
             # Event triggered!
             impacts = event["impacts"]
             treasury = gs.get("corporate_treasury", 0)
 
-            # Calculate financial impact
+            # ── Impact calculation — difficulty multiplier applied here only ──
             treasury_hit = 0
             if "treasury_pct_hit" in impacts:
                 treasury_hit += round(treasury * abs(impacts["treasury_pct_hit"]) * impact_mult, 2)
@@ -496,6 +732,13 @@ def evaluate_black_swans(
             total_treasury_impact += treasury_hit
             total_reputation_impact += rep_hit
 
+    # ── Cool-down write-back ───────────────────────────────────────────────
+    # Persist the round number if any new event fired, so next round knows
+    # to enforce the grace period.
+    if triggered_events:
+        gs.setdefault("active_event_flags", {})
+        gs["active_event_flags"]["last_black_swan_round"] = round_number
+
     # Process continuing multi-round events
     continuing_events = []
     if active_black_swans:
@@ -516,6 +759,7 @@ def evaluate_black_swans(
         "narratives": event_narratives,
         "difficulty_tier": difficulty_tier,
         "difficulty_label": difficulty.get("label", "Standard"),
+        "in_cooldown": in_cooldown,
     }
 
 

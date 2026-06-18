@@ -1,0 +1,2911 @@
+[
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "b1651177-9574-47bb-bac5-d7868cfa200f",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      232568231.57,
+      222519137.91,
+      244386239.89,
+      236477408.53,
+      183654317.18,
+      218305148.28,
+      182525902.98,
+      161261862.28,
+      138456228.23,
+      114868735.89
+    ],
+    "flagged_rounds": [
+      3,
+      5,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 28.46,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "ed84f0e0-d77e-48b2-84ef-97b07ad2688c",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.57,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "electronics",
+    "session_id": "5c8edd84-a683-4a90-a9cd-630fa8202114",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.71,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "consumer_goods",
+    "session_id": "e3086a7c-f10d-4620-b0d2-73b43ce4dfe3",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.54,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "software",
+    "session_id": "f9b32e4e-f7c9-4a5f-83df-0d1e90bbbfc2",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.69,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "4bu",
+    "session_id": "1b8ed798-e80c-4207-86ec-ff21f9b1b4c2",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      213533183.25,
+      214857338.72,
+      141345986.38,
+      192643841.64,
+      197323292.93,
+      202857920.13,
+      225837549.21,
+      164303564.54,
+      82239073.01,
+      78275564.5
+    ],
+    "flagged_rounds": [
+      3,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 30.49,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "pharma",
+    "session_id": "1a8a8a5d-68f5-40ea-9811-c546af95b359",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.66,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "electronics",
+    "session_id": "1851f824-1364-4d20-a91c-83b8d2fca812",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.52,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "consumer_goods",
+    "session_id": "62be5d75-7bca-4b10-a734-edbdbe75dd98",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.48,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "software",
+    "session_id": "d07b329b-c5f0-4f8e-a4ee-c1d9c03bc39f",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.75,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "4bu",
+    "session_id": "a00c201b-8d6d-47f2-993b-d0547ff44a5f",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      239108716.83,
+      224512519.93,
+      265869269.39,
+      244742071.46,
+      153857894.04,
+      105978878.91,
+      138768548.12,
+      174634152.71,
+      181717065.9,
+      186085379.81
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 29.56,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "pharma",
+    "session_id": "5cb771fe-a0a6-45b5-b4f1-b05d077ab7c2",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 3.06,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "electronics",
+    "session_id": "b16d05a8-075e-4e28-89ed-10f78b897b65",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.97,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "consumer_goods",
+    "session_id": "d9e94e3a-51d8-496e-bf03-1ab4d935c5dc",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "software",
+    "session_id": "cbf9f5f2-4acb-41f2-8c7b-e00ce66af5e1",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.65,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "4bu",
+    "session_id": "4789345c-b67d-4d7d-8fe2-fce19c397a76",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      221923263.98,
+      225968582.56,
+      168866468.81,
+      165376483.97,
+      148641382.76,
+      164663429.89,
+      189843750.3,
+      238865979.38,
+      229819939.56,
+      253955216.99
+    ],
+    "flagged_rounds": [
+      3,
+      4,
+      5,
+      6,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 29.11,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "pharma",
+    "session_id": "65b81597-6b73-4136-93cc-8177f561ea14",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.65,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "electronics",
+    "session_id": "5834c16b-1a18-459b-8d8b-4e0cb3338a81",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.39,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "consumer_goods",
+    "session_id": "f24a480e-53a9-432d-bafa-023496d9425b",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 3.37,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "software",
+    "session_id": "905c3188-7d35-41ca-8a01-2da8b3317f05",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.53,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "4bu",
+    "session_id": "6145b54f-4433-40df-bd81-2506b63215d1",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      180192714.82,
+      223071420.28,
+      238929382.45,
+      207215156.04,
+      152449174.33,
+      95176572.75,
+      -47216012.84,
+      -94053231.03,
+      -295310390.66,
+      -584294406.42
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 29.75,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "pharma",
+    "session_id": "e64ca3bf-bae6-4a2c-91ed-0b85429ffc3e",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.59,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "electronics",
+    "session_id": "9e878951-3f21-4f1c-b073-253841d3393d",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.61,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "consumer_goods",
+    "session_id": "6b90973b-a25d-4476-8df6-0a99caf731fd",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.86,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "legacy_abc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "software",
+    "session_id": "ef5cc7cb-b5ad-4bba-945e-160dee0559d1",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.98,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "143ba343-5f5a-43ad-b35b-6c220e5f987d",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      199076790.87,
+      232799607.52,
+      273432965.04,
+      231951309.56,
+      131622220.41,
+      101449225.87,
+      -100200858.78,
+      -316325922.9,
+      -540517476.69,
+      -1131846798.84
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 31.09,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "2a8c01af-42ae-49cb-acd2-d5ae13f9a1cf",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.53,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "electronics",
+    "session_id": "4a914919-2c25-44f7-b1e3-e1a7694e6ee6",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 3.15,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "consumer_goods",
+    "session_id": "13e381f5-7dd6-4f57-a689-59e1ccf8f374",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.59,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "software",
+    "session_id": "b34e270a-f97c-4038-ba69-d7b3eaba894b",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.76,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "climate_black_swan",
+    "bu_mode": "4bu",
+    "session_id": "2e853591-1970-47d4-b897-7da705f9dbeb",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      209652569.87,
+      209976112.51,
+      229927967.43,
+      192889691.75,
+      91498217.34,
+      29278251.75,
+      -165764070.08,
+      -346305190.43,
+      -493523556.22,
+      -922920531.36
+    ],
+    "flagged_rounds": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 29.69,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "climate_black_swan",
+    "bu_mode": "pharma",
+    "session_id": "f1b0697c-0b7c-467c-b489-6e1a81c0939d",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.61,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "climate_black_swan",
+    "bu_mode": "electronics",
+    "session_id": "fe6eef93-abcb-4748-82e1-59415dcf27a2",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.44,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "climate_black_swan",
+    "bu_mode": "consumer_goods",
+    "session_id": "cd593082-41bc-42fb-a330-56dbae189618",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.95,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "climate_black_swan",
+    "bu_mode": "software",
+    "session_id": "68f568f8-8f28-4efc-abc4-887b4331bd82",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.6,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "4bu",
+    "session_id": "20a36c08-ca42-4a08-9afc-04536f13e305",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      228289698.87,
+      235522920.53,
+      264035150.05,
+      206121425.54,
+      83641312.53,
+      11272380.28,
+      -99118644.99,
+      -362256624.2,
+      -616005838.51,
+      -1204384942.29
+    ],
+    "flagged_rounds": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 29.65,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "pharma",
+    "session_id": "aa7cdf4f-ef03-43d3-9f1f-0025a1bad276",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.57,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "electronics",
+    "session_id": "898eb2eb-0c33-4069-aaf6-721616c97390",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.5,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "consumer_goods",
+    "session_id": "7a63cb2d-8f33-498a-9656-b24de94ae854",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 3.17,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "software",
+    "session_id": "ffdce15b-2039-4512-8289-eb1e442a896b",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.88,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "hostile_takeover",
+    "bu_mode": "4bu",
+    "session_id": "8ade8053-90b9-4f12-a35d-2fada04aa38a",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      232133606.55,
+      241173022.27,
+      271068947.27,
+      253476727.07,
+      157772356.04,
+      109566659.84,
+      -9263738.74,
+      -154079468.93,
+      -175220107.39,
+      -315785918.47
+    ],
+    "flagged_rounds": [
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 35.2,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "hostile_takeover",
+    "bu_mode": "pharma",
+    "session_id": "d737924e-8995-4a45-9a46-d9a753bbfe55",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.55,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "hostile_takeover",
+    "bu_mode": "electronics",
+    "session_id": "6fb0435d-aacd-4308-9731-670237ad6d3e",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.72,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "hostile_takeover",
+    "bu_mode": "consumer_goods",
+    "session_id": "7ceff1f7-76fd-435a-985c-591feff0f308",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.64,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "hostile_takeover",
+    "bu_mode": "software",
+    "session_id": "dc672d32-3b97-486e-a18b-df2d8c1a7dc0",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.14,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "4bu",
+    "session_id": "c2dabda8-a566-4b2e-9b89-6b23e83a0e99",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      239154217.09,
+      257074612.22,
+      285943083.31,
+      257143773.66,
+      124421154.16,
+      73426769.41,
+      -129281783.38,
+      -391422561.63,
+      -658698606.07,
+      -1338563584.15
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 32.4,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "pharma",
+    "session_id": "76f3ef8a-e9fa-4a54-b217-c669da8ee83f",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.42,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "electronics",
+    "session_id": "bf334c1e-80f5-4e7d-8b2c-b90874b2eaef",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.42,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "consumer_goods",
+    "session_id": "c56148a0-9a7e-4d8a-a6d8-1527a5b0c744",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.95,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "multi_toggles",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "software",
+    "session_id": "022704c1-1961-4bee-b5e9-f0e01205dccc",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.47,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "a120dc6e-c2a3-4199-8188-6e81fafd373d",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      174239721.74,
+      192298629.42,
+      285813091.38,
+      264707269.73,
+      236447398.79,
+      249526865.45,
+      273178250.0,
+      327569038.81,
+      314434841.18,
+      345361346.21
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 31.45,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "26b4f929-c256-45a4-be99-ebaa943d5e22",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.05,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "electronics",
+    "session_id": "43c6f686-6faf-432a-a32e-0d168d3d4da8",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 3.02,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "consumer_goods",
+    "session_id": "34497949-286c-434e-a16f-5e1aa83cfb9d",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.77,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "software",
+    "session_id": "77f0d7db-0ffb-4a4d-ac2d-6e3e796d8d4a",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.79,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "climate_black_swan",
+    "bu_mode": "4bu",
+    "session_id": "945ab322-adba-4c5b-8495-06d2476bb8b4",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      203022525.25,
+      238708409.55,
+      278979120.51,
+      325705661.46,
+      325102485.23,
+      340318630.01,
+      341816817.06,
+      388457652.85,
+      365529621.32,
+      400016100.07
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 32.72,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "climate_black_swan",
+    "bu_mode": "pharma",
+    "session_id": "087b5856-a8a5-4999-b759-c77a47e982a3",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.62,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "climate_black_swan",
+    "bu_mode": "electronics",
+    "session_id": "0e39f9f6-12d7-4a6f-8f65-2f7df1af6b98",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.75,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "climate_black_swan",
+    "bu_mode": "consumer_goods",
+    "session_id": "463774af-9bcd-468a-876a-4e1949f35675",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.97,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "climate_black_swan",
+    "bu_mode": "software",
+    "session_id": "ef4d5075-8ca1-4e12-9a4d-53954d53997d",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.05,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "4bu",
+    "session_id": "c90337fb-d2c1-4de1-94fb-31c1a582920a",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      214030511.83,
+      264104449.01,
+      317137391.39,
+      378400337.91,
+      352310264.87,
+      355756946.57,
+      392886056.99,
+      439482678.83,
+      444137430.97,
+      442400033.03
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 29.78,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "pharma",
+    "session_id": "c4fae976-1678-4092-a77b-98cbd0b8f7a2",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.22,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "electronics",
+    "session_id": "ece061be-bcaa-4669-b725-fe83a8a4f871",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.94,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "consumer_goods",
+    "session_id": "87da5133-33db-406e-ac08-259262290863",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 26.62,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "software",
+    "session_id": "1185d0d9-a0ee-4a2c-ab18-45917b8e5caa",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.24,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "hostile_takeover",
+    "bu_mode": "4bu",
+    "session_id": "677054f4-7bff-4661-9487-ebfd46ba2ffe",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      190772407.25,
+      195166586.97,
+      262715746.47,
+      294405159.46,
+      272882437.86,
+      312962146.87,
+      327183985.93,
+      363100962.37,
+      339974417.33,
+      326482662.34
+    ],
+    "flagged_rounds": [
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 32.63,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "hostile_takeover",
+    "bu_mode": "pharma",
+    "session_id": "71f41a5e-5ee4-4951-b46a-90e984893b0d",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.69,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "hostile_takeover",
+    "bu_mode": "electronics",
+    "session_id": "106a51be-7019-41ff-b1fa-bb890caaaf14",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.67,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "hostile_takeover",
+    "bu_mode": "consumer_goods",
+    "session_id": "c5fc4bff-39ea-40d6-8a12-76ecd46297e1",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.96,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "hostile_takeover",
+    "bu_mode": "software",
+    "session_id": "404ec3bf-1f2a-4c65-94cd-71b30e5f3b2b",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.09,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "4bu",
+    "session_id": "905c8f48-4e9e-4979-ba80-9993c17daa27",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      200143178.62,
+      218420425.97,
+      264635281.58,
+      292908767.25,
+      282463298.18,
+      286991890.75,
+      327318310.93,
+      352945908.82,
+      320848629.96,
+      306572069.34
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 30.45,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "pharma",
+    "session_id": "9c8cac73-8dd0-48ba-9fd6-323e9826cbd4",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 22.82,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "electronics",
+    "session_id": "b507ea9e-206f-42fa-b995-2f4f2a428a7a",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.58,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "consumer_goods",
+    "session_id": "303c2f64-a834-433e-ac22-d350a9b97066",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.58,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "advanced_climate",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "software",
+    "session_id": "1268d30e-9bf8-41d0-8823-58e8914c1a82",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 3.09,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "af25ff6b-14c4-4e9b-bdef-24882c242dbe",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      82872380.94,
+      211139308.78,
+      266013683.61,
+      158237316.83,
+      74810336.74,
+      30496127.51,
+      -156504024.02,
+      -239184760.95,
+      -610199132.67,
+      -1431495516.96
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 31.89,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "4ec00429-8c57-4083-a5c4-43e6785069f0",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.81,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "electronics",
+    "session_id": "02147585-220f-4969-893e-9f0b114a8d09",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.8,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "consumer_goods",
+    "session_id": "f2f795d0-bad8-4b41-ab87-ddedcd845105",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.71,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "software",
+    "session_id": "751f782d-a479-429f-8b58-0342b3d2d230",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.78,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "climate_black_swan",
+    "bu_mode": "4bu",
+    "session_id": "ca405b9e-30e3-4f46-9919-da5125efb7f6",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      130341977.04,
+      223541727.31,
+      240475588.1,
+      60902602.69,
+      -17912090.38,
+      -56190521.98,
+      -152791511.67,
+      -44915340.84,
+      -211610579.39,
+      -686256708.04
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 43.39,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "climate_black_swan",
+    "bu_mode": "pharma",
+    "session_id": "c7def67f-f079-4a59-8175-53c85a298f97",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.93,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "climate_black_swan",
+    "bu_mode": "electronics",
+    "session_id": "aab212c2-0fab-4aec-b16a-96ab84add5c2",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.46,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "climate_black_swan",
+    "bu_mode": "consumer_goods",
+    "session_id": "aa807cdf-c567-4d67-a890-429121c2a759",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.93,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "climate_black_swan",
+    "bu_mode": "software",
+    "session_id": "a46ae120-73a3-457a-a3ad-33b2db2e44d5",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.01,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "4bu",
+    "session_id": "3189acc9-4777-4717-94a9-82f3441d9658",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      96735772.36,
+      246259801.23,
+      287704021.14,
+      85651125.14,
+      846451.53,
+      -26284545.36,
+      -200976118.69,
+      -331519973.44,
+      -679053567.14,
+      -1509354802.29
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 39.67,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "pharma",
+    "session_id": "04e1007d-02e1-4d29-84e1-709f49dc1720",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.07,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "electronics",
+    "session_id": "7a01ebe8-2644-4354-9286-72f9fba4709e",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.83,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "consumer_goods",
+    "session_id": "513ba6d5-8187-4497-97a0-e0be12d6f0e2",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "software",
+    "session_id": "61d2c8cb-a9cc-47a7-9a2a-4c16d11c15cc",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.73,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "hostile_takeover",
+    "bu_mode": "4bu",
+    "session_id": "c0b53d49-5d87-4a7d-a56e-b21b89675288",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      97714225.61,
+      210303706.87,
+      278366698.39,
+      164358409.45,
+      187689514.74,
+      101068455.78,
+      104306147.37,
+      122640867.0,
+      -24691635.32,
+      -90477638.23
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 40.28,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "hostile_takeover",
+    "bu_mode": "pharma",
+    "session_id": "bee019e5-7d25-4bc7-89ba-2c55ac8ba59d",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.7,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "hostile_takeover",
+    "bu_mode": "electronics",
+    "session_id": "ecaddfc5-ab8f-4d96-8ab3-78426618d207",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.35,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "hostile_takeover",
+    "bu_mode": "consumer_goods",
+    "session_id": "a1f69985-bdc0-4fcd-9bb3-1919281b681a",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 1.97,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "hostile_takeover",
+    "bu_mode": "software",
+    "session_id": "dd914cfe-33e3-4ccc-8f73-6a1244921234",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.3,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "4bu",
+    "session_id": "718d5367-bd04-4cf9-b972-3c8b011fab75",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      101865785.74,
+      171331788.88,
+      261014376.99,
+      147276299.05,
+      169142550.38,
+      76886485.78,
+      39521468.79,
+      -87195710.18,
+      -303238849.48,
+      -625052523.66
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 31.9,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "pharma",
+    "session_id": "5635b508-f50f-4bc6-a695-7339982694b8",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.13,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "electronics",
+    "session_id": "4c206451-769c-4840-9ab4-2248a5937cca",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.26,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "consumer_goods",
+    "session_id": "1a9e974e-a118-408c-af7d-9db6d5c23f8f",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 3.2,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "healthcare",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "software",
+    "session_id": "40bdd16e-2e92-4fab-9857-9a59b47f1768",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "R1: commit_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 2.91,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "climate_black_swan",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "climate_black_swan",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "climate_black_swan",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "climate_black_swan",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "climate_black_swan",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "hostile_takeover",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "hostile_takeover",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "hostile_takeover",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "hostile_takeover",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "hostile_takeover",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "un_sdg",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "climate_black_swan",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "stakeholder_revolt",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "hostile_takeover",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "4bu",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "pharma",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "electronics",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "consumer_goods",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "regulatory_shutdown",
+    "bu_mode": "software",
+    "session_id": "",
+    "final_round": 0,
+    "passed": false,
+    "errors": [
+      "session_creation_failed"
+    ],
+    "gap_history": [],
+    "terminal_values": [],
+    "flagged_rounds": [],
+    "peak_gap": null,
+    "avg_latency_ms": 0.0,
+    "total_rounds_run": 0
+  }
+]

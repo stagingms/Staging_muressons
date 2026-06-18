@@ -23,7 +23,6 @@ import ReportsExport from '../../components/ReportsExport';
 import RoundTimeline from '../../components/RoundTimeline';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 import StudentBonuses from '../../components/StudentBonuses';
-import SimulationManager from '../../components/SimulationManager';
 import CreateCohortModal from '../../components/CreateCohortModal';
 import PeerEvaluation from '../../components/PeerEvaluation';
 import BulkMessaging from '../../components/BulkMessaging';
@@ -101,10 +100,21 @@ function FacilitatorLoginGate({ onLogin }) {
                     facilitator_id: facId.trim(),
                     password: password.trim(),
                 }),
+                // C-3: credentials:'include' is required so the browser stores
+                // the HttpOnly mur_session JWT cookie returned by the server.
+                // Without this the Set-Cookie response header is silently ignored.
+                credentials: 'include',
             });
             if (res.ok) {
                 const data = await res.json();
-                localStorage.setItem('facilitator_auth', JSON.stringify(data));
+                // C-2: Store only the display-safe subset in localStorage.
+                // Sensitive profile fields (email, contact, programme) must not
+                // be persisted to localStorage — XSS can read everything there.
+                // The JWT cookie (HttpOnly) holds the real session credential.
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name } = data;
+                localStorage.setItem('facilitator_auth', JSON.stringify(
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name }
+                ));
                 onLogin(data);
             } else {
                 const err = await res.json();
@@ -280,31 +290,101 @@ function FacilitatorLoginGate({ onLogin }) {
 export default function FacilitatorPage() {
     const [authData, setAuthData] = useState(null);
     const [checked, setChecked] = useState(false);
+    const [sessionExpired, setSessionExpired] = useState(false);
 
     useEffect(() => {
+        let cachedAuth = null;
         try {
             const stored = localStorage.getItem('facilitator_auth');
-            if (stored) setAuthData(JSON.parse(stored));
+            if (stored) {
+                cachedAuth = JSON.parse(stored);
+                setAuthData(cachedAuth);
+            }
         } catch { /* ignore */ }
         setChecked(true);
+
+        // Immediately sync role from backend — localStorage may have a stale role
+        // (e.g. facilitator was promoted to super_admin while already logged in).
+        if (cachedAuth) {
+            fetch(`${API}/api/admin/auth/refresh`, {
+                method: 'POST',
+                credentials: 'include',
+            })
+                .then(r => r.ok ? r.json() : null)
+                .then(data => {
+                    if (data && data.role) {
+                        const synced = {
+                            ...cachedAuth,
+                            role: data.role,
+                            is_admin: data.is_admin ?? (data.role === 'super_admin'),
+                            allowed_tabs: data.allowed_tabs || cachedAuth.allowed_tabs,
+                            permissions: data.permissions || cachedAuth.permissions,
+                            name: data.name || cachedAuth.name,
+                            username: data.username ?? cachedAuth.username,
+                        };
+                        localStorage.setItem('facilitator_auth', JSON.stringify(synced));
+                        setAuthData(synced);
+                    }
+                })
+                .catch(() => { /* silent — backend may be offline */ });
+        }
     }, []);
 
-    const handleLogout = () => {
+    const handleLogout = async () => {
+        // C-2: Call the server-side logout endpoint so the HttpOnly JWT cookie
+        // is properly cleared by the server.  We clear localStorage regardless
+        // of whether the server call succeeds (network failure must not trap
+        // the user in an authenticated state).
+        // M5: Also clear godmode_auth — a super_admin may be simultaneously
+        // logged in on both dashboards; logout here should clear both.
+        try {
+            await fetch(`${API}/api/admin/auth/logout`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+        } catch { /* ignore — clear local state regardless */ }
         localStorage.removeItem('facilitator_auth');
+        localStorage.removeItem('godmode_auth');
         setAuthData(null);
+        setSessionExpired(false);
+    };
+
+    const handleSessionExpired = () => {
+        localStorage.removeItem('facilitator_auth');
+        localStorage.removeItem('godmode_auth');
+        setAuthData(null);
+        setSessionExpired(true);
     };
 
     if (!checked) return null; // Avoid flash
 
     if (!authData) {
-        return <FacilitatorLoginGate onLogin={setAuthData} />;
+        return (
+            <>
+                {sessionExpired && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
+                        background: 'linear-gradient(90deg, #3b82f6, #06b6d4)',
+                        color: '#fff', padding: '0.75rem 1.5rem',
+                        display: 'flex', alignItems: 'center', gap: '0.75rem',
+                        fontSize: '0.85rem', fontWeight: 600,
+                    }}>
+                        <span>⏱️</span>
+                        <span>Your session has expired. Please sign in again to continue.</span>
+                    </div>
+                )}
+                <div style={{ paddingTop: sessionExpired ? '3rem' : 0 }}>
+                    <FacilitatorLoginGate onLogin={(data) => { setAuthData(data); setSessionExpired(false); }} />
+                </div>
+            </>
+        );
     }
 
-    return <FacilitatorDashboard authData={authData} onLogout={handleLogout} />;
+    return <FacilitatorDashboard authData={authData} onLogout={handleLogout} onSessionExpired={handleSessionExpired} />;
 }
 
 
-function FacilitatorDashboard({ authData, onLogout }) {
+function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     const [leaderboard, setLeaderboard] = useState([]);
     const [selectedSession, _setSelectedSession] = useState(null);
     const [activityLog, setActivityLog] = useState([]);
@@ -319,6 +399,26 @@ function FacilitatorDashboard({ authData, onLogout }) {
             if (sid) localStorage.setItem('fac_selected_session', sid);
             else localStorage.removeItem('fac_selected_session');
         } catch { /* ignore */ }
+    }, []);
+
+    /* ── JWT auto-refresh — keeps session alive during long workshops ── */
+    useEffect(() => {
+        const doRefresh = async () => {
+            try {
+                const r = await fetch(`${API}/api/admin/auth/refresh`, {
+                    method: 'POST',
+                    credentials: 'include',
+                });
+                // If refresh itself returns 401 the cookie has fully expired — trigger re-login
+                if (r.status === 401 && onSessionExpired) onSessionExpired();
+            } catch { /* silent — backend may be restarting */ }
+        };
+        // Refresh every 90 minutes (well before 2h JWT expiry)
+        const iv = setInterval(doRefresh, 90 * 60 * 1000);
+        // Also refresh on window focus (catches overnight/long-idle scenarios)
+        const onFocus = () => doRefresh();
+        window.addEventListener('focus', onFocus);
+        return () => { clearInterval(iv); window.removeEventListener('focus', onFocus); };
     }, []);
 
     // Restore persisted session on mount
@@ -358,6 +458,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
     // New state for Sidebar UI
     const [activeTab, setActiveTab] = useState('dashboard_home');
     const [createCohortOpen, setCreateCohortOpen] = useState(false);
+    const [editCohortSession, setEditCohortSession] = useState(null); // set to a session object to open edit modal
     const [sidebarOpen, setSidebarOpen] = useState(true); // Mobile sidebar toggle
     const [openCategories, setOpenCategories] = useState({
         command: true,
@@ -469,8 +570,9 @@ function FacilitatorDashboard({ authData, onLogout }) {
         ]);
     }, []);
 
-    /* ── Auth-aware fetch helper for admin endpoints ─────────── */
-    const adminHeaders = { 'X-Facilitator-Id': authData.facilitator_id };
+    /* ── Auth-aware fetch helper for admin endpoints ──────────────────── */
+    // All admin requests authenticate via the HttpOnly JWT cookie (credentials:'include').
+    // The X-Facilitator-Id header was removed — the backend ignores it for auth.
     // Super-admin sees ALL cohorts; regular facilitators are scoped to their own
     const isSuperAdmin = authData.role === 'super_admin' || authData.is_admin;
     const leaderboardUrl = isSuperAdmin
@@ -482,7 +584,6 @@ function FacilitatorDashboard({ authData, onLogout }) {
         try {
             const res = await fetch(leaderboardUrl, {
                 credentials: 'include',
-                headers: adminHeaders,
             });
             if (res.ok) {
                 const data = await res.json();
@@ -500,7 +601,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
     const handleOverride = useCallback(
         (result) => {
             addLog({ type: 'override', ...result });
-            fetch(leaderboardUrl, { credentials: 'include', headers: adminHeaders })
+            fetch(leaderboardUrl, { credentials: 'include' })
                 .then((r) => r.json())
                 .then((d) => d.leaderboard && setLeaderboard(d.leaderboard))
                 .catch(() => { });
@@ -531,7 +632,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
         
         try {
             const endpoint = `${API}/api/admin/${sid}/reset${hard ? '?hard=true' : ''}`;
-            const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include', headers: adminHeaders });
+            const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
             if (res.ok) {
                 const data = await res.json();
                 const msg = data.players_removed > 0
@@ -555,7 +656,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
         if (!confirm('☢️ RESET ALL SESSIONS?\nThis will DELETE every session and all data. Cannot be undone.')) return;
         if (!confirm('Are you absolutely sure? Type OK to proceed.')) return;
         try {
-            const res = await fetch(`${API}/api/admin/reset-all`, { method: 'DELETE', credentials: 'include', headers: adminHeaders });
+            const res = await fetch(`${API}/api/admin/reset-all`, { method: 'DELETE', credentials: 'include' });
             if (res.ok) {
                 const d = await res.json();
                 addLog({ type: 'system', message: `All ${d.sessions_removed} sessions reset` });
@@ -623,7 +724,7 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                 )}
                             </div>
                         )}
-                        <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} onCreateCohort={() => setCreateCohortOpen(true)} />
+                        <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} onCreateCohort={authData.role === 'facilitator' ? null : () => setCreateCohortOpen(true)} />
                         <CreateCohortModal
                             isOpen={createCohortOpen}
                             onClose={() => setCreateCohortOpen(false)}
@@ -632,19 +733,27 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                 fetchLeaderboard();
                             }}
                             currentFacilitatorId={authData.facilitator_id}
+                            currentFacilitatorRole={authData.role || 'facilitator'}
                         />
                     </>
                 );
-            case 'timeline':
+            case 'timeline': {
+                const filteredSessions = leaderboard
+                    .filter(s => !s.player_id && (authData.role !== 'facilitator' || s.facilitator_id === authData.facilitator_id))
+                    .map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }));
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         <RoundTimeline sessionId={selectedSession} leaderboard={leaderboard} />
 
+                        {/* Round Pacing Controls for Facilitator */}
+                        <RoundPacingControl sessions={filteredSessions} />
+
                         {/* Quiz Controls for Facilitator */}
-                        <QuizControlPanel sessions={leaderboard.filter(s => !s.player_id).map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }))} />
-                        <InterviewControlPanel sessions={leaderboard.filter(s => !s.player_id).map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }))} />
+                        <QuizControlPanel sessions={filteredSessions} />
+                        <InterviewControlPanel sessions={filteredSessions} />
                     </div>
                 );
+            }
             case 'teleprompter': {
                 // Derive round from the selected cohort session — not the global max
                 const selectedCohort = leaderboard.find(s => s.session_id === selectedSession);
@@ -662,32 +771,41 @@ function FacilitatorDashboard({ authData, onLogout }) {
             // ── Monitoring tabs ──
             case 'leaderboard':
                 return (
-                    <LeaderboardMatrix leaderboard={leaderboard} selectedSession={selectedSession} onSelectSession={setSelectedSession} onDeleteSession={handleResetSession} />
+                    <LeaderboardMatrix leaderboard={leaderboard} selectedSession={selectedSession} onSelectSession={setSelectedSession} onDeleteSession={isSuperAdmin ? handleResetSession : null} />
                 );
             case 'registry':
                 return (
                     <>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                            <div />
-                            <button
-                                onClick={() => setCreateCohortOpen(true)}
-                                style={{
-                                    padding: '0.55rem 1.25rem',
-                                    borderRadius: '8px',
-                                    border: 'none',
-                                    background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
-                                    color: '#fff',
-                                    fontSize: '0.82rem',
-                                    fontWeight: 700,
-                                    cursor: 'pointer',
-                                    boxShadow: '0 4px 16px rgba(59, 130, 246, 0.25)',
-                                    transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
-                                }}
-                            >
-                                + New Cohort
-                            </button>
-                        </div>
-                        <PlayerRegistry leaderboard={leaderboard} />
+                        {authData.role !== 'facilitator' && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                <div />
+                                <button
+                                    onClick={() => setCreateCohortOpen(true)}
+                                    style={{
+                                        padding: '0.55rem 1.25rem',
+                                        borderRadius: '8px',
+                                        border: 'none',
+                                        background: 'linear-gradient(135deg, #3b82f6, #06b6d4)',
+                                        color: '#fff',
+                                        fontSize: '0.82rem',
+                                        fontWeight: 700,
+                                        cursor: 'pointer',
+                                        boxShadow: '0 4px 16px rgba(59, 130, 246, 0.25)',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
+                                    }}
+                                >
+                                    + New Cohort
+                                </button>
+                            </div>
+                        )}
+                        <PlayerRegistry
+                            leaderboard={leaderboard}
+                            isSuperAdmin={isSuperAdmin}
+                            isLeadOrAdmin={authData.role === 'lead_facilitator' || isSuperAdmin}
+                            onEditCohort={setEditCohortSession}
+                            currentFacilitatorRole={authData.role || 'facilitator'}
+                        />
+                        {/* Create new cohort modal */}
                         <CreateCohortModal
                             isOpen={createCohortOpen}
                             onClose={() => setCreateCohortOpen(false)}
@@ -696,6 +814,19 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                 fetchLeaderboard();
                             }}
                             currentFacilitatorId={authData.facilitator_id}
+                            currentFacilitatorRole={authData.role || 'facilitator'}
+                        />
+                        {/* Edit existing cohort modal */}
+                        <CreateCohortModal
+                            isOpen={!!editCohortSession}
+                            onClose={() => setEditCohortSession(null)}
+                            onCreated={() => {
+                                setEditCohortSession(null);
+                                fetchLeaderboard();
+                            }}
+                            editSession={editCohortSession}
+                            currentFacilitatorId={authData.facilitator_id}
+                            currentFacilitatorRole={authData.role || 'facilitator'}
                         />
                     </>
                 );
@@ -714,21 +845,22 @@ function FacilitatorDashboard({ authData, onLogout }) {
                                 <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.5 }}>🎭</div>
                                 <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>Select a team to see their simulation exactly as they do</h3>
                                 <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '500px', margin: '0 auto' }}>
-                                    Useful for: live debugging, screen-sharing during debrief, demonstrating the player experience, or verifying a student's reported issue.
+                                    Useful for: live debugging, screen-sharing during debrief, demonstrating the player experience, or verifying a student&apos;s reported issue.
                                 </p>
                             </div>
                         )}
                     </div>
                 );
-            case 'undo_round':
+            case 'undo_round': {
                 const fullSession = leaderboard.find(s => s.session_id === selectedSession);
                 return <UndoRound session={fullSession} />;
+            }
 
             // ── Interventions tabs ──
             case 'intervention_config':
                 return <InterventionConfig sessionId={selectedSession} />;
             case 'auto_pause':
-                return <AutoPauseConfig />;
+                return <AutoPauseConfig sessionId={selectedSession} />;
             case 'manual_override':
                 return (
                     <div className={styles.controlsRow}>
@@ -820,20 +952,22 @@ function FacilitatorDashboard({ authData, onLogout }) {
             case 'activity_log':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <section className={styles.resetPanel}>
-                            <div className={styles.resetHeader}>
-                                <span>🔄</span>
-                                <h2>Session Management</h2>
-                            </div>
-                            <div className={styles.resetBody}>
-                                <FacilitatorSessionManager 
-                                    leaderboard={leaderboard} 
-                                    authData={authData} 
-                                    handleResetSession={handleResetSession} 
-                                    styles={styles} 
-                                />
-                            </div>
-                        </section>
+                        {isSuperAdmin && (
+                            <section className={styles.resetPanel}>
+                                <div className={styles.resetHeader}>
+                                    <span>🔄</span>
+                                    <h2>Session Management</h2>
+                                </div>
+                                <div className={styles.resetBody}>
+                                    <FacilitatorSessionManager 
+                                        leaderboard={leaderboard} 
+                                        authData={authData} 
+                                        handleResetSession={handleResetSession} 
+                                        styles={styles} 
+                                    />
+                                </div>
+                            </section>
+                        )}
 
                         <section className={styles.logPanel}>
                             <h2>Facilitator Activity Log</h2>
@@ -866,9 +1000,11 @@ function FacilitatorDashboard({ authData, onLogout }) {
                     userId={authData.facilitator_id}
                     role="facilitator"
                     onComplete={(newUsername) => {
-                        const updated = { ...authData, username: newUsername };
+                        // C-2: keep only the safe display subset (same rule as login)
+                        const { facilitator_id, role, allowed_tabs, is_admin, name } = authData;
+                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername };
                         localStorage.setItem('facilitator_auth', JSON.stringify(updated));
-                        window.location.reload(); 
+                        window.location.reload();
                     }}
                 />
             </div>
@@ -1180,6 +1316,7 @@ function QuizControlPanel({ sessions = [] }) {
         try {
             const res = await fetch(`${API}/api/admin/quiz-difficulty`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ difficulty: level }),
             });
             if (res.ok) {
@@ -1194,6 +1331,7 @@ function QuizControlPanel({ sessions = [] }) {
         try {
             const res = await fetch(`${API}/api/admin/quiz-enabled/${sessionId}`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ quiz_enabled: enabled }),
             });
             if (res.ok) {
@@ -1326,6 +1464,7 @@ function InterviewControlPanel({ sessions = [] }) {
         try {
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/ceo-interview`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ ceo_interview_enabled: enabled }),
             });
             if (res.ok) {
@@ -1340,6 +1479,7 @@ function InterviewControlPanel({ sessions = [] }) {
         try {
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/ceo-interview`, {
                 method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ ceo_interview_voice_gender: gender }),
             });
             if (res.ok) {
@@ -1443,13 +1583,14 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        if (newPw.length < 3) { setError('New password must be at least 3 characters.'); return; }
+        if (newPw.length < 8) { setError('New password must be at least 8 characters.'); return; }
         if (newPw !== confirmPw) { setError('Passwords do not match.'); return; }
         setLoading(true);
         try {
             const res = await fetch(`${API}/api/admin/facilitators/change-password`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     facilitator_id: facilitatorId,
                     old_password: oldPw,
@@ -1538,7 +1679,7 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
                         </div>
                         <div>
                             <label style={labelStyle}>New Password</label>
-                            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 3 characters" required style={inputStyle} />
+                            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" required style={inputStyle} />
                         </div>
                         <div>
                             <label style={labelStyle}>Confirm New Password</label>
@@ -1614,7 +1755,7 @@ function FacilitatorSessionManager({ leaderboard, authData, handleResetSession, 
                     ? `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/sessions/${sid}?hard=true` 
                     : `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/sessions/${sid}`;
                     
-                await fetch(endpoint, { method: 'DELETE' });
+                await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
             }
             alert(`✅ Successfully deleted ${selectedIds.size} team(s).`);
             

@@ -56,15 +56,30 @@ def init_brsr_state(
         return main_global["_brsr_track_state"]
 
     seed = _track.seed_from_main_state(main_global, main_bus, completed_tracks)
-    seed.update({
-        "round_choices": {},         # {1: "option_a", ...}
-        "round_points": {},          # {1: 80, 2: 50, ...}
-        "brsr_round_history": [],    # [{round, choice, dimension_scores, flags_set}]
+
+    # ARCH NOTE — Pydantic correction (BUG-BRSR-001):
+    # seed_from_main_state() returns a DataBridgeInput (frozen Pydantic model).
+    # Calling .update() on it raises AttributeError because Pydantic models are
+    # not dicts and ``frozen=True`` prevents any attribute mutation.
+    #
+    # Correct pattern: call .to_seed_dict(), which is the designed extraction
+    # method on DataBridgeInput.  It returns a deep-copied plain dict merging
+    # {inherited_treasury, inherited_reputation, inherited_kpis} with extra_state.
+    # We then merge the BRSR-specific tracking fields into that plain dict.
+    #
+    # This preserves the typed DataBridgeInput contract on the bridge boundary
+    # while giving init_brsr_state a mutable plain dict to work with downstream.
+    seed_dict = seed.to_seed_dict()
+    seed_dict.update({
+        "round_choices":      {},   # {1: "option_a", ...}
+        "round_points":       {},   # {1: 80, 2: 50, ...}
+        "brsr_round_history": [],   # [{round, choice, dimension_scores, flags_set}]
         "drag_applied_rounds": [],
-        "esg_alpha_earned": False,
+        "esg_alpha_earned":   False,
     })
-    main_global["_brsr_track_state"] = seed
-    return seed
+    main_global["_brsr_track_state"] = seed_dict
+    return seed_dict
+
 
 
 # ════════════════════════════════════════════════════════════════
@@ -111,7 +126,7 @@ def process_brsr_round(
     Process one BRSR round decision.
 
     Args:
-        round_number:   BRSR track round (1–5)
+        round_number:   BRSR track round (1–10)
         choice:         "option_a" | "option_b" | "option_c"
         global_state:   Main session global state dict (mutated in place)
         bu_states:      List of BU state dicts (mutated in place)
@@ -125,9 +140,16 @@ def process_brsr_round(
     previous_flags = previous_flags or {}
 
     # Ensure track state is initialised
-    track_state = global_state.setdefault("_brsr_track_state", {})
-    if not track_state:
-        track_state = init_brsr_state(global_state, bu_states, {})
+    active_flags = global_state.setdefault("active_event_flags", {})
+    track_state = previous_flags.get("_brsr_track_state") if previous_flags else None
+    if not track_state or not isinstance(track_state, dict):
+        track_state = global_state.get("_brsr_track_state")
+    if not track_state or not isinstance(track_state, dict):
+        track_state = active_flags.get("_brsr_track_state")
+    if not track_state or not isinstance(track_state, dict):
+        track_state = init_brsr_state(active_flags, bu_states, {})
+    global_state["_brsr_track_state"] = track_state
+    active_flags["_brsr_track_state"] = track_state
 
     # Idempotency: skip if this BRSR round already processed
     if round_number in track_state.get("round_choices", {}):
@@ -174,6 +196,26 @@ def process_brsr_round(
         "grade": current_score["grade"],
     })
 
+    # ── FIX: Surface interim scores to active_event_flags for live dashboard ──
+    # The BRSRDashboard reads brsr_performance_score and principle satisfaction
+    # flags from active_event_flags.  Previously these were only written at R10
+    # via finalise_brsr_track(), leaving the dashboard at 0/100 for Rounds 1–9.
+    active_flags["brsr_performance_score"] = current_score["total_score"]
+    active_flags["brsr_grade"] = current_score["grade"]
+    active_flags["brsr_archetype"] = current_score["archetype"]["title"]
+
+    # Surface principle satisfaction flags from accumulated choices so the
+    # NGRBC Compliance Matrix updates in real-time, not just at finalization.
+    acc_set = set(acc)
+    for _flag_name in [
+        "brsr_pioneer", "brsr_core_assured", "brsr_living_wage",
+        "sdg_12_leadership", "brsr_circular_symbiosis",
+        "brsr_integrated_report", "brsr_greenwash_risk",
+        "governance_fragility",
+    ]:
+        if _flag_name in acc_set:
+            active_flags[_flag_name] = True
+
     # Apply round-by-round deep integration consequences
     _apply_brsr_consequences(
         round_number, choice, flags_set, acc,
@@ -192,7 +234,7 @@ def process_brsr_round(
         "grade": current_score["grade"],
         "archetype": current_score["archetype"]["title"],
         "flags_active": acc,
-        "rounds_remaining": 5 - round_number,
+        "rounds_remaining": 10 - round_number,
     }
 
     return extra
@@ -215,12 +257,16 @@ def _apply_brsr_consequences(
     """
     Apply mechanically consequential BRSR effects to the main simulation:
 
-    R1: Leadership → governance_risk reduction; option_c → fragility drag
-    R2: Living Wage → staff_burnout across all BUs; statutory min → strike risk
-    R3: Circular Symbiosis → NCD rate reduction + synergy boost; min → NCD interest hike
-    R4: BRSR Core Assured → reputation bonus + audit tolerance protection
-    R5: Integrated Report → ESG Alpha dividend (brsr_net_positive_dividend)
-         + what-if narrative for non-completers
+    R1:  Leadership → governance_risk reduction; option_c → fragility drag
+    R2:  Living Wage → staff_burnout across all BUs; statutory min → strike risk
+    R3:  Circular Symbiosis → NCD rate reduction + synergy boost; min → NCD interest hike
+    R4:  BRSR Core Assured → reputation bonus + audit tolerance protection
+    R5:  Integrated Report → ESG Alpha dividend (brsr_net_positive_dividend)
+    R6:  Human Rights Realities → HRDD engagement; Tier-2 blindspot risk
+    R7:  Policy Advocacy → Lobbying cartel risk vs policy leadership
+    R8:  MSME/Vendor Protection → TReDS adoption; payment delay penalties
+    R9:  Value Chain Assurance → BRSR Core statutory mandate correction
+    R10: Double Materiality → CSRD-BRSR alignment; terminal filing premium
     """
     active_flags = global_state.setdefault("active_event_flags", {})
     drag_done = track_state.get("drag_applied_rounds", [])
@@ -278,6 +324,11 @@ def _apply_brsr_consequences(
             global_state["ncd_interest_rate"] = round(min(0.12, current_ncd_rate + 0.01), 4)
             active_flags["brsr_cpcb_penalty_active"] = True
             extra["brsr_regulatory_minimum_ncd_hike"] = global_state["ncd_interest_rate"]
+            # CPCB API discharge penalty (₹50 Lakh)
+            global_state["corporate_treasury"] = round(
+                max(0, global_state.get("corporate_treasury", 0) - 5_000_000), 2
+            )
+            extra["brsr_cpcb_penalty_applied"] = 5_000_000
 
         # Governance fragility compounding: ratchet activates from R3
         if active_flags.get("brsr_governance_fragility_active"):
@@ -312,6 +363,11 @@ def _apply_brsr_consequences(
                 "Reputation penalty applied; auditor tolerance set to Hostile."
             )
             active_flags["audit_tolerance"] = min(active_flags.get("audit_tolerance", 50), 20)
+            # SEBI reasonable assurance compliance penalty (₹1 Crore)
+            global_state["corporate_treasury"] = round(
+                max(0, global_state.get("corporate_treasury", 0) - 10_000_000), 2
+            )
+            extra["brsr_sebi_penalty_applied"] = 10_000_000
 
     # ── Round 5: Integrated Disclosure & ESG Alpha ───────────────
     elif round_number == 5:
@@ -326,6 +382,17 @@ def _apply_brsr_consequences(
                 "Sustainalytics upgrades Muressons from 'Medium Risk' to 'Low Risk'. "
                 "M_R terminal multiplier receives +5% ESG Alpha dividend."
             )
+            # CRISIL AAA Green Bond rating discount (if score ≥ 70)
+            _ts = track_state or {}
+            _score = _ts.get("total_score", 0)
+            if not _score:
+                from side_tracks.brsr_ngrbc.track import BRSRNGRBCTrack as _BT
+                _score = _BT().calculate_score(_ts).get("total_score", 0)
+            if _score >= 70:
+                current_ncd = global_state.get("ncd_interest_rate", 0.05)
+                global_state["ncd_interest_rate"] = round(max(0.01, current_ncd - 0.015), 4)
+                extra["brsr_green_bond_premium"] = True
+                extra["brsr_crisil_aaa_discount"] = 0.015
         elif "brsr_compliance_only" in flags_set:
             # Compliance file: blocks Truth Premium; exit multiple haircut risk
             active_flags["brsr_truth_premium_blocked"] = True
@@ -334,6 +401,10 @@ def _apply_brsr_consequences(
                 "Integrated Report. CRISIL ESG score remains flat. "
                 "Exit Multiple Truth Premium bonus is blocked for this session."
             )
+            # Green Bond rating downgrade → NCD interest rate increase
+            current_ncd = global_state.get("ncd_interest_rate", 0.05)
+            global_state["ncd_interest_rate"] = round(min(0.15, current_ncd + 0.015), 4)
+            extra["brsr_green_bond_downgrade"] = True
 
         # Final governance fragility consequence
         if active_flags.get("brsr_governance_fragility_active"):
@@ -344,6 +415,85 @@ def _apply_brsr_consequences(
                 "🔔 WHISTLEBLOWER LEAK: Unreported political contributions from Governance "
                 "Fragility phase now under SEBI scrutiny. Confidence severely impacted."
             )
+
+    # ── Round 6: Human Rights Realities (P5) ────────────────────
+    elif round_number == 6:
+        if "deep_hrdd_active" in flags_set:
+            # Deep HRDD with digital traceability — reduces governance risk + reputation boost
+            for bu in bu_states:
+                old_gr = bu.get("governance_risk_score", 20)
+                bu["governance_risk_score"] = round(max(0, old_gr - 5), 2)
+            current_rep = global_state.get("group_reputation", 50)
+            global_state["group_reputation"] = round(min(100, current_rep + 4), 2)
+            extra["brsr_deep_hrdd_applied"] = True
+        elif "tier2_human_rights_risk" in flags_set:
+            # Tier-2 HR blindspot — expose to international buyer contract suspension
+            active_flags["brsr_tier2_hr_risk_active"] = True
+            extra["brsr_tier2_hr_warning"] = (
+                "⚠️ Tier-2 Human Rights Blindspot: International buyers may suspend "
+                "contracts if child labor allegations in sub-suppliers are not addressed."
+            )
+
+    # ── Round 7: Policy Advocacy (P7) ───────────────────────────
+    elif round_number == 7:
+        if "policy_leadership" in flags_set:
+            # Progressive public stance — reputation uplift + governance improvement
+            current_rep = global_state.get("group_reputation", 50)
+            global_state["group_reputation"] = round(min(100, current_rep + 5), 2)
+            extra["brsr_policy_leadership_applied"] = True
+        elif "greenwash_advocacy" in flags_set:
+            # Lobbying cartel — reputation hit
+            current_rep = global_state.get("group_reputation", 50)
+            global_state["group_reputation"] = round(max(10, current_rep - 6), 2)
+            active_flags["brsr_greenwash_advocacy_active"] = True
+            extra["brsr_greenwash_advocacy_penalty"] = True
+
+    # ── Round 8: MSME/Vendor Protection (P8) ────────────────────
+    elif round_number == 8:
+        if "msme_champion" in flags_set:
+            # TReDS + inclusive sourcing → supply chain resilience
+            for bu in bu_states:
+                bu["social_license_score"] = min(100, bu.get("social_license_score", 50) + 5)
+            active_flags["brsr_msme_champion_active"] = True
+            extra["brsr_msme_champion_applied"] = True
+        elif "working_capital_hoarder" in flags_set:
+            # Working capital hoarding → Section 43B(h) compliance risk
+            active_flags["brsr_working_capital_hoarder_active"] = True
+            extra["brsr_msme_payment_delay_warning"] = (
+                "⚠️ MSME Payment Delay: Section 43B(h) compliance at risk. "
+                "SEBI may impose payment delay penalties on listed companies."
+            )
+
+    # ── Round 9: Value Chain Assurance (P4/P9) ──────────────────
+    elif round_number == 9:
+        if "brsr_core_assured" in accumulated:
+            # Already assured — positive reinforcement
+            current_rep = global_state.get("group_reputation", 50)
+            global_state["group_reputation"] = round(min(100, current_rep + 3), 2)
+            extra["brsr_assurance_continuity_bonus"] = True
+        if "csrd_aligned" in flags_set:
+            # CSRD-BRSR dual alignment
+            active_flags["brsr_csrd_aligned"] = True
+            extra["brsr_csrd_alignment_narrative"] = (
+                "🌍 CSRD-BRSR Alignment: Double materiality framework adopted. "
+                "European institutional investors recognise Indian BRSR as CSRD-equivalent."
+            )
+
+    # ── Round 10: Integrated Double Materiality ─────────────────
+    elif round_number == 10:
+        if "brsr_integrated_report" in flags_set:
+            # Terminal filing premium
+            active_flags["brsr_terminal_filing_premium"] = True
+            track_state["esg_alpha_earned"] = True
+            extra["brsr_terminal_filing_narrative"] = (
+                "💎 TERMINAL FILING: Double Materiality Integrated Report accepted. "
+                "Maximum BRSR filing premium earned for terminal valuation."
+            )
+        # Terminal governance check
+        if active_flags.get("brsr_governance_fragility_active") and "policy_leadership" not in accumulated:
+            current_gov_risk = global_state.get("governance_risk_score", 20)
+            global_state["governance_risk_score"] = round(min(100, current_gov_risk + 10), 2)
+            extra["brsr_terminal_governance_drag"] = True
 
     drag_done.append(round_number)
     track_state["drag_applied_rounds"] = drag_done
@@ -357,25 +507,38 @@ def finalise_brsr_track(
     global_state: dict,
 ) -> dict:
     """
-    Called when all 5 BRSR rounds are complete.
+    Called when all 10 BRSR rounds are complete.
     Merges the final score and flags into active_event_flags for
     terminal valuation and GameOverSummary consumption.
     """
-    track_state = global_state.get("_brsr_track_state", {})
+    track_state = global_state.get("_brsr_track_state")
+    if not track_state:
+        track_state = global_state.get("active_event_flags", {}).get("_brsr_track_state", {})
     if not track_state:
         return {}
 
     wb = _track.write_back_to_main(track_state, global_state)
 
-    # Apply write-back to active_event_flags
+    # ARCH NOTE — Pydantic correction (BUG-BRSR-002):
+    # write_back_to_main() returns a DataBridgeOutput (Pydantic model), NOT a dict.
+    # Calling wb.items() raises AttributeError.  The correct extraction pattern
+    # follows the contract documented in DataBridgeOutput's docstring:
+    #
+    #   main_flags.update(output.flags_to_set)          ← set flags
+    #   for key in output.flags_to_remove:               ← remove flags
+    #       main_flags.pop(key, None)
+    #
+    # We return wb.flags_to_set (plain dict) so callers that do
+    # extra_events.update(finalise_brsr_track(gs)) remain valid.
     active_flags = global_state.setdefault("active_event_flags", {})
-    for k, v in wb.items():
-        active_flags[k] = v
+    active_flags.update(wb.flags_to_set)
+    for key in wb.flags_to_remove:
+        active_flags.pop(key, None)
 
     # Expose round history for sparkline
     active_flags["brsr_round_history"] = track_state.get("brsr_round_history", [])
 
-    return wb
+    return wb.flags_to_set  # plain dict — safe for extra_events.update(wb)
 
 
 # ════════════════════════════════════════════════════════════════
@@ -388,6 +551,8 @@ def build_brsr_facilitator_status(global_state: dict) -> dict:
     Includes: dimension scores, grade, flags, round history, consequence log.
     """
     track_state = global_state.get("_brsr_track_state")
+    if not track_state:
+        track_state = global_state.get("active_event_flags", {}).get("_brsr_track_state")
     active_flags = global_state.get("active_event_flags", {})
 
     if not track_state:
@@ -422,7 +587,7 @@ def build_brsr_facilitator_status(global_state: dict) -> dict:
         "initialised": True,
         "brsr_track_completed": active_flags.get("brsr_track_completed", False),
         "rounds_completed": rounds_done,
-        "rounds_total": 5,
+        "rounds_total": 10,
         "total_score": score_data["total_score"],
         "grade": score_data["grade"],
         "archetype": score_data["archetype"],

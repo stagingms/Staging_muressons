@@ -1,18 +1,28 @@
 'use client';
 
-import React, { useState, useMemo, useEffect, Fragment } from 'react';
+import React, { useState, useMemo, useEffect, useRef, Fragment } from 'react';
 import styles from './SimulationManager.module.css';
 import CreateCohortModal from './CreateCohortModal';
 import { formatSessionId } from '../utils/sessionUtils';
 import AnalyticsControlPanel from './AnalyticsControlPanel';
+import CohortSummaryTooltip from './CohortSummaryTooltip';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-export default function SimulationManager({ leaderboard = [], onSessionCreated, hideCreate = false, fetchInternal = false, currentFacilitatorId = null }) {
+/* Roles that may see the cohort summary tooltip on hover */
+const TOOLTIP_ROLES = new Set(['super_admin', 'god_mode', 'lead_facilitator']);
+
+export default function SimulationManager({ leaderboard = [], onSessionCreated, hideCreate = false, fetchInternal = false, currentFacilitatorId = null, currentFacilitatorRole = 'facilitator' }) {
     const [createOpen, setCreateOpen] = useState(false);
     const [internalData, setInternalData] = useState([]);
     const [analyticsModalSession, setAnalyticsModalSession] = useState(null);
     const [expandedConfigRow, setExpandedConfigRow] = useState(null);
+    // Cohort summary tooltip state
+    const [hoveredSession, setHoveredSession] = useState(null); // session object
+    const [hoverAnchorRect, setHoverAnchorRect] = useState(null);
+    const hoverTimerRef = useRef(null);
+    // Whether this user's role allows seeing the cohort summary tooltip
+    const canSeeSummaryTooltip = TOOLTIP_ROLES.has(currentFacilitatorRole);
 
     const [refreshing, setRefreshing] = useState(false);
 
@@ -66,6 +76,10 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
             stakeholder_weighted: 'Stakeholder Weighted',
             esg_integrated: 'ESG Integrated',
             healthcare: 'Healthcare',
+            un_sdg: 'UN SDG',
+            multi_toggles: 'Strategic Pillars',
+            defense: 'Defense/Aero',
+            brsr_ngrbc: 'BRSR NGRBC',
         };
         const expLabels = {
             classroom_easy: 'Classroom',
@@ -197,6 +211,7 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                 onClose={() => setCreateOpen(false)}
                 onCreated={handleCreated}
                 currentFacilitatorId={currentFacilitatorId}
+                currentFacilitatorRole={currentFacilitatorRole}
             />
 
             {grouped.length === 0 ? (
@@ -241,7 +256,31 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
                                                                 {expandedConfigRow === s.session_id ? '▼' : '▶'}
                                                             </button>
                                                         </td>
-                                                        <td className={styles.sessionName}>{s.cohort_name || formatSessionId(s)}</td>
+                                                         <td
+                                                             className={styles.sessionName}
+                                                             style={canSeeSummaryTooltip ? { cursor: 'help', position: 'relative' } : undefined}
+                                                             onMouseEnter={canSeeSummaryTooltip ? (e) => {
+                                                                 clearTimeout(hoverTimerRef.current);
+                                                                 const rect = e.currentTarget.getBoundingClientRect();
+                                                                 hoverTimerRef.current = setTimeout(() => {
+                                                                     setHoverAnchorRect(rect);
+                                                                     setHoveredSession(s);
+                                                                 }, 220);
+                                                             } : undefined}
+                                                             onMouseLeave={canSeeSummaryTooltip ? () => {
+                                                                 clearTimeout(hoverTimerRef.current);
+                                                                 hoverTimerRef.current = setTimeout(() => setHoveredSession(null), 120);
+                                                             } : undefined}
+                                                         >
+                                                             {s.cohort_name || formatSessionId(s)}
+                                                             {canSeeSummaryTooltip && (
+                                                                 <span style={{
+                                                                     fontSize: '0.55rem', verticalAlign: 'super',
+                                                                     color: 'var(--text-muted)', marginLeft: '3px',
+                                                                     opacity: 0.5,
+                                                                 }}>ⓘ</span>
+                                                             )}
+                                                         </td>
                                                         <td><span className={styles.sessionRound}>R{s.round_number || 1}</span></td>
                                                         <td style={{ textAlign: 'right' }}><span className={styles.sessionTreasury}>{formatCurrency(s.total_cash || s.corporate_treasury || 0)}</span></td>
                                                         <td style={{ textAlign: 'center' }}>
@@ -330,6 +369,15 @@ export default function SimulationManager({ leaderboard = [], onSessionCreated, 
             )}
 
 
+
+            {/* Cohort Summary Tooltip — god-mode / lead facilitator / super-admin only */}
+            {canSeeSummaryTooltip && (
+                <CohortSummaryTooltip
+                    session={hoveredSession}
+                    anchorRect={hoverAnchorRect}
+                    visible={!!hoveredSession}
+                />
+            )}
 
             {analyticsModalSession && (
                 <div className={styles.modalOverlay} onClick={() => setAnalyticsModalSession(null)}>

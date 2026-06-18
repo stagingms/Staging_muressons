@@ -134,9 +134,11 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
             <div className={styles.quickActions}>
                 <h3 className={styles.sectionTitle}>Quick Actions</h3>
                 <div className={styles.actionGrid}>
-                    <button className={styles.actionBtn} onClick={() => onCreateCohort?.()}>
-                        🚀 Create New Cohort
-                    </button>
+                    {onCreateCohort && (
+                        <button className={styles.actionBtn} onClick={() => onCreateCohort()}>
+                            🚀 Create New Cohort
+                        </button>
+                    )}
                     <button className={styles.actionBtn} onClick={() => onNavigate?.('leaderboard')}>
                         📋 View Leaderboard
                     </button>

@@ -118,6 +118,7 @@ FLAG_METRIC_SHIFTS = {
     "brsr_net_positive_dividend": [{"metric": "terminal_value", "label": "ESG Alpha Dividend (+0.05 M_R)", "delta": 5}],
     "brsr_greenwash_crisis": [{"metric": "reputation", "label": "SEBI Show-Cause Notice (-12 Rep)", "delta": -12}],
     "brsr_governance_crisis": [{"metric": "treasury", "label": "Governance Leak (-$2.5M)", "delta": -2500000}],
+    "spcb_show_cause": [{"metric": "regulatory", "label": "SPCB Closure Notice (Pharma BU)", "delta": -15}],
     # Shadow Board SDG-enhanced penalties
     "planet_expendable": [{"metric": "ecosystem", "label": "Ecosystem Resilience ↓ (M_R -0.20)", "delta": -20}],
 }

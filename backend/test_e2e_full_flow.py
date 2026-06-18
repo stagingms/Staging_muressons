@@ -15,6 +15,7 @@ Tests the complete flow:
 import os
 os.environ['USE_MEMORY_DB'] = 'true'
 os.environ['DEBUG'] = 'true'
+os.environ['MASTER_PASSWORD'] = '321'
 
 import sys, time, json, hmac
 from datetime import datetime
@@ -58,7 +59,7 @@ def assert_ok(resp, label, expected=(200, 201)):
 # ============================================================
 #  PHASE 1: GOD MODE - System Setup
 # ============================================================
-def test_god_mode():
+def _test_god_mode():
     section("PHASE 1: GOD MODE - System Setup")
 
     # 1.1 Health check
@@ -102,7 +103,7 @@ def test_god_mode():
 # ============================================================
 #  PHASE 2: FACILITATOR CREATION
 # ============================================================
-def test_create_facilitator():
+def _test_create_facilitator():
     section("PHASE 2: FACILITATOR CREATION")
 
     # 2.1 Create a new facilitator
@@ -111,7 +112,7 @@ def test_create_facilitator():
         "password": "321",
         "max_cohorts": 10,
         "decision_paradigm": "legacy_abc",
-        "role": "facilitator",
+        "role": "lead_facilitator",
         "created_by": "e2e_test",
     }, headers={"x-facilitator-id": "god_mode"})
     
@@ -144,7 +145,7 @@ def test_create_facilitator():
 # ============================================================
 #  PHASE 3: COHORT PROVISIONING (via /api/simulations/start)
 # ============================================================
-def test_create_cohort(fac_id):
+def _test_create_cohort(fac_id):
     section("PHASE 3: COHORT PROVISIONING")
 
     # 3.1 Create cohort with narrative crisis (legacy_abc) via /api/simulations/start
@@ -178,7 +179,7 @@ def test_create_cohort(fac_id):
 # ============================================================
 #  PHASE 4: SESSION VERIFICATION
 # ============================================================
-def test_session_setup(session_id):
+def _test_session_setup(session_id):
     section("PHASE 4: SESSION VERIFICATION")
 
     # 4.1 Get dashboard
@@ -354,7 +355,7 @@ def commit_round(sid, round_num):
         return None
 
 
-def test_round_features(sid, round_num):
+def _test_round_features(sid, round_num):
     """Test round-specific features and endpoints."""
     # Crisis alerts
     r = client.get(f"/api/simulations/{sid}/crisis-alerts")
@@ -416,7 +417,7 @@ def play_all_rounds(sid):
         last_round = current
         
         # Test round-specific features
-        test_round_features(sid, current)
+        _test_round_features(sid, current)
         
         # Round 1 gate: Stakeholder Map
         if current == 1:
@@ -444,7 +445,7 @@ def play_all_rounds(sid):
 # ============================================================
 #  PHASE 6: GAME OVER VALIDATION
 # ============================================================
-def test_game_over(sid):
+def _test_game_over(sid):
     section("PHASE 6: GAME OVER VALIDATION")
     
     # 6.1 Final dashboard state
@@ -505,7 +506,7 @@ def test_game_over(sid):
 # ============================================================
 #  PHASE 7: FACILITATOR ADMIN FEATURES
 # ============================================================
-def test_facilitator_admin(sid, fac_id):
+def _test_facilitator_admin(sid, fac_id):
     section("PHASE 7: FACILITATOR ADMIN FEATURES")
     
     # 7.1 Teleprompter slides
@@ -543,25 +544,25 @@ if __name__ == "__main__":
     print("="*70)
     
     # Phase 1: God Mode
-    test_god_mode()
+    _test_god_mode()
     
     # Phase 2: Create Facilitator
-    fac_id = test_create_facilitator()
+    fac_id = _test_create_facilitator()
     
     # Phase 3: Create Cohort
-    session_id = test_create_cohort(fac_id)
+    session_id = _test_create_cohort(fac_id)
     
     # Phase 4: Session verification
-    test_session_setup(session_id)
+    _test_session_setup(session_id)
     
     # Phase 5: Play all 10 rounds
     errors = play_all_rounds(session_id)
     
     # Phase 6: Game Over validation
-    completed = test_game_over(session_id)
+    completed = _test_game_over(session_id)
     
     # Phase 7: Facilitator admin features
-    test_facilitator_admin(session_id, fac_id)
+    _test_facilitator_admin(session_id, fac_id)
     
     # -- Final Summary --
     elapsed = time.time() - start_time

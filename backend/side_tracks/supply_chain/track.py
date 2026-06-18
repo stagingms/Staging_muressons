@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Supply Chain Track Implementation
 
 Concrete implementation of BaseSideTrack for the 7-round
@@ -19,6 +19,7 @@ from typing import Any
 
 from side_tracks.base_track import BaseSideTrack
 from side_tracks.supply_chain.configs import SUPPLY_CHAIN_ROUND_CONFIGS
+from side_tracks.bridge_schemas import DataBridgeInput, DataBridgeOutput
 
 
 class SupplyChainTrack(BaseSideTrack):
@@ -85,112 +86,74 @@ class SupplyChainTrack(BaseSideTrack):
         main_global: dict,
         main_bus: list[dict],
         completed_tracks: dict[str, dict],
-    ) -> dict:
+    ) -> DataBridgeInput:
         """
         DATA BRIDGE (READ): Inherit relevant state from the main simulation
         to contextualise the supply chain track.
 
-        Reads:
-          - NCD across BUs → sets inherited baseline
-          - Carbon intensity → baseline for Scope 3 work
-          - Governance risk → influences supplier risk score
-          - Group reputation → inherited for social licence context
-          - Main sim flags → check for existing supply chain actions
+        DB-009 fix: main_sim_flags key list is NOT copied wholesale.
+        Selective flags are extracted under private _sc_* keys in active_flags
+        for any track logic that reads them via inp.flag(). Track-specific
+        initial metrics go into extra_state, which to_seed_dict() merges into
+        track_data["state"] verbatim.
         """
-        n = len(main_bus) or 1
-
-        # Calculate inherited baselines from main sim state
-        avg_gov_risk = sum(
-            bu.get("governance_risk_score", 20) for bu in main_bus
-        ) / n
-        total_ncd = sum(
-            bu.get("natural_capital_debt", 0) for bu in main_bus
-        )
-        avg_ci = sum(
-            bu.get("carbon_intensity", 0) for bu in main_bus
-        ) / n
-        inherited_reputation = main_global.get("group_reputation", 50)
-
-        # Check if main sim already did supply chain work
         main_flags = main_global.get("active_event_flags", {})
         has_deep_audit = "deep_audit_completed" in main_flags
-        has_blockchain = "blockchain_traceability" in main_flags
-
-        # Seed the track's initial state
-        return {
-            # ── Track-Specific Metrics (start low, build through rounds) ──
-            "supply_visibility": 20 + (10 if has_deep_audit else 0),
-            "supplier_risk_score": min(100, max(0, round(avg_gov_risk * 1.5, 1))),
-            "scope3_reduction": 0,
-            "circular_procurement_index": 5,  # Almost zero baseline
-            "digital_maturity": 10 + (15 if has_blockchain else 0),
-            "geopolitical_resilience": 15,
-
-            # ── Inherited Context from Main Sim ──
-            "inherited_ncd": total_ncd,
-            "inherited_carbon_intensity": round(avg_ci, 2),
-            "inherited_reputation": inherited_reputation,
-            "inherited_treasury": main_global.get("corporate_treasury", 50_000_000),
-
-            # ── Flag Context ──
-            "main_sim_deep_audit": has_deep_audit,
-            "main_sim_blockchain": has_blockchain,
-            "main_sim_flags": list(main_flags.keys()),
-
-            # ── Cross-Track Context ──
-            "ethics_track_completed": "ethics_sustainability" in completed_tracks,
-        }
+        has_blockchain  = "blockchain_traceability" in main_flags
+        kpis = self._build_bridge_kpis(main_bus, main_global)
+        return DataBridgeInput(
+            treasury=main_global.get("corporate_treasury", 50_000_000),
+            reputation=main_global.get("group_reputation", 50.0),
+            # active_flags: selective forwarding only (replaces wholesale key leak DB-009)
+            active_flags={
+                "_sc_deep_audit_done":   has_deep_audit,
+                "_sc_blockchain_done":   has_blockchain,
+                "_sc_ethics_track_done": "ethics_sustainability" in completed_tracks,
+            },
+            kpis=kpis,
+            extra_state={
+                # Track-specific initial scoring metrics
+                "supply_visibility":          20 + (10 if has_deep_audit else 0),
+                "supplier_risk_score":         min(100, max(0, round(kpis.avg_governance_risk * 1.5, 1))),
+                "scope3_reduction":            0,
+                "circular_procurement_index": 5,
+                "digital_maturity":            10 + (15 if has_blockchain else 0),
+                "geopolitical_resilience":     15,
+                # Context for post_tick hooks
+                "inherited_ncd":              round(kpis.total_ncd, 2),
+                "inherited_carbon_intensity": round(kpis.avg_carbon_intensity, 2),
+                "main_sim_deep_audit":         has_deep_audit,
+                "main_sim_blockchain":          has_blockchain,
+                "ethics_track_completed":      "ethics_sustainability" in completed_tracks,
+            },
+        )
 
     def write_back_to_main(
         self,
         track_state: dict,
         main_global: dict,
-    ) -> dict:
+    ) -> DataBridgeOutput:
         """
         DATA BRIDGE (WRITE): On track completion, write flags into
         the main simulation's active_event_flags.
-
-        These flags:
-          1. Appear on the separate Supply Chain leaderboard
-          2. Provide narrative continuity to the main sim
-          3. Can modulate terminal valuation (secondary to leaderboard score)
         """
-        flags: dict[str, Any] = {}
         score = self.calculate_score(track_state)
-
-        flags["supply_chain_track_completed"] = True
-        flags["supply_chain_final_score"] = score["total_score"]
-        flags["supply_chain_grade"] = score["grade"]
-        flags["supply_chain_archetype"] = score["archetype"]["title"]
-
-        # Dimension-specific flags for main sim consumption
+        flags: dict = {
+            "supply_chain_track_completed": True,
+            "supply_chain_final_score":      score["total_score"],
+            "supply_chain_grade":            score["grade"],
+            "supply_chain_archetype":        score["archetype"]["title"],
+        }
         visibility = track_state.get("supply_visibility", 0)
-        risk = track_state.get("supplier_risk_score", 50)
-        scope3 = track_state.get("scope3_reduction", 0)
-
-        if visibility >= 80:
-            flags["supply_chain_resilient"] = True
-        elif visibility >= 50:
-            flags["supply_chain_adequate"] = True
-        else:
-            flags["supply_chain_fragile"] = True
-
-        # M_R influence (secondary to separate leaderboard)
-        if score["total_score"] >= 80:
-            flags["sc_track_mr_bonus"] = 0.10
-        elif score["total_score"] >= 60:
-            flags["sc_track_mr_bonus"] = 0.05
-        elif score["total_score"] < 40:
-            flags["sc_track_mr_penalty"] = -0.05
-
-        # Propagate individual flags for cross-track dependencies
-        # (Ethics track checks these in its seed_from_main_state)
-        flags["sc_cobalt_findings"] = "sc_cobalt_clean" in (
-            track_state.get("accumulated_flags", [])
-        )
+        if visibility >= 80:   flags["supply_chain_resilient"] = True
+        elif visibility >= 50: flags["supply_chain_adequate"] = True
+        else:                  flags["supply_chain_fragile"] = True
+        if score["total_score"] >= 80:   flags["sc_track_mr_bonus"] = 0.10
+        elif score["total_score"] >= 60: flags["sc_track_mr_bonus"] = 0.05
+        elif score["total_score"] < 40:  flags["sc_track_mr_penalty"] = -0.05
+        flags["sc_cobalt_findings"]  = "sc_cobalt_clean" in track_state.get("accumulated_flags", [])
         flags["sc_digital_maturity"] = track_state.get("digital_maturity", 0)
-
-        return flags
+        return DataBridgeOutput(flags_to_set=flags)
 
     # ── Scoring ─────────────────────────────────────────────────
 
@@ -452,7 +415,7 @@ class SupplyChainTrack(BaseSideTrack):
             if events.get("sc_r1_visibility_discount") and choice == "option_a":
                 discount = events.get("sc_r1_visibility_discount_amount", 1_000_000)
                 global_state["corporate_treasury"] = round(
-                    global_state["corporate_treasury"] + discount, 2
+                    global_state.get("corporate_treasury", 0) + discount, 2
                 )
                 extra["sc_r2_discount_applied"] = discount
 
@@ -461,7 +424,7 @@ class SupplyChainTrack(BaseSideTrack):
             if events.get("sc_greenwash_contamination") and choice == "option_a":
                 penalty = events.get("sc_greenwash_penalty_amount", 2_000_000)
                 global_state["corporate_treasury"] = round(
-                    global_state["corporate_treasury"] - penalty, 2
+                    global_state.get("corporate_treasury", 0) - penalty, 2
                 )
                 extra["sc_r5_greenwash_penalty_applied"] = penalty
 
@@ -540,7 +503,7 @@ class SupplyChainTrack(BaseSideTrack):
             actual_damage = round(base_damage * (1 - resilience), 2)
 
             global_state["corporate_treasury"] = round(
-                global_state["corporate_treasury"] - actual_damage, 2
+                global_state.get("corporate_treasury", 0) - actual_damage, 2
             )
 
             extra["sc_r7_disruption_base_damage"] = base_damage

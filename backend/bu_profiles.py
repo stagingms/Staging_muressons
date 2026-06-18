@@ -15,6 +15,16 @@ from typing import Any
 #  CORE BU PROFILES
 #  Financial baselines for session initialisation.
 #  All monetary values in USD.
+#
+#  carbon_intensity : float  — tCO₂e per $1M revenue (I1: UNIT ANNOTATION)
+#    Used in tonnage formula: tonnes = CI × revenue_base / 1_000_000
+#    Revenue-weighted group avg CI = Σ(CI×rev) / Σrev (as of I3 upgrade)
+#
+#  emissions_baseline : int  — LEGACY FIELD (I16)
+#    Represents approximate absolute tCO₂e/year at initial scale.
+#    NOT used in any engine calculation — superseded by the
+#    revenue-intensity approach (CI × revenue / 1M).
+#    Retained for reference calibration only; do not read in engine code.
 # ═══════════════════════════════════════════════════════════════
 
 BU_PROFILES = {
@@ -149,10 +159,143 @@ BU_PROFILES = {
         "reputation_score": 50,
         "description": "Industrial agriculture and agri-tech with extreme water dependency, biodiversity impact, and land-use emissions.",
     },
+    # ── Electronics-slot verticals ──────────────────────────────
+    "semiconductor": {
+        "label": "Muressons Semiconductor",
+        "icon": "💎",
+        "slot": "electronics",   # Capital-intensive precision manufacturing, complex supply chains
+        "revenue_base": 20_000_000,
+        "opex_base": 15_000_000,
+        "carbon_intensity": 85,
+        "water_dependency": 92,   # Ultra-pure water for wafer fab is among the highest of any industry
+        "fx_exposure": 0.80,
+        "emissions_baseline": 35_000,
+        "natural_capital_debt": 220,
+        "social_license_score": 48,
+        "governance_risk_score": 22,
+        "reputation_score": 52,
+        "description": "Wafer fabrication and chip design with extreme water and energy intensity, rare-mineral supply risk, and geopolitical concentration.",
+    },
+    "medical_devices": {
+        "label": "Muressons Medical Devices",
+        "icon": "🩺",
+        "slot": "electronics",   # Precision hardware manufacturing with regulatory burden similar to electronics
+        "revenue_base": 18_500_000,
+        "opex_base": 12_500_000,
+        "carbon_intensity": 42,
+        "water_dependency": 52,
+        "fx_exposure": 0.65,
+        "emissions_baseline": 9_000,
+        "natural_capital_debt": 130,
+        "social_license_score": 55,
+        "governance_risk_score": 28,
+        "reputation_score": 60,
+        "description": "Implantables, diagnostics, and surgical equipment with heavy FDA/CE regulatory burden, IP-intensive R&D, and single-use plastics lifecycle exposure.",
+    },
+    "automotive": {
+        "label": "Muressons Automotive",
+        "icon": "🚗",
+        "slot": "electronics",   # Heavy manufacturing, complex supply chain, EV transition risk
+        "revenue_base": 26_000_000,
+        "opex_base": 21_000_000,
+        "carbon_intensity": 95,
+        "water_dependency": 48,
+        "fx_exposure": 0.70,
+        "emissions_baseline": 55_000,
+        "natural_capital_debt": 310,
+        "social_license_score": 45,
+        "governance_risk_score": 18,
+        "reputation_score": 50,
+        "description": "ICE and EV manufacturing with Scope 3 tailpipe dominance, battery mineral dependency, EV transition capex pressure, and labour-intensive assembly.",
+    },
+    "telecom": {
+        "label": "Muressons Telecom",
+        "icon": "📶",
+        "slot": "electronics",   # Infrastructure-heavy, high governance/spectrum regulation
+        "revenue_base": 19_000_000,
+        "opex_base": 13_500_000,
+        "carbon_intensity": 48,
+        "water_dependency": 18,
+        "fx_exposure": 0.55,
+        "emissions_baseline": 12_000,
+        "natural_capital_debt": 175,
+        "social_license_score": 50,
+        "governance_risk_score": 26,
+        "reputation_score": 52,
+        "description": "Mobile and fixed-line networks with spectrum licensing risk, e-waste obligations, tower energy intensity, and data privacy regulatory exposure.",
+    },
+
+    # ── Pharma-slot verticals ─────────────────────────────────────
+    "chemical": {
+        "label": "Muressons Chemical",
+        "icon": "⚗️",
+        "slot": "pharma",   # Process manufacturing, heavy regulatory, physical-asset intensive
+        "revenue_base": 17_000_000,
+        "opex_base": 12_500_000,
+        "carbon_intensity": 115,  # Process heat, feedstock combustion, fugitive emissions
+        "water_dependency": 76,
+        "fx_exposure": 0.60,
+        "emissions_baseline": 42_000,
+        "natural_capital_debt": 300,
+        "social_license_score": 42,
+        "governance_risk_score": 22,
+        "reputation_score": 46,
+        "description": "Specialty and bulk chemicals with process-heat emissions, toxic discharge liability, REACH/TSCA compliance burden, and community health exposure.",
+    },
+    "cosmetics": {
+        "label": "Muressons Cosmetics & Personal Care",
+        "icon": "💄",
+        "slot": "pharma",   # Ingredient regulation, testing compliance, similar to pharma licensing risk
+        "revenue_base": 13_000_000,
+        "opex_base": 8_500_000,
+        "carbon_intensity": 28,
+        "water_dependency": 62,
+        "fx_exposure": 0.50,
+        "emissions_baseline": 5_500,
+        "natural_capital_debt": 145,
+        "social_license_score": 50,
+        "governance_risk_score": 20,
+        "reputation_score": 55,
+        "description": "Beauty and personal care with ingredient sourcing controversy, microplastics liability, animal-testing bans, and consumer-trust sensitivity.",
+    },
+    "food_beverage": {
+        "label": "Muressons Food & Beverage",
+        "icon": "🍽️",
+        "slot": "pharma",   # Water/land intensive processing; shares regulatory burden and social license profile
+        "revenue_base": 15_500_000,
+        "opex_base": 11_000_000,
+        "carbon_intensity": 58,
+        "water_dependency": 88,
+        "fx_exposure": 0.45,
+        "emissions_baseline": 28_000,
+        "natural_capital_debt": 270,
+        "social_license_score": 48,
+        "governance_risk_score": 14,
+        "reputation_score": 52,
+        "description": "Food processing and branded beverages with extreme water intensity, deforestation-linked sourcing, food-safety recalls, and packaging sustainability pressure.",
+    },
+    "power_utilities": {
+        "label": "Muressons Power & Utilities",
+        "icon": "⚡",
+        "slot": "pharma",   # Capital-intensive physical infrastructure; regulatory profile mirrors pharma
+        "revenue_base": 23_000_000,
+        "opex_base": 16_000_000,
+        "carbon_intensity": 155,  # Highest of all verticals; coal/gas generation baseline
+        "water_dependency": 82,   # Thermal cooling
+        "fx_exposure": 0.35,
+        "emissions_baseline": 68_000,
+        "natural_capital_debt": 380,
+        "social_license_score": 40,
+        "governance_risk_score": 25,
+        "reputation_score": 44,
+        "description": "Electricity generation, transmission, and distribution with the sector's highest carbon intensity, stranded-asset exposure from energy transition, and critical-infrastructure regulatory obligations.",
+    },
+
+    # ── Software-slot verticals ───────────────────────────────────
     "technology": {
         "label": "Muressons Technology",
         "icon": "🧠",
-        "slot": "software",  # Replaces software slot (digital, talent-dependent)
+        "slot": "software",   # Replaces software slot (digital, talent-dependent)
         "revenue_base": 15_000_000,
         "opex_base": 9_000_000,
         "carbon_intensity": 15,
@@ -174,10 +317,14 @@ BU_PROFILES = {
 # ═══════════════════════════════════════════════════════════════
 
 SLOT_FIT_MAP = {
-    "pharma":         ["oil_gas"],                      # Heavy industry, physical assets, regulatory
-    "electronics":    ["oil_gas"],                      # High carbon, complex supply chain
-    "consumer_goods": ["retail_fmcg", "agriculture"],   # Supply chain, natural resources, packaging
-    "software":       ["banking_financial_services", "technology"],  # Asset-light, governance-heavy, talent
+    # Heavy-industry / physical-asset / regulated manufacturing
+    "pharma":         ["oil_gas", "chemical", "cosmetics", "food_beverage", "power_utilities"],
+    # Precision hardware / capital-intensive manufacturing / complex supply chains
+    "electronics":    ["semiconductor", "medical_devices", "automotive", "telecom"],
+    # Consumer supply chain / natural resources / packaging
+    "consumer_goods": ["retail_fmcg", "agriculture"],
+    # Asset-light / governance-heavy / digital / talent-driven
+    "software":       ["banking_financial_services", "technology"],
 }
 
 # Reverse lookup: vertical_id → list of compatible slots
@@ -234,15 +381,25 @@ VERTICAL_MARKET_OVERLAP = {
 # ═══════════════════════════════════════════════════════════════
 
 VERTICAL_BLINDSPOT_FLAGS = {
-    "pharma": "electronics_blindspot",             # Default uses electronics
-    "electronics": "electronics_blindspot",        # Default
-    "consumer_goods": "electronics_blindspot",     # Default
-    "software": "electronics_blindspot",           # Default
-    "oil_gas": "refinery_blindspot",
-    "banking_financial_services": "governance_blindspot",
-    "retail_fmcg": "supply_chain_blindspot",
-    "agriculture": "land_use_blindspot",
-    "technology": "data_centre_blindspot",
+    "pharma":                       "electronics_blindspot",
+    "electronics":                  "electronics_blindspot",
+    "consumer_goods":               "electronics_blindspot",
+    "software":                     "electronics_blindspot",
+    "oil_gas":                      "refinery_blindspot",
+    "banking_financial_services":   "governance_blindspot",
+    "retail_fmcg":                  "supply_chain_blindspot",
+    "agriculture":                  "land_use_blindspot",
+    "technology":                   "data_centre_blindspot",
+    # New electronics-slot verticals
+    "semiconductor":                "supply_chain_blindspot",  # Rare mineral / fab concentration
+    "medical_devices":              "governance_blindspot",    # Regulatory / clinical compliance
+    "automotive":                   "refinery_blindspot",      # Scope 3 tailpipe dominance
+    "telecom":                      "data_centre_blindspot",   # Network energy / e-waste
+    # New pharma-slot verticals
+    "chemical":                     "refinery_blindspot",      # Process heat / toxic discharge
+    "cosmetics":                    "supply_chain_blindspot",  # Ingredient sourcing
+    "food_beverage":                "land_use_blindspot",      # Agricultural sourcing / water
+    "power_utilities":              "refinery_blindspot",      # Carbon-intensive generation
 }
 
 

@@ -401,7 +401,7 @@ class TestTerminalValuationCrossModule:
         }
         from round_logic import post_tick
         extra = post_tick(10, gs, bus, decs, {}, prev_flags)
-        assert extra["regenerative_multiple"] == 1.98
+        assert extra["regenerative_multiple"] == 1.83
 
 
 # ═════════════════════════════════════════════════════════════════

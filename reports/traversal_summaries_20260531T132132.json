@@ -1,0 +1,62 @@
+[
+  {
+    "paradigm": "un_sdg",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "6d2652c6-62c6-4678-a3f4-a6b021bbaf29",
+    "final_round": 10,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      222552966.07,
+      270924330.38,
+      328301972.97,
+      380632063.11,
+      400441139.73,
+      397830834.53,
+      421294366.83,
+      441216135.15,
+      410431916.83,
+      443578644.18
+    ],
+    "flagged_rounds": [
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 56.26,
+    "total_rounds_run": 10
+  },
+  {
+    "paradigm": "brsr_ngrbc",
+    "pathway": "activist_ultimatum",
+    "bu_mode": "4bu",
+    "session_id": "dcc16b28-aaf0-43d2-b310-a929746cb72c",
+    "final_round": 5,
+    "passed": true,
+    "errors": [],
+    "gap_history": [],
+    "terminal_values": [
+      210439140.68,
+      210830418.12,
+      201445773.86,
+      144767905.23,
+      108795487.26
+    ],
+    "flagged_rounds": [
+      4,
+      5
+    ],
+    "peak_gap": null,
+    "avg_latency_ms": 56.64,
+    "total_rounds_run": 5
+  }
+]

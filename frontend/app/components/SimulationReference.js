@@ -488,7 +488,7 @@ export default function SimulationReference() {
                     <div className={styles.archetypeGrid}>
                         {terminal_valuation.profile_archetypes.map(a => (
                             <div key={a.name} className={styles.archetypeCard}>
-                                <span className={styles.archetypeIcon}>{a.icon}</span>
+                                {a.icon && <span className={styles.archetypeIcon}>{a.icon}</span>}
                                 <span className={styles.archetypeName}>{a.name}</span>
                                 <span className={styles.archetypeThreshold}>M_R ≥ {a.mr_min.toFixed(1)}</span>
                             </div>

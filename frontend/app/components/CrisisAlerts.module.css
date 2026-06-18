@@ -6,7 +6,12 @@
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 12000;
+  min-height: 100vh;    /* guarantee full-height flex container when rendered
+                           as a standalone page-level early return */
+  /* No z-index needed — CrisisScreen renders as an early return in page.js,
+     so nothing else exists in the DOM while this screen is active.
+     The old z-index: 12000 was an overlay anti-pattern that caused
+     audio bleed-through and scroll-through. */
   display: flex;
   align-items: center;
   justify-content: center;
@@ -34,6 +39,7 @@
 .card {
   width: 100%;
   max-width: 600px;
+  margin: auto;  /* belt-and-suspenders centering inside the flex container */
   animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
 }
 

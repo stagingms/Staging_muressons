@@ -14,6 +14,7 @@ class DecisionParadigm(str, Enum):
     # FIX AUDIT-021: Add missing paradigm to enum for Pydantic validation
     advanced_climate = "advanced_climate"
     healthcare = "healthcare"
+    brsr_ngrbc = "brsr_ngrbc"
 
 
 # ── Enums ────────────────────────────────────────────────────────
@@ -147,6 +148,9 @@ class GlobalStateOut(BaseModel):
     cfo_austerity_active: Optional[bool] = False
     regulatory_ratchet_baseline: Optional[float] = 10.0
 
+    # Balance Sheet Engine (SE-6) — full IFRS balance sheet state
+    balance_sheet: Optional[dict[str, Any]] = None
+
 class BUStateOut(BaseModel):
     bu_id: str
     name: str = ""
@@ -188,6 +192,9 @@ class StartSessionRequest(BaseModel):
     created_when: Optional[str] = None      # When this cohort was created (YYYY-MM-DD)
     start_date: Optional[str] = None        # Cohort start date (YYYY-MM-DD) — game accessible from this date
     end_date: Optional[str] = None          # Cohort end date (YYYY-MM-DD) — game locked after this date
+    simulation_mode: Optional[str] = "conglomerate"  # 'conglomerate' | 'single_bu'
+    industry_vertical: Optional[str] = None           # BU id for single_bu mode (e.g. 'pharma', 'electronics')
+    region_id: Optional[str] = None                   # Geographic region for the cohort
 
 
 class StartSessionResponse(BaseModel):
@@ -201,6 +208,9 @@ class StartSessionResponse(BaseModel):
 
 class BUDecision(BaseModel):
     bu_id: str
+    # TECH-2: investment_ratio is now RECOMPUTED server-side as
+    # capex_allocated / BU_revenue (clamped). Any value sent here is advisory
+    # only and is overwritten in commit_turn before the engine sees it.
     investment_ratio: float = Field(0.0, ge=0.0, le=1.0)  # FIX VULN-002: was 1.5
     capex_allocated: float = Field(0.0, ge=0.0)  # Router enforces min $1
     choice_selected: str = ""
@@ -222,6 +232,9 @@ class JourneyResponseRequest(BaseModel):
 
 class CommitTurnRequest(BaseModel):
     dividends_paid: float = Field(0.0, ge=0.0)
+    # TECH-1: DEPRECATED — the server now derives crisis severity from the
+    # round config (+ pre_tick modifiers). Any value sent here is ignored and
+    # logged. Retained only for backward compatibility with older clients.
     crisis_severity: float = Field(0.0, ge=0.0, le=100.0)
     imitation_decay_rate: float = Field(0.05, ge=0.0, le=1.0)
     decisions: list[BUDecision]

@@ -1,7 +1,9 @@
-/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-   RoundBriefing â€” Pre-Round Briefing Document
+@charset "UTF-8";
+
+/* ═══════════════════════════════════════════════════
+   RoundBriefing — Pre-Round Briefing Document
    Premium dark glassmorphism with animated entrance
-   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+   ═══════════════════════════════════════════════════ */
 
 .overlay {
   position: fixed;
@@ -205,7 +207,7 @@
 }
 
 .objectivesList li::before {
-  content: 'â–¸';
+  content: '\25B8'; /* U+25B8 ▸ — CSS Unicode escape, encoding-safe */
   position: absolute;
   left: 0.2rem;
   color: var(--accent-blue);

@@ -13,6 +13,8 @@ import pathlib
 import threading
 from datetime import datetime, timezone
 from typing import Any, Optional
+from config import SIM_INITIAL_BUDGET, SIM_ROUNDS
+
 
 
 # ── Persistence Config ──────────────────────────────────────────
@@ -24,11 +26,24 @@ _save_lock = threading.Lock()
 # ── Seed Data ───────────────────────────────────────────────────
 
 def _load_seed(industry: str = "generic") -> dict:
-    """Load the Round 1 seed JSON depending on selected industry."""
-    if industry == "healthcare":
-        filename = "seed_healthcare.json"
-    else:
-        filename = "seed_round1.json"
+    """Load the Round 1 seed JSON depending on selected industry.
+
+    LOW-004: The industry parameter is validated against an explicit allowlist
+    before any file path is constructed.  Any unrecognised value silently
+    normalises to "generic" so callers never cause path-traversal by passing
+    untrusted strings such as "../../../etc/passwd".
+    """
+    # Explicit allowlist — add new industries here as seed files are created.
+    _ALLOWED = {"healthcare": "seed_healthcare.json"}
+    _DEFAULT = "seed_round1.json"
+
+    if industry not in _ALLOWED and industry != "generic":
+        import logging as _logging
+        _logging.getLogger("muressons.db").warning(
+            "[SEED] Unknown industry %r — falling back to generic seed.", industry
+        )
+
+    filename = _ALLOWED.get(industry, _DEFAULT)
     seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / filename
     with open(seed_path, "r", encoding="utf-8-sig") as f:
         return json.load(f)
@@ -45,9 +60,18 @@ _decision_log = []
 # ── Persistence Helpers ─────────────────────────────────────────
 
 def _datetime_serializer(obj):
-    """JSON serializer for datetime objects."""
+    """JSON serializer for datetime objects and dataclass instances.
+
+    Extended to handle frozen dataclasses (e.g. engine.CIDeltaResult) which
+    appear in _global_states after process_tick runs.  They don't need to
+    round-trip from disk — converting to a plain dict on save is sufficient
+    since the engine recomputes them fresh each tick.
+    """
     if isinstance(obj, datetime):
         return {"__datetime__": obj.isoformat()}
+    import dataclasses as _dc
+    if _dc.is_dataclass(obj) and not isinstance(obj, type):
+        return _dc.asdict(obj)
     raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
 
 
@@ -67,11 +91,13 @@ def _persist():
             for sid, rounds in _bu_states.items():
                 bu_serializable[sid] = {str(rn): bus for rn, bus in rounds.items()}
 
+            import admin_shared
             snapshot = {
                 "sessions": _sessions,
                 "global_states": _global_states,
                 "bu_states": bu_serializable,
                 "decision_log": _decision_log,
+                "cohort_marketplaces": getattr(admin_shared, "_cohort_marketplaces", {}),
             }
             _SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
@@ -111,12 +137,35 @@ def _load_from_disk():
         for sid, rounds in raw_bu.items():
             _bu_states[sid] = {int(rn): bus for rn, bus in rounds.items()}
 
+        # Restore cohort_marketplaces
+        try:
+            import admin_shared
+            admin_shared._cohort_marketplaces.clear()
+            admin_shared._cohort_marketplaces.update(snapshot.get("cohort_marketplaces", {}))
+            admin_shared._shared_marketplace = admin_shared._cohort_marketplaces.setdefault("default", {
+                "carbon_credit_pool": {
+                    "total_available": 500,
+                    "price_per_credit": 50_000,
+                    "purchased": {},
+                    "price_history": [50_000],
+                },
+                "green_talent_pool": {
+                    "total_available": 100,
+                    "cost_per_hire": 200_000,
+                    "hired": {},
+                    "cost_history": [200_000],
+                },
+            })
+        except Exception as e:
+            print(f"[persistence] Failed to restore marketplace: {e}")
+
         _cleanup_expired_records()
 
         session_count = len([s for s in _sessions.values() if not s.get("parent_cohort_id")])
         print(f"[persistence] Restored {session_count} cohort(s) from snapshot.")
     except Exception as e:
         print(f"[persistence] Failed to load snapshot: {e}")
+
 
 from datetime import timedelta
 def _cleanup_expired_records():
@@ -157,6 +206,23 @@ async def close_pool():
     pass
 
 
+# ── SEC-5: Advisory-lock stubs (memory mode is single-process) ──
+# In-memory mode runs in a single process, where router.py's asyncio.Lock
+# already provides full serialization. These return a sentinel so the
+# composite lock's acquire path always "succeeds" without a DB round-trip.
+_MEMORY_LOCK_SENTINEL = object()
+
+
+async def acquire_advisory_lock(session_id: str):
+    """No-op cross-process lock for memory mode (always acquires)."""
+    return _MEMORY_LOCK_SENTINEL
+
+
+async def release_advisory_lock(conn, session_id: str) -> None:
+    """No-op release for memory mode."""
+    return None
+
+
 # ── Session Short Code Generator ───────────────────────────────
 
 import random as _random
@@ -190,6 +256,10 @@ async def create_session(
     created_when: Optional[str] = None,
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
+    assigned_bu: Optional[str] = None,
+    region_id: Optional[str] = None,
+    simulation_mode: Optional[str] = None,
+    industry_vertical: Optional[str] = None,
 ) -> dict:
     """
     Create a new session and seed Round 1 state.
@@ -201,6 +271,9 @@ async def create_session(
             if (existing["cohort_name"].strip().lower() == cohort_name.strip().lower()
                     and not existing.get("parent_cohort_id")):
                 raise ValueError(f"A cohort named '{cohort_name}' already exists.")
+
+    if decision_paradigm == "brsr_ngrbc" and currency_symbol == "$":
+        currency_symbol = "₹"
 
     from admin_shared import _god_mode_settings
     # Determine industry/seed based on the requested decision paradigm.
@@ -240,9 +313,22 @@ async def create_session(
         "start_date": start_date,
         "end_date": end_date,
         "shuffle_seed": _shuffle_seed,
+        "assigned_bu": assigned_bu or "",
+        "region_id": region_id or "",
+        "simulation_mode": simulation_mode or "",
+        "industry_vertical": industry_vertical or "",
     }
 
-    bus = seed["business_units"]
+    bus = copy.deepcopy(seed["business_units"])
+    if assigned_bu:
+        filtered = [b for b in bus if b.get("bu_id") == assigned_bu]
+        if filtered:
+            bus = filtered
+    if decision_paradigm == "un_sdg":
+        for bu in bus:
+            for cluster in ["basic_needs", "human_capital", "sustainable_growth", "planet", "governance", "partnerships"]:
+                if cluster not in bu:
+                    bu[cluster] = 50.0
     n = len(bus) or 1
     baseline_ebitda = round(sum(b["revenue_base"] - b["opex_base"] for b in bus), 2)
     baseline_tco2e = round(sum(b.get("carbon_intensity", 0) * b["revenue_base"] / 1_000_000 for b in bus))
@@ -257,12 +343,28 @@ async def create_session(
     }
 
     from admin_shared import _god_mode_settings
-    treasury = _god_mode_settings.get("corporate_treasury_start", gs["corporate_treasury_usd"])
+    treasury = _god_mode_settings.get("corporate_treasury_start", SIM_INITIAL_BUDGET)
     reputation = _god_mode_settings.get("group_reputation_start", gs["group_reputation_score"])
     synergy = _god_mode_settings.get("synergy_multiplier_start", gs["group_synergy_multiplier"])
     coc = _god_mode_settings.get("cost_of_capital_start", gs["cost_of_capital_rate"])
     loan_interest_rate = _god_mode_settings.get("loan_interest_rate_start", loan_interest_rate)
     green_fund = _god_mode_settings.get("green_transition_fund_start", 0.0)
+
+
+    # ── Single-BU mode: scale treasury proportionally ──
+    # When running with 1 BU out of N total, divide treasury by N ONLY when
+    # the treasury is the default full-group seed amount (SIM_INITIAL_BUDGET).
+    # If the facilitator has explicitly set corporate_treasury_start to a custom
+    # value, that value is already their intended per-BU amount — do NOT divide
+    # it again (which would produce a nonsensically small starting balance).
+    if assigned_bu:
+        treasury_was_explicitly_set = "corporate_treasury_start" in _god_mode_settings
+        if not treasury_was_explicitly_set:
+            # Using the default seed budget — scale it down proportionally
+            total_bus_in_seed = len(seed.get("business_units", []))
+            if total_bus_in_seed > 1:
+                treasury = round(treasury / total_bus_in_seed, 2)
+                green_fund = round(green_fund / total_bus_in_seed, 2)
 
     # ── Resolve ending pathway for this session ──
     from ending_pathways import resolve_pathway
@@ -297,35 +399,37 @@ async def create_session(
         "global_emissions_intensity": gs.get("global_emissions_intensity", 0.0),
     }
 
+    if decision_paradigm == "brsr_ngrbc":
+        from brsr_controller import init_brsr_state
+        init_brsr_state(global_state["active_event_flags"], bus, {})
+
     _global_states[session_id] = [global_state]
     _bu_states[session_id] = {1: copy.deepcopy(bus)}
     _persist()
 
-    # FIX AUDIT-004: Return the same god-mode-adjusted values that were
-    # actually stored in _global_states, not the raw seed defaults.
+    res_global = {
+        "corporate_treasury": treasury,
+        "group_reputation": reputation,
+        "synergy_multiplier": synergy,
+        "cost_of_capital": coc,
+        "active_event_flags": global_state["active_event_flags"],
+        "historical_ebitda": baseline_ebitda,
+        "tco2e_emissions": baseline_tco2e,
+        "vrio_capabilities": baseline_vrio,
+        "green_transition_fund": green_fund,
+        "tipping_point_active": False,
+        "pending_capex_projects": [],
+        "inflation_index": 0.025,
+        "competitor_ebitda": baseline_ebitda,
+    }
+    if decision_paradigm == "brsr_ngrbc":
+        res_global["_brsr_track_state"] = global_state["active_event_flags"]["_brsr_track_state"]
+
     return {
         "session_id": session_id,
         "round_number": 1,
-        "global_state": {
-            "corporate_treasury": treasury,
-            "group_reputation": reputation,
-            "synergy_multiplier": synergy,
-            "cost_of_capital": coc,
-            "active_event_flags": {
-                **gs.get("active_event_flags", {}),
-                "loan_interest_rate": loan_interest_rate,
-                "ending_pathway": ending_pathway,
-            },
-            "historical_ebitda": baseline_ebitda,
-            "tco2e_emissions": baseline_tco2e,
-            "vrio_capabilities": baseline_vrio,
-            "green_transition_fund": green_fund,
-            "tipping_point_active": False,
-            "pending_capex_projects": [],
-            "inflation_index": 0.025,
-            "competitor_ebitda": baseline_ebitda,
-        },
-        "business_units": seed["business_units"],
+        "global_state": res_global,
+        "business_units": bus,
     }
 
 
@@ -376,6 +480,19 @@ async def set_session_public(session_id: str, is_public: bool) -> bool:
     session["is_public"] = is_public
     _persist()
     return True
+
+async def update_session_metadata(session_id: str, updates: dict) -> bool:
+    """Public API: update editable metadata fields on a session.
+    Parallel to database.py's update_session_metadata — both backends must implement this.
+    Updates the in-memory store in-place and persists to disk snapshot.
+    """
+    session = _sessions.get(session_id)
+    if session is None:
+        return False
+    session.update(updates)
+    _persist()
+    return True
+
 
 async def generate_player_id(session_id: str) -> Optional[str]:
     import random
@@ -594,6 +711,11 @@ async def insert_next_round(
             "team_consensus": dec.get("team_consensus", "majority"),
         })
 
+    # H-4 fix: Cap decision log to prevent unbounded memory growth
+    _MAX_DECISION_LOG = 50_000
+    if len(_decision_log) > _MAX_DECISION_LOG:
+        del _decision_log[:_MAX_DECISION_LOG // 10]
+
     _persist()
     return global_state_id
 
@@ -664,7 +786,10 @@ async def fetch_all_sessions() -> list[dict]:
             "start_date": s.get("start_date"),
             "end_date": s.get("end_date"),
             "pacing_mode": s.get("pacing_mode", "free_play"),
-            "max_unlocked_round": s.get("max_unlocked_round", 10),
+            "max_unlocked_round": s.get("max_unlocked_round", SIM_ROUNDS),
+            "simulation_mode": s.get("simulation_mode", ""),
+            "industry_vertical": s.get("industry_vertical", ""),
+            "region_id": s.get("region_id", ""),
         }
         for s in sorted(
             _sessions.values(),

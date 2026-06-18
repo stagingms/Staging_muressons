@@ -29,7 +29,11 @@ export default function useSimulation() {
     const [roundLocked, setRoundLocked] = useState(false);
     const [commitResults, setCommitResults] = useState(null); // Holds results after commit, before advance
     const [practiceReset, setPracticeReset] = useState(false); // True when practice round reset occurs
+    const [mustChangePassword, setMustChangePassword] = useState(false); // True when player must change password
+    // Session metadata: cohort_name, simulation_mode, etc. — populated from session-info API by page.js
+    const [sessionMeta, setSessionMeta] = useState({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null });
     const commitInProgressRef = useRef(false); // Guard against double-submit
+    const advanceInProgressRef = useRef(false); // Guard against double-advance
 
     // Track round to auto-open crisis modal
     const prevRoundRef = useRef(1);
@@ -317,6 +321,10 @@ export default function useSimulation() {
                 localStorage.setItem('muressons_session_id', playerSessionId);
                 localStorage.setItem('muressons_playerId', playerId);
             }
+            // Flag if first-login password change is required
+            if (loginData.must_change_password) {
+                setMustChangePassword(true);
+            }
             const dashData = await fetchDashboard(playerSessionId);
             if (dashData?.current_round && dashData.current_round <= 10) {
                 await fetchRoundConfig(dashData.current_round);
@@ -403,13 +411,18 @@ export default function useSimulation() {
                         setLoading(false);
                         return null;
                     }
-                    // Handle rate-limit (429) — auto-retry after cooldown
+                    // Handle rate-limit (429) — auto-retry after cooldown (max 2 retries)
                     if (res.status === 429) {
-                        console.warn('[commitTurn] Rate limited — retrying in 5s');
-                        commitInProgressRef.current = false;
-                        setLoading(false);
-                        await new Promise(r => setTimeout(r, 5200));
-                        return commitTurn(payload);
+                        const retryCount = payload._retryCount || 0;
+                        if (retryCount < 2) {
+                            console.warn(`[commitTurn] Rate limited — retry ${retryCount + 1}/2 in 5s`);
+                            commitInProgressRef.current = false;
+                            setLoading(false);
+                            await new Promise(r => setTimeout(r, 5200));
+                            return commitTurn({ ...payload, _retryCount: retryCount + 1 });
+                        }
+                        console.error('[commitTurn] Rate limited — max retries exceeded');
+                        throw new Error('Rate limited. Please wait a few seconds and try again.');
                     }
                     const body = await res.json().catch(() => ({}));
                     const detail = typeof body.detail === 'string' ? body.detail
@@ -449,6 +462,7 @@ export default function useSimulation() {
                 // Store commit results for review — do NOT advance the UI yet.
                 // roundNumber, globalState, businessUnits stay on the CURRENT round
                 // until the user clicks "Advance".
+                console.log(`[commitTurn] Success: current round ${roundNumber} → new round ${data.new_round_number}`);
                 setCommitResults({
                     newRoundNumber: data.new_round_number,
                     events: data.events || {},
@@ -509,8 +523,19 @@ export default function useSimulation() {
 
     // ── Advance to next round (after reviewing commit results) ──
     const advanceToNextRound = useCallback(async () => {
-        if (!commitResults) return;
+        if (!commitResults) {
+            console.warn('[advanceToNextRound] No commitResults — ignoring');
+            return;
+        }
+        // Guard against double-advance (e.g. user double-clicks the advance button)
+        if (advanceInProgressRef.current) {
+            console.warn('[advanceToNextRound] Advance already in progress — ignoring');
+            return;
+        }
+        advanceInProgressRef.current = true;
+
         const nextRound = commitResults.newRoundNumber;
+        console.log(`[advanceToNextRound] Advancing from commitResults: → Round ${nextRound}`);
 
         // NOW apply the new state to the UI
         setRoundNumber(nextRound);
@@ -519,12 +544,16 @@ export default function useSimulation() {
         setCommitResults(null);
         setRoundChanged(true);
 
-        if (nextRound <= 10) {
-            await fetchRoundConfig(nextRound);
-        }
+        try {
+            if (nextRound <= 10) {
+                await fetchRoundConfig(nextRound);
+            }
 
-        // Re-fetch full dashboard for history
-        try { await fetchDashboard(); } catch { /* non-critical */ }
+            // Re-fetch full dashboard for history
+            try { await fetchDashboard(); } catch { /* non-critical */ }
+        } finally {
+            advanceInProgressRef.current = false;
+        }
     }, [commitResults, fetchRoundConfig, fetchDashboard]);
 
     // ── Reset roundChanged flag after a render tick ────────────
@@ -554,7 +583,7 @@ export default function useSimulation() {
                 const data = await res.json();
 
                 // Server round is ahead of client round → facilitator or timer advanced
-                if (data.current_round > roundNumber && !commitResults) {
+                if (data.current_round > roundNumber && !commitResults && !advanceInProgressRef.current) {
                     const flags = data.global_state?.active_event_flags || {};
                     const wasAutoCommitted = flags.auto_committed === true;
 
@@ -646,6 +675,8 @@ export default function useSimulation() {
         setRoundLocked(false);
         setCommitResults(null);
         setPracticeReset(false);
+        setMustChangePassword(false);
+        setSessionMeta({ cohort_name: null, simulation_mode: null, assigned_bu: null, industry_vertical: null });
     }, []);
 
     return {
@@ -669,6 +700,10 @@ export default function useSimulation() {
         autoAdvanceDetected,
         setAutoAdvanceDetected,
         practiceReset,
+        mustChangePassword,
+        setMustChangePassword,
+        sessionMeta,
+        setSessionMeta,
 
         // Actions
         setUsername,

@@ -1369,20 +1369,26 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     },
                     brsr_ngrbc: {
                         icon: '🇮🇳', label: 'BRSR: NGRBC Deep Dive',
-                        debrief_after_round: 5,
+                        debrief_after_round: 10,
                         talking_points: [
                             'BRSR-R1 Governance & Transparency (P1/P7): Option A "Radical Transparency" sets the brsr_pioneer flag — this is the Leadership Indicator path and unlocks the +0.05 ESG Alpha Dividend at terminal valuation. Ask: "What is the difference between Essential and Leadership indicators?"',
                             'BRSR-R2 Workforce Well-being (P3/P5): Living wage adoption is a Leadership Indicator under NGRBC P3. Teams that chose minimum wage compliance fulfilled Essential but missed Leadership — discuss the real-world SEBI distinction.',
                             'BRSR-R3 Environment & Circularity (P6/P2): Circular procurement requires Scope 3 tracking infrastructure. Teams with deep audit data from the main sim R1 had an easier time — the data infrastructure carries over.',
                             'BRSR-R4 Value Chain Assurance (P4/P8/P9): If teams accumulated the brsr_greenwash_risk flag, the engine injects a SEBI Show-Cause Notice crisis this round (−12 Reputation). This teaches that greenwashing has real regulatory consequences.',
                             'BRSR-R5 Integrated Reporting & BRSR Core: The governance_fragility flag from BRSR-R1 triggers a Whistleblower Governance Leak ($2.5M treasury drain). This is the "long-tail consequence" — a shortcut taken 8 rounds ago now materialises as a crisis.',
+                            'BRSR-R6 Human Rights Realities (P5): The tier2_human_rights_risk flag triggers international buyer contract suspensions (−8 Reputation). Teams that deployed deep HRDD with digital traceability bypass this entirely — discuss Tier-2 supply chain blind spots.',
+                            'BRSR-R7 Policy Advocacy (P7): Teams that signed the lobbying cartel memo earn the greenwash_advocacy flag. Teams that took a public progressive stance gain the policy_leadership flag — a terminal valuation shield. Connect to real-world corporate lobbying transparency debates.',
+                            'BRSR-R8 MSME Payment Crisis (P8): The working_capital_hoarder flag triggers a SEBI penalty ($1.5M). Teams that integrated TReDS and implemented inclusive sourcing quotas earn the msme_champion flag. Discuss the real TReDS platform and Section 43B(h) compliance.',
+                            'BRSR-R9 BRSR Core Statutory Mandate (P4/P9): If brsr_greenwash_risk persists without brsr_core_assured, an extreme correction expense ($4M) is imposed. Teams with reasonable assurance from Big 4 auditors bypass this — discuss the real BRSR Core glide path timeline.',
+                            'BRSR-R10 Double Materiality & CSRD Alignment: The terminal round. Teams achieving csrd_aligned and brsr_integrated_report earn the maximum filing premium. Discuss how Indian BRSR and European CSRD can be reconciled through double materiality verification.',
                         ],
                         discussion_prompts: [
-                            'Trace the governance_fragility flag from BRSR R1 to the R5 crisis. What was the compounding cost of the governance shortcut?',
+                            'Trace the governance_fragility flag from BRSR R1 through R5 and R10. What was the compounding cost of the governance shortcut?',
                             'How does the BRSR Essential vs. Leadership indicator structure compare to GRI or TCFD reporting frameworks?',
                             'SEBI mandates BRSR for the top 1,000 listed companies. What market signal does this threshold create for smaller firms?',
                             'If you achieved BRSR Pioneer status: what strategic decisions enabled it? Would a real Indian listed company make the same choices under SEBI pressure?',
                             'How does the +0.05 ESG Alpha Dividend change your view of sustainability reporting as a "cost centre" vs. a value driver?',
+                            'How did the India-specific frictions (TReDS, Section 135, CPCB/SPCB, MSME protection) differ from global ESG frameworks you have encountered?',
                         ],
                     },
                 };

@@ -866,6 +866,83 @@ _BRSR_TELEPROMPTER_OVERLAYS = {
             "How does the BRSR framework's Essential/Leadership structure compare to GRI or TCFD reporting?",
         ],
     },
+    2: {
+        "brsr_round": "BRSR R6 — Human Rights Realities (NGRBC Principle 5)",
+        "banner": "🇮🇳 BRSR TRACK: Human rights due diligence and Tier-2 supply chain exposure.",
+        "facilitator_guidance": [
+            "NGRBC Principle 5 requires companies to respect and promote human rights — not just within direct operations but across the value chain.",
+            "Option A (Deep HRDD with Digital Traceability) deploys blockchain-enabled Tier-2 supplier monitoring. Sets the 'deep_hrdd_active' flag — providing assurance bonus in later rounds.",
+            "Option C (Tier-1 Only Compliance) creates the 'tier2_human_rights_risk' flag — Tier-2 blind spots will surface in later rounds when international buyers audit the supply chain.",
+            "KEY TEACHING MOMENT: Ask teams — 'Where does your corporate responsibility end? At Tier-1 suppliers? Tier-2? The raw material source?'",
+        ],
+        "debrief_prompts": [
+            "India's informal sector constitutes over 80% of employment. How does formalisation affect BRSR human rights compliance?",
+            "What is the difference between 'knowing about' human rights risks and 'acting on' them under NGRBC P5?",
+            "If international buyers suspend contracts due to Tier-2 issues, whose fault is it — yours or the supplier's?",
+        ],
+    },
+    4: {
+        "brsr_round": "BRSR R7 — Policy Advocacy & Lobbying Transparency (NGRBC Principle 7)",
+        "banner": "🇮🇳 BRSR TRACK: Corporate policy advocacy and responsible lobbying.",
+        "facilitator_guidance": [
+            "NGRBC Principle 7 addresses policy advocacy — this is one of the most politically sensitive BRSR areas.",
+            "Option A (Progressive Public Stance) publicly advocates for stronger ESG regulation. Sets 'policy_leadership' — acts as a terminal valuation shield against governance fragility.",
+            "Option C (Industry Cartel Lobbying Memo) secretly signs a joint memo against carbon pricing. Sets 'greenwash_advocacy' — a reputational time bomb if leaked.",
+            "★ CRITICAL: Connect this to real-world debates about corporate lobbying disclosure (e.g., InfluenceMap data on oil & gas companies publicly supporting Paris Agreement while funding anti-climate lobbying).",
+        ],
+        "debrief_prompts": [
+            "Is it legitimate for companies to lobby against regulations they believe are economically harmful?",
+            "How does India's Companies Act Section 135 CSR mandate interact with corporate policy advocacy?",
+            "If your greenwash_advocacy flag gets leaked in later rounds, how would you explain it to institutional investors?",
+        ],
+    },
+    6: {
+        "brsr_round": "BRSR R8 — MSME & Vendor Protection (NGRBC Principle 8)",
+        "banner": "🇮🇳 BRSR TRACK: MSME payment practices and inclusive supply chain development.",
+        "facilitator_guidance": [
+            "NGRBC Principle 8 (Inclusive Growth) focuses on equitable relationships with MSMEs — India's backbone employers.",
+            "Option A (TReDS Integration + Inclusive Sourcing) onboards MSME vendors onto the Trade Receivables Discounting System. Sets 'msme_champion' — a crisis severity shield in later rounds.",
+            "Option C (Working Capital Hoarding) delays MSME payments beyond 45 days for treasury benefit. Sets 'working_capital_hoarder' — triggers a SEBI penalty ($1.5M) in Round 8.",
+            "KEY TEACHING MOMENT: Explain Section 43B(h) of the Income Tax Act — payments to MSMEs beyond 45 days are now non-deductible. This makes working capital hoarding economically irrational.",
+        ],
+        "debrief_prompts": [
+            "What is TReDS and why did SEBI mandate its adoption for top listed companies?",
+            "How does the 45-day payment rule (Section 43B(h)) change the corporate incentive structure for MSME dealings?",
+            "Is inclusive sourcing (reserving 10% procurement for MSME vendors) fair or distortionary?",
+        ],
+    },
+    8: {
+        "brsr_round": "BRSR R9 — BRSR Core Statutory Mandate & Assurance (NGRBC P4/P9)",
+        "banner": "⚠️ BRSR CRISIS WINDOW: BRSR Core statutory mandate enforcement. Unverified claims face correction expense.",
+        "facilitator_guidance": [
+            "★ CRITICAL: If 'brsr_greenwash_risk' persists from earlier rounds AND 'brsr_core_assured' is absent, the engine imposes a $4M correction expense this round.",
+            "This represents the real-world BRSR Core glide path — SEBI is progressively mandating reasonable assurance for value chain metrics. Companies without Big 4 verification face statutory penalties.",
+            "Teams that secured BRSR Core assurance in Round 4 are protected. Ask: 'Was the assurance investment worth it now?'",
+            "Option A (Full CSRD-BRSR dual alignment) earns the 'csrd_aligned' flag — recognised by European institutional investors.",
+        ],
+        "debrief_prompts": [
+            "What is the real BRSR Core glide path timeline set by SEBI? (Hint: top 150 → top 500 → top 1000)",
+            "How does BRSR reasonable assurance differ from financial audit assurance?",
+            "If you faced the $4M correction expense: what would you do differently in a real BRSR filing?",
+        ],
+    },
+    10: {
+        "brsr_round": "BRSR R10 — Integrated Double Materiality & CSRD Alignment (Terminal)",
+        "banner": "🇮🇳 BRSR TRACK FINALE: Double materiality assessment and terminal BRSR filing.",
+        "facilitator_guidance": [
+            "This is the terminal BRSR round. Teams must reconcile Indian BRSR with global CSRD double materiality requirements.",
+            "Option A (Full Double Materiality Integrated Report) achieves maximum BRSR filing premium. Requires both financial and impact materiality assessment.",
+            "Teams with accumulated governance fragility AND no policy leadership face a terminal governance reckoning: ESG rating downgrade (-6 Reputation).",
+            "★ CAPSTONE: Walk teams through their full 10-round BRSR journey. Which flags compounded? Which crises were avoidable? What would they change?",
+            "Connect to the main simulation terminal valuation: BRSR Pioneer status contributes +0.05 to the Regenerative Multiple.",
+        ],
+        "debrief_prompts": [
+            "★ TERMINAL: Compare your BRSR archetype with your main simulation archetype. Are they consistent?",
+            "How would you reconcile BRSR (Indian) and CSRD (European) reporting in a multinational context?",
+            "What is the business case for double materiality reporting? Is it a cost or an investment?",
+            "If you could replay the 10 BRSR rounds with one strategic change, what would it be?",
+        ],
+    },
 }
 
 @teleprompter_router.get("/teleprompter/{round_number}", summary="Get facilitator teleprompter script")

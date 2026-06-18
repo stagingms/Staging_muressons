@@ -288,14 +288,50 @@ def _resolve_active_vertical(global_state: dict) -> str | None:
 
 
 def get_stakeholders_for_session(global_state: dict) -> list[dict]:
-    """Return the appropriate stakeholder set for a session (vertical or default)."""
+    """Return the appropriate stakeholder set for a session (vertical or default).
+
+    Resolution priority (highest first):
+      1. Industry vertical substitutions — if a BU has been swapped for a vertical
+         BU (e.g. oil_gas, technology), vertical_stakeholders data is used.
+      2. Region localisation — if region_id is set on the global state or its
+         parent metadata, regional overrides from stakeholder_db are applied on
+         top of the canonical STAKEHOLDERS list.
+      3. Canonical STAKEHOLDERS — the global default set.
+    """
     v_id = _resolve_active_vertical(global_state)
     if v_id:
-        from vertical_stakeholders import get_stakeholders_for_vertical
-        vertical_data = get_stakeholders_for_vertical(v_id)
-        if vertical_data:
-            return vertical_data
+        # Check for JSON vertical override (Excel-uploaded verticals)
+        try:
+            from stakeholder_db import get_region_config_raw as _get_region_cfg
+            vertical_override = _get_region_cfg(f"vertical_{v_id}")
+            if vertical_override:
+                return vertical_override
+        except ImportError:
+            pass
+
+        try:
+            from vertical_stakeholders import get_stakeholders_for_vertical
+            vertical_data = get_stakeholders_for_vertical(v_id)
+            if vertical_data:
+                return vertical_data
+        except ImportError:
+            pass
+
+    # Region-aware path
+    region_id = global_state.get("region_id", "") or global_state.get(
+        "active_event_flags", {}
+    ).get("region_id", "")
+    if region_id:
+        try:
+            from stakeholder_db import get_stakeholders_for_region
+            regional = get_stakeholders_for_region(region_id)
+            if regional:
+                return regional
+        except ImportError:
+            pass
+
     return STAKEHOLDERS
+
 
 
 def get_master_map_for_session(global_state: dict) -> dict[str, str]:

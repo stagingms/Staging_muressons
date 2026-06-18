@@ -1,3 +1,6 @@
+# SEC-2: Local DEVELOPMENT compose — in-memory store, DEBUG on.
+# Data is NOT durable; this profile is for local development only.
+# For a durable, production-like stack use:  docker compose -f docker-compose.prod.yml up
 services:
   muressons:
     build: .
@@ -5,5 +8,6 @@ services:
       - "3000:3000"   # Frontend
     environment:
       - USE_MEMORY_DB=true
-      - NODE_ENV=production
+      - DEBUG=true
+      - NODE_ENV=development
     restart: unless-stopped

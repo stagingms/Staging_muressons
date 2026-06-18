@@ -1,181 +1,322 @@
-ï»¿.overlay {
+/* ============================================================
+   BRSR XBRL Filing Portal — SEBI Compliance Terminal
+   Ministry of Corporate Affairs | Government of India
+   ============================================================ */
+
+.overlay {
   position: fixed;
   inset: 0;
-  background: rgba(10, 14, 26, 0.95);
+  background: rgba(10, 14, 26, 0.92);
   z-index: 21500;
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: fadeIn 0.2s ease-out;
+  animation: portalFadeIn 0.25s ease-out;
 }
 
 .panel {
-  background: var(--bg-primary);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  border-radius: 16px;
-  width: 90%;
-  max-width: 960px;
-  max-height: 90vh;
-  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  background: #ffffff;
+  border: 1px solid #708090;
+  width: 92%;
+  max-width: 880px;
+  max-height: 92vh;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  font-family: 'Inter', system-ui, sans-serif;
-  color: var(--text-primary);
+  color: #1e293b;
 }
 
+/* --- Tricolor Strip --- */
+.tricolorStrip {
+  height: 4px;
+  display: flex;
+  flex-shrink: 0;
+}
+.tricolorStrip span {
+  flex: 1;
+}
+.tricolorSaffron { background: #FF9933; }
+.tricolorWhite   { background: #FFFFFF; }
+.tricolorGreen   { background: #138808; }
+
+/* --- Header Bar --- */
 .header {
-  padding: 1.2rem 1.5rem;
-  background: linear-gradient(90deg, rgba(16, 185, 129, 0.1), transparent);
-  border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+  background: #1a365d;
+  padding: 1rem 1.5rem;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-}
-
-.headerLeft {
-  display: flex;
-  align-items: center;
   gap: 1rem;
 }
 
-.headerIcon {
-  font-size: 2rem;
+.headerText {
+  flex: 1;
+  min-width: 0;
 }
 
 .headerTitle {
-  font-size: 1.1rem;
-  font-weight: 800;
-  color: var(--gauge-green);
-  letter-spacing: 0.1em;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
 }
 
 .headerSub {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 0.78rem;
+  color: #a0aec0;
+  margin-top: 4px;
+  letter-spacing: 0.02em;
+}
+
+.closeLink {
+  background: none;
+  border: none;
+  color: #a0aec0;
+  font-family: 'Georgia', 'Times New Roman', serif;
   font-size: 0.8rem;
-  color: var(--text-muted);
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 2px 0;
+  white-space: nowrap;
+  flex-shrink: 0;
   margin-top: 2px;
 }
-
-.headerRight {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+.closeLink:hover {
+  color: #ffffff;
 }
 
-.closeBtn {
-  background: transparent;
-  border: none;
-  color: var(--text-muted);
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 4px;
-}
-.closeBtn:hover {
-  color: var(--text-primary);
-}
-
+/* --- Scrollable Content --- */
 .content {
-  padding: 1.5rem;
+  padding: 1.25rem 1.5rem 1.5rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1.25rem;
 }
 
-.metricsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
-}
-
-.metricCard {
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(148, 163, 184, 0.1);
-  border-radius: 12px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-}
-
-.metricHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.8rem;
-}
-
-.metricTitle {
-  font-size: 0.85rem;
+/* --- Section Titles --- */
+.sectionTitle {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 0.88rem;
   font-weight: 700;
-  color: var(--text-muted);
+  color: #1a365d;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 2px solid #1a365d;
 }
 
-.metricIcon {
-  font-size: 1.2rem;
+/* --- XBRL Validation Status Panel --- */
+.validationPanel {
+  background: #f8f9fa;
+  border: 1px solid #708090;
+  padding: 1rem 1.25rem;
 }
 
-.metricValue {
-  font-size: 1.8rem;
-  font-weight: 900;
-  font-family: var(--font-mono);
-  margin-bottom: 0.5rem;
+.validationTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.82rem;
+  line-height: 1.6;
 }
-
-.progressBar {
-  height: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
+.validationTable td {
+  padding: 0.3rem 0;
+  vertical-align: top;
 }
-
-.progressFill {
-  height: 100%;
-  transition: width 0.5s ease-out;
-}
-
-.flagsSection {
-  background: rgba(16, 185, 129, 0.05);
-  border: 1px solid rgba(16, 185, 129, 0.2);
-  border-radius: 12px;
-  padding: 1.2rem;
-}
-
-.flagsTitle {
-  font-size: 0.9rem;
-  font-weight: 700;
-  color: var(--gauge-green);
-  margin-bottom: 1rem;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.flagsGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 0.8rem;
-}
-
-.flagBadge {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.6rem 0.8rem;
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 8px;
-  font-size: 0.75rem;
+.validationTable td:first-child {
+  color: #708090;
+  white-space: nowrap;
+  padding-right: 1.5rem;
   font-weight: 600;
-  color: var(--text-muted);
+  width: 220px;
+}
+.validationTable td:last-child {
+  color: #1e293b;
+  font-weight: 700;
 }
 
-.flagBadgeActive {
-  background: rgba(16, 185, 129, 0.1);
-  border-color: rgba(16, 185, 129, 0.5);
-  color: var(--gauge-green);
+.statusAssured {
+  color: #1a365d !important;
+  background: rgba(26, 54, 93, 0.08);
+  padding: 1px 6px;
+}
+.statusPending {
+  color: #92400e !important;
+  background: rgba(146, 64, 14, 0.08);
+  padding: 1px 6px;
+}
+.statusDiscrepancy {
+  color: #991b1b !important;
+  background: rgba(153, 27, 27, 0.08);
+  padding: 1px 6px;
 }
 
-@keyframes fadeIn {
+/* --- NGRBC Principle Compliance Matrix --- */
+.complianceSection {
+  overflow-x: auto;
+}
+
+.complianceTable {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid #708090;
+  font-size: 0.8rem;
+}
+
+.complianceTable thead th {
+  background: #1a365d;
+  color: #ffffff;
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border: 1px solid #708090;
+  white-space: nowrap;
+}
+
+.complianceTable tbody td {
+  background: #ffffff;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid #dee2e6;
+  vertical-align: middle;
+}
+
+.complianceTable tbody tr:nth-child(even) td {
+  background: #f8f9fa;
+}
+
+.principleCode {
+  font-family: 'Courier New', Courier, monospace;
+  font-weight: 700;
+  color: #1a365d;
+  white-space: nowrap;
+}
+
+.domainLabel {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 0.8rem;
+  color: #334155;
+}
+
+.indicatorTag {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.indicatorLeadership {
+  color: #1a365d;
+}
+.indicatorEssential {
+  color: #92400e;
+}
+.indicatorNonCompliant {
+  color: #991b1b;
+}
+
+.statusIcon {
+  font-size: 1rem;
+  text-align: center;
+  display: block;
+}
+
+/* --- Audit Exceptions --- */
+.exceptionsPanel {
+  border: 1px solid #708090;
+  padding: 0.85rem 1.1rem;
+}
+.exceptionsPanel.hasExceptions {
+  background: rgba(153, 27, 27, 0.04);
+  border-color: #991b1b;
+}
+.exceptionsPanel.noExceptions {
+  background: rgba(26, 54, 93, 0.03);
+}
+
+.exceptionLine {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.3rem 0;
+  line-height: 1.55;
+  color: #991b1b;
+}
+
+.auditClean {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #1a365d;
+  line-height: 1.55;
+}
+
+/* --- ESG Alpha Dividend --- */
+.dividendPanel {
+  background: #1e293b;
+  border: 1px solid #334155;
+  padding: 0.75rem 1.1rem;
+}
+
+.dividendText {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #4ade80;
+  letter-spacing: 0.03em;
+}
+
+/* --- Footer Disclaimer --- */
+.footerDisclaimer {
+  font-family: 'Georgia', 'Times New Roman', serif;
+  font-size: 0.65rem;
+  color: #708090;
+  text-align: center;
+  padding-top: 0.5rem;
+  border-top: 1px solid #dee2e6;
+  line-height: 1.5;
+}
+
+/* --- Animation --- */
+@keyframes portalFadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
+}
+
+/* --- Responsive --- */
+@media (max-width: 600px) {
+  .panel {
+    width: 98%;
+    max-height: 96vh;
+  }
+  .header {
+    padding: 0.75rem 1rem;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .headerTitle {
+    font-size: 0.92rem;
+  }
+  .content {
+    padding: 1rem;
+  }
+  .validationTable td:first-child {
+    width: auto;
+  }
+  .complianceTable {
+    font-size: 0.72rem;
+  }
+  .complianceTable thead th,
+  .complianceTable tbody td {
+    padding: 0.4rem 0.5rem;
+  }
 }

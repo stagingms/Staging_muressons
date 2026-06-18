@@ -70,12 +70,23 @@ export default function ManualOverride({ sessionId, onOverrideApplied }) {
                 {overrides.length === 0 && sessionId && (
                     <div style={{ color: 'var(--text-muted)', padding: '1rem', fontStyle: 'italic' }}>No manual overrides are permitted for this cohort.</div>
                 )}
-                {overrides.map((o) => (
+                {overrides.map((o) => {
+                    const params = o.params && Object.keys(o.params).length > 0
+                        ? Object.entries(o.params).map(([k, v]) => `${k}: ${v}`).join(' · ')
+                        : null;
+                    const tooltipParts = [o.title];
+                    if (o.dangerLevel) tooltipParts.push(`Tag: ${o.dangerLevel}`);
+                    if (o.description) tooltipParts.push(o.description);
+                    if (params) tooltipParts.push(`Parameters: ${params}`);
+                    const tooltipText = tooltipParts.join('\n\n');
+
+                    return (
                     <div
                         key={o.id}
                         className={styles.card}
                         style={{ '--ov-color': o.color }}
-                        title={`${o.title}\n\n${o.description}\n\nDanger Level: ${o.dangerLevel}\nParameters: ${JSON.stringify(o.params || {})}`}
+                        data-tooltip={tooltipText}
+                        data-tooltip-pos="above"
                     >
                         <div className={styles.cardHeader}>
                             <span className={styles.ovIcon}>{o.icon}</span>
@@ -123,7 +134,8 @@ export default function ManualOverride({ sessionId, onOverrideApplied }) {
                             </div>
                         )}
                     </div>
-                ))}
+                    );
+                })}
             </div>
         </section>
     );

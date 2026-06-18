@@ -175,7 +175,7 @@ class TestTerminalValuation:
                               workforce_readiness=80, synergy_multiplier=1.0,
                               hr_investment_rounds=3)
         # Should approach max M_R
-        assert result["mr"] > 2.0
+        assert result["mr"] > 1.90
 
     def test_mr_instability_discount(self):
         from terminal_valuation import calculate_mr

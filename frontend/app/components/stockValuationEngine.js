@@ -14,19 +14,37 @@ import { roundToQuarter } from '../utils/roundToQuarter';
 
 // ── Constants ────────────────────────────────────────────────
 const IPO_PRICE = 50.00;            // Round 0 stock price
+const SHARES_OUTSTANDING = 100_000_000;  // 100M shares (matches backend terminal_valuation.py)
 const BASELINE_EBITDA = 19_200_000; // Sum of 4 BU EBITDA margins at seed
 const DAYS_PER_ROUND = 40;          // Interpolated daily ticks per 6-month round
+const LONG_RUN_GROWTH = 0.02;       // 2% terminal growth for Gordon Growth Model
+const EXIT_FLOOR = 6.0;             // Minimum exit multiple (distressed)
+const EXIT_CEILING = 18.0;          // Maximum exit multiple (very low WACC)
 
-// ── MACRO ENGINE ─────────────────────────────────────────────
+// ── STRAT-010: Gordon Growth Exit Multiple ───────────────────
+/**
+ * Dynamic exit multiple = (1+g) / (WACC−g)
+ * Links WACC to valuation — bad ESG governance = higher WACC = lower multiple.
+ */
+function calcExitMultiple(wacc = 0.08) {
+  if (wacc <= LONG_RUN_GROWTH) return EXIT_CEILING;
+  const m = (1 + LONG_RUN_GROWTH) / (wacc - LONG_RUN_GROWTH);
+  return Math.max(EXIT_FLOOR, Math.min(EXIT_CEILING, m));
+}
 
 /**
  * Calculate the deterministic stock price for a given round state.
+ *
+ * STRAT-010: Uses dynamic exit multiple derived from WACC (Gordon Growth Model)
+ * instead of a fixed multiple. Teams with poor ESG governance accumulate higher
+ * WACC → lower exit multiple → lower stock price. Feedback loop is now real.
  *
  * @param {Object} roundState
  * @param {number} roundState.ebitda           — Current round EBITDA (post OPEX/CAPEX)
  * @param {number} roundState.synergy_multiplier — Group synergy multiplier (default 1.0)
  * @param {number} roundState.natural_capital_debt — Average NCD across BUs
  * @param {number} roundState.group_reputation — 0-100 reputation score
+ * @param {number} [roundState.cost_of_capital=0.08] — WACC (drives exit multiple)
  * @returns {number} Stock price rounded to 2 decimal places
  */
 export function calculateRoundStockPrice(roundState) {
@@ -35,18 +53,25 @@ export function calculateRoundStockPrice(roundState) {
     synergy_multiplier = 1.0,
     natural_capital_debt = 0,
     group_reputation = 50,
+    cost_of_capital = 0.08,
   } = roundState || {};
 
+  // STRAT-010: Dynamic exit multiple from WACC
+  const exitMultiple = calcExitMultiple(cost_of_capital);
+  // Baseline multiple at 8% WACC: (1.02)/(0.08−0.02) = 17× → seed at IPO_PRICE
+  const baselineMultiple = calcExitMultiple(0.08);  // ~17.0
+
   // ESG Sentiment Multiplier
-  // sentiment = 1.0 + (synergy - 1.0) - (NCD / 100) - ((100 - rep) / 200)
   const synergyBoost = synergy_multiplier - 1.0;
   const ncdPenalty = natural_capital_debt / 100;
   const repPenalty = (100 - group_reputation) / 200;
   const sentiment = Math.max(0.1, 1.0 + synergyBoost - ncdPenalty - repPenalty);
 
-  // Stock Price = IPO * (EBITDA / Baseline) * Sentiment
+  // Stock Price = IPO × (EBITDA / Baseline) × Sentiment × (ExitMultiple / BaselineMultiple)
+  // The exit-multiple ratio means WACC degradation now deflates the price
   const ebitdaRatio = Math.max(0, ebitda) / BASELINE_EBITDA;
-  const price = IPO_PRICE * ebitdaRatio * sentiment;
+  const multipleRatio = exitMultiple / baselineMultiple;
+  const price = IPO_PRICE * ebitdaRatio * sentiment * multipleRatio;
 
   return Math.max(1.0, Math.round(price * 100) / 100);
 }
@@ -173,6 +198,8 @@ export function buildFullStockData(historyData, globalState, businessUnits, curr
       synergy_multiplier: h.synergy_multiplier || globalState?.synergy_multiplier || 1.0,
       natural_capital_debt: avgNCD,
       group_reputation: h.reputation || globalState?.group_reputation || 50,
+      // STRAT-010: Pass WACC so exit multiple is dynamic per round
+      cost_of_capital: h.cost_of_capital || globalState?.cost_of_capital || 0.08,
     };
 
     const currentPrice = calculateRoundStockPrice(roundState);
@@ -202,4 +229,4 @@ export function buildFullStockData(historyData, globalState, businessUnits, curr
 }
 
 // Re-export constants for consumers
-export { IPO_PRICE, BASELINE_EBITDA, DAYS_PER_ROUND };
+export { IPO_PRICE, BASELINE_EBITDA, DAYS_PER_ROUND, SHARES_OUTSTANDING };

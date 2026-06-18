@@ -202,6 +202,11 @@
     gap: 8px;
 }
 
+/* Single-BU mode: one full-width card */
+.slidersSingle {
+    grid-template-columns: 1fr;
+}
+
 /* ── BU Slider Card ───────────────────────────────────────── */
 .sliderCard {
     background: linear-gradient(135deg, rgba(10, 14, 26, 0.6) 0%, color-mix(in srgb, var(--bu-accent, #00e5c3) 10%, rgba(10, 14, 26, 0.6)) 100%);

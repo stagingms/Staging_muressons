@@ -14,6 +14,7 @@ Tests:
 import os
 os.environ['USE_MEMORY_DB'] = 'true'
 os.environ['DEBUG'] = 'true'
+os.environ['MASTER_PASSWORD'] = '321'
 
 import sys, time, json, threading
 from datetime import datetime

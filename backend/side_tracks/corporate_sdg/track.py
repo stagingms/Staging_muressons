@@ -20,6 +20,7 @@ from typing import Any
 import copy
 
 from side_tracks.base_track import BaseSideTrack
+from side_tracks.bridge_schemas import DataBridgeInput, DataBridgeOutput
 from side_tracks.corporate_sdg.configs import (
     SDG_ROUND_CONFIGS,
     SDG_POINTS_MAP,
@@ -124,56 +125,67 @@ class CorporateSDGTrack(BaseSideTrack):
         main_global: dict,
         main_bus: list[dict],
         completed_tracks: dict[str, dict],
-    ) -> dict:
+    ) -> DataBridgeInput:
         """
         DATA BRIDGE (READ): Initialize SDG track state from main sim.
         Pulls NCD, reputation, governance risk, and existing flags.
         """
         flags = main_global.get("active_event_flags", {})
-
-        return {
-            "sdg_impact_score": 0,
-            "round_choices": {},  # {1: "option_a", 2: "option_b", ...}
-            "round_points": {},   # {1: 20, 2: 12, ...}
-            "flags_earned": {},
-            "initial_group_reputation": main_global.get("group_reputation", 50),
-            "initial_ncd_avg": sum(
-                bu.get("natural_capital_debt", 0) for bu in main_bus
-            ) / max(len(main_bus), 1),
-            "pai_blindspot_active": flags.get("pai_blindspot", False),
-            "total_treasury_spent": 0,
-            "sdg_score_history": [],     # [{round, score, m_sdg}] for sparkline
-            "drag_applied_rounds": [],   # Prevent double-application of regulatory drag
-        }
+        kpis = self._build_bridge_kpis(main_bus, main_global)
+        return DataBridgeInput(
+            treasury=main_global.get("corporate_treasury", 50_000_000),
+            reputation=main_global.get("group_reputation", 50.0),
+            active_flags=dict(flags),
+            kpis=kpis,
+            extra_state={
+                # Track-specific initial state (all required by post_tick / calculate_score)
+                "sdg_impact_score":       0,
+                "round_choices":          {},
+                "round_points":           {},
+                "flags_earned":           {},
+                "initial_group_reputation": main_global.get("group_reputation", 50),
+                "initial_ncd_avg":        round(
+                    sum(bu.get("natural_capital_debt", 0) for bu in main_bus)
+                    / max(len(main_bus), 1), 2
+                ),
+                "pai_blindspot_active":   bool(flags.get("pai_blindspot", False)),
+                "total_treasury_spent":   0,
+                "sdg_score_history":      [],
+                "drag_applied_rounds":    [],
+            },
+        )
 
     def write_back_to_main(
         self,
         track_state: dict,
         main_global: dict,
-    ) -> dict:
+    ) -> DataBridgeOutput:
         """
         DATA BRIDGE (WRITE): Merge SDG track results into main sim flags.
         The sdg_impact_score is the critical output — feeds into M_SDG.
+
+        V2 fix: flags_earned contains a mix of internal SDG scoring bookmarks
+        (e.g. 'circular_leader', 'nature_positive', 'greenwash_risk') and
+        main-sim flags. We use filter_unregistered=True so that only
+        registered-prefix flags are promoted — internal bookmarks stay
+        inside the SDG track's own state and are NOT injected into main sim.
+        This prevents arbitrary key injection while preserving M_SDG output.
         """
-        flags = {}
-
-        # Core output: SDG Impact Score for M_SDG calculation
-        flags["sdg_impact_score"] = track_state.get("sdg_impact_score", 0)
-        flags["sdg_track_completed"] = True
-
-        # Merge all earned flags from individual round choices
+        flags: dict = {
+            "sdg_impact_score":    track_state.get("sdg_impact_score", 0),
+            "sdg_track_completed": True,
+            "sdg_score_history":   track_state.get("sdg_score_history", []),
+        }
+        # Merge earned flags — filter_unregistered drops internal bookmarks
+        # (e.g. 'greenwash_risk', 'circular_leader') that don't need to reach
+        # the main sim because the SDG post_tick already writes them to
+        # global_state["active_event_flags"] in real-time during play.
         for flag_key, flag_val in track_state.get("flags_earned", {}).items():
             flags[flag_key] = flag_val
-
-        # M_R bonus from ST-R5 Integrated Reporting
         mr_bonus = track_state.get("mr_bonus_accumulated", 0)
         if mr_bonus > 0:
             flags["sdg_mr_bonus"] = mr_bonus
-
-        # Expose SDG score history for frontend sparkline
-        flags["sdg_score_history"] = track_state.get("sdg_score_history", [])
-
-        return flags
+        return DataBridgeOutput.from_legacy_dict(flags, filter_unregistered=True)
 
     def calculate_score(self, track_state: dict) -> dict[str, Any]:
         """
@@ -273,17 +285,22 @@ class CorporateSDGTrack(BaseSideTrack):
         if round_number == 2 and events.get("pai_blindspot_triggered"):
             rep_hit = opt.get("impacts", {}).get("reputation", 0)
             if rep_hit < 0:
-                global_state["group_reputation"] = max(
-                    0, round(global_state.get("group_reputation", 50) + rep_hit, 2)
-                )
+                current_rep = global_state.get("group_reputation", 50)
+                if current_rep is not None:  # VUL-009: None guard
+                    global_state["group_reputation"] = max(
+                        0, round(current_rep + rep_hit, 2)
+                    )
                 extra["pai_blindspot_reputation_doubled"] = rep_hit
 
-        # Track state updates (stored in session side_track_states)
-        track_state = global_state.get("_sdg_track_state", {})
+        # VUL-005/023 FIX: read persistent scoring state from previous_flags["track_state"]
+        # NOT from global_state["_sdg_track_state"] which is ephemeral (rebuilt each tick).
+        # The router passes full track_data["state"] as previous_flags["track_state"].
+        track_state: dict = previous_flags.get("track_state", {})
+
         track_state.setdefault("round_choices", {})[round_number] = choice
         track_state.setdefault("round_points", {})[round_number] = points
 
-        # Accumulate total score
+        # Accumulate total score across ALL rounds (now correct because track_state persists)
         total_score = sum(track_state.get("round_points", {}).values())
         track_state["sdg_impact_score"] = total_score
 
@@ -333,6 +350,8 @@ class CorporateSDGTrack(BaseSideTrack):
             extra["nature_positive_ncd_rate_reduced"] = True
 
         # ── FIX 2: Round-by-round SDG drag/boost ────────────────
+        # VUL-006 FIX: idempotency guard now works correctly because track_state
+        # is read from previous_flags["track_state"] (persistent) not global_state.
         self._apply_sdg_drag_boost(total_score, round_number, global_state, track_state, extra)
 
         # Track treasury spend
@@ -349,7 +368,17 @@ class CorporateSDGTrack(BaseSideTrack):
             "points": points,
         })
 
-        global_state["_sdg_track_state"] = track_state
+        # VUL-005/023 FIX: Write updated track_state back via custom events
+        # so the router's event-merge loop (lines 3982-3990) stores it in
+        # track_data["state"] under each key. Emit each mutable key individually.
+        extra[f"st_{self.track_id}_custom_round_points"]          = track_state["round_points"]
+        extra[f"st_{self.track_id}_custom_round_choices"]         = track_state["round_choices"]
+        extra[f"st_{self.track_id}_custom_sdg_impact_score"]      = track_state["sdg_impact_score"]
+        extra[f"st_{self.track_id}_custom_sdg_score_history"]     = track_state.get("sdg_score_history", [])
+        extra[f"st_{self.track_id}_custom_flags_earned"]          = track_state.get("flags_earned", {})
+        extra[f"st_{self.track_id}_custom_total_treasury_spent"]  = track_state.get("total_treasury_spent", 0)
+        extra[f"st_{self.track_id}_custom_mr_bonus_accumulated"]  = track_state.get("mr_bonus_accumulated", 0)
+        extra[f"st_{self.track_id}_custom_drag_applied_rounds"]   = track_state.get("drag_applied_rounds", [])
 
         # Surface SDG progress in extra events
         extra["sdg_track_progress"] = {

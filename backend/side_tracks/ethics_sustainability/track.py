@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Ethics & Sustainability Track Implementation
 
 5-round deep dive: AI governance, modern slavery, greenwashing,
@@ -17,6 +17,7 @@ from typing import Any
 
 from side_tracks.base_track import BaseSideTrack
 from side_tracks.ethics_sustainability.configs import ETHICS_ROUND_CONFIGS
+from side_tracks.bridge_schemas import DataBridgeInput, DataBridgeOutput, BridgeKPIDeltas
 
 
 class EthicsSustainabilityTrack(BaseSideTrack):
@@ -70,57 +71,66 @@ class EthicsSustainabilityTrack(BaseSideTrack):
 
     # ── Data Bridges ────────────────────────────────────────────
 
-    def seed_from_main_state(self, main_global, main_bus, completed_tracks):
-        n = len(main_bus) or 1
-        avg_gov = sum(bu.get("governance_risk_score", 20) for bu in main_bus) / n
-        avg_sl = sum(bu.get("social_license_score", 50) for bu in main_bus) / n
+    def seed_from_main_state(
+        self,
+        main_global: dict,
+        main_bus: list[dict],
+        completed_tracks: dict[str, dict],
+    ) -> DataBridgeInput:
         flags = main_global.get("active_event_flags", {})
-
         # Cross-track: SC findings enrich starting state
         sc_state = completed_tracks.get("supply_chain", {})
-        has_sc_cobalt = sc_state.get("sc_cobalt_findings", False) or flags.get("sc_cobalt_findings")
+        has_sc_cobalt = bool(
+            sc_state.get("sc_cobalt_findings", False) or flags.get("sc_cobalt_findings")
+        )
+        kpis = self._build_bridge_kpis(main_bus, main_global)
+        return DataBridgeInput(
+            treasury=main_global.get("corporate_treasury", 50_000_000),
+            reputation=main_global.get("group_reputation", 50.0),
+            active_flags=dict(flags),
+            kpis=kpis,
+            extra_state={
+                # Track-specific initial scoring metrics
+                "ethical_governance":       15 + (10 if flags.get("deep_audit_completed") else 0),
+                "human_rights_dd":          10 + (20 if has_sc_cobalt else 0),
+                "green_claims_integrity":   20,
+                "biodiversity_stewardship": 5,
+                "just_transition":          10,
+                # Context carried forward for post_tick hooks
+                "inherited_governance_risk": round(kpis.avg_governance_risk, 2),
+                "inherited_social_license":  round(kpis.avg_social_license, 2),
+                "sc_track_completed":        "supply_chain" in completed_tracks,
+                "sc_cobalt_findings":        has_sc_cobalt,
+            },
+        )
 
-        return {
-            "ethical_governance": 15 + (10 if flags.get("deep_audit_completed") else 0),
-            "human_rights_dd": 10 + (20 if has_sc_cobalt else 0),
-            "green_claims_integrity": 20,
-            "biodiversity_stewardship": 5,
-            "just_transition": 10,
-            "inherited_reputation": main_global.get("group_reputation", 50),
-            "inherited_treasury": main_global.get("corporate_treasury", 50_000_000),
-            "inherited_governance_risk": round(avg_gov, 2),
-            "inherited_social_license": round(avg_sl, 2),
-            "sc_track_completed": "supply_chain" in completed_tracks,
-            "sc_cobalt_findings": has_sc_cobalt,
-        }
-
-    def write_back_to_main(self, track_state, main_global):
-        flags = {}
+    def write_back_to_main(
+        self,
+        track_state: dict,
+        main_global: dict,
+    ) -> DataBridgeOutput:
         score = self.calculate_score(track_state)
-
-        flags["ethics_track_completed"] = True
-        flags["ethics_final_score"] = score["total_score"]
-        flags["ethics_grade"] = score["grade"]
-        flags["ethics_archetype"] = score["archetype"]["title"]
-
+        flags: dict = {
+            "ethics_track_completed": True,
+            "ethics_final_score":     score["total_score"],
+            "ethics_grade":           score["grade"],
+            "ethics_archetype":       score["archetype"]["title"],
+        }
         if score["total_score"] >= 80:
             flags["es_track_mr_bonus"] = 0.10
         elif score["total_score"] >= 60:
             flags["es_track_mr_bonus"] = 0.05
         elif score["total_score"] < 40:
             flags["es_track_mr_penalty"] = -0.05
-
-        # Propagate key flags for cross-track dependencies
         if track_state.get("ethical_governance", 0) >= 70:
             flags["es_governance_excellence"] = True
         if track_state.get("just_transition", 0) >= 60:
             flags["es_just_transition_credible"] = True
-
-        return flags
+        return DataBridgeOutput(flags_to_set=flags)
 
     # ── Scoring ─────────────────────────────────────────────────
 
-    def calculate_score(self, track_state):
+    def calculate_score(self, track_state: dict) -> dict[str, Any]:
         eg = min(100, max(0, track_state.get("ethical_governance", 0)))
         hr = min(100, max(0, track_state.get("human_rights_dd", 0)))
         gc = min(100, max(0, track_state.get("green_claims_integrity", 0)))
@@ -154,7 +164,7 @@ class EthicsSustainabilityTrack(BaseSideTrack):
 
     # ── Engine Hooks ────────────────────────────────────────────
 
-    def pre_tick(self, round_number, track_state, bus, decisions, crisis_severity):
+    def pre_tick(self, round_number: int, track_state: dict, bus: list[dict], decisions: list[dict], crisis_severity: float) -> dict[str, Any]:
         result = {"crisis_severity": crisis_severity, "pre_events": {}}
         accumulated = set(track_state.get("accumulated_flags", []))
         choice = self._get_primary_choice(decisions)
@@ -171,7 +181,7 @@ class EthicsSustainabilityTrack(BaseSideTrack):
 
         return result
 
-    def post_tick(self, round_number, global_state, bu_states, decisions, events, extra_events, previous_flags):
+    def post_tick(self, round_number: int, global_state: dict, bu_states: list[dict], decisions: list[dict], events: dict, extra_events: dict, previous_flags: dict) -> dict[str, Any]:
         extra = self._apply_default_option_impacts(round_number, global_state, bu_states, decisions, events, extra_events)
         accumulated = set(previous_flags.get("accumulated_flags", []))
         choice = self._get_primary_choice(decisions)

@@ -265,12 +265,12 @@ export default function InvestmentMatrix({
                 </div>
 
                 {/* Warning for Over-allocation or Negative Treasury (Loan Required) */}
-                {(totalAllocated > csfPool || (globalState?.corporate_treasury || 0) < 0) && (
+                {(totalAllocated > csfPool || (globalState?.corporate_treasury ?? 0) < 0) && (
                     <div className={styles.loanWarning}>
                         <span className={styles.loanIcon}>⚠️</span>
                         <span>
-                            {(globalState?.corporate_treasury || 0) < 0
-                                ? <>Emergency Credit Line: <span className={styles.loanAmount}>{sym}{(Math.abs(globalState?.corporate_treasury || 0) / 1_000_000).toFixed(2)}M</span> in debt</>
+                            {(globalState?.corporate_treasury ?? 0) < 0
+                                ? <>Emergency Credit Line: <span className={styles.loanAmount}>{sym}{(Math.abs(globalState?.corporate_treasury ?? 0) / 1_000_000).toFixed(2)}M</span> in debt</>
                                 : <>Loan Required: <span className={styles.loanAmount}>{sym}{((totalAllocated - csfPool) / 1_000_000).toFixed(2)}M</span></>
                             }
                             <span style={{ color: "var(--text-muted)", marginLeft: "0.5rem" }}>
@@ -280,7 +280,8 @@ export default function InvestmentMatrix({
                     </div>
                 )}
                 {/* Emergency Credit Active: +$1M at prevailing rate + 2% */}
-                {(globalState?.corporate_treasury || 0) * 0.20 < 1_000_000 && (
+                {/* Only show when treasury is a real loaded value (not null/undefined) and critically low */}
+                {globalState?.corporate_treasury != null && (globalState.corporate_treasury * 0.20 < 1_000_000) && (
                     <div className={styles.loanWarning} style={{ borderColor: 'rgba(239, 68, 68, 0.3)', background: 'rgba(239, 68, 68, 0.06)' }}>
                         <span className={styles.loanIcon}>🚨</span>
                         <span style={{ fontSize: '0.68rem' }}>
@@ -321,7 +322,7 @@ export default function InvestmentMatrix({
             </div>
 
             {/* BU Sliders */}
-            <div className={styles.sliders}>
+            <div className={`${styles.sliders} ${sortedUnits.length === 1 ? styles.slidersSingle : ''}`}>
                 {sortedUnits.map((bu, i) => {
                     const meta = BU_META[bu.bu_id] || { label: bu.bu_id, Icon: () => <span>📊</span>, accent: '#6366f1' };
                     const alloc = allocations[bu.bu_id] || 0;

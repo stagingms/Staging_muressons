@@ -1,0 +1,196 @@
+======================================================================
+  MURESSONS GLOBAL STATE TRAVERSAL -- TRACE REPORT
+  Generated: 2026-05-31T14:39:28.979017+00:00
+======================================================================
+
+  SUMMARY
+  -------------------------------------
+  Total runs       : 150
+  Passed           : 110  (73%)
+  Failed           : 40
+  TV flags (+/-5%) : 789
+  Avg collab gap   : +0.00
+  Avg latency (ms) : 46.0
+
+  PARADIGM BREAKDOWN
+  -------------------------------------
+  legacy_abc           pass=25/25  flags=208  avg_gap=+0.00
+  multi_toggles        pass=25/25  flags=205  avg_gap=+0.00
+  advanced_climate     pass=25/25  flags=192  avg_gap=+0.00
+  healthcare           pass=5/25  flags=43  avg_gap=+0.00
+  un_sdg               pass=5/25  flags=43  avg_gap=+0.00
+  brsr_ngrbc           pass=25/25  flags=98  avg_gap=+0.00
+
+  PATHWAY BREAKDOWN
+  -------------------------------------
+  activist_ultimatum        pass=22/30  flags=157
+  climate_black_swan        pass=22/30  flags=159
+  stakeholder_revolt        pass=22/30  flags=156
+  hostile_takeover          pass=22/30  flags=156
+  regulatory_shutdown       pass=22/30  flags=161
+
+  BU MODE BREAKDOWN
+  -------------------------------------
+  4bu             pass=30/30  flags=223
+  pharma          pass=20/30  flags=121
+  electronics     pass=20/30  flags=146
+  consumer_goods  pass=20/30  flags=144
+  software        pass=20/30  flags=155
+
+  TERMINAL VALUE DEVIATION FLAGS  (threshold +/-5%)
+  -------------------------------------
+  [legacy_abc / activist_ultimatum / 4bu]  session=1411a062-927...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / activist_ultimatum / pharma]  session=b97b5331-f17...  flagged_rounds=[3, 4, 5, 6, 7, 9, 10]
+  [legacy_abc / activist_ultimatum / electronics]  session=001a82ce-e76...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / activist_ultimatum / consumer_goods]  session=0f892208-7e5...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / activist_ultimatum / software]  session=f7f71c53-173...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / climate_black_swan / 4bu]  session=7a4be771-d7e...  flagged_rounds=[3, 6, 7, 8, 9, 10]
+  [legacy_abc / climate_black_swan / pharma]  session=b563a10c-c51...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / climate_black_swan / electronics]  session=bbaa5dbf-f3b...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / climate_black_swan / consumer_goods]  session=b5fe1720-f60...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / climate_black_swan / software]  session=b93beace-f84...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / stakeholder_revolt / 4bu]  session=db78ddda-6eb...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9]
+  [legacy_abc / stakeholder_revolt / pharma]  session=1f300bc7-97f...  flagged_rounds=[4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / stakeholder_revolt / electronics]  session=1b1a953d-d85...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / stakeholder_revolt / consumer_goods]  session=ecf10141-055...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / stakeholder_revolt / software]  session=0f887674-e3f...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / hostile_takeover / 4bu]  session=1e1259b4-dda...  flagged_rounds=[3, 4, 5, 6, 8, 9, 10]
+  [legacy_abc / hostile_takeover / pharma]  session=7dde45a9-bb0...  flagged_rounds=[2, 4, 5, 6, 8, 9, 10]
+  [legacy_abc / hostile_takeover / electronics]  session=e183f515-c79...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / hostile_takeover / consumer_goods]  session=206d41c7-d92...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / hostile_takeover / software]  session=486a0441-d95...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / regulatory_shutdown / 4bu]  session=ce316052-894...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / regulatory_shutdown / pharma]  session=45fb8e44-af7...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / regulatory_shutdown / electronics]  session=b480ef22-136...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / regulatory_shutdown / consumer_goods]  session=22fb2114-367...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [legacy_abc / regulatory_shutdown / software]  session=3c094023-32d...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / activist_ultimatum / 4bu]  session=a9356685-df7...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / activist_ultimatum / pharma]  session=b31477b0-da1...  flagged_rounds=[2, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / activist_ultimatum / electronics]  session=965c41d8-50e...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / activist_ultimatum / consumer_goods]  session=37db78ec-c8c...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / activist_ultimatum / software]  session=984e0123-06c...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / climate_black_swan / 4bu]  session=a91f98a8-376...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / climate_black_swan / pharma]  session=5721ee55-1a0...  flagged_rounds=[3, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / climate_black_swan / electronics]  session=788d3532-c10...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / climate_black_swan / consumer_goods]  session=0c9a4f13-4f3...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / climate_black_swan / software]  session=54980b0d-ff9...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / stakeholder_revolt / 4bu]  session=b49df902-c81...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / stakeholder_revolt / pharma]  session=1a63aea2-c88...  flagged_rounds=[4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / stakeholder_revolt / electronics]  session=241b905a-505...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / stakeholder_revolt / consumer_goods]  session=5a96f9f0-0a5...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / stakeholder_revolt / software]  session=1c4a3e29-1a5...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / hostile_takeover / 4bu]  session=a11d73d0-c7b...  flagged_rounds=[3, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / hostile_takeover / pharma]  session=82b807d0-e11...  flagged_rounds=[2, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / hostile_takeover / electronics]  session=92fd284f-5e8...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / hostile_takeover / consumer_goods]  session=50ae38c2-129...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / hostile_takeover / software]  session=76989694-c07...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / regulatory_shutdown / 4bu]  session=9806d211-2ef...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / regulatory_shutdown / pharma]  session=bc9bc091-afb...  flagged_rounds=[5, 6, 7, 8, 9, 10]
+  [multi_toggles / regulatory_shutdown / electronics]  session=3c7ace01-6ae...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / regulatory_shutdown / consumer_goods]  session=f41f3c1d-78f...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [multi_toggles / regulatory_shutdown / software]  session=419c99ce-a27...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / activist_ultimatum / 4bu]  session=5acea586-a19...  flagged_rounds=[2, 3, 4, 6, 7, 8, 9, 10]
+  [advanced_climate / activist_ultimatum / pharma]  session=2e5c69b4-767...  flagged_rounds=[4, 7, 8, 10]
+  [advanced_climate / activist_ultimatum / electronics]  session=ac60fff4-0d9...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / activist_ultimatum / consumer_goods]  session=295c2196-870...  flagged_rounds=[2, 3, 4, 5, 6, 7, 9]
+  [advanced_climate / activist_ultimatum / software]  session=3215d087-1fb...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / climate_black_swan / 4bu]  session=c5275f61-a5f...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / climate_black_swan / pharma]  session=cd9f3f2b-32d...  flagged_rounds=[2, 3, 4, 5, 6, 9]
+  [advanced_climate / climate_black_swan / electronics]  session=bbf1ed1c-7c9...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / climate_black_swan / consumer_goods]  session=aa799af9-37a...  flagged_rounds=[2, 3, 4, 5, 6, 8, 9]
+  [advanced_climate / climate_black_swan / software]  session=0315e3c7-5b1...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / stakeholder_revolt / 4bu]  session=02b92b2a-c71...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / stakeholder_revolt / pharma]  session=54e8bb5b-af7...  flagged_rounds=[2, 3, 5, 7, 9, 10]
+  [advanced_climate / stakeholder_revolt / electronics]  session=96d0e302-aed...  flagged_rounds=[3, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / stakeholder_revolt / consumer_goods]  session=1aa810ed-cb0...  flagged_rounds=[2, 3, 4, 7, 8, 9]
+  [advanced_climate / stakeholder_revolt / software]  session=956ef11e-8dd...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / hostile_takeover / 4bu]  session=2f204089-cac...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / hostile_takeover / pharma]  session=8db4da9c-27a...  flagged_rounds=[2, 3, 5, 8, 9, 10]
+  [advanced_climate / hostile_takeover / electronics]  session=6386684f-64b...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / hostile_takeover / consumer_goods]  session=b62384cb-e71...  flagged_rounds=[2, 3, 4, 5, 6, 8, 9, 10]
+  [advanced_climate / hostile_takeover / software]  session=99280512-fee...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / regulatory_shutdown / 4bu]  session=295df2ae-aaa...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / regulatory_shutdown / pharma]  session=a676a0f5-36b...  flagged_rounds=[2, 3, 4, 8, 9, 10]
+  [advanced_climate / regulatory_shutdown / electronics]  session=e05eee01-c45...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / regulatory_shutdown / consumer_goods]  session=f778324a-9d4...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9, 10]
+  [advanced_climate / regulatory_shutdown / software]  session=df240843-626...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [healthcare / activist_ultimatum / 4bu]  session=b63cd793-a59...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [healthcare / climate_black_swan / 4bu]  session=c2a4d421-755...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [healthcare / stakeholder_revolt / 4bu]  session=f92c0640-c68...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [healthcare / hostile_takeover / 4bu]  session=903bc035-96a...  flagged_rounds=[2, 3, 4, 6, 7, 8, 9, 10]
+  [healthcare / regulatory_shutdown / 4bu]  session=d551e8fc-c57...  flagged_rounds=[2, 3, 4, 6, 7, 8, 9, 10]
+  [un_sdg / activist_ultimatum / 4bu]  session=c22b6a9c-ecf...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9]
+  [un_sdg / climate_black_swan / 4bu]  session=699d36f0-5a7...  flagged_rounds=[3, 4, 5, 6, 7, 8, 9, 10]
+  [un_sdg / stakeholder_revolt / 4bu]  session=5e7c215d-048...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [un_sdg / hostile_takeover / 4bu]  session=276fdb1b-ece...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [un_sdg / regulatory_shutdown / 4bu]  session=2858e5d7-221...  flagged_rounds=[2, 3, 4, 5, 6, 7, 8, 9, 10]
+  [brsr_ngrbc / activist_ultimatum / 4bu]  session=c3d72cc3-400...  flagged_rounds=[2, 4, 5]
+  [brsr_ngrbc / activist_ultimatum / pharma]  session=16beaa60-9ed...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / activist_ultimatum / electronics]  session=c7e1db00-9db...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / activist_ultimatum / consumer_goods]  session=4bd8bb05-183...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / activist_ultimatum / software]  session=9117ac1e-e6b...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / climate_black_swan / 4bu]  session=fece2dd4-142...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / climate_black_swan / pharma]  session=f0e94724-ff7...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / climate_black_swan / electronics]  session=b197a8ce-a90...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / climate_black_swan / consumer_goods]  session=1498aa9b-6cb...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / climate_black_swan / software]  session=ebb485b3-0af...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / stakeholder_revolt / 4bu]  session=b8a0c20f-32f...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / stakeholder_revolt / pharma]  session=93c5a27b-16f...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / stakeholder_revolt / electronics]  session=7e7edf16-dc7...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / stakeholder_revolt / consumer_goods]  session=6a61328d-c54...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / stakeholder_revolt / software]  session=427e919d-538...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / hostile_takeover / 4bu]  session=b55c0afb-06f...  flagged_rounds=[2, 4, 5]
+  [brsr_ngrbc / hostile_takeover / pharma]  session=d3a3aa8b-dd8...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / hostile_takeover / electronics]  session=5fb6d72c-eb6...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / hostile_takeover / consumer_goods]  session=fc1df24b-cc2...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / hostile_takeover / software]  session=fec969e6-f71...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / regulatory_shutdown / 4bu]  session=9e944156-6ed...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / regulatory_shutdown / pharma]  session=7984c5c6-f16...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / regulatory_shutdown / electronics]  session=ed2f243c-32f...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / regulatory_shutdown / consumer_goods]  session=83b4bb5a-6fa...  flagged_rounds=[2, 3, 4, 5]
+  [brsr_ngrbc / regulatory_shutdown / software]  session=aa41be9b-66a...  flagged_rounds=[2, 3, 4, 5]
+
+  FAILURES
+  -------------------------------------
+  [healthcare / activist_ultimatum / pharma]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / activist_ultimatum / electronics]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / activist_ultimatum / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / activist_ultimatum / software]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / climate_black_swan / pharma]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / climate_black_swan / electronics]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / climate_black_swan / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / climate_black_swan / software]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / stakeholder_revolt / pharma]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / stakeholder_revolt / electronics]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / stakeholder_revolt / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / stakeholder_revolt / software]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / hostile_takeover / pharma]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / hostile_takeover / electronics]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / hostile_takeover / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / hostile_takeover / software]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / regulatory_shutdown / pharma]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / regulatory_shutdown / electronics]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / regulatory_shutdown / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [healthcare / regulatory_shutdown / software]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / activist_ultimatum / pharma]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / activist_ultimatum / electronics]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / activist_ultimatum / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / activist_ultimatum / software]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / climate_black_swan / pharma]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / climate_black_swan / electronics]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / climate_black_swan / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / climate_black_swan / software]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / stakeholder_revolt / pharma]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / stakeholder_revolt / electronics]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / stakeholder_revolt / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / stakeholder_revolt / software]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / hostile_takeover / pharma]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / hostile_takeover / electronics]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / hostile_takeover / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / hostile_takeover / software]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / regulatory_shutdown / pharma]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / regulatory_shutdown / electronics]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / regulatory_shutdown / consumer_goods]  rounds=0  errors=['R1: commit_failed']
+  [un_sdg / regulatory_shutdown / software]  rounds=0  errors=['R1: commit_failed']
+
+======================================================================

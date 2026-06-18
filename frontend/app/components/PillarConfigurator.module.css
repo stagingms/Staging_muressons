@@ -1,0 +1,368 @@
+/* ═══════════════════════════════════════════════════════════
+   PillarConfigurator.module.css — Dark God Mode panel theme
+   ═══════════════════════════════════════════════════════════ */
+
+.container {
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    background: var(--bg-card, #1e2330);
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle, #2d3446);
+}
+
+.header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border-subtle, #2d3446);
+}
+
+.title {
+    margin: 0 0 0.25rem;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: var(--text-primary, #e2e8f0);
+    letter-spacing: -0.01em;
+}
+
+.subtitle {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-muted, #64748b);
+    font-weight: 400;
+}
+
+.selectorRow {
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    padding: 1rem;
+    background: var(--bg-body, #151820);
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle, #2d3446);
+}
+
+/* ─── Form primitives ─── */
+.fieldGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted, #64748b);
+}
+
+.input {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle, #2d3446);
+    background: var(--bg-body, #151820);
+    color: var(--text-primary, #e2e8f0);
+    font-size: 0.85rem;
+    outline: none;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+    transition: border-color 0.15s;
+}
+
+.input:focus {
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99,102,241,0.12);
+}
+
+.iconInput {
+    text-align: center;
+    font-size: 1.3rem;
+    padding: 0.35rem;
+}
+
+.select {
+    padding: 0.5rem 2rem 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle, #2d3446);
+    background: var(--bg-body, #151820);
+    color: var(--text-primary, #e2e8f0);
+    font-size: 0.85rem;
+    outline: none;
+    cursor: pointer;
+    width: 100%;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2364748b' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.6rem center;
+    transition: border-color 0.15s;
+}
+
+.select:focus {
+    border-color: #6366f1;
+}
+
+.textarea {
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle, #2d3446);
+    background: var(--bg-body, #151820);
+    color: var(--text-primary, #e2e8f0);
+    font-size: 0.83rem;
+    outline: none;
+    resize: vertical;
+    width: 100%;
+    box-sizing: border-box;
+    font-family: inherit;
+    line-height: 1.5;
+}
+
+.textarea:focus {
+    border-color: #6366f1;
+}
+
+/* ─── Buttons ─── */
+.btnPrimary {
+    padding: 0.5rem 1.1rem;
+    border-radius: 7px;
+    border: none;
+    background: linear-gradient(135deg, #6366f1, #4f46e5);
+    color: #fff;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+    white-space: nowrap;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.25);
+}
+
+.btnPrimary:hover:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btnPrimary:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.btnDanger {
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid rgba(239,68,68,0.35);
+    background: transparent;
+    color: #ef4444;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    white-space: nowrap;
+}
+
+.btnDanger:hover {
+    background: rgba(239,68,68,0.1);
+}
+
+.btnGhost {
+    padding: 0.4rem 0.9rem;
+    border-radius: 6px;
+    border: 1px dashed var(--border-subtle, #2d3446);
+    background: transparent;
+    color: var(--text-muted, #64748b);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+}
+
+.btnGhost:hover {
+    color: #10b981;
+    border-color: #10b981;
+    background: rgba(16,185,129,0.07);
+}
+
+/* ─── Sections ─── */
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.sectionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-muted, #64748b);
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-subtle, #2d3446);
+}
+
+.sectionBadge {
+    font-size: 0.68rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.2);
+    color: #818cf8;
+}
+
+/* ─── Standard areas ─── */
+.standardGrid {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+}
+
+.standardCard {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 0.9rem;
+    background: var(--bg-body, #151820);
+    border: 1px solid var(--border-subtle, #2d3446);
+    border-radius: 8px;
+    opacity: 0.75;
+}
+
+.standardIcon {
+    font-size: 1.1rem;
+}
+
+.standardLabel {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.lockBadge {
+    font-size: 0.7rem;
+    opacity: 0.5;
+}
+
+/* ─── Custom area cards ─── */
+.customAreasList {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.areaCard {
+    background: var(--bg-body, #151820);
+    border: 1px solid var(--border-subtle, #2d3446);
+    border-radius: 10px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    transition: border-color 0.2s;
+}
+
+.areaCard:hover {
+    border-color: rgba(99,102,241,0.3);
+}
+
+.areaCardHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.areaCardTitle {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    flex: 1;
+}
+
+.optionsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-subtle, #2d3446);
+}
+
+.optionsLabel {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted, #64748b);
+}
+
+.optionsList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.optionCard {
+    background: var(--bg-card, #1e2330);
+    border: 1px solid var(--border-subtle, #2d3446);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.optionHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.optionKeyBadge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 4px;
+    background: rgba(99,102,241,0.12);
+    color: #818cf8;
+    border: 1px solid rgba(99,102,241,0.2);
+}
+
+.optionGrid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.impactGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px dashed var(--border-subtle, #2d3446);
+}
+
+/* ─── Placeholder ─── */
+.placeholder {
+    text-align: center;
+    padding: 2.5rem 2rem;
+    color: var(--text-muted, #64748b);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    background: var(--bg-body, #151820);
+    border-radius: 8px;
+    border: 1px dashed var(--border-subtle, #2d3446);
+}
+
+.placeholder strong {
+    color: var(--text-primary, #e2e8f0);
+}

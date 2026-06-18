@@ -1,0 +1,35 @@
+{
+  "bu_id": "oil_gas",
+  "description": "Pillar overrides for Oil & Gas. Replaces Carbon Offsetting with Well Decommissioning, the primary long-term environmental liability for E&P operations.",
+  "override_areas": {
+    "offsetting": {
+      "label": "Well Decommissioning",
+      "icon": "⛽",
+      "description_override": "Manage end-of-life well obligations and stranded asset liabilities.",
+      "options": {
+        "decommissioning_trust": {
+          "title": "Establish Decommissioning Trust Fund",
+          "description": "Set aside ring-fenced decommissioning reserves from first production revenues, meeting international OPITO standards.",
+          "cost": -5000000,
+          "impacts": { "governance_risk_delta": -10, "reputation": 6, "social_license_delta": 4 },
+          "flags_set": ["decommissioning_trust"]
+        },
+        "phased_decommission": {
+          "title": "Phased Decommissioning Plan",
+          "description": "Develop a 10-year phased decommissioning roadmap with regulatory sign-off.",
+          "cost": -1500000,
+          "impacts": { "governance_risk_delta": -4, "reputation": 2 },
+          "flags_set": ["decommission_plan"]
+        },
+        "defer_decommission": {
+          "title": "Defer Decommissioning Provisions",
+          "description": "Delay decommissioning liabilities to improve near-term reported profits. Regulatory and financial risk accumulates.",
+          "cost": 0,
+          "impacts": { "governance_risk_delta": 12, "reputation": -4 },
+          "flags_set": ["decommission_deferred"]
+        }
+      }
+    }
+  },
+  "custom_areas": []
+}

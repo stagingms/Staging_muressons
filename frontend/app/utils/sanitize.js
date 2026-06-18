@@ -41,9 +41,12 @@ export function sanitizeHtml(dirty) {
     if (!dirty || typeof dirty !== 'string') return '';
     const purify = _getPurify();
     if (purify) {
+        // MED-006: 'style' attribute removed — inline CSS can carry expressions,
+        // CSS-based XSS (e.g. `expression()`, `url('javascript:...')`) and
+        // data-exfiltration via background-image. Use class-based styling instead.
         return purify.sanitize(dirty, {
             ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'ul', 'ol', 'li', 'a', 'span', 'div', 'h1', 'h2', 'h3', 'h4'],
-            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class', 'style'],
+            ALLOWED_ATTR: ['href', 'title', 'target', 'rel', 'class'],
             FORCE_BODY: false,
         });
     }

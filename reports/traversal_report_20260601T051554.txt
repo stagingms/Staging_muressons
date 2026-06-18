@@ -1,0 +1,127 @@
+======================================================================
+  MURESSONS GLOBAL STATE TRAVERSAL -- TRACE REPORT
+  Generated: 2026-06-01T05:15:54.541527+00:00
+======================================================================
+
+  SUMMARY
+  -------------------------------------
+  Total runs       : 1
+  Passed           : 1  (100%)
+  Failed           : 0
+  TV flags (+/-5%) : 8
+  Avg collab gap   : +0.00
+  Avg latency (ms) : 27.4
+
+  PARADIGM BREAKDOWN
+  -------------------------------------
+  legacy_abc           pass=1/1  flags=8  avg_gap=+0.00
+
+  PATHWAY BREAKDOWN
+  -------------------------------------
+  activist_ultimatum        pass=1/1  flags=8
+
+  BU MODE BREAKDOWN
+  -------------------------------------
+  4bu             pass=1/1  flags=8
+
+  TERMINAL VALUE DEVIATION FLAGS  (threshold +/-5%)
+  -------------------------------------
+  [legacy_abc / activist_ultimatum / 4bu]  session=8e8dbf54-35a...  flagged_rounds=[2, 3, 5, 6, 7, 8, 9, 10]
+    +-- R2 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_ngo(skipped))
+        pick_non_collaborative_bus(['pharma'])
+        build_decisions(round=2, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=2)
+        DEVIATION FLAG @ R2
+          current_tv  = $228,759,554
+          rolling_mean = $189,631,874
+          deviation   = +20.63%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+    +-- R3 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_regulator(skipped))
+        pick_non_collaborative_bus(['electronics'])
+        build_decisions(round=3, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=3)
+        DEVIATION FLAG @ R3
+          current_tv  = $179,241,706
+          rolling_mean = $209,195,714
+          deviation   = -14.32%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+    +-- R5 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_ngo(skipped))
+        pick_non_collaborative_bus(['electronics'])
+        build_decisions(round=5, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=5)
+        DEVIATION FLAG @ R5
+          current_tv  = $133,599,616
+          rolling_mean = $198,987,886
+          deviation   = -32.86%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+    +-- R6 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_investor(skipped))
+        pick_non_collaborative_bus(['software'])
+        build_decisions(round=6, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=6)
+        DEVIATION FLAG @ R6
+          current_tv  = $84,776,037
+          rolling_mean = $185,910,232
+          deviation   = -54.40%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+    +-- R7 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_ngo(skipped))
+        pick_non_collaborative_bus(['consumer_goods'])
+        build_decisions(round=7, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=7)
+        DEVIATION FLAG @ R7
+          current_tv  = $66,011,218
+          rolling_mean = $169,054,533
+          deviation   = -60.95%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+    +-- R8 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_activist(skipped))
+        pick_non_collaborative_bus(['pharma'])
+        build_decisions(round=8, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=8)
+        DEVIATION FLAG @ R8
+          current_tv  = $97,056,878
+          rolling_mean = $154,334,059
+          deviation   = -37.11%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+    +-- R9 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_investor(skipped))
+        pick_non_collaborative_bus(['consumer_goods'])
+        build_decisions(round=9, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=9)
+        DEVIATION FLAG @ R9
+          current_tv  = $106,764,251
+          rolling_mean = $147,174,412
+          deviation   = -27.46%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+    +-- R10 call trace:
+        create_session(paradigm=legacy_abc, pathway=activist_ultimatum)
+        inject_noise(noise_media(skipped))
+        pick_non_collaborative_bus(['software'])
+        build_decisions(round=10, paradigm=legacy_abc)
+        commit_turn → POST /api/simulations/8e8dbf54-35a0-47f2-a4d6-3a3c5c6297a8/commit-turn
+          → process_tick(round=10)
+        DEVIATION FLAG @ R10
+          current_tv  = $93,690,336
+          rolling_mean = $142,684,394
+          deviation   = -34.34%  (threshold ±5%)
+          trigger     = calc_terminal_value_from_dashboard → commit-turn → process_tick
+
+======================================================================

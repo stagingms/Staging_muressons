@@ -625,6 +625,12 @@ DEFAULT_PEDAGOGICAL_TOGGLES = {
     "meadows_leverage_enabled": True,       # Leverage point debrief overlay
     # ── Senge System Archetypes ──
     "system_archetypes_enabled": True,      # Archetype detection in debrief
+    # ── Round Analytics: Collaboration Gap Tracker ──
+    # Facilitator debrief tool — measures the spread between financial
+    # accumulation and ESG stewardship each round.
+    # Not a game mechanic: result goes to extra_events only, never
+    # feeds back into engine state or terminal value calculation.
+    "collaboration_gap_enabled": True,      # On by default; toggle off for speed
 }
 
 

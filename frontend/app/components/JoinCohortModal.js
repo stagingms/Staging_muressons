@@ -8,7 +8,19 @@ export default function JoinCohortModal({ sim }) {
     const [playerId, setPlayerId] = useState('');
     const [password, setPassword] = useState('');
     const [showChangePassword, setShowChangePassword] = useState(false);
+    const [forceChangePlayerId, setForceChangePlayerId] = useState('');
     const [currentTime, setCurrentTime] = useState('');
+
+    // Auto-open change password modal when sim signals must_change_password
+    useEffect(() => {
+        if (sim.mustChangePassword) {
+            const pid = typeof window !== 'undefined'
+                ? (localStorage.getItem('muressons_playerId') || playerId)
+                : playerId;
+            setForceChangePlayerId(pid.toUpperCase());
+            setShowChangePassword(true);
+        }
+    }, [sim.mustChangePassword]);
 
     useEffect(() => {
         const tick = () => setCurrentTime(new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -147,8 +159,7 @@ export default function JoinCohortModal({ sim }) {
                         marginTop: '1rem', fontSize: '0.68rem', color: '#475569',
                         textAlign: 'center', lineHeight: 1.5, letterSpacing: '0.02em'
                     }}>
-                        Your Executive Identifier (e.g. MUR-001) and Clearance Cipher are provided by your facilitator.
-                        Enter your cohort session code to join a live session.
+                        Your Executive Identifier (e.g. MUR-001) and <strong style={{ color: '#00e5c3' }}>Clearance Cipher</strong> are provided by your facilitator — you will be asked to set a new password immediately after your first login.
                     </p>
                 </div>
 
@@ -178,7 +189,18 @@ export default function JoinCohortModal({ sim }) {
 
             <ChangePasswordModal
                 isOpen={showChangePassword}
-                onClose={() => setShowChangePassword(false)}
+                onClose={() => {
+                    // Only allow closing if not a forced change
+                    if (!sim.mustChangePassword) {
+                        setShowChangePassword(false);
+                    }
+                }}
+                prefillPlayerId={forceChangePlayerId || ''}
+                isForced={sim.mustChangePassword}
+                onSuccess={() => {
+                    setShowChangePassword(false);
+                    if (sim.setMustChangePassword) sim.setMustChangePassword(false);
+                }}
             />
         </div>
     );

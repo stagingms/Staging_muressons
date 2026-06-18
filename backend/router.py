@@ -834,17 +834,7 @@ async def get_dashboard(session_id: str):
     summary="Commit decisions and advance to the next round",
 )
 async def commit_turn(session_id: str, body: CommitTurnRequest):
-    """
-    1. Fetches the current round state.
-    2. Validates the round is < 10 (simulation cap).
-    3. Runs pre-tick hooks (validation, crisis overrides).
-    4. Runs the mathematical engine (process_tick).
-    5. Runs post-tick hooks (round-specific state mutations).
-    6. Persists the new immutable state and audit log.
-    7. Returns the next-round state.
-    """
-    # ── FIX-QA-003: Per-session commit mutex (prevents race conditions) ──
-    # Reject concurrent commits for the same session outright.
+    """Lock-safe wrapper: acquires commit lock, delegates, guarantees release."""
     commit_lock = _get_commit_lock(session_id)
     if commit_lock.locked():
         raise HTTPException(
@@ -852,6 +842,25 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
             detail="Another commit is in progress for this session. Please wait.",
         )
     await commit_lock.acquire()
+    try:
+        return await _commit_turn_impl(session_id, body, commit_lock)
+    finally:
+        # FIX-RC-002: Guarantee lock release on ANY exit path.
+        if commit_lock.locked():
+            commit_lock.release()
+
+
+async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_lock):
+    """
+    Core commit-turn implementation.
+    1. Fetches the current round state.
+    2. Validates the round is not past simulation cap.
+    3. Runs pre-tick hooks (validation, crisis overrides).
+    4. Runs the mathematical engine (process_tick).
+    5. Runs post-tick hooks (round-specific state mutations).
+    6. Persists the new immutable state and audit log.
+    7. Returns the next-round state.
+    """
     # ── ITEM 4: Per-session rate limiting (5s cooldown) ───────
     import time as _time
     now = _time.time()
@@ -1510,9 +1519,6 @@ async def commit_turn(session_id: str, body: CommitTurnRequest):
                     parent_sess["commit_notifications"] = commit_log[-100:]
     except Exception as exc:
         print(f"[WARN] Facilitator notification failed: {exc}")
-
-    # ── FIX-QA-003: Release commit lock after all processing ──
-    commit_lock.release()
 
     return CommitTurnResponse(
         session_id=session_id,
@@ -3363,6 +3369,9 @@ def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dic
     if not sess:
         return None, None
 
+    # Keep a reference to the player session before resolving to cohort
+    player_sess = sess
+
     # Check parent cohort if this is a player sub-session
     parent_id = sess.get("parent_cohort_id")
     if parent_id:
@@ -3374,7 +3383,9 @@ def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dic
     if not active_tracks:
         return None, None
 
-    states = sess.get("side_track_states", {})
+    # Player-level states take priority (commit writes completed=True here),
+    # fall back to cohort-level states for tracks not yet touched by this player
+    states = player_sess.get("side_track_states") or sess.get("side_track_states", {})
     timing = sess.get("side_track_timing", {})
 
     # Get current main sim round
@@ -3449,10 +3460,12 @@ async def get_session_side_tracks(session_id: str):
         if is_blocking and not blocking_track_id:
             blocking_track_id = tid
 
-        # Get round config for current round if in progress
+        # Get round config for current or preview round
         round_config = None
-        if current_track_round > 0 and not is_completed:
-            round_config = track.get_round_config(current_track_round)
+        if not is_completed:
+            # Return current round config, or round 1 preview if not started yet
+            config_round = current_track_round if current_track_round > 0 else 1
+            round_config = track.get_round_config(config_round)
 
         tracks_out.append({
             "track_id": tid,
@@ -3568,7 +3581,9 @@ async def commit_side_track_turn(session_id: str, track_id: str, body: SideTrack
                 completed_tracks[tid] = tst.get("state", {})
 
         seed_state = track.seed_from_main_state(main_global, main_bus, completed_tracks)
-        track_data["state"] = seed_state
+        # Convert DataBridgeInput to plain dict for mutable storage
+        # (seed_from_main_state returns a frozen Pydantic model)
+        track_data["state"] = seed_state.to_seed_dict() if hasattr(seed_state, 'to_seed_dict') else seed_state
         track_data["bu_states"] = copy.deepcopy(main_bus)
         current_track_round = 1
         track_data["current_round"] = 1
@@ -3697,19 +3712,20 @@ async def commit_side_track_turn(session_id: str, track_id: str, body: SideTrack
         score = track.calculate_score(track_data["state"])
         track_data["final_score"] = score
 
-        # DATA BRIDGE (WRITE): merge flags into main sim
+        # DATA BRIDGE (WRITE): merge flags/KPI deltas into main sim
+        # Uses engine.apply_side_track_results() for proper typed handling
+        # of DataBridgeOutput (flags, KPI deltas, KPI overrides, clamping).
         main_state = await db.fetch_latest_state(session_id)
         if main_state:
             write_back = track.write_back_to_main(track_data["state"], main_state["global_state"])
-            main_gs = main_state["global_state"]
-            main_gs.setdefault("active_event_flags", {})
-            main_gs["active_event_flags"].update(write_back)
+            from engine import apply_side_track_results
+            main_gs = apply_side_track_results(main_state["global_state"], write_back)
             await db.update_latest_global_state(
                 session_id=session_id,
                 global_state=main_gs,
                 bu_states=main_state["bu_states"],
             )
-            events["write_back_flags"] = write_back
+            events["write_back_flags"] = write_back.flags_to_set
             events["side_track_completed"] = True
             events["side_track_score"] = score
     else:

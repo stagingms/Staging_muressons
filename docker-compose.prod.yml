@@ -1,0 +1,39 @@
+# SEC-2: PRODUCTION-like compose — durable PostgreSQL store, DEBUG off.
+# Session state survives container restarts via the named volume below.
+#   docker compose -f docker-compose.prod.yml up --build
+# Override POSTGRES_PASSWORD and JWT_SECRET via a .env file or the shell
+# environment before deploying; never commit real secrets.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-muressons}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-change_me_in_prod}
+      - POSTGRES_DB=${POSTGRES_DB:-muressons}
+    volumes:
+      - muressons_pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-muressons}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  muressons:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3000:3000"   # Frontend
+    environment:
+      - USE_MEMORY_DB=false
+      - DEBUG=false
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-muressons}:${POSTGRES_PASSWORD:-change_me_in_prod}@db:5432/${POSTGRES_DB:-muressons}
+      - JWT_SECRET=${JWT_SECRET:?set JWT_SECRET (openssl rand -hex 32) before deploying}
+    restart: unless-stopped
+
+volumes:
+  muressons_pgdata:

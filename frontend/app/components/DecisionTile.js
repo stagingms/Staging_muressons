@@ -1,6 +1,7 @@
 'use client';
 import React from 'react';
 import styles from './ExecutiveCockpit.module.css';
+import PillarSelectDropdown from './PillarSelectDropdown';
 
 /**
  * DecisionTile — Shared decision tile component used by both
@@ -59,6 +60,7 @@ export default function DecisionTile({
       onMouseEnter={() => onHover?.({
         title: option.title,
         desc: detailedDesc || option.description,
+        regulatoryTooltip: option.regulatory_tooltip || null,
       })}
       onMouseLeave={() => onLeave?.()}
       role="button"
@@ -150,6 +152,7 @@ export default function DecisionTile({
 /**
  * PillarTile — Shared pillar tile for multi_toggles paradigm.
  * Also used by both Focus Mode and Dashboard Mode.
+ * Uses PillarSelectDropdown for hover tooltip support on options.
  */
 export function PillarTile({
   areaKey,
@@ -171,23 +174,14 @@ export function PillarTile({
     >
       <div className={styles.pillarIcon}>{areaIcon || '📌'}</div>
       <div className={styles.pillarLabel}>{area.label}</div>
-      <select
-        className={styles.pillarSelect}
-        value={selectedOpt || ''}
-        onChange={(e) => onSelect?.(areaKey, e.target.value || null)}
-        onMouseEnter={() => selectedOpt && onHover?.({
-          title: area.options?.[selectedOpt]?.title,
-          desc: detailedDescs?.[areaKey]?.[selectedOpt] || area.options?.[selectedOpt]?.description,
-        })}
-        onMouseLeave={() => onLeave?.()}
-      >
-        <option key="__default__" value="">— Select —</option>
-        {area.options && Object.entries(area.options).map(([optKey, opt]) => (
-          <option key={optKey} value={optKey}>
-            {opt.title} ({fmtCurrency(opt.cost || 0)})
-          </option>
-        ))}
-      </select>
+      <PillarSelectDropdown
+        options={area.options || {}}
+        value={selectedOpt || null}
+        onChange={(optKey) => onSelect?.(areaKey, optKey)}
+        fmtCurrency={fmtCurrency}
+        detailedDescs={detailedDescs?.[areaKey] || {}}
+      />
     </div>
   );
 }
+

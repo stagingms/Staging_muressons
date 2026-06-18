@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 from side_tracks.base_track import BaseSideTrack
 from side_tracks.sustainability_reporting.configs import REPORTING_ROUND_CONFIGS
+from side_tracks.bridge_schemas import DataBridgeInput, DataBridgeOutput
 
 
 class SustainabilityReportingTrack(BaseSideTrack):
@@ -49,47 +50,58 @@ class SustainabilityReportingTrack(BaseSideTrack):
     def get_round_configs(self) -> dict[int, dict[str, Any]]:
         return REPORTING_ROUND_CONFIGS
 
-    def seed_from_main_state(self, main_global, main_bus, completed_tracks):
+    def seed_from_main_state(
+        self,
+        main_global: dict,
+        main_bus: list[dict],
+        completed_tracks: dict[str, dict],
+    ) -> DataBridgeInput:
         flags = main_global.get("active_event_flags", {})
-        n = len(main_bus) or 1
-        avg_gov = sum(bu.get("governance_risk_score", 20) for bu in main_bus) / n
-
         # Cross-track enrichment
         ethics_done = "ethics_sustainability" in completed_tracks
-        ethics_gov = completed_tracks.get("ethics_sustainability", {}).get("ethical_governance", 0)
+        ethics_gov  = completed_tracks.get("ethics_sustainability", {}).get("ethical_governance", 0)
+        kpis = self._build_bridge_kpis(main_bus, main_global)
+        return DataBridgeInput(
+            treasury=main_global.get("corporate_treasury", 50_000_000),
+            reputation=main_global.get("group_reputation", 50.0),
+            active_flags=dict(flags),
+            kpis=kpis,
+            extra_state={
+                # Track-specific initial scoring metrics
+                "regulatory_readiness":  10 + (15 if flags.get("csrd_assessment_completed") else 0),
+                "climate_disclosure":    15,
+                "social_governance":     10 + (10 if ethics_done else 0),
+                "assurance_credibility": 5,
+                "integrated_value":      5,
+                # Context for post_tick hooks
+                "inherited_governance_risk": round(kpis.avg_governance_risk, 2),
+                "ethics_track_completed":    ethics_done,
+                "ethics_governance_score":   ethics_gov,
+            },
+        )
 
-        return {
-            "regulatory_readiness": 10 + (15 if flags.get("csrd_assessment_completed") else 0),
-            "climate_disclosure": 15,
-            "social_governance": 10 + (10 if ethics_done else 0),
-            "assurance_credibility": 5,
-            "integrated_value": 5,
-            "inherited_reputation": main_global.get("group_reputation", 50),
-            "inherited_treasury": main_global.get("corporate_treasury", 50_000_000),
-            "inherited_governance_risk": round(avg_gov, 2),
-            "ethics_track_completed": ethics_done,
-            "ethics_governance_score": ethics_gov,
-        }
-
-    def write_back_to_main(self, track_state, main_global):
-        flags = {}
+    def write_back_to_main(
+        self,
+        track_state: dict,
+        main_global: dict,
+    ) -> DataBridgeOutput:
         score = self.calculate_score(track_state)
-        flags["reporting_track_completed"] = True
-        flags["reporting_final_score"] = score["total_score"]
-        flags["reporting_grade"] = score["grade"]
-        flags["reporting_archetype"] = score["archetype"]["title"]
-
-        if score["total_score"] >= 80: flags["sr_track_mr_bonus"] = 0.10
+        flags: dict = {
+            "reporting_track_completed": True,
+            "reporting_final_score":     score["total_score"],
+            "reporting_grade":           score["grade"],
+            "reporting_archetype":       score["archetype"]["title"],
+        }
+        if score["total_score"] >= 80:   flags["sr_track_mr_bonus"] = 0.10
         elif score["total_score"] >= 60: flags["sr_track_mr_bonus"] = 0.05
-        elif score["total_score"] < 40: flags["sr_track_mr_penalty"] = -0.05
-
+        elif score["total_score"] < 40:  flags["sr_track_mr_penalty"] = -0.05
         if track_state.get("assurance_credibility", 0) >= 70:
             flags["sr_high_assurance"] = True
         if track_state.get("integrated_value", 0) >= 60:
             flags["sr_value_creator"] = True
-        return flags
+        return DataBridgeOutput(flags_to_set=flags)
 
-    def calculate_score(self, track_state):
+    def calculate_score(self, track_state: dict) -> dict[str, Any]:
         rr = min(100, max(0, track_state.get("regulatory_readiness", 0)))
         cd = min(100, max(0, track_state.get("climate_disclosure", 0)))
         sg = min(100, max(0, track_state.get("social_governance", 0)))
@@ -116,7 +128,7 @@ class SustainabilityReportingTrack(BaseSideTrack):
 
         return {"total_score": total, "dimensions": {"regulatory_readiness": rr, "climate_disclosure": cd, "social_governance": sg, "assurance_credibility": ac, "integrated_value": iv}, "grade": grade, "archetype": archetype}
 
-    def pre_tick(self, round_number, track_state, bus, decisions, crisis_severity):
+    def pre_tick(self, round_number: int, track_state: dict, bus: list[dict], decisions: list[dict], crisis_severity: float) -> dict[str, Any]:
         result = {"crisis_severity": crisis_severity, "pre_events": {}}
         accumulated = set(track_state.get("accumulated_flags", []))
 
@@ -129,7 +141,7 @@ class SustainabilityReportingTrack(BaseSideTrack):
                 result["crisis_severity"] = min(100, crisis_severity + 15)
         return result
 
-    def post_tick(self, round_number, global_state, bu_states, decisions, events, extra_events, previous_flags):
+    def post_tick(self, round_number: int, global_state: dict, bu_states: list[dict], decisions: list[dict], events: dict, extra_events: dict, previous_flags: dict) -> dict[str, Any]:
         extra = self._apply_default_option_impacts(round_number, global_state, bu_states, decisions, events, extra_events)
         accumulated = set(previous_flags.get("accumulated_flags", []))
         choice = self._get_primary_choice(decisions)

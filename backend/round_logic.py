@@ -17,6 +17,18 @@ from round_configs import get_round_config, get_round_options
 
 # ARCH-001: Import extracted handlers from impact_engine
 import impact_engine as _ie
+from config import SIM_ROUNDS, ECONOMIC_CIRCULAR_ECONOMY_BONUS
+
+
+# I2: Import scope-weighted CI applicator from engine (no circular risk — engine does not import round_logic)
+try:
+    from engine import apply_ci_delta_to_bus as _apply_ci_delta_to_bus
+except ImportError:
+    # Fallback for test contexts
+    def _apply_ci_delta_to_bus(bus, ci_delta, routing="uniform"):
+        for bu in bus:
+            bu["carbon_intensity"] = max(0.0, round(bu.get("carbon_intensity", 0) + ci_delta, 2))
+        return {bu.get("bu_id", ""): ci_delta for bu in bus}
 
 
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
@@ -176,6 +188,161 @@ def _apply_treasury_with_green_fund(
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - cost, 2)
 
 
+def _post_brsr_grand_finale(gs: dict, bus: list[dict], decs: list[dict], events: dict, extra: dict, prev_flags: dict):
+    # Determine choice selected in R5
+    choice = _get_primary_choice(decs)
+    
+    # Standard exit multiple and carbon tax
+    exit_multiple = 12.0
+    # I10: Sync terminal tax to peak internal AC fee when advanced_climate paradigm is active
+    _peak_ac_fee = gs.get("active_event_flags", {}).get("peak_internal_carbon_fee", 0)
+    decision_paradigm_g = gs.get("active_event_flags", {}).get("decision_paradigm", "legacy_abc")
+    if decision_paradigm_g == "advanced_climate" and _peak_ac_fee > 0:
+        carbon_tax_per_ton = max(250.0, round(_peak_ac_fee, 2))  # I10: at least $250, up to peak AC fee
+    else:
+        carbon_tax_per_ton = 250.0
+    
+    # Calculate ebitda
+    total_revenue = sum(bu["revenue_base"] for bu in bus)
+    total_opex = sum(bu["opex_base"] for bu in bus)
+    carbon_tonnage_group = sum(
+        bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000 
+        for bu in bus
+    )
+    carbon_cost = round(carbon_tonnage_group * carbon_tax_per_ton, 2)
+    terminal_ebitda = round((total_revenue - total_opex) - carbon_cost, 2)
+    
+    # Calculate MR (Management Readiness / Materiality Response)
+    all_flags = _collect_all_flags(prev_flags)
+    
+    # Build standard bonuses
+    mr = 1.0
+    extra["mr_breakdown"] = {"base": 1.0}
+    
+    # +0.05 ESG Alpha Dividend
+    # Note: finalise_brsr_track sets this in the SAME R10 post_tick,
+    # so check current state first, then fall back to prev_flags.
+    _cf = gs.get("active_event_flags", {})
+    brsr_div = _cf.get("brsr_net_positive_dividend", 0) or prev_flags.get("brsr_net_positive_dividend", 0)
+
+    # Truth Premium Gating: if brsr_truth_premium_blocked is active
+    # (set by R5 option_c — compliance-only filers), the ESG Alpha
+    # Dividend is forfeited.  This penalises teams that skip the
+    # Integrated Report in R5 even if they recover in R10.
+    _truth_blocked = _cf.get("brsr_truth_premium_blocked", False) or prev_flags.get("brsr_truth_premium_blocked", False)
+    if _truth_blocked and brsr_div:
+        extra["mr_breakdown"]["brsr_truth_premium_blocked"] = -brsr_div
+        extra["brsr_truth_premium_blocked_applied"] = True
+        brsr_div = 0  # forfeit the dividend
+
+    if brsr_div:
+        mr += brsr_div
+        extra["mr_breakdown"]["brsr_esg_alpha_dividend"] = brsr_div
+
+    # BRSR Compliance Score → M_R scaling
+    # Note: finalise_brsr_track runs in the SAME R5 post_tick, so the score
+    # is on gs["active_event_flags"] (current state), not prev_flags.
+    _current_flags = gs.get("active_event_flags", {})
+    _brsr_ts = _current_flags.get("_brsr_track_state") or prev_flags.get("_brsr_track_state")
+    if isinstance(_brsr_ts, dict):
+        _brsr_score = _brsr_ts.get("total_score", 0)
+    else:
+        _brsr_score = _current_flags.get("brsr_performance_score", 0) or prev_flags.get("brsr_performance_score", 0)
+    if not _brsr_score:
+        # Recalculate from track_state if available
+        try:
+            from side_tracks.brsr_ngrbc.track import BRSRNGRBCTrack as _BT
+            if isinstance(_brsr_ts, dict):
+                _brsr_score = _BT().calculate_score(_brsr_ts).get("total_score", 0)
+        except Exception:
+            pass
+    if _brsr_score >= 85:
+        mr += 0.65
+        extra["mr_breakdown"]["brsr_pioneer_bonus"] = 0.65
+    elif _brsr_score >= 70:
+        mr += 0.35
+        extra["mr_breakdown"]["brsr_steward_bonus"] = 0.35
+    elif _brsr_score > 0 and _brsr_score < 40:
+        mr -= 0.30
+        extra["mr_breakdown"]["brsr_laggard_penalty"] = -0.30
+
+    # Standard workforce and burnout bonuses if they apply
+    workforce_readiness = gs.get("workforce_readiness", 50.0)
+    if workforce_readiness >= 75.0:
+        mr += 0.10
+        extra["mr_breakdown"]["workforce_bonus"] = 0.10
+        extra["mr_workforce_bonus"] = True
+        
+    avg_burnout = round(sum(bu.get("staff_burnout_index", 0.0) for bu in bus) / len(bus), 2) if bus else 0.0
+    if avg_burnout < 20.0:
+        mr += 0.05
+        extra["mr_breakdown"]["wellbeing_bonus"] = 0.05
+        extra["mr_wellbeing_bonus"] = True
+        
+    avg_sl = sum(bu["social_license_score"] for bu in bus) / len(bus) if bus else 0
+    if avg_sl < 75:
+        mr -= 0.40
+        extra["mr_breakdown"]["instability_discount"] = -0.40
+        extra["mr_instability_discount"] = True
+        
+    # Ensure mr is rounded and positive
+    mr = round(max(0.0, mr), 4)
+    
+    # Calculate terminal value
+    terminal_value = round(terminal_ebitda * exit_multiple * mr, 2)
+    
+    # Profile archetype
+    if mr >= 1.8:
+        profile = "regenerative_titan"
+        profile_title = "The Regenerative Titan"
+        profile_desc = "A truly regenerative enterprise."
+        profile_icon = ""
+        profile_gradient = "linear-gradient(135deg, #10b981, #059669)"
+    elif mr >= 1.2:
+        profile = "derisked_safe_haven"
+        profile_title = "The De-risked Safe-Haven"
+        profile_desc = "A resilient corporation that avoided the worst tail risks."
+        profile_icon = ""
+        profile_gradient = "linear-gradient(135deg, #3b82f6, #1d4ed8)"
+    elif mr >= 0.8:
+        profile = "fragile_giant"
+        profile_title = "The Fragile Giant"
+        profile_desc = "Big but brittle."
+        profile_icon = ""
+        profile_gradient = "linear-gradient(135deg, #f59e0b, #d97706)"
+    else:
+        profile = "stranded_relic"
+        profile_title = "The Stranded Relic"
+        profile_desc = "A cautionary tale."
+        profile_icon = ""
+        profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
+        
+    # Populate Extra & Global State
+    extra["terminal_ebitda"] = terminal_ebitda
+    extra["carbon_tonnage_group"] = carbon_tonnage_group
+    extra["carbon_cost"] = carbon_cost
+    extra["carbon_tax_per_ton"] = carbon_tax_per_ton
+    extra["regenerative_multiple"] = mr
+    extra["terminal_value"] = terminal_value
+    extra["exit_multiple"] = exit_multiple
+    extra["final_treasury"] = gs["corporate_treasury"]
+    extra["profile"] = profile
+    extra["profile_title"] = profile_title
+    extra["profile_description"] = profile_desc
+    extra["profile_icon"] = profile_icon
+    extra["profile_gradient"] = profile_gradient
+    extra["synergy_score"] = round(gs.get("synergy_multiplier", 1.0) * 100, 2)
+    extra["avg_social_license"] = round(avg_sl, 2)
+    extra["r5_choice"] = choice
+    
+    # Persist into global state flags
+    gs["active_event_flags"]["terminal_value"] = terminal_value
+    gs["active_event_flags"]["regenerative_multiple"] = mr
+    gs["active_event_flags"]["terminal_ebitda"] = terminal_ebitda
+    gs["active_event_flags"]["profile"] = profile
+    gs["active_event_flags"]["profile_title"] = profile_title
+
+
 def post_tick(
     round_number: int,
     global_state: dict,
@@ -183,6 +350,7 @@ def post_tick(
     decisions: list[dict],
     events: dict,
     previous_flags: dict,
+    decision_paradigm: str = "legacy_abc",
 ) -> dict[str, Any]:
     """
     Applies round-specific state mutations after the engine tick.
@@ -190,6 +358,34 @@ def post_tick(
     Returns extra events to merge.
     """
     extra_events: dict[str, Any] = {}
+
+    if decision_paradigm == "brsr_ngrbc":
+        from brsr_controller import process_brsr_round
+        choice = _get_primary_choice(decisions)
+        brsr_extra = process_brsr_round(
+            round_number=round_number,
+            choice=choice,
+            global_state=global_state,
+            bu_states=bu_states,
+            events=events,
+            extra_events=extra_events,
+            previous_flags=previous_flags,
+        )
+        extra_events.update(brsr_extra)
+        
+        # Save round-level flags set in active_event_flags for UI / audit consistency
+        _apply_option_flags(round_number, decisions, global_state, extra_events, bus=bu_states, decision_paradigm=decision_paradigm)
+        
+        # Also run finalize/grand finale if round_number == 10
+        if round_number == 10:
+            from brsr_controller import finalise_brsr_track
+            wb = finalise_brsr_track(global_state)
+            extra_events.update(wb)
+            
+            # Calculate final terminal valuation
+            _post_brsr_grand_finale(global_state, bu_states, decisions, events, extra_events, previous_flags)
+            
+        return extra_events
 
     # Invalidate forecast cache for this session on round commit
     try:
@@ -208,8 +404,20 @@ def post_tick(
     if handler:
         handler(global_state, bu_states, decisions, events, extra_events, previous_flags)
 
+    # I7: Reverse R5 hard engineering CI pulse after 2 rounds (construction phase ends R7)
+    _revert_r5_hard_engineering_pulse(global_state, bu_states, extra_events, round_number)
+
     # Apply generic impacts (carbon_intensity_delta, revenue_delta) for ALL rounds
     _apply_common_impacts(round_number, global_state, bu_states, decisions, extra_events)
+
+    # I9: Apply mid-game carbon cost (legacy_abc / un_sdg — not advanced_climate)
+    # Skip R10: terminal valuation already applies a lump-sum carbon tax on exit EBITDA.
+    # Applying I9 OPEX in R10 would double-charge carbon in the terminal year.
+    if round_number != SIM_ROUNDS:
+        _dp = global_state.get("active_event_flags", {}).get("decision_paradigm", "legacy_abc")
+        _apply_midgame_carbon_cost(round_number, global_state, bu_states, extra_events, decision_paradigm=_dp)
+
+
 
     # Apply HR mechanics: burnout accumulation + workforce readiness (all rounds)
     _apply_hr_mechanics(round_number, global_state, bu_states, events, extra_events)
@@ -348,33 +556,39 @@ def run_new_engines(
                 for d in (events.get("decisions_raw", []) or [])
             )
             bs_events = {
-                "csf_this_round": events.get("csf_delta", 0),
+                "csf_this_round":        events.get("csf_delta", 0),
                 "total_capex_allocated": _total_capex,
-                "dividends_paid": events.get("dividends_paid", 0),
-                "remediation_events": [],
-                "tipping_tier": global_state.get("tipping_tier", "none"),
+                "dividends_paid":        events.get("dividends_paid", 0),
+                "remediation_events":    [],
+                "tipping_tier":          global_state.get("tipping_tier", "none"),
+                # FIX-B: Wire green bond issuance so Round 3 Scope 3 decisions
+                # correctly update green_bonds_outstanding on the balance sheet.
+                "green_bond_issued":     events.get("green_bond_issued", False),
+                "green_bond_amount":     events.get("green_bond_amount", 0),
             }
+            _include_esg_on_bs = global_state.get("esg_bs_scholarly_mode", False)
             bs, bs_diag = process_balance_sheet_tick(
-                bs, global_state, bu_states, bs_events, round_number
+                bs, global_state, bu_states, bs_events, round_number,
+                include_esg_on_bs=_include_esg_on_bs,
             )
             global_state["balance_sheet"] = bs
             extra["balance_sheet"] = bs_diag
 
-            # Covenant breach consequences — real treasury impact
+            # Covenant warning message for UI (surcharge already applied inside engine)
+            # FIX-A: Removed duplicate surcharge block — balance_sheet.py Step 9
+            # already deducts the covenant penalty from gs["corporate_treasury"].
+            # Applying it again here was charging teams 2× the penalty.
             covenant_st = bs.get("covenant_status", "green")
             if covenant_st in ("amber", "red", "breached"):
                 extra["covenant_warning"] = bs_diag.get("covenants", {}).get("message", "")
             if covenant_st in ("red", "breached"):
-                # Interest surcharge: lenders charge penalty rate on net debt
-                net_debt = bs_diag.get("covenants", {}).get("net_debt", 0)
-                surcharge_rate = 0.02 if covenant_st == "red" else 0.05
-                surcharge = round(max(0, net_debt) * surcharge_rate / 2, 2)  # 6-month period
-                if surcharge > 0:
-                    global_state["corporate_treasury"] = round(
-                        global_state.get("corporate_treasury", 0) - surcharge, 2
-                    )
-                    extra["covenant_surcharge"] = surcharge
-                    extra["covenant_surcharge_rate"] = surcharge_rate
+                # Expose surcharge amount for frontend display (engine has already applied it)
+                extra["covenant_surcharge"] = bs_diag.get("covenants", {}).get(
+                    "treasury_surcharge", 0
+                )
+                extra["covenant_surcharge_rate"] = (
+                    0.02 if covenant_st == "red" else 0.05
+                )
         except Exception as exc:
             print(f"[WARN] Balance sheet engine failed: {exc}")
 
@@ -691,13 +905,85 @@ def run_new_engines(
         except Exception as exc:
             print(f"[WARN] Regulatory sandbox engine failed: {exc}")
 
+    # ── Analytics: Collaboration Gap Tracker ─────────────────────
+    # Measures the spread between financial accumulation and ESG
+    # stewardship each round.  Pure analytics — result is merged into
+    # extra_events for the debrief dashboard only.  No feedback into
+    # engine state, terminal value, or any game mechanic.
+    if _toggles.get("collaboration_gap_enabled", True):
+        try:
+            from round_analytics import calc_collaboration_gap
+            gap_data = calc_collaboration_gap(round_number, global_state, bu_states)
+            extra["collaboration_gap"] = gap_data
+
+            # Accumulate history on global_state so the debrief summary
+            # function (summarise_gap_history) can build a full trend chart
+            # without querying the database.
+            gap_history = global_state.setdefault("_collaboration_gap_history", [])
+            # Avoid duplicate entries if run_new_engines is called more than
+            # once for the same round (defensive guard).
+            if not gap_history or gap_history[-1].get("round") != round_number:
+                gap_history.append(gap_data)
+        except Exception as exc:
+            print(f"[WARN] Collaboration gap analytics failed: {exc}")
+
     return extra
+
 
 
 from healthcare_configs import get_healthcare_round_options
 
 
-def _fetch_options_for_industry(round_number: int, bus: list[dict]) -> dict:
+
+def _apply_midgame_carbon_cost(
+    round_number: int,
+    gs: dict,
+    bus: list[dict],
+    extra: dict,
+    decision_paradigm: str | None = None,
+) -> None:
+    """
+    I9 — Mid-game carbon cost applied to EBITDA every round (legacy_abc / un_sdg only).
+    Advanced_climate already has the escalating internal fee — avoid double-counting.
+
+    Formula: OPEX penalty = total_tco2e × base_rate × (1.10^(round-1))
+    Base rate: $25/tCO2e in R1, escalating 10%/round.
+    R1:$25 → R5:$37 → R10:$60 (modest but real mid-game consequence).
+    Applied by adding to each BU's opex_base proportional to its CI share.
+    """
+    if decision_paradigm == "advanced_climate":
+        return  # Already paying escalating internal carbon fee
+    if decision_paradigm == "brsr_ngrbc":
+        return  # BRSR track has its own carbon accounting
+
+    base_rate = 25.0  # $/tCO2e in R1
+    current_rate = round(base_rate * (1.10 ** (round_number - 1)), 2)
+    group_tco2e = sum(
+        bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000
+        for bu in bus
+    )
+    if group_tco2e <= 0:
+        return
+
+    total_cost = round(group_tco2e * current_rate, 2)
+    # Distribute cost to BUs proportionally to their absolute emissions
+    for bu in bus:
+        bu_tco2e = bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000
+        if group_tco2e > 0:
+            share = round(bu_tco2e / group_tco2e * total_cost, 2)
+            bu["opex_base"] = round(bu.get("opex_base", 0) + share, 2)
+
+    extra[f"midgame_carbon_cost_r{round_number}"] = total_cost
+    extra[f"midgame_carbon_rate_r{round_number}"] = current_rate
+    extra["midgame_carbon_cost_message"] = (
+        f"Mid-game carbon OPEX: ${current_rate:.0f}/tCO₂e × {group_tco2e:.0f}t = "
+        f"-${total_cost:,.0f} distributed across BUs (I9: annual carbon operating cost)."
+    )
+
+def _fetch_options_for_industry(round_number: int, bus: list[dict], decision_paradigm: str | None = None) -> dict:
+    if decision_paradigm == "brsr_ngrbc":
+        from side_tracks.brsr_ngrbc.configs import get_brsr_round_options
+        return get_brsr_round_options(round_number)
     if any(b["bu_id"] == "hospitals" for b in bus):
         return get_healthcare_round_options(round_number)
     return get_round_options(round_number)
@@ -708,6 +994,7 @@ def _apply_common_impacts(
     bus: list[dict],
     decisions: list[dict],
     extra: dict,
+    decision_paradigm: str | None = None,
 ):
     """
     Generic applicator for carbon_intensity_delta and revenue_delta.
@@ -715,17 +1002,21 @@ def _apply_common_impacts(
     Skips if the round-specific handler already applied these (R3 carbon).
     """
     choice = _get_primary_choice(decisions)
-    cfg_opts = _fetch_options_for_industry(round_number, bus)
+    cfg_opts = _fetch_options_for_industry(round_number, bus, decision_paradigm=decision_paradigm)
     opt = cfg_opts.get(choice, {})
     impacts = opt.get("impacts", {})
 
-    # Carbon intensity delta â€” applied to all BUs
+    # I2 — Carbon intensity delta with scope-aware routing
+    # ci_routing="scope3_weighted" applies delta proportionally to each BU Scope3 fraction.
+    # Supply-chain decisions (R3, R7) benefit high-Scope3 BUs most.
     ci_delta = impacts.get("carbon_intensity_delta", 0)
+    ci_routing = opt.get("ci_routing", "uniform")  # set in round_configs per option
     if ci_delta != 0 and f"carbon_intensity_applied_r{round_number}" not in extra:
-        for bu in bus:
-            old_ci = bu.get("carbon_intensity", 0)
-            bu["carbon_intensity"] = max(0, round(old_ci + ci_delta, 2))
+        applied = _apply_ci_delta_to_bus(bus, ci_delta, routing=ci_routing)
         extra[f"carbon_intensity_applied_r{round_number}"] = ci_delta
+        extra[f"carbon_intensity_routing_r{round_number}"] = ci_routing
+        if ci_routing == "scope3_weighted":
+            extra[f"carbon_intensity_by_bu_r{round_number}"] = applied
 
     # Revenue delta â€” applied to all BUs equally
     rev_delta = impacts.get("revenue_delta", 0)
@@ -1449,6 +1740,18 @@ def _post_r7_circularity(
         extra["early_decarboniser_synergy_bonus"] = True
         extra["early_decarboniser_bonus_amount"] = 0.10
 
+    # Apply circular economy efficiency bonus to OPEX base
+    if choice in ("option_a", "option_b"):
+        bonus_pct = ECONOMIC_CIRCULAR_ECONOMY_BONUS
+        for bu in bus:
+            old_opex = bu.get("opex_base", 0.0)
+            bu["opex_base"] = round(old_opex * (1.0 - bonus_pct), 2)
+        extra["circular_efficiency_bonus_applied"] = bonus_pct
+        extra["circular_efficiency_message"] = (
+            f"♻️ Circular Economy Efficiency Bonus: Circular transition choices "
+            f"reduced business unit operational expenses (OPEX) by {bonus_pct:.1%}."
+        )
+
     extra["r7_choice"] = choice
 
 
@@ -1870,9 +2173,14 @@ def _post_r10_grand_finale(
             "rigorously from the outset (ESRS 1 — General Requirements)."
         )
 
-    # +0.3: R7 Synergy achieved (waste_to_energy / synergy_unlock)
+    # +0.15: R7 Synergy achieved (waste_to_energy / synergy_unlock)
+    # STRAT-010: Reduced from +0.30 → +0.15.
+    # Synergy OPEX savings ALREADY raise terminal_ebitda through the synergy engine.
+    # Adding +0.30 on top multiplied a benefit already captured in the EBITDA base.
+    # +0.15 represents the *strategic optionality premium* — the investor premium for
+    # integrated, synergistic BUs, separate from the pure cash-flow benefit.
     if "synergy_unlock" in all_flags or "waste_to_energy" in all_flags:
-        mr += 0.3
+        mr += 0.15
         extra["mr_synergy_bonus"] = True
 
     # +0.2: Survived R5/R8 without bailout
@@ -1983,12 +2291,61 @@ def _post_r10_grand_finale(
     # ---------------------------------------------------------------
     #  TERMINAL VALUE = (Terminal_EBITDA + Green_Fund) x Exit_Multiple x M_R
     #  Green Fund included as accumulated climate capital (AC mode)
+    #
+    #  STRAT-010: Dynamic exit multiple derived from WACC via Gordon Growth Model.
+    #  Exit_Multiple = (1 + g) / (WACC − g)
+    #  Teams that raised WACC through poor ESG governance now pay a multiple haircut.
     # ---------------------------------------------------------------
+    from terminal_valuation import calculate_dynamic_exit_multiple, calculate_equity_bridge, SHARES_OUTSTANDING
     green_fund_balance = gs.get("green_transition_fund", 0.0)
     green_fund_terminal_bonus = green_fund_balance if green_fund_balance > 0 else 0.0
     if green_fund_terminal_bonus > 0:
         extra["green_fund_terminal_bonus"] = green_fund_terminal_bonus
-    terminal_value = round((terminal_ebitda + green_fund_terminal_bonus) * exit_multiple * mr, 2)
+
+    # ── Dynamic exit multiple (WACC-based) ──
+    # Only override if exit_multiple hasn't been hard-set by a pathway special rule.
+    current_wacc = gs.get("active_event_flags", {}).get("esg_adjusted_wacc", {})
+    if isinstance(current_wacc, dict):
+        wacc_value = current_wacc.get("adjusted_wacc", gs.get("cost_of_capital", 0.08))
+    else:
+        wacc_value = gs.get("cost_of_capital", 0.08)
+    dynamic_multiple_result = calculate_dynamic_exit_multiple(wacc=wacc_value)
+    dynamic_exit_multiple = dynamic_multiple_result["exit_multiple"]
+    # Pathway-overridden exit_multiple (e.g. 7× for regulatory_shutdown) takes precedence
+    effective_exit_multiple = exit_multiple  # may already be overridden by pathway rule
+    if not extra.get("exit_multiple_overridden") and not extra.get("exit_multiple_ci_haircut"):
+        effective_exit_multiple = dynamic_exit_multiple
+        extra["exit_multiple_dynamic"] = True
+    extra["exit_multiple_wacc_used"] = round(wacc_value, 4)
+    extra["dynamic_exit_multiple_detail"] = dynamic_multiple_result
+
+    terminal_value = round((terminal_ebitda + green_fund_terminal_bonus) * effective_exit_multiple * mr, 2)
+
+    # ── STRAT-010: Equity Bridge ──────────────────────────────────────────────
+    # Enterprise Value (TV) − Net Debt = Equity Value → Price Per Share
+    # Net Debt = financial debt (revolving credit + bonds) − treasury cash
+    # Balance sheet data (may be absent in early rounds — graceful fallback)
+    _bs = gs.get("balance_sheet", {})
+    _ncl = _bs.get("non_current_liabilities", {})
+    _cl  = _bs.get("current_liabilities", {})
+    total_financial_debt = (
+        _ncl.get("revolving_credit_facility", 50_000_000)
+        + _ncl.get("green_bonds_outstanding", 0.0)
+        + _cl.get("short_term_debt", 0.0)
+    )
+    treasury_cash = gs.get("corporate_treasury", 0.0)
+    net_debt = round(total_financial_debt - treasury_cash, 2)
+    book_equity = _bs.get("net_assets", 0.0)  # IAS 1 net assets (total equity)
+
+    equity_bridge = calculate_equity_bridge(
+        enterprise_value=terminal_value,
+        net_debt=net_debt,
+        shares_outstanding=SHARES_OUTSTANDING,
+        book_equity=book_equity,
+        total_revenue=total_revenue,
+    )
+    equity_value    = equity_bridge["equity_value"]
+    price_per_share = equity_bridge["price_per_share"]
 
     # ===================================================
     #  Year 5 PROFILE ARCHETYPE
@@ -2011,49 +2368,33 @@ def _post_r10_grand_finale(
         profile = matched["key"]
         profile_title = matched["title"]
         profile_desc = matched.get("description", "")
-        profile_icon = matched.get("icon", "\U0001f3c5")
+        profile_icon = matched.get("icon", "")
         profile_gradient = matched.get("gradient", "linear-gradient(135deg, #6366f1, #8b5cf6)")
     else:
         thresholds = special.get("profile_thresholds", {})
         if mr >= thresholds.get("regenerative_titan", 1.8):
             profile = "regenerative_titan"
             profile_title = "The Regenerative Titan"
-            profile_desc = (
-                "A truly regenerative enterprise. Muressons has rebuilt "
-                "natural capital, earned deep social trust, and delivered "
-                "superior financial returns. This is the gold standard of Year 5."
-            )
-            profile_icon = "\U0001f331"
+            profile_desc = "A truly regenerative enterprise."
+            profile_icon = ""
             profile_gradient = "linear-gradient(135deg, #10b981, #059669)"
         elif mr >= thresholds.get("derisked_safe_haven", 1.2):
             profile = "derisked_safe_haven"
             profile_title = "The De-risked Safe-Haven"
-            profile_desc = (
-                "A resilient corporation that avoided the worst tail risks. "
-                "Investors value the predictability, but innovation is stalling. "
-                "Solid, but not transformational."
-            )
-            profile_icon = "\U0001f3e6"
+            profile_desc = "A resilient corporation that avoided the worst tail risks."
+            profile_icon = ""
             profile_gradient = "linear-gradient(135deg, #3b82f6, #1d4ed8)"
         elif mr >= thresholds.get("fragile_giant", 0.8):
             profile = "fragile_giant"
             profile_title = "The Fragile Giant"
-            profile_desc = (
-                "Big but brittle. The cracks in social license and natural "
-                "capital are visible. One more shock could trigger a cascade "
-                "of write-downs and stakeholder defections."
-            )
-            profile_icon = "\u26a0\ufe0f"
+            profile_desc = "Big but brittle."
+            profile_icon = ""
             profile_gradient = "linear-gradient(135deg, #f59e0b, #d97706)"
         else:
             profile = "stranded_relic"
             profile_title = "The Stranded Relic"
-            profile_desc = (
-                "A cautionary tale. Stranded assets, depleted social capital, "
-                "and a brand synonymous with extraction. The Year 5 market has "
-                "moved on. Terminal decline is imminent."
-            )
-            profile_icon = "\U0001f480"
+            profile_desc = "A cautionary tale."
+            profile_icon = ""
             profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
 
     # Healthcare archetype override: use industry-specific names
@@ -2087,7 +2428,8 @@ def _post_r10_grand_finale(
     extra["mr_breakdown"] = {
         "base": 1.0,
         "materiality_governance": 0.10 if extra.get("mr_materiality_governance_bonus") else 0,
-        "synergy_bonus": 0.3 if extra.get("mr_synergy_bonus") else 0,
+        # STRAT-010: +0.15 (reduced from +0.30 to remove double-count with EBITDA synergy savings)
+        "synergy_bonus": 0.15 if extra.get("mr_synergy_bonus") else 0,
         "resilience_bonus": 0.2 if extra.get("mr_resilience_bonus") else 0,
         "truth_premium": 0.15 if extra.get("mr_truth_premium") else 0,
         "community_champion_bonus": round(0.18 * _jt_scale, 4) if extra.get("mr_community_champion_bonus") else 0,
@@ -2096,7 +2438,7 @@ def _post_r10_grand_finale(
         "workforce_bonus": 0.10 if extra.get("mr_workforce_bonus") else 0,
         "wellbeing_bonus": 0.05 if extra.get("mr_wellbeing_bonus") else 0,
         "instability_discount": -0.4 if extra.get("mr_instability_discount") else 0,
-        "max_achievable_mr": 2.08,  # 1.0+0.10+0.30+0.20+0.15+0.18+0.10+0.05 = 2.08 (2.17 with JT-scaling)
+        "max_achievable_mr": 1.93,  # STRAT-010: 1.0+0.10+0.15+0.20+0.15+0.18+0.10+0.05 = 1.93 (2.03 with JT-scaling)
     }
     # Enrich mr_breakdown with pathway-specific bonuses
     if ending_pathway == "climate_black_swan":
@@ -2112,7 +2454,8 @@ def _post_r10_grand_finale(
         extra["mr_breakdown"]["social_collapse"] = -0.50 if extra.get("mr_social_collapse_penalty") else 0
         extra["mr_breakdown"]["option_mr_penalty"] = extra.get("pathway_mr_penalty_from_option", 0)
     extra["terminal_value"] = terminal_value
-    extra["exit_multiple"] = exit_multiple
+    extra["exit_multiple"] = effective_exit_multiple
+    extra["exit_multiple_applied"] = effective_exit_multiple      # STRAT-010 (consistent alias)
     extra["final_treasury"] = gs["corporate_treasury"]
     extra["profile"] = profile
     extra["profile_title"] = profile_title
@@ -2122,6 +2465,13 @@ def _post_r10_grand_finale(
     extra["synergy_score"] = round(synergy_score, 2)
     extra["avg_social_license"] = round(avg_sl, 2)
     extra["r10_choice"] = choice
+    # STRAT-010: Equity bridge fields
+    extra["equity_value"]       = equity_value
+    extra["price_per_share"]    = price_per_share
+    extra["net_debt"]           = net_debt
+    extra["shares_outstanding"] = SHARES_OUTSTANDING
+    extra["equity_bridge"]      = equity_bridge
+    extra["total_financial_debt"] = total_financial_debt
 
     # ── HR ROI Report ──
     # Compute cumulative HR investment value for facilitator debrief
@@ -2173,11 +2523,21 @@ def _post_r10_grand_finale(
     )
 
     # Persist into global state flags for frontend/API access
-    gs["active_event_flags"]["terminal_value"] = terminal_value
-    gs["active_event_flags"]["regenerative_multiple"] = mr
-    gs["active_event_flags"]["terminal_ebitda"] = terminal_ebitda
-    gs["active_event_flags"]["profile"] = profile
-    gs["active_event_flags"]["profile_title"] = profile_title
+    gs["active_event_flags"]["terminal_value"]        = terminal_value
+    gs["active_event_flags"]["regenerative_multiple"]  = mr
+    gs["active_event_flags"]["terminal_ebitda"]        = terminal_ebitda
+    gs["active_event_flags"]["profile"]                = profile
+    gs["active_event_flags"]["profile_title"]          = profile_title
+    # STRAT-010: Equity bridge fields for leaderboard / frontend
+    gs["active_event_flags"]["equity_value"]           = equity_value
+    gs["active_event_flags"]["price_per_share"]        = price_per_share
+    gs["active_event_flags"]["net_debt"]               = net_debt
+    gs["active_event_flags"]["exit_multiple_applied"]  = effective_exit_multiple
+    gs["active_event_flags"]["exit_multiple_wacc_used"]= round(wacc_value, 4)
+    gs["active_event_flags"]["ev_over_revenue"]        = equity_bridge.get("ev_over_revenue")
+    gs["active_event_flags"]["price_to_book"]          = equity_bridge.get("price_to_book")
+    gs["active_event_flags"]["ev_revenue_signal"]      = equity_bridge.get("ev_revenue_signal")
+    gs["active_event_flags"]["pb_signal"]              = equity_bridge.get("pb_signal")
 
     # ── ITEM 8: Pathway Discovery Debrief ─────────────────────
     # Reveal the full foreshadowing chain and active ending pathway
@@ -2213,6 +2573,28 @@ def _post_r10_grand_finale(
     except Exception as exc:
         extra["pathway_discovery_error"] = str(exc)
 
+
+
+def _revert_r5_hard_engineering_pulse(
+    gs: dict, bus: list[dict], extra: dict, round_number: int
+) -> None:
+    """
+    I7 — Reverse the +3 CI pulse from R5 Hard Engineering Defence after 2 rounds.
+    Hard engineering (concrete/steel) causes a construction-phase CI increase
+    that should revert once the infrastructure is complete.
+    Triggers in R7 if hard_engineering flag is active and pulse not yet reverted.
+    """
+    flags = gs.get("active_event_flags", {})
+    if round_number == 7 and flags.get("hard_engineering") and not flags.get("hard_engineering_pulse_reverted"):
+        revert_delta = -3.0  # Reverse the +3 from R5
+        for bu in bus:
+            bu["carbon_intensity"] = max(0.0, round(bu.get("carbon_intensity", 0) + revert_delta, 2))
+        extra["hard_engineering_pulse_reverted"] = True
+        extra["hard_engineering_ci_reversal"] = revert_delta
+        extra["hard_engineering_ci_reversal_message"] = (
+            "R5 Hard Engineering construction pulse (+3 CI) reversed in R7: "
+            "infrastructure complete, operational CI normalised (I7 time-bounded pulse)."
+        )
 
 _POST_TICK_MAP = {
     1: _post_r1_foundations,
@@ -2281,13 +2663,14 @@ def _apply_option_flags(
     global_state: dict,
     extra_events: dict,
     bus: list[dict] = None,
+    decision_paradigm: str | None = None,
 ):
     """
     Persist the flags_set from the chosen option into the
     active_event_flags on the global state.
     """
     choice = _get_primary_choice(decisions)
-    cfg_opts = _fetch_options_for_industry(round_number, bus or [])
+    cfg_opts = _fetch_options_for_industry(round_number, bus or [], decision_paradigm=decision_paradigm)
     opt = cfg_opts.get(choice, {})
     flags = opt.get("flags_set", [])
 

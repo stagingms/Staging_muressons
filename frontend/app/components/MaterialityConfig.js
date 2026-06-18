@@ -5,6 +5,203 @@ import styles from './MaterialityConfig.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
+// ── Excel Import/Export Sub-component ─────────────────────────
+function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess }) {
+    const [uploading, setUploading] = useState(false);
+    const [dragOver, setDragOver] = useState(false);
+    const [result, setResult] = useState(null);  // { status, diff, error }
+
+    const scopeLabel = selectedDict === 'global'
+        ? 'Global (Narrative Crisis)'
+        : (dictOptions.find(o => o.id === selectedDict)?.label || selectedDict);
+
+    const handleDownload = async () => {
+        try {
+            const res = await fetch(`${API}/api/admin/materiality-config/download?scope=${encodeURIComponent(selectedDict)}`, { credentials: 'include' });
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                alert(err.detail || 'Download failed.');
+                return;
+            }
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `materiality_config_${selectedDict}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        } catch {
+            alert('Network error downloading Excel file.');
+        }
+    };
+
+    const doUpload = async (file) => {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.xlsx')) {
+            setResult({ error: 'Only .xlsx files are accepted.' });
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setResult({ error: 'File too large. Maximum 5 MB.' });
+            return;
+        }
+        if (!confirm(`Upload "${file.name}" and REPLACE the ${scopeLabel} materiality dictionary?`)) return;
+
+        setUploading(true);
+        setResult(null);
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const res = await fetch(
+                `${API}/api/admin/materiality-config/upload?scope=${encodeURIComponent(selectedDict)}`,
+                { method: 'POST', credentials: 'include', body: formData }
+            );
+            const data = await res.json();
+            if (res.ok) {
+                setResult({ status: 'ok', ...data });
+                if (onUploadSuccess) onUploadSuccess(data);
+            } else {
+                setResult({ error: data.detail || 'Upload failed.' });
+            }
+        } catch {
+            setResult({ error: 'Network error during upload.' });
+        }
+        setUploading(false);
+    };
+
+    const handleDrop = (e) => {
+        e.preventDefault();
+        setDragOver(false);
+        const file = e.dataTransfer?.files?.[0];
+        doUpload(file);
+    };
+
+    const handleFileInput = (e) => {
+        doUpload(e.target.files?.[0]);
+        e.target.value = '';
+    };
+
+    const diff = result?.diff;
+    const totalChanges = diff ? (diff.added?.length || 0) + (diff.removed?.length || 0) + (diff.modified?.length || 0) : 0;
+
+    return (
+        <div style={{
+            background: 'var(--bg-card, #fff)', border: '1px solid var(--border-subtle, #e2e8f0)',
+            borderRadius: '10px', padding: '1.25rem', marginBottom: '1.25rem',
+        }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                <div>
+                    <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
+                        📊 Excel Import / Export
+                    </h4>
+                    <p style={{ margin: '2px 0 0', fontSize: '0.74rem', color: 'var(--text-muted, #94a3b8)' }}>
+                        Scope: <strong>{scopeLabel}</strong> — Two sheets: Issues + Interdependencies
+                    </p>
+                </div>
+                <button
+                    onClick={handleDownload}
+                    style={{
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: '#fff',
+                        border: 'none', padding: '0.45rem 1rem', borderRadius: '8px',
+                        fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
+                        boxShadow: '0 1px 3px rgba(37,99,235,0.25)',
+                    }}
+                >
+                    <span style={{ fontSize: '1rem' }}>⬇</span> Download .xlsx
+                </button>
+            </div>
+
+            {/* Drop zone */}
+            <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('excelUploadInput')?.click()}
+                style={{
+                    border: `2px dashed ${dragOver ? '#3b82f6' : 'var(--border-subtle, #cbd5e1)'}`,
+                    borderRadius: '8px',
+                    background: dragOver ? 'rgba(59,130,246,0.06)' : 'var(--bg-elevated, #f8fafc)',
+                    padding: '1.5rem', textAlign: 'center', cursor: 'pointer',
+                    transition: 'border-color 0.2s, background 0.2s',
+                }}
+            >
+                <input
+                    type="file"
+                    id="excelUploadInput"
+                    accept=".xlsx"
+                    style={{ display: 'none' }}
+                    onChange={handleFileInput}
+                />
+                {uploading ? (
+                    <p style={{ margin: 0, fontSize: '0.85rem', color: '#3b82f6', fontWeight: 600 }}>
+                        ⏳ Uploading & validating…
+                    </p>
+                ) : (
+                    <>
+                        <p style={{ margin: 0, fontSize: '1.4rem' }}>📂</p>
+                        <p style={{ margin: '0.3rem 0 0', fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary, #475569)' }}>
+                            Drag & drop an .xlsx file here, or click to browse
+                        </p>
+                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
+                            Max 5 MB · Must contain an "Issues" sheet
+                        </p>
+                    </>
+                )}
+            </div>
+
+            {/* Result feedback */}
+            {result && (
+                <div style={{
+                    marginTop: '0.75rem', padding: '0.7rem 0.9rem', borderRadius: '8px', fontSize: '0.82rem',
+                    ...(result.error
+                        ? { background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b' }
+                        : { background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' }
+                    ),
+                }}>
+                    {result.error ? (
+                        <div>
+                            <strong>⚠️ Upload Failed</strong>
+                            <p style={{ margin: '4px 0 0', whiteSpace: 'pre-wrap' }}>{result.error}</p>
+                        </div>
+                    ) : (
+                        <div>
+                            <strong>✅ Upload Successful</strong>
+                            <span style={{ marginLeft: '0.5rem', opacity: 0.8 }}>
+                                {result.issues_count} issues · {result.interdependencies_count} links · Fee ${(result.consultant_fee_usd || 0).toLocaleString()}
+                            </span>
+                            {totalChanges > 0 && (
+                                <div style={{ marginTop: '0.4rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+                                    {diff.added?.length > 0 && (
+                                        <span style={{ background: '#dcfce7', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, fontSize: '0.76rem' }}>
+                                            +{diff.added.length} added
+                                        </span>
+                                    )}
+                                    {diff.removed?.length > 0 && (
+                                        <span style={{ background: '#fee2e2', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, fontSize: '0.76rem' }}>
+                                            −{diff.removed.length} removed
+                                        </span>
+                                    )}
+                                    {diff.modified?.length > 0 && (
+                                        <span style={{ background: '#fef9c3', padding: '2px 8px', borderRadius: '6px', fontWeight: 600, fontSize: '0.76rem' }}>
+                                            ~{diff.modified.length} modified
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+                            {totalChanges === 0 && (
+                                <div style={{ marginTop: '0.3rem', fontSize: '0.76rem', opacity: 0.7 }}>No changes detected (identical config).</div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export default function MaterialityConfig({ sessionId, isFacilitator }) {
     const [config, setConfig] = useState({ issues: [], interdependencies: [], consultant_fee_usd: 1500000 });
     const [isSandboxed, setIsSandboxed] = useState(false);
@@ -783,6 +980,15 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
             )}
 
             {showConfigurator && (<>
+
+            {/* Excel Import/Export Section */}
+            {!isFacilitator && (
+                <ExcelImportExport
+                    selectedDict={selectedDict}
+                    dictOptions={dictOptions}
+                    onUploadSuccess={(data) => { fetchConfig(); }}
+                />
+            )}
 
             {/* Consultant Fee Section */}
             <div className={styles.section}>

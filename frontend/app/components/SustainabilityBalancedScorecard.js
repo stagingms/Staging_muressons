@@ -9,6 +9,7 @@ import styles from './SustainabilityBalancedScorecard.module.css';
 import StockPerformanceChart from './StockPerformanceChart';
 import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
 import { roundToQuarter } from '../utils/roundToQuarter';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 // ═══════════════════════════════════════════════════════════════
 //  DYNAMIC DIAGNOSTIC FEEDBACK
@@ -237,10 +238,13 @@ const PERSPECTIVE_COLORS = {
  *  - history: array of round snapshots for review
  *  - onProceed: () => void — proceed to Boardroom Showdown
  */
-export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose, onLogout, sessionId }) {
+export default function SustainabilityBalancedScorecard({ data, businessUnits = [], globalState = {}, history = [], onProceed, onClose, onLogout, sessionId, decisionParadigm }) {
     const d = data || {};
     const bus = businessUnits;
     const theme = PROFILES[d.profile] || PROFILES.fragile_giant;
+    const maxRounds = 10;
+    const { currency: scorecardCurrency } = useCurrency();
+    const sym = scorecardCurrency?.symbol || '$';
 
     // Debug: log what data the scorecard receives
     console.log('[SCORECARD] data:', d);
@@ -497,7 +501,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
         // ── Build Trends Table Section ──
         const trendsRows = history
-            .filter(snap => (snap.round || snap.round_number || 0) <= 10)
+            .filter(snap => (snap.round || snap.round_number || 0) <= maxRounds)
             .map((snap, i) => {
                 const gs = snap.global_state || snap || {};
                 const buArr = snap.business_units || snap.bu_states || [];
@@ -522,7 +526,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
         // ── Build Round Review Table Section ──
         const roundRows = history
-            .filter(snap => (snap.round || snap.round_number || 0) <= 10)
+            .filter(snap => (snap.round || snap.round_number || 0) <= maxRounds)
             .map((snap, i) => {
                 const gs = snap.global_state || snap || {};
                 const buArr = snap.business_units || snap.bu_states || [];
@@ -1143,7 +1147,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                 {activeTab === 'trends' && (() => {
                     // Build chart data from history
                     const chartData = history
-                        .filter(snap => (snap.round || snap.round_number || 0) <= 10)
+                        .filter(snap => (snap.round || snap.round_number || 0) <= maxRounds)
                         .map((snap, i) => {
                             const gs = snap.global_state || snap || {};
                             const buArr = snap.business_units || snap.bu_states || [];
@@ -1509,7 +1513,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {history.filter(snap => (snap.round || snap.round_number || 0) <= 10).map((snap, i) => {
+                                        {history.filter(snap => (snap.round || snap.round_number || 0) <= maxRounds).map((snap, i) => {
                                             const gs = snap.global_state || snap || {};
                                             const buArr = snap.business_units || snap.bu_states || [];
                                             const cash = gs.corporate_treasury || gs.total_cash || 0;

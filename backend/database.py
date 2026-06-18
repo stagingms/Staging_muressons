@@ -7,10 +7,11 @@ from __future__ import annotations
 import json
 import uuid
 from typing import Any, Optional
+from datetime import datetime, timezone
 
 import asyncpg
 
-from config import DATABASE_URL, DB_MIN_CONNECTIONS, DB_MAX_CONNECTIONS
+from config import DATABASE_URL, DB_MIN_CONNECTIONS, DB_MAX_CONNECTIONS, SIM_INITIAL_BUDGET, SIM_ROUNDS
 
 
 # ── Connection Pool ─────────────────────────────────────────────
@@ -26,6 +27,27 @@ async def get_pool() -> asyncpg.Pool:
             min_size=DB_MIN_CONNECTIONS,
             max_size=DB_MAX_CONNECTIONS,
         )
+        # Ensure metadata column exists in sessions table
+        async with _pool.acquire() as conn:
+            await conn.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
+        
+        # Populate database_memory._sessions from DB for synchronous access parity
+        try:
+            from database_memory import _sessions
+            async with _pool.acquire() as conn:
+                rows = await conn.fetch("SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions")
+                for row in rows:
+                    metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+                    _sessions[str(row["session_id"])] = {
+                        "session_id": str(row["session_id"]),
+                        "cohort_name": row["cohort_name"],
+                        "facilitator_id": row["facilitator_id"],
+                        "start_time": row["start_time"],
+                        **metadata
+                    }
+        except Exception as e:
+            print(f"[POSTGRES] Failed to pre-populate in-memory session cache: {e}")
+
     return _pool
 
 
@@ -36,57 +58,256 @@ async def close_pool() -> None:
         _pool = None
 
 
+# ── SEC-5: Cross-process commit serialization (advisory locks) ──
+# The per-session asyncio.Lock in router.py only serializes within a single
+# process. Once the app runs with >1 worker/instance, two simultaneous commits
+# for the same session can land on different workers and both proceed,
+# corrupting round state. A Postgres session-level advisory lock provides the
+# missing cross-process mutual exclusion. We use the *try* variant so callers
+# fast-fail with HTTP 409 on contention (matching the existing asyncio
+# fast-fail) rather than blocking and piling up connections.
+
+async def acquire_advisory_lock(session_id: str):
+    """Try to take a cross-process advisory lock for this session.
+
+    Returns the held asyncpg connection on success (caller MUST later pass it
+    to release_advisory_lock). Returns None if the lock is already held by
+    another process — the caller should treat that as a 409 conflict.
+    """
+    pool = await get_pool()
+    conn = await pool.acquire()
+    try:
+        # hashtext() maps the session_id to a stable int4 key, identical across
+        # processes (unlike Python's randomized hash()).
+        got = await conn.fetchval("SELECT pg_try_advisory_lock(hashtext($1))", session_id)
+        if not got:
+            await pool.release(conn)
+            return None
+        return conn
+    except Exception:
+        # On any error acquiring the lock, don't leak the connection.
+        try:
+            await pool.release(conn)
+        except Exception:
+            pass
+        raise
+
+
+async def release_advisory_lock(conn, session_id: str) -> None:
+    """Release the advisory lock held on `conn` and return it to the pool."""
+    if conn is None:
+        return
+    try:
+        await conn.fetchval("SELECT pg_advisory_unlock(hashtext($1))", session_id)
+    finally:
+        try:
+            await get_pool_release(conn)
+        except Exception:
+            pass
+
+
+async def get_pool_release(conn) -> None:
+    """Release a connection back to the pool (small indirection for testability)."""
+    pool = await get_pool()
+    await pool.release(conn)
+
+
 # ── Seed Data ───────────────────────────────────────────────────
 
-def _load_seed() -> dict:
-    """Load the Round 1 seed JSON (relative to the backend directory)."""
+def _load_seed(industry: str = "generic") -> dict:
+    """Load the Round 1 seed JSON from the db folder."""
     import pathlib
-    seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / "seed_round1.json"
+    filename = "seed_healthcare.json" if industry == "healthcare" else "seed_round1.json"
+    seed_path = pathlib.Path(__file__).resolve().parent.parent / "db" / filename
     with open(seed_path, "r", encoding="utf-8-sig") as f:
         return json.load(f)
 
 
 # ── Session Operations ──────────────────────────────────────────
 
+async def update_session_metadata(session_id: str, updates: dict) -> bool:
+    """Public API: update the metadata dict for a session. Both backends implement this."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT metadata FROM sessions WHERE session_id = $1",
+            uuid.UUID(session_id),
+        )
+        if row is None:
+            return False
+        metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+        metadata.update(updates)
+        await conn.execute(
+            "UPDATE sessions SET metadata = $2 WHERE session_id = $1",
+            uuid.UUID(session_id),
+            json.dumps(metadata),
+        )
+        # Update memory cache too
+        from database_memory import _sessions
+        if session_id in _sessions:
+            _sessions[session_id].update(updates)
+        return True
+
+# Keep private alias for any legacy internal callers during transition
+_update_session_metadata = update_session_metadata
+
+
 async def create_session(
     cohort_name: str, 
-    facilitator_id: str, 
-    allowed_overrides: list[str] = None, 
-    allowed_swipes: list[str] = None,
+    facilitator_id: Optional[str] = None,
     loan_interest_rate: float = 0.12,
-    player_id: str = None,
-    parent_cohort_id: str = None,
+    player_id: Optional[str] = None,
+    parent_cohort_id: Optional[str] = None,
+    decision_paradigm: str = "legacy_abc",
+    currency_symbol: str = "$",
+    scenario_preset: Optional[str] = None,
+    experience_level: Optional[str] = None,
+    difficulty_tier: Optional[str] = None,
+    created_by: Optional[str] = None,
+    created_when: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    assigned_bu: Optional[str] = None,
+    region_id: Optional[str] = None,
+    simulation_mode: Optional[str] = None,
+    industry_vertical: Optional[str] = None,
 ) -> dict:
     """
     Create a new session, insert the Round 1 global state and all BU
-    states from the seed JSON.  Returns a dict ready for the API response.
+    states from the seed JSON. Returns a dict ready for the API response.
     """
-    allowed_overrides = allowed_overrides or []
-    allowed_swipes = allowed_swipes or []
-    pool = await get_pool()
-    seed = _load_seed()
+    # Prevent duplicate cohort names for top-level sessions
+    if not parent_cohort_id:
+        pool = await get_pool()
+        async with pool.acquire() as conn:
+            rows = await conn.fetch(
+                "SELECT session_id, metadata FROM sessions WHERE LOWER(TRIM(cohort_name)) = LOWER(TRIM($1))",
+                cohort_name
+            )
+            for r in rows:
+                meta = json.loads(r["metadata"]) if r["metadata"] else {}
+                if not meta.get("parent_cohort_id"):
+                    raise ValueError(f"A cohort named '{cohort_name}' already exists.")
+
+    if decision_paradigm == "brsr_ngrbc" and currency_symbol == "$":
+        currency_symbol = "₹"
+
+    # Determine seed based on paradigm
+    from admin_shared import _god_mode_settings
+    _PARADIGM_INDUSTRY_MAP = {"healthcare": "healthcare"}
+    industry = _PARADIGM_INDUSTRY_MAP.get(decision_paradigm, _god_mode_settings.get("industry", "generic"))
+    seed = _load_seed(industry=industry)
 
     session_id = str(uuid.uuid4())
     global_state_id = str(uuid.uuid4())
+    gs = seed["global_state"]
+    bus = seed["business_units"]
 
+    # If paradigm is un_sdg, dynamically inject non-zero baselines (50.0) for SDG clusters
+    if decision_paradigm == "un_sdg":
+        for bu in bus:
+            for cluster in ["basic_needs", "human_capital", "sustainable_growth", "planet", "governance", "partnerships"]:
+                if cluster not in bu:
+                    bu[cluster] = 50.0
+
+    # Calculate baseline metrics
+    n = len(bus) or 1
+
+    # Single-BU mode: restrict bu_states to only the assigned BU
+    if assigned_bu:
+        filtered = [b for b in bus if b.get("bu_id") == assigned_bu]
+        if filtered:
+            bus = filtered
+        # else fall through with all BUs (defensive — bad bu_id ignored)
+
+    # ── Single-BU mode: scale treasury proportionally ──
+    # When running with 1 BU out of N total, divide treasury by N so the
+    # player doesn't start with a disproportionately large cash cushion.
+    _treasury_val = SIM_INITIAL_BUDGET
+    if assigned_bu:
+        total_bus_in_seed = len(seed.get("business_units", []))
+        if total_bus_in_seed > 1:
+            _treasury_val = round(_treasury_val / total_bus_in_seed, 2)
+
+
+    # Recalculate after possible BU filtering
+    n = len(bus) or 1
+    baseline_ebitda = round(sum(b["revenue_base"] - b["opex_base"] for b in bus), 2)
+    baseline_tco2e = round(sum(b.get("carbon_intensity", 0) * b["revenue_base"] / 1_000_000 for b in bus))
+    avg_sl = sum(b.get("social_license_score", 50) for b in bus) / n
+    avg_ci = sum(b.get("carbon_intensity", 50) for b in bus) / n
+    avg_gr = sum(b.get("governance_risk_score", 20) for b in bus) / n
+    baseline_vrio = {
+        "value": round(max(0, min(100, avg_sl)), 1),
+        "rarity": round(max(0, min(100, 100 - avg_ci)), 1),
+        "imitability": round(max(0, min(100, gs["group_synergy_multiplier"] * 100)), 1),
+        "organization": round(max(0, min(100, 100 - avg_gr)), 1),
+    }
+
+    # Generate a friendly short code for top-level cohort sessions
+    from database_memory import _generate_short_code
+    short_code = _generate_short_code() if not parent_cohort_id else None
+
+    # Anti-gaming option shuffle seed
+    from option_shuffle import generate_shuffle_seed
+    _shuffle_seed = generate_shuffle_seed()
+
+    # Metadata to store in database sessions.metadata
+    metadata = {
+        "short_code": short_code,
+        "is_public": False,
+        "allowed_player_ids": [],
+        "player_id": player_id,
+        "parent_cohort_id": parent_cohort_id,
+        "decision_paradigm": decision_paradigm,
+        "currency_symbol": currency_symbol,
+        "scenario_preset": scenario_preset,
+        "experience_level": experience_level,
+        "difficulty_tier": difficulty_tier or "advanced",
+        "created_by": created_by,
+        "created_when": created_when,
+        "start_date": start_date,
+        "end_date": end_date,
+        "shuffle_seed": _shuffle_seed,
+        "assigned_bu": assigned_bu or "",
+        "region_id": region_id or "",
+        "simulation_mode": simulation_mode or "",
+        "industry_vertical": industry_vertical or "",
+    }
+
+    pool = await get_pool()
     async with pool.acquire() as conn:
         async with conn.transaction():
             # 1. Session row
             await conn.execute(
                 """
-                INSERT INTO sessions (session_id, cohort_name, facilitator_id)
-                VALUES ($1, $2, $3)
+                INSERT INTO sessions (session_id, cohort_name, facilitator_id, metadata)
+                VALUES ($1, $2, $3, $4)
                 """,
                 uuid.UUID(session_id),
                 cohort_name,
-                facilitator_id,
+                facilitator_id or "admin",
+                json.dumps(metadata),
             )
             
-            # (Note: In a true DB migration, we would run ALTER TABLE sessions ADD COLUMN allowed_overrides JSONB, etc.
-            # But the user might be using memory DB. We'll store it by updating session row if columns exist, but 
-            # for now, we leave the schema alone to avoid dropping existing DBs. We will rely on memory cache or separate store if needed.)
+            # Prepare global state flags
+            flags = {
+                **gs.get("active_event_flags", {}),
+                "loan_interest_rate": loan_interest_rate,
+                "bonus_score": 0,
+                "historical_ebitda": baseline_ebitda,
+                "tco2e_emissions": baseline_tco2e,
+                "vrio_capabilities": baseline_vrio,
+                "green_transition_fund": 0.0,
+                "tipping_point_active": False,
+                "pending_capex_projects": [],
+                "inflation_index": 0.025,
+                "competitor_ebitda": baseline_ebitda,
+            }
 
-            gs = seed["global_state"]
+            if decision_paradigm == "brsr_ngrbc":
+                from brsr_controller import init_brsr_state
+                init_brsr_state(flags, bus, {})
 
             # 2. Global round state — Round 1
             await conn.execute(
@@ -101,18 +322,25 @@ async def create_session(
                 uuid.UUID(global_state_id),
                 uuid.UUID(session_id),
                 1,
-                gs["corporate_treasury_usd"],
+                _treasury_val,
                 gs["group_reputation_score"],
                 gs["group_synergy_multiplier"],
                 gs["cost_of_capital_rate"],
-                json.dumps({
-                    **gs.get("active_event_flags", {}),
-                    "loan_interest_rate": loan_interest_rate
-                }),
+                json.dumps(flags),
             )
 
             # 3. BU round states
-            for bu in seed["business_units"]:
+            for bu in bus:
+                explicit_columns = {
+                    "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+                    "social_license_score", "reputation_score", "governance_risk_score",
+                    "water_dependency", "carbon_intensity"
+                }
+                rf = dict(bu.get("risk_factors", {}))
+                for k, v in bu.items():
+                    if k not in explicit_columns and k != "risk_factors":
+                        rf[k] = v
+
                 await conn.execute(
                     """
                     INSERT INTO bu_round_states
@@ -134,23 +362,35 @@ async def create_session(
                     bu.get("governance_risk_score", 0),
                     bu.get("water_dependency", 0),
                     bu.get("carbon_intensity", 0),
-                    json.dumps(bu.get("risk_factors", {})),
+                    json.dumps(rf),
                 )
+
+    # Populate cache in database_memory._sessions
+    from database_memory import _sessions
+    _sessions[session_id] = {
+        "session_id": session_id,
+        "cohort_name": cohort_name,
+        "facilitator_id": facilitator_id,
+        "start_time": datetime.now(timezone.utc),
+        **metadata
+    }
+
+    res_gs = {
+        "corporate_treasury": _treasury_val,
+        "group_reputation": gs["group_reputation_score"],
+        "synergy_multiplier": gs["group_synergy_multiplier"],
+        "cost_of_capital": gs["cost_of_capital_rate"],
+        "active_event_flags": flags,
+    }
+    for k, v in flags.items():
+        if k not in res_gs:
+            res_gs[k] = v
 
     return {
         "session_id": session_id,
         "round_number": 1,
-        "global_state": {
-            "corporate_treasury": gs["corporate_treasury_usd"],
-            "group_reputation": gs["group_reputation_score"],
-            "synergy_multiplier": gs["group_synergy_multiplier"],
-            "cost_of_capital": gs["cost_of_capital_rate"],
-            "active_event_flags": {
-                **gs.get("active_event_flags", {}),
-                "loan_interest_rate": loan_interest_rate
-            },
-        },
-        "business_units": seed["business_units"],
+        "global_state": res_gs,
+        "business_units": bus,
     }
 
 
@@ -161,16 +401,21 @@ async def get_session_info(session_id: str) -> Optional[dict]:
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow(
-            "SELECT session_id, cohort_name, facilitator_id FROM sessions WHERE session_id = $1",
+            "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions WHERE session_id = $1",
             uuid.UUID(session_id),
         )
         if row is None:
             return None
-        return {
+        metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+        res = {
             "session_id": str(row["session_id"]),
             "cohort_name": row["cohort_name"],
             "facilitator_id": row["facilitator_id"],
+            "start_time": row["start_time"],
         }
+        res.update(metadata)
+        return res
+
 
 async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
     """Look up an existing session by cohort_name and return its latest state."""
@@ -180,7 +425,7 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
             """
             SELECT session_id
             FROM sessions
-            WHERE cohort_name = $1
+            WHERE LOWER(TRIM(cohort_name)) = LOWER(TRIM($1))
             ORDER BY created_at DESC
             LIMIT 1
             """,
@@ -189,21 +434,36 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
         if row is None:
             return None
             
-        # Manually tack on session_id so the router can use it
         state = await fetch_latest_state(str(row["session_id"]))
         if state:
             state["session_id"] = str(row["session_id"])
         return state
 
+
 async def get_child_sessions(parent_id: str) -> list[dict]:
-    """Not implemented for Postgres yet. Returns empty list."""
-    return []
+    """Return all child sessions for a parent session (facilitator views)."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions"
+        )
+        res = []
+        for row in rows:
+            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+            if metadata.get("parent_cohort_id") == parent_id:
+                sess = {
+                    "session_id": str(row["session_id"]),
+                    "cohort_name": row["cohort_name"],
+                    "facilitator_id": row["facilitator_id"],
+                    "start_time": row["start_time"],
+                }
+                sess.update(metadata)
+                res.append(sess)
+        return res
 
 
 async def fetch_latest_state(session_id: str) -> Optional[dict]:
-    """
-    Return the latest round's global state + BU states for a session.
-    """
+    """Return the latest round's global state + BU states for a session."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         grs = await conn.fetchrow(
@@ -235,38 +495,60 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             grs["state_id"],
         )
 
+        flags = json.loads(grs["active_event_flags"]) if isinstance(grs["active_event_flags"], str) else (grs["active_event_flags"] or {})
+        
+        global_state = {
+            "corporate_treasury": float(grs["corporate_treasury"]),
+            "group_reputation": float(grs["group_reputation"]),
+            "synergy_multiplier": float(grs["synergy_multiplier"]),
+            "cost_of_capital": float(grs["cost_of_capital"]),
+            "active_event_flags": flags,
+        }
+        # Unpack dynamic global state fields from active_event_flags
+        explicit_global_columns = {
+            "corporate_treasury", "group_reputation", "synergy_multiplier",
+            "cost_of_capital", "active_event_flags"
+        }
+        for k, v in flags.items():
+            if k not in explicit_global_columns:
+                global_state[k] = v
+
+        bu_states = []
+        for row in bus:
+            rf = json.loads(row["risk_factors"]) if isinstance(row["risk_factors"], str) else (row["risk_factors"] or {})
+            bu_dict = {
+                "bu_id": row["bu_id"],
+                "revenue_base": float(row["revenue_base"]),
+                "opex_base": float(row["opex_base"]),
+                "natural_capital_debt": float(row["natural_capital_debt"]),
+                "social_license_score": float(row["social_license_score"]),
+                "reputation_score": float(row["reputation_score"]),
+                "governance_risk_score": float(row["governance_risk_score"]),
+                "water_dependency": float(row["water_dependency"]) if row["water_dependency"] is not None else 0.0,
+                "carbon_intensity": float(row["carbon_intensity"]) if row["carbon_intensity"] is not None else 0.0,
+                "risk_factors": rf,
+            }
+            # Unpack dynamic BU fields from risk_factors
+            explicit_bu_columns = {
+                "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+                "social_license_score", "reputation_score", "governance_risk_score",
+                "water_dependency", "carbon_intensity", "risk_factors"
+            }
+            for k, v in rf.items():
+                if k not in explicit_bu_columns:
+                    bu_dict[k] = v
+            bu_states.append(bu_dict)
+
         return {
             "state_id": str(grs["state_id"]),
             "round_number": grs["round_number"],
-            "global_state": {
-                "corporate_treasury": float(grs["corporate_treasury"]),
-                "group_reputation": float(grs["group_reputation"]),
-                "synergy_multiplier": float(grs["synergy_multiplier"]),
-                "cost_of_capital": float(grs["cost_of_capital"]),
-                "active_event_flags": grs["active_event_flags"] or {},
-            },
-            "bu_states": [
-                {
-                    "bu_id": row["bu_id"],
-                    "revenue_base": float(row["revenue_base"]),
-                    "opex_base": float(row["opex_base"]),
-                    "natural_capital_debt": float(row["natural_capital_debt"]),
-                    "social_license_score": float(row["social_license_score"]),
-                    "reputation_score": float(row["reputation_score"]),
-                    "governance_risk_score": float(row["governance_risk_score"]),
-                    "water_dependency": float(row["water_dependency"]),
-                    "carbon_intensity": float(row["carbon_intensity"]),
-                    "risk_factors": row["risk_factors"] or {},
-                }
-                for row in bus
-            ],
+            "global_state": global_state,
+            "bu_states": bu_states,
         }
 
 
 async def fetch_round_history(session_id: str) -> list[dict]:
-    """
-    Return all rounds for a session (for the dashboard history).
-    """
+    """Return all rounds for a session (for the dashboard history)."""
     pool = await get_pool()
     async with pool.acquire() as conn:
         rounds = await conn.fetch(
@@ -305,30 +587,52 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                 """,
                 uuid.UUID(session_id), grs["round_number"],
             )
+            
+            flags = json.loads(grs["active_event_flags"]) if isinstance(grs["active_event_flags"], str) else (grs["active_event_flags"] or {})
+            global_state = {
+                "corporate_treasury": float(grs["corporate_treasury"]),
+                "group_reputation": float(grs["group_reputation"]),
+                "synergy_multiplier": float(grs["synergy_multiplier"]),
+                "cost_of_capital": float(grs["cost_of_capital"]),
+                "active_event_flags": flags,
+            }
+            explicit_global_columns = {
+                "corporate_treasury", "group_reputation", "synergy_multiplier",
+                "cost_of_capital", "active_event_flags"
+            }
+            for k, v in flags.items():
+                if k not in explicit_global_columns:
+                    global_state[k] = v
+
+            bu_states = []
+            for row in bus:
+                rf = json.loads(row["risk_factors"]) if isinstance(row["risk_factors"], str) else (row["risk_factors"] or {})
+                bu_dict = {
+                    "bu_id": row["bu_id"],
+                    "revenue_base": float(row["revenue_base"]),
+                    "opex_base": float(row["opex_base"]),
+                    "natural_capital_debt": float(row["natural_capital_debt"]),
+                    "social_license_score": float(row["social_license_score"]),
+                    "reputation_score": float(row["reputation_score"]),
+                    "governance_risk_score": float(row["governance_risk_score"]),
+                    "water_dependency": float(row["water_dependency"]) if row["water_dependency"] is not None else 0.0,
+                    "carbon_intensity": float(row["carbon_intensity"]) if row["carbon_intensity"] is not None else 0.0,
+                    "risk_factors": rf,
+                }
+                explicit_bu_columns = {
+                    "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+                    "social_license_score", "reputation_score", "governance_risk_score",
+                    "water_dependency", "carbon_intensity", "risk_factors"
+                }
+                for k, v in rf.items():
+                    if k not in explicit_bu_columns:
+                        bu_dict[k] = v
+                bu_states.append(bu_dict)
+
             history.append({
                 "round_number": grs["round_number"],
-                "global_state": {
-                    "corporate_treasury": float(grs["corporate_treasury"]),
-                    "group_reputation": float(grs["group_reputation"]),
-                    "synergy_multiplier": float(grs["synergy_multiplier"]),
-                    "cost_of_capital": float(grs["cost_of_capital"]),
-                    "active_event_flags": grs["active_event_flags"] or {},
-                },
-                "business_units": [
-                    {
-                        "bu_id": row["bu_id"],
-                        "revenue_base": float(row["revenue_base"]),
-                        "opex_base": float(row["opex_base"]),
-                        "natural_capital_debt": float(row["natural_capital_debt"]),
-                        "social_license_score": float(row["social_license_score"]),
-                        "reputation_score": float(row["reputation_score"]),
-                        "governance_risk_score": float(row["governance_risk_score"]),
-                        "water_dependency": float(row["water_dependency"]),
-                        "carbon_intensity": float(row["carbon_intensity"]),
-                        "risk_factors": row["risk_factors"] or {},
-                    }
-                    for row in bus
-                ],
+                "global_state": global_state,
+                "business_units": bu_states,
                 "decisions": [
                     {
                         "bu_id": row["bu_id"],
@@ -353,12 +657,20 @@ async def insert_next_round(
     bu_states: list[dict],
     decisions: list[dict],
 ) -> str:
-    """
-    Persist the new round state and audit log entries.
-    Returns the new global_state_id.
-    """
+    """Persist the new round state and audit log entries. Returns the new global_state_id."""
     pool = await get_pool()
     global_state_id = str(uuid.uuid4())
+
+    # Put extra global fields into active_event_flags
+    flags = dict(global_state.get("active_event_flags", {}))
+    explicit_global_columns = {
+        "state_id", "session_id", "round_number", "corporate_treasury",
+        "group_reputation", "synergy_multiplier", "cost_of_capital",
+        "active_event_flags"
+    }
+    for k, v in global_state.items():
+        if k not in explicit_global_columns:
+            flags[k] = v
 
     async with pool.acquire() as conn:
         async with conn.transaction():
@@ -379,11 +691,21 @@ async def insert_next_round(
                 global_state["group_reputation"],
                 global_state["synergy_multiplier"],
                 global_state.get("cost_of_capital", 0.05),
-                json.dumps(global_state.get("active_event_flags", {})),
+                json.dumps(flags),
             )
 
             # BU states
             for bu in bu_states:
+                explicit_columns = {
+                    "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+                    "social_license_score", "reputation_score", "governance_risk_score",
+                    "water_dependency", "carbon_intensity"
+                }
+                rf = dict(bu.get("risk_factors", {}))
+                for k, v in bu.items():
+                    if k not in explicit_columns and k != "risk_factors":
+                        rf[k] = v
+
                 await conn.execute(
                     """
                     INSERT INTO bu_round_states
@@ -405,7 +727,7 @@ async def insert_next_round(
                     bu.get("governance_risk_score", 0),
                     bu.get("water_dependency", 0),
                     bu.get("carbon_intensity", 0),
-                    json.dumps(bu.get("risk_factors", {})),
+                    json.dumps(rf),
                 )
 
             # Decision audit log
@@ -440,20 +762,23 @@ async def fetch_all_sessions() -> list[dict]:
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
-            SELECT session_id, cohort_name, facilitator_id, start_time
+            SELECT session_id, cohort_name, facilitator_id, start_time, metadata
             FROM sessions
             ORDER BY start_time DESC
             """
         )
-        return [
-            {
+        res = []
+        for row in rows:
+            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+            sess_dict = {
                 "session_id": str(row["session_id"]),
                 "cohort_name": row["cohort_name"],
                 "facilitator_id": row["facilitator_id"],
                 "start_time": row["start_time"].isoformat() if row["start_time"] else None,
             }
-            for row in rows
-        ]
+            sess_dict.update(metadata)
+            res.append(sess_dict)
+        return res
 
 
 async def update_latest_global_state(
@@ -461,14 +786,9 @@ async def update_latest_global_state(
     global_state: dict,
     bu_states: list[dict],
 ) -> None:
-    """
-    Update the LATEST round's global and BU states in place.
-    Used by God Mode overrides that mutate the current round
-    without advancing to a new round.
-    """
+    """Update the LATEST round's global and BU states in place."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Find the latest state_id
         grs = await conn.fetchrow(
             """
             SELECT state_id FROM global_round_states
@@ -481,6 +801,16 @@ async def update_latest_global_state(
             return
 
         state_id = grs["state_id"]
+
+        flags = dict(global_state.get("active_event_flags", {}))
+        explicit_global_columns = {
+            "state_id", "session_id", "round_number", "corporate_treasury",
+            "group_reputation", "synergy_multiplier", "cost_of_capital",
+            "active_event_flags"
+        }
+        for k, v in global_state.items():
+            if k not in explicit_global_columns:
+                flags[k] = v
 
         async with conn.transaction():
             # Update global state
@@ -499,11 +829,21 @@ async def update_latest_global_state(
                 global_state["group_reputation"],
                 global_state["synergy_multiplier"],
                 global_state.get("cost_of_capital", 0.05),
-                json.dumps(global_state.get("active_event_flags", {})),
+                json.dumps(flags),
             )
 
             # Update BU states
             for bu in bu_states:
+                explicit_columns = {
+                    "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+                    "social_license_score", "reputation_score", "governance_risk_score",
+                    "water_dependency", "carbon_intensity"
+                }
+                rf = dict(bu.get("risk_factors", {}))
+                for k, v in bu.items():
+                    if k not in explicit_columns and k != "risk_factors":
+                        rf[k] = v
+
                 await conn.execute(
                     """
                     UPDATE bu_round_states SET
@@ -528,22 +868,16 @@ async def update_latest_global_state(
                     bu.get("governance_risk_score", 0),
                     bu.get("water_dependency", 0),
                     bu.get("carbon_intensity", 0),
-                    json.dumps(bu.get("risk_factors", {})),
+                    json.dumps(rf),
                 )
 
 
 # ── Undo / Rollback Operations ────────────────────────────────
 
 async def undo_latest_round(session_id: str) -> dict:
-    """
-    Delete the latest round's global state, BU states, and audit log
-    entries for a session. Temporarily disables immutability triggers.
-    Returns {"success": True, "deleted_round": N, "new_current_round": N-1}
-    or {"success": False, "reason": "..."}.
-    """
+    """Delete the latest round's state and restore the previous round."""
     pool = await get_pool()
     async with pool.acquire() as conn:
-        # Find the latest round
         latest = await conn.fetchrow(
             """
             SELECT state_id, round_number
@@ -564,29 +898,24 @@ async def undo_latest_round(session_id: str) -> dict:
         state_id = latest["state_id"]
 
         async with conn.transaction():
-            # Temporarily disable immutability triggers
             await conn.execute("ALTER TABLE decision_audit_log DISABLE TRIGGER trg_immutable_decision_audit_log")
             await conn.execute("ALTER TABLE bu_round_states DISABLE TRIGGER trg_immutable_bu_round_states")
             await conn.execute("ALTER TABLE global_round_states DISABLE TRIGGER trg_immutable_global_round_states")
 
             try:
-                # Delete audit log entries for this round
                 await conn.execute(
                     "DELETE FROM decision_audit_log WHERE session_id = $1 AND round_number = $2",
                     uuid.UUID(session_id), deleted_round,
                 )
-                # Delete BU states (cascades from global state via FK, but explicit is safer)
                 await conn.execute(
                     "DELETE FROM bu_round_states WHERE global_state_id = $1",
                     state_id,
                 )
-                # Delete global round state
                 await conn.execute(
                     "DELETE FROM global_round_states WHERE state_id = $1",
                     state_id,
                 )
             finally:
-                # Re-enable immutability triggers
                 await conn.execute("ALTER TABLE global_round_states ENABLE TRIGGER trg_immutable_global_round_states")
                 await conn.execute("ALTER TABLE bu_round_states ENABLE TRIGGER trg_immutable_bu_round_states")
                 await conn.execute("ALTER TABLE decision_audit_log ENABLE TRIGGER trg_immutable_decision_audit_log")
@@ -597,3 +926,260 @@ async def undo_latest_round(session_id: str) -> dict:
         "new_current_round": deleted_round - 1,
     }
 
+
+# ── Additional Player/Session CRUD for PostgreSQL ─────────────
+
+async def validate_player_id(session_id: str, player_id: str) -> bool:
+    """Validate if a player ID is allowed for a session."""
+    info = await get_session_info(session_id)
+    if not info:
+        return False
+    return player_id in info.get("allowed_player_ids", [])
+
+
+async def set_session_public(session_id: str, is_public: bool) -> bool:
+    """Set the visibility of a session (public or private)."""
+    return await _update_session_metadata(session_id, {"is_public": is_public})
+
+
+async def generate_player_id(session_id: str) -> Optional[str]:
+    """Generate and register a unique player ID for the session."""
+    import random
+    import string
+    info = await get_session_info(session_id)
+    if not info:
+        return None
+    allowed = info.get("allowed_player_ids", [])
+    while True:
+        letters = ''.join(random.choices(string.ascii_uppercase, k=3))
+        pid = f"MUR-{letters}"
+        if pid not in allowed:
+            break
+    allowed.append(pid)
+    await _update_session_metadata(session_id, {"allowed_player_ids": allowed})
+    return pid
+
+
+async def get_active_public_sessions() -> list[dict]:
+    """Return all active public top-level sessions."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions"
+        )
+        res = []
+        for row in rows:
+            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+            if metadata.get("is_public") and not metadata.get("parent_cohort_id"):
+                sess = {
+                    "session_id": str(row["session_id"]),
+                    "cohort_name": row["cohort_name"],
+                    "facilitator_id": row["facilitator_id"],
+                    "start_time": row["start_time"],
+                }
+                sess.update(metadata)
+                res.append(sess)
+        return res
+
+
+async def delete_session(session_id: str, hard: bool = False) -> bool:
+    """Delete a single session. Soft-deletes unless hard=True."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow("SELECT session_id FROM sessions WHERE session_id = $1", uuid.UUID(session_id))
+        if row is None:
+            return False
+        if hard:
+            await conn.execute("DELETE FROM sessions WHERE session_id = $1", uuid.UUID(session_id))
+            from database_memory import _sessions
+            _sessions.pop(session_id, None)
+        else:
+            now_str = datetime.now(timezone.utc).isoformat()
+            await _update_session_metadata(session_id, {"deleted_at": now_str})
+        return True
+
+
+async def delete_all_sessions(hard: bool = False) -> int:
+    """Delete all sessions. Soft-deletes unless hard=True."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT session_id FROM sessions")
+        count = len(rows)
+        if hard:
+            await conn.execute("DELETE FROM sessions")
+            from database_memory import _sessions
+            _sessions.clear()
+        else:
+            now_str = datetime.now(timezone.utc).isoformat()
+            for row in rows:
+                sid = str(row["session_id"])
+                await _update_session_metadata(sid, {"deleted_at": now_str})
+        return count
+
+
+async def save_decade_plan(session_id: str, boardroom_choice: str, decade_plan: str) -> bool:
+    """Save the boardroom choice and decade forward plan for a session."""
+    return await _update_session_metadata(session_id, {
+        "boardroom_choice": boardroom_choice,
+        "decade_forward_plan": decade_plan
+    })
+
+
+async def get_decade_plan(session_id: str) -> Optional[dict]:
+    """Retrieve the decade forward plan for a session."""
+    info = await get_session_info(session_id)
+    if not info:
+        return None
+    return {
+        "boardroom_choice": info.get("boardroom_choice"),
+        "decade_forward_plan": info.get("decade_forward_plan"),
+    }
+
+
+async def reset_session_to_round1(session_id: str) -> bool:
+    """
+    Reset a session (and all its child player sessions) back to Round 1 seed state.
+    Preserves session metadata (cohort name, facilitator, players, etc.).
+    """
+    pool = await get_pool()
+    info = await get_session_info(session_id)
+    if not info:
+        return False
+    
+    # Determine seed based on paradigm
+    paradigm = info.get("decision_paradigm", "legacy_abc")
+    industry = "healthcare" if paradigm == "healthcare" else "generic"
+    seed = _load_seed(industry=industry)
+    gs = seed["global_state"]
+    bus = seed["business_units"]
+
+    # Rebuild baseline metrics from seed
+    n = len(bus) or 1
+    baseline_ebitda = round(sum(b["revenue_base"] - b["opex_base"] for b in bus), 2)
+    baseline_tco2e = round(sum(b.get("carbon_intensity", 0) * b["revenue_base"] / 1_000_000 for b in bus))
+    avg_sl = sum(b.get("social_license_score", 50) for b in bus) / n
+    avg_ci = sum(b.get("carbon_intensity", 50) for b in bus) / n
+    avg_gr = sum(b.get("governance_risk_score", 20) for b in bus) / n
+    baseline_vrio = {
+        "value": round(max(0, min(100, avg_sl)), 1),
+        "rarity": round(max(0, min(100, 100 - avg_ci)), 1),
+        "imitability": round(max(0, min(100, gs["group_synergy_multiplier"] * 100)), 1),
+        "organization": round(max(0, min(100, 100 - avg_gr)), 1),
+    }
+
+    loan_rate = 0.12
+    # Get loan interest rate from latest state if available
+    latest = await fetch_latest_state(session_id)
+    if latest:
+        loan_rate = latest.get("global_state", {}).get("active_event_flags", {}).get("loan_interest_rate", 0.12)
+
+    global_state_id = str(uuid.uuid4())
+    
+    # SDG values dynamic injection for reset
+    if paradigm == "un_sdg":
+        for bu in bus:
+            for cluster in ["basic_needs", "human_capital", "sustainable_growth", "planet", "governance", "partnerships"]:
+                if cluster not in bu:
+                    bu[cluster] = 50.0
+
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            # Delete old states for this session (cascades or explicit)
+            # Disable triggers for clean deletions
+            await conn.execute("ALTER TABLE decision_audit_log DISABLE TRIGGER trg_immutable_decision_audit_log")
+            await conn.execute("ALTER TABLE bu_round_states DISABLE TRIGGER trg_immutable_bu_round_states")
+            await conn.execute("ALTER TABLE global_round_states DISABLE TRIGGER trg_immutable_global_round_states")
+            
+            try:
+                # 1. Delete audit log entries
+                await conn.execute("DELETE FROM decision_audit_log WHERE session_id = $1", uuid.UUID(session_id))
+                # 2. Delete BU round states
+                await conn.execute(
+                    """
+                    DELETE FROM bu_round_states 
+                    WHERE global_state_id IN (SELECT state_id FROM global_round_states WHERE session_id = $1)
+                    """,
+                    uuid.UUID(session_id),
+                )
+                # 3. Delete global round states
+                await conn.execute("DELETE FROM global_round_states WHERE session_id = $1", uuid.UUID(session_id))
+                
+                # 4. Insert Round 1 global state
+                await conn.execute(
+                    """
+                    INSERT INTO global_round_states
+                        (state_id, session_id, round_number,
+                         corporate_treasury, group_reputation,
+                         synergy_multiplier, cost_of_capital,
+                         active_event_flags)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    """,
+                    uuid.UUID(global_state_id),
+                    uuid.UUID(session_id),
+                    1,
+                    gs["corporate_treasury_usd"],
+                    gs["group_reputation_score"],
+                    gs["group_synergy_multiplier"],
+                    gs["cost_of_capital_rate"],
+                    json.dumps({
+                        **gs.get("active_event_flags", {}),
+                        "loan_interest_rate": loan_rate,
+                        "bonus_score": 0,
+                        "historical_ebitda": baseline_ebitda,
+                        "tco2e_emissions": baseline_tco2e,
+                        "vrio_capabilities": baseline_vrio,
+                        "green_transition_fund": 0.0,
+                        "tipping_point_active": False,
+                        "pending_capex_projects": [],
+                        "inflation_index": 0.025,
+                        "competitor_ebitda": baseline_ebitda,
+                    }),
+                )
+                
+                # 5. Insert BU states
+                for bu in bus:
+                    explicit_columns = {
+                        "bu_id", "revenue_base", "opex_base", "natural_capital_debt",
+                        "social_license_score", "reputation_score", "governance_risk_score",
+                        "water_dependency", "carbon_intensity"
+                    }
+                    rf = dict(bu.get("risk_factors", {}))
+                    for k, v in bu.items():
+                        if k not in explicit_columns and k != "risk_factors":
+                            rf[k] = v
+                            
+                    await conn.execute(
+                        """
+                        INSERT INTO bu_round_states
+                            (global_state_id, bu_id,
+                             revenue_base, opex_base,
+                             natural_capital_debt, social_license_score,
+                             reputation_score, governance_risk_score,
+                             water_dependency, carbon_intensity,
+                             risk_factors)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                        """,
+                        uuid.UUID(global_state_id),
+                        bu["bu_id"],
+                        bu["revenue_base"],
+                        bu["opex_base"],
+                        bu.get("natural_capital_debt", 0),
+                        bu.get("social_license_score", 50),
+                        bu.get("reputation_score", 50),
+                        bu.get("governance_risk_score", 0),
+                        bu.get("water_dependency", 0),
+                        bu.get("carbon_intensity", 0),
+                        json.dumps(rf),
+                    )
+            finally:
+                # Re-enable triggers
+                await conn.execute("ALTER TABLE global_round_states ENABLE TRIGGER trg_immutable_global_round_states")
+                await conn.execute("ALTER TABLE bu_round_states ENABLE TRIGGER trg_immutable_bu_round_states")
+                await conn.execute("ALTER TABLE decision_audit_log ENABLE TRIGGER trg_immutable_decision_audit_log")
+
+    # Also reset child player sessions
+    child_sessions = await get_child_sessions(session_id)
+    for child in child_sessions:
+        await reset_session_to_round1(child["session_id"])
+        
+    return True

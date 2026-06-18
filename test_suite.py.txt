@@ -1,0 +1,25 @@
+import unittest
+import json
+from validation_logic import validate_simulation_state
+from orchestrator import SimulationOrchestrator
+
+# Load your configuration
+with open('config.json', 'r') as f:
+    config = json.load(f)
+
+class TestSimulationIntegrity(unittest.TestCase):
+    def test_invariants_carbon_cap(self):
+        """Ensure system fails if carbon cap is exceeded."""
+        # We manually create a state that violates the logic to see if it catches it
+        state = {'total_emissions': 99999, 'max_carbon_limit': 5000}
+        with self.assertRaises(ValueError):
+            validate_simulation_state(state)
+
+    def test_orchestrator_initialization(self):
+        """Ensure orchestrator correctly pulls from config."""
+        orch = SimulationOrchestrator(config)
+        # Check if the orchestrator loaded the round limit from config
+        self.assertEqual(orch.max_rounds, config['simulation_settings']['rounds'])
+
+if __name__ == '__main__':
+    unittest.main()

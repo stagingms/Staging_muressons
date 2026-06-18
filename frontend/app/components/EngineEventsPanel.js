@@ -399,12 +399,15 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
   }
 
   // 43. Goodwill Impairment
-  if (roundEvents?.balance_sheet?.goodwill_impairment > 0) {
-    const impairment = (roundEvents.balance_sheet.goodwill_impairment / 1_000_000).toFixed(1);
+  // FIX-D: goodwill_impairment is now a dict { amount, pct, trigger } not a raw number.
+  if ((roundEvents?.balance_sheet?.goodwill_impairment?.amount || 0) > 0) {
+    const impairment = (roundEvents.balance_sheet.goodwill_impairment.amount / 1_000_000).toFixed(1);
+    const trigger = roundEvents.balance_sheet.goodwill_impairment.trigger || 'reputation';
+    const triggerLabel = trigger === 'ebitda_margin' ? 'Low EBITDA margin' : trigger === 'survival' ? 'Survival mode' : 'Low reputation';
     events.push({
       icon: '📉', color: '#ef4444',
-      text: `Goodwill impairment: $${impairment}M written off. Low reputation has eroded brand goodwill.`,
-      tooltip: 'IAS 36 requires annual goodwill impairment testing. When group reputation drops below 40, goodwill is reduced — this reflects investor loss of confidence in the acquisition premium.',
+      text: `Goodwill impairment: $${impairment}M written off. Trigger: ${triggerLabel}. IAS 36 annual test failed.`,
+      tooltip: 'IAS 36 requires annual goodwill impairment testing. Impairment is triggered when group reputation drops below 40 or EBITDA margin falls below 10%. The write-off is smoothly calculated — not a hard cliff — reducing goodwill proportionally.',
     });
   }
 

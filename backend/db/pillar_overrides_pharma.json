@@ -1,0 +1,35 @@
+{
+  "bu_id": "pharma",
+  "description": "Pillar overrides for Pharma & Healthcare. Replaces the Human Resources area with Medicine Access, the defining social responsibility challenge for pharmaceutical companies.",
+  "override_areas": {
+    "human_resources": {
+      "label": "Medicine Access",
+      "icon": "💊",
+      "description_override": "Manage equitable access to essential medicines across markets.",
+      "options": {
+        "tiered_pricing": {
+          "title": "Tiered Pricing for Emerging Markets",
+          "description": "Implement income-adjusted pricing for essential medicines in low- and middle-income countries, aligned with WHO Essential Medicines List.",
+          "cost": -3000000,
+          "impacts": { "social_license_delta": 10, "reputation": 7 },
+          "flags_set": ["tiered_pricing"]
+        },
+        "generic_licensing": {
+          "title": "Voluntary Licensing for Generics",
+          "description": "Issue voluntary licences to generic manufacturers in LMIC markets for key patent-protected medicines.",
+          "cost": -1500000,
+          "impacts": { "social_license_delta": 6, "reputation": 4 },
+          "flags_set": ["generic_licensing"]
+        },
+        "no_access_action": {
+          "title": "No Access Program",
+          "description": "Maintain uniform global pricing. Access gap widens in lower-income markets.",
+          "cost": 0,
+          "impacts": { "social_license_delta": -4, "reputation": -3 },
+          "flags_set": []
+        }
+      }
+    }
+  },
+  "custom_areas": []
+}

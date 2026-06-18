@@ -1,0 +1,81 @@
+{
+  "bu_id": "retail_fmcg",
+  "region_id": "europe",
+  "stakeholders": [
+    {
+      "id": "eu_regulators",
+      "name": "European Commission / CSRD Regulators",
+      "icon": "🇪🇺",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "The CSRD (Corporate Sustainability Reporting Directive) requires large EU-listed FMCG companies to report against all 12 ESRS standards from 2025. Non-compliance carries substantial fines and potential market access restrictions.",
+      "engagement_tactics": [
+        { "option": "Implement ESRS E1-E5 (environmental) and S1-S4 (social) reporting systems", "rationale": "Achieves full CSRD compliance and avoids enforcement actions", "is_correct": true },
+        { "option": "Report minimum required standards and exclude voluntary disclosures", "rationale": "Compliant but signals low ESG ambition to EU market", "is_correct": false }
+      ]
+    },
+    {
+      "id": "eu_consumers",
+      "name": "European Conscious Consumers",
+      "icon": "🛍️",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "66% of European consumers say they actively avoid brands linked to environmental or social harm (Edelman Trust Barometer 2024). The EU Green Claims Directive will make unsubstantiated sustainability claims illegal from 2026.",
+      "engagement_tactics": [
+        { "option": "Obtain third-party verified eco-labels (EU Ecolabel, Rainforest Alliance)", "rationale": "Provides credible, regulation-proof sustainability claims", "is_correct": true },
+        { "option": "Use generic green messaging without certification", "rationale": "Risks EU Green Claims Directive enforcement from 2026", "is_correct": false }
+      ]
+    },
+    {
+      "id": "tier2_suppliers",
+      "name": "Tier-2 Agricultural Suppliers",
+      "icon": "🌽",
+      "power": "medium",
+      "interest": "medium",
+      "quadrant": "keep_informed",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "The EU Corporate Sustainability Due Diligence Directive (CSDDD) requires FMCG companies to conduct human rights and environmental due diligence across their entire value chain, including tier-2 and tier-3 suppliers in origin countries.",
+      "engagement_tactics": [
+        { "option": "Extend supplier code of conduct to tier-2 and conduct on-site audits", "rationale": "Required by CSDDD; reduces supply chain liability", "is_correct": true },
+        { "option": "Limit due diligence to tier-1 direct suppliers only", "rationale": "Insufficient under CSDDD; creates legal and reputational exposure", "is_correct": false }
+      ]
+    },
+    {
+      "id": "retail_buyers",
+      "name": "Major Retail Buyers (Carrefour, Tesco, Lidl)",
+      "icon": "🛍️",
+      "power": "high",
+      "interest": "medium",
+      "quadrant": "keep_satisfied",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "European supermarket chains increasingly impose supplier ESG scorecards, plastic reduction targets, and Scope 3 emission requirements as listing conditions. Failure to meet buyer standards results in delisting.",
+      "engagement_tactics": [
+        { "option": "Join the Consumer Goods Forum and commit to deforestation-free sourcing", "rationale": "Meets the primary buyer-coalition ESG benchmark", "is_correct": true },
+        { "option": "Negotiate ESG requirements down in commercial contracts", "rationale": "Short-term savings risk delisting as standards tighten", "is_correct": false }
+      ]
+    },
+    {
+      "id": "packaging_regulators",
+      "name": "EU Packaging & Plastics Regulators",
+      "icon": "📦",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "The EU Packaging and Packaging Waste Regulation (PPWR, 2024) mandates recycled content minimums, reusability targets, and extended producer responsibility schemes. Non-compliance triggers import bans on non-compliant packaging.",
+      "engagement_tactics": [
+        { "option": "Transition to fully recyclable or reusable packaging across all SKUs by 2027", "rationale": "Gets ahead of the PPWR compliance curve", "is_correct": true },
+        { "option": "Apply for PPWR derogations on cost grounds", "rationale": "Buys time but does not solve structural compliance gap", "is_correct": false }
+      ]
+    }
+  ]
+}

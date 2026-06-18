@@ -1,0 +1,35 @@
+{
+  "bu_id": "technology",
+  "description": "Pillar overrides for Technology. Replaces the Operations/Governance area with Data Privacy & Ethics, the defining regulatory challenge for tech companies.",
+  "override_areas": {
+    "operations": {
+      "label": "Data Privacy & Ethics",
+      "icon": "💻",
+      "description_override": "Govern data use, AI ethics, and user privacy across your technology platform.",
+      "options": {
+        "privacy_by_design": {
+          "title": "Privacy-by-Design Architecture",
+          "description": "Rebuild data pipelines with privacy-by-design principles, GDPR/PDPA compliance built-in, and a user data rights portal.",
+          "cost": -5000000,
+          "impacts": { "governance_risk_delta": -12, "reputation": 6, "social_license_delta": 5 },
+          "flags_set": ["privacy_by_design"]
+        },
+        "ai_ethics_board": {
+          "title": "AI Ethics Advisory Board",
+          "description": "Establish an independent AI ethics board with external civil society members. Publish quarterly algorithmic impact assessments.",
+          "cost": -2000000,
+          "impacts": { "governance_risk_delta": -6, "reputation": 4 },
+          "flags_set": ["ai_ethics_board"]
+        },
+        "compliance_minimum": {
+          "title": "Minimum Regulatory Compliance",
+          "description": "Meet GDPR/PDPA minimums only. No proactive ethics governance.",
+          "cost": -500000,
+          "impacts": { "governance_risk_delta": -1, "reputation": 0 },
+          "flags_set": ["compliance_min"]
+        }
+      }
+    }
+  },
+  "custom_areas": []
+}

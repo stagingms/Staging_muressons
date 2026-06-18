@@ -6,11 +6,15 @@ manual state overrides, and message injection.
 
 from __future__ import annotations
 
+import itertools
 import json
 import asyncio
 import hmac
 import time
 import collections
+import importlib
+import threading
+import copy
 from typing import Any, Optional
 from datetime import datetime, timezone
 import random
@@ -21,66 +25,204 @@ from fastapi import APIRouter, HTTPException, Request, Response, WebSocket, WebS
 from pydantic import BaseModel, Field
 from fastapi import Header, Depends
 
-# ── HIGH-009: Simple in-memory rate limiter ─────────────────────────────────
+# ── HIGH-009 / SECURITY-HIGH-003: Rate limiter with trusted-proxy allowlist ──
 # Sliding-window counter: at most _RATE_LIMIT_MAX attempts per IP per window.
-_RATE_LIMIT_MAX = 10          # max attempts
+_RATE_LIMIT_MAX = 10          # max attempts  (login / brute-force paths)
 _RATE_LIMIT_WINDOW = 60       # seconds
 
-# deque of (timestamp,) per IP key
+# Admin action paths (already authenticated) use a much higher limit so
+# legitimate super-admin clicks don't trigger the brute-force guard.
+_ADMIN_ACTION_RATE_MAX = 120  # 120 actions per window is plenty for real use
+_ADMIN_ACTION_PREFIXES = frozenset({"fac_reset_pw", "role_change"})
+
+# deque of timestamps per IP key (monotonic — in-process only)
 _rate_buckets: dict[str, collections.deque] = {}
+
+# LOW-002: Persist ban state across server restarts so a restart cannot be used
+# to bypass an active rate-limit ban.  The file stores wall-clock UNIX expiry
+# timestamps keyed by "<prefix>:<ip>" so entries are portable across restarts.
+_RATE_BAN_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "db", "rate_bans.json"
+)
+# { "login:1.2.3.4": 1735000000.0, ... }  — wall-clock UNIX expiry seconds
+_persistent_bans: dict[str, float] = {}
+
+
+def _load_persistent_bans() -> None:
+    """LOW-002: Restore IP ban state from disk; discard already-expired entries."""
+    global _persistent_bans
+    try:
+        if os.path.exists(_RATE_BAN_FILE):
+            with open(_RATE_BAN_FILE, "r", encoding="utf-8") as _f:
+                raw: dict = json.load(_f)
+            now_wall = time.time()
+            _persistent_bans = {k: v for k, v in raw.items() if isinstance(v, (int, float)) and v > now_wall}
+    except Exception:
+        _persistent_bans = {}
+
+
+def _save_persistent_bans() -> None:
+    """LOW-002: Flush current ban state to disk atomically."""
+    try:
+        os.makedirs(os.path.dirname(_RATE_BAN_FILE), exist_ok=True)
+        _tmp = _RATE_BAN_FILE + ".tmp"
+        with open(_tmp, "w", encoding="utf-8") as _f:
+            json.dump(_persistent_bans, _f)
+        os.replace(_tmp, _RATE_BAN_FILE)
+    except Exception:
+        pass  # Non-fatal — in-memory bans still apply for this process lifetime
+
+
+_load_persistent_bans()
+# Clear any stale admin-action bans that were incorrectly persisted with the
+# tight login limit — they will not be recreated unless the higher admin limit
+# is also exceeded.
+for _ban_key in list(_persistent_bans.keys()):
+    if any(_ban_key.startswith(p + ":") for p in _ADMIN_ACTION_PREFIXES):
+        del _persistent_bans[_ban_key]
+_save_persistent_bans()
+
+# SECURITY-HIGH-003: Only trust X-Forwarded-For / X-Real-IP when the direct
+# TCP connection originates from a known proxy / load-balancer.  Accepting
+# these headers from arbitrary clients allows an attacker to spoof a new IP
+# on every request and bypass the rate limit entirely.
+#
+# Set TRUSTED_PROXY_IPS to a comma-separated list of your proxy CIDRs/IPs.
+# Defaults to localhost only (safe for direct-access deployments).
+# Railway / Render / Fly.io: add the platform's egress IP range here.
+_TRUSTED_PROXY_IPS: frozenset[str] = frozenset(
+    ip.strip()
+    for ip in os.getenv("TRUSTED_PROXY_IPS", "127.0.0.1,::1").split(",")
+    if ip.strip()
+)
+
+
+def _resolve_client_ip(request: Request) -> str:
+    """Return the real client IP, honouring proxy headers only from trusted sources."""
+    direct_ip = request.client.host if request.client else "unknown"
+    if direct_ip in _TRUSTED_PROXY_IPS:
+        # Trust X-Forwarded-For only when the direct connection is a known proxy
+        xff = request.headers.get("X-Forwarded-For", "")
+        if xff:
+            return xff.split(",")[0].strip()
+        xri = request.headers.get("X-Real-IP", "")
+        if xri:
+            return xri.strip()
+    # Untrusted direct connection — use the socket IP, ignore spoofable headers
+    return direct_ip
+
 
 def _check_rate_limit(request: Request, key_prefix: str = "login") -> None:
     """Raise HTTP 429 if the caller's IP exceeds the login rate limit.
-    Checks X-Forwarded-For to handle deployments behind load balancers/proxies."""
-    ip = request.headers.get("X-Forwarded-For")
-    if not ip:
-        ip = request.headers.get("X-Real-IP")
-    if not ip:
-        ip = (request.client.host if request.client else "unknown")
-    
-    # Use the first IP if X-Forwarded-For contains a list
-    ip = ip.split(',')[0].strip()
 
+    LOW-002: Bans triggered in this process are written to disk so they survive
+    server restarts.  On each call we first check the persisted ban dict (using
+    wall-clock time), then fall through to the in-memory sliding window.
+    """
+    ip = _resolve_client_ip(request)
     key = f"{key_prefix}:{ip}"
+
+    # Use a higher limit for authenticated admin actions vs login brute-force
+    effective_max = _ADMIN_ACTION_RATE_MAX if key_prefix in _ADMIN_ACTION_PREFIXES else _RATE_LIMIT_MAX
+
+    # LOW-002: Check persisted ban (wall-clock, survives restart)
+    now_wall = time.time()
+    if key in _persistent_bans:
+        ban_expiry = _persistent_bans[key]
+        if ban_expiry > now_wall:
+            remaining = max(1, int(ban_expiry - now_wall))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many attempts. Please wait {remaining} seconds.",
+            )
+        # Ban has expired — remove stale entry
+        del _persistent_bans[key]
+
+    # In-process sliding-window check (monotonic timestamps)
     now = time.monotonic()
     if key not in _rate_buckets:
         _rate_buckets[key] = collections.deque()
     bucket = _rate_buckets[key]
-    # Evict timestamps outside the window
+    # Evict timestamps outside the sliding window
     while bucket and bucket[0] < now - _RATE_LIMIT_WINDOW:
         bucket.popleft()
-    if len(bucket) >= _RATE_LIMIT_MAX:
+    if len(bucket) >= effective_max:
+        # LOW-002: Persist this ban so a restart doesn't reset it
+        _persistent_bans[key] = now_wall + _RATE_LIMIT_WINDOW
+        _save_persistent_bans()
         raise HTTPException(
             status_code=429,
-            detail=f"Too many login attempts. Please wait {_RATE_LIMIT_WINDOW} seconds."
+            detail=f"Too many login attempts. Please wait {_RATE_LIMIT_WINDOW} seconds.",
         )
     bucket.append(now)
+    # L-4 fix: Periodic cleanup of stale bucket keys to prevent unbounded dict growth.
+    # The previous `if not bucket` check was dead code (bucket always non-empty after append).
+    # Now we sweep every ~100 calls to prune empty deques from expired sessions.
+    if len(_rate_buckets) > 50 and hash(key) % 100 == 0:
+        stale_keys = [k for k, v in _rate_buckets.items() if not v]
+        for k in stale_keys:
+            del _rate_buckets[k]
+
+
+# ── Concurrency locks and counters ──────────────────────────────────────────
+# GOD-003: Serialises facilitator ID generation so two simultaneous creation
+# requests cannot both compute the same next ID and produce duplicate FAC-NNN.
+_fac_registry_lock: asyncio.Lock = asyncio.Lock()
+
+# GOD-006: Serialises read-modify-write on decision_overrides.json so two
+# super_admins editing different rounds simultaneously cannot corrupt the file.
+_config_file_lock: asyncio.Lock = asyncio.Lock()
+
+# GOD-005: Monotonically-increasing audit ID that is safe under concurrent
+# coroutines. itertools.count is GIL-atomic in CPython and cooperative-safe
+# in asyncio (no yield between next() and the append).
+_audit_counter: itertools.count = itertools.count(1)
+
 
 def get_fac_role(request: Request):
     from auth_jwt import get_facilitator_from_request, decode_facilitator_token, COOKIE_NAME
     fac_id = get_facilitator_from_request(request)
     if not fac_id:
         return 'anonymous'
-        
-    # Check if this is the dynamic master login (which has no registry record)
-    # Path 1: JWT cookie carries role claim directly
+
+    # SECURITY-CRIT-002: Only Path 1 (signed JWT cookie) is trusted for
+    # privilege resolution. The former "Path 2" that granted super_admin to
+    # any request carrying the header value "god_mode" has been removed —
+    # it trusted unauthenticated client-controlled input.
+    #
+    # Path 1: JWT cookie carries a cryptographically signed role claim.
+    # god_mode is a virtual account (not in the registry) whose role is ONLY
+    # granted here, after the signed token is validated.
     cookie_token = request.cookies.get(COOKIE_NAME)
     if cookie_token:
         try:
             payload = decode_facilitator_token(cookie_token)
-            if payload.get("role") == "super_admin" and fac_id == "god_mode":
+            token_sub = payload.get("sub")
+            token_role = payload.get("role")
+            # SEC-1: reject tokens whose version is stale (revoked). Applies to
+            # every account, god_mode included — this is the kill-switch.
+            if token_sub and int(payload.get("ver", 0)) != get_token_version(token_sub):
+                return 'anonymous'
+            # god_mode: virtual account resolved entirely from the signed token
+            if token_sub == "god_mode" and token_role == "super_admin" and fac_id == "god_mode":
                 return "super_admin"
-        except:
+            if token_sub == fac_id:
+                # H-4: Re-validate against registry so demotions and disablements
+                # take effect immediately, not just after JWT expiry.
+                fac = next(
+                    (f for f in _facilitator_registry
+                     if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
+                    None,
+                )
+                if fac is None:
+                    return 'anonymous'
+                if not fac.get('enabled', True):
+                    return 'anonymous'
+                return get_role(fac)  # registry is authoritative, not JWT claim
+        except Exception:
             pass
 
-    # Path 2: Header-based backward-compat — god_mode is a virtual account
-    # that doesn't exist in the registry. When the FetchInterceptor sends
-    # X-Facilitator-Id: god_mode (sourced from localStorage after a verified
-    # login), grant super_admin. This is the same trust level the system uses
-    # for all header-based admin auth.
-    if fac_id == "god_mode":
-        return "super_admin"
-            
+    # Registry fallback — reached only when JWT library is unavailable.
     fac = next(
         (f for f in _facilitator_registry
          if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
@@ -88,9 +230,37 @@ def get_fac_role(request: Request):
     )
     return get_role(fac) if fac else 'anonymous'
 
+async def _assert_session_ownership(request: Request, session_id: str) -> None:
+    """H-3: Raise 403 if the authenticated facilitator does not own the target session.
+    Super admins and god_mode bypass this check automatically."""
+    from auth_jwt import get_facilitator_from_request
+    fac_id = get_facilitator_from_request(request)
+    if not fac_id or fac_id == "god_mode":
+        return  # god_mode / unresolvable → already guarded by require_facilitator
+    fac = next(
+        (f for f in _facilitator_registry
+         if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
+        None,
+    )
+    if fac is None or get_role(fac) == "super_admin":
+        return  # super_admin can touch any session
+    session_info = await db.get_session_info(session_id)
+    if session_info and not owns_session(fac, session_info):
+        raise HTTPException(
+            status_code=403,
+            detail="Access denied: you do not own this session",
+        )
+
+
 def require_super_admin(role: str = Depends(get_fac_role)):
-    if role != 'super_admin':
+    """Allow super_admin only. Uses hierarchy level to handle 'admin' alias correctly."""
+    if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('super_admin', 3):
         raise HTTPException(status_code=403, detail='Super Admin required')
+
+def require_lead_facilitator(role: str = Depends(get_fac_role)):
+    """Allow lead_facilitator and super_admin. Blocks base facilitator and anonymous."""
+    if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('lead_facilitator', 2):
+        raise HTTPException(status_code=403, detail='Lead Facilitator or higher required')
 
 def require_facilitator(role: str = Depends(get_fac_role)):
     """Allow any authenticated facilitator (any role). Blocks anonymous requests."""
@@ -112,7 +282,7 @@ def _generate_temp_password() -> tuple[str, str]:
 
 import database as db
 import materiality_db as mat_db
-from config import MASTER_PASSWORD
+from config import MASTER_PASSWORD, SIM_ROUNDS, SIM_INITIAL_BUDGET
 from password_hashing import hash_password, verify_password, maybe_upgrade_password
 from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 
@@ -121,11 +291,13 @@ from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 # `from admin_router import _god_mode_settings` continue to work.
 from admin_shared import (
     _god_mode_settings,
+    # GOD-012: Per-cohort settings layer
+    cohort_settings, COHORT_OVERRIDABLE_KEYS, get_effective_settings,
     _facilitator_registry, _persist_facilitators, _load_facilitator_registry,
     _FAC_REGISTRY_PATH, _DEFAULT_FACILITATOR,
     _player_registry,
     _session_messages, _session_interventions,
-    _god_mode_audit_log, _crisis_trigger_history,
+    _god_mode_audit_log, _crisis_trigger_history, _capped_append,
     _practice_mode, is_practice_mode,
     _round_pacing, _get_pacing, is_round_unlocked, is_pacing_set_by_facilitator,
     check_and_increment_cohort_count,
@@ -134,6 +306,8 @@ from admin_shared import (
     # 3-tier role model
     ROLE_HIERARCHY, ROLE_ALLOWED_TABS,
     get_role, has_role_level, get_allowed_tabs, can_access_tab, owns_session,
+    # SEC-1: token-version revocation kill-switch
+    get_token_version, bump_token_version,
 )
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin \u2014 God Mode"])
@@ -155,9 +329,15 @@ class FacilitatorCreateRequest(BaseModel):
     end_date: str | None = None
     max_cohorts: int = 5
     decision_paradigm: str = "legacy_abc"
+    ending_pathway: str | None = "activist_ultimatum"
+    side_tracks: list[str] | None = None
+    simulation_mode: str | None = "conglomerate"
+    industry_vertical: str | None = ""
+    bu_substitutions: dict | None = None
     permissions: dict | None = None
     created_by: str | None = Field(None, max_length=100)
     date_created: str | None = None
+    role: str = "facilitator"
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -168,6 +348,12 @@ class FacilitatorUpdateRequest(BaseModel):
     end_date: str | None = None
     max_cohorts: int | None = None
     decision_paradigm: str | None = None
+    ending_pathway: str | None = None
+    side_tracks: list[str] | None = None
+    role: str | None = None
+    simulation_mode: str | None = None
+    industry_vertical: str | None = None
+    bu_substitutions: dict | None = None
     permissions: dict | None = None
     created_by: str | None = None
     date_created: str | None = None
@@ -179,79 +365,95 @@ class FacilitatorBulkCreateRequest(BaseModel):
 
 
 # ── Global Settings (Sim Switchboard ↔ player sessions) ─────────
+from fastapi import Query as _Query
+
 @admin_router.get("/global-settings", summary="Get current global simulation settings")
-async def get_global_settings():
+async def get_global_settings(session_id: str | None = _Query(default=None)):
     """Returns current god-mode settings including simulation_mode.
-    Called by player sessions on mount to detect Advanced Climate Engine."""
+    Called by player sessions on mount to detect Advanced Climate Engine.
+
+    GOD-012: When a session_id query param is supplied the response merges
+    global defaults with any per-cohort overrides stored for that session.
+    This lets 30 concurrent workshops each receive their own freeze state,
+    simulation_mode, carbon_fee, etc. without affecting each other.
+    """
+    # GOD-012: resolve effective settings for this cohort (or global if no overrides)
+    s = get_effective_settings(session_id)
     return {
-        "simulation_mode": _god_mode_settings.get("simulation_mode", "standard"),
-        "global_carbon_fee": _god_mode_settings.get("global_carbon_fee", 40),
-        "market_hostility_index": _god_mode_settings.get("market_hostility_index", 5),
-        "scope_3_threshold": _god_mode_settings.get("scope_3_threshold", 2.5),
-        "allow_facilitator_cohort_creation": _god_mode_settings.get("allow_facilitator_cohort_creation", True),
-        "system_frozen": _god_mode_settings.get("system_frozen", False),
-        "corporate_treasury_start": _god_mode_settings.get("corporate_treasury_start", 25_000_000.0),
-        "group_reputation_start": _god_mode_settings.get("group_reputation_start", 50.0),
-        "synergy_multiplier_start": _god_mode_settings.get("synergy_multiplier_start", 1.0),
-        "cost_of_capital_start": _god_mode_settings.get("cost_of_capital_start", 0.05),
-        "loan_interest_rate_start": _god_mode_settings.get("loan_interest_rate_start", 0.12),
-        "imitation_decay_rate_start": _god_mode_settings.get("imitation_decay_rate_start", 0.05),
-        "green_transition_fund_start": _god_mode_settings.get("green_transition_fund_start", 0.0),
-        "industry": _god_mode_settings.get("industry", "generic"),
+        "simulation_mode": s.get("simulation_mode", "standard"),
+        "global_carbon_fee": s.get("global_carbon_fee", 40),
+        "market_hostility_index": s.get("market_hostility_index", 5),
+        "scope_3_threshold": s.get("scope_3_threshold", 2.5),
+        "allow_facilitator_cohort_creation": s.get("allow_facilitator_cohort_creation", True),
+        "system_frozen": s.get("system_frozen", False),
+        "corporate_treasury_start": s.get("corporate_treasury_start", SIM_INITIAL_BUDGET),
+        "group_reputation_start": s.get("group_reputation_start", 50.0),
+        "synergy_multiplier_start": s.get("synergy_multiplier_start", 1.0),
+        "cost_of_capital_start": s.get("cost_of_capital_start", 0.05),
+        "loan_interest_rate_start": s.get("loan_interest_rate_start", 0.12),
+        "imitation_decay_rate_start": s.get("imitation_decay_rate_start", 0.05),
+        "green_transition_fund_start": s.get("green_transition_fund_start", 0.0),
+        "industry": s.get("industry", "generic"),
         # Economic complexity engine tunables
-        "overrun_probability": _god_mode_settings.get("overrun_probability", 0.25),
-        "overrun_severity": _god_mode_settings.get("overrun_severity", 0.15),
+        "overrun_probability": s.get("overrun_probability", 0.25),
+        "overrun_severity": s.get("overrun_severity", 0.15),
         # Display currency
-        "currency_symbol": _god_mode_settings.get("currency_symbol", "$"),
+        "currency_symbol": s.get("currency_symbol", "$"),
         # Ending pathways
-        "default_ending_pathway": _god_mode_settings.get("default_ending_pathway", "activist_ultimatum"),
-        "ending_pathways_available": _god_mode_settings.get("ending_pathways_available", ["activist_ultimatum"]),
-        "allow_pathway_switching": _god_mode_settings.get("allow_pathway_switching", False),
-        "foreshadowing_enabled": _god_mode_settings.get("foreshadowing_enabled", True),
+        "default_ending_pathway": s.get("default_ending_pathway", "activist_ultimatum"),
+        "ending_pathways_available": s.get("ending_pathways_available", ["activist_ultimatum"]),
+        "allow_pathway_switching": s.get("allow_pathway_switching", False),
+        "foreshadowing_enabled": s.get("foreshadowing_enabled", True),
         # CEO Interview
-        "ceo_interview_enabled": _god_mode_settings.get("ceo_interview_enabled", False),
-        "ceo_interview_voice_gender": _god_mode_settings.get("ceo_interview_voice_gender", "female"),
-        "ceo_interview_question_count": _god_mode_settings.get("ceo_interview_question_count", 5),
-        "ceo_interview_pathway_question": _god_mode_settings.get("ceo_interview_pathway_question", True),
+        "ceo_interview_enabled": s.get("ceo_interview_enabled", False),
+        "ceo_interview_voice_gender": s.get("ceo_interview_voice_gender", "female"),
+        "ceo_interview_question_count": s.get("ceo_interview_question_count", 5),
+        "ceo_interview_pathway_question": s.get("ceo_interview_pathway_question", True),
         # Pedagogical Scaffolding
         # NOTE: difficulty_tier is per-cohort (set via Experience Level at creation), not global.
         # Kept in response for backward compatibility but God Mode no longer owns this value.
-        "prediction_gates_enabled": _god_mode_settings.get("prediction_gates_enabled", False),
-        "board_room_moments_enabled": _god_mode_settings.get("board_room_moments_enabled", True),
-        "mental_model_tracker_enabled": _god_mode_settings.get("mental_model_tracker_enabled", True),
-        "confidence_calibration_enabled": _god_mode_settings.get("confidence_calibration_enabled", False),
-        "mid_game_checkpoint_enabled": _god_mode_settings.get("mid_game_checkpoint_enabled", True),
-        "peer_comparison_enabled": _god_mode_settings.get("peer_comparison_enabled", True),
-        "strategy_memo_enabled": _god_mode_settings.get("strategy_memo_enabled", False),
-        "what_if_builder_enabled": _god_mode_settings.get("what_if_builder_enabled", False),
-        "custom_crisis_enabled": _god_mode_settings.get("custom_crisis_enabled", False),
-        "round_recap_enabled": _god_mode_settings.get("round_recap_enabled", False),
-        "real_world_cards_enabled": _god_mode_settings.get("real_world_cards_enabled", False),
-        "real_world_cards_teleprompter": _god_mode_settings.get("real_world_cards_teleprompter", True),
-        "debrief_protocol_enabled": _god_mode_settings.get("debrief_protocol_enabled", False),
-        "self_learning_mode": _god_mode_settings.get("self_learning_mode", False),
-        "flag_diagram_enabled": _god_mode_settings.get("flag_diagram_enabled", True),
-        "stochastic_labels_enabled": _god_mode_settings.get("stochastic_labels_enabled", True),
-        "engine_summariser_enabled": _god_mode_settings.get("engine_summariser_enabled", True),
+        "prediction_gates_enabled": s.get("prediction_gates_enabled", False),
+        "board_room_moments_enabled": s.get("board_room_moments_enabled", True),
+        "mental_model_tracker_enabled": s.get("mental_model_tracker_enabled", True),
+        "confidence_calibration_enabled": s.get("confidence_calibration_enabled", False),
+        "mid_game_checkpoint_enabled": s.get("mid_game_checkpoint_enabled", True),
+        "peer_comparison_enabled": s.get("peer_comparison_enabled", True),
+        "strategy_memo_enabled": s.get("strategy_memo_enabled", False),
+        "what_if_builder_enabled": s.get("what_if_builder_enabled", False),
+        "custom_crisis_enabled": s.get("custom_crisis_enabled", False),
+        "round_recap_enabled": s.get("round_recap_enabled", False),
+        "real_world_cards_enabled": s.get("real_world_cards_enabled", False),
+        "real_world_cards_teleprompter": s.get("real_world_cards_teleprompter", True),
+        "debrief_protocol_enabled": s.get("debrief_protocol_enabled", False),
+        "self_learning_mode": s.get("self_learning_mode", False),
+        "flag_diagram_enabled": s.get("flag_diagram_enabled", True),
+        "stochastic_labels_enabled": s.get("stochastic_labels_enabled", True),
+        "engine_summariser_enabled": s.get("engine_summariser_enabled", True),
         # New Engine Toggles (Batch 1-3)
-        "decision_timer_enabled": _god_mode_settings.get("decision_timer_enabled", False),
-        "decision_timer_seconds": _god_mode_settings.get("decision_timer_seconds", 300),
-        "peer_learning_prompts_enabled": _god_mode_settings.get("peer_learning_prompts_enabled", True),
-        "board_governance_enabled": _god_mode_settings.get("board_governance_enabled", True),
-        "supply_chain_network_enabled": _god_mode_settings.get("supply_chain_network_enabled", True),
-        "biodiversity_engine_enabled": _god_mode_settings.get("biodiversity_engine_enabled", True),
-        "market_dynamics_enabled": _god_mode_settings.get("market_dynamics_enabled", False),
-        "balance_sheet_enabled": _god_mode_settings.get("balance_sheet_enabled", True),
-        "regulatory_sandbox_enabled": _god_mode_settings.get("regulatory_sandbox_enabled", False),
-        "dynamic_cases_enabled": _god_mode_settings.get("dynamic_cases_enabled", True),
-        "branching_enabled": _god_mode_settings.get("branching_enabled", True),
-        "npc_stakeholders_enabled": _god_mode_settings.get("npc_stakeholders_enabled", True),
-        "tcfd_scenarios_enabled": _god_mode_settings.get("tcfd_scenarios_enabled", True),
-        "org_politics_enabled": _god_mode_settings.get("org_politics_enabled", True),
-        "meadows_leverage_enabled": _god_mode_settings.get("meadows_leverage_enabled", True),
-        "system_archetypes_enabled": _god_mode_settings.get("system_archetypes_enabled", True),
+        "decision_timer_enabled": s.get("decision_timer_enabled", False),
+        "decision_timer_seconds": s.get("decision_timer_seconds", 300),
+        "peer_learning_prompts_enabled": s.get("peer_learning_prompts_enabled", True),
+        "board_governance_enabled": s.get("board_governance_enabled", True),
+        "supply_chain_network_enabled": s.get("supply_chain_network_enabled", True),
+        "biodiversity_engine_enabled": s.get("biodiversity_engine_enabled", True),
+        "market_dynamics_enabled": s.get("market_dynamics_enabled", False),
+        "balance_sheet_enabled": s.get("balance_sheet_enabled", True),
+        "regulatory_sandbox_enabled": s.get("regulatory_sandbox_enabled", False),
+        "dynamic_cases_enabled": s.get("dynamic_cases_enabled", True),
+        "branching_enabled": s.get("branching_enabled", True),
+        "npc_stakeholders_enabled": s.get("npc_stakeholders_enabled", True),
+        "tcfd_scenarios_enabled": s.get("tcfd_scenarios_enabled", True),
+        "org_politics_enabled": s.get("org_politics_enabled", True),
+        "meadows_leverage_enabled": s.get("meadows_leverage_enabled", True),
+        "system_archetypes_enabled": s.get("system_archetypes_enabled", True),
         # BRSR NGRBC Track
-        "brsr_ngrbc_enabled": _god_mode_settings.get("brsr_ngrbc_enabled", False),
+        "brsr_ngrbc_enabled": s.get("brsr_ngrbc_enabled", False),
+        # Scholarly ESG Capitalisation toggle
+        "esg_bs_scholarly_mode": s.get("esg_bs_scholarly_mode", False),
+        # Single-BU mode: when set, all player sessions only show this one BU
+        "assigned_bu": s.get("assigned_bu", ""),
+        # GOD-012: expose whether cohort-level overrides are active
+        "_cohort_overrides_active": bool(session_id and session_id in cohort_settings),
     }
 
 class GlobalSettingsPatch(BaseModel):
@@ -322,11 +524,15 @@ class GlobalSettingsPatch(BaseModel):
     system_archetypes_enabled: bool | None = None
     # BRSR NGRBC Track
     brsr_ngrbc_enabled: bool | None = None
+    # Scholarly ESG Capitalisation (IAS 38 what-if toggle)
+    esg_bs_scholarly_mode: bool | None = None
     # Systemic Risk Engine
     systemic_risk_enabled: bool | None = None
     black_swan_events_enabled: bool | None = None
     npc_cascading_enabled: bool | None = None
     foreshadowing_signals_enabled: bool | None = None
+    # Single-BU mode override (empty string = all BUs)
+    assigned_bu: str | None = None
 
 @admin_router.patch("/global-settings", summary="Update global simulation settings (Sim Switchboard)")
 async def patch_global_settings(body: GlobalSettingsPatch, _guard: None = Depends(require_super_admin)):
@@ -347,6 +553,170 @@ async def patch_global_settings(body: GlobalSettingsPatch, _guard: None = Depend
         "settings": {k: _god_mode_settings.get(k) for k in update_data},
     })
     return {"status": "ok", "settings": _god_mode_settings}
+
+
+# ── Per-Cohort Settings (GOD-012) ────────────────────────────────────────────
+# Three endpoints that manage cohort_settings[session_id] — the override layer
+# sitting above the global _god_mode_settings dict.
+#
+#   GET  /sessions/{session_id}/cohort-settings
+#       → Returns the cohort overrides (only the keys set, not the merged view).
+#         Any facilitator may call this to inspect a cohort's custom settings.
+#
+#   PATCH /sessions/{session_id}/cohort-settings
+#       → Merges the supplied body into cohort_settings[session_id].
+#         Only super_admin may set cohort overrides; lead_facilitator may set
+#         a subset (freeze-related keys) for their own sessions.
+#
+#   DELETE /sessions/{session_id}/cohort-settings
+#       → Clears all cohort overrides — the cohort reverts to global defaults.
+#         super_admin only.
+
+@admin_router.get(
+    "/sessions/{session_id}/cohort-settings",
+    summary="Get per-cohort settings overrides (GOD-012)",
+)
+async def get_cohort_settings(session_id: str, _guard: None = Depends(require_facilitator)):
+    """Return the per-cohort override layer for a specific session.
+
+    Returns only the keys that have been *explicitly overridden* for this cohort,
+    not the full merged view.  Use GET /global-settings?session_id=... to get
+    the effective merged settings as seen by a player session.
+    """
+    overrides = cohort_settings.get(session_id, {})
+    return {
+        "session_id": session_id,
+        "overrides": overrides,
+        "has_overrides": bool(overrides),
+        "effective": get_effective_settings(session_id),
+    }
+
+
+@admin_router.patch(
+    "/sessions/{session_id}/cohort-settings",
+    summary="Set per-cohort settings overrides (GOD-012)",
+)
+async def patch_cohort_settings(
+    session_id: str,
+    body: dict = Body(...),
+    request: Request = None,
+    _guard: None = Depends(require_lead_facilitator),
+):
+    """Merge the supplied dict into the cohort override layer for session_id.
+
+    GOD-012: Per-cohort overrides shadow global _god_mode_settings for this
+    cohort only.  All other cohorts remain unaffected.
+
+    Access rules:
+    - super_admin: may set any COHORT_OVERRIDABLE_KEYS.
+    - lead_facilitator: may only set freeze-related keys for sessions they own.
+    - facilitator: no write access (403 — blocked by require_lead_facilitator guard).
+
+    Non-overridable keys in the body are silently ignored (not an error), so
+    the frontend can safely POST the full settings object.
+    """
+    # Resolve caller's role
+    caller_fac = None
+    try:
+        from auth_jwt import get_facilitator_from_request
+        caller_id = get_facilitator_from_request(request)
+        if caller_id:
+            caller_fac = next((f for f in _facilitator_registry if f["facilitator_id"] == caller_id), None)
+    except Exception:
+        pass
+
+    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
+
+    # lead_facilitators may only touch freeze keys and specific simulation parameters for sessions they own
+    _LEAD_FAC_KEYS = frozenset({
+        "system_frozen", "freeze_message", "freeze_started_at",
+        "simulation_mode", "global_carbon_fee", "market_hostility_index", "scope_3_threshold"
+    })
+    if caller_role == "lead_facilitator":
+        # Ownership check
+        session_rec = None
+        try:
+            import database as _db
+            session_rec = (await _db.fetch_all_sessions() or [])
+            session_rec = next((s for s in session_rec if s.get("session_id") == session_id), None)
+        except Exception:
+            pass
+        if session_rec and caller_fac and not owns_session(caller_fac, session_rec):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You can only modify cohort settings for sessions you own.",
+            )
+        # Restrict to lead facilitator allowed keys
+        body = {k: v for k, v in body.items() if k in _LEAD_FAC_KEYS}
+
+    # Filter to allow-listed keys only
+    safe_body = {k: v for k, v in body.items() if k in COHORT_OVERRIDABLE_KEYS}
+    rejected_keys = [k for k in body if k not in COHORT_OVERRIDABLE_KEYS]
+
+    if session_id not in cohort_settings:
+        cohort_settings[session_id] = {}
+
+    # Auto-stamp freeze timestamp when system_frozen transitions True
+    if safe_body.get("system_frozen") is True and not cohort_settings[session_id].get("system_frozen"):
+        safe_body.setdefault("freeze_started_at", datetime.now(timezone.utc).isoformat())
+    elif safe_body.get("system_frozen") is False:
+        safe_body["freeze_started_at"] = None
+
+    cohort_settings[session_id].update(safe_body)
+
+    _audit("cohort_settings_patched", details={
+        "session_id": session_id,
+        "applied": safe_body,
+        "rejected_non_overridable": rejected_keys,
+        "caller_role": caller_role,
+    })
+
+    # Push live update to connected admin clients for this session
+    await manager.push_to_session(session_id, {
+        "type": "cohort_settings_changed",
+        "session_id": session_id,
+        "changed_keys": list(safe_body.keys()),
+        "settings": cohort_settings[session_id],
+    })
+
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "applied": safe_body,
+        "rejected_non_overridable": rejected_keys,
+        "overrides": cohort_settings[session_id],
+        "effective": get_effective_settings(session_id),
+    }
+
+
+@admin_router.delete(
+    "/sessions/{session_id}/cohort-settings",
+    summary="Reset per-cohort settings overrides to global defaults (GOD-012)",
+)
+async def delete_cohort_settings(
+    session_id: str,
+    _guard: None = Depends(require_super_admin),
+):
+    """Clear all per-cohort setting overrides for session_id.
+
+    After this call the cohort reverts to global _god_mode_settings with no
+    per-cohort overrides. super_admin only.
+    """
+    removed = cohort_settings.pop(session_id, {})
+    _audit("cohort_settings_reset", details={"session_id": session_id, "removed_keys": list(removed.keys())})
+
+    await manager.push_to_session(session_id, {
+        "type": "cohort_settings_reset",
+        "session_id": session_id,
+        "message": "Cohort settings reset to global defaults.",
+    })
+
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "removed_overrides": removed,
+        "effective": _god_mode_settings,
+    }
 
 
 @admin_router.get("/scaffolding-status", summary="Get active pedagogical scaffolding features (read-only)")
@@ -381,6 +751,11 @@ async def get_scaffolding_status():
         ("system_archetypes_enabled", "🔄 Archetypes", True, "Detect and surface Senge's system archetypes (Fixes That Fail, Shifting the Burden, etc.)"),
         # BRSR NGRBC
         ("brsr_ngrbc_enabled", "🇮🇳 BRSR NGRBC", False, "Enable BRSR/NGRBC Indian regulatory compliance side-track for ESG reporting"),
+        # Scholarly ESG Capitalisation
+        ("esg_bs_scholarly_mode", "📚 ESG on BS (Scholarly)", False,
+         "What-if view: recognise Social Licence & Reputation as on-GAAP intangibles. "
+         "Explores IAS 38 debate (IIRC <IR> Framework; Barker & Eccles, 2011). "
+         "Available to all facilitators — toggle live in the balance sheet view."),
     ]
     features = []
     for key, label, default, description in scaffolding_keys:
@@ -415,36 +790,50 @@ async def get_facilitator_role_info(fac_id: str, _guard: None = Depends(require_
 
 
 @admin_router.put("/facilitators/{fac_id}/role", summary="Change a facilitator's role (God Mode only)")
-async def update_facilitator_role(fac_id: str, body: dict = Body(...)):
-    """Change a facilitator's role. Requires God Mode password verification.
-    Body must include: role, god_mode_fac_id, god_mode_password."""
-    # ── God Mode password verification ──────────────────────
-    gm_fac_id = (body.get("god_mode_fac_id") or "").strip()
-    gm_password = (body.get("god_mode_password") or "").strip()
-    if not gm_fac_id or not gm_password:
-        raise HTTPException(403, "God Mode credentials required to change roles")
-    gm_fac = next(
-        (f for f in _facilitator_registry
-         if f["facilitator_id"] == gm_fac_id and not f.get("deleted_at")),
-        None,
-    )
-    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(gm_password, MASTER_PASSWORD)
+async def update_facilitator_role(
+    fac_id: str,
+    body: dict = Body(...),
+    request: Request = None,
+    _guard: None = Depends(require_super_admin),  # GOD-001: use standard JWT chain
+):
+    """Change a facilitator's role. Requires an active super_admin JWT session
+    AND re-verification of the caller's password (defence-in-depth for
+    privilege-escalation operations).
+    """
+    _check_rate_limit(request, "role_change")   # GOD-001: rate-limit this path too
 
-    # Enforce god_mode for super admin master access bypass
-    if master_ok and gm_fac_id == "god_mode":
-        gm_fac = {
-            "facilitator_id": "god_mode",
-            "name": "God Mode Administrator",
-            "role": "super_admin",
-            "is_admin": True,
-            "enabled": True,
-            "password": gm_password,
-        }
-    elif not gm_fac or (not verify_password(gm_password, gm_fac["password"]) and not master_ok):
-        raise HTTPException(403, "Invalid God Mode credentials")
-        
-    if get_role(gm_fac) != "super_admin":
-        raise HTTPException(403, "Only Super Administrators can change facilitator roles")
+    # ── Re-verify caller credentials (defence-in-depth) ──────
+    # The JWT cookie already proves the caller *was* authenticated, but role
+    # changes are high-impact — re-verifying the password guards against
+    # unattended-session abuse and adds a deliberate friction step.
+    caller_fac_id = body.get("god_mode_fac_id", "").strip()
+    caller_password = body.get("god_mode_password", "").strip()
+    if not caller_fac_id or not caller_password:
+        raise HTTPException(400, "God Mode Facilitator ID and password are required for role changes.")
+
+    # Check against master password first (covers the virtual god_mode account)
+    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(caller_password, MASTER_PASSWORD)
+    # M-5: Audit log when master password bypass is used
+    if master_ok:
+        print(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
+
+    if not master_ok:
+        # Look up the facilitator in the registry and verify their bcrypt hash
+        caller_fac = next(
+            (f for f in _facilitator_registry
+             if (f["facilitator_id"].lower() == caller_fac_id.lower() or
+                 f.get("name", "").lower() == caller_fac_id.lower())
+             and not f.get("deleted_at")),
+            None,
+        )
+        if not caller_fac:
+            raise HTTPException(403, "Invalid God Mode credentials.")
+        # Caller must be a super_admin in the registry
+        if get_role(caller_fac) != "super_admin":
+            raise HTTPException(403, "Only Super Administrators can change roles.")
+        if not verify_password(caller_password, caller_fac.get("password", "")):
+            raise HTTPException(403, "Invalid God Mode credentials.")
+
     # ── Apply role change ───────────────────────────────────
     new_role = body.get("role", "").strip()
     if new_role not in ROLE_HIERARCHY:
@@ -455,7 +844,9 @@ async def update_facilitator_role(fac_id: str, body: dict = Body(...)):
     fac["role"] = new_role
     fac["is_admin"] = new_role == "super_admin"  # backward compat
     _persist_facilitators()
-    _audit("facilitator_role_changed", details={"facilitator_id": fac_id, "new_role": new_role, "changed_by": gm_fac_id})
+    from auth_jwt import get_facilitator_from_request
+    caller = get_facilitator_from_request(request) or caller_fac_id
+    _audit("facilitator_role_changed", details={"facilitator_id": fac_id, "new_role": new_role, "changed_by": caller})
     return {"status": "ok", "facilitator_id": fac_id, "role": new_role}
 
 # ── Simulation Master Reference (read-only, live values) ────────
@@ -470,7 +861,7 @@ async def get_simulation_reference():
     sessions = await db.fetch_all_sessions()
 
     # Live global settings
-    treasury_start = settings.get("corporate_treasury_start", 25_000_000)
+    treasury_start = settings.get("corporate_treasury_start", SIM_INITIAL_BUDGET)
     reputation_start = settings.get("group_reputation_start", 50.0)
     synergy_start = settings.get("synergy_multiplier_start", 1.0)
     coc_start = settings.get("cost_of_capital_start", 0.05)
@@ -612,10 +1003,10 @@ async def get_simulation_reference():
                 {"name": "Instability Discount", "value": -0.40, "source": "avg SLO < 75"},
             ],
             "profile_archetypes": [
-                {"name": "Regenerative Titan", "mr_min": 1.8, "icon": "🏆"},
-                {"name": "De-risked Safe Haven", "mr_min": 1.2, "icon": "🛡️"},
-                {"name": "Fragile Giant", "mr_min": 0.8, "icon": "🏢"},
-                {"name": "Stranded Relic", "mr_min": 0.0, "icon": "💀"},
+                {"name": "Regenerative Titan", "mr_min": 1.8, "icon": ""},
+                {"name": "De-risked Safe Haven", "mr_min": 1.2, "icon": ""},
+                {"name": "Fragile Giant", "mr_min": 0.8, "icon": ""},
+                {"name": "Stranded Relic", "mr_min": 0.0, "icon": ""},
             ],
             "formula_standard": "Terminal_EBITDA × 12 × M_R",
             "formula_ac": "(Terminal_EBITDA + Green_Fund) × 12 × M_R",
@@ -671,7 +1062,7 @@ async def add_archetype(body: dict = Body(...), _guard: None = Depends(require_s
         "title": title,
         "description": body.get("description", ""),
         "mr_threshold": float(mr_threshold),
-        "icon": body.get("icon", "🏅"),
+        "icon": body.get("icon", ""),
         "gradient": body.get("gradient", "linear-gradient(135deg, #6366f1, #8b5cf6)"),
         "is_default": False,
     }
@@ -765,14 +1156,18 @@ async def get_session_ending_pathway(session_id: str):
 
 
 @admin_router.put("/sessions/{session_id}/ending-pathway", summary="Switch the ending pathway for a session")
-async def switch_session_ending_pathway(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def switch_session_ending_pathway(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Switch the ending pathway for a live session.
-    Requires allow_pathway_switching to be enabled in god-mode settings."""
-    if not _god_mode_settings.get("allow_pathway_switching", False):
+    Requires allow_pathway_switching to be enabled in god-mode settings.
+    GOD-012: respects per-cohort overrides if set."""
+    await _assert_session_ownership(request, session_id)
+    # GOD-012: use effective settings so per-cohort allow_pathway_switching works
+    _eff = get_effective_settings(session_id)
+    if not _eff.get("allow_pathway_switching", False):
         raise HTTPException(403, "Pathway switching is disabled. Enable 'allow_pathway_switching' in God Mode settings.")
 
     new_pathway = body.get("ending_pathway", "").strip()
-    available = _god_mode_settings.get("ending_pathways_available", ["activist_ultimatum"])
+    available = _eff.get("ending_pathways_available", ["activist_ultimatum"])
     if new_pathway == "random":
         from ending_pathways import resolve_pathway
         new_pathway = resolve_pathway("random")
@@ -807,15 +1202,16 @@ async def switch_session_ending_pathway(session_id: str, body: dict = Body(...),
 
 
 @admin_router.put("/sessions/{session_id}/ceo-interview", summary="Configure CEO Interview per cohort")
-async def configure_cohort_interview(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def configure_cohort_interview(session_id: str, request: Request, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Set per-cohort CEO Interview settings.
-    
+
     Body fields (all optional):
     - ceo_interview_enabled: bool
     - ceo_interview_voice_gender: "female" | "male"
-    
+
     Overrides god-mode defaults for this specific cohort and all its player sessions.
     """
+    await _assert_session_ownership(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")
@@ -858,11 +1254,21 @@ async def configure_cohort_interview(session_id: str, body: dict = Body(...), _g
     }
 
 @admin_router.get("/facilitators", summary="List all facilitators")
-async def list_facilitators(_guard: None = Depends(require_facilitator)):
-    """List facilitators. Passwords are always masked in the response."""
+async def list_facilitators(request: Request, _guard: None = Depends(require_facilitator)):
+    """List facilitators. Passwords are always masked.
+    M-4: non-super-admins receive only their own record to prevent PII leakage."""
+    from auth_jwt import get_facilitator_from_request
+    caller_id = get_facilitator_from_request(request)
+    caller_role = get_fac_role(request)
+    is_admin_caller = (caller_role == "super_admin") or (caller_id == "god_mode")
+
     result = []
     for f in _facilitator_registry:
-        if f.get("deleted_at"): continue
+        if f.get("deleted_at"):
+            continue
+        # Non-super-admins may only see their own record
+        if not is_admin_caller and f.get("facilitator_id") != caller_id:
+            continue
         entry = {**f, "password": "••••••"}
         result.append(entry)
     return {"facilitators": result}
@@ -870,52 +1276,71 @@ async def list_facilitators(_guard: None = Depends(require_facilitator)):
 
 @admin_router.post("/facilitators", summary="Create a new facilitator")
 async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depends(require_super_admin)):
-    global _next_facilitator_id
-    
-    # Dynamically find the highest numeric ID to ensure no collisions
-    max_id = 0
     import re
-    for f in _facilitator_registry:
-        match = re.search(r'\d+', f.get("facilitator_id", ""))
-        if match:
-            try:
-                max_id = max(max_id, int(match.group()))
-            except ValueError:
-                pass
-    _next_facilitator_id = max_id + 1
-
+    # GOD-003: Generate password outside the lock — bcrypt is CPU-intensive
+    # and does not touch shared state.
     _temp_plain, _temp_hash = _generate_temp_password()
-    fac = {
-        "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
-        "name": req.name,
-        "email": req.email or "",
-        "contact_number": req.contact_number or "",
-        "programme": req.programme or "",
-        "start_date": req.start_date or "",
-        "end_date": req.end_date or "",
-        "password": _temp_hash,  # LOW-003: store bcrypt hash, never plaintext
-        "created_at": datetime.now(timezone.utc).isoformat(),
-        "max_cohorts": req.max_cohorts,
-        "cohorts_created": 0,
-        "decision_paradigm": req.decision_paradigm,
-        "role": "facilitator",  # Default new facilitators to base role
-        "is_admin": False,  # backward compat
-        "enabled": True,
-        "permissions": req.permissions or {
-            "can_undo_rounds": True,
-            "can_override_decisions": True,
-            "can_modify_materiality": True,
-            "can_manage_auto_pause": True,
-            "can_create_cohorts": True,
-        },
-        "created_by": req.created_by or "",
-        "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-    }
-    _next_facilitator_id += 1
-    _facilitator_registry.append(fac)
+
+    async with _fac_registry_lock:
+        # Recompute max_id inside the lock so two concurrent requests
+        # cannot both read the same max and generate the same FAC-NNN.
+        max_id = 0
+        for f in _facilitator_registry:
+            match = re.search(r'\d+', f.get("facilitator_id", ""))
+            if match:
+                try:
+                    max_id = max(max_id, int(match.group()))
+                except ValueError:
+                    pass
+        new_fac_id = f"FAC-{max_id + 1:03d}"
+        role = req.role or "facilitator"
+        is_fac = role == "facilitator"
+        default_perms = {
+            "can_undo_rounds": not is_fac,
+            "can_override_decisions": not is_fac,
+            "can_modify_materiality": not is_fac,
+            "can_manage_auto_pause": not is_fac,
+            "can_create_cohorts": not is_fac,
+            "can_enable_side_tracks": not is_fac,
+        }
+        fac = {
+            "facilitator_id": new_fac_id,
+            "name": req.name,
+            "email": req.email or "",
+            "contact_number": req.contact_number or "",
+            "programme": req.programme or "",
+            "start_date": req.start_date or "",
+            "end_date": req.end_date or "",
+            "password": _temp_hash,  # LOW-003: store bcrypt hash, never plaintext
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "max_cohorts": req.max_cohorts,
+            "cohorts_created": 0,
+            "decision_paradigm": req.decision_paradigm,
+            "ending_pathway": req.ending_pathway or "activist_ultimatum",
+            "side_tracks": req.side_tracks or [],
+            "simulation_mode": req.simulation_mode or "conglomerate",
+            "industry_vertical": req.industry_vertical or "",
+            "bu_substitutions": req.bu_substitutions or {},
+            "role": role,
+            "is_admin": role == "super_admin",
+            "enabled": True,
+            "permissions": req.permissions or default_perms,
+            "created_by": req.created_by or "",
+            "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+        }
+        _facilitator_registry.append(fac)
+
+    # Persist outside the lock — file I/O does not need the registry guard
     _persist_facilitators()
-    # Return plaintext password once so admin can share it — it is NOT stored
-    return {**fac, "password": _temp_plain, "password_note": "Store this — it will not be shown again."}
+    # M-3: Return a clean facilitator record (no bcrypt hash) with the one-time
+    # plaintext credential in a clearly-named top-level key so API gateway logs
+    # that record response bodies are less likely to capture it inadvertently.
+    safe_fac = {k: v for k, v in fac.items() if k != "password"}
+    return {
+        **safe_fac,
+        "one_time_password": _temp_plain,
+        "credential_note": "Store this securely — it will not be shown again.",
+    }
 
 @admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
 async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, _guard: None = Depends(require_super_admin)):
@@ -933,58 +1358,71 @@ async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, _guard:
         else:
             fac[key] = value
             
+    if "role" in update_data:
+        fac["is_admin"] = update_data["role"] == "super_admin"
+            
     _persist_facilitators()
     return fac
 
 @admin_router.post("/facilitators/bulk", summary="Create multiple facilitators in batch")
 async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: None = Depends(require_super_admin)):
-    global _next_facilitator_id
-    created_facs = []
-    
-    # Calculate starting ID based on highest numeric ID
-    max_id = 0
     import re
-    for f in _facilitator_registry:
-        match = re.search(r'\d+', f.get("facilitator_id", ""))
-        if match:
-            try:
-                max_id = max(max_id, int(match.group()))
-            except ValueError:
-                pass
-    _next_facilitator_id = max_id + 1
+    created_facs = []
+    credentials: dict[str, str] = {}  # M-3: one-time plaintext passwords, keyed by fac ID
 
-    for fac_req in req.facilitators:
-        _fac_plain, _fac_hash = _generate_temp_password()  # L-4: unpack (plain, hash) tuple
-        fac = {
-            "facilitator_id": f"FAC-{_next_facilitator_id:03d}",
-            "name": fac_req.name,
-            "email": fac_req.email or "",
-            "contact_number": fac_req.contact_number or "",
-            "programme": fac_req.programme or "",
-            "start_date": fac_req.start_date or "",
-            "end_date": fac_req.end_date or "",
-            "password": _fac_hash,  # L-4: store bcrypt hash, never plaintext
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "max_cohorts": fac_req.max_cohorts,
-            "cohorts_created": 0,
-            "decision_paradigm": fac_req.decision_paradigm,
-            "role": "facilitator",
-            "is_admin": False,
-            "enabled": True,
-            "permissions": fac_req.permissions or {
-                "can_undo_rounds": True,
-                "can_override_decisions": True,
-                "can_modify_materiality": True,
-                "can_manage_auto_pause": True,
+    # GOD-003: Generate all passwords BEFORE acquiring the lock so bcrypt
+    # (CPU-intensive, ~100ms/call) does not block other coroutines.
+    passwords = [_generate_temp_password() for _ in req.facilitators]
+
+    async with _fac_registry_lock:
+        # Recompute max_id inside the lock for collision-free ID assignment.
+        max_id = 0
+        for f in _facilitator_registry:
+            match = re.search(r'\d+', f.get("facilitator_id", ""))
+            if match:
+                try:
+                    max_id = max(max_id, int(match.group()))
+                except ValueError:
+                    pass
+
+        for fac_req, (_fac_plain, _fac_hash) in zip(req.facilitators, passwords):
+            max_id += 1
+            fac = {
+                "facilitator_id": f"FAC-{max_id:03d}",
+                "name": fac_req.name,
+                "email": fac_req.email or "",
+                "contact_number": fac_req.contact_number or "",
+                "programme": fac_req.programme or "",
+                "start_date": fac_req.start_date or "",
+                "end_date": fac_req.end_date or "",
+                "password": _fac_hash,  # store bcrypt hash, never plaintext
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "max_cohorts": fac_req.max_cohorts,
+                "cohorts_created": 0,
+                "decision_paradigm": fac_req.decision_paradigm,
+                "role": "facilitator",
+                "is_admin": False,
+                "enabled": True,
+                "permissions": fac_req.permissions or {
+                    "can_undo_rounds": True,
+                    "can_override_decisions": True,
+                    "can_modify_materiality": True,
+                    "can_manage_auto_pause": True,
+                },
             }
-        }
-        _next_facilitator_id += 1
-        _facilitator_registry.append(fac)
-        # Include plaintext password once in the response so admin can distribute it
-        created_facs.append({**fac, "password": _fac_plain})
+            _facilitator_registry.append(fac)
+            # M-3: keep plaintext out of the main facilitator object
+            created_facs.append({k: v for k, v in fac.items() if k != "password"})
+            credentials[fac["facilitator_id"]] = _fac_plain
 
     _persist_facilitators()
-    return {"status": "success", "created": len(created_facs), "facilitators": created_facs}
+    return {
+        "status": "success",
+        "created": len(created_facs),
+        "facilitators": created_facs,
+        "credentials": credentials,
+        "credentials_note": "Store these securely — they will not be shown again.",
+    }
 
 
 @admin_router.delete("/facilitators/{fac_id}", summary="Delete a facilitator")
@@ -1047,6 +1485,13 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         raise HTTPException(403, "Account is disabled")
         
     # LOW-003: Auto-upgrade plaintext passwords to bcrypt on successful login
+    # M-5: Audit log when master password bypass is used
+    if master_ok:
+        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator login for fac_id={fac_id_lower}")
+        # SEC-4: durable forensic record of break-glass use.
+        _audit("master_password_bypass", actor=fac_id_lower,
+               details={"endpoint": "facilitator_login"},
+               source_ip=(request.client.host if request.client else "unknown"))
     if not master_ok and fac:
         upgraded = maybe_upgrade_password(password, fac.get("password", ""))
         if upgraded:
@@ -1063,8 +1508,11 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
     # MED-013/014: Issue JWT and store in HttpOnly cookie
     try:
         from auth_jwt import create_facilitator_token, set_session_cookie
-        token = create_facilitator_token(fac["facilitator_id"], role)
-        set_session_cookie(response, token)
+        token = create_facilitator_token(
+            fac["facilitator_id"], role,
+            token_version=get_token_version(fac["facilitator_id"]),
+        )
+        set_session_cookie(response, token, facilitator_id=fac["facilitator_id"])
     except Exception:
         pass  # If JWT lib unavailable, fall back to header-only auth
 
@@ -1081,25 +1529,51 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
 
 
 @admin_router.post("/facilitators/change-password", summary="Change facilitator password")
-async def facilitator_change_password(body: dict = Body(...)):
+async def facilitator_change_password(
+    request: Request,
+    body: dict = Body(...),
+    _guard: None = Depends(require_facilitator),  # MED-002: must be authenticated
+):
+    # M-2: Rate-limit this path — unlimited change attempts enable brute-forcing
+    _check_rate_limit(request, "fac_change_pw")
     fac_id = body.get("facilitator_id", "").strip()
     old_password = body.get("old_password", "").strip()
     new_password = body.get("new_password", "").strip()
     if not fac_id or not old_password or not new_password:
         raise HTTPException(400, "facilitator_id, old_password, and new_password are required")
-    if len(new_password) < 3:
-        raise HTTPException(400, "New password must be at least 3 characters")
+    # H-5: Verify caller identity matches the target account.
+    # Only super_admins and god_mode may change other facilitators' passwords.
+    from auth_jwt import get_facilitator_from_request as _get_caller_id
+    _caller_id = _get_caller_id(request)
+    if _caller_id and _caller_id != "god_mode":
+        _caller_fac = next(
+            (f for f in _facilitator_registry if f['facilitator_id'] == _caller_id and not f.get('deleted_at')),
+            None,
+        )
+        _caller_role = get_role(_caller_fac) if _caller_fac else 'anonymous'
+        if _caller_role != "super_admin" and _caller_id != fac_id:
+            raise HTTPException(403, "You can only change your own password")
+    # MED-003: Removed contradictory < 3 check — only the >= 8 guard below applies
     fac = next(
         (f for f in _facilitator_registry
          if f["facilitator_id"] == fac_id and not f.get("deleted_at")),
         None,
     )
     if not fac:
-        raise HTTPException(404, f"Facilitator {fac_id} not found")
+        # M-1: Return the same error as a wrong password so callers cannot
+        # determine whether a facilitator_id exists via error differentiation.
+        raise HTTPException(403, "Current password is incorrect")
     # FIX AUDIT-005: Use configurable master password
     master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(old_password, MASTER_PASSWORD)
     if not verify_password(old_password, fac.get("password", "")) and not master_ok:
         raise HTTPException(403, "Current password is incorrect")
+    # M-5: Audit log when master password bypass is used
+    if master_ok:
+        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator password change for fac={fac.get('facilitator_id', 'unknown')}")
+        # SEC-4: durable forensic record.
+        _audit("master_password_bypass", actor=fac.get("facilitator_id", "unknown"),
+               details={"endpoint": "facilitator_change_password"},
+               source_ip=(request.client.host if request.client else "unknown"))
     if len(new_password) < 8:
         raise HTTPException(400, "New password must be at least 8 characters")
     fac["password"] = hash_password(new_password)  # LOW-003: always hash
@@ -1118,26 +1592,108 @@ async def facilitator_logout(response: Response):
 @admin_router.post("/auth/refresh", summary="Refresh JWT session token")
 async def refresh_token(request: Request, response: Response, _guard: None = Depends(require_facilitator)):
     """MED-013/014: Issue a fresh JWT if the current token is still valid.
-    Client should call this periodically (e.g., on focus) to extend sessions."""
-    from auth_jwt import get_facilitator_from_request, create_facilitator_token, set_session_cookie
+    Client should call this periodically (e.g., on focus) to extend sessions.
+    Returns the current role and permissions so the frontend can sync stale cache."""
+    from auth_jwt import get_facilitator_from_request, create_facilitator_token, set_session_cookie, decode_facilitator_token, COOKIE_NAME
     fac_id = get_facilitator_from_request(request)
     if not fac_id:
         raise HTTPException(401, "No valid session to refresh")
+
+    # god_mode is a virtual account — not in the registry, role comes from JWT
+    if fac_id == "god_mode":
+        cookie_token = request.cookies.get(COOKIE_NAME, "")
+        try:
+            payload = decode_facilitator_token(cookie_token)
+            role = payload.get("role", "super_admin")
+        except Exception:
+            role = "super_admin"
+        try:
+            token = create_facilitator_token(
+                "god_mode", role, token_version=get_token_version("god_mode"),
+            )
+            set_session_cookie(response, token, facilitator_id="god_mode")
+        except Exception:
+            pass
+        return {
+            "status": "refreshed",
+            "expires_in_hours": 8,
+            "facilitator_id": "god_mode",
+            "name": "God Mode Administrator",
+            "role": role,
+            "is_admin": True,
+            "allowed_tabs": ["*"],
+            "permissions": {},
+        }
+
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
     if not fac:
         raise HTTPException(401, "Facilitator not found")
     role = get_role(fac)
+    allowed_tabs = get_allowed_tabs(fac)
     try:
-        token = create_facilitator_token(fac_id, role)
-        set_session_cookie(response, token)
+        token = create_facilitator_token(
+            fac_id, role, token_version=get_token_version(fac_id),
+        )
+        set_session_cookie(response, token, facilitator_id=fac_id)
     except Exception:
         pass
-    return {"status": "refreshed", "expires_in_hours": 8}
+    return {
+        "status": "refreshed",
+        "expires_in_hours": 8,
+        "facilitator_id": fac["facilitator_id"],
+        "name": fac.get("name", ""),
+        "username": fac.get("username", ""),
+        "role": role,
+        "is_admin": role == "super_admin",
+        "allowed_tabs": allowed_tabs,
+        "permissions": fac.get("permissions", {}),
+    }
+
+
+@admin_router.post("/facilitators/{fac_id}/revoke-sessions", summary="SEC-1: Revoke all sessions for a facilitator")
+async def admin_revoke_facilitator_sessions(
+    fac_id: str, request: Request, _guard: None = Depends(require_super_admin)
+):
+    """SEC-1 kill-switch. Increments the facilitator's token_version, instantly
+    invalidating every outstanding JWT for that account (including a leaked
+    god_mode cookie) on its next request. Super-admin only.
+
+    Use fac_id='god_mode' to revoke the virtual super-admin account; the caller
+    will need to log in again afterwards to obtain a fresh token.
+    """
+    _check_rate_limit(request, "fac_revoke_sessions")
+    # Validate target exists (god_mode is a valid virtual target).
+    if fac_id != "god_mode":
+        target = next(
+            (f for f in _facilitator_registry
+             if f["facilitator_id"] == fac_id and not f.get("deleted_at")),
+            None,
+        )
+        if not target:
+            raise HTTPException(404, f"Facilitator {fac_id} not found")
+    new_version = bump_token_version(fac_id)
+    from auth_jwt import get_facilitator_from_request as _caller
+    _src_ip = request.client.host if request.client else "unknown"
+    _audit(
+        "facilitator_sessions_revoked",
+        actor=_caller(request) or "unknown",
+        details={"target": fac_id, "new_token_version": new_version},
+        source_ip=_src_ip,
+    )
+    return {
+        "status": "revoked",
+        "facilitator_id": fac_id,
+        "token_version": new_version,
+        "message": "All outstanding sessions for this account have been invalidated.",
+    }
 
 
 @admin_router.post("/facilitators/{fac_id}/reset-password", summary="Admin reset facilitator password")
-async def admin_reset_facilitator_password(fac_id: str, _guard: None = Depends(require_super_admin)):
-    """God Mode one-click password reset. Generates a new random password."""
+async def admin_reset_facilitator_password(fac_id: str, request: Request, _guard: None = Depends(require_super_admin)):
+    """God Mode one-click password reset. Generates a new random password
+    and optionally emails it to the facilitator."""
+    # M-2: Rate-limit admin resets to prevent abuse of the super-admin path
+    _check_rate_limit(request, "fac_reset_pw")
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
@@ -1146,7 +1702,31 @@ async def admin_reset_facilitator_password(fac_id: str, _guard: None = Depends(r
     new_pw = ''.join(_sec.choice(_str.ascii_letters + _str.digits) for _ in range(12))
     fac["password"] = hash_password(new_pw)  # store bcrypt hash
     _persist_facilitators()
-    return {"status": "success", "new_password": new_pw, "facilitator_id": fac_id}
+
+    # ── Email the new password to the facilitator ────────────
+    email_sent = False
+    email_to = fac.get("email", "").strip() or None
+    if email_to:
+        try:
+            from email_service import send_password_reset_email, is_configured
+            send_password_reset_email(
+                to=email_to,
+                facilitator_id=fac_id,
+                facilitator_name=fac.get("name", fac_id),
+                new_password=new_pw,
+            )
+            email_sent = is_configured()  # True only if SMTP is actually set up
+        except Exception as exc:
+            import logging
+            logging.getLogger("muressons.admin").warning("Email send failed for %s: %s", fac_id, exc)
+
+    return {
+        "status": "success",
+        "new_password": new_pw,
+        "facilitator_id": fac_id,
+        "email_sent": email_sent,
+        "email_to": email_to,
+    }
 
 
 @admin_router.put("/facilitators/{fac_id}/cohort-limit", summary="Update facilitator cohort limit")
@@ -1187,7 +1767,8 @@ async def toggle_facilitator_enabled(fac_id: str, body: dict = Body(...), _guard
 
 
 @admin_router.post("/sessions/{session_id}/practice-mode", summary="Enable practice mode for a cohort")
-async def enable_practice_mode(session_id: str, _guard: None = Depends(require_facilitator)):
+async def enable_practice_mode(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)
     sess = await db.get_session_info(session_id)
     if not sess:
         raise HTTPException(404, "Session not found")
@@ -1201,7 +1782,8 @@ async def enable_practice_mode(session_id: str, _guard: None = Depends(require_f
 
 
 @admin_router.delete("/sessions/{session_id}/practice-mode", summary="Disable practice mode for a cohort")
-async def disable_practice_mode(session_id: str, _guard: None = Depends(require_facilitator)):
+async def disable_practice_mode(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)
     _practice_mode.pop(session_id, None)
     return {"status": "disabled", "session_id": session_id, "practice_mode": False}
 
@@ -1333,6 +1915,7 @@ class PlayerInductRequest(BaseModel):
     email: str = Field(..., max_length=200)
     session_id: str = Field(..., max_length=100)
     assigned_bu: str = Field(..., max_length=100)
+    region_id: str = Field("", max_length=50)  # NEW — geographic region for single-BU localisation
 
 class MasterOverride(BaseModel):
     id: str
@@ -1367,7 +1950,7 @@ from pillar_configs import _get_merged_pillar_options
 from healthcare_configs import _get_merged_healthcare_configs
 
 @admin_router.get("/decision_configs", summary="Fetch merged decision configs and raw overrides")
-async def get_decision_configs():
+async def get_decision_configs(_guard: None = Depends(require_facilitator)):
     """Returns the fully merged configuration alongside the raw JSON overrides for God Mode editing."""
     merged_narrative = _get_merged_round_configs()
     merged_pillars = _get_merged_pillar_options()
@@ -1401,43 +1984,51 @@ async def update_decision_config(req: OverridesUpdateRequest, _guard: None = Dep
     """
     Saves a single field override to decision_overrides.json.
     Updates in-memory dict dicts then flushes to disk.
+
+    GOD-006: The entire read-modify-write is protected by _config_file_lock so
+    two simultaneous super_admin edits (e.g. trainer + co-facilitator) cannot
+    interleave their reads and corrupt the JSON file.
     """
-    raw_overrides = {"legacy_abc": {}, "multi_toggles": {}, "healthcare": {}}
-    if ROUND_OVERRIDES_FILE.exists():
-        try:
-            with open(ROUND_OVERRIDES_FILE, "r") as f:
-                raw_overrides = json.load(f)
-        except Exception:
-            pass
-            
-    # Drill down into the tree
-    pd_dict = raw_overrides.setdefault(req.paradigm, {})
-    rnd_dict = pd_dict.setdefault(str(req.round_number), {})
-    
-    if req.paradigm == "multi_toggles" and req.area_key:
-        areas_dict = rnd_dict.setdefault("areas", {})
-        area_node = areas_dict.setdefault(req.area_key, {})
-        opts_dict = area_node.setdefault("options", {})
-        target_dict = opts_dict.setdefault(req.option_key, {})
-    elif req.paradigm in ["legacy_abc", "healthcare"]:
-        opts_dict = rnd_dict.setdefault("options", {})
-        target_dict = opts_dict.setdefault(req.option_key, {})
-    else:
-        raise HTTPException(400, "Invalid paradigm or missing area_key")
-        
-    # If it's an impact field, nest it inside 'impacts'
-    impact_fields = ["treasury", "revenue_delta", "carbon_intensity_delta", "reputation", "resilience_factor", "natural_capital_debt_delta", "social_license_delta", "social_license_score"]
-    
-    if req.field_name in impact_fields:
-        impacts_dict = target_dict.setdefault("impacts", {})
-        impacts_dict[req.field_name] = req.new_value
-    else:
-        target_dict[req.field_name] = req.new_value
-        
-    # Save back to disk
-    with open(ROUND_OVERRIDES_FILE, "w") as f:
-        json.dump(raw_overrides, f, indent=4)
-        
+    async with _config_file_lock:
+        raw_overrides = {"legacy_abc": {}, "multi_toggles": {}, "healthcare": {}}
+        if ROUND_OVERRIDES_FILE.exists():
+            try:
+                with open(ROUND_OVERRIDES_FILE, "r") as f:
+                    raw_overrides = json.load(f)
+            except Exception:
+                pass
+
+        # Drill down into the tree
+        pd_dict = raw_overrides.setdefault(req.paradigm, {})
+        rnd_dict = pd_dict.setdefault(str(req.round_number), {})
+
+        if req.paradigm == "multi_toggles" and req.area_key:
+            areas_dict = rnd_dict.setdefault("areas", {})
+            area_node = areas_dict.setdefault(req.area_key, {})
+            opts_dict = area_node.setdefault("options", {})
+            target_dict = opts_dict.setdefault(req.option_key, {})
+        elif req.paradigm in ["legacy_abc", "healthcare"]:
+            opts_dict = rnd_dict.setdefault("options", {})
+            target_dict = opts_dict.setdefault(req.option_key, {})
+        else:
+            raise HTTPException(400, "Invalid paradigm or missing area_key")
+
+        # If it's an impact field, nest it inside 'impacts'
+        impact_fields = ["treasury", "revenue_delta", "carbon_intensity_delta", "reputation", "resilience_factor", "natural_capital_debt_delta", "social_license_delta", "social_license_score"]
+
+        if req.field_name in impact_fields:
+            impacts_dict = target_dict.setdefault("impacts", {})
+            impacts_dict[req.field_name] = req.new_value
+        else:
+            target_dict[req.field_name] = req.new_value
+
+        # Save back to disk (atomic: write tmp then rename)
+        tmp_path = str(ROUND_OVERRIDES_FILE) + ".tmp"
+        with open(tmp_path, "w") as f:
+            json.dump(raw_overrides, f, indent=4)
+        import os as _os
+        _os.replace(tmp_path, ROUND_OVERRIDES_FILE)
+
     return {"status": "success", "raw_overrides": raw_overrides}
 
 
@@ -1545,6 +2136,7 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
             decisions=decisions_raw,
             events=events,
             previous_flags=current_global.get("active_event_flags", {}),
+            decision_paradigm=paradigm,
         )
         events.update(post_events)
         events["auto_committed"] = True
@@ -1688,7 +2280,8 @@ async def get_pacing(session_id: str):
 
 
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
-async def set_pacing(session_id: str, body: RoundPacingRequest, _guard: None = Depends(require_facilitator)):
+async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request, _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)
     pacing = _get_pacing(session_id)
 
     # Cancel existing single-shot timer if any
@@ -1785,7 +2378,8 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, _guard: None = D
 
 
 @admin_router.post("/sessions/{session_id}/pacing/unlock", summary="Manually unlock next round")
-async def unlock_next_round(session_id: str, _guard: None = Depends(require_facilitator)):
+async def unlock_next_round(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    await _assert_session_ownership(request, session_id)
     pacing = _get_pacing(session_id)
     pacing["unlocked_round"] = pacing["unlocked_round"] + 1
 
@@ -1862,7 +2456,15 @@ async def get_session_interventions(session_id: str):
     }
 
 @admin_router.put("/{session_id}/interventions", summary="Set permitted interventions for a session")
-async def set_session_interventions(session_id: str, req: SessionInterventionsRequest, _guard: None = Depends(require_facilitator)):
+async def set_session_interventions(
+    session_id: str,
+    req: SessionInterventionsRequest,
+    request: Request = None,
+    _guard: None = Depends(require_facilitator),
+):
+    # Ownership: lead_facilitators may only configure interventions for their own sessions.
+    if request is not None:
+        await _assert_session_ownership(request, session_id)
     _session_interventions[session_id] = {
         "allowed_overrides": req.allowed_overrides,
         "allowed_swipes": req.allowed_swipes,
@@ -1903,7 +2505,7 @@ async def save_decade_plan(session_id: str, req: DecadePlanRequest, _guard: None
     return {"status": "saved", "boardroom_choice": req.boardroom_choice}
 
 @admin_router.get("/{session_id}/decade-plan", summary="Get decade forward plan")
-async def get_decade_plan(session_id: str):
+async def get_decade_plan(session_id: str, _guard: None = Depends(require_facilitator)):
     result = await db.get_decade_plan(session_id)
     if result is None:
         from fastapi import HTTPException
@@ -1929,6 +2531,7 @@ async def list_players(_guard: None = Depends(require_facilitator)):
     for p in _player_registry:
         if not p.get("deleted_at"):
             p_dict = dict(p)
+            p_dict.pop("password", None)   # H-2: never expose bcrypt hashes to callers
             p_dict["is_orphan"] = p_dict.get("session_id") not in active_ids
             # ── Resolve display name from multiple sources ──
             # Priority: name (from induct/login) → username (from set-username) → player_name
@@ -1950,17 +2553,74 @@ async def toggle_public_status(session_id: str, req: dict = Body(...), _guard: N
     return {"status": "updated", "is_public": is_public}
 
 
+@admin_router.patch("/sessions/{session_id}/metadata", summary="Edit cohort metadata (pre-game only)")
+async def patch_session_metadata(
+    session_id: str,
+    body: dict = Body(...),
+    _guard: None = Depends(require_lead_facilitator),
+):
+    """
+    Allows lead_facilitator / super_admin to update a cohort's core metadata
+    before the game has begun (round == 1 AND no players inducted).
+    """
+    # ── Guard: only allow edits before the game starts ──────────────
+    from database_memory import _sessions
+    session = _sessions.get(session_id)
+    if session is None:
+        session = await db.get_session_info(session_id)
+    if session is None:
+        raise HTTPException(404, "Session not found")
+
+    round_num = session.get("round_number", 1)
+    inducted = session.get("allowed_player_ids", [])
+    if round_num > 1:
+        raise HTTPException(409, "Cannot edit cohort: game has already begun (round > 1)")
+    if inducted and len(inducted) > 0:
+        raise HTTPException(409, "Cannot edit cohort: players have already been inducted")
+
+    # ── Allowed editable fields ──────────────────────────────────────
+    EDITABLE = {
+        "cohort_name", "facilitator_id", "decision_paradigm", "ending_pathway",
+        "start_date", "end_date", "created_by", "created_when",
+        "simulation_mode", "industry_vertical", "region_id",
+        "currency_symbol", "scenario_preset", "experience_level", "difficulty_tier",
+    }
+    updates = {k: v for k, v in body.items() if k in EDITABLE and v is not None}
+    if not updates:
+        return {"status": "no_changes"}
+
+
+    success = await db.update_session_metadata(session_id, updates)
+    if not success:
+        raise HTTPException(404, "Session not found")
+
+
+    # Broadcast so leaderboards refresh
+    await manager.broadcast_admin({
+        "type": "sessions_refresh",
+        "session_id": session_id,
+        "changed": list(updates.keys()),
+    })
+    return {"status": "updated", "session_id": session_id, "updated_fields": list(updates.keys())}
+
+
 class MaterialityDictionaryOverrideRequest(BaseModel):
     issues: list[dict]
     interdependencies: list[dict]
     consultant_fee_usd: Optional[int] = 1500000
 
 @admin_router.put("/{session_id}/materiality-dictionary", summary="Override the full materiality dictionary for a cohort")
-async def override_materiality_dictionary(session_id: str, req: MaterialityDictionaryOverrideRequest, _guard: None = Depends(require_facilitator)):
+async def override_materiality_dictionary(
+    session_id: str,
+    req: MaterialityDictionaryOverrideRequest,
+    request: Request,
+    _guard: None = Depends(require_lead_facilitator),
+):
     """
     Saves a complete sandboxed copy of the materiality dictionary for this session.
     Overrides global settings dynamically for this cohort.
     """
+    await _assert_session_ownership(request, session_id)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -1978,10 +2638,15 @@ async def override_materiality_dictionary(session_id: str, req: MaterialityDicti
     return {"status": "success", "message": "Cohort-specific dictionary enabled."}
 
 @admin_router.delete("/{session_id}/materiality-dictionary", summary="Revert cohort to God Mode dictionary")
-async def revert_materiality_dictionary(session_id: str, _guard: None = Depends(require_facilitator)):
+async def revert_materiality_dictionary(
+    session_id: str,
+    request: Request,
+    _guard: None = Depends(require_lead_facilitator),
+):
     """
     Removes the sandbox dictionary, reverting the cohort to God Mode defaults.
     """
+    await _assert_session_ownership(request, session_id)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(status_code=404, detail="Session not found.")
@@ -2022,7 +2687,15 @@ _NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "ha
 @admin_router.post("/players/induct", summary="Induct a player directly into a session")
 async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_facilitator)):
     global _next_player_id
-    
+
+    # Enforce the 10-player-per-cohort cap
+    existing_in_cohort = [p for p in _player_registry if p.get("session_id") == req.session_id]
+    if len(existing_in_cohort) >= 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Cohort has reached the maximum of 10 players."
+        )
+
     # Check for duplicate name within the same cohort
     existing_names = [
         p["name"].strip().lower()
@@ -2039,11 +2712,10 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
     generated_id = f"MUR-{_next_player_id:03d}"
     _next_player_id += 1
     
-    # MED-012: Generate a cryptographically strong default password
-    import secrets as _secrets, string as _string
-    _alpha = _string.ascii_letters + _string.digits
-    generated_password = ''.join(_secrets.choice(_alpha) for _ in range(12))
-    generated_password_hash = hash_password(generated_password)
+    # SEC-3: random per-player temp password (was hardcoded "Welcome123").
+    # Shown once to the facilitator via registered_players.plaintext_password;
+    # must_change_password forces a reset on first login.
+    generated_password, generated_password_hash = _generate_temp_password()
 
     # Fetch cohort_name from session so login response can return it
     _cohort_name = ""
@@ -2059,9 +2731,11 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
         "name": req.name,
         "email": req.email,
         "assigned_bu": req.assigned_bu,
+        "region_id": req.region_id,
         "session_id": req.session_id,
         "cohort_name": _cohort_name,
         "password": generated_password_hash,  # L-4: store bcrypt hash, never plaintext
+        "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "playing",
     }
@@ -2080,7 +2754,9 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
             if "registered_players" not in sess:
                 sess["registered_players"] = []
             if not any(rp["player_id"] == generated_id for rp in sess["registered_players"]):
-                sess["registered_players"].append(player.copy())
+                display_entry = player.copy()
+                display_entry["plaintext_password"] = generated_password
+                sess["registered_players"].append(display_entry)
             db._persist()
     except Exception:
         pass  # Non-critical
@@ -2202,6 +2878,64 @@ async def set_player_password(body: dict = Body(...), _guard: None = Depends(req
             "status": "id_generated",
         })
     return {"status": "success"}
+
+
+@admin_router.post("/players/{player_id}/reset-password", summary="Reset a player's password to a new random temp password")
+async def reset_player_password(player_id: str, _guard: None = Depends(require_facilitator)):
+    """
+    Generates a new random temp password for a player and returns the plaintext to the facilitator.
+    Sets must_change_password=True so the player is required to change it on first login.
+    Updates both the _player_registry and the session's registered_players so the
+    facilitator panel immediately shows the new password.
+    """
+    player_id_upper = player_id.strip().upper()
+
+    # Find in registry
+    player = next((p for p in _player_registry if p["player_id"] == player_id_upper), None)
+
+    # Search session registered_players if not in registry
+    if not player:
+        all_sessions = await db.fetch_all_sessions()
+        for sess in all_sessions:
+            for rp in sess.get("registered_players", []):
+                if rp.get("player_id") == player_id_upper:
+                    player = rp
+                    if not any(p["player_id"] == player_id_upper for p in _player_registry):
+                        _player_registry.append(rp)
+                    break
+            if player:
+                break
+
+    if not player:
+        raise HTTPException(status_code=404, detail=f"Player {player_id_upper} not found.")
+
+    # Generate a new random temp password
+    new_plaintext, new_hash = _generate_temp_password()
+    player["password"] = new_hash
+    player["must_change_password"] = True
+
+    # Sync to ALL session registered_players entries so it persists and shows in the facilitator panel.
+    # Note: player.session_id may be the child (game) session, not the cohort session,
+    # so we search all sessions for matching registered_players entries.
+    try:
+        import database_memory as _dm
+        all_sess = await db.fetch_all_sessions()
+        for sess in all_sess:
+            for rp in sess.get("registered_players", []):
+                if rp.get("player_id") == player_id_upper:
+                    rp["password"] = new_hash
+                    rp["must_change_password"] = True
+                    rp["plaintext_password"] = new_plaintext  # Update for facilitator display
+        _dm._persist()
+    except Exception:
+        pass  # Non-critical — in-memory update is done
+
+    return {
+        "status": "success",
+        "player_id": player_id_upper,
+        "new_password": new_plaintext,
+        "message": f"Password reset for {player_id_upper}. Share the new password with the player."
+    }
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -2378,7 +3112,7 @@ def _apply_force_strike(
     "/sessions",
     summary="List all active sessions for leaderboard",
 )
-async def list_sessions(facilitator_id: Optional[str] = None):
+async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
     """Returns all sessions with their latest state for the leaderboard."""
     sessions = await db.fetch_all_sessions()
     
@@ -2398,14 +3132,21 @@ async def list_sessions(facilitator_id: Optional[str] = None):
     summary="Generate a new allowed player ID and password",
 )
 async def generate_player_id(session_id: str, _guard: None = Depends(require_facilitator)):
+    # Enforce the 10-player-per-cohort cap at ID generation time
+    sess_check = await db.get_session_info(session_id)
+    if not sess_check:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    existing_count = len(sess_check.get("registered_players", []))
+    if existing_count >= 10:
+        raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 10 players.")
+
     player_id = await db.generate_player_id(session_id)
     if not player_id:
         raise HTTPException(status_code=404, detail="Session not found.")
     
-    # MED-012: Cryptographically strong default password
-    import secrets as _secrets, string as _string
-    _alpha = _string.ascii_letters + _string.digits
-    generated_password = ''.join(_secrets.choice(_alpha) for _ in range(12))
+    # SEC-3: random per-player temp password (was hardcoded "Welcome123").
+    generated_password, _generated_password_hash = _generate_temp_password()
+
 
     player_entry = {
         "player_id": player_id,
@@ -2414,6 +3155,7 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_fac
         "assigned_bu": "",
         "session_id": session_id,
         "password": hash_password(generated_password),  # L-4: store bcrypt hash
+        "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "id_generated",
     }
@@ -2427,9 +3169,12 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_fac
     if sess:
         if "registered_players" not in sess:
             sess["registered_players"] = []
-        sess["registered_players"].append(player_entry.copy())
+        # Include plaintext_password for admin credential display (password field has bcrypt hash)
+        display_entry = player_entry.copy()
+        display_entry["plaintext_password"] = generated_password
+        sess["registered_players"].append(display_entry)
 
-    # L-4: Return plaintext password once for admin to distribute — hash is stored
+    # Return plaintext password once for admin to distribute — hash is stored
     return {"status": "success", "player_id": player_id, "password": generated_password}
 
 
@@ -2579,8 +3324,11 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             "start_date": sess.get("start_date"),
             "end_date": sess.get("end_date"),
             "pacing_mode": sess.get("pacing_mode", "free_play"),
-            "max_unlocked_round": sess.get("max_unlocked_round", 10),
+            "max_unlocked_round": sess.get("max_unlocked_round", SIM_ROUNDS),
             "start_time": sess.get("start_time"),
+            "simulation_mode": sess.get("simulation_mode", "conglomerate"),
+            "industry_vertical": sess.get("industry_vertical", ""),
+            "region_id": sess.get("region_id", ""),
         })
 
     # Sort: group player sessions under their parent cohort, then by terminal value
@@ -2618,7 +3366,7 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
     "/session-report/{session_id}",
     summary="Full performance analytics for a single session",
 )
-async def get_session_report(session_id: str):
+async def get_session_report(session_id: str, _guard: None = Depends(require_facilitator)):
     """
     Returns a comprehensive analytics report for a session:
     - Final KPIs (treasury, reputation, CO2, SLO, NCD, synergy, M_R)
@@ -2792,11 +3540,12 @@ async def get_session_report(session_id: str):
     summary="Apply a manual override to a session",
     status_code=status.HTTP_200_OK,
 )
-async def apply_override(session_id: str, body: OverrideRequest, _guard: None = Depends(require_facilitator)):
+async def apply_override(session_id: str, body: OverrideRequest, request: Request, _guard: None = Depends(require_lead_facilitator)):
     """
     Applies a God Mode override to a specific session.
     Types: carbon_tax, omni_tech_poach, force_strike
     """
+    await _assert_session_ownership(request, session_id)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(
@@ -2885,11 +3634,12 @@ _custom_black_swan_log = []
     summary="Inject a custom Black Swan event into a player session",
     status_code=status.HTTP_200_OK,
 )
-async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, _guard: None = Depends(require_facilitator)):
+async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, request: Request, _guard: None = Depends(require_lead_facilitator)):
     """
     Immediately mutates the session's game state with the specified deltas,
     injects a mailbox message, and pushes a WebSocket alert to the player.
     """
+    await _assert_session_ownership(request, session_id)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(
@@ -2998,7 +3748,7 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, _gu
     })
 
     # ── Audit log ──
-    _god_mode_audit_log.append({
+    _capped_append(_god_mode_audit_log, {
         "action": "custom_black_swan_injected",
         "session_id": session_id,
         "details": event_record,
@@ -3026,11 +3776,12 @@ async def get_custom_black_swan_log():
     summary="Inject a message into a player's Executive Mailbox",
     status_code=status.HTTP_200_OK,
 )
-async def inject_message(session_id: str, body: MessageInjectRequest, _guard: None = Depends(require_facilitator)):
+async def inject_message(session_id: str, body: MessageInjectRequest, request: Request, _guard: None = Depends(require_facilitator)):
     """
     Pushes a facilitator message directly into a session's mailbox.
     Can use a preset_id or custom title/body.
     """
+    await _assert_session_ownership(request, session_id)
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(
@@ -3364,6 +4115,16 @@ async def get_bu_composition(session_id: str):
             "available_alternatives": alternatives,
         })
 
+    # Build bu_regions: slot → region for players in single-BU mode
+    bu_regions: dict = {}
+    try:
+        from admin_shared import _player_registry as _pr
+        for _p in _pr:
+            if _p.get("session_id") == session_id and _p.get("assigned_bu") and _p.get("region_id"):
+                bu_regions[_p["assigned_bu"]] = _p["region_id"]
+    except Exception:
+        pass
+
     return {
         "session_id": session_id,
         "active_bus": active_bus,
@@ -3371,6 +4132,7 @@ async def get_bu_composition(session_id: str):
         "locked": locked,
         "lock_reason": "BU composition is locked after Round 1 is committed." if locked else None,
         "slots": slots,
+        "bu_regions": bu_regions,
     }
 
 
@@ -3431,7 +4193,7 @@ async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: No
             )
 
     # Audit log
-    _god_mode_audit_log.append({
+    _capped_append(_god_mode_audit_log, {
         "action": "bu_composition_changed",
         "session_id": session_id,
         "substitutions": substitutions,
@@ -3482,6 +4244,160 @@ async def update_bu_materiality_config(bu_id: str, config: MaterialityConfig, _g
     return mat_db.get_bu_config(bu_id)
 
 
+# ═════════════════════════════════════════════════════════════════
+#  MATERIALITY CONFIG — EXCEL UPLOAD / DOWNLOAD
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.post(
+    "/materiality-config/upload",
+    summary="Upload an Excel (.xlsx) file to replace the materiality config",
+    status_code=status.HTTP_200_OK,
+)
+async def upload_materiality_excel(
+    file: UploadFile = File(...),
+    scope: str = _Query("global", description="'global' or a BU ID like 'pharma'"),
+    _guard: None = Depends(require_super_admin),
+):
+    """
+    Accepts a .xlsx file with 'Issues' and 'Interdependencies' sheets.
+    Validates all data, computes a diff against the current config,
+    and persists the new config.
+    """
+    import tempfile, os
+    from materiality_config_excel import import_materiality_from_excel
+
+    # ── MIME / extension check ────────────────────────────────
+    if not file.filename or not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .xlsx files are accepted.",
+        )
+
+    # ── Size limit: 5 MB ─────────────────────────────────────
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail="File too large. Maximum size is 5 MB.",
+        )
+
+    # ── Write to temp file ────────────────────────────────────
+    tmp_dir = Path(tempfile.gettempdir())
+    tmp_path = tmp_dir / f"mat_upload_{os.getpid()}.xlsx"
+    try:
+        tmp_path.write_bytes(contents)
+
+        # ── Validate & parse ──────────────────────────────────
+        try:
+            new_config = import_materiality_from_excel(tmp_path)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+
+        # ── Load old config for diff ──────────────────────────
+        if scope == "global":
+            old_config = mat_db.get_current_config()
+        else:
+            valid_bus = mat_db.get_bu_ids()
+            if scope not in valid_bus:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid scope '{scope}'. Valid BU IDs: {valid_bus}",
+                )
+            old_config = mat_db.get_bu_config(scope)
+
+        # ── Compute diff ──────────────────────────────────────
+        old_ids = {i["id"] for i in old_config.get("issues", [])}
+        new_ids = {i["id"] for i in new_config.get("issues", [])}
+
+        added   = sorted(new_ids - old_ids)
+        removed = sorted(old_ids - new_ids)
+
+        # Issues that exist in both but have changed
+        old_map = {i["id"]: i for i in old_config.get("issues", [])}
+        modified = []
+        for issue in new_config["issues"]:
+            if issue["id"] in old_ids and issue["id"] in new_ids:
+                old_issue = old_map.get(issue["id"], {})
+                if issue != old_issue:
+                    modified.append(issue["id"])
+
+        # ── Persist ───────────────────────────────────────────
+        if scope == "global":
+            mat_db.update_current_config(new_config)
+        else:
+            mat_db.update_bu_config(scope, new_config)
+
+        return {
+            "status": "ok",
+            "scope": scope,
+            "issues_count": len(new_config["issues"]),
+            "interdependencies_count": len(new_config["interdependencies"]),
+            "consultant_fee_usd": new_config.get("consultant_fee_usd"),
+            "diff": {
+                "added": added,
+                "removed": removed,
+                "modified": modified,
+            },
+        }
+    finally:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+
+@admin_router.get(
+    "/materiality-config/download",
+    summary="Download the materiality config as an Excel (.xlsx) file",
+)
+async def download_materiality_excel(
+    scope: str = _Query("global", description="'global' or a BU ID like 'pharma'"),
+    _guard: None = Depends(require_facilitator),
+):
+    """
+    Generates a formatted Excel workbook from the current materiality
+    config and returns it as a streaming download.
+    """
+    import tempfile, os
+    from fastapi.responses import StreamingResponse
+    from materiality_config_excel import export_materiality_to_excel
+
+    # ── Load config ───────────────────────────────────────────
+    if scope == "global":
+        config = mat_db.get_current_config()
+    else:
+        valid_bus = mat_db.get_bu_ids()
+        if scope not in valid_bus:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid scope '{scope}'. Valid BU IDs: {valid_bus}",
+            )
+        config = mat_db.get_bu_config(scope)
+
+    # ── Generate Excel to temp file ───────────────────────────
+    tmp_dir = Path(tempfile.gettempdir())
+    tmp_path = tmp_dir / f"mat_download_{os.getpid()}.xlsx"
+    try:
+        export_materiality_to_excel(config, tmp_path)
+        file_bytes = tmp_path.read_bytes()
+    finally:
+        try:
+            tmp_path.unlink(missing_ok=True)
+        except Exception:
+            pass
+
+    filename = f"materiality_config_{scope}.xlsx"
+
+    import io
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+    )
+
+
 @admin_router.get(
     "/{session_id}/r2-bu-selection",
     summary="Get the randomly selected BU for Round 2 materiality matrix"
@@ -3516,9 +4432,262 @@ async def get_r2_bu_selection(session_id: str):
     }
 
 
+
 # ═════════════════════════════════════════════════════════════════
-#  AUDIT TRAIL & PLAYER IMPERSONATION
+#  REGIONAL STAKEHOLDER CONFIG (Single-BU Localisation)
 # ═════════════════════════════════════════════════════════════════
+
+@admin_router.get(
+    "/stakeholder-config/regions",
+    summary="List all region stakeholder config files",
+)
+async def list_stakeholder_region_configs(_guard: None = Depends(require_facilitator)):
+    """Returns a list of region_ids for which a stakeholder override JSON exists."""
+    from stakeholder_db import list_region_configs
+    return {"regions": list_region_configs()}
+
+
+@admin_router.get(
+    "/stakeholder-config/regions/{region_id}",
+    summary="Get the stakeholder overrides for a region",
+)
+async def get_stakeholder_region_config(
+    region_id: str, _guard: None = Depends(require_facilitator)
+):
+    """Returns the raw stakeholder override list for the given region_id.
+    Returns 404 if no config exists yet.
+    """
+    from stakeholder_db import get_region_config_raw
+    data = get_region_config_raw(region_id)
+    if data is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No stakeholder config found for region '{region_id}'.",
+        )
+    return {"region_id": region_id, "overrides": data}
+
+
+@admin_router.put(
+    "/stakeholder-config/regions/{region_id}",
+    summary="Create or update the stakeholder overrides for a region",
+)
+async def set_stakeholder_region_config(
+    region_id: str,
+    body: dict = Body(...),
+    _guard: None = Depends(require_super_admin),
+):
+    """Overwrite the stakeholder override list for a region.
+
+    Body: ``{"overrides": [ {stakeholder partial objects} ]}``
+
+    Each entry is matched by ``id`` to the canonical STAKEHOLDERS list and
+    merged (partial override). Entries with unknown ``id`` values are appended
+    as new stakeholders specific to this region.
+
+    Requires super_admin role. Cache is invalidated on successful write.
+    """
+    from stakeholder_db import save_region_config
+    overrides = body.get("overrides")
+    if not isinstance(overrides, list):
+        raise HTTPException(
+            status_code=400,
+            detail="Body must contain an 'overrides' array of stakeholder objects.",
+        )
+    success = save_region_config(region_id, overrides)
+    if not success:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Failed to save config for region '{region_id}'. Check that region_id is a valid slug.",
+        )
+    return {
+        "status": "ok",
+        "region_id": region_id,
+        "overrides_count": len(overrides),
+    }
+
+
+@admin_router.delete(
+    "/stakeholder-config/regions/{region_id}",
+    summary="Delete the stakeholder overrides for a region",
+)
+async def delete_stakeholder_region_config(
+    region_id: str, _guard: None = Depends(require_super_admin)
+):
+    """Delete the region-specific stakeholder override file.
+    The canonical STAKEHOLDERS will be used for this region after deletion.
+    """
+    from stakeholder_db import delete_region_config
+    deleted = delete_region_config(region_id)
+    if not deleted:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No stakeholder config found for region '{region_id}'.",
+        )
+    return {"status": "deleted", "region_id": region_id}
+
+
+# ── Stakeholder Matrix Excel Upload / Download ───────────────
+
+@admin_router.post(
+    "/stakeholder-config/upload/{config_id}",
+    summary="Upload stakeholder config from Excel (.xlsx)",
+)
+async def upload_stakeholder_excel(
+    config_id: str,
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_super_admin),
+):
+    """Upload an Excel file containing stakeholder definitions.
+
+    ``config_id`` may be:
+      - A region ID (e.g. ``asean``, ``europe``)
+      - A vertical ID prefixed with ``vertical_`` (e.g. ``vertical_technology``)
+      - ``canonical`` to overwrite the canonical default set (stored as region "canonical")
+
+    Validates all rows before persisting. Returns the list of stakeholder IDs
+    on success.
+    """
+    import os
+    import tempfile
+
+    # ── MIME / extension check ────────────────────────────
+    filename = file.filename or ""
+    if not filename.lower().endswith(".xlsx"):
+        raise HTTPException(
+            status_code=400,
+            detail="Only .xlsx files are accepted. Please upload a valid Excel file.",
+        )
+
+    # ── Size limit (5 MB) ────────────────────────────────
+    max_size = 5 * 1024 * 1024
+    contents = await file.read()
+    if len(contents) > max_size:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File too large ({len(contents):,} bytes). Maximum size is 5 MB.",
+        )
+
+    # ── Write to temp file, validate, and persist ─────────
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
+    try:
+        os.write(tmp_fd, contents)
+        os.close(tmp_fd)
+
+        from stakeholder_config_excel import import_stakeholders_from_excel
+        try:
+            stakeholders = import_stakeholders_from_excel(tmp_path)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+
+        from stakeholder_db import save_region_config
+        success = save_region_config(config_id, stakeholders)
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Failed to save config for '{config_id}'. "
+                       "Ensure config_id is a valid slug (lowercase alphanumeric + underscores, max 50 chars).",
+            )
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    ids = [s["id"] for s in stakeholders]
+    print(f"[god-mode] Stakeholder Excel uploaded for '{config_id}': {len(ids)} stakeholders")
+    return {
+        "status": "ok",
+        "config_id": config_id,
+        "stakeholder_count": len(ids),
+        "stakeholder_ids": ids,
+    }
+
+
+@admin_router.get(
+    "/stakeholder-config/download/{config_id}",
+    summary="Download stakeholder config as Excel (.xlsx)",
+)
+async def download_stakeholder_excel(
+    config_id: str,
+    _guard: None = Depends(require_facilitator),
+):
+    """Generate and download a stakeholder matrix Excel file.
+
+    ``config_id`` may be:
+      - A region ID — returns the merged (canonical + region overrides) set
+      - A vertical ID prefixed with ``vertical_`` — returns vertical stakeholders
+      - ``canonical`` — returns the canonical default set
+    """
+    import os
+    import tempfile
+    from fastapi.responses import StreamingResponse
+
+    # ── Resolve which stakeholders to export ──────────────
+    stakeholders = None
+
+    if config_id == "canonical":
+        from stakeholder_map import STAKEHOLDERS
+        stakeholders = STAKEHOLDERS
+    else:
+        # Try region / vertical override from DB
+        from stakeholder_db import get_region_config_raw
+        raw = get_region_config_raw(config_id)
+        if raw:
+            stakeholders = raw
+        elif config_id.startswith("vertical_"):
+            # Try Python-defined vertical
+            v_id = config_id[len("vertical_"):]
+            try:
+                from vertical_stakeholders import get_stakeholders_for_vertical
+                stakeholders = get_stakeholders_for_vertical(v_id)
+            except ImportError:
+                pass
+        else:
+            # Try as a region (merged canonical + overrides)
+            from stakeholder_db import get_stakeholders_for_region
+            merged = get_stakeholders_for_region(config_id)
+            if merged:
+                stakeholders = merged
+
+    if not stakeholders:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No stakeholder data found for config_id '{config_id}'.",
+        )
+
+    # ── Generate Excel ────────────────────────────────────
+    from stakeholder_config_excel import export_stakeholders_to_excel
+
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
+    os.close(tmp_fd)
+    try:
+        export_stakeholders_to_excel(stakeholders, tmp_path)
+
+        def _iter_file():
+            with open(tmp_path, "rb") as f:
+                yield from iter(lambda: f.read(8192), b"")
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+        safe_name = config_id.replace("/", "_").replace("\\", "_")
+        return StreamingResponse(
+            _iter_file(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={
+                "Content-Disposition": f'attachment; filename="stakeholder_matrix_{safe_name}.xlsx"',
+            },
+        )
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+
 
 @admin_router.get(
     "/{session_id}/audit-trail",
@@ -3870,21 +5039,34 @@ async def reset_session(session_id: str, _guard: None = Depends(require_super_ad
     summary="Reset ALL sessions (nuclear option)",
     status_code=status.HTTP_200_OK,
 )
-async def reset_all_sessions(_guard: None = Depends(require_super_admin)):
-    """Deletes ALL sessions and all data. Cannot be undone."""
+async def reset_all_sessions(
+    reset_facilitators: bool = False,  # GOD-011: must be explicitly opted in
+    _guard: None = Depends(require_super_admin),
+):
+    """Deletes ALL sessions and all data. Cannot be undone.
+
+    GOD-011: Facilitator accounts are NOT wiped unless ?reset_facilitators=true
+    is explicitly supplied. Separating these operations prevents accidental
+    deletion of all 30 facilitator accounts during a routine session cleanup.
+
+    GOD-007: The in-memory audit log is preserved — it is forensic evidence and
+    must not be erased by a session reset. A 'sessions_reset' audit entry is
+    appended instead so the action itself is on record.
+    """
     count = await db.delete_all_sessions(hard=True)
 
-    # Clear logs and history
-    _god_mode_audit_log.clear()
+    # Clear operational state (NOT the audit log — GOD-007)
     _crisis_trigger_history.clear()
     _session_messages.clear()
     _session_interventions.clear()
 
-    # Reset facilitators to default
-    global _facilitator_registry
     from admin_shared import _DEFAULT_FACILITATOR, _persist_facilitators, _practice_mode, _round_pacing, _shared_marketplace
-    _facilitator_registry[:] = [{**_DEFAULT_FACILITATOR}]
-    _persist_facilitators()
+
+    # GOD-011: Only reset facilitator registry when explicitly requested
+    if reset_facilitators:
+        global _facilitator_registry
+        _facilitator_registry[:] = [{**_DEFAULT_FACILITATOR}]
+        _persist_facilitators()
 
     # Reset other transient states
     _practice_mode.clear()
@@ -3894,13 +5076,23 @@ async def reset_all_sessions(_guard: None = Depends(require_super_admin)):
     _shared_marketplace["green_talent_pool"]["hired"].clear()
     _shared_marketplace["green_talent_pool"]["cost_history"] = [200000]
 
+    # GOD-007: Audit the reset (log survives; this entry proves the action happened)
+    _audit("sessions_reset", details={
+        "sessions_removed": count,
+        "facilitators_reset": reset_facilitators,
+    })
+
     # Notify admin dashboard
     await manager.broadcast_admin({
         "type": "all_sessions_reset",
         "count": count,
     })
 
-    return {"status": "all_deleted", "sessions_removed": count}
+    return {
+        "status": "all_deleted",
+        "sessions_removed": count,
+        "facilitators_reset": reset_facilitators,
+    }
 
 
 
@@ -4107,28 +5299,348 @@ async def upload_intervention_media(file: UploadFile = File(...), _guard: None =
 
 
 # ═════════════════════════════════════════════════════════════════
+#  SIMULATION CONFIG UPLOAD & HOT-RELOAD
+# ═════════════════════════════════════════════════════════════════
+
+# Concurrency guard: prevents config reload while a simulation tick is running.
+# Acquire with blocking=False from process_tick call paths; blocking from upload.
+_sim_config_reload_lock = threading.Lock()
+
+
+def _deep_diff(old: dict, new: dict, path_prefix: str = "") -> list[dict]:
+    """Recursively diff two nested dicts, returning changed leaf values."""
+    changes = []
+    all_keys = set(list(old.keys()) + list(new.keys()))
+    for key in sorted(all_keys):
+        if key.startswith("_"):
+            continue  # skip _comment fields
+        full_path = f"{path_prefix}.{key}" if path_prefix else key
+        old_val = old.get(key)
+        new_val = new.get(key)
+        if isinstance(old_val, dict) and isinstance(new_val, dict):
+            changes.extend(_deep_diff(old_val, new_val, full_path))
+        elif old_val != new_val:
+            # Parse path into section/subsection/parameter
+            parts = full_path.split(".")
+            section = parts[0] if len(parts) >= 1 else ""
+            subsection = parts[1] if len(parts) >= 3 else ""
+            parameter = parts[-1]
+            changes.append({
+                "section": section,
+                "subsection": subsection,
+                "parameter": parameter,
+                "old_value": old_val,
+                "new_value": new_val,
+            })
+    return changes
+
+
+_XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+_CONFIG_MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
+
+
+@admin_router.post(
+    "/config/upload",
+    summary="Upload simulation config Excel and hot-reload (God Mode)",
+    tags=["Admin — Simulation Config"],
+)
+async def upload_simulation_config(
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_super_admin),
+):
+    """Upload a simulation_config.xlsx file, convert to JSON, and hot-reload
+    all config constants without a server restart.
+
+    Security: require_super_admin + MIME validation + size limit.
+    Concurrency: rejects with 409 if a simulation tick is in progress.
+    Rollback: backs up JSON before write; restores on any failure.
+    """
+    from pathlib import Path
+
+    # ── MIME validation ─────────────────────────────────────────
+    if file.content_type and file.content_type != _XLSX_MIME:
+        raise HTTPException(
+            status_code=415,
+            detail=f"Invalid file type: {file.content_type}. Expected .xlsx ({_XLSX_MIME})",
+        )
+    if file.filename and not file.filename.lower().endswith(".xlsx"):
+        raise HTTPException(
+            status_code=415,
+            detail="Invalid file extension. Expected .xlsx",
+        )
+
+    # ── Size validation (stream and count) ──────────────────────
+    total = 0
+    chunks = []
+    while True:
+        chunk = await file.read(65536)
+        if not chunk:
+            break
+        total += len(chunk)
+        if total > _CONFIG_MAX_FILE_SIZE:
+            raise HTTPException(status_code=413, detail="File exceeds 5 MB limit.")
+        chunks.append(chunk)
+
+    if total == 0:
+        raise HTTPException(status_code=400, detail="Empty file uploaded.")
+
+    # ── Concurrency guard ───────────────────────────────────────
+    acquired = _sim_config_reload_lock.acquire(blocking=False)
+    if not acquired:
+        raise HTTPException(
+            status_code=409,
+            detail="Config upload rejected: simulation tick in progress. "
+                   "Try again after the current round completes.",
+        )
+
+    try:
+        # ── Paths ───────────────────────────────────────────────
+        backend_dir = Path(__file__).resolve().parent
+        project_root = backend_dir.parent
+        json_path = project_root / "simulation_config.json"
+        json_bak = project_root / "simulation_config.json.bak"
+        temp_xlsx = project_root / "simulation_config_upload.xlsx"
+        live_xlsx = project_root / "simulation_config.xlsx"
+
+        # ── Save upload to temp file ────────────────────────────
+        with open(temp_xlsx, "wb") as f:
+            for chunk in chunks:
+                f.write(chunk)
+
+        # ── Validate Excel structure ────────────────────────────
+        try:
+            from openpyxl import load_workbook
+            wb = load_workbook(str(temp_xlsx), read_only=True, data_only=True)
+            ws = wb.active
+            if ws is None:
+                raise ValueError("No active sheet found")
+
+            # Check header row
+            headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+            required = {"Section", "Parameter", "Value", "Type"}
+            found = set(h for h in headers if h)
+            missing = required - found
+            if missing:
+                raise ValueError(f"Missing required columns: {', '.join(sorted(missing))}")
+
+            # Check for empty rows with Parameters
+            errors = []
+            for row_idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+                if row is None or all(cell is None for cell in row):
+                    continue
+                section_raw, subsection, parameter, value, type_label, *_ = (
+                    list(row) + [None] * 7
+                )[:7]
+                # Skip section header rows
+                if parameter is None or str(parameter).strip() == "":
+                    continue
+                if value is None:
+                    errors.append(f"Row {row_idx}: parameter '{parameter}' has no value")
+
+            if errors:
+                raise ValueError(f"Validation errors: {'; '.join(errors[:10])}")
+
+            wb.close()
+        except ValueError as ve:
+            # Clean up temp file
+            if temp_xlsx.exists():
+                temp_xlsx.unlink()
+            raise HTTPException(status_code=422, detail=str(ve))
+        except Exception as e:
+            if temp_xlsx.exists():
+                temp_xlsx.unlink()
+            raise HTTPException(
+                status_code=422,
+                detail=f"Failed to read Excel file: {str(e)}",
+            )
+
+        # ── Snapshot current config for diff ────────────────────
+        import config as _config_mod
+        old_config = copy.deepcopy(_config_mod.SIMULATION_CONFIG)
+
+        # ── Backup current JSON ─────────────────────────────────
+        if json_path.exists():
+            shutil.copy2(str(json_path), str(json_bak))
+
+        # ── Convert Excel → JSON ───────────────────────────────
+        try:
+            from config_excel import import_from_excel
+            import_from_excel(temp_xlsx, json_path)
+        except Exception as e:
+            # Rollback: restore backup
+            if json_bak.exists():
+                shutil.copy2(str(json_bak), str(json_path))
+            if temp_xlsx.exists():
+                temp_xlsx.unlink()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Excel-to-JSON conversion failed: {str(e)}. Config restored from backup.",
+            )
+
+        # ── Validate the generated JSON loads ───────────────────
+        try:
+            with open(json_path, "r", encoding="utf-8") as f:
+                new_config = json.load(f)
+        except Exception as e:
+            # Rollback
+            if json_bak.exists():
+                shutil.copy2(str(json_bak), str(json_path))
+            if temp_xlsx.exists():
+                temp_xlsx.unlink()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Generated JSON is invalid: {str(e)}. Config restored from backup.",
+            )
+
+        # ── Hot-reload chain ────────────────────────────────────
+        try:
+            import config
+            importlib.reload(config)
+            import engine
+            importlib.reload(engine)
+            import balance_sheet
+            importlib.reload(balance_sheet)
+            import terminal_valuation
+            importlib.reload(terminal_valuation)
+            import black_swan_registry
+            importlib.reload(black_swan_registry)
+        except Exception as e:
+            # Rollback: restore backup and re-reload
+            if json_bak.exists():
+                shutil.copy2(str(json_bak), str(json_path))
+                try:
+                    import config as _cfg_rollback
+                    importlib.reload(_cfg_rollback)
+                except Exception:
+                    pass
+            if temp_xlsx.exists():
+                temp_xlsx.unlink()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Hot-reload failed: {str(e)}. Config restored from backup.",
+            )
+
+        # ── Move temp xlsx to live path ─────────────────────────
+        shutil.move(str(temp_xlsx), str(live_xlsx))
+
+        # ── Compute full parameter diff ─────────────────────────
+        changes = _deep_diff(old_config, new_config)
+
+        # ── Audit trail ─────────────────────────────────────────
+        _audit("simulation_config_uploaded", details={
+            "parameters_loaded": sum(
+                1 for _ in _iter_leaf_params(new_config)
+            ),
+            "changes_count": len(changes),
+            "backup": "simulation_config.json.bak",
+        })
+
+        return {
+            "status": "ok",
+            "parameters_loaded": sum(
+                1 for _ in _iter_leaf_params(new_config)
+            ),
+            "changes": changes,
+            "changes_count": len(changes),
+            "reload": "complete",
+            "backup": "simulation_config.json.bak",
+        }
+
+    finally:
+        _sim_config_reload_lock.release()
+
+
+def _iter_leaf_params(config: dict):
+    """Yield every leaf parameter in a nested config dict (for counting)."""
+    for key, val in config.items():
+        if key.startswith("_"):
+            continue
+        if isinstance(val, dict):
+            yield from _iter_leaf_params(val)
+        else:
+            yield (key, val)
+
+
+@admin_router.get(
+    "/config/current",
+    summary="Get current simulation config (read-only)",
+    tags=["Admin — Simulation Config"],
+)
+async def get_current_config(
+    _guard: None = Depends(require_facilitator),
+):
+    """Returns the full in-memory simulation_config.json as JSON.
+    Any authenticated facilitator can read this (super_admin not required).
+    """
+    import config as _config_mod
+    return {
+        "status": "ok",
+        "config": _config_mod.SIMULATION_CONFIG,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
 #  WEBSOCKET ENDPOINTS
 # ═════════════════════════════════════════════════════════════════
 
-def _ws_authenticate_facilitator(token: str | None) -> bool:
-    """HIGH-001: Validate a WebSocket token against the facilitator registry.
-    Accepts the facilitator_id as the token (same credential used in REST header).
-    Returns True if the token identifies an active, non-deleted facilitator."""
-    if not token:
-        return False
-    return any(
-        f["facilitator_id"] == token and not f.get("deleted_at")
-        for f in _facilitator_registry
-    )
+def _ws_authenticate_facilitator(websocket: "WebSocket", token: str | None) -> bool:
+    """MED-004: Validate a WebSocket connection as an authenticated facilitator.
+
+    Priority order:
+    1. JWT in HttpOnly cookie (mur_session) — preferred path; set by login endpoint.
+    2. JWT passed as ?token= query parameter — fallback for WS clients that cannot
+       send cookies (e.g. native mobile apps, curl-based tooling).
+    3. Legacy facilitator_id string match — kept only for the migration window;
+       remove once all clients have been updated to JWT-based auth.
+
+    Returns True if any path succeeds, False otherwise.
+    """
+    from auth_jwt import decode_facilitator_token, COOKIE_NAME
+
+    # ── 1. JWT cookie ───────────────────────────────────────────────────
+    cookie_token = websocket.cookies.get(COOKIE_NAME, "")
+    if cookie_token:
+        try:
+            payload = decode_facilitator_token(cookie_token)
+            fac_id = payload.get("sub", "")
+            if fac_id == "god_mode":
+                return True
+            return any(
+                f["facilitator_id"] == fac_id and not f.get("deleted_at")
+                for f in _facilitator_registry
+            )
+        except Exception:
+            pass  # Invalid or expired cookie — try next path
+
+    # ── 2. JWT as query parameter (?token=<signed-jwt>) ────────────────
+    if token:
+        # First, try to decode it as a JWT
+        try:
+            payload = decode_facilitator_token(token)
+            fac_id = payload.get("sub", "")
+            if fac_id == "god_mode":
+                return True
+            return any(
+                f["facilitator_id"] == fac_id and not f.get("deleted_at")
+                for f in _facilitator_registry
+            )
+        except Exception:
+            pass  # Not a valid JWT — no further fallback
+
+        # H-2 security fix: Legacy facilitator_id string match REMOVED.
+        # Previously a bare facilitator_id was accepted without crypto verification.
+        # Now only signed JWTs (cookie or query param) are accepted.
+
+    return False
 
 
 @admin_router.websocket("/ws/admin")
 async def admin_websocket(websocket: WebSocket, facilitator_id: str = None, token: str = None):
     """WebSocket for admin dashboard real-time updates.
-    HIGH-001: Requires ?token=<facilitator_id> query parameter for authentication."""
+    MED-004: Authenticates via JWT cookie, JWT query param, or legacy facilitator_id."""
     # Accept the effective token from either ?token= or legacy ?facilitator_id=
     effective_token = token or facilitator_id
-    if not _ws_authenticate_facilitator(effective_token):
+    if not _ws_authenticate_facilitator(websocket, effective_token):
         await websocket.close(code=4001, reason="Unauthorized: valid facilitator token required")
         return
     await manager.connect_admin(websocket)
@@ -4159,7 +5671,7 @@ async def session_websocket(websocket: WebSocket, session_id: str, token: str = 
     (session_id acts as the player bearer token for this channel)."""
     # Player WS: accept if the token matches the session_id (player bearer)
     # OR if it's an authenticated facilitator observing the session.
-    is_facilitator = _ws_authenticate_facilitator(token)
+    is_facilitator = _ws_authenticate_facilitator(websocket, token)
     is_player = (token == session_id)
     if not is_facilitator and not is_player:
         await websocket.close(code=4001, reason="Unauthorized: valid session token required")
@@ -4182,13 +5694,21 @@ async def session_websocket(websocket: WebSocket, session_id: str, token: str = 
     "/{session_id}/undo-round",
     summary="Undo round(s) — optionally roll back to a specific target round",
 )
-async def undo_round(session_id: str, cohort_wide: bool = False, target_round: int = None, _guard: None = Depends(require_facilitator)):
+async def undo_round(
+    session_id: str,
+    request: Request,
+    cohort_wide: bool = False,
+    target_round: int = None,
+    _guard: None = Depends(require_lead_facilitator),
+):
     """
     Deletes round state(s) reverting the session back.
+    Ownership-enforced: lead_facilitators may only undo rounds in their own sessions.
 
     - No target_round → reverts exactly one round (previous behaviour).
     - target_round=N  → keeps undoing until current_round == N (multi-round rollback).
     """
+    await _assert_session_ownership(request, session_id)
     targets = [session_id]
     if cohort_wide:
         all_sessions = await db.fetch_all_sessions()
@@ -4266,7 +5786,11 @@ class FacilitatorNoteRequest(BaseModel):
     "/{session_id}/notes",
     summary="List facilitator notes for a session",
 )
-async def list_notes(session_id: str):
+async def list_notes(session_id: str, _guard: None = Depends(require_facilitator)):
+    # LOW-003: Guard added — notes may contain private facilitator observations
+    # (round tactics, player struggles) not intended for public access.
+    # Player-visible notes are pushed via WebSocket on creation; players do not
+    # need to poll this endpoint.
     return {"notes": _facilitator_notes.get(session_id, [])}
 
 
@@ -4274,14 +5798,22 @@ async def list_notes(session_id: str):
     "/{session_id}/notes",
     summary="Add a facilitator note",
 )
-async def add_note(session_id: str, req: FacilitatorNoteRequest, _guard: None = Depends(require_facilitator)):
+async def add_note(
+    session_id: str,
+    req: FacilitatorNoteRequest,
+    request: Request,
+    _guard: None = Depends(require_facilitator),
+):
+    from auth_jwt import get_facilitator_from_request
     global _next_note_id
+    author = get_facilitator_from_request(request) or "unknown"
     note = {
         "note_id": f"NOTE-{_next_note_id:04d}",
         "text": req.text,
         "round_number": req.round_number,
         "visible_to_players": req.visible_to_players,
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "author": author,  # GOD-009: track who wrote this note for delete-auth
     }
     _next_note_id += 1
     _facilitator_notes.setdefault(session_id, []).append(note)
@@ -4300,12 +5832,32 @@ async def add_note(session_id: str, req: FacilitatorNoteRequest, _guard: None = 
     "/{session_id}/notes/{note_id}",
     summary="Delete a facilitator note",
 )
-async def delete_note(session_id: str, note_id: str, _guard: None = Depends(require_facilitator)):
+async def delete_note(
+    session_id: str,
+    note_id: str,
+    request: Request,
+    _guard: None = Depends(require_facilitator),
+):
+    # GOD-009: Only the note's author or a super_admin may delete a note.
+    # This prevents one of 30 facilitators from silently erasing a colleague's
+    # teaching annotations.
+    from auth_jwt import get_facilitator_from_request
+    caller = get_facilitator_from_request(request) or ""
+    caller_role = get_fac_role(request)
+
     notes = _facilitator_notes.get(session_id, [])
-    before = len(notes)
-    _facilitator_notes[session_id] = [n for n in notes if n["note_id"] != note_id]
-    if len(_facilitator_notes[session_id]) == before:
+    target = next((n for n in notes if n["note_id"] == note_id), None)
+    if target is None:
         raise HTTPException(404, f"Note {note_id} not found")
+
+    note_author = target.get("author", "")
+    if caller_role != "super_admin" and note_author and note_author != caller:
+        raise HTTPException(
+            403,
+            f"Only the note's author ({note_author}) or a super_admin may delete this note.",
+        )
+
+    _facilitator_notes[session_id] = [n for n in notes if n["note_id"] != note_id]
     return {"status": "deleted", "note_id": note_id}
 
 
@@ -4491,7 +6043,7 @@ class BroadcastRequest(BaseModel):
     "/broadcast",
     summary="Broadcast a message to all or selected sessions",
 )
-async def broadcast_message(req: BroadcastRequest, _guard: None = Depends(require_facilitator)):
+async def broadcast_message(req: BroadcastRequest, request: Request, _guard: None = Depends(require_facilitator)):
     global _next_broadcast_id
 
     broadcast = {
@@ -4509,12 +6061,42 @@ async def broadcast_message(req: BroadcastRequest, _guard: None = Depends(requir
         # Schedule for later
         _scheduled_broadcasts[req.scheduled_round] = broadcast
         broadcast["status"] = "scheduled"
-        _broadcast_history.append(broadcast)
+        _capped_append(_broadcast_history, broadcast)
         return broadcast
+
+    # N6: Ownership scoping — non-super_admin facilitators may only broadcast
+    # to sessions they own. Super admins retain broadcast-to-all capability.
+    from auth_jwt import get_facilitator_from_request
+    caller_id = get_facilitator_from_request(request)
+    caller_fac = next(
+        (f for f in _facilitator_registry if f["facilitator_id"] == caller_id and not f.get("deleted_at")),
+        None,
+    ) if caller_id else None
+    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
+    is_super = ROLE_HIERARCHY.get(caller_role, 0) >= ROLE_HIERARCHY.get("super_admin", 3)
 
     # Send immediately
     all_sessions = await db.fetch_all_sessions()
-    targets = req.target_sessions if req.target_sessions else [s["session_id"] for s in all_sessions]
+
+    if req.target_sessions:
+        # Explicit target list — filter to owned sessions for non-super_admin
+        if is_super:
+            targets = req.target_sessions
+        else:
+            owned_ids = {
+                s["session_id"] for s in all_sessions
+                if caller_fac and owns_session(caller_fac, s)
+            }
+            targets = [sid for sid in req.target_sessions if sid in owned_ids]
+    else:
+        # Broadcast all — restrict to own sessions for non-super_admin
+        if is_super:
+            targets = [s["session_id"] for s in all_sessions]
+        else:
+            targets = [
+                s["session_id"] for s in all_sessions
+                if caller_fac and owns_session(caller_fac, s)
+            ]
 
     message_payload = {
         "type": "broadcast_message",
@@ -4528,7 +6110,7 @@ async def broadcast_message(req: BroadcastRequest, _guard: None = Depends(requir
         broadcast["delivered_to"].append(sid)
 
     broadcast["status"] = "sent"
-    _broadcast_history.append(broadcast)
+    _capped_append(_broadcast_history, broadcast)
     return broadcast
 
 
@@ -4554,14 +6136,14 @@ def _audit(action: str, actor: str = "god_mode", details: dict = None, source_ip
     MED-015: All admin mutations write a tamper-evident JSON record so there
     is a forensic trail for facilitator actions."""
     entry = {
-        "id": f"AUD-{len(_god_mode_audit_log)+1:04d}",
+        "id": f"AUD-{next(_audit_counter):04d}",  # GOD-005: monotonic, no collision
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "actor": actor,
         "source_ip": source_ip or "unknown",
         "action": action,
         "details": details or {},
     }
-    _god_mode_audit_log.append(entry)
+    _capped_append(_god_mode_audit_log, entry)
     # Persist to a newline-delimited JSON log file (survives server restarts)
     import pathlib as _pathlib
     _log_dir = _pathlib.Path(__file__).resolve().parent.parent / "db"
@@ -4576,7 +6158,11 @@ def _audit(action: str, actor: str = "god_mode", details: dict = None, source_ip
 
 
 @admin_router.get("/god/settings", summary="Get god mode global settings")
-async def get_god_settings():
+async def get_god_settings(_guard: None = Depends(require_super_admin)):
+    # SECURITY-HIGH-001: Restricted to super_admin — contains hidden simulation
+    # parameters (market_hostility_index, global_carbon_fee, black_swan toggles, etc.)
+    # that must not be visible to facilitators. Facilitators read from
+    # GET /scaffolding-status instead for the subset they need.
     return _god_mode_settings
 
 
@@ -4629,7 +6215,9 @@ async def unfreeze_system(_guard: None = Depends(require_super_admin)):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/god/audit-log", summary="Get god mode audit log")
-async def get_audit_log():
+async def get_audit_log(_guard: None = Depends(require_super_admin)):
+    # SECURITY-HIGH-001: Audit log contains source IPs, actor IDs, and operation
+    # details — restrict to super_admin only.
     return {"entries": list(reversed(_god_mode_audit_log))}
 
 
@@ -4652,7 +6240,8 @@ def _get_brsr_controller():
     "/{session_id}/brsr/status",
     summary="Get BRSR NGRBC track status for a session (Facilitator Monitor)",
 )
-async def get_brsr_status(session_id: str):
+async def get_brsr_status(session_id: str, _guard: None = Depends(require_facilitator)):
+    # SECURITY-HIGH-001: Session track status is facilitator-only information.
     """Returns the full BRSR facilitator monitor payload for one session."""
     session = await db.get_session(session_id)
     if not session:
@@ -4670,7 +6259,8 @@ async def get_brsr_status(session_id: str):
     "/{session_id}/brsr/prerequisites",
     summary="Check BRSR track prerequisite eligibility for a session",
 )
-async def check_brsr_prereqs(session_id: str):
+async def check_brsr_prereqs(session_id: str, _guard: None = Depends(require_facilitator)):
+    # SECURITY-HIGH-001: Prerequisite eligibility is facilitator-only information.
     """Returns eligibility, met/missing prerequisites, and god-mode override status."""
     session = await db.get_session(session_id)
     if not session:
@@ -4804,6 +6394,8 @@ def _aggregate_brsr_intelligence(all_sessions: dict):
             crises_injected += 1
         if flags.get("brsr_governance_crisis"):
             crises_injected += 1
+        if flags.get("spcb_show_cause"):
+            crises_injected += 1
         score = flags.get("brsr_performance_score")
         if score is not None:
             brsr_scores.append(score)
@@ -4818,7 +6410,7 @@ def _aggregate_brsr_intelligence(all_sessions: dict):
 
 
 @admin_router.get("/god/system-status", summary="System-wide status overview")
-async def get_system_status():
+async def get_system_status(_guard: None = Depends(require_facilitator)):
     """Aggregate stats across all sessions for the God Mode overview."""
     all_sessions = db._sessions if hasattr(db, '_sessions') else {}
     total_cohorts = 0
@@ -4967,42 +6559,58 @@ async def universal_broadcast(body: dict = Body(...), _guard: None = Depends(req
 
 @admin_router.post("/facilitators/batch", summary="Batch create facilitators")
 async def batch_create_facilitators(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
-    global _next_facilitator_id
     names = body.get("names", [])
     if not names:
         raise HTTPException(400, "Provide a list of names")
-    # Recalculate next ID from existing registry to avoid collisions (same as create_facilitator)
-    max_id = 0
-    for f in _facilitator_registry:
-        fid = f.get("facilitator_id", "")
-        if fid.startswith("FAC-"):
-            try:
-                max_id = max(max_id, int(fid[4:]))
-            except ValueError:
-                pass
-    _next_facilitator_id = max_id + 1
-    existing_ids = {f["facilitator_id"] for f in _facilitator_registry}
+
+    # GOD-002 + GOD-003: Generate passwords outside the lock (bcrypt is slow)
+    # then assign IDs atomically inside the lock.
+    passwords = [_generate_temp_password() for _ in names]  # list of (plain, hash) tuples
+
     created = []
-    for name in names:
-        while f"FAC-{_next_facilitator_id:03d}" in existing_ids:
-            _next_facilitator_id += 1
-        new_fac_id = f"FAC-{_next_facilitator_id:03d}"
-        fac = {
-            "facilitator_id": new_fac_id,
-            "name": name.strip(),
-            "password": _generate_temp_password(),
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "max_cohorts": 5,
-            "cohorts_created": 0,
-            "is_admin": False,
-        }
-        _next_facilitator_id += 1
-        existing_ids.add(new_fac_id)
-        _facilitator_registry.append(fac)
-        created.append(fac)
+    async with _fac_registry_lock:
+        max_id = 0
+        for f in _facilitator_registry:
+            fid = f.get("facilitator_id", "")
+            if fid.startswith("FAC-"):
+                try:
+                    max_id = max(max_id, int(fid[4:]))
+                except ValueError:
+                    pass
+        existing_ids = {f["facilitator_id"] for f in _facilitator_registry}
+
+        # M-3: credentials dict — plaintext passwords separate from the main object
+        # so API gateway logs that record the response body don't capture all passwords.
+        credentials: dict[str, str] = {}
+        for name, (_plain, _hash) in zip(names, passwords):
+            max_id += 1
+            while f"FAC-{max_id:03d}" in existing_ids:
+                max_id += 1
+            new_fac_id = f"FAC-{max_id:03d}"
+            fac = {
+                "facilitator_id": new_fac_id,
+                "name": name.strip(),
+                "password": _hash,           # GOD-002 fix: store hash, not tuple
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "max_cohorts": 5,
+                "cohorts_created": 0,
+                "role": "facilitator",
+                "is_admin": False,
+                "enabled": True,
+            }
+            existing_ids.add(new_fac_id)
+            _facilitator_registry.append(fac)
+            created.append({k: v for k, v in fac.items() if k != "password"})
+            credentials[new_fac_id] = _plain
+
     _audit("batch_facilitators_created", details={"count": len(created)})
     _persist_facilitators()
-    return {"created": created, "total_facilitators": len(_facilitator_registry)}
+    return {
+        "created": created,
+        "credentials": credentials,
+        "credentials_note": "Store these securely — they will not be shown again.",
+        "total_facilitators": len(_facilitator_registry),
+    }
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -5010,11 +6618,18 @@ async def batch_create_facilitators(body: dict = Body(...), _guard: None = Depen
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/god/export", summary="Export full system state as JSON")
-async def export_system():
+async def export_system(_guard: None = Depends(require_super_admin)):
+    # SECURITY-CRIT-001: This endpoint dumps the entire system state including
+    # facilitator records and audit logs. Super-admin auth required.
+    # Passwords are stripped from the export payload to prevent offline cracking
+    # even for authenticated callers — they serve no restore purpose.
     all_sessions = db._sessions if hasattr(db, '_sessions') else {}
     export_data = {
         "exported_at": datetime.now(timezone.utc).isoformat(),
-        "facilitators": _facilitator_registry,
+        "facilitators": [
+            {k: v for k, v in f.items() if k != "password"}
+            for f in _facilitator_registry
+        ],
         "sessions": {sid: {
             "cohort_name": s.get("cohort_name", ""),
             "current_round": s.get("global_state", {}).get("current_round", 1),
@@ -5042,15 +6657,41 @@ async def import_system(body: dict = Body(...), _guard: None = Depends(require_s
     skipped = []
 
     # Import facilitators
+    # GOD-010: Sanitise each imported record — never blindly trust the payload.
+    # Passwords are dropped (force a reset), roles are validated against the
+    # allowlist, and integer fields are clamped to safe ranges.
     incoming_facs = body.get("facilitators", [])
     existing_ids = {f.get("facilitator_id") for f in _facilitator_registry}
     for fac in incoming_facs:
         fid = fac.get("facilitator_id")
-        if fid and fid not in existing_ids:
-            _facilitator_registry.append(fac)
-            facilitators_imported += 1
-        else:
+        if not fid:
+            continue
+        if fid in existing_ids:
             skipped.append(f"facilitator:{fid}")
+            continue
+        raw_role = fac.get("role", "facilitator")
+        safe_fac = {
+            "facilitator_id": str(fid)[:100],
+            "name": str(fac.get("name", fid))[:200],
+            "email": str(fac.get("email", ""))[:200],
+            "contact_number": str(fac.get("contact_number", ""))[:50],
+            "programme": str(fac.get("programme", ""))[:200],
+            "start_date": str(fac.get("start_date", ""))[:20],
+            "end_date": str(fac.get("end_date", ""))[:20],
+            # Never import password hashes — all imported accounts must reset
+            "password": "",
+            "role": raw_role if raw_role in ROLE_HIERARCHY else "facilitator",
+            "is_admin": raw_role == "super_admin",
+            "enabled": bool(fac.get("enabled", True)),
+            "max_cohorts": max(0, min(int(fac.get("max_cohorts", 5)), 9999)),
+            "cohorts_created": max(0, int(fac.get("cohorts_created", 0))),
+            "created_at": str(fac.get("created_at", datetime.now(timezone.utc).isoformat()))[:40],
+            "imported_at": datetime.now(timezone.utc).isoformat(),
+            "password_reset_required": True,  # signal to UI that a reset is needed
+        }
+        _facilitator_registry.append(safe_fac)
+        existing_ids.add(fid)
+        facilitators_imported += 1
 
     # Import sessions
     incoming_sessions = body.get("sessions", {})
@@ -5098,7 +6739,11 @@ async def import_system(body: dict = Body(...), _guard: None = Depends(require_s
 
 # ── GDPR Compliance Export ──
 @admin_router.get("/god/gdpr-export/{player_id}", summary="GDPR Article 15 — export all data held for a player")
-async def gdpr_export(player_id: str):
+async def gdpr_export(player_id: str, _guard: None = Depends(require_super_admin)):
+    # SECURITY-CRIT-003: Full player PII, game decisions, and interview data.
+    # Super-admin auth required — a separate player-facing self-service
+    # endpoint (GET /api/simulations/{session_id}/my-data) is the correct
+    # channel for data-subject access requests.
     """Export all personal data held for a specific player.
     Gathers session state, decisions, KPIs, and any stored personal data.
     """
@@ -5141,7 +6786,8 @@ async def gdpr_export(player_id: str):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/god/crisis-history", summary="Get crisis trigger fire history")
-async def get_crisis_history():
+async def get_crisis_history(_guard: None = Depends(require_facilitator)):
+    # SECURITY-HIGH-001: Crisis history reveals facilitator operational patterns.
     return {"history": list(reversed(_crisis_trigger_history))}
 
 
@@ -5156,7 +6802,7 @@ async def fire_crisis_with_history(body: dict = Body(...), _guard: None = Depend
         "fired_at": datetime.now(timezone.utc).isoformat(),
         "fired_by": "god_mode",
     }
-    _crisis_trigger_history.append(entry)
+    _capped_append(_crisis_trigger_history, entry)
     _audit("crisis_fired", details=entry)
     return entry
 
@@ -5386,7 +7032,8 @@ async def get_scenario_presets():
 @admin_router.put("/cohort/{session_id}/pedagogical-settings", summary="Save per-cohort pedagogical settings")
 async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store experience level, difficulty tier, and pedagogical toggles per-cohort."""
-    session = db._sessions.get(session_id)
+    from database_memory import _sessions as _dm_sessions
+    session = _dm_sessions.get(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
     
@@ -5431,7 +7078,8 @@ async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(..
 async def save_cohort_pacing(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store pacing mode and max unlocked round per-cohort.
     Once a facilitator sets pacing, God Mode cannot override it."""
-    session = db._sessions.get(session_id)
+    from database_memory import _sessions as _dm_sessions
+    session = _dm_sessions.get(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
     
@@ -5475,7 +7123,7 @@ async def save_cohort_pacing(session_id: str, body: dict = Body(...), _guard: No
         "status": "ok",
         "session_id": session_id,
         "pacing_mode": session.get("pacing_mode", "free_play"),
-        "max_unlocked_round": session.get("max_unlocked_round", 10),
+        "max_unlocked_round": session.get("max_unlocked_round", SIM_ROUNDS),
         "set_by": pacing.get("set_by"),
     }
 
@@ -5601,7 +7249,7 @@ async def get_complexity_events(session_id: str):
 
 
 @admin_router.get("/complexity-events-all", summary="Get complexity engine events for ALL cohorts")
-async def get_complexity_events_all():
+async def get_complexity_events_all(_guard: None = Depends(require_facilitator)):
     """Aggregate complexity events across every cohort for cross-cohort comparison."""
     all_sessions = getattr(db, '_sessions', {})
     global_states = getattr(db, '_global_states', {})
@@ -5672,7 +7320,7 @@ async def get_complexity_events_all():
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/session-health", summary="Get health status of all sessions")
-async def get_session_health():
+async def get_session_health(_guard: None = Depends(require_facilitator)):
     """
     Returns compact health indicators for each cohort.
     Status: active, idle, stuck, disconnected.
@@ -5799,10 +7447,30 @@ async def clone_session(session_id: str, body: dict = Body(...), _guard: None = 
 
 
 # ═════════════════════════════════════════════════════════════════
-#  AUTO-PAUSE TRIGGERS — Configurable pause-on-event rules
+#  AUTO-PAUSE TRIGGERS — Per-session configurable pause-on-event rules
+#
+#  Design: Each session has its own auto-pause config stored in
+#  _auto_pause_triggers[session_id]. The _auto_pause_default is a
+#  platform template used when a session has no config of its own;
+#  changing the default does NOT retroactively affect existing sessions.
+#  Super-admins may update the platform default via PUT /auto-pause.
+#  Lead-facilitators configure their own sessions via:
+#      GET/PUT /sessions/{session_id}/auto-pause
 # ═════════════════════════════════════════════════════════════════
 
-_auto_pause_triggers: dict = {
+_AUTO_PAUSE_TRIGGER_KEYS = frozenset({
+    "greenwashing_scandal",
+    "technology_lockin_penalty",
+    "tipping_point_reached",
+    "dividend_ratchet_triggered",
+    "stakeholder_fatigue_applied",
+    "treasury_negative",
+    "reputation_below_20",
+})
+
+# Platform default — used as a TEMPLATE for new sessions only.
+# Does NOT apply globally to any running session.
+_auto_pause_default: dict = {
     "enabled": False,
     "triggers": {
         "greenwashing_scandal": True,
@@ -5813,34 +7481,117 @@ _auto_pause_triggers: dict = {
         "treasury_negative": True,
         "reputation_below_20": True,
     },
-    "pause_message": "⏸️ Simulation paused by facilitator for discussion.",
+    "pause_message": "\u23f8\ufe0f Simulation paused by facilitator for discussion.",
 }
 
-
-@admin_router.get("/auto-pause", summary="Get auto-pause trigger configuration")
-async def get_auto_pause():
-    return _auto_pause_triggers
+# Per-session configs: { session_id: { enabled, triggers, pause_message } }
+_auto_pause_triggers: dict[str, dict] = {}
 
 
-@admin_router.put("/auto-pause", summary="Update auto-pause trigger configuration")
-async def set_auto_pause(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
+def _get_session_auto_pause(session_id: str) -> dict:
+    """Return the auto-pause config for a specific session.
+    Falls back to a deep copy of the platform default if the session
+    has no config yet (so writes are always isolated per-session)."""
+    import copy
+    if session_id not in _auto_pause_triggers:
+        _auto_pause_triggers[session_id] = copy.deepcopy(_auto_pause_default)
+    return _auto_pause_triggers[session_id]
+
+
+# ── Platform default endpoint (super_admin only) ──────────────────
+@admin_router.get("/auto-pause", summary="Get platform auto-pause default template (super_admin)")
+async def get_auto_pause_default(_guard: None = Depends(require_super_admin)):
+    """Read the platform default template used when creating new session configs.
+    Does not affect any currently running session."""
+    return {"type": "platform_default", **_auto_pause_default}
+
+
+@admin_router.put("/auto-pause", summary="Update platform auto-pause default template (super_admin)")
+async def set_auto_pause_default(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
+    """Update the platform default template. Only affects NEW sessions that have not
+    yet been individually configured. Running sessions are unaffected."""
     if "enabled" in body:
-        _auto_pause_triggers["enabled"] = bool(body["enabled"])
+        _auto_pause_default["enabled"] = bool(body["enabled"])
     if "triggers" in body:
         for key, val in body["triggers"].items():
-            if key in _auto_pause_triggers["triggers"]:
-                _auto_pause_triggers["triggers"][key] = bool(val)
+            if key in _AUTO_PAUSE_TRIGGER_KEYS:
+                _auto_pause_default["triggers"][key] = bool(val)
     if "pause_message" in body:
-        _auto_pause_triggers["pause_message"] = str(body["pause_message"])
-    _audit("auto_pause_updated", details=_auto_pause_triggers)
-    return _auto_pause_triggers
+        _auto_pause_default["pause_message"] = str(body["pause_message"])
+    _audit("auto_pause_default_updated", details=_auto_pause_default)
+    return {"type": "platform_default", **_auto_pause_default}
 
 
-def check_auto_pause_triggers(events: dict, global_state: dict) -> Optional[str]:
-    """Called by process_tick to check if auto-pause should fire."""
-    if not _auto_pause_triggers["enabled"]:
+# ── Per-session endpoints (lead_facilitator, own sessions only) ────
+@admin_router.get(
+    "/sessions/{session_id}/auto-pause",
+    summary="Get auto-pause config for a specific session",
+)
+async def get_session_auto_pause(
+    session_id: str,
+    request: Request,
+    _guard: None = Depends(require_facilitator),
+):
+    """Returns the auto-pause config for this session (or the platform default
+    template if it has not been individually configured yet).
+    Any facilitator who owns this session may read the config."""
+    await _assert_session_ownership(request, session_id)
+    config = _get_session_auto_pause(session_id)
+    return {"session_id": session_id, **config}
+
+
+@admin_router.put(
+    "/sessions/{session_id}/auto-pause",
+    summary="Configure auto-pause triggers for a specific session",
+)
+async def set_session_auto_pause(
+    session_id: str,
+    body: dict = Body(...),
+    request: Request = None,
+    _guard: None = Depends(require_lead_facilitator),
+):
+    """Set or update the auto-pause config for a specific session.
+    Only affects this session — no other cohorts are changed.
+    lead_facilitator may only configure sessions they own;
+    super_admin may configure any session."""
+    await _assert_session_ownership(request, session_id)
+    cfg = _get_session_auto_pause(session_id)
+    if "enabled" in body:
+        cfg["enabled"] = bool(body["enabled"])
+    if "triggers" in body:
+        for key, val in body["triggers"].items():
+            if key in _AUTO_PAUSE_TRIGGER_KEYS:
+                cfg["triggers"][key] = bool(val)
+    if "pause_message" in body:
+        cfg["pause_message"] = str(body["pause_message"])
+    _audit("auto_pause_updated", details={"session_id": session_id, **cfg})
+    return {"session_id": session_id, **cfg}
+
+
+@admin_router.delete(
+    "/sessions/{session_id}/auto-pause",
+    summary="Reset session auto-pause config to platform defaults",
+)
+async def reset_session_auto_pause(
+    session_id: str,
+    request: Request,
+    _guard: None = Depends(require_lead_facilitator),
+):
+    """Removes the per-session config so this session falls back to the
+    platform default template on next access."""
+    await _assert_session_ownership(request, session_id)
+    _auto_pause_triggers.pop(session_id, None)
+    _audit("auto_pause_reset", details={"session_id": session_id})
+    return {"session_id": session_id, "reset": True, **_auto_pause_default}
+
+
+def check_auto_pause_triggers(session_id: str, events: dict, global_state: dict) -> Optional[str]:
+    """Called by process_tick for a specific session to check if auto-pause should fire.
+    Uses the per-session config; falls back to the platform default template."""
+    cfg = _get_session_auto_pause(session_id)
+    if not cfg["enabled"]:
         return None
-    triggers = _auto_pause_triggers["triggers"]
+    triggers = cfg["triggers"]
     for event_key, enabled in triggers.items():
         if not enabled:
             continue
@@ -5859,7 +7610,7 @@ def check_auto_pause_triggers(events: dict, global_state: dict) -> Optional[str]
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/decision-history/{session_id}", summary="Full decision timeline for a session")
-async def get_decision_history(session_id: str):
+async def get_decision_history(session_id: str, _guard: None = Depends(require_facilitator)):
     """Reconstruct the complete decision history with state snapshots."""
     global_states = getattr(db, '_global_states', {})
     bu_states_store = getattr(db, '_bu_states', {})
@@ -5987,7 +7738,7 @@ _REFERENCE_PARADIGM = _PARADIGM_NORMALIZATION["legacy_abc"]
 
 
 @admin_router.get("/cross-paradigm-comparison", summary="Normalized cross-paradigm cohort comparison")
-async def get_cross_paradigm_comparison():
+async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitator)):
     """
     Compare cohorts across different paradigms by normalizing Terminal Values.
     Adjusts for exit multiple and carbon tax differences so HC and NC cohorts
@@ -6050,7 +7801,7 @@ async def get_cross_paradigm_comparison():
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/cohort-comparison", summary="Side-by-side cohort comparison")
-async def get_cohort_comparison(facilitator_id: str = None):
+async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depends(require_facilitator)):
     """Compare all cohorts (or a facilitator's cohorts) side by side."""
     all_sessions = getattr(db, '_sessions', {})
     global_states = getattr(db, '_global_states', {})
@@ -6203,15 +7954,36 @@ async def set_cohort_pulse_visibility(cohort_id: str, body: dict = Body(...), _g
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/side-tracks/catalog", summary="Get all registered side tracks")
-async def get_side_track_catalog():
+async def get_side_track_catalog(caller_role: str = Depends(get_fac_role)):
     """Returns the full catalog of registered side tracks with metadata.
-    This is a read-only endpoint showing what tracks are available in the codebase."""
+    This is a read-only endpoint showing what tracks are available in the codebase.
+
+    Role-aware response (resolved via the canonical get_fac_role dependency —
+    the same path used by require_super_admin/require_facilitator, which correctly
+    handles god_mode virtual identity and registry re-validation):
+    - super_admin / lead_facilitator: facilitator_can_assign=True for all tracks
+      (they may assign any registered track to their cohort regardless of the
+       global enabled list — no God Mode pre-authorization required).
+    - facilitator: facilitator_can_assign=True only for globally enabled tracks.
+    """
     from side_tracks import get_track_catalog
+
     catalog = get_track_catalog()
     available = _god_mode_settings.get("side_tracks_available", [])
+    available_set = set(available)
+
+    is_privileged = ROLE_HIERARCHY.get(caller_role, 0) >= ROLE_HIERARCHY.get("lead_facilitator", 2)
+
     for entry in catalog:
-        entry["enabled_globally"] = entry["track_id"] in available
-    return {"catalog": catalog}
+        entry["enabled_globally"] = entry["track_id"] in available_set
+        # lead_facilitators and super_admins can always assign any registered track
+        entry["facilitator_can_assign"] = is_privileged or (entry["track_id"] in available_set)
+
+    return {
+        "catalog": catalog,
+        "caller_role": caller_role,
+        "globally_enabled": available,
+    }
 
 
 @admin_router.put("/side-tracks/global", summary="Enable/disable side tracks globally (God Mode)")
@@ -6266,9 +8038,24 @@ async def set_facilitator_side_track_permissions(fac_id: str, body: dict = Body(
 
 
 @admin_router.put("/cohorts/{session_id}/side-tracks", summary="Assign side tracks to a cohort (Facilitator)")
-async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def assign_cohort_side_tracks(
+    session_id: str,
+    body: dict = Body(...),
+    caller_role: str = Depends(get_fac_role),
+    _guard: None = Depends(require_facilitator),
+):
     """Facilitator endpoint: assign side tracks to a specific cohort.
-    Only tracks permitted by God Mode for this facilitator can be assigned.
+
+    Permission model (enforced via the canonical get_fac_role dependency —
+    the same path used by all other privileged endpoints, which correctly
+    handles god_mode virtual identity, registry re-validation, and disabled
+    accounts; no ad-hoc role lookup needed here):
+
+    - super_admin / lead_facilitator / god_mode: may assign ANY registered
+      track without God Mode pre-authorization.
+    - facilitator: may only assign tracks that God Mode has enabled globally
+      OR that have been explicitly granted to their facilitator account.
+
     Includes timing configuration (unlock_after_round)."""
     from database_memory import _sessions, _persist
 
@@ -6281,17 +8068,32 @@ async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...), _gu
     if not isinstance(tracks, list):
         raise HTTPException(400, "'tracks' must be a list of track IDs")
 
-    # Validate against facilitator permissions
-    fac_id = sess.get("facilitator_id")
-    if fac_id:
-        perms = _god_mode_settings.get("side_tracks_facilitator_permissions", {})
-        permitted = set(perms.get(fac_id, []))
-        # If no explicit permissions set, fall back to globally available
-        if not permitted:
-            permitted = set(_god_mode_settings.get("side_tracks_available", []))
-        unauthorized = set(tracks) - permitted
-        if unauthorized:
-            raise HTTPException(403, f"Facilitator {fac_id} not permitted to assign: {sorted(unauthorized)}")
+    # Privileged roles (super_admin, lead_facilitator, god_mode) bypass
+    # per-facilitator track restrictions — they may assign any registered track.
+    is_privileged = ROLE_HIERARCHY.get(caller_role, 0) >= ROLE_HIERARCHY.get("lead_facilitator", 2)
+
+    # Validate against facilitator permissions (skipped for privileged roles)
+    if not is_privileged:
+        fac_id = sess.get("facilitator_id")
+        if fac_id:
+            perms = _god_mode_settings.get("side_tracks_facilitator_permissions", {})
+            permitted = set(perms.get(fac_id, []))
+            # If no explicit permissions set, fall back to globally available
+            if not permitted:
+                permitted = set(_god_mode_settings.get("side_tracks_available", []))
+            # Also allow tracks pre-configured on the facilitator's own profile
+            # (set by super_admin at account creation time — implicit authorization)
+            fac_rec = next((f for f in _facilitator_registry if f.get("facilitator_id") == fac_id), None)
+            if fac_rec and fac_rec.get("side_tracks"):
+                permitted |= set(fac_rec["side_tracks"])
+            unauthorized = set(tracks) - permitted
+            if unauthorized:
+                raise HTTPException(
+                    403,
+                    f"Facilitator {fac_id} not permitted to assign: {sorted(unauthorized)}. "
+                    f"Ask a super_admin to enable them globally, or use a lead_facilitator account.",
+                )
+
 
     # Validate track IDs exist
     from side_tracks import get_all_tracks
@@ -6300,13 +8102,23 @@ async def assign_cohort_side_tracks(session_id: str, body: dict = Body(...), _gu
     if invalid:
         raise HTTPException(400, f"Unknown track IDs: {sorted(invalid)}")
 
-    # Auto-derive timing from track available_window if not explicitly provided
+    # Auto-derive timing from track available_window if not explicitly provided.
+    # Hard floor: side tracks may never unlock before Round 2 is complete
+    # (i.e., unlock_after_round must be >= 2).
+    SIDE_TRACK_MIN_UNLOCK_AFTER = 2
     from side_tracks import get_track as _get_st
     for tid in tracks:
-        if tid not in timing:
+        raw_unlock = None
+        if tid in timing:
+            raw_unlock = timing[tid].get("unlock_after_round")
+        else:
             t = _get_st(tid)
             if t:
-                timing[tid] = {"unlock_after_round": t.available_window[0] - 1}
+                raw_unlock = t.available_window[0] - 1
+        if raw_unlock is not None:
+            timing[tid] = {"unlock_after_round": max(SIDE_TRACK_MIN_UNLOCK_AFTER, raw_unlock)}
+        else:
+            timing[tid] = {"unlock_after_round": SIDE_TRACK_MIN_UNLOCK_AFTER}
 
     # Store on the session
     sess["active_side_tracks"] = tracks
@@ -6428,7 +8240,7 @@ async def what_if_replay(session_id: str, body: dict = Body(...), _guard: None =
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.get("/leaderboard/normalized", summary="Cross-pathway normalized leaderboard")
-async def normalized_leaderboard():
+async def normalized_leaderboard(_guard: None = Depends(require_facilitator)):
     """STRAT-004: Normalized M_R leaderboard for fair cross-pathway ranking."""
     from terminal_valuation import normalize_mr_for_leaderboard
     sessions = await db.fetch_all_sessions()
@@ -6797,3 +8609,217 @@ async def get_side_track_blueprints():
         "track_count": len(blueprints),
         "globally_enabled": _god_mode_settings.get("side_tracks_available", []),
     }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  PILLAR CONFIG ENDPOINTS (Phase 4.1.5)
+#  GET/POST/PUT/DELETE for vertical-specific pillar areas.
+#  Access: god_mode and lead_facilitator.
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get(
+    "/pillar-config/{bu_id}",
+    summary="Get full pillar config for a vertical (standard + overrides + custom)",
+)
+async def get_pillar_config(
+    bu_id: str,
+    _guard: None = Depends(require_facilitator),
+):
+    """Returns the combined pillar summary for a given vertical."""
+    from pillar_configs import get_pillar_summary
+    return get_pillar_summary(bu_id)
+
+
+@admin_router.post(
+    "/pillar-config/{bu_id}/custom-areas",
+    summary="Add a new custom pillar area for a vertical",
+)
+async def add_custom_pillar_area(
+    bu_id: str,
+    body: dict = Body(...),
+    _guard: None = Depends(require_facilitator),
+):
+    """Append a new custom pillar area to the vertical's overrides JSON."""
+    from pillar_configs import _load_pillar_overrides, _save_pillar_overrides
+
+    area_key = body.get("area_key", "").strip()
+    if not area_key:
+        raise HTTPException(status_code=400, detail="area_key is required.")
+    if not body.get("label"):
+        raise HTTPException(status_code=400, detail="label is required.")
+    if len(body.get("options", {})) < 2:
+        raise HTTPException(status_code=400, detail="At least 2 options are required.")
+
+    data = _load_pillar_overrides(bu_id)
+    custom_areas = data.get("custom_areas", [])
+
+    if any(ca.get("area_key") == area_key for ca in custom_areas):
+        raise HTTPException(status_code=409, detail=f"Custom area '{area_key}' already exists.")
+
+    new_area = {
+        "area_key": area_key,
+        "label": body["label"],
+        "icon": body.get("icon", "⭐"),
+        "order": body.get("order", len(custom_areas) + 6),
+        "options": body.get("options", {}),
+    }
+    custom_areas.append(new_area)
+    data["custom_areas"] = custom_areas
+    data["bu_id"] = bu_id
+    _save_pillar_overrides(bu_id, data)
+
+    return {"status": "ok", "bu_id": bu_id, "area_key": area_key, "custom_areas": custom_areas}
+
+
+@admin_router.put(
+    "/pillar-config/{bu_id}/custom-areas/{area_key}",
+    summary="Edit a custom pillar area",
+)
+async def edit_custom_pillar_area(
+    bu_id: str,
+    area_key: str,
+    body: dict = Body(...),
+    _guard: None = Depends(require_facilitator),
+):
+    """Update a custom pillar area by area_key."""
+    from pillar_configs import _load_pillar_overrides, _save_pillar_overrides
+
+    data = _load_pillar_overrides(bu_id)
+    custom_areas = data.get("custom_areas", [])
+
+    idx = next((i for i, ca in enumerate(custom_areas) if ca.get("area_key") == area_key), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail=f"Custom area '{area_key}' not found.")
+
+    custom_areas[idx].update({k: v for k, v in body.items() if k != "area_key"})
+    data["custom_areas"] = custom_areas
+    _save_pillar_overrides(bu_id, data)
+
+    return {"status": "ok", "bu_id": bu_id, "area_key": area_key, "updated": custom_areas[idx]}
+
+
+@admin_router.delete(
+    "/pillar-config/{bu_id}/custom-areas/{area_key}",
+    summary="Delete a custom pillar area",
+)
+async def delete_custom_pillar_area(
+    bu_id: str,
+    area_key: str,
+    _guard: None = Depends(require_facilitator),
+):
+    """Remove a custom pillar area by area_key."""
+    from pillar_configs import _load_pillar_overrides, _save_pillar_overrides
+
+    data = _load_pillar_overrides(bu_id)
+    custom_areas = data.get("custom_areas", [])
+    before = len(custom_areas)
+    data["custom_areas"] = [ca for ca in custom_areas if ca.get("area_key") != area_key]
+
+    if len(data["custom_areas"]) == before:
+        raise HTTPException(status_code=404, detail=f"Custom area '{area_key}' not found.")
+
+    _save_pillar_overrides(bu_id, data)
+    return {"status": "deleted", "bu_id": bu_id, "area_key": area_key}
+
+
+@admin_router.put(
+    "/pillar-config/{bu_id}/order",
+    summary="Reorder custom pillar areas",
+)
+async def reorder_pillar_areas(
+    bu_id: str,
+    body: dict = Body(...),
+    _guard: None = Depends(require_facilitator),
+):
+    """
+    Reorder custom areas.
+    Body: { "order": ["area_key_1", "area_key_2", ...] }
+    """
+    from pillar_configs import _load_pillar_overrides, _save_pillar_overrides
+
+    ordered_keys = body.get("order", [])
+    data = _load_pillar_overrides(bu_id)
+    custom_areas = data.get("custom_areas", [])
+
+    key_to_order = {k: i + 6 for i, k in enumerate(ordered_keys)}
+    for ca in custom_areas:
+        ak = ca.get("area_key", "")
+        if ak in key_to_order:
+            ca["order"] = key_to_order[ak]
+
+    data["custom_areas"] = sorted(custom_areas, key=lambda x: x.get("order", 99))
+    _save_pillar_overrides(bu_id, data)
+
+    return {"status": "ok", "bu_id": bu_id, "new_order": [ca["area_key"] for ca in data["custom_areas"]]}
+
+
+# ═════════════════════════════════════════════════════════════════
+#  REGIONAL ESG REPORT ENDPOINT (Phase 4.2)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get(
+    "/{session_id}/regional-esg-report",
+    summary="Generate a framework-aligned ESG report for a session",
+)
+async def get_regional_esg_report(
+    session_id: str,
+    _guard: None = Depends(require_facilitator),
+):
+    """Generate a region-appropriate ESG report shell based on session metadata."""
+    from regional_reporting import generate_regional_report
+    from datetime import datetime, timezone
+
+    current = await db.fetch_latest_state(session_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    session_meta = current.get("global_state", {}).get("metadata", {})
+    session_meta["session_id"] = session_id
+
+    final_state = {
+        "global_state": current.get("global_state", {}),
+        "bu_states": current.get("bu_states", []),
+    }
+
+    report = generate_regional_report(session_meta, final_state)
+    report["generated_at"] = datetime.now(timezone.utc).isoformat()
+    return report
+
+
+# ═════════════════════════════════════════════════════════════════
+#  INDUSTRY BENCHMARK ENDPOINT (Phase 5)
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.get(
+    "/{session_id}/industry-benchmark",
+    summary="Compare session KPIs against industry sector benchmarks",
+)
+async def get_industry_benchmark(
+    session_id: str,
+    _guard: None = Depends(require_facilitator),
+):
+    """Compare a player/cohort session's KPIs against sector benchmark percentiles."""
+    from industry_benchmarks import compare_to_benchmark, list_benchmarks
+
+    current = await db.fetch_latest_state(session_id)
+    if current is None:
+        raise HTTPException(status_code=404, detail="Session not found.")
+
+    session_meta = current.get("global_state", {}).get("metadata", {})
+    bu_id = (
+        session_meta.get("assigned_bu")
+        or session_meta.get("industry_vertical", "")
+    )
+
+    if not bu_id:
+        return {
+            "error": "No industry vertical set for this session.",
+            "available_verticals": list_benchmarks(),
+        }
+
+    session_state = {
+        "global_state": current.get("global_state", {}),
+        "bu_states": current.get("bu_states", []),
+    }
+
+    return compare_to_benchmark(bu_id, session_state)

@@ -220,9 +220,10 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
         setBank(prev => [...prev, stakeholderId]);
     };
 
-    // C2: No client-side answer key — server-only evaluation
-    // C3: All stakeholders must be placed before submission
-    const minRequired = stakeholders.length;
+    // Minimum 6 stakeholders must be placed before submission is allowed.
+    // Players may still place more for a higher accuracy score, but 6 unlocks the submit button.
+    const MIN_REQUIRED = 6;
+    const minRequired = MIN_REQUIRED;
 
     const handleSubmit = useCallback(async () => {
         if (Object.keys(placements).length < minRequired) return;
@@ -603,8 +604,16 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                     <div className={styles.footer}>
                         <div className={styles.progress}>
                             {placedCount} / {stakeholders.length} stakeholders placed
+                            {placedCount < minRequired && (
+                                <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>
+                                    — {minRequired - placedCount} more required
+                                </span>
+                            )}
                             {placedCount >= minRequired && placedCount < stakeholders.length && (
-                                <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#22c55e', fontWeight: 600 }}>✓ Minimum met</span>
+                                <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#22c55e', fontWeight: 600 }}>✓ Minimum met — place more for higher accuracy</span>
+                            )}
+                            {placedCount >= stakeholders.length && (
+                                <span style={{ marginLeft: 8, fontSize: '0.7rem', color: '#22c55e', fontWeight: 600 }}>✓ All stakeholders placed</span>
                             )}
                         </div>
                         <button
@@ -612,7 +621,7 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
                             onClick={handleSubmit}
                             disabled={!allPlaced || submitting}
                         >
-                            {submitting ? '⏳ Evaluating...' : allPlaced ? '📋 Submit Map to Board' : `Place at least ${minRequired} stakeholders`}
+                            {submitting ? '⏳ Evaluating…' : allPlaced ? '📋 Submit Map to Board' : `Place at least ${minRequired} stakeholders to submit`}
                         </button>
                     </div>
                 )}

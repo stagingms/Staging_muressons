@@ -45,7 +45,7 @@ th{text-align:left;padding:6px 10px;font-size:.7rem;font-weight:700;color:#64748
 <div class="header"><div style="font-size:.8rem;color:#64748b;letter-spacing:.15em;text-transform:uppercase;font-weight:700">Muressons Global Corporation</div>
 <h1>Strategy Report</h1>
 <div style="font-size:.85rem;color:#475569;margin-top:4px">${playerName?`<strong>${playerName}</strong> · `:''}${new Date().toLocaleDateString()}</div>
-<div style="display:inline-block;padding:6px 20px;border-radius:20px;font-size:.75rem;font-weight:800;color:white;margin:12px 0;background:linear-gradient(135deg,#6366f1,#4f46e5)">${d.profile_icon||'🏅'} ${profileTitle}</div></div>
+<div style="display:inline-block;padding:6px 20px;border-radius:20px;font-size:.75rem;font-weight:800;color:white;margin:12px 0;background:linear-gradient(135deg,#6366f1,#4f46e5)">${d.profile_icon||''} ${profileTitle}</div></div>
 
 <h2>📊 Final Performance</h2>
 <div class="kpi-grid">

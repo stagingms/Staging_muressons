@@ -5,10 +5,363 @@ All formulas operate on plain dicts and return new state dicts.
 """
 
 from __future__ import annotations
+from dataclasses import dataclass, field
 from typing import Any
 import copy
 import math
 import random as _rng
+from rng_util import event_rng, event_seed  # GAME-4: deterministic per-cohort RNG
+from config import (
+    ECONOMIC_CARBON_PRICE_BASE,
+    ECONOMIC_CARBON_PRICE_GROWTH,
+    CONSTRAINT_MAX_CARBON_EMISSIONS,
+    CONSTRAINT_MIN_LIQUIDITY_RATIO,
+    # Layer-2 Config Isolation: Financial
+    FINANCIAL_SHADOW_CARBON_PRICE,
+    FINANCIAL_CORPORATE_TAX_RATE,
+    FINANCIAL_FREE_CSF_PCT,
+    FINANCIAL_CAPEX_CAP_MULTIPLE,
+    FINANCIAL_EMERGENCY_CREDIT_AMOUNT,
+    FINANCIAL_DEFAULT_LOAN_RATE,
+    FINANCIAL_EMERGENCY_RATE_SPREAD,
+    FINANCIAL_INSOLVENCY_THRESHOLD,
+    FINANCIAL_TREASURY_FLOOR,
+    FINANCIAL_WACC_LENDER_THRESHOLD,
+    # Layer-2 Config Isolation: NCD
+    NCD_HARD_CAP,
+    NCD_WARN_THRESHOLD,
+    NCD_OPEX_SCALING_FACTOR,
+    # Layer-2 Config Isolation: Climate
+    CLIMATE_LOSS_DAMAGE_LEVY_TIPPED,
+    CLIMATE_LOSS_DAMAGE_LEVY_STRESSED,
+    # Layer-2 Config Isolation: Contagion
+    CONTAGION_MAX_DROP,
+    CONTAGION_MIDPOINT,
+    CONTAGION_STEEPNESS,
+    # Layer-2 Config Isolation: Engine magic numbers
+    SYNERGY_DAMPENING_FACTOR, NCD_INTEREST_COEFFICIENT, NATURAL_DECAY_FACTOR,
+    BURNOUT_NATURAL_DRIFT, BURNOUT_OPEX_THRESHOLD, BURNOUT_CRITICAL_THRESHOLD, BURNOUT_OPEX_PENALTY_COEFF,
+    BURNOUT_PASSIVE_DECAY_HEALTHCARE, BURNOUT_PASSIVE_DECAY_DEFAULT,
+    READINESS_DELTA_HIGH, READINESS_DELTA_MEDIUM, READINESS_DELTA_NONE,
+    READINESS_LOW_THRESHOLD, READINESS_HIGH_THRESHOLD,
+    BRAINDRAIN_REPUTATION_THRESHOLD, BRAINDRAIN_PENALTY_MULTIPLIER,
+    BRAINDRAIN_BURNOUT_THRESHOLD, BRAINDRAIN_BURNOUT_OVERHEAD,
+    OVERRUN_CAPEX_THRESHOLD, OVERRUN_DEFAULT_PROBABILITY, OVERRUN_DEFAULT_SEVERITY,
+    TECH_DEBT_ROUNDS_THRESHOLD, TECH_DEBT_PENALTY_RATE,
+    LOCKIN_ROUNDS_THRESHOLD, LOCKIN_PENALTY_RATE,
+    STRIKE_SOCIAL_LICENSE_WEIGHT, CANNIBALIZATION_BASE_RATE, CANNIBALIZATION_AGGRESSOR_MULT,
+    DIVIDEND_CUT_REP_PENALTY, DIVIDEND_CUT_THRESHOLD,
+    TALENT_NEGLECT_THRESHOLD, TALENT_NEGLECT_PENALTY_RATE,
+    STAKEHOLDER_FATIGUE_FACTOR, SUPPLY_CHAIN_OVERLAP_COEFF, COMPETITOR_GROWTH_RATE,
+    GREENWASH_INVESTMENT_THRESHOLD, GREENWASH_SLO_PENALTY,
+    GREENWASH_MODERATE_THRESHOLD_SCALE, GREENWASH_MODERATE_PENALTY_SCALE, GREENWASH_BU_REP_PENALTY,
+    CASH_CONVERSION_GOV_DIVISOR, CASH_CONVERSION_EFFICIENCY_FLOOR,
+    DSO_BASELINE_FACTOR, DSO_GOV_RISK_SCALING, DSO_MAX_CAP,
+    MACRO_NOISE_INFLATION_BAND, MACRO_NOISE_CARBON_BAND,
+    MICRO_STRIKE_PROBABILITY, MICRO_STRIKE_OPEX_RATE,
+    FX_MOVEMENT_BAND, FX_DEFAULT_EXPOSURE,
+    SBTI_BASELINE_CI, SBTI_ANNUAL_REDUCTION_RATE, SBTI_MISALIGNMENT_ROUNDS, SBTI_COC_SURCHARGE, SBTI_CREDIBILITY_PER_ROUND,
+    EU_TAXONOMY_CI_THRESHOLD, EU_TAXONOMY_GREEN_THRESHOLD, EU_TAXONOMY_BROWN_THRESHOLD,
+    EU_TAXONOMY_COC_BENEFIT, EU_TAXONOMY_COC_SURCHARGE,
+    CBAM_CI_THRESHOLD, CBAM_SCOPE12_FRACTION, CBAM_SURCHARGE_RATE,
+    REG_RATCHET_BASELINE, REG_RATCHET_ROUND_INCREMENT, REG_RATCHET_FINE_PER_POINT,
+    SUPPLIER_DEFECTION_INV_THRESHOLD, SUPPLIER_DEFECTION_OPEX_MULT, SUPPLIER_DEFECTION_REV_MULT,
+    CFO_AUSTERITY_LOAN_RATIO,
+    EMISSIONS_BREACH_REP_PENALTY,
+    STRANDED_ASSET_CI_THRESHOLD, STRANDED_ASSET_COC_SURCHARGE,
+    TIPPING_HOSTILITY_TIPPED, TIPPING_HOSTILITY_STRESSED, TIPPING_HOSTILITY_WARNING,
+    NCD_FORGIVENESS_LOG_COEFF,
+    IMPLEMENTATION_LAG_INV_THRESHOLD,
+    EMPLOYER_BRAND_PENALTY_THRESHOLD, EMPLOYER_BRAND_MAX_PENALTY_RATE,
+    PATIENT_OUTCOMES_BASELINE, PATIENT_OUTCOMES_DIVISOR, PATIENT_OUTCOMES_MOD_MIN, PATIENT_OUTCOMES_MOD_MAX,
+    UTILIZATION_OVERLOAD_THRESHOLD, UTILIZATION_OVERLOAD_BURNOUT_INC, UTILIZATION_DRIFT_RATE,
+    DEFAULT_IMITATION_DECAY_RATE,
+    SEVERITY_ROUTINE_CEILING, SEVERITY_NOTEWORTHY_CEILING, SEVERITY_MATERIAL_CEILING,
+    SDG_GRADE_A_PLUS, SDG_GRADE_A, SDG_GRADE_B, SDG_GRADE_C, SDG_GRADE_D,
+    CAROIC_GRADE_A_PLUS, CAROIC_GRADE_A, CAROIC_GRADE_B, CAROIC_GRADE_C,
+    CRI_WEIGHT_GOV_RISK, CRI_WEIGHT_SLO_DEFICIT, CRI_WEIGHT_REP_DEFICIT, CRI_WEIGHT_CARBON,
+    CRI_TIER_LOW, CRI_TIER_MODERATE, CRI_TIER_HIGH,
+    MOMENTUM_WEIGHT_TREASURY, MOMENTUM_WEIGHT_REP, MOMENTUM_WEIGHT_NCD,
+    MOMENTUM_HIGH_THRESHOLD, MOMENTUM_COMEBACK_MR_BONUS,
+    MOMENTUM_TREASURY_NORM, MOMENTUM_REP_MULTIPLIER, MOMENTUM_NCD_MULTIPLIER,
+    INSOLVENCY_WARNING_ROUNDS, TIME_TO_IMPACT_HORIZON,
+    BRAINDRAIN_REP_THRESHOLD, STRIKE_WARNING_THRESHOLD, STRIKE_CRITICAL_THRESHOLD,
+    CONTAGION_RISK_WARNING, TREASURY_DROP_REFLECTION_PCT,
+    CYCLONE_PROB_BASE, CYCLONE_PROB_TIPPED, CYCLONE_PROB_STRESSED, CYCLONE_PROB_WARNING,
+    PHYSICAL_VAR_DAMAGE_BASE,
+    TIPPING_CI_WARNING, TIPPING_CI_STRESSED, TIPPING_CI_TIPPED,
+    TRANSITION_VAR_CI_THRESHOLD, TRANSITION_VAR_STRANDED_MULT, TRANSITION_VAR_FEE_YEARS,
+    TURNAROUND_CRISIS_ENTRY_TREASURY, TURNAROUND_CRISIS_ENTRY_REP, TURNAROUND_CRISIS_BAILOUT,
+    TURNAROUND_CRISIS_CAPEX_CAP, TURNAROUND_CRISIS_MR_CAP,
+    TURNAROUND_STAB_EXIT_TREASURY, TURNAROUND_STAB_EXIT_REP, TURNAROUND_STAB_CAPEX_CAP, TURNAROUND_STAB_MR_CAP,
+    TURNAROUND_RECOVERY_EXIT_TREASURY, TURNAROUND_RECOVERY_EXIT_REP, TURNAROUND_RECOVERY_CAPEX_CAP, TURNAROUND_RECOVERY_MR_CAP,
+    TURNAROUND_EXIT_TREASURY, TURNAROUND_EXIT_REP, TURNAROUND_EXIT_MR_BONUS,
+)
+
+
+
+
+# ═══════════════════════════════════════════════════════════════
+#  CARBON ACCOUNTING HELPERS  (I1, I2, I3, I5, I13, I15)
+#  Centralised carbon calculation utilities used throughout the engine.
+#
+#  carbon_intensity units: tCO₂e per $1M revenue (I1)
+#  Group tonnage formula: Σ(CI × revenue_base / 1_000_000)  [units: tCO₂e]
+# ═══════════════════════════════════════════════════════════════
+
+# I5 — Scope 1/2/3 ratios for ALL BU types (GHG Protocol aligned)
+# Format: {bu_id: {scope_1: float, scope_2: float, scope_3: float}}  (must sum to 1.0)
+# Used for scope decomposition AND scope-weighted CI delta routing (I2, I13).
+_ALL_BU_SCOPE_RATIOS: dict[str, dict[str, float]] = {
+    # ─ Default 4 BUs ──────────────────────────────────────────────
+    "pharma":          {"scope_1": 0.35, "scope_2": 0.25, "scope_3": 0.40},
+    "electronics":     {"scope_1": 0.10, "scope_2": 0.15, "scope_3": 0.75},
+    "consumer_goods":  {"scope_1": 0.15, "scope_2": 0.10, "scope_3": 0.75},
+    "software":        {"scope_1": 0.05, "scope_2": 0.60, "scope_3": 0.35},
+    # ─ Industry Verticals (I5) ───────────────────────────────────
+    # Oil & Gas: Scope 1 dominant — combustion, flaring, fugitive methane
+    "oil_gas":                    {"scope_1": 0.65, "scope_2": 0.15, "scope_3": 0.20},
+    # Banking: Scope 3 dominant — financed emissions (PCAF, ESRS E1 AR40)
+    "banking_financial_services": {"scope_1": 0.01, "scope_2": 0.04, "scope_3": 0.95},
+    # Retail/FMCG: Scope 3 dominant — product lifecycle, consumer use
+    "retail_fmcg":                {"scope_1": 0.10, "scope_2": 0.15, "scope_3": 0.75},
+    # Agriculture: Scope 1 dominant — enteric fermentation (CH4), soil N₂O
+    "agriculture":                {"scope_1": 0.70, "scope_2": 0.10, "scope_3": 0.20},
+    # Technology: Scope 2 dominant — data centre grid electricity
+    "technology":                 {"scope_1": 0.05, "scope_2": 0.55, "scope_3": 0.40},
+    # ─ Healthcare verticals ─────────────────────────────────────
+    "hospitals":        {"scope_1": 0.25, "scope_2": 0.40, "scope_3": 0.35},
+    "clinics":          {"scope_1": 0.10, "scope_2": 0.50, "scope_3": 0.40},
+    "specialised_care": {"scope_1": 0.20, "scope_2": 0.45, "scope_3": 0.35},
+    "telehealth":       {"scope_1": 0.05, "scope_2": 0.65, "scope_3": 0.30},
+}
+_DEFAULT_SCOPE_RATIOS: dict[str, float] = {"scope_1": 0.20, "scope_2": 0.15, "scope_3": 0.65}
+
+
+def get_scope_ratios(bu_id: str) -> dict[str, float]:
+    """I5: Return GHG Protocol scope ratios for a BU, with fallback to default."""
+    return _ALL_BU_SCOPE_RATIOS.get(bu_id, _DEFAULT_SCOPE_RATIOS)
+
+
+def calc_revenue_weighted_avg_ci(bus: list[dict]) -> float:
+    """
+    I3 — Revenue-weighted average carbon intensity.
+    Replaces the previous simple arithmetic mean, which flatters the group
+    profile when a large high-CI BU is present.
+
+    Formula: avg_CI = Σ(CI_i × Rev_i) / Σ(Rev_i)
+    Units: tCO₂e per $1M revenue (matches carbon_intensity field).
+    Falls back to simple mean if all revenues are zero.
+    """
+    total_rev = sum(bu.get("revenue_base", 0) for bu in bus)
+    if total_rev <= 0:
+        n = max(len(bus), 1)
+        return sum(bu.get("carbon_intensity", 0) for bu in bus) / n
+    return sum(
+        bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) for bu in bus
+    ) / total_rev
+
+
+def _calc_rw_avg_ci(bus: list[dict]) -> float:
+    """I3: Concise internal alias for revenue-weighted avg CI."""
+    total_rev = sum(bu.get("revenue_base", 0) for bu in bus)
+    if total_rev <= 0:
+        n = max(len(bus), 1)
+        return sum(bu.get("carbon_intensity", 0) for bu in bus) / n
+    return sum(
+        bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) for bu in bus
+    ) / total_rev
+
+
+# ── CIDeltaResult: typed return value for the pure CI-delta helper ──
+from dataclasses import dataclass, field as dc_field
+
+
+@dataclass(frozen=True)
+class CIDeltaResult:
+    """
+    Pure-function return type for apply_ci_delta_to_bus().
+
+    applied_deltas        — {bu_id: effective_delta_applied}   (for event logging)
+    new_carbon_intensities — {bu_id: new_ci_value}             (caller applies to state)
+
+    The input `bus` list is NEVER mutated.  Caller is responsible for
+    writing new_carbon_intensities back to their own BU state dicts.
+    """
+    applied_deltas: dict[str, float]
+    new_carbon_intensities: dict[str, float]
+
+
+def apply_ci_delta_to_bus(
+    bus: list[dict],
+    ci_delta: float,
+    routing: str = "uniform",
+) -> CIDeltaResult:
+    """
+    I2/I13 — PURE FUNCTION. Computes carbon_intensity deltas per BU with
+    optional Scope 3-weighted routing. Does NOT mutate the input list.
+
+    routing="uniform"         — identical delta to every BU (legacy behaviour)
+    routing="scope3_weighted" — delta scales by (0.5 + scope_3_ratio) per BU:
+        - High-Scope3 BU (electronics 0.75): factor = 1.25 × delta
+        - Low-Scope3 BU (oil_gas 0.20):      factor = 0.70 × delta
+        - Default BU (0.65):                 factor = 1.15 × delta
+    For positive deltas (emission increase), uses (0.5 + scope_1_ratio)
+    so direct emitters (agriculture, oil_gas) bear more of the burden.
+
+    Returns CIDeltaResult with:
+        applied_deltas         — {bu_id: effective_delta}   (for transparency events)
+        new_carbon_intensities — {bu_id: new_ci}            (caller must apply to state)
+
+    Caller pattern:
+        result = apply_ci_delta_to_bus(bus, ci_delta)
+        for bu in bus:
+            if bu["bu_id"] in result.new_carbon_intensities:
+                bu["carbon_intensity"] = result.new_carbon_intensities[bu["bu_id"]]
+    """
+    applied: dict[str, float] = {}
+    new_cis: dict[str, float] = {}
+    for bu in bus:
+        bu_id = bu.get("bu_id", "")
+        if routing == "scope3_weighted":
+            ratios = get_scope_ratios(bu_id)
+            if ci_delta < 0:
+                # Emission reduction: Scope3-heavy BUs benefit most
+                factor = round(0.5 + ratios["scope_3"], 3)
+            else:
+                # Emission increase: Scope1-heavy BUs bear most
+                factor = round(0.5 + ratios["scope_1"], 3)
+            effective = round(ci_delta * factor, 2)
+        else:
+            effective = ci_delta
+        old_ci = bu.get("carbon_intensity", 0.0)
+        new_cis[bu_id] = max(0.0, round(old_ci + effective, 2))
+        applied[bu_id] = effective
+    return CIDeltaResult(applied_deltas=applied, new_carbon_intensities=new_cis)
+
+
+# ── Data Bridge State Applicator ────────────────────────────────────────────
+# PURE FUNCTION — never mutates the input `state` dict.
+# Enforces the Delta vs Override contract for DataBridgeOutput payloads.
+#
+# Contract (immutable order of operations):
+#   STEP 1 — Apply kpi_deltas  (additive math)
+#   STEP 2 — Apply kpi_overrides (absolute assignments), overwriting delta
+#             results ONLY where the override field is not None.
+#
+# Mapping: DataBridgeOutput field  →  main-sim global_state key
+# ─────────────────────────────────────────────────────────────────────────────
+_KPI_DELTA_MAP: dict[str, str] = {
+    "treasury_delta":          "corporate_treasury",
+    "reputation_delta":        "group_reputation",
+    "carbon_intensity_delta":  "avg_carbon_intensity",
+    "ncd_delta":               "total_ncd",
+    "governance_risk_delta":   "avg_governance_risk",
+    "social_license_delta":    "avg_social_license",
+}
+
+_KPI_OVERRIDE_MAP: dict[str, str] = {
+    "corporate_treasury":   "corporate_treasury",
+    "group_reputation":     "group_reputation",
+    "avg_carbon_intensity": "avg_carbon_intensity",
+    "total_ncd":            "total_ncd",
+    "synergy_multiplier":   "synergy_multiplier",
+    "group_social_license": "avg_social_license",
+}
+
+# Bounds for clamping after write (matches engine invariants)
+_KPI_BOUNDS: dict[str, tuple[float, float]] = {
+    "group_reputation":    (0.0,   100.0),
+    "avg_governance_risk": (0.0,   100.0),
+    "avg_social_license":  (0.0,   100.0),
+    "avg_carbon_intensity":(0.0,   float("inf")),
+    "total_ncd":           (0.0,   float("inf")),
+    "corporate_treasury":  (float("-inf"), float("inf")),
+    "synergy_multiplier":  (0.0,   float("inf")),
+}
+
+
+def apply_side_track_results(
+    state: dict[str, Any],
+    payload: "DataBridgeOutput",          # noqa: F821 — forward ref; import below
+    *,
+    apply_flags: bool = True,
+) -> dict[str, Any]:
+    """
+    PURE FUNCTION — Data Bridge state applicator.
+
+    Applies a DataBridgeOutput payload to ``state`` and returns a CLEAN COPY
+    of the updated state.  The original ``state`` dict is NEVER mutated.
+
+    Order of operations (strictly enforced):
+        1. Deep-copy ``state`` to produce ``new_state``.
+        2. Apply ``payload.kpi_deltas`` (additive): new_state[key] += delta.
+        3. Apply ``payload.kpi_overrides`` (absolute): new_state[key] = value
+           for every non-None override field.
+        4. Clamp all written KPIs to their engine-defined bounds.
+        5. If ``apply_flags`` is True, merge ``payload.flags_to_set`` into
+           ``new_state["active_event_flags"]`` and process ``flags_to_remove``.
+
+    Args:
+        state        : Current main-sim global_state dict (read-only source).
+        payload      : Validated DataBridgeOutput from a completing side track.
+        apply_flags  : If False, skip flag merging (useful for KPI-only tests).
+
+    Returns:
+        A new dict — a modified copy of ``state``.  Never the same object.
+
+    Raises:
+        TypeError  : If ``payload`` is not a DataBridgeOutput instance.
+    """
+    # Lazy import to avoid circular dependency at module-parse time.
+    # engine.py ← bridge_schemas.py would be circular if at top-level.
+    from side_tracks.bridge_schemas import DataBridgeOutput as _DBO  # noqa: F401
+
+    if not isinstance(payload, _DBO):
+        raise TypeError(
+            f"apply_side_track_results expects DataBridgeOutput, got {type(payload).__name__}"
+        )
+
+    # STEP 0: Deep-copy — pure function guarantee
+    new_state: dict[str, Any] = copy.deepcopy(state)
+
+    # ── STEP 1: Apply kpi_deltas (additive) ──────────────────────────────────
+    deltas = payload.kpi_deltas.model_dump()
+    for delta_field, state_key in _KPI_DELTA_MAP.items():
+        delta_val = deltas.get(delta_field, 0.0)
+        if delta_val == 0.0:
+            continue  # no-op; skip to keep state clean
+        current = new_state.get(state_key, 0.0)
+        if current is None:
+            current = 0.0
+        new_state[state_key] = round(current + delta_val, 6)
+
+    # ── STEP 2: Apply kpi_overrides (absolute assignment, non-None only) ─────
+    overrides = payload.kpi_overrides.model_dump()
+    for override_field, state_key in _KPI_OVERRIDE_MAP.items():
+        override_val = overrides.get(override_field)
+        if override_val is None:
+            continue  # None = "no opinion" — leave the delta result intact
+        new_state[state_key] = override_val
+
+    # ── STEP 3: Clamp all written KPIs to engine-invariant bounds ────────────
+    all_written_keys = set(_KPI_DELTA_MAP.values()) | set(_KPI_OVERRIDE_MAP.values())
+    for state_key in all_written_keys:
+        if state_key not in new_state:
+            continue
+        lo, hi = _KPI_BOUNDS.get(state_key, (float("-inf"), float("inf")))
+        val = new_state[state_key]
+        if isinstance(val, (int, float)):
+            new_state[state_key] = round(max(lo, min(hi, val)), 6)
+
+    # ── STEP 4: Flag merging (optional) ──────────────────────────────────────
+    if apply_flags:
+        flags = new_state.setdefault("active_event_flags", {})
+        flags.update(payload.flags_to_set)
+        for key in payload.flags_to_remove:
+            flags.pop(key, None)
+
+    return new_state
 
 
 # ── 1. Corporate Strategic Fund (CSF) ────────────────────────────
@@ -22,29 +375,81 @@ def calc_csf(bu_states: list[dict], dividends_paid: float) -> float:
 
 
 # ── 2. Contagion Engine (Sigmoid Model) ──────────────────────────
-def calc_contagion(bu_states: list[dict], crisis_severity: float) -> float:
+def calc_contagion(
+    bu_states: list[dict],
+    crisis_severity: float,
+    *,
+    max_drop:   float = CONTAGION_MAX_DROP,
+    midpoint:   float = CONTAGION_MIDPOINT,
+    steepness:  float = CONTAGION_STEEPNESS,
+) -> float:
     """
-    UPGRADED: Sigmoid contagion model replaces linear.
-    Uses S-curve centered at severity=30 to model realistic crisis propagation:
-    - Low severity (<15): minimal reputation impact (slow start)
-    - Medium severity (20-40): rapid reputation erosion (inflection point)
-    - High severity (>50): saturating damage (diminishing marginal harm)
+    Pure function: Sigmoid contagion model mapping crisis_severity → group reputation.
 
-    Formula: Group_Rep = Avg_Rep - 50 × sigmoid((severity - 30) / 15)
-    where sigmoid(x) = 1 / (1 + e^(-x))
-    Result is clamped to [0, 100].
+    Uses an S-curve centred at `midpoint` (default 30) to model realistic crisis
+    propagation without cliff-edge discontinuities:
+
+        sigmoid_input = (crisis_severity − midpoint) / steepness
+        sigmoid_value = 1 / (1 + e^(−sigmoid_input))
+        group_rep     = avg_rep − max_drop × sigmoid_value
+
+    Behaviour by severity tier (defaults):
+        < 15  — minimal impact   (sigmoid ≈ 0.07 → drop ≤ 3.5 pts)
+        = 30  — inflection point (sigmoid = 0.50 → drop = 25 pts)
+        > 50  — saturating harm  (sigmoid ≈ 0.88 → drop ≤ 44 pts)
+
+    Parameters
+    ----------
+    bu_states       : list of BU state dicts, each containing "reputation_score".
+    crisis_severity : Raw crisis severity score in [0, 100]. Clamped to ≥ 0.
+    max_drop        : Maximum reputation points erasable at sigmoid saturation.
+                      Sourced from CONTAGION_MAX_DROP (config-routed).
+    midpoint        : Severity at which 50% of max_drop is applied.
+                      Sourced from CONTAGION_MIDPOINT (config-routed).
+    steepness       : Sigmoid denominator — controls S-curve slope.
+                      Smaller ⇒ steeper. Sourced from CONTAGION_STEEPNESS.
+
+    Returns
+    -------
+    float : New group reputation clamped to [0.0, 100.0].
+
+    Safety
+    ------
+    - ZeroDivisionError: guarded by empty bu_states check (returns 50.0).
+    - OverflowError: guarded by try/except around math.exp(); extreme negative
+      sigmoid inputs (very low severity) floor sigmoid_value to 0.0, extreme
+      positive inputs (very high severity) ceil to 1.0.
+    - Negative reputation: floored at 0.0 after computation.
+    - Steepness = 0: guarded; treated as steepness = 1.0 to prevent ZeroDivisionError.
     """
-    # FIX VULN-003: Clamp crisis_severity to non-negative
+    # Guard: non-negative severity
     crisis_severity = max(0.0, crisis_severity)
-    # FIX BUG-001: Guard against empty BU list (ZeroDivisionError)
+
+    # Guard: empty BU list → neutral default
     if not bu_states:
         return 50.0
-    avg_rep = sum(bu["reputation_score"] for bu in bu_states) / len(bu_states)
-    # Sigmoid S-curve: slow-fast-slow damage propagation
-    sigmoid_input = (crisis_severity - 30.0) / 15.0
-    sigmoid_value = 1.0 / (1.0 + math.exp(-sigmoid_input))
-    group_rep = avg_rep - (50.0 * sigmoid_value)
-    return max(0.0, min(100.0, round(group_rep, 2)))
+
+    avg_rep: float = sum(bu["reputation_score"] for bu in bu_states) / len(bu_states)
+
+    # Guard: steepness == 0 would cause ZeroDivisionError
+    safe_steepness: float = steepness if steepness != 0.0 else 1.0
+
+    sigmoid_input: float = (crisis_severity - midpoint) / safe_steepness
+
+    # Guard: math.exp() overflows for large positive inputs
+    try:
+        sigmoid_value: float = 1.0 / (1.0 + math.exp(-sigmoid_input))
+    except OverflowError:
+        # exp(-sigmoid_input) overflows when sigmoid_input is very large negative
+        # (i.e. crisis_severity << midpoint) → e^∞ → sigmoid → 0.0
+        # For very large positive sigmoid_input → e^(-∞) → sigmoid → 1.0
+        sigmoid_value = 0.0 if sigmoid_input < 0 else 1.0
+
+    rep_drop: float  = max_drop * sigmoid_value
+    group_rep: float = avg_rep - rep_drop
+
+    # Floor at 0.0: reputation cannot go negative
+    return round(max(0.0, min(100.0, group_rep)), 2)
 
 
 # ── 3. Synergy Engine (with Diminishing Returns) ────────────────
@@ -65,7 +470,7 @@ def calc_synergy_opex(
     # FIX VULN-002: Tighten investment_ratio clamp to [0.0, 1.0]
     ratio = max(0.0, min(1.0, investment_ratio))
     # Diminishing returns: sqrt curve with 0.7 dampening
-    effective_ratio = math.sqrt(ratio) * 0.7
+    effective_ratio = math.sqrt(ratio) * SYNERGY_DAMPENING_FACTOR
     factor = 1.0 - (effective_ratio * synergy_multiplier)
     # Prevent negative OPEX
     return max(0.0, round(old_opex * factor, 2))
@@ -84,7 +489,7 @@ def calc_natural_capital_interest(
     """
     # FIX VULN-004: Floor NCD at 0 to prevent negative interest surcharge
     natural_capital_debt = max(0.0, natural_capital_debt)
-    return round(base_rate + (natural_capital_debt * 0.0001), 6)
+    return round(base_rate + (natural_capital_debt * NCD_INTEREST_COEFFICIENT), 6)
 
 
 # ── 5. VRIO Decay Function ──────────────────────────────────────
@@ -102,7 +507,7 @@ def calc_vrio_decay(
 def calc_burnout_accumulation(
     current_burnout: float,
     burnout_delta: float,
-    natural_drift: float = 6.0,
+    natural_drift: float = BURNOUT_NATURAL_DRIFT,
 ) -> tuple[float, dict]:
     """
     Apply HR-driven burnout changes and natural drift to a BU's burnout index.
@@ -133,15 +538,15 @@ def calc_burnout_accumulation(
         "burnout_delta_applied": burnout_delta,
         "natural_drift_applied": natural_drift,
         "new_burnout": new_burnout,
-        "opex_penalty_active": new_burnout > 20.0,
-        "critical_burnout": new_burnout > 70.0,
+        "opex_penalty_active": new_burnout > BURNOUT_OPEX_THRESHOLD,
+        "critical_burnout": new_burnout > BURNOUT_CRITICAL_THRESHOLD,
     }
 
     # Calculate OPEX penalty rate (graded quadratic curve from 20 onwards)
-    if new_burnout > 20.0:
+    if new_burnout > BURNOUT_OPEX_THRESHOLD:
         # Smooth quadratic curve: 0% at 20 -> 18% at 100
         # Formula maintains same maximum penalty but removes the hard cliff
-        penalty_rate = round(((new_burnout - 20.0) ** 2) * 0.000028125, 4)
+        penalty_rate = round(((new_burnout - BURNOUT_OPEX_THRESHOLD) ** 2) * BURNOUT_OPEX_PENALTY_COEFF, 4)
         diagnostics["opex_penalty_rate"] = penalty_rate
     else:
         diagnostics["opex_penalty_rate"] = 0.0
@@ -177,11 +582,11 @@ def calc_workforce_readiness(
         - readiness > 75: Synergy multiplier gets +0.05 bonus at terminal valuation
     """
     if hr_quality_tier == "high":
-        delta = 16.0
+        delta = READINESS_DELTA_HIGH
     elif hr_quality_tier == "medium":
-        delta = 8.0
+        delta = READINESS_DELTA_MEDIUM
     else:
-        delta = -10.0  # skills atrophy (6-month period)
+        delta = READINESS_DELTA_NONE  # skills atrophy (6-month period)
 
     new_readiness = round(max(0.0, min(100.0, current_readiness + delta)), 2)
 
@@ -190,8 +595,8 @@ def calc_workforce_readiness(
         "readiness_delta": delta,
         "hr_quality_tier": hr_quality_tier,
         "new_readiness": new_readiness,
-        "low_readiness_penalty": new_readiness < 40.0,
-        "high_readiness_bonus": new_readiness > 75.0,
+        "low_readiness_penalty": new_readiness < READINESS_LOW_THRESHOLD,
+        "high_readiness_bonus": new_readiness > READINESS_HIGH_THRESHOLD,
     }
 
     return new_readiness, diagnostics
@@ -209,11 +614,11 @@ def calc_talent_braindrain(
 
     Returns (new_opex, penalty_multiplier).
     """
-    penalty = 1.0 + max(0.0, (65.0 - group_reputation) / 100.0) * 1.5
+    penalty = 1.0 + max(0.0, (BRAINDRAIN_REPUTATION_THRESHOLD - group_reputation) / 100.0) * BRAINDRAIN_PENALTY_MULTIPLIER
     
     # Scale OPEX up aggressively if the unit is suffering severe staff burnout
-    if burnout_index > 50.0:
-        penalty += ((burnout_index - 50.0) / 100.0) * 2.0  # agency/locum overhead
+    if burnout_index > BRAINDRAIN_BURNOUT_THRESHOLD:
+        penalty += ((burnout_index - BRAINDRAIN_BURNOUT_THRESHOLD) / 100.0) * BRAINDRAIN_BURNOUT_OVERHEAD  # agency/locum overhead
 
     new_opex = round(opex_base * penalty, 2)
     return new_opex, round(penalty, 4)
@@ -228,7 +633,7 @@ def calc_strike_probability(
     P_Strike = Base_Risk + ((1 - (Social_License / 100)) * 0.4)
     Result is clamped to [0.0, 1.0].
     """
-    p = base_risk + ((1.0 - (social_license / 100.0)) * 0.4)
+    p = base_risk + ((1.0 - (social_license / 100.0)) * STRIKE_SOCIAL_LICENSE_WEIGHT)
     return max(0.0, min(1.0, round(p, 4)))
 
 
@@ -245,7 +650,7 @@ def apply_natural_decay(
     """
     if invested:
         return reputation, social_license
-    decay = 0.96  # 1 - (1 - 0.98²) ≈ 0.9604, rounded to 0.96 for 6-month period
+    decay = NATURAL_DECAY_FACTOR  # 1 - (1 - 0.98²) ≈ 0.9604, rounded to 0.96 for 6-month period
     return (
         round(reputation * decay, 2),
         round(social_license * decay, 2),
@@ -271,20 +676,24 @@ def calc_inflation(
 # ── 10. Execution Overrun Risk Engine ───────────────────────────
 def calc_overrun_risk(
     capex: float,
-    threshold: float = 3_000_000,
-    overrun_probability: float = 0.25,
-    overrun_severity: float = 0.15,
+    threshold: float = OVERRUN_CAPEX_THRESHOLD,
+    overrun_probability: float = OVERRUN_DEFAULT_PROBABILITY,
+    overrun_severity: float = OVERRUN_DEFAULT_SEVERITY,
+    rng: "_rng.Random | None" = None,
 ) -> tuple[bool, float]:
     """
     FEATURE 3 — Execution Overrun Risk:
     If CAPEX exceeds threshold, there is a stochastic chance of
     a cost overrun that silently drains extra capital.
 
+    GAME-4: pass a seeded `rng` (per-cohort) so all teams face the same roll.
+    Falls back to the module RNG when none is supplied.
+
     Returns (overrun_triggered: bool, overrun_amount: float).
     """
     if capex <= threshold:
         return False, 0.0
-    roll = _rng.random()
+    roll = (rng or _rng).random()
     if roll < overrun_probability:
         overrun = round(capex * overrun_severity, 2)
         return True, overrun
@@ -295,8 +704,8 @@ def calc_overrun_risk(
 def calc_technical_debt(
     opex: float,
     consecutive_zero_rounds: int,
-    penalty_threshold: int = 2,
-    penalty_rate: float = 0.04,
+    penalty_threshold: int = TECH_DEBT_ROUNDS_THRESHOLD,
+    penalty_rate: float = TECH_DEBT_PENALTY_RATE,
 ) -> tuple[float, bool]:
     """
     FEATURE 4 — Maintenance vs. Transformation CapEx:
@@ -339,7 +748,7 @@ _MARKET_OVERLAP = {
 def calc_revenue_cannibalization(
     bus: list[dict],
     cannibalization_pairs: dict[str, list[str]] | None = None,
-    rate: float = 0.03,
+    rate: float = CANNIBALIZATION_BASE_RATE,
 ) -> dict[str, float]:
     """
     FEATURE 6 — Revenue Cannibalization (Dynamic):
@@ -359,7 +768,7 @@ def calc_revenue_cannibalization(
     for aggressor in bus:
         aggressor_id = aggressor["bu_id"]
         aggressor_rev = aggressor["revenue_base"]
-        if aggressor_rev <= avg_rev * 1.15:
+        if aggressor_rev <= avg_rev * CANNIBALIZATION_AGGRESSOR_MULT:
             continue
         # Check overlap with every other BU
         for victim in bus:
@@ -381,7 +790,7 @@ def calc_revenue_cannibalization(
 def calc_stakeholder_fatigue(
     recovery_amount: float,
     crisis_count_lifetime: int,
-    fatigue_factor: float = 0.3,
+    fatigue_factor: float = STAKEHOLDER_FATIGUE_FACTOR,
 ) -> float:
     """
     FEATURE 7 — Stakeholder Fatigue:
@@ -397,7 +806,7 @@ def calc_stakeholder_fatigue(
 # ── 14. Supply Chain Contagion Engine ───────────────────────────
 def calc_supply_chain_contagion(
     bus: list[dict],
-    overlap_coefficient: float = 0.002,
+    overlap_coefficient: float = SUPPLY_CHAIN_OVERLAP_COEFF,
 ) -> dict[str, float]:
     """
     FEATURE 8 — Supply Chain Contagion:
@@ -424,7 +833,7 @@ def calc_supply_chain_contagion(
 def calc_competitor_pressure(
     competitor_ebitda: float,
     player_ebitda: float,
-    competitor_growth_rate: float = 0.06,
+    competitor_growth_rate: float = COMPETITOR_GROWTH_RATE,
 ) -> tuple[float, float]:
     """
     FEATURE 10 — Competitive Market Dynamics:
@@ -458,8 +867,8 @@ def calc_cash_conversion(
 
     Returns realized_revenue (the cash that actually arrives).
     """
-    efficiency = base_efficiency - (governance_risk / 500.0)
-    efficiency = max(0.5, min(1.0, efficiency))
+    efficiency = base_efficiency - (governance_risk / CASH_CONVERSION_GOV_DIVISOR)
+    efficiency = max(CASH_CONVERSION_EFFICIENCY_FLOOR, min(1.0, efficiency))
     return round(revenue * efficiency, 2)
 
 
@@ -467,8 +876,8 @@ def calc_cash_conversion(
 def calc_dividend_ratchet(
     dividends_this_round: float,
     dividends_last_round: float,
-    reputation_penalty: float = 5.0,
-    cut_threshold: float = 0.8,
+    reputation_penalty: float = DIVIDEND_CUT_REP_PENALTY,
+    cut_threshold: float = DIVIDEND_CUT_THRESHOLD,
 ) -> tuple[bool, float]:
     """
     FEATURE 12 — Board Pressure / Dividend Ratchet:
@@ -488,8 +897,8 @@ def calc_dividend_ratchet(
 def calc_talent_allocation_pressure(
     bus: list[dict],
     decisions: list[dict],
-    neglect_threshold: float = 0.15,
-    penalty_rate: float = 0.02,
+    neglect_threshold: float = TALENT_NEGLECT_THRESHOLD,
+    penalty_rate: float = TALENT_NEGLECT_PENALTY_RATE,
 ) -> dict[str, float]:
     """
     FEATURE 13 — Talent Poaching War:
@@ -517,8 +926,8 @@ def calc_talent_allocation_pressure(
 def calc_technology_lockin(
     bus: list[dict],
     decisions: list[dict],
-    lockin_threshold: int = 3,
-    penalty_rate: float = 0.15,
+    lockin_threshold: int = LOCKIN_ROUNDS_THRESHOLD,
+    penalty_rate: float = LOCKIN_PENALTY_RATE,
 ) -> tuple[str | None, dict[str, float]]:
     """
     FEATURE 15 — Path-Dependent Technology Lock-In:
@@ -557,8 +966,8 @@ def calc_technology_lockin(
 def calc_greenwashing_risk(
     choice: str,
     decisions: list[dict],
-    green_investment_threshold: float = 0.15,
-    penalty: float = 15.0,
+    green_investment_threshold: float = GREENWASH_INVESTMENT_THRESHOLD,
+    penalty: float = GREENWASH_SLO_PENALTY,
 ) -> tuple[bool, float]:
     """
     FEATURE 16 — ESG Greenwashing Risk:
@@ -583,9 +992,9 @@ def calc_greenwashing_risk(
     elif choice in moderate_choices:
         ratios = [d.get("investment_ratio", 0.0) for d in decisions]
         avg_ratio = sum(ratios) / max(len(ratios), 1)
-        moderate_threshold = green_investment_threshold * 0.67  # ~10% for default 15%
+        moderate_threshold = green_investment_threshold * GREENWASH_MODERATE_THRESHOLD_SCALE  # ~10% for default 15%
         if avg_ratio < moderate_threshold:
-            return True, round(penalty * 0.5, 2)  # Half penalty for moderate choices
+            return True, round(penalty * GREENWASH_MODERATE_PENALTY_SCALE, 2)  # Half penalty for moderate choices
     return False, 0.0
 
 
@@ -631,7 +1040,7 @@ def check_bu_greenwash_scandal(
             "scandal_type": "greenwash_hypocrisy",
             "offending_bus": offending_bus,
             "penalty_details": {
-                "reputation_delta": -15,
+                "reputation_delta": GREENWASH_BU_REP_PENALTY,
                 "auditor_tolerance_override": 0,  # Set to Hostile
                 "credibility_impairment": True,    # Red DNA leak node
                 "consequence_dna_node": "credibility_impairment",
@@ -718,7 +1127,7 @@ def calc_fx_impact(
     to each BU's geographic revenue exposure.
     Returns {adjustments: {bu_id: revenue_delta}, fx_index, details}.
     """
-    rng = _rng if seed is None else type(_rng)()
+    rng = _rng if seed is None else _rng.Random()
     if seed is not None:
         rng.seed(seed)
     # FX index: -0.07 to +0.07 (7% band for 6-month period, ≈ sqrt(2) × 5%)
@@ -767,8 +1176,8 @@ def calc_dso_lag(
 
     Returns {deferred_amount, dso_days_approx, dso_factor}.
     """
-    dso_factor = 0.02 + 0.001 * governance_risk
-    dso_factor = max(0.0, min(0.15, dso_factor))  # Cap at 15%
+    dso_factor = DSO_BASELINE_FACTOR + DSO_GOV_RISK_SCALING * governance_risk
+    dso_factor = max(0.0, min(DSO_MAX_CAP, dso_factor))  # Cap at 15%
     deferred = round(revenue * dso_factor, 2)
     # Approximate DSO in days (1 round ≈ 180 days / 6-month semester)
     dso_days = round(180 * dso_factor / 0.10, 0)  # Normalised to 180-day semester
@@ -796,10 +1205,10 @@ def calc_macro_noise(round_number: int, seed: int | None = None) -> dict:
     else:
         rng = _rng
 
-    inflation_noise = round(rng.uniform(-0.004, 0.004), 4)
-    carbon_price_pct = round(rng.uniform(-0.07, 0.07), 4)
+    inflation_noise = round(rng.uniform(-MACRO_NOISE_INFLATION_BAND, MACRO_NOISE_INFLATION_BAND), 4)
+    carbon_price_pct = round(rng.uniform(-MACRO_NOISE_CARBON_BAND, MACRO_NOISE_CARBON_BAND), 4)
     # 6% chance of a localized micro-strike in any given 6-month round
-    micro_strike = rng.random() < 0.06
+    micro_strike = rng.random() < MICRO_STRIKE_PROBABILITY
     # Pick a random BU index for the micro-strike target
     micro_strike_bu_idx = rng.randint(0, 3)
 
@@ -820,8 +1229,8 @@ def calc_macro_noise(round_number: int, seed: int | None = None) -> dict:
 # Phase definitions for the turnaround narrative
 _TURNAROUND_PHASES = {
     "crisis": {
-        "entry_treasury": 0, "entry_reputation": 30,
-        "bailout": 3_000_000, "capex_cap": 0.0, "mr_cap": 0.60,
+        "entry_treasury": TURNAROUND_CRISIS_ENTRY_TREASURY, "entry_reputation": TURNAROUND_CRISIS_ENTRY_REP,
+        "bailout": TURNAROUND_CRISIS_BAILOUT, "capex_cap": TURNAROUND_CRISIS_CAPEX_CAP, "mr_cap": TURNAROUND_CRISIS_MR_CAP,
         "narrative_enter": (
             "🚨 EMERGENCY BOARD SESSION: Your company is in critical distress. "
             "The creditors' committee has imposed an immediate spending freeze. "
@@ -831,8 +1240,8 @@ _TURNAROUND_PHASES = {
         ),
     },
     "stabilisation": {
-        "exit_treasury": 0, "exit_reputation": 20,
-        "capex_cap": 0.50, "mr_cap": 0.80,
+        "exit_treasury": TURNAROUND_STAB_EXIT_TREASURY, "exit_reputation": TURNAROUND_STAB_EXIT_REP,
+        "capex_cap": TURNAROUND_STAB_CAPEX_CAP, "mr_cap": TURNAROUND_STAB_MR_CAP,
         "narrative_enter": (
             "📋 STABILISATION APPROVED: The board is cautiously optimistic. "
             "Your restructuring plan has been approved by the creditors' committee. "
@@ -841,8 +1250,8 @@ _TURNAROUND_PHASES = {
         ),
     },
     "recovery": {
-        "exit_treasury": 10_000_000, "exit_reputation": 45,
-        "capex_cap": 1.0, "mr_cap": 1.20,
+        "exit_treasury": TURNAROUND_RECOVERY_EXIT_TREASURY, "exit_reputation": TURNAROUND_RECOVERY_EXIT_REP,
+        "capex_cap": TURNAROUND_RECOVERY_CAPEX_CAP, "mr_cap": TURNAROUND_RECOVERY_MR_CAP,
         "narrative_enter": (
             "📈 RECOVERY PHASE: Financial stability is returning. Credit rating "
             "upgraded one notch. Full capital expenditure restored. "
@@ -851,8 +1260,8 @@ _TURNAROUND_PHASES = {
         ),
     },
     "exit": {
-        "exit_treasury": 20_000_000, "exit_reputation": 55,
-        "mr_bonus": 0.10,
+        "exit_treasury": TURNAROUND_EXIT_TREASURY, "exit_reputation": TURNAROUND_EXIT_REP,
+        "mr_bonus": TURNAROUND_EXIT_MR_BONUS,
         "narrative_enter": (
             "✅ TURNAROUND COMPLETE: Against all odds, you rebuilt this company "
             "from the brink of insolvency. The Turnaround Manager has been "
@@ -984,13 +1393,13 @@ def classify_severity(amount: float, treasury: float) -> dict:
     else:
         pct = abs(amount) / treasury * 100
 
-    if pct < 1:
+    if pct < SEVERITY_ROUTINE_CEILING:
         tier = "routine"
         label = "🟢 Market friction"
-    elif pct < 5:
+    elif pct < SEVERITY_NOTEWORTHY_CEILING:
         tier = "noteworthy"
         label = "🟡 Emerging pressure"
-    elif pct < 15:
+    elif pct < SEVERITY_MATERIAL_CEILING:
         tier = "material"
         label = "🟠 Strategic impact"
     else:
@@ -1037,22 +1446,22 @@ def calc_momentum_score(
     delta_ncd = prev_ncd - curr_ncd  # Positive = NCD is reducing (good)
 
     # Normalize components to ~[-50, +50] range then shift to 0-100
-    norm_velocity = max(-50, min(50, delta_velocity / max(abs(curr_treasury), 1) * 500))
-    norm_rep = max(-50, min(50, delta_rep * 5))
-    norm_ncd = max(-50, min(50, delta_ncd * 10))
+    norm_velocity = max(-50, min(50, delta_velocity / max(abs(curr_treasury), 1) * MOMENTUM_TREASURY_NORM))
+    norm_rep = max(-50, min(50, delta_rep * MOMENTUM_REP_MULTIPLIER))
+    norm_ncd = max(-50, min(50, delta_ncd * MOMENTUM_NCD_MULTIPLIER))
 
-    raw = 50 + (0.4 * norm_velocity + 0.3 * norm_rep + 0.3 * norm_ncd)
+    raw = 50 + (MOMENTUM_WEIGHT_TREASURY * norm_velocity + MOMENTUM_WEIGHT_REP * norm_rep + MOMENTUM_WEIGHT_NCD * norm_ncd)
     score = round(max(0, min(100, raw)), 1)
 
     # Track consecutive high momentum
     prev_momentum_history = current_global.get("momentum_history", [])
     consecutive = 0
     for h in reversed(prev_momentum_history):
-        if h > 70:
+        if h > MOMENTUM_HIGH_THRESHOLD:
             consecutive += 1
         else:
             break
-    if score > 70:
+    if score > MOMENTUM_HIGH_THRESHOLD:
         consecutive += 1
 
     comeback_kid = consecutive >= 2
@@ -1076,15 +1485,37 @@ def calc_momentum_score(
         },
         "consecutive_high": consecutive,
         "comeback_kid": comeback_kid,
-        "comeback_kid_mr_bonus": 0.05 if comeback_kid else 0.0,
+        "comeback_kid_mr_bonus": MOMENTUM_COMEBACK_MR_BONUS if comeback_kid else 0.0,
     }
+
+
 
 
 # ── 26. Predictive Forecast Engine ──────────────────────────────
 # ── Forecast Caching Layer ──────────────────────────────────────
-# calc_forecast is called on every dashboard render. Since it's pure
-# (deterministic given the same gs/bus), we cache by session+round.
-_forecast_cache = {}
+# calc_forecast() takes unhashable dict args so it cannot be decorated
+# directly.  Instead, results are cached by (session_id, round_number)
+# in an explicit module-level dict.
+#
+# FIX CRITICAL-1 (AUDIT): Replaced @lru_cache mutable singleton pattern
+# with a plain dict.  The previous implementation used @lru_cache on a
+# no-arg function returning a mutable dict — this created a hidden
+# module-level singleton that was written to at runtime, violating the
+# pure-function contract.  The new design makes the cache an explicit
+# module-level dict that is clearly mutable by design, with a bounded
+# eviction strategy and a clean invalidation API.
+#
+# Thread-safety: dict operations under CPython's GIL are atomic for
+# single key read/write.  No external locking required.
+#
+# Eviction: _FORECAST_CACHE_MAXSIZE limits the store size.  When the
+# limit is reached, the oldest entries are evicted (FIFO). In practice
+# round numbers are monotonically increasing so stale entries are never
+# re-requested.
+
+_FORECAST_CACHE_MAXSIZE: int = 128
+_forecast_cache: dict[tuple[str, int], dict] = {}
+
 
 def calc_forecast_cached(
     session_id: str,
@@ -1094,27 +1525,47 @@ def calc_forecast_cached(
 ) -> dict:
     """
     Round-keyed cached wrapper for calc_forecast().
-    Returns cached result if available for this session+round,
-    otherwise computes, caches, and returns.
-    """
-    key = f"{session_id}_{round_number}"
-    if key not in _forecast_cache:
-        _forecast_cache[key] = calc_forecast(current_global, current_bus)
-    return _forecast_cache[key]
 
-def invalidate_forecast_cache(session_id: str = None):
+    Uses (session_id, round_number) as the primary cache key.  Since round
+    numbers are monotonically increasing within a session, a completed round
+    will never be requested again — the bounded eviction handles cleanup
+    with no explicit invalidation needed.
+
+    Public API is unchanged from the previous implementation.
     """
-    Invalidate forecast cache entries.
-    If session_id is provided, only invalidate that session's entries.
-    If None, flush the entire cache.
+    cache_key = (session_id, round_number)
+    if cache_key in _forecast_cache:
+        return _forecast_cache[cache_key]
+
+    result = calc_forecast(current_global, current_bus)
+
+    # Bounded eviction: if over limit, remove oldest entries (FIFO)
+    if len(_forecast_cache) >= _FORECAST_CACHE_MAXSIZE:
+        # Remove the oldest ~25% of entries to avoid evicting on every insert
+        keys_to_evict = list(_forecast_cache.keys())[:_FORECAST_CACHE_MAXSIZE // 4]
+        for k in keys_to_evict:
+            _forecast_cache.pop(k, None)
+
+    _forecast_cache[cache_key] = result
+    return result
+
+
+def invalidate_forecast_cache(session_id: str = None) -> None:
     """
-    global _forecast_cache
+    Flush forecast cache entries.
+
+    If session_id is provided, only entries for that session are removed.
+    If session_id is None, all entries are flushed.
+
+    FIX CRITICAL-1: Now supports per-session invalidation (previously
+    only full flush was possible with the @lru_cache pattern).
+    """
     if session_id is None:
         _forecast_cache.clear()
     else:
-        keys_to_remove = [k for k in _forecast_cache if k.startswith(f"{session_id}_")]
+        keys_to_remove = [k for k in _forecast_cache if k[0] == session_id]
         for k in keys_to_remove:
-            del _forecast_cache[k]
+            _forecast_cache.pop(k, None)
 
 
 def calc_forecast(
@@ -1148,13 +1599,13 @@ def calc_forecast(
 
     # ── Contagion Risk Index (composite leading indicator)
     avg_gov_risk = sum(bu.get("governance_risk_score", 20) for bu in current_bus) / n
-    avg_ci = sum(bu.get("carbon_intensity", 50) for bu in current_bus) / n
+    avg_ci = _calc_rw_avg_ci(current_bus)  # I3: revenue-weighted avg CI
     # Higher = more dangerous. Scale 0-100.
     contagion_risk_index = round(min(100, max(0,
-        (avg_gov_risk * 0.3) +
-        ((100 - avg_slo) * 0.3) +
-        ((100 - avg_rep) * 0.2) +
-        (avg_ci * 0.2)
+        (avg_gov_risk * CRI_WEIGHT_GOV_RISK) +
+        ((100 - avg_slo) * CRI_WEIGHT_SLO_DEFICIT) +
+        ((100 - avg_rep) * CRI_WEIGHT_REP_DEFICIT) +
+        (avg_ci * CRI_WEIGHT_CARBON)
     )), 1)
 
     # ── Insolvency countdown (rounds until treasury hits zero at current burn)
@@ -1173,16 +1624,16 @@ def calc_forecast(
     # NCD credit downgrade countdown (threshold: 500K per BU)
     max_ncd_bu = max((bu.get("natural_capital_debt", 0) for bu in current_bus), default=0)
     ncd_growth_rate = ncd_interest_proj / max(n, 1) if total_ncd > 0 else 0
-    if max_ncd_bu < 500_000 and ncd_growth_rate > 0:
-        rounds_to_ncd_downgrade = round((500_000 - max_ncd_bu) / max(ncd_growth_rate, 1), 1)
+    if max_ncd_bu < NCD_WARN_THRESHOLD and ncd_growth_rate > 0:
+        rounds_to_ncd_downgrade = round((NCD_WARN_THRESHOLD - max_ncd_bu) / max(ncd_growth_rate, 1), 1)
     else:
-        rounds_to_ncd_downgrade = 0 if max_ncd_bu >= 500_000 else None
+        rounds_to_ncd_downgrade = 0 if max_ncd_bu >= NCD_WARN_THRESHOLD else None
 
-    # Brain drain countdown (reputation < 25 threshold)
+    # Brain drain countdown (reputation < BRAINDRAIN_REP_THRESHOLD threshold)
     rep_decay_rate = (100 - avg_rep) * 0.02  # Natural decay rate
-    if avg_rep > 25 and rep_decay_rate > 0:
-        rounds_to_braindrain = round((avg_rep - 25) / max(rep_decay_rate, 0.1), 1)
-    elif avg_rep <= 25:
+    if avg_rep > BRAINDRAIN_REP_THRESHOLD and rep_decay_rate > 0:
+        rounds_to_braindrain = round((avg_rep - BRAINDRAIN_REP_THRESHOLD) / max(rep_decay_rate, 0.1), 1)
+    elif avg_rep <= BRAINDRAIN_REP_THRESHOLD:
         rounds_to_braindrain = 0  # Already in brain drain zone
     else:
         rounds_to_braindrain = None
@@ -1194,7 +1645,7 @@ def calc_forecast(
         gov_risk = bu.get("governance_risk_score", 0)
         slo = bu.get("social_license_score", 50)
         base_risk = gov_risk / 100.0
-        p = round(base_risk + (1 - slo / 100.0) * 0.4, 4)
+        p = round(base_risk + (1 - slo / 100.0) * STRIKE_SOCIAL_LICENSE_WEIGHT, 4)
         if p > max_strike_prob:
             max_strike_prob = p
             max_strike_bu = bu["bu_id"]
@@ -1209,28 +1660,28 @@ def calc_forecast(
 
     # Build time-to-impact warnings list (only warnings within 5 rounds)
     time_to_impact_warnings = []
-    if rounds_to_ncd_downgrade is not None and rounds_to_ncd_downgrade <= 5:
+    if rounds_to_ncd_downgrade is not None and rounds_to_ncd_downgrade <= TIME_TO_IMPACT_HORIZON:
         time_to_impact_warnings.append({
             "indicator": "NCD Credit Downgrade",
             "rounds": rounds_to_ncd_downgrade,
             "message": f"At current trajectory, NCD will trigger credit downgrade in {rounds_to_ncd_downgrade:.0f} round(s)",
             "severity": "critical" if rounds_to_ncd_downgrade <= 2 else "material",
         })
-    if rounds_to_braindrain is not None and rounds_to_braindrain <= 5:
+    if rounds_to_braindrain is not None and rounds_to_braindrain <= TIME_TO_IMPACT_HORIZON:
         time_to_impact_warnings.append({
             "indicator": "Brain Drain Activation",
             "rounds": rounds_to_braindrain,
             "message": f"Reputation declining. Brain drain penalty activates in {rounds_to_braindrain:.0f} round(s)",
             "severity": "critical" if rounds_to_braindrain <= 2 else "material",
         })
-    if max_strike_prob > 0.20:
+    if max_strike_prob > STRIKE_WARNING_THRESHOLD:
         time_to_impact_warnings.append({
             "indicator": "Strike Risk",
             "rounds": 1,
             "message": f"{max_strike_bu} has a {max_strike_prob*100:.0f}% chance of industrial action next round",
-            "severity": "critical" if max_strike_prob > 0.40 else "material",
+            "severity": "critical" if max_strike_prob > STRIKE_CRITICAL_THRESHOLD else "material",
         })
-    if rounds_to_distress_treasury is not None and rounds_to_distress_treasury <= 5:
+    if rounds_to_distress_treasury is not None and rounds_to_distress_treasury <= TIME_TO_IMPACT_HORIZON:
         time_to_impact_warnings.append({
             "indicator": "Death Spiral Entry",
             "rounds": rounds_to_distress_treasury,
@@ -1248,13 +1699,13 @@ def calc_forecast(
         "avg_social_license": round(avg_slo, 1),
         "contagion_risk_index": contagion_risk_index,
         "contagion_risk_label": (
-            "🟢 Low" if contagion_risk_index < 25 else
-            "🟡 Moderate" if contagion_risk_index < 50 else
-            "🟠 High" if contagion_risk_index < 75 else
+            "🟢 Low" if contagion_risk_index < CRI_TIER_LOW else
+            "🟡 Moderate" if contagion_risk_index < CRI_TIER_MODERATE else
+            "🟠 High" if contagion_risk_index < CRI_TIER_HIGH else
             "🔴 Critical"
         ),
         "rounds_to_insolvency": rounds_to_insolvency,
-        "insolvency_warning": rounds_to_insolvency is not None and rounds_to_insolvency <= 3,
+        "insolvency_warning": rounds_to_insolvency is not None and rounds_to_insolvency <= INSOLVENCY_WARNING_ROUNDS,
         # REC-3: Time-to-Impact
         "time_to_impact": {
             "ncd_downgrade_rounds": rounds_to_ncd_downgrade,
@@ -1289,6 +1740,16 @@ _SDG_MAPPING = {
     17: {"label": "Partnerships",            "metric": "reputation_score",     "weight": 0.4, "threshold": 70},
 }
 
+# ── Flag-bonus registry for SDG scoring (add new entries here, not in the function) ──
+# Format: {flag_key: {sdg_num: bonus_points, label: str}}
+# Keeping this as data prevents the post-aggregation mutation bug (CRITICAL-5 fix).
+_SDG_FLAG_BONUSES: dict[str, dict] = {
+    "community_fund":    {"sdg": 1,  "bonus": 10.0, "label": "SDG 1: Community Fund bonus +10"},
+    "ethical_ai_overhaul": {"sdg": 16, "bonus": 15.0, "label": "SDG 16: Ethical AI bonus +15"},
+    "circular_redesign": {"sdg": 12, "bonus": 15.0, "label": "SDG 12: Circular Redesign bonus +15"},
+}
+
+
 def calc_sdg_impact(bus: list[dict], flags: dict) -> dict:
     """
     FEATURE 27 — SDG Impact Report:
@@ -1298,75 +1759,107 @@ def calc_sdg_impact(bus: list[dict], flags: dict) -> dict:
     Scoring: For each SDG, the avg BU metric is compared against
     a threshold. Meeting/exceeding = 100 pts × weight.
     Inverted metrics (lower = better) are scored inversely.
+
+    FIX CRITICAL-5: Flag-based bonuses are now applied to each SDG's
+    weighted_score BEFORE the aggregate is computed.  Previously the
+    bonuses mutated scores after aggregation, causing sdg_index to be
+    understated by up to 40 points relative to the individual scores.
+
+    Operation order (all three phases complete before any reads):
+      Phase 1 — Compute base weighted_score for every SDG from BU metrics.
+      Phase 2 — Apply _SDG_FLAG_BONUSES to the relevant dimensions.
+      Phase 3 — Aggregate over the post-bonus weighted_scores → sdg_index.
     """
     n = max(len(bus), 1)
-    sdg_scores = {}
+
+    # ── Phase 1: Base scores from BU metrics ─────────────────────
+    # Raw weighted scores keyed by SDG number; no bonuses yet.
+    base_weighted: dict[int, float] = {}
+    sdg_meta: dict[int, dict] = {}  # non-score metadata carried forward
 
     for sdg_num, cfg in _SDG_MAPPING.items():
-        metric_key = cfg["metric"]
-        threshold = cfg["threshold"]
-        invert = cfg.get("invert", False)
-        weight = cfg["weight"]
+        metric_key: str = cfg["metric"]
+        threshold: float = cfg["threshold"]
+        invert: bool = cfg.get("invert", False)
+        weight: float = cfg["weight"]
 
-        avg_val = sum(bu.get(metric_key, 0) for bu in bus) / n
+        avg_val: float = sum(bu.get(metric_key, 0) for bu in bus) / n
 
         if invert:
             # Lower is better: score = 100 if avg ≤ threshold, scaled down above
             if threshold == 0:
-                raw_score = 100.0 if avg_val == 0 else max(0, 100 - avg_val)
+                raw_score: float = 100.0 if avg_val == 0 else max(0.0, 100.0 - avg_val)
             else:
-                raw_score = max(0, min(100, (1 - avg_val / (threshold * 2)) * 100))
+                raw_score = max(0.0, min(100.0, (1.0 - avg_val / (threshold * 2)) * 100.0))
         else:
             # Higher is better: score = 100 if avg ≥ threshold, scaled below
             if threshold == 0:
                 raw_score = 100.0
             else:
-                raw_score = max(0, min(100, (avg_val / threshold) * 100))
+                raw_score = max(0.0, min(100.0, (avg_val / threshold) * 100.0))
 
-        weighted = round(raw_score * weight, 1)
-        sdg_scores[sdg_num] = {
-            "sdg": sdg_num,
-            "label": cfg["label"],
+        base_weighted[sdg_num] = round(raw_score * weight, 1)
+        sdg_meta[sdg_num] = {
             "raw_score": round(raw_score, 1),
             "weight": weight,
-            "weighted_score": weighted,
             "metric_key": metric_key,
             "avg_value": round(avg_val, 2),
             "threshold": threshold,
-            "status": "on_track" if weighted >= 60 else ("at_risk" if weighted >= 30 else "off_track"),
+            "label": cfg["label"],
         }
 
-    # Aggregate SDG Index (0-100)
-    total_weight = sum(cfg["weight"] for cfg in _SDG_MAPPING.values())
-    aggregate = round(
-        sum(s["weighted_score"] for s in sdg_scores.values()) / max(total_weight, 1), 1
+    # ── Phase 2: Apply flag bonuses BEFORE aggregation ────────────
+    # Each bonus modifies a local copy of the score; no external state touched.
+    bonus_sdgs: list[str] = []
+    flag_bonus_applied: dict[int, float] = {}  # {sdg_num: total_bonus} for transparency
+
+    for flag_key, bonus_cfg in _SDG_FLAG_BONUSES.items():
+        if flags.get(flag_key):
+            sdg_num: int = bonus_cfg["sdg"]
+            bonus_pts: float = bonus_cfg["bonus"]
+            pre_bonus = base_weighted[sdg_num]
+            base_weighted[sdg_num] = round(min(100.0, pre_bonus + bonus_pts), 1)
+            flag_bonus_applied[sdg_num] = flag_bonus_applied.get(sdg_num, 0.0) + bonus_pts
+            bonus_sdgs.append(bonus_cfg["label"])
+
+    # ── Phase 3: Aggregate over post-bonus scores ─────────────────
+    # sdg_index is now mathematically consistent with every weighted_score value.
+    total_weight: float = sum(cfg["weight"] for cfg in _SDG_MAPPING.values())
+    aggregate: float = round(
+        sum(base_weighted.values()) / max(total_weight, 1.0), 1
     )
 
-    # Flag-based bonuses
-    bonus_sdgs = []
-    if flags.get("community_fund"):
-        sdg_scores[1]["weighted_score"] = min(100, sdg_scores[1]["weighted_score"] + 10)
-        bonus_sdgs.append("SDG 1: Community Fund bonus +10")
-    if flags.get("ethical_ai_overhaul"):
-        sdg_scores[16]["weighted_score"] = min(100, sdg_scores[16]["weighted_score"] + 15)
-        bonus_sdgs.append("SDG 16: Ethical AI bonus +15")
-    if flags.get("circular_redesign"):
-        sdg_scores[12]["weighted_score"] = min(100, sdg_scores[12]["weighted_score"] + 15)
-        bonus_sdgs.append("SDG 12: Circular Redesign bonus +15")
+    # ── Build final per-SDG output dict ──────────────────────────
+    sdg_scores: dict[int, dict] = {}
+    for sdg_num, cfg in _SDG_MAPPING.items():
+        w_score = base_weighted[sdg_num]
+        sdg_scores[sdg_num] = {
+            "sdg": sdg_num,
+            "label": sdg_meta[sdg_num]["label"],
+            "raw_score": sdg_meta[sdg_num]["raw_score"],
+            "weight": sdg_meta[sdg_num]["weight"],
+            "weighted_score": w_score,
+            "flag_bonus_applied": flag_bonus_applied.get(sdg_num, 0.0),
+            "metric_key": sdg_meta[sdg_num]["metric_key"],
+            "avg_value": sdg_meta[sdg_num]["avg_value"],
+            "threshold": sdg_meta[sdg_num]["threshold"],
+            # status derived from the post-bonus score (consistent with sdg_index)
+            "status": "on_track" if w_score >= 60.0 else ("at_risk" if w_score >= 30.0 else "off_track"),
+        }
 
     return {
         "sdg_scores": sdg_scores,
         "sdg_index": aggregate,
         "sdg_grade": (
-            "A+" if aggregate >= 80 else
-            "A" if aggregate >= 70 else
-            "B" if aggregate >= 55 else
-            "C" if aggregate >= 40 else
-            "D" if aggregate >= 25 else "F"
+            "A+" if aggregate >= SDG_GRADE_A_PLUS else
+            "A"  if aggregate >= SDG_GRADE_A else
+            "B"  if aggregate >= SDG_GRADE_B else
+            "C"  if aggregate >= SDG_GRADE_C else
+            "D"  if aggregate >= SDG_GRADE_D else "F"
         ),
         "bonus_sdgs": bonus_sdgs,
-        "total_sdgs_on_track": sum(1 for s in sdg_scores.values() if s["status"] == "on_track"),
-        "total_sdgs_at_risk": sum(1 for s in sdg_scores.values() if s["status"] == "at_risk"),
+        "total_sdgs_on_track":  sum(1 for s in sdg_scores.values() if s["status"] == "on_track"),
+        "total_sdgs_at_risk":   sum(1 for s in sdg_scores.values() if s["status"] == "at_risk"),
         "total_sdgs_off_track": sum(1 for s in sdg_scores.values() if s["status"] == "off_track"),
     }
 
@@ -1376,8 +1869,8 @@ def calc_caroic(
     ebitda: float,
     invested_capital: float,
     carbon_tonnage: float,
-    tax_rate: float = 0.25,
-    shadow_carbon_price: float = 250.0,
+    tax_rate: float = FINANCIAL_CORPORATE_TAX_RATE,
+    shadow_carbon_price: float = FINANCIAL_SHADOW_CARBON_PRICE,
 ) -> dict:
     """
     CAROIC = EBITDA × (1 − Tax Rate) / (Invested Capital + (Carbon Tonnage × Shadow Carbon Price))
@@ -1439,16 +1932,16 @@ def calc_caroic(
     caroic_pct = round(caroic * 100, 2)
 
     # Grade based on CAROIC percentage (pedagogical thresholds)
-    if caroic_pct >= 25:
+    if caroic_pct >= CAROIC_GRADE_A_PLUS:
         grade = "A+"
         interpretation = "Exceptional capital-carbon efficiency. Minimal carbon drag on returns."
-    elif caroic_pct >= 15:
+    elif caroic_pct >= CAROIC_GRADE_A:
         grade = "A"
         interpretation = "Strong carbon-adjusted returns. Carbon transition well-managed."
-    elif caroic_pct >= 10:
+    elif caroic_pct >= CAROIC_GRADE_B:
         grade = "B"
         interpretation = "Solid returns despite carbon drag. Room for decarbonisation gains."
-    elif caroic_pct >= 5:
+    elif caroic_pct >= CAROIC_GRADE_C:
         grade = "C"
         interpretation = "Moderate returns eroded by carbon intensity. Transition urgency rising."
     elif caroic_pct >= 0:
@@ -1474,7 +1967,1864 @@ def calc_caroic(
 
 
 # ═════════════════════════════════════════════════════════════════
-#  TICK ORCHESTRATOR
+#  PENDING PROJECT DELTA  (pure helper — no I/O, no mutation)
+# ═════════════════════════════════════════════════════════════════
+
+@dataclass(frozen=True)
+class PendingProjectDelta:
+    """
+    Pure-function return type for _process_pending_projects().
+
+    All effects that were previously applied in-place inside the
+    pending-project loop are now encoded as typed fields here.
+    The orchestrator reads these fields and applies them explicitly,
+    preserving a clear, testable boundary between "what fired" and
+    "how state changes".
+
+    Fields
+    ------
+    remaining_projects   : Projects still in-flight (rounds_remaining > 0).
+                           Written verbatim to new_global["pending_capex_projects"].
+    completed_projects   : Snapshot of every project that matured this tick
+                           (for event logging only — not persisted).
+    synergy_boost_total  : Sum of all synergy_boost amounts that fired.
+                           Added to new_synergy AFTER VRIO decay — NOT written
+                           to current_global (fixes CRITICAL-3).
+    ncd_drops            : List of {bu_target, amount} dicts for ncd_drop projects.
+                           Caller writes new_ncd = max(0, old_ncd + amount) per BU.
+    resilience_factor    : Value of the first resilience_boost that fired (0.0 if none).
+    truth_premium        : True if any truth_premium project matured.
+    revenue_generation_total : Sum of all revenue_generation amounts.
+                           Added to new_treasury with a _wf() entry (fixes CRITICAL-4).
+    revenue_generation_desc  : Description string for the waterfall label.
+    synergy_lag_completions  : {bu_id: opex_reduction} for synergy_lag maturations.
+    education_lag_total      : Sum of education_lag amounts that fired (SDG track).
+    """
+    remaining_projects:       list[dict]
+    completed_projects:       list[dict]
+    synergy_boost_total:      float
+    ncd_drops:                list[dict]          # [{bu_target, amount}, ...]
+    resilience_factor:        float
+    truth_premium:            bool
+    revenue_generation_total: float
+    revenue_generation_desc:  str
+    synergy_lag_completions:  dict[str, float]    # {bu_id: opex_reduction}
+    education_lag_total:      float
+
+
+def _process_pending_projects(
+    pending_projects: list[dict],
+    new_this_tick:    list[dict] | None = None,
+) -> PendingProjectDelta:
+    """
+    PURE FUNCTION — Advance the pending-project queue by one tick.
+
+    Parameters
+    ----------
+    pending_projects : list[dict]
+        Projects currently tracked in global_state["pending_capex_projects"].
+        Each dict must contain at minimum: {type, rounds_remaining}.
+        This list is NEVER mutated — every project dict is shallow-copied
+        before decrementing rounds_remaining.
+    new_this_tick : list[dict] | None
+        New projects generated during this tick (DSO deferrals, synergy lag
+        deferrals) that should be appended to the surviving queue before
+        returning. Defaults to an empty list.
+
+    Returns
+    -------
+    PendingProjectDelta
+        A frozen dataclass describing all effects and the updated queue.
+        The orchestrator is responsible for writing these effects to state.
+
+    Project type catalogue
+    ----------------------
+    "ncd_drop"          — Reduce natural_capital_debt on target BU(s).
+    "resilience_boost"  — Activate climate resilience factor for this round.
+    "synergy_boost"     — Add to the group synergy multiplier.
+    "truth_premium"     — Unlock Truth Premium M_R flag.
+    "synergy_lag"       — Complete a deferred OPEX reduction on a target BU.
+    "revenue_generation"— Release deferred revenue back into treasury.
+    "education_lag"     — Mature an SDG education investment.
+    """
+    if new_this_tick is None:
+        new_this_tick = []
+
+    remaining:          list[dict]       = []
+    completed:          list[dict]       = []
+    ncd_drops:          list[dict]       = []
+    synergy_lag_comps:  dict[str, float] = {}
+    synergy_boost_total: float           = 0.0
+    resilience_factor:  float            = 0.0
+    truth_premium:      bool             = False
+    rev_gen_total:      float            = 0.0
+    rev_gen_desc:       str              = ""
+    edu_lag_total:      float            = 0.0
+
+    for proj in pending_projects:
+        # Shallow-copy so the caller's original dict is untouched
+        p = {**proj, "rounds_remaining": proj["rounds_remaining"] - 1}
+
+        if p["rounds_remaining"] <= 0:
+            # Project matured — decode its effect into the delta
+            completed.append(p)
+            t = p.get("type", "")
+
+            if t == "ncd_drop":
+                ncd_drops.append({
+                    "bu_target": p.get("bu_target", "all"),
+                    "amount":    p.get("amount", 0.0),
+                })
+
+            elif t == "resilience_boost":
+                # Last writer wins if multiple resilience projects fire same tick
+                resilience_factor = p.get("amount", 0.0)
+
+            elif t == "synergy_boost":
+                # Accumulate; orchestrator adds to new_synergy AFTER VRIO decay
+                synergy_boost_total += p.get("amount", 0.0)
+
+            elif t == "truth_premium":
+                truth_premium = True
+
+            elif t == "synergy_lag":
+                bu_id     = p.get("bu_target", "")
+                reduction = p.get("amount", 0.0)
+                # Multiple lag projects for the same BU accumulate
+                synergy_lag_comps[bu_id] = synergy_lag_comps.get(bu_id, 0.0) + reduction
+
+            elif t == "revenue_generation":
+                amount = p.get("amount", 0.0)
+                rev_gen_total += amount
+                # Use the most recent description for the waterfall label
+                rev_gen_desc = p.get("description", "Deferred Revenue Collection")
+
+            elif t == "education_lag":
+                edu_lag_total += p.get("amount", 0.0)
+
+            # Unknown types are silently completed (logged via completed_projects)
+
+        else:
+            remaining.append(p)
+
+    # New projects generated this tick join the surviving queue
+    remaining.extend(new_this_tick)
+
+    return PendingProjectDelta(
+        remaining_projects       = remaining,
+        completed_projects       = completed,
+        synergy_boost_total      = round(synergy_boost_total, 4),
+        ncd_drops                = ncd_drops,
+        resilience_factor        = round(resilience_factor, 4),
+        truth_premium            = truth_premium,
+        revenue_generation_total = round(rev_gen_total, 2),
+        revenue_generation_desc  = rev_gen_desc,
+        synergy_lag_completions  = {k: round(v, 2) for k, v in synergy_lag_comps.items()},
+        education_lag_total      = round(edu_lag_total, 4),
+    )
+
+
+# ═════════════════════════════════════════════════════════════════
+#  TICK ORCHESTRATOR — TickContext + 4-Stage Pipeline
+# ═════════════════════════════════════════════════════════════════
+#
+#  Architecture:
+#    1. TickContext  — dataclass carrying all cross-stage mutable state.
+#    2. _run_stochastic_layer  — Black Swans, FX, DSO, inflation noise.
+#    3. _run_financial_layer   — CSF, loans, projects, contagion, burnout.
+#    4. _run_operational_layer — NCD, SBTi, tipping points, SDG, carbon fee.
+#    5. _run_reporting_layer   — greenwashing, distress, waterfall, sentiment.
+#    6. _assemble_global_state — builds the final immutable output dict.
+#    7. process_tick           — thin orchestrator (~50 lines).
+#
+#  All computation is identical to the previous monolithic implementation.
+#  Only the structural grouping has changed.
+# ═════════════════════════════════════════════════════════════════
+
+
+# ── TickContext ──────────────────────────────────────────────────
+
+@dataclass
+class TickContext:
+    """
+    Mutable working state shared across all pipeline stages within a single
+    call to process_tick().  Each stage receives this context, updates the
+    relevant fields in-place, and passes it to the next stage.
+
+    Fields are intentionally NOT frozen so pipeline stages can mutate them
+    directly — immutability is enforced at the *boundary* (inputs are
+    deep-copied before the context is created; output is assembled from
+    context fields into a fresh dict).
+    """
+    # ── Read-only inputs (copied before context creation) ──────
+    current_global:            dict
+    decision_map:              dict[str, dict]
+    decisions:                 list[dict]
+    decision_paradigm:         str
+    dividends_paid:            float
+    crisis_severity:           float
+    imitation_decay_rate:      float
+    emergency_credit_used:     bool
+    pre_tick_synergy:          float
+    next_round:                int
+
+    # ── Working BU list (mutated freely within pipeline) ───────
+    new_bus:                   list[dict]
+
+    # ── Accumulator dicts ──────────────────────────────────────
+    events:                    dict[str, Any]
+    waterfall:                 list[dict]
+
+    # ── Treasury waterfall running total ───────────────────────
+    _waterfall_running_total:  float
+    _waterfall_initial:        float          # snapshot for severity math
+
+    # ── Evolving scalar state ──────────────────────────────────
+    new_treasury:              float
+    new_synergy:               float
+    new_green_fund_balance:    float
+    new_inflation_index:       float
+    corporate_cost_of_capital: float
+    group_reputation:          float
+
+    # ── Project queues ─────────────────────────────────────────
+    new_pending_projects:      list[dict]
+    new_synergy_lag_projects:  list[dict]
+
+    # ── Derived metrics (populated in _run_financial_layer) ────
+    historical_ebitda:         float = 0.0
+    tco2e_emissions:           float = 0.0
+    vrio_capabilities:         dict  = field(default_factory=dict)
+
+    # ── Internal: SDG state ────────────────────────────────────
+    sdg_political_capital:     float = 50.0
+    sdg_community_trust:       float = 50.0
+
+    def record_waterfall(
+        self,
+        label: str,
+        amount: float,
+        because: str = "",
+        counterfactual: str = "",
+    ) -> None:
+        """
+        Record a treasury waterfall entry.
+
+        Replaces the old nonlocal _wf() closure.  running_total is stored
+        on the context so any stage can add entries in the correct order.
+        Entries below $0.01 are silently ignored (same rule as before).
+        """
+        if abs(amount) < 0.01:
+            return
+        self._waterfall_running_total = round(self._waterfall_running_total + amount, 2)
+        entry: dict[str, Any] = {
+            "label":         label,
+            "amount":        round(amount, 2),
+            "running_total": self._waterfall_running_total,
+            "severity":      classify_severity(
+                abs(amount), max(abs(self._waterfall_initial), 1)
+            ),
+        }
+        if because:
+            entry["because"] = because
+        if counterfactual:
+            entry["counterfactual"] = counterfactual
+        self.waterfall.append(entry)
+
+
+# ── Stage 1: Stochastic Layer ────────────────────────────────────
+# Black Swans → Revenue Cannibalization → Supply Chain Contagion →
+# Macro Rate → FX Risk → DSO / Working Capital → Cash Conversion →
+# Macroeconomic Inflation + Macro Noise
+
+def _run_stochastic_layer(ctx: TickContext) -> None:
+    """
+    Stage 1 — stochastic market forces that adjust BU revenue/OPEX
+    before any financial or operational calculations run.
+    """
+    current_global = ctx.current_global
+
+    # ── PHASE-1: Black Swan Evaluation — stochastic disruptions ──
+    try:
+        from black_swan_registry import evaluate_black_swans, apply_black_swan_impacts
+        _session_tier = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
+        _active_swans = current_global.get("active_event_flags", {}).get("active_black_swans", [])
+        _forced_swan  = current_global.get("active_event_flags", {}).get("forced_black_swan", None)
+        _region_id    = (
+            current_global.get("region_id", "")
+            or current_global.get("active_event_flags", {}).get("region_id", "")
+            or ""
+        )
+        _swan_result = evaluate_black_swans(
+            current_global, ctx.new_bus, current_global["round_number"],
+            difficulty_tier=_session_tier,
+            active_black_swans=_active_swans,
+            forced_event_id=_forced_swan,
+            region_id=_region_id or None,
+        )
+        if _swan_result["total_new_events"] > 0:
+            _swan_diag = apply_black_swan_impacts(current_global, ctx.new_bus, _swan_result["events_triggered"])
+            ctx.events["black_swan_events"]      = _swan_result["events_triggered"]
+            ctx.events["black_swan_narratives"]  = _swan_result["narratives"]
+            ctx.events["black_swan_diagnostics"] = _swan_diag
+            ctx.events.setdefault("custom_black_swans", []).extend([
+                {"title": e["title"], "narrative": e["narrative"], "icon": e["icon"], "severity": "critical"}
+                for e in _swan_result["events_triggered"]
+            ])
+        _all_active = _swan_result.get("events_continuing", []) + _swan_result.get("events_triggered", [])
+        ctx.events["active_black_swans"] = [e for e in _all_active if e.get("rounds_remaining", 0) > 0]
+        if _forced_swan:
+            ctx.events["forced_black_swan"] = None
+    except ImportError:
+        pass  # Graceful degradation if black_swan_registry not available
+
+    # ── FEATURE 6: Revenue Cannibalization — before inflation ────
+    cannibalization = calc_revenue_cannibalization(ctx.new_bus)
+    for bu_id, penalty in cannibalization.items():
+        for bu in ctx.new_bus:
+            if bu["bu_id"] == bu_id:
+                bu["revenue_base"] = round(bu["revenue_base"] - penalty, 2)
+                ctx.events[f"revenue_cannibalized_{bu_id}"] = penalty
+                ctx.events[f"revenue_cannibalized_{bu_id}_because"] = (
+                    f"{bu_id} revenue reduced by ${penalty:,.0f} due to market overlap "
+                    f"with sibling BUs. When one BU dominates revenue share, "
+                    f"it cannibalizes demand from adjacent divisions."
+                )
+                break
+
+    # ── FEATURE 8: Supply Chain Contagion — OPEX surcharges ─────
+    sc_surcharges = calc_supply_chain_contagion(ctx.new_bus)
+    for bu_id, surcharge in sc_surcharges.items():
+        for bu in ctx.new_bus:
+            if bu["bu_id"] == bu_id:
+                bu["opex_base"] = round(bu["opex_base"] + surcharge, 2)
+                ctx.events[f"supply_chain_contagion_{bu_id}"] = surcharge
+                break
+
+    # ── FEATURE 21: Macro Interest Rate Environment ─────────────
+    macro_rate = calc_macro_rate_environment(current_global["round_number"])
+    ctx.events["macro_rate_environment"] = macro_rate
+
+    # ── FEATURE 22: FX Risk — stochastic currency impact ────────
+    fx_result = calc_fx_impact(
+        ctx.new_bus, current_global["round_number"],
+        seed=event_seed(current_global.get("active_event_flags", {}),
+                        current_global["round_number"], "fx_risk"),
+    )
+    for bu_id, fx_delta in fx_result["adjustments"].items():
+        for bu in ctx.new_bus:
+            if bu["bu_id"] == bu_id:
+                bu["revenue_base"] = round(bu["revenue_base"] + fx_delta, 2)
+                break
+    ctx.events["fx_risk"] = {
+        "fx_index":     fx_result["fx_index"],
+        "fx_direction": fx_result["fx_direction"],
+        "fx_message":   fx_result["fx_message"],
+        "bu_details":   fx_result["bu_details"],
+    }
+
+    # ── FEATURE 23: DSO / Working Capital Timing ────────────────
+    dso_transparency: dict[str, dict] = {}
+    total_deferred = 0.0
+    for bu in ctx.new_bus:
+        gov_risk     = bu.get("governance_risk_score", 0)
+        dso          = calc_dso_lag(bu["revenue_base"], gov_risk, current_global["round_number"])
+        deferred_amt = dso["deferred_amount"]
+        if deferred_amt > 0:
+            bu["revenue_base"] = round(bu["revenue_base"] - deferred_amt, 2)
+            total_deferred    += deferred_amt
+            ctx.new_synergy_lag_projects.append({
+                "type":             "revenue_generation",
+                "amount":           deferred_amt,
+                "rounds_remaining": 1,
+                "description":      f"Working capital collection for {bu['bu_id']} (DSO: {dso['dso_days_approx']:.0f} days)",
+            })
+        dso_transparency[bu["bu_id"]] = dso
+    ctx.events["dso_working_capital"] = {
+        "total_deferred": round(total_deferred, 2),
+        "bu_details":     dso_transparency,
+        "note":           "Revenue deferred to next round due to cash collection cycle",
+    }
+
+    # ── FEATURE 11: Working Capital / Cash Conversion ───────────
+    for bu in ctx.new_bus:
+        gov_risk       = bu.get("governance_risk_score", 0)
+        old_rev        = bu["revenue_base"]
+        bu["revenue_base"] = calc_cash_conversion(old_rev, gov_risk)
+        if bu["revenue_base"] < old_rev:
+            ctx.events[f"cash_conversion_drag_{bu['bu_id']}"] = round(old_rev - bu["revenue_base"], 2)
+
+    # ── FEATURE 5: Macroeconomic Inflation + FEATURE 24 Noise ───
+    inflation_index = current_global.get("inflation_index", 0.05)
+    macro_noise     = calc_macro_noise(
+        current_global["round_number"],
+        seed=event_seed(current_global.get("active_event_flags", {}),
+                        current_global["round_number"], "macro_noise"),
+    )
+    inflation_index = round(inflation_index + macro_noise["inflation_noise"], 4)
+    ctx.events["macro_noise"] = macro_noise
+    # Apply micro-strike: random BU gets a 5% OPEX spike
+    if macro_noise["micro_strike_triggered"] and ctx.new_bus:
+        strike_idx  = macro_noise["micro_strike_bu_idx"] % len(ctx.new_bus)
+        target_bu   = ctx.new_bus[strike_idx]
+        micro_penalty = round(target_bu["opex_base"] * MICRO_STRIKE_OPEX_RATE, 2)
+        target_bu["opex_base"] = round(target_bu["opex_base"] + micro_penalty, 2)
+        ctx.events["micro_strike_applied"] = {
+            "bu_id":        target_bu["bu_id"],
+            "opex_penalty": micro_penalty,
+            "message":      f"⚡ Localized disruption at {target_bu['bu_id']}: +${micro_penalty:,.0f} OPEX",
+        }
+    for bu in ctx.new_bus:
+        bu["opex_base"] = calc_inflation(bu["opex_base"], inflation_index)
+    ctx.events["inflation_index_applied"] = inflation_index
+    # Store inflation_index so _run_operational_layer can produce the drift event
+    ctx.new_inflation_index = inflation_index
+
+
+# ── Stage 2: Financial Layer ─────────────────────────────────────
+# Synergy → CSF / Dividends → Green Fund → Loans → Pending Projects →
+# Natural Decay → Technical Debt → Lock-In → Contagion → Burnout →
+# NCD compounding → VRIO Decay → Strike probabilities → EBITDA / tCO₂e
+
+def _run_financial_layer(ctx: TickContext) -> None:
+    """
+    Stage 2 — deterministic financial calculations: cash flows, project
+    completions, contagion, burnout, NCD interest, VRIO decay.
+    """
+    current_global = ctx.current_global
+
+    # ── 3. Synergy Engine & Healthcare Revenue Modifiers ────────
+    for bu in ctx.new_bus:
+        # Healthcare: Dynamic Patient Outcomes Score Revenue Modifier
+        if bu["bu_id"] in ("hospitals", "clinics"):
+            outcomes     = bu.get("patient_outcomes_score", PATIENT_OUTCOMES_BASELINE)
+            rev_modifier = 1.0 + ((outcomes - PATIENT_OUTCOMES_BASELINE) / PATIENT_OUTCOMES_DIVISOR)
+            rev_modifier = max(PATIENT_OUTCOMES_MOD_MIN, min(PATIENT_OUTCOMES_MOD_MAX, rev_modifier))
+            bu["revenue_base"] = round(bu["revenue_base"] * rev_modifier, 2)
+            ctx.events[f"patient_outcomes_billing_multiplier_{bu['bu_id']}"] = round(rev_modifier, 4)
+
+        dec       = ctx.decision_map.get(bu["bu_id"], {})
+        inv_ratio = dec.get("investment_ratio", 0.0)
+
+        # ── FEATURE 1: Implementation Lag ───────────────────────
+        if inv_ratio > IMPLEMENTATION_LAG_INV_THRESHOLD:
+            deferred_opex_reduction = calc_synergy_opex(
+                bu["opex_base"], inv_ratio, current_global["synergy_multiplier"]
+            )
+            reduction_amount = bu["opex_base"] - deferred_opex_reduction
+            if reduction_amount > 0:
+                ctx.new_synergy_lag_projects.append({
+                    "type":             "synergy_lag",
+                    "bu_target":        bu["bu_id"],
+                    "amount":           reduction_amount,
+                    "rounds_remaining": 1,
+                    "description":      f"Synergy implementation completing for {bu['bu_id']}",
+                })
+                ctx.events[f"implementation_lag_deferred_{bu['bu_id']}"] = round(reduction_amount, 2)
+        else:
+            bu["opex_base"] = calc_synergy_opex(
+                bu["opex_base"], inv_ratio, current_global["synergy_multiplier"],
+            )
+
+    # ── 1. Corporate Strategic Fund & Short-Term Loan Logic ─────
+    # FIX VULN-001: Clamp dividends to treasury
+    base_treasury     = current_global["corporate_treasury"]
+    clamped_dividends = min(ctx.dividends_paid, max(0.0, base_treasury))
+
+    # ── FEATURE 12: Dividend Ratchet ────────────────────────────
+    last_dividends = current_global.get("active_event_flags", {}).get("last_dividends_paid", 0.0)
+    ratchet_hit, ratchet_penalty = calc_dividend_ratchet(clamped_dividends, last_dividends)
+    if ratchet_hit:
+        for bu in ctx.new_bus:
+            bu["reputation_score"] = max(0.0, round(bu["reputation_score"] - ratchet_penalty, 2))
+        ctx.events["dividend_ratchet_triggered"] = True
+        ctx.events["dividend_ratchet_penalty"]   = ratchet_penalty
+    ctx.events["last_dividends_paid"] = clamped_dividends
+
+    csf = calc_csf(ctx.new_bus, clamped_dividends)
+    if clamped_dividends < ctx.dividends_paid:
+        ctx.events["dividends_clamped"]    = True
+        ctx.events["dividends_requested"]  = ctx.dividends_paid
+        ctx.events["dividends_paid"]       = clamped_dividends
+
+    # Free capital allowance (FINANCIAL_FREE_CSF_PCT of starting treasury)
+    free_csf_limit = base_treasury * FINANCIAL_FREE_CSF_PCT
+
+    # Advanced Climate Engine: Green Fund CapEx offset
+    green_fund_balance     = current_global.get("green_transition_fund", 0.0)
+    total_capex_requested  = sum(dec.get("capex_allocated", 0) for dec in ctx.decisions)
+    green_fund_used        = 0.0
+    if ctx.decision_paradigm == "advanced_climate" and total_capex_requested > 0 and green_fund_balance > 0:
+        green_fund_used        = min(total_capex_requested, green_fund_balance)
+        total_capex_requested -= green_fund_used
+        ctx.events["green_fund_used"] = green_fund_used
+    ctx.new_green_fund_balance = round(green_fund_balance - green_fund_used, 2)
+
+    # ── FEATURE 3: Execution Overrun Risk ───────────────────────
+    try:
+        from admin_shared import _god_mode_settings
+        _overrun_prob = _god_mode_settings.get("overrun_probability", 0.25)
+        _overrun_sev  = _god_mode_settings.get("overrun_severity", 0.15)
+    except ImportError:
+        _overrun_prob, _overrun_sev = 0.25, 0.15
+    overrun_triggered, overrun_amount = calc_overrun_risk(
+        total_capex_requested,
+        overrun_probability=_overrun_prob,
+        overrun_severity=_overrun_sev,
+        rng=event_rng(current_global.get("active_event_flags", {}),
+                      current_global["round_number"], "execution_overrun"),
+    )
+    if overrun_triggered:
+        total_capex_requested = round(total_capex_requested + overrun_amount, 2)
+        ctx.events["capex_overrun_triggered"] = True
+        ctx.events["capex_overrun_amount"]    = overrun_amount
+        ctx.events["capex_overrun_message"]   = (
+            f"Execution overrun! Project scope creep added "
+            f"${overrun_amount:,.0f} to your capital expenditure."
+        )
+
+    # FIX VULN-006: Cap total CAPEX at FINANCIAL_CAPEX_CAP_MULTIPLE × treasury
+    capex_cap = base_treasury * FINANCIAL_CAPEX_CAP_MULTIPLE
+    if total_capex_requested > capex_cap:
+        total_capex_requested      = capex_cap
+        ctx.events["capex_capped"]     = True
+        ctx.events["capex_cap_limit"]  = capex_cap
+
+    # Loan / Emergency Credit
+    loan_interest_payment = 0.0
+    loan_principal        = max(0.0, total_capex_requested - free_csf_limit)
+
+    emergency_credit_interest = 0.0
+    _EMERGENCY_CREDIT_AMOUNT  = FINANCIAL_EMERGENCY_CREDIT_AMOUNT
+    if ctx.emergency_credit_used:
+        base_loan_rate            = current_global.get("active_event_flags", {}).get("loan_interest_rate", FINANCIAL_DEFAULT_LOAN_RATE)
+        emergency_rate            = base_loan_rate + FINANCIAL_EMERGENCY_RATE_SPREAD
+        emergency_credit_interest = round(_EMERGENCY_CREDIT_AMOUNT * emergency_rate, 2)
+        ctx.events["emergency_credit_used"]     = True
+        ctx.events["emergency_credit_amount"]   = _EMERGENCY_CREDIT_AMOUNT
+        ctx.events["emergency_credit_rate"]     = emergency_rate
+        ctx.events["emergency_credit_interest"] = emergency_credit_interest
+
+    if loan_principal > 0:
+        loan_interest_rate    = current_global.get("active_event_flags", {}).get("loan_interest_rate", FINANCIAL_DEFAULT_LOAN_RATE)
+        loan_interest_payment = round(loan_principal * loan_interest_rate, 2)
+        ctx.events["loan_principal"]        = round(loan_principal, 2)
+        ctx.events["loan_interest_rate"]    = loan_interest_rate
+        ctx.events["loan_interest_payment"] = loan_interest_payment
+
+    total_interest   = loan_interest_payment + emergency_credit_interest
+    ctx.new_treasury = round(base_treasury + csf - total_interest, 2)
+
+    # ── REC-1: Waterfall entries for core treasury movement ─────
+    ctx.record_waterfall(
+        "Gross Profit (CSF)", csf,
+        because="Revenue minus OPEX across all BUs, net of dividends paid.",
+        counterfactual="Higher synergy investment would have reduced OPEX and increased CSF.",
+    )
+    if loan_interest_payment > 0:
+        ctx.record_waterfall(
+            "Loan Interest", -loan_interest_payment,
+            because=f"You borrowed ${loan_principal:,.0f} at {loan_interest_rate*100:.0f}% to fund CapEx exceeding free CSF.",
+            counterfactual="If total CapEx stayed below CSF, no loan interest would be charged.",
+        )
+    if emergency_credit_interest > 0:
+        ctx.record_waterfall(
+            "Emergency Credit Interest", -emergency_credit_interest,
+            because=f"Emergency credit line of $1M activated at {ctx.events.get('emergency_credit_rate', 0)*100:.0f}% (prevailing rate + 2%).",
+            counterfactual="Without the emergency credit line, this interest charge would not apply.",
+        )
+
+    # ── FEATURE 13: Talent Allocation Pressure ───────────────────
+    talent_surcharges = calc_talent_allocation_pressure(ctx.new_bus, ctx.decisions)
+    for bu_id, surcharge in talent_surcharges.items():
+        for bu in ctx.new_bus:
+            if bu["bu_id"] == bu_id:
+                bu["opex_base"] = round(bu["opex_base"] + surcharge, 2)
+                ctx.events[f"talent_neglect_surcharge_{bu_id}"] = surcharge
+                break
+
+    # ── 8. Pending Projects ─────────────────────────────────────
+    # FIX CRITICAL-3 + CRITICAL-4
+    _proj_delta = _process_pending_projects(
+        pending_projects=current_global.get("pending_capex_projects", []),
+        new_this_tick=ctx.new_synergy_lag_projects,
+    )
+    ctx.new_pending_projects = _proj_delta.remaining_projects
+
+    if _proj_delta.completed_projects:
+        ctx.events["capex_project_completed"] = _proj_delta.completed_projects
+
+    for drop in _proj_delta.ncd_drops:
+        bu_target = drop["bu_target"]
+        amount    = drop["amount"]
+        for bu in ctx.new_bus:
+            if bu_target == "all" or bu["bu_id"] == bu_target:
+                bu["natural_capital_debt"] = max(
+                    0.0, round(bu.get("natural_capital_debt", 0.0) + amount, 2)
+                )
+
+    if _proj_delta.resilience_factor:
+        ctx.events["active_resilience_factor"] = _proj_delta.resilience_factor
+
+    if _proj_delta.synergy_boost_total:
+        ctx.events["synergy_boost_pending"] = _proj_delta.synergy_boost_total
+
+    if _proj_delta.truth_premium:
+        ctx.events["truth_premium_active"] = True
+
+    for lag_bu_id, opex_reduction in _proj_delta.synergy_lag_completions.items():
+        for bu in ctx.new_bus:
+            if bu["bu_id"] == lag_bu_id:
+                bu["opex_base"] = max(0.0, round(bu["opex_base"] - opex_reduction, 2))
+                ctx.events[f"synergy_lag_completed_{lag_bu_id}"] = opex_reduction
+                break
+
+    if _proj_delta.revenue_generation_total > 0:
+        ctx.new_treasury = round(ctx.new_treasury + _proj_delta.revenue_generation_total, 2)
+        ctx.events["revenue_generation_completed"] = _proj_delta.revenue_generation_total
+        ctx.events["revenue_generation_desc"]      = _proj_delta.revenue_generation_desc
+        ctx.record_waterfall(
+            "Deferred Revenue Collection",
+            _proj_delta.revenue_generation_total,
+            because=(
+                f"{_proj_delta.revenue_generation_desc} — working capital from "
+                f"prior-round DSO cycle has been collected."
+            ),
+            counterfactual="Lower governance risk reduces DSO deferral and accelerates cash collection.",
+        )
+
+    if _proj_delta.education_lag_total:
+        ctx.events["education_lag_matured"] = _proj_delta.education_lag_total
+
+    # ── Natural Decay + Technical Debt + Technology Lock-In ──────
+    for bu in ctx.new_bus:
+        dec     = ctx.decision_map.get(bu["bu_id"], {})
+        invested = dec.get("capex_allocated", 0) > 0
+        bu["reputation_score"], bu["social_license_score"] = apply_natural_decay(
+            bu["reputation_score"], bu["social_license_score"], invested,
+        )
+
+        # ── FEATURE 4: Technical Debt ───────────────────────────
+        inv_ratio = dec.get("investment_ratio", 0.0)
+        risk      = bu.get("risk_factors", {})
+        streak    = risk.get("zero_investment_streak", 0)
+        streak    = streak + 1 if inv_ratio == 0.0 else 0
+        risk["zero_investment_streak"] = streak
+        bu["risk_factors"] = risk
+
+        new_opex, debt_hit = calc_technical_debt(bu["opex_base"], streak)
+        if debt_hit:
+            bu["opex_base"] = new_opex
+            ctx.events[f"technical_debt_penalty_{bu['bu_id']}"] = True
+            ctx.events[f"technical_debt_streak_{bu['bu_id']}"]  = streak
+
+    # ── FEATURE 15: Technology Lock-In ───────────────────────────
+    if ctx.decisions:
+        top_dec    = max(ctx.decisions, key=lambda d: d.get("capex_allocated", 0))
+        top_bu_id  = top_dec["bu_id"]
+        top_capex  = top_dec.get("capex_allocated", 0)
+        for bu in ctx.new_bus:
+            risk = bu.get("risk_factors", {})
+            if top_capex > 0 and bu["bu_id"] == top_bu_id:
+                risk["top_investment_streak"] = risk.get("top_investment_streak", 0) + 1
+            else:
+                risk["top_investment_streak"] = 0
+            bu["risk_factors"] = risk
+
+    locked_bu, lockin_penalties = calc_technology_lockin(ctx.new_bus, ctx.decisions)
+    if locked_bu:
+        ctx.events["technology_lockin_bu"]      = locked_bu
+        ctx.events["technology_lockin_penalty"] = True
+        for bu_id, multiplier in lockin_penalties.items():
+            ctx.events[f"lockin_synergy_penalty_{bu_id}"] = multiplier
+
+    # ── 2. Contagion Engine ──────────────────────────────────────
+    ctx.group_reputation = calc_contagion(ctx.new_bus, ctx.crisis_severity)
+
+    # ── FEATURE 7: Stakeholder Fatigue ──────────────────────────
+    crisis_count = current_global.get("active_event_flags", {}).get("crisis_count_lifetime", 0)
+    if ctx.crisis_severity > 0:
+        crisis_count += 1
+    ctx.events["crisis_count_lifetime"] = crisis_count
+    if crisis_count > 0:
+        old_rep       = sum(bu["reputation_score"] for bu in ctx.new_bus) / max(len(ctx.new_bus), 1)
+        recovery_gap  = max(0, ctx.group_reputation - old_rep)
+        if recovery_gap > 0:
+            fatigued_recovery    = calc_stakeholder_fatigue(recovery_gap, crisis_count)
+            ctx.group_reputation = round(old_rep + fatigued_recovery, 2)
+            ctx.group_reputation = max(0.0, min(100.0, ctx.group_reputation))
+            ctx.events["stakeholder_fatigue_applied"]    = True
+            ctx.events["stakeholder_fatigue_efficiency"] = round(1.0 / (1.0 + 0.3 * crisis_count), 4)
+
+    # ── 6. Talent Brain-Drain & Burnout ─────────────────────────
+    for bu in ctx.new_bus:
+        # Universal Burnout Passive Decay
+        current_burnout = bu.get("staff_burnout_index", 0.0)
+        if bu["bu_id"] in ("hospitals", "clinics", "specialised_care", "telehealth"):
+            if current_burnout > 0:
+                bu["staff_burnout_index"] = max(0.0, current_burnout - BURNOUT_PASSIVE_DECAY_HEALTHCARE)
+                ctx.events[f"burnout_passive_decay_{bu['bu_id']}"] = BURNOUT_PASSIVE_DECAY_HEALTHCARE
+        else:
+            if current_burnout > 0:
+                bu["staff_burnout_index"] = max(0.0, current_burnout - BURNOUT_PASSIVE_DECAY_DEFAULT)
+                ctx.events[f"burnout_passive_decay_{bu['bu_id']}"] = BURNOUT_PASSIVE_DECAY_DEFAULT
+
+        if bu["bu_id"] in ("software", "hospitals", "clinics"):
+            if bu["bu_id"] in ("hospitals", "clinics"):
+                utilization = bu.get("bed_capacity_utilization", 0.0)
+                if utilization > UTILIZATION_OVERLOAD_THRESHOLD:
+                    bu["staff_burnout_index"] = min(100.0, bu.get("staff_burnout_index", 0.0) + UTILIZATION_OVERLOAD_BURNOUT_INC)
+                    ctx.events[f"utilization_overload_fatigue_{bu['bu_id']}"] = True
+                current_util       = bu.get("bed_capacity_utilization", 0.0)
+                utilization_drift  = round((100.0 - current_util) * UTILIZATION_DRIFT_RATE, 2)
+                bu["bed_capacity_utilization"] = min(100.0, round(current_util + utilization_drift, 2))
+                ctx.events[f"bed_utilization_drift_{bu['bu_id']}"] = utilization_drift
+
+            old_opex = bu["opex_base"]
+            bu["opex_base"], talent_penalty = calc_talent_braindrain(
+                bu["opex_base"], ctx.group_reputation, bu.get("staff_burnout_index", 0.0)
+            )
+            ctx.events[f"talent_penalty_applied_{bu['bu_id']}"] = talent_penalty
+            if talent_penalty:
+                ctx.events[f"braindrain_opex_impact_{bu['bu_id']}"] = {
+                    "old_opex":    old_opex,
+                    "new_opex":    bu["opex_base"],
+                    "penalty_pct": round(((bu["opex_base"] - old_opex) / max(old_opex, 1)) * 100, 1),
+                    "trigger":     f"Group reputation ({ctx.group_reputation:.0f}) below brain-drain threshold (25)",
+                }
+            if bu["bu_id"] == "software":
+                ctx.events["talent_penalty_applied"] = talent_penalty
+
+    # ── 4. Natural Capital Cost of Debt — per BU ────────────────
+    interest_rates: dict[str, float] = {}
+    # Start from the field (may have been modified in stochastic stage via macro_rate)
+    corporate_cost_of_capital = ctx.corporate_cost_of_capital
+
+    # ── FEATURE 21: Apply macro rate to CoC ─────────────────────
+    macro_rate = ctx.events.get("macro_rate_environment", {})
+    corporate_cost_of_capital = round(
+        corporate_cost_of_capital + macro_rate.get("coc_modifier", 0.0), 4
+    )
+    ctx.events["coc_macro_rate_applied"] = macro_rate.get("coc_modifier", 0.0)
+    ctx.corporate_cost_of_capital        = corporate_cost_of_capital
+
+    ncd_transparency: dict[str, dict] = {}
+    for bu in ctx.new_bus:
+        old_ncd    = bu.get("natural_capital_debt", 0)
+        rate       = calc_natural_capital_interest(corporate_cost_of_capital, old_ncd)
+        interest_rates[bu["bu_id"]] = rate
+        debt_charge = round(old_ncd * rate, 2)
+        new_ncd     = round(old_ncd + debt_charge, 2)
+        # FIX VULN-007: Cap NCD at NCD_HARD_CAP
+        bu["natural_capital_debt"] = min(new_ncd, NCD_HARD_CAP)
+        # HARD-001: NCD soft-cap warning
+        if bu["natural_capital_debt"] >= NCD_WARN_THRESHOLD and old_ncd < NCD_WARN_THRESHOLD:
+            ctx.events[f"ncd_credit_downgrade_{bu['bu_id']}"] = True
+            ctx.events.setdefault("custom_black_swans", []).append({
+                "title": f"\U0001f4c9 CREDIT DOWNGRADE: {bu['bu_id']} NCD Critical",
+                "narrative": (
+                    f"Natural Capital Debt for {bu['bu_id']} has reached "
+                    f"${bu['natural_capital_debt']:,.0f} \u2014 50% of the hard cap. "
+                    f"Investors are repricing ecological risk. Urgent NCD reduction "
+                    f"required within 1\u20132 rounds to prevent environmental write-off."
+                ),
+                "icon": "\U0001f4c9",
+                "severity": "critical",
+            })
+        ncd_transparency[bu["bu_id"]] = {
+            "old_ncd":          old_ncd,
+            "interest_rate_pct": round(rate * 100, 2),
+            "interest_charge":  debt_charge,
+            "new_ncd":          bu["natural_capital_debt"],
+        }
+    ctx.events["interest_rates"]     = interest_rates
+    ctx.events["ncd_transparency"]   = ncd_transparency
+
+    # ── 5. VRIO Decay ────────────────────────────────────────────
+    # FIX AUDIT-006 + FIX CRITICAL-3: decay uses pre_tick_synergy baseline;
+    # synergy_boost from completed projects is added AFTER decay.
+    new_synergy = calc_vrio_decay(ctx.pre_tick_synergy, ctx.imitation_decay_rate)
+    ctx.events["synergy_decayed_from"] = ctx.pre_tick_synergy
+    if _proj_delta.synergy_boost_total:
+        new_synergy = round(new_synergy + _proj_delta.synergy_boost_total, 4)
+        ctx.events["synergy_boost_applied"] = _proj_delta.synergy_boost_total
+    ctx.new_synergy = new_synergy
+
+    # ── 7. Strike Probability — per BU ──────────────────────────
+    strike_probs: dict[str, float] = {}
+    for bu in ctx.new_bus:
+        gov_risk  = bu.get("governance_risk_score", 0)
+        base_risk = gov_risk / 100.0
+        p         = calc_strike_probability(base_risk, bu["social_license_score"])
+        strike_probs[bu["bu_id"]] = p
+    ctx.events["strike_probabilities"] = strike_probs
+
+    # ── Derived Dashboard Metrics ────────────────────────────────
+    ctx.historical_ebitda = round(
+        sum(bu["revenue_base"] - bu["opex_base"] for bu in ctx.new_bus), 2
+    )
+    ctx.tco2e_emissions = round(
+        sum(
+            bu.get("carbon_intensity", 0) * bu["revenue_base"] / 1_000_000
+            for bu in ctx.new_bus
+        ), 1
+    )
+    # I4: Absolute emissions per BU
+    for bu in ctx.new_bus:
+        bu["absolute_emissions"] = round(
+            bu.get("carbon_intensity", 0) * bu.get("revenue_base", 0) / 1_000_000, 2
+        )
+
+    # Carbon emissions constraint
+    if ctx.tco2e_emissions > CONSTRAINT_MAX_CARBON_EMISSIONS:
+        ctx.events["emissions_limit_breached"] = True
+        ctx.events.setdefault("custom_black_swans", []).append({
+            "title": "⚠️ CARBON EMISSIONS LIMIT BREACHED",
+            "narrative": (
+                f"Total carbon emissions ({ctx.tco2e_emissions:,.0f} tCO₂e) have exceeded "
+                f"the maximum constraint of {CONSTRAINT_MAX_CARBON_EMISSIONS:,.0f} tCO₂e. "
+                "Investor pressure and regulatory scrutiny are rising."
+            ),
+            "icon": "⚠️",
+            "severity": "high",
+        })
+        _rep_before_penalty   = ctx.group_reputation
+        ctx.group_reputation  = max(0.0, round(ctx.group_reputation - EMISSIONS_BREACH_REP_PENALTY, 2))
+        ctx.events["emissions_rep_penalty"] = {
+            "rep_before": _rep_before_penalty,
+            "rep_after":  ctx.group_reputation,
+            "deduction":  round(_rep_before_penalty - ctx.group_reputation, 2),
+        }
+
+    # ── CAROIC ──────────────────────────────────────────────────
+    _shadow_carbon_price = current_global.get("active_event_flags", {}).get(
+        "carbon_tax_per_ton",
+        current_global.get("active_event_flags", {}).get("shadow_carbon_price", FINANCIAL_SHADOW_CARBON_PRICE),
+    )
+    _ic_proxy    = max(0.0, sum(bu.get("revenue_base", 0) for bu in ctx.new_bus) * 0.5)
+    caroic_result = calc_caroic(
+        ebitda=ctx.historical_ebitda,
+        invested_capital=_ic_proxy,
+        carbon_tonnage=ctx.tco2e_emissions,
+        tax_rate=FINANCIAL_CORPORATE_TAX_RATE,
+        shadow_carbon_price=_shadow_carbon_price,
+    )
+    caroic_result["invested_capital_method"] = "revenue_proxy_0.5x"
+    ctx.events["caroic"] = caroic_result
+
+    # ── Negative-Treasury Debt Service + Insolvency ──────────────
+    if ctx.new_treasury < 0:
+        debt_service     = round(abs(ctx.new_treasury) * corporate_cost_of_capital, 2)
+        ctx.new_treasury = round(ctx.new_treasury - debt_service, 2)
+        ctx.new_treasury = max(ctx.new_treasury, FINANCIAL_TREASURY_FLOOR)
+        ctx.events["negative_treasury_interest_applied"] = debt_service
+        ctx.events["negative_treasury_interest_because"] = (
+            f"Your treasury is negative. Creditors charge {corporate_cost_of_capital*100:.1f}% "
+            f"interest on the outstanding debt of ${abs(ctx.new_treasury):,.0f}."
+        )
+        ctx.record_waterfall(
+            "Debt Service Interest", -debt_service,
+            because=f"Negative treasury incurs {corporate_cost_of_capital*100:.1f}% interest on ${abs(ctx.new_treasury+debt_service):,.0f} debt.",
+            counterfactual="A positive treasury eliminates debt servicing costs entirely.",
+        )
+        if ctx.new_treasury < FINANCIAL_INSOLVENCY_THRESHOLD:
+            ctx.events["insolvency_active"]  = True
+            ctx.events["insolvency_message"] = (
+                f"CREDIT DOWNGRADE: Treasury has breached ${FINANCIAL_INSOLVENCY_THRESHOLD/1e6:.0f}M. "
+                "Mandatory austerity: all discretionary CapEx capped at 50%, "
+                "dividend suspension in effect."
+            )
+            ctx.events["capex_cap_multiplier"] = 0.50
+            ctx.events["dividend_suspended"]   = True
+
+    # Store loan_principal on ctx so the reporting layer can check CFO austerity
+    ctx.events["_loan_principal_internal"] = loan_principal
+    ctx.events["_base_treasury_internal"]  = base_treasury
+
+
+# ── Stage 3: Operational Layer ───────────────────────────────────
+# ESG WACC → Scope 1/2/3 → SBTi → EU Taxonomy → Climate VaR →
+# Tipping Point → Loss & Damage → SDG Non-Linear Feedback →
+# Carbon Fee → Inflation Drift
+
+def _run_operational_layer(ctx: TickContext) -> None:
+    """
+    Stage 3 — long-run sustainability, ESG, climate tipping points,
+    SDG feedback loops, and the internal carbon fee mechanism.
+    """
+    current_global = ctx.current_global
+    avg_ci         = _calc_rw_avg_ci(ctx.new_bus)
+
+    # Hard-clamp all BU sub-scores before ESG calculations
+    for bu in ctx.new_bus:
+        bu["social_license_score"]  = max(0.0, min(100.0, bu.get("social_license_score", 50.0)))
+        bu["governance_risk_score"] = max(0.0, min(100.0, bu.get("governance_risk_score", 20.0)))
+        bu["carbon_intensity"]      = max(0.0, bu.get("carbon_intensity", 50.0))
+
+    # ── PHASE-1: ESG-Adjusted WACC ───────────────────────────────
+    try:
+        from systemic_risk_engine import calc_esg_adjusted_wacc, calc_supply_chain_transparency, calc_employer_brand, get_foreshadowing_for_round
+        n_bu      = max(len(ctx.new_bus), 1)
+        _avg_ci   = avg_ci
+        _avg_gov  = sum(bu.get("governance_risk_score", 20) for bu in ctx.new_bus) / n_bu
+        _avg_slo  = sum(bu.get("social_license_score", 50) for bu in ctx.new_bus) / n_bu
+        _avg_water = sum(bu.get("water_dependency", 0) for bu in ctx.new_bus) / n_bu
+        _sct       = current_global.get("active_event_flags", {}).get("supply_chain_transparency", 30)
+
+        esg_wacc, esg_wacc_diag = calc_esg_adjusted_wacc(
+            ctx.corporate_cost_of_capital, _avg_ci, _avg_gov, _avg_slo, _avg_water, _sct
+        )
+        ctx.corporate_cost_of_capital  = esg_wacc
+        ctx.events["esg_adjusted_wacc"] = esg_wacc_diag
+
+        _sct_new, _sct_diag = calc_supply_chain_transparency(
+            _sct, current_global.get("active_event_flags", {}), current_global["round_number"]
+        )
+        ctx.events["supply_chain_transparency"]      = _sct_new
+        ctx.events["supply_chain_transparency_diag"] = _sct_diag
+
+        _avg_burnout       = sum(bu.get("staff_burnout_index", 0) for bu in ctx.new_bus) / n_bu
+        _workforce_readiness = current_global.get("active_event_flags", {}).get("workforce_readiness", 50)
+        _eb, _eb_diag = calc_employer_brand(ctx.group_reputation, _avg_burnout, _workforce_readiness)
+        ctx.events["employer_brand"] = _eb_diag
+
+        if _eb < EMPLOYER_BRAND_PENALTY_THRESHOLD:
+            eb_opex_multiplier = round(((EMPLOYER_BRAND_PENALTY_THRESHOLD - _eb) / EMPLOYER_BRAND_PENALTY_THRESHOLD) * EMPLOYER_BRAND_MAX_PENALTY_RATE, 4)
+            eb_total_penalty   = 0.0
+            for bu in ctx.new_bus:
+                bu_opex  = bu.get("opex_base", 0)
+                penalty  = round(bu_opex * eb_opex_multiplier, 2)
+                bu["opex_base"] = round(bu_opex + penalty, 2)
+                eb_total_penalty += penalty
+            ctx.events["employer_brand_opex_penalty"] = {
+                "multiplier":        eb_opex_multiplier,
+                "total_penalty":     round(eb_total_penalty, 2),
+                "employer_brand_score": _eb,
+                "affected_bus":      len(ctx.new_bus),
+                "narrative": (
+                    f"⚠️ TALENT CRISIS: Employer brand score has fallen to {_eb:.0f}/100. "
+                    f"Recruitment costs surging across all divisions — "
+                    f"${eb_total_penalty/1_000_000:.1f}M in additional OPEX."
+                ),
+            }
+
+        _foreshadowing = get_foreshadowing_for_round(
+            current_global["round_number"], current_global.get("active_event_flags", {})
+        )
+        if _foreshadowing:
+            ctx.events["foreshadowing_signals"] = _foreshadowing
+    except ImportError:
+        pass
+
+    # Stranded Asset Decay
+    if ctx.decision_paradigm == "advanced_climate":
+        stranded_assets = [bu for bu in ctx.new_bus if bu.get("carbon_intensity", 0) > STRANDED_ASSET_CI_THRESHOLD]
+        if stranded_assets:
+            ctx.corporate_cost_of_capital = round(ctx.corporate_cost_of_capital + STRANDED_ASSET_COC_SURCHARGE, 4)
+            ctx.events["stranded_asset_penalty_applied"] = True
+            ctx.events["stranded_asset_bu_ids"]          = [bu["bu_id"] for bu in stranded_assets]
+            ctx.events["divestment_pressure_active"]     = True
+            ctx.events["divestment_pressure_message"]    = (
+                f"INVESTOR ALERT: {len(stranded_assets)} business unit(s) have carbon intensity "
+                f"above {STRANDED_ASSET_CI_THRESHOLD} — classified as stranded assets by climate-aware investors. "
+                f"Institutional shareholders are demanding a credible decarbonisation pathway "
+                f"or forced divestiture. Cost of capital increased by +1.5%."
+            )
+
+    # ── Toxic OPEX Penalty (NCD Multiplier) ─────────────────────
+    hostility_multiplier = current_global.get("active_event_flags", {}).get("market_hostility_index", 5)
+    tipping_tier         = current_global.get("tipping_tier", "none")
+    if ctx.decision_paradigm == "advanced_climate":
+        if tipping_tier == "tipped":
+            hostility_multiplier = round(hostility_multiplier * TIPPING_HOSTILITY_TIPPED, 2)
+            ctx.events["tipping_tier_active"] = "tipped"
+        elif tipping_tier == "stressed":
+            hostility_multiplier = round(hostility_multiplier * TIPPING_HOSTILITY_STRESSED, 2)
+            ctx.events["tipping_tier_active"] = "stressed"
+        elif tipping_tier == "warning":
+            hostility_multiplier = round(hostility_multiplier * TIPPING_HOSTILITY_WARNING, 2)
+            ctx.events["tipping_tier_active"] = "warning"
+        if current_global.get("tipping_point_active", False) and avg_ci < 50:
+            ctx.events["tipping_point_managed_retreat"] = True
+
+        # NCD Forgiveness (logarithmic, green capex)
+        total_green_capex = sum(d.get("capex_allocated", 0) for d in ctx.decisions)
+        if total_green_capex > 0:
+            green_capex_m     = total_green_capex / 1_000_000
+            forgiveness_per_bu = round(NCD_FORGIVENESS_LOG_COEFF * math.log(1 + green_capex_m), 2)
+            for bu in ctx.new_bus:
+                old_ncd = bu.get("natural_capital_debt", 0)
+                if old_ncd > 0 and forgiveness_per_bu > 0:
+                    bu["natural_capital_debt"] = max(0, round(old_ncd - forgiveness_per_bu, 2))
+            if forgiveness_per_bu > 0:
+                ctx.events["ncd_forgiveness_applied"] = forgiveness_per_bu
+                ctx.events["ncd_forgiveness_formula"] = "2.0 × ln(1 + CapEx_M$)"
+
+        # CBAM Border Adjustment (rounds 3 & 7, Scope1+2 only)
+        round_number = current_global.get("round_number", 1)
+        if round_number in (3, 7) and avg_ci > CBAM_CI_THRESHOLD:
+            cbam_tco2e = sum(
+                (bu.get("scope_1_ci", 0) + bu.get("scope_2_ci", 0))
+                * bu["revenue_base"] / 1_000_000
+                for bu in ctx.new_bus
+            )
+            cbam_avg_ci_12 = round(
+                sum((bu.get("scope_1_ci", 0) + bu.get("scope_2_ci", 0)) for bu in ctx.new_bus)
+                / max(len(ctx.new_bus), 1), 2
+            )
+            if cbam_avg_ci_12 > CBAM_CI_THRESHOLD * CBAM_SCOPE12_FRACTION:
+                cbam_surcharge        = round(cbam_tco2e * CBAM_SURCHARGE_RATE, 2)
+                ctx.new_treasury      = round(ctx.new_treasury - cbam_surcharge, 2)
+                ctx.events["cbam_surcharge_applied"] = cbam_surcharge
+                ctx.events["cbam_message"] = (
+                    f"EU CBAM border adjustment (R{round_number} supply chain/circularity): "
+                    f"Scope1+2 avg CI {cbam_avg_ci_12:.1f} | Total Scope1+2 tCO₂e: {cbam_tco2e:.0f}. "
+                    f"Import carbon surcharge: -${cbam_surcharge:,.0f} (I11: rounds 3&7; I15: Scope1+2 only)"
+                )
+
+        for bu in ctx.new_bus:
+            ncd              = max(0, bu.get("natural_capital_debt", 0))
+            ncd_opex_penalty = round((ncd * NCD_OPEX_SCALING_FACTOR * hostility_multiplier) / 1_000_000, 2)
+            max_penalty      = bu.get("revenue_base", 0) * (0.75 if tipping_tier == "tipped" else 0.50)
+            ncd_opex_penalty = min(ncd_opex_penalty, max_penalty)
+            if ncd_opex_penalty > 0:
+                bu["opex_base"] = round(bu["opex_base"] + ncd_opex_penalty, 2)
+                ctx.events[f"{bu['bu_id']}_opex_ncd_penalty"] = ncd_opex_penalty
+
+        # Scope 1/2/3 tagging (I5)
+        scope_details = {}
+        for bu in ctx.new_bus:
+            ci     = bu.get("carbon_intensity", 0)
+            ratios = get_scope_ratios(bu["bu_id"])
+            bu["scope_1_ci"] = round(ci * ratios["scope_1"], 2)
+            bu["scope_2_ci"] = round(ci * ratios["scope_2"], 2)
+            bu["scope_3_ci"] = round(ci * ratios["scope_3"], 2)
+            scope_details[bu["bu_id"]] = {
+                "scope_1_pct": round(ratios["scope_1"] * 100),
+                "scope_2_pct": round(ratios["scope_2"] * 100),
+                "scope_3_pct": round(ratios["scope_3"] * 100),
+                "scope_1_ci":  bu["scope_1_ci"],
+                "scope_2_ci":  bu["scope_2_ci"],
+                "scope_3_ci":  bu["scope_3_ci"],
+            }
+        ctx.events["scope_transparency"] = {
+            "bu_scope_details": scope_details,
+            "total_ci":         round(avg_ci, 2),
+            "note": "Scope 1/2/3 ratios cover ALL BU types incl. verticals (I5 upgrade). Banking=95% Scope3 financed.",
+        }
+
+        # SBTi Pathway (I3, I12, I14)
+        round_num      = current_global.get("round_number", 1)
+        sbti_target_ci = round(SBTI_BASELINE_CI * (1 - SBTI_ANNUAL_REDUCTION_RATE) ** (round_num - 1), 2)
+        sbti_aligned   = avg_ci <= sbti_target_ci
+        per_bu_sbti    = {}
+        for bu in ctx.new_bus:
+            bu_baseline_ci = bu.get("ci_baseline_r1", bu.get("carbon_intensity", 50.0))
+            bu_sbti_target = round(bu_baseline_ci * (1 - SBTI_ANNUAL_REDUCTION_RATE) ** (round_num - 1), 2)
+            bu_aligned     = bu.get("carbon_intensity", 0) <= bu_sbti_target
+            per_bu_sbti[bu["bu_id"]] = {
+                "target_ci": bu_sbti_target,
+                "actual_ci": bu.get("carbon_intensity", 0),
+                "aligned":   bu_aligned,
+            }
+        sbti_history = list(current_global.get("sbti_pathway_history", []))
+        sbti_history.append({
+            "round":     round_num,
+            "target_ci": sbti_target_ci,
+            "actual_ci": round(avg_ci, 2),
+            "aligned":   sbti_aligned,
+            "gap":       round(avg_ci - sbti_target_ci, 2),
+        })
+        consecutive_aligned    = sum(1 for _ in
+            __import__("itertools").takewhile(lambda e: e["aligned"],    reversed(sbti_history)))
+        consecutive_misaligned = sum(1 for _ in
+            __import__("itertools").takewhile(lambda e: not e["aligned"], reversed(sbti_history)))
+        if consecutive_misaligned >= SBTI_MISALIGNMENT_ROUNDS:
+            sbti_coc_surcharge                = SBTI_COC_SURCHARGE
+            ctx.corporate_cost_of_capital     = round(ctx.corporate_cost_of_capital + sbti_coc_surcharge, 4)
+            ctx.events["sbti_coc_surcharge_applied"] = sbti_coc_surcharge
+            ctx.events["sbti_coc_surcharge_message"] = (
+                f"SBTi misalignment for {consecutive_misaligned} consecutive rounds. "
+                f"Institutional investors apply +0.5% CoC surcharge (I12). "
+                f"Decarbonise to reverse."
+            )
+        ctx.events["sbti_pathway"] = {
+            "target_ci":                   sbti_target_ci,
+            "actual_ci":                   round(avg_ci, 2),
+            "aligned":                     sbti_aligned,
+            "consecutive_aligned_rounds":  consecutive_aligned,
+            "consecutive_misaligned_rounds": consecutive_misaligned,
+            "credibility_score":           min(100, consecutive_aligned * SBTI_CREDIBILITY_PER_ROUND),
+            "history":                     sbti_history,
+            "per_bu_targets":              per_bu_sbti,
+            "message": (
+                f"SBTi 1.5°C target for R{round_num}: CI \u2264 {sbti_target_ci:.1f} (rev-weighted). "
+                f"Actual: {avg_ci:.1f}. {'✅ ON TRACK' if sbti_aligned else '❌ OFF TRACK'}. "
+                f"Credibility: {min(100, consecutive_aligned * SBTI_CREDIBILITY_PER_ROUND)}%"
+            ),
+        }
+
+        # EU Taxonomy Alignment
+        taxonomy_aligned_rev = sum(bu["revenue_base"] for bu in ctx.new_bus if bu.get("carbon_intensity", 100) < EU_TAXONOMY_CI_THRESHOLD)
+        total_rev            = sum(bu["revenue_base"] for bu in ctx.new_bus)
+        # VUL-014 FIX: `or 1` guard produces misleading % when total_rev=0 but
+        # taxonomy_aligned_rev is nonzero. Use explicit guard instead.
+        taxonomy_pct         = round((taxonomy_aligned_rev / total_rev) * 100, 1) if total_rev > 0 else 0.0
+        ctx.events["eu_taxonomy_alignment_pct"] = taxonomy_pct
+        if taxonomy_pct > EU_TAXONOMY_GREEN_THRESHOLD:
+            ctx.events["taxonomy_green_finance_discount"] = True
+            ctx.events["taxonomy_coc_benefit"]            = EU_TAXONOMY_COC_BENEFIT
+        elif taxonomy_pct < EU_TAXONOMY_BROWN_THRESHOLD:
+            ctx.events["taxonomy_brown_penalty"]    = True
+            ctx.events["taxonomy_coc_surcharge"]    = EU_TAXONOMY_COC_SURCHARGE
+
+        # Climate VaR
+        active_resilience   = ctx.events.get("active_resilience_factor", 0.0)
+        cyclone_prob        = CYCLONE_PROB_BASE
+        tipping_tier_local  = current_global.get("tipping_tier", "none")
+        if tipping_tier_local == "tipped":   cyclone_prob = CYCLONE_PROB_TIPPED
+        elif tipping_tier_local == "stressed": cyclone_prob = CYCLONE_PROB_STRESSED
+        elif tipping_tier_local == "warning":  cyclone_prob = CYCLONE_PROB_WARNING
+        physical_var        = round(cyclone_prob * PHYSICAL_VAR_DAMAGE_BASE * (1 - active_resilience), 2)
+        stranded_exposure   = sum(bu["revenue_base"] for bu in ctx.new_bus if bu.get("carbon_intensity", 0) > TRANSITION_VAR_CI_THRESHOLD)
+        base_fee            = current_global.get("active_event_flags", {}).get("global_carbon_fee", ECONOMIC_CARBON_PRICE_BASE)
+        fee_per_ton         = round(base_fee * (1 + ECONOMIC_CARBON_PRICE_GROWTH) ** (current_global.get("round_number", 1) - 1), 2)
+        local_tco2e         = sum(bu.get("carbon_intensity", 0) * bu["revenue_base"] / 1_000_000 for bu in ctx.new_bus)
+        local_carbon_fee    = round(local_tco2e * fee_per_ton, 2)
+        transition_var      = round(stranded_exposure * TRANSITION_VAR_STRANDED_MULT + local_carbon_fee * TRANSITION_VAR_FEE_YEARS, 2)
+        climate_var_total   = round(physical_var + transition_var, 2)
+        ctx.events["climate_var"] = {
+            "physical_var":          physical_var,
+            "transition_var":        transition_var,
+            "total_var":             climate_var_total,
+            "physical_components":   f"P(cyclone)={cyclone_prob:.0%} × $12M × (1-{active_resilience:.2f})",
+            "transition_components": f"Stranded exposure: ${stranded_exposure:,.0f} + Carbon fee 5yr: ${local_carbon_fee*5:,.0f}",
+        }
+
+        # Carbon Credit Futures Market
+        if "carbon_deferred" in current_global.get("active_event_flags", {}):
+            # FIX CRITICAL-2 (AUDIT): Use an independent Random instance
+            # instead of re-importing the global random module.  This ensures
+            # the carbon offset volatility does not depend on or perturb the
+            # global PRNG state, and is reproducible when seeded externally.
+            # GAME-4: seeded per-cohort stream so all teams see the same spot price.
+            _offset_rng = event_rng(current_global.get("active_event_flags", {}),
+                                    current_global["round_number"], "carbon_offset_volatility")
+            spot_volatility  = _offset_rng.uniform(-0.30, 0.30)
+            spot_price       = round(500_000 * (1 + spot_volatility), 2)
+            active_forwards  = list(current_global.get("carbon_forwards", []))
+            forward_payment  = 0
+            remaining_forwards = []
+            for fwd in active_forwards:
+                if fwd["rounds_remaining"] > 0:
+                    forward_payment += fwd["locked_price"]
+                    remaining_fwd    = dict(fwd)
+                    remaining_fwd["rounds_remaining"] -= 1
+                    if remaining_fwd["rounds_remaining"] > 0:
+                        remaining_forwards.append(remaining_fwd)
+            if forward_payment > 0:
+                offset_actual = forward_payment
+                ctx.events["carbon_forward_used"]    = True
+                ctx.events["carbon_forward_savings"] = spot_price - forward_payment
+            else:
+                offset_actual = spot_price
+            ctx.new_treasury     = round(ctx.new_treasury - offset_actual, 2)
+            forward_offer_price  = round(500_000 * 1.20, 2)
+            ctx.events["carbon_offset_market"] = {
+                "spot_price":          spot_price,
+                "spot_volatility_pct": round(spot_volatility * 100, 1),
+                "actual_cost_paid":    offset_actual,
+                "forward_offer_price": forward_offer_price,
+                "forward_duration":    3,
+                "active_forwards":     len(remaining_forwards),
+                "message": (
+                    f"Carbon Market: Spot ${spot_price:,.0f} ({spot_volatility*100:+.1f}%). "
+                    f"Paid: ${offset_actual:,.0f}. "
+                    f"Forward contract available: ${forward_offer_price:,.0f}/round for 3 rounds."
+                ),
+            }
+
+    # ── Internal Carbon Pricing (advanced_climate, I17) ─────────
+    if ctx.decision_paradigm == "advanced_climate":
+        base_carbon_fee      = current_global.get("active_event_flags", {}).get("global_carbon_fee", ECONOMIC_CARBON_PRICE_BASE)
+        escalation_rate      = ECONOMIC_CARBON_PRICE_GROWTH
+        round_number         = current_global.get("round_number", 1)
+        carbon_fee_per_ton   = round(base_carbon_fee * (1 + escalation_rate) ** (round_number - 1), 2)
+        round_carbon_fee_total = round(ctx.tco2e_emissions * carbon_fee_per_ton, 2)
+        ctx.new_treasury       = round(ctx.new_treasury - round_carbon_fee_total, 2)
+        ctx.new_green_fund_balance = round(ctx.new_green_fund_balance + round_carbon_fee_total, 2)
+        prev_peak_fee        = current_global.get("active_event_flags", {}).get("peak_internal_carbon_fee", 0)
+        ctx.events["peak_internal_carbon_fee"]     = max(prev_peak_fee, carbon_fee_per_ton)
+        ctx.events["internal_carbon_fee_per_ton"]  = carbon_fee_per_ton
+        ctx.events["internal_carbon_fee_deducted"] = round_carbon_fee_total
+        ctx.events["internal_carbon_fee_because"]  = (
+            f"Internal carbon price of ${carbon_fee_per_ton:,.0f}/tCO₂e applied to "
+            f"{ctx.tco2e_emissions:,.0f} tonnes total emissions. Fee escalates {escalation_rate * 100:.1f}% per "
+            f"6-month round."
+        )
+        ctx.record_waterfall(
+            "Internal Carbon Fee", -round_carbon_fee_total,
+            because=f"${carbon_fee_per_ton:,.0f}/tCO₂e × {ctx.tco2e_emissions:,.0f}t = ${round_carbon_fee_total:,.0f} transferred to Green Fund.",
+            counterfactual="Reducing carbon intensity across BUs lowers this fee proportionally.",
+        )
+        ctx.events["carbon_fee_escalation_message"] = (
+            f"Internal carbon fee: ${carbon_fee_per_ton:.0f}/tCO2e "
+            f"(base ${base_carbon_fee:.0f} × {1 + escalation_rate}^{round_number-1}). Total levy: ${round_carbon_fee_total:,.0f}"
+        )
+
+    # ── Graduated Tipping Point ──────────────────────────────────
+    tipping_point_active = current_global.get("tipping_point_active", False)
+    tipping_tier         = current_global.get("tipping_tier", "none")
+    if ctx.decision_paradigm == "advanced_climate" and current_global["round_number"] >= 3:
+        if tipping_tier == "none" and avg_ci > TIPPING_CI_WARNING:
+            tipping_tier = "warning"
+            ctx.events["tipping_tier_escalated"] = "warning"
+            ctx.events["custom_black_swans"] = ctx.events.get("custom_black_swans", []) + [{
+                "title": "⚠️ CLIMATE WARNING THRESHOLD",
+                "narrative": (
+                    f"Average carbon intensity ({avg_ci:.0f}) has exceeded 45. "
+                    "Early warning: regulatory pressure is building. NCD costs "
+                    "will increase by 25%. Decarbonise now or face escalating penalties."
+                ),
+                "icon": "⚠️", "severity": "warning",
+            }]
+        if tipping_tier == "warning" and avg_ci > TIPPING_CI_STRESSED:
+            tipping_tier = "stressed"
+            ctx.events["tipping_tier_escalated"] = "stressed"
+            ctx.events["custom_black_swans"] = ctx.events.get("custom_black_swans", []) + [{
+                "title": "🔶 CLIMATE STRESS THRESHOLD BREACHED",
+                "narrative": (
+                    f"Average carbon intensity ({avg_ci:.0f}) has exceeded 55. "
+                    "Markets are repricing climate risk. NCD costs compound at "
+                    "1.75× hostility. The window for voluntary action is narrowing."
+                ),
+                "icon": "🔶", "severity": "high",
+            }]
+        if tipping_tier in ("warning", "stressed") and avg_ci > TIPPING_CI_TIPPED:
+            tipping_tier         = "tipped"
+            tipping_point_active = True
+            ctx.events["tipping_point_reached"]    = True
+            ctx.events["tipping_tier_escalated"]   = "tipped"
+            ctx.events["custom_black_swans"] = ctx.events.get("custom_black_swans", []) + [{
+                "title": "🌡️ CLIMATE TIPPING POINT BREACHED — IRREVERSIBLE",
+                "narrative": (
+                    f"Average carbon intensity ({avg_ci:.0f}) has crossed the irreversible "
+                    "threshold (65). Natural capital debt costs now compound at 2.5× the rate. "
+                    "Loss & damage levies are now mandatory. The era of voluntary "
+                    "decarbonisation is over — every future round amplifies the cost of inaction."
+                ),
+                "icon": "🌡️", "severity": "critical",
+            }]
+        if not tipping_point_active and current_global["round_number"] >= 4 and avg_ci > TIPPING_CI_STRESSED:
+            if tipping_tier == "none":
+                tipping_tier = "stressed"
+            tipping_point_active = True
+            ctx.events["tipping_point_reached"] = True
+
+        # Loss & Damage Levy
+        if tipping_tier == "tipped":
+            loss_damage_levy     = CLIMATE_LOSS_DAMAGE_LEVY_TIPPED
+            ctx.new_treasury     = round(ctx.new_treasury - loss_damage_levy, 2)
+            ctx.events["loss_damage_levy_applied"] = loss_damage_levy
+            ctx.events["loss_damage_message"]      = (
+                f"UNFCCC Loss & Damage Fund contribution: -${CLIMATE_LOSS_DAMAGE_LEVY_TIPPED/1e6:.0f}M. "
+                "Post-tipping economies bear the cost of climate inaction "
+                "through mandatory contributions to developing-economy adaptation."
+            )
+        elif tipping_tier == "stressed":
+            loss_damage_levy     = CLIMATE_LOSS_DAMAGE_LEVY_STRESSED
+            ctx.new_treasury     = round(ctx.new_treasury - loss_damage_levy, 2)
+            ctx.events["loss_damage_levy_applied"] = loss_damage_levy
+            ctx.events["loss_damage_message"]      = (
+                "Climate adaptation contribution: -$500K. "
+                "Pre-tipping regulatory pressure mandates partial climate liability."
+            )
+
+    # Store for final assembly
+    ctx.events["_tipping_point_active_internal"] = tipping_point_active
+    ctx.events["_tipping_tier_internal"]         = tipping_tier
+
+    # ── UN SDG Non-Linear Feedback ───────────────────────────────
+    if ctx.decision_paradigm == "un_sdg":
+        for bu in ctx.new_bus:
+            gov = bu.get("governance", 50)
+            bu["institutional_leakage_multiplier"] = 0.60 if gov < 40 else 1.0
+            if gov < 40:
+                ctx.events[f"institutional_leakage_{bu['bu_id']}"] = True
+
+        for bu in ctx.new_bus:
+            bn = bu.get("basic_needs", 0)
+            hc = bu.get("human_capital", 0)
+            bu["sanitation_miracle_bonus"] = 2.0 if (bn > 75 and hc > 75) else 1.0
+            if bn > 75 and hc > 75:
+                ctx.events[f"sanitation_miracle_{bu['bu_id']}"] = True
+
+        from sdg_configs import get_sdg_interlinkage_matrix
+        matrix      = get_sdg_interlinkage_matrix()
+        sdg_clusters = ["basic_needs", "human_capital", "sustainable_growth",
+                        "planet", "governance", "partnerships"]
+        for bu in ctx.new_bus:
+            spillover_deltas = {c: 0.0 for c in sdg_clusters}
+            for (source, target), multiplier in matrix.items():
+                source_val = bu.get(source, 0)
+                spillover_deltas[target] += multiplier * (source_val / 100.0)
+            for cluster in sdg_clusters:
+                old_val  = bu.get(cluster, 0)
+                spillover = max(-5.0, min(5.0, spillover_deltas[cluster] * 10.0))
+                decay     = old_val * 0.02
+                bu[cluster] = round(max(0, min(100, old_val + spillover - decay)), 2)
+            ctx.events[f"interlinkage_applied_{bu['bu_id']}"] = True
+
+        global_emissions = _calc_rw_avg_ci(ctx.new_bus)
+        ctx.events["global_emissions_intensity"] = round(global_emissions, 2)
+        if current_global["round_number"] <= 5 and global_emissions > 100:
+            retribution_penalty     = round(ctx.tco2e_emissions * 3.0 * 1000, 2)
+            ctx.new_treasury        = round(ctx.new_treasury - retribution_penalty, 2)
+            ctx.events["carbon_retribution_multiplier"] = 3.0
+            ctx.events["carbon_retribution_triggered"]  = True
+            ctx.events["carbon_retribution_penalty"]    = retribution_penalty
+            ctx.events["carbon_retribution_message"]    = (
+                f"UN SDG Carbon Retribution: group CI ({global_emissions:.0f}) exceeds 100. "
+                f"Emergency climate levy: -${retribution_penalty:,.0f} (3× penalty on {ctx.tco2e_emissions:.0f} tCO₂e)."
+            )
+
+        if len(ctx.new_bus) > 1:
+            highest_sg_bu = max(ctx.new_bus, key=lambda x: x.get("sustainable_growth", 0))
+            ctx.events["migration_contagion_target"] = highest_sg_bu["bu_id"]
+            total_pressure = sum(
+                bu.get("migration_pressure", 0) for bu in ctx.new_bus
+                if bu["bu_id"] != highest_sg_bu["bu_id"]
+            )
+            if total_pressure > 0:
+                penalty = round(min(15.0, total_pressure * 0.3), 2)
+                highest_sg_bu["basic_needs"]   = max(0, round(highest_sg_bu.get("basic_needs", 0) - penalty, 2))
+                highest_sg_bu["human_capital"] = max(0, round(highest_sg_bu.get("human_capital", 0) - penalty * 0.5, 2))
+                ctx.events["migration_service_penalty"]  = penalty
+                ctx.events["migration_target_affected"]  = highest_sg_bu["bu_id"]
+
+        avg_gov  = sum(bu.get("governance", 0) for bu in ctx.new_bus) / max(len(ctx.new_bus), 1)
+        avg_part = sum(bu.get("partnerships", 0) for bu in ctx.new_bus) / max(len(ctx.new_bus), 1)
+        ctx.sdg_political_capital = round((avg_gov + avg_part) / 2.0, 2)
+        if ctx.sdg_political_capital < 30:
+            budget_multiplier = 0.60
+        elif ctx.sdg_political_capital < 50:
+            budget_multiplier = 0.80
+        else:
+            budget_multiplier = round(1.0 + (ctx.sdg_political_capital - 50) / 200.0, 4)
+        ctx.events["donor_fatigue_budget_multiplier"] = budget_multiplier
+        ctx.events["political_capital_score"]         = ctx.sdg_political_capital
+        ctx.sdg_community_trust = round(avg_gov * 0.6 + avg_part * 0.4, 2)
+        ctx.events["community_trust_score"]           = ctx.sdg_community_trust
+
+        for proj in ctx.new_pending_projects:
+            if proj.get("type") == "education_lag" and proj.get("rounds_remaining", 1) <= 0:
+                ctx.events["education_lag_mature"] = True
+                boost = proj.get("amount", 0.8)
+                for bu in ctx.new_bus:
+                    old_sg = bu.get("sustainable_growth", 0)
+                    bu["sustainable_growth"] = min(100, round(old_sg + boost * 10, 2))
+                ctx.events["sdg_8_work_multiplier"] = 1.0 + boost
+
+        ctx.events["global_emissions_intensity"] = round(_calc_rw_avg_ci(ctx.new_bus), 2)
+
+    # ── Inflation drift ──────────────────────────────────────────
+    hostility_multiplier = current_global.get("active_event_flags", {}).get("market_hostility_index", 5)
+    if hostility_multiplier > 5:
+        ctx.new_inflation_index = round(ctx.new_inflation_index + 0.010, 4)
+        ctx.events["inflation_index_increased"]  = ctx.new_inflation_index
+        ctx.events["inflation_drift_hostile"]    = True
+        ctx.events["inflation_drift_message"]    = (
+            f"Hostile regulatory environment is driving inflation above baseline. "
+            f"OPEX inflation increased to {ctx.new_inflation_index * 100:.1f}%."
+        )
+
+
+# ── Stage 4: Reporting Layer ─────────────────────────────────────
+# ESG Greenwashing → Turnaround / Distress → Regulatory Ratchet →
+# Fog of War → VRIO Capabilities → Boundary Rounding →
+# Competitor Pressure → Forecast → SDG Report → Waterfall →
+# Momentum → Board Reflection → Systemic Tipping →
+# Real-World Scenarios → Final Bounds Clamp → Stakeholder Sentiment
+
+def _run_reporting_layer(ctx: TickContext) -> None:
+    """
+    Stage 4 — output metrics, governance mechanics, compliance checks,
+    and stakeholder reporting.  No BU-level financial mutations after
+    the bounds-clamp pass at the end of this stage.
+    """
+    current_global = ctx.current_global
+    avg_ci         = _calc_rw_avg_ci(ctx.new_bus)
+
+    # ── FEATURE 16: ESG Greenwashing Risk ────────────────────────
+    primary_choice = ""
+    for dec in ctx.decisions:
+        c = dec.get("choice_selected", "")
+        if c.startswith("option_"):
+            primary_choice = c
+            break
+    greenwash_hit, greenwash_penalty = calc_greenwashing_risk(primary_choice, ctx.decisions)
+    avg_inv_ratio = (
+        sum(d.get("investment_ratio", 0) for d in ctx.decisions) / max(len(ctx.decisions), 1)
+    )
+    ctx.events["greenwashing_checked"]              = True
+    ctx.events["greenwashing_avg_investment_ratio"] = round(avg_inv_ratio, 4)
+    ctx.events["greenwashing_threshold"]            = 0.15
+    ctx.events["greenwashing_risk_active"]          = greenwash_hit
+    if greenwash_hit:
+        for bu in ctx.new_bus:
+            bu["social_license_score"] = max(0.0, round(bu["social_license_score"] - greenwash_penalty, 2))
+        ctx.events["greenwashing_scandal"]      = True
+        ctx.events["greenwashing_penalty"]      = greenwash_penalty
+        ctx.events["greenwashing_message"]      = (
+            "Greenwashing scandal! Your green rhetoric doesn't match "
+            "your actual investment allocation. Public trust plummets. "
+            f"Avg investment ratio: {avg_inv_ratio:.1%} vs. required 15%."
+        )
+        ctx.events["greenwashing_because"]      = (
+            f"You chose a green option but allocated only {avg_inv_ratio:.1%} average "
+            f"investment. The market requires ≥15% to back a green claim. "
+            f"SLO penalty: −{greenwash_penalty:.0f} per BU."
+        )
+        ctx.events["greenwashing_counterfactual"] = (
+            f"If you had allocated ≥15% average investment, this scandal "
+            f"would not have fired. Alternatively, choosing a non-green option "
+            f"avoids the greenwashing check entirely."
+        )
+    else:
+        ctx.events["greenwashing_scandal"] = False
+        ctx.events["greenwashing_message"] = (
+            f"Greenwashing check passed. Avg investment ratio: {avg_inv_ratio:.1%} "
+            f"({'above' if avg_inv_ratio >= 0.15 else 'below — no green option selected, hence no penalty'} "
+            f"the 15% threshold)."
+        )
+
+    # ── FEATURE 25: Turnaround Pathway ──────────────────────────
+    already_survival = current_global.get("active_event_flags", {}).get("survival_mode", False)
+    current_phase    = current_global.get("active_event_flags", {}).get("turnaround_phase", "none")
+    distress         = detect_distress(
+        ctx.new_treasury, ctx.group_reputation,
+        current_global["round_number"], already_survival, current_phase,
+    )
+    ctx.events["distress_detection"] = distress
+    ctx.events["turnaround_phase"]   = distress.get("turnaround_phase", "none")
+
+    if distress.get("distress_detected") and distress.get("bailout_amount"):
+        bailout              = distress["bailout_amount"]
+        ctx.new_treasury     = round(ctx.new_treasury + bailout, 2)
+        ctx.events["survival_mode"]    = True
+        ctx.events["bailout_applied"]  = bailout
+        ctx.record_waterfall(
+            "Emergency Bailout", bailout,
+            because="Board-appointed Turnaround Manager activates emergency credit line.",
+            counterfactual="Maintaining treasury > $0 and reputation > 30 prevents Survival Mode.",
+        )
+        ctx.events.setdefault("custom_black_swans", []).append({
+            "title": "🚨 CRISIS — Turnaround Manager Appointed",
+            "narrative": distress["message"],
+            "icon": "🚨", "severity": "critical",
+        })
+    elif distress.get("phase_transition"):
+        ctx.events["survival_mode"] = distress.get("survival_mode", True)
+        ctx.events.setdefault("custom_black_swans", []).append({
+            "title":     f"📋 TURNAROUND PHASE: {distress['turnaround_phase'].upper()}",
+            "narrative": distress["message"],
+            "icon":      "📋" if distress["turnaround_phase"] != "exit" else "✅",
+            "severity":  "info" if distress.get("recovered") else "noteworthy",
+        })
+    elif distress.get("recovered"):
+        ctx.events["survival_mode"] = False
+        ctx.events.setdefault("custom_black_swans", []).append({
+            "title": "✅ TURNAROUND COMPLETE — Comeback Achieved",
+            "narrative": distress["message"],
+            "icon": "✅", "severity": "info",
+        })
+    else:
+        ctx.events["survival_mode"] = distress.get("survival_mode", False)
+
+    # ── FEATURE 9: Regulatory Ratchet ───────────────────────────
+    historical_coc_max = current_global.get("active_event_flags", {}).get(
+        "regulatory_floor_coc", current_global.get("cost_of_capital", 0.05)
+    )
+    if ctx.corporate_cost_of_capital < historical_coc_max:
+        ctx.corporate_cost_of_capital = historical_coc_max
+        ctx.events["regulatory_ratchet_active"] = True
+    ctx.events["regulatory_floor_coc"] = max(historical_coc_max, ctx.corporate_cost_of_capital)
+
+    # ── FEATURE 14: Fog of War ───────────────────────────────────
+    fog_active  = current_global.get("round_number", 1) <= 2
+    deep_audit  = "deep_audit_completed" in current_global.get("active_event_flags", {})
+    if fog_active and not deep_audit:
+        ctx.events["fog_of_war_active"] = True
+        fog_noise: dict[str, dict] = {}
+        for bu in ctx.new_bus:
+            # GAME-4: per-BU seeded stream (fog of war noise identical per cohort).
+            _fog_rng = event_rng(current_global.get("active_event_flags", {}),
+                                 current_global["round_number"], f"fog:{bu['bu_id']}")
+            fog_noise[bu["bu_id"]] = {
+                "natural_capital_debt_noise": round(_fog_rng.uniform(-0.10, 0.10), 4),
+                "social_license_noise":       round(_fog_rng.uniform(-0.10, 0.10), 4),
+                "governance_risk_noise":      round(_fog_rng.uniform(-0.10, 0.10), 4),
+            }
+        ctx.events["fog_noise"] = fog_noise
+    else:
+        ctx.events["fog_of_war_active"] = False
+
+    # ── VRIO Capabilities ────────────────────────────────────────
+    n      = len(ctx.new_bus) or 1
+    avg_sl = sum(bu.get("social_license_score", 50) for bu in ctx.new_bus) / n
+    avg_gr = sum(bu.get("governance_risk_score", 20) for bu in ctx.new_bus) / n
+    avg_ci_v = _calc_rw_avg_ci(ctx.new_bus)
+    ctx.vrio_capabilities = {
+        "value":         round(max(0, min(100, avg_sl)), 1),
+        "rarity":        round(max(0, min(100, 100 - avg_ci_v)), 1),
+        "imitability":   round(max(0, min(100, ctx.new_synergy * 100)), 1),
+        "organization":  round(max(0, min(100, 100 - avg_gr)), 1),
+    }
+
+    # ── HARD-004: Boundary Rounding Normalisation ────────────────
+    for bu in ctx.new_bus:
+        bu["revenue_base"]          = round(bu["revenue_base"], 2)
+        bu["opex_base"]             = round(bu["opex_base"], 2)
+        bu["natural_capital_debt"]  = round(bu.get("natural_capital_debt", 0), 2)
+        bu["social_license_score"]  = round(bu.get("social_license_score", 50.0), 2)
+        bu["governance_risk_score"] = round(bu.get("governance_risk_score", 20.0), 2)
+        bu["carbon_intensity"]      = round(bu.get("carbon_intensity", 50.0), 2)
+        bu["reputation_score"]      = round(bu.get("reputation_score", 50.0), 2)
+        bu["staff_burnout_index"]   = round(bu.get("staff_burnout_index", 0.0), 2)
+    ctx.new_treasury           = round(ctx.new_treasury, 2)
+    ctx.new_green_fund_balance = round(ctx.new_green_fund_balance, 2)
+    ctx.new_synergy            = round(ctx.new_synergy, 4)
+
+    # ── FEATURE 10: Competitive NPC Index ────────────────────────
+    competitor_ebitda    = current_global.get("competitor_ebitda",
+        current_global.get("historical_ebitda", ctx.historical_ebitda))
+    new_competitor, relative_advantage = calc_competitor_pressure(competitor_ebitda, ctx.historical_ebitda)
+    ctx.events["competitor_ebitda"]        = new_competitor
+    ctx.events["relative_market_advantage"] = relative_advantage
+    if relative_advantage < 1.0:
+        ctx.events["competitor_warning"] = (
+            f"Market competitor EBITDA (${new_competitor:,.0f}) exceeds yours. "
+            f"Relative advantage: {relative_advantage:.2f}x"
+        )
+
+    # ── FEATURE 26: Predictive Forecast ─────────────────────────
+    forecast = calc_forecast(current_global, ctx.new_bus)
+    ctx.events["forecast"] = forecast
+
+    # ── FEATURE 27: SDG Impact Report ────────────────────────────
+    sdg_report = calc_sdg_impact(ctx.new_bus, ctx.events)
+    ctx.events["sdg_impact"] = sdg_report
+
+    # ── REC-1: Consequence Waterfall — finalise ──────────────────
+    ctx.events["consequence_waterfall"] = {
+        "initial_treasury": round(ctx._waterfall_initial, 2),
+        "final_treasury":   round(ctx.new_treasury, 2),
+        "net_change":       round(ctx.new_treasury - ctx._waterfall_initial, 2),
+        "entries":          ctx.waterfall,
+        "entry_count":      len(ctx.waterfall),
+    }
+
+    # ── REC-6: Momentum Score ────────────────────────────────────
+    momentum_history = list(current_global.get("momentum_history", []))
+    prev_states      = current_global.get("_prev_global_states", [])
+    momentum         = calc_momentum_score(
+        {
+            "corporate_treasury": ctx.new_treasury,
+            "group_reputation":   ctx.group_reputation,
+            "active_event_flags": ctx.events,
+            "momentum_history":   momentum_history,
+        },
+        prev_states if prev_states else [current_global],
+    )
+    ctx.events["momentum"] = momentum
+    momentum_history.append(momentum["momentum_score"])
+    if len(momentum_history) > 10:
+        momentum_history = momentum_history[-10:]
+    ctx.events["_momentum_history_internal"] = momentum_history
+    ctx.events["_new_competitor_internal"]   = new_competitor
+
+    # ── REC-8: Board Room Reflection Prompt ─────────────────────
+    initial_treasury    = ctx._waterfall_initial
+    treasury_change_pct = abs(ctx.new_treasury - initial_treasury) / max(abs(initial_treasury), 1) * 100
+    contagion_risk      = forecast.get("contagion_risk_index", 0)
+    is_midpoint         = current_global["round_number"] == 5
+    in_survival         = ctx.events.get("survival_mode", False)
+
+    reflection_trigger = None
+    if ctx.decision_paradigm == "brsr_ngrbc":
+        pass
+    elif treasury_change_pct > TREASURY_DROP_REFLECTION_PCT and ctx.new_treasury < initial_treasury:
+        top_causes  = sorted(ctx.waterfall, key=lambda e: abs(e["amount"]))[:3]
+        cause_lines = "\n".join(
+            f"  {i+1}. {e['label']} ({'+' if e['amount']>0 else ''}${e['amount']:,.0f})"
+            for i, e in enumerate(reversed(top_causes))
+        )
+        reflection_trigger = {
+            "type":     "treasury_drop",
+            "severity": "critical",
+            "prompt": (
+                f"🪞 **Board Room Moment**\n"
+                f"Your treasury dropped by {treasury_change_pct:.0f}% this round. "
+                f"The three largest contributors were:\n{cause_lines}\n\n"
+                f"**Before proceeding, your team must agree on one sentence:**\n"
+                f"*\"The single most important thing we need to change next round is ___\"*"
+            ),
+        }
+    elif in_survival and distress.get("phase_transition"):
+        reflection_trigger = {
+            "type":     "survival_entry",
+            "severity": "critical",
+            "prompt": (
+                f"🪞 **Board Room Moment — Emergency Session**\n"
+                f"Your company has entered {distress.get('turnaround_phase', 'crisis')} phase. "
+                f"The Turnaround Manager requires your team to answer:\n\n"
+                f"**1.** What were the 2 decisions that led us here?\n"
+                f"**2.** What is our single priority for the next round?\n"
+                f"**3.** What metric must improve for us to advance to the next phase?"
+            ),
+        }
+    elif is_midpoint:
+        reflection_trigger = {
+            "type":     "midpoint_review",
+            "severity": "noteworthy",
+            "prompt": (
+                f"🪞 **Midpoint Board Review — Round 5 of 10**\n"
+                f"Half your journey is complete. Current position:\n"
+                f"• Treasury: ${ctx.new_treasury:,.0f}\n"
+                f"• Reputation: {ctx.group_reputation:.0f}\n"
+                f"• Contagion Risk: {forecast.get('contagion_risk_label', 'Unknown')}\n"
+                f"• SDG Grade: {sdg_report.get('sdg_grade', '?')}\n\n"
+                f"**Your team must answer:** *\"If we could undo one decision from "
+                f"Rounds 1-5, which would it be and why?\"*"
+            ),
+        }
+    elif contagion_risk > CONTAGION_RISK_WARNING:
+        reflection_trigger = {
+            "type":     "contagion_warning",
+            "severity": "material",
+            "prompt": (
+                f"🪞 **Board Room Moment — Risk Committee Alert**\n"
+                f"Your Contagion Risk Index is {contagion_risk:.0f}/100 "
+                f"({forecast.get('contagion_risk_label', '')}). "
+                f"This is a composite of governance risk, SLO gaps, reputation erosion, "
+                f"and carbon intensity.\n\n"
+                f"**Your team must identify:** *\"Which single risk factor should we "
+                f"prioritize reducing, and how?\"*"
+            ),
+        }
+    if reflection_trigger:
+        ctx.events["reflection_required"] = True
+        ctx.events["reflection_prompt"]   = reflection_trigger
+    else:
+        ctx.events["reflection_required"] = False
+
+    # ── PHASE-1: Systemic Tipping Point Evaluation ───────────────
+    systemic_tipping_state = {}
+    try:
+        from systemic_risk_engine import evaluate_tipping_points, evaluate_materiality_shocks
+        _current_tipped = current_global.get("active_event_flags", {}).get("systemic_tipping_state", {})
+        _tp_result      = evaluate_tipping_points(current_global, ctx.new_bus, _current_tipped)
+        systemic_tipping_state = _tp_result["tipping_state"]
+        ctx.events["systemic_tipping"] = _tp_result
+        if _tp_result["transitions"]:
+            for trans in _tp_result["transitions"]:
+                ctx.events.setdefault("custom_black_swans", []).append({
+                    "title":     f"⚠️ SYSTEMIC TIPPING — {trans['dimension'].upper()}",
+                    "narrative": trans["message"],
+                    "icon": "⚠️", "severity": "critical",
+                })
+        _session_tier_ms = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
+        _active_flags_ms = current_global.get("active_event_flags", {})
+        _shocks          = evaluate_materiality_shocks(
+            current_global["round_number"],
+            _session_tier_ms,
+            active_event_flags=_active_flags_ms,   # OI-2: enables once-per-session gate & config routing
+        )
+        if _shocks:
+            ctx.events["materiality_shocks"] = _shocks
+            for shock in _shocks:
+                ctx.events.setdefault("custom_black_swans", []).append({
+                    "title":     f"📊 MATERIALITY SHOCK — {shock['issue']}",
+                    "narrative": shock["narrative"],
+                    "icon": "📊", "severity": "critical",
+                })
+    except ImportError:
+        pass
+    ctx.events["_systemic_tipping_state_internal"] = systemic_tipping_state
+
+    # ── REAL-WORLD SCENARIO MECHANICS ───────────────────────────
+    # 1. Regulatory Ratchet Fine
+    regulatory_baseline = REG_RATCHET_BASELINE + (current_global["round_number"] // 2) * REG_RATCHET_ROUND_INCREMENT
+    avg_gov_risk        = sum(bu.get("governance_risk_score", 0) for bu in ctx.new_bus) / max(len(ctx.new_bus), 1)
+    if avg_gov_risk > regulatory_baseline:
+        fine             = (avg_gov_risk - regulatory_baseline) * REG_RATCHET_FINE_PER_POINT
+        ctx.new_treasury -= fine
+        ctx.events["regulatory_ratchet"] = {
+            "active":   True,
+            "baseline": regulatory_baseline,
+            "fine":     fine,
+            "message":  f"⚖️ Regulatory Ratchet: Average governance risk ({avg_gov_risk:.1f}) exceeds the shifting industry baseline ({regulatory_baseline:.1f}). Compliance fine: ${fine:,.0f}.",
+        }
+    else:
+        ctx.events["regulatory_ratchet"] = {"active": False, "baseline": regulatory_baseline, "fine": 0}
+
+    # 2. Supplier Defection & 3. Green Premium Squeeze
+    supplier_defections    = []
+    green_premium_squeezes = []
+    for dec in ctx.decisions:
+        bu_id = dec["bu_id"]
+        bu    = next((b for b in ctx.new_bus if b["bu_id"] == bu_id), None)
+        if not bu:
+            continue
+        inv_ratio        = dec.get("investment_ratio", 0.0)
+        pillar_decisions = dec.get("pillar_decisions") or {}
+        supply_chain_choice = pillar_decisions.get("supply_chain", "")
+        if supply_chain_choice in ["audit_suppliers", "strict_mandates", "living_wage_mandate"] and inv_ratio < SUPPLIER_DEFECTION_INV_THRESHOLD:
+            bu["opex_base"]                  = round(bu["opex_base"] * SUPPLIER_DEFECTION_OPEX_MULT, 2)
+            bu["revenue_base"]               = round(bu["revenue_base"] * SUPPLIER_DEFECTION_REV_MULT, 2)
+            bu["supplier_defection_active"]  = True
+            supplier_defections.append(bu_id)
+        else:
+            bu["supplier_defection_active"] = False
+        if inv_ratio > 0.25 and bu.get("social_license_score", 50) < 60:
+            penalty_pct  = (60 - bu["social_license_score"]) * 0.005
+            penalty_val  = round(bu["revenue_base"] * penalty_pct, 2)
+            bu["revenue_base"]        -= penalty_val
+            bu["green_premium_squeeze"] = penalty_val
+            green_premium_squeezes.append({"bu_id": bu_id, "penalty": penalty_val})
+        else:
+            bu["green_premium_squeeze"] = 0.0
+
+    if supplier_defections:
+        ctx.events["supplier_defection"] = {
+            "active":       True,
+            "affected_bus": supplier_defections,
+            "message":      f"🏭 Supplier Defection: You mandated strict supply chain ESG rules without providing financial subsidies (investment ratio < 15%) for {len(supplier_defections)} BU(s). Suppliers dropped you. +10% OPEX shock, -5% Revenue.",
+        }
+    else:
+        ctx.events["supplier_defection"] = {"active": False}
+
+    if green_premium_squeezes:
+        total_squeeze = sum(s["penalty"] for s in green_premium_squeezes)
+        ctx.events["green_premium_squeeze"] = {
+            "active":  True,
+            "penalty": total_squeeze,
+            "message": f"📉 Green Premium Squeeze: You invested heavily (>25%) but lacked the Social License (<60) to pass costs to consumers. The market rejected the premium pricing. Revenue lost: ${total_squeeze:,.0f}.",
+        }
+    else:
+        ctx.events["green_premium_squeeze"] = {"active": False}
+
+    # 4. Valley of Death (CFO Austerity Trap)
+    loan_principal = ctx.events.pop("_loan_principal_internal", 0.0)
+    base_treasury  = ctx.events.pop("_base_treasury_internal", 0.0)
+    if ctx.new_treasury < 0 or loan_principal > base_treasury * CFO_AUSTERITY_LOAN_RATIO:
+        ctx.events["cfo_austerity_active"]  = True
+        ctx.events["cfo_austerity_message"] = "🛑 CFO Austerity Override: Heavy ESG investments drained free cash flow. The CFO has frozen all sustainability budgets for the next round."
+    else:
+        ctx.events["cfo_austerity_active"] = False
+
+    # ── FIX-QA-005: Final bounds-clamping pass ───────────────────
+    for bu in ctx.new_bus:
+        bu["revenue_base"]          = max(0.0, bu.get("revenue_base", 0.0))
+        bu["opex_base"]             = max(0.0, bu.get("opex_base", 0.0))
+        bu["reputation_score"]      = max(0.0, min(100.0, bu.get("reputation_score", 50.0)))
+        bu["social_license_score"]  = max(0.0, min(100.0, bu.get("social_license_score", 50.0)))
+        bu["natural_capital_debt"]  = max(0.0, min(NCD_HARD_CAP, bu.get("natural_capital_debt", 0.0)))
+        bu["carbon_intensity"]      = max(0.0, bu.get("carbon_intensity", 0.0))
+        bu["staff_burnout_index"]   = max(0.0, min(100.0, bu.get("staff_burnout_index", 0.0)))
+
+    # ── Stakeholder Sentiment Update ─────────────────────────────
+    try:
+        from stakeholder_sentiment import update_stakeholder_sentiment, initialise_sentiment
+        from stakeholder_map import get_stakeholders_for_session
+        _session_meta  = current_global.get("metadata", {})
+        _sh_list       = current_global.get("sentiment_stakeholders", [])
+        if not _sh_list:
+            _raw_stakeholders = get_stakeholders_for_session(_session_meta)
+            if _raw_stakeholders:
+                _sh_list = initialise_sentiment(_raw_stakeholders)
+        if _sh_list:
+            _flags_this_round = []
+            for _d in ctx.decisions:
+                _flags_this_round.extend(_d.get("flags_set", []))
+            _flags_this_round.extend([k for k, v in ctx.events.items() if v is True])
+            _swans = [
+                {"event_id": e.get("id", e.get("event_id", "")), "title": e.get("title", "")}
+                for e in ctx.events.get("black_swan_events", [])
+            ]
+            _updated_sh = update_stakeholder_sentiment(
+                stakeholders=_sh_list,
+                flags_set_this_round=_flags_this_round,
+                round_number=current_global.get("round_number", 1),
+                black_swans_triggered=_swans,
+            )
+            ctx.events["sentiment_stakeholders"] = _updated_sh
+            _hist = current_global.get("sentiment_history", {})
+            _hist[str(ctx.next_round)] = [
+                {
+                    "id":             s["id"],
+                    "name":           s.get("name", s["id"]),
+                    "attitude_score": s.get("attitude_score", 0),
+                    "attitude_delta": s.get("attitude_delta_this_round", 0),
+                    "salience_label": s.get("salience_label", "Latent"),
+                    "narrative":      s.get("sentiment_narrative", ""),
+                }
+                for s in _updated_sh
+            ]
+            ctx.events["sentiment_history"] = _hist
+    except Exception:
+        pass  # Non-fatal: sentiment failure must never block the simulation tick
+
+
+# ── Final State Assembly ─────────────────────────────────────────
+
+def _assemble_global_state(ctx: TickContext, initial_treasury: float) -> dict[str, Any]:
+    """
+    Build the immutable next-round global state dict from the fully-evolved
+    TickContext.  This is a pure data-assembly step — no calculations here.
+    """
+    events = ctx.events
+    return {
+        "round_number":       ctx.next_round,
+        "corporate_treasury": ctx.new_treasury,
+        "group_reputation":   ctx.group_reputation,
+        "synergy_multiplier": ctx.new_synergy,
+        "cost_of_capital":    ctx.corporate_cost_of_capital,
+        "inflation_index":    ctx.new_inflation_index,
+        "competitor_ebitda":  events.pop("_new_competitor_internal", 0.0),
+        "green_transition_fund": max(0.0, ctx.new_green_fund_balance),
+        "tipping_point_active":  events.pop("_tipping_point_active_internal", False),
+        "tipping_tier":          events.pop("_tipping_tier_internal", "none"),
+        "active_event_flags":    events,
+
+        "historical_ebitda":   ctx.historical_ebitda,
+        "tco2e_emissions":     ctx.tco2e_emissions,
+        "vrio_capabilities":   ctx.vrio_capabilities,
+        "bonus_score":         ctx.current_global.get("bonus_score", 0),
+        "learning_bonuses_awarded":   ctx.current_global.get("learning_bonuses_awarded", {}),
+        "stakeholder_map_completed":  ctx.current_global.get("stakeholder_map_completed", False),
+        "stakeholder_map_accuracy":   ctx.current_global.get("stakeholder_map_accuracy", 0),
+        "saved_allocations":          ctx.current_global.get("saved_allocations"),
+        "saved_decision_choice":      ctx.current_global.get("saved_decision_choice"),
+        "materiality_budget_allocated": ctx.current_global.get("materiality_budget_allocated"),
+        "materiality_bu_id":          ctx.current_global.get("materiality_bu_id"),
+        "csrd_completed":             ctx.current_global.get("csrd_completed", False),
+        "pending_capex_projects":     ctx.new_pending_projects,
+        "political_capital":          ctx.sdg_political_capital,
+        "community_trust_score":      ctx.sdg_community_trust,
+        "global_emissions_intensity": ctx.current_global.get("global_emissions_intensity", 0.0),
+        "sbti_pathway_history":       events.get("sbti_pathway", {}).get("history", []),
+        "carbon_forwards":            events.get("carbon_offset_market", {}).get("remaining_forwards",
+                                          ctx.current_global.get("carbon_forwards", [])),
+        "momentum_history":           events.pop("_momentum_history_internal", []),
+        "_prev_global_states":        (ctx.current_global.get("_prev_global_states", []) + [ctx.current_global])[-3:],
+        # Preserve systemic tipping state across rounds
+        "systemic_tipping_state":     events.pop("_systemic_tipping_state_internal", {}),
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  TICK ORCHESTRATOR — Lean Entry Point
 # ═════════════════════════════════════════════════════════════════
 
 def process_tick(
@@ -1483,7 +3833,7 @@ def process_tick(
     decisions: list[dict],
     dividends_paid: float = 0.0,
     crisis_severity: float = 0.0,
-    imitation_decay_rate: float = 0.10,  # 6-month compounded: 1-(1-0.05)² ≈ 0.0975
+    imitation_decay_rate: float = DEFAULT_IMITATION_DECAY_RATE,  # 6-month compounded: 1-(1-0.05)² ≈ 0.0975
     decision_paradigm: str = "legacy_abc",
     emergency_credit_used: bool = False,
 ) -> dict[str, Any]:
@@ -1520,1569 +3870,67 @@ def process_tick(
         "events"       : dict   — computed events / flags
     """
 
+    # ── 1. Defensive copies ──────────────────────────────────────
     # FIX AUDIT-001: Deep-copy current_global to prevent input mutation.
-    # The original dict must remain untouched for the caller (router).
     current_global = copy.deepcopy(current_global)
 
-    next_round = current_global["round_number"] + 1
+    # FIX CRITICAL-2: Deep-copy decisions so the caller's list is NEVER mutated.
+    decisions: list[dict] = copy.deepcopy(decisions)
 
-    # ── REAL-WORLD SCENARIO MECHANICS (Austerity Clamp) ──────────
+    # ── 2. Austerity Clamp (pre-processing guard) ────────────────
+    # Operates on the local deep-copied decisions — caller's original is untouched.
     if current_global.get("active_event_flags", {}).get("cfo_austerity_active", False):
         for d in decisions:
             d["investment_ratio"] = 0.0
-            d["capex_allocated"] = 0.0
-            
-    # Build a decision lookup  {bu_id: decision_dict}
-    decision_map: dict[str, dict] = {d["bu_id"]: d for d in decisions}
-
-    # FIX AUDIT-006: Capture synergy_multiplier BEFORE pending project
-    # processing, so VRIO decay operates on the pre-mutation baseline.
-    pre_tick_synergy = current_global["synergy_multiplier"]
-
-    # Deep-copy BU states so we mutate freely
-    new_bus: list[dict] = copy.deepcopy(current_bus)
-
-    events: dict[str, Any] = {}
-
-    # ── PHASE-1: Black Swan Evaluation — stochastic disruptions ──
-    try:
-        from black_swan_registry import evaluate_black_swans, apply_black_swan_impacts
-        _session_tier = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
-        _active_swans = current_global.get("active_event_flags", {}).get("active_black_swans", [])
-        _forced_swan = current_global.get("active_event_flags", {}).get("forced_black_swan", None)
-        _swan_result = evaluate_black_swans(
-            current_global, new_bus, current_global["round_number"],
-            difficulty_tier=_session_tier,
-            active_black_swans=_active_swans,
-            forced_event_id=_forced_swan,
-        )
-        if _swan_result["total_new_events"] > 0:
-            _swan_diag = apply_black_swan_impacts(current_global, new_bus, _swan_result["events_triggered"])
-            events["black_swan_events"] = _swan_result["events_triggered"]
-            events["black_swan_narratives"] = _swan_result["narratives"]
-            events["black_swan_diagnostics"] = _swan_diag
-            events.setdefault("custom_black_swans", []).extend([
-                {"title": e["title"], "narrative": e["narrative"], "icon": e["icon"], "severity": "critical"}
-                for e in _swan_result["events_triggered"]
-            ])
-        # Persist active swans (continuing multi-round events)
-        _all_active = _swan_result.get("events_continuing", []) + _swan_result.get("events_triggered", [])
-        events["active_black_swans"] = [e for e in _all_active if e.get("rounds_remaining", 0) > 0]
-        # Clear forced injection after use
-        if _forced_swan:
-            events["forced_black_swan"] = None
-    except ImportError:
-        pass  # Graceful degradation if black_swan_registry not available
-
-    # ── REC-1: Consequence Waterfall Tracker ─────────────────────
-    # Snapshot initial values to track deltas through the tick
-    initial_treasury = current_global.get("corporate_treasury", 0)
-    waterfall: list[dict] = []  # Ordered list of {label, amount, running_total}
-    running_total = initial_treasury
-
-    def _wf(label: str, amount: float, because: str = "", counterfactual: str = ""):
-        """Record a waterfall entry and optional 'because' annotation."""
-        nonlocal running_total
-        if abs(amount) < 0.01:
-            return
-        running_total = round(running_total + amount, 2)
-        entry = {
-            "label": label, "amount": round(amount, 2),
-            "running_total": running_total,
-            "severity": classify_severity(abs(amount), max(abs(initial_treasury), 1)),
-        }
-        if because:
-            entry["because"] = because
-        if counterfactual:
-            entry["counterfactual"] = counterfactual
-        waterfall.append(entry)
-
-    # Accumulator for deferred synergy lag projects (Feature 1)
-    new_synergy_lag_projects: list[dict] = []
-
-    # ── FEATURE 6: Revenue Cannibalization — before inflation ────
-    cannibalization = calc_revenue_cannibalization(new_bus)
-    for bu_id, penalty in cannibalization.items():
-        for bu in new_bus:
-            if bu["bu_id"] == bu_id:
-                bu["revenue_base"] = round(bu["revenue_base"] - penalty, 2)
-                events[f"revenue_cannibalized_{bu_id}"] = penalty
-                events[f"revenue_cannibalized_{bu_id}_because"] = (
-                    f"{bu_id} revenue reduced by ${penalty:,.0f} due to market overlap "
-                    f"with sibling BUs. When one BU dominates revenue share, "
-                    f"it cannibalizes demand from adjacent divisions."
-                )
-                break
-
-    # ── FEATURE 8: Supply Chain Contagion — OPEX surcharges ─────
-    sc_surcharges = calc_supply_chain_contagion(new_bus)
-    for bu_id, surcharge in sc_surcharges.items():
-        for bu in new_bus:
-            if bu["bu_id"] == bu_id:
-                bu["opex_base"] = round(bu["opex_base"] + surcharge, 2)
-                events[f"supply_chain_contagion_{bu_id}"] = surcharge
-                break
-
-    # ── FEATURE 21: Macro Interest Rate Environment ─────────────
-    macro_rate = calc_macro_rate_environment(current_global["round_number"])
-    events["macro_rate_environment"] = macro_rate
-
-    # ── FEATURE 22: FX Risk — stochastic currency impact ────────
-    fx_result = calc_fx_impact(new_bus, current_global["round_number"])
-    for bu_id, fx_delta in fx_result["adjustments"].items():
-        for bu in new_bus:
-            if bu["bu_id"] == bu_id:
-                bu["revenue_base"] = round(bu["revenue_base"] + fx_delta, 2)
-                break
-    events["fx_risk"] = {
-        "fx_index": fx_result["fx_index"],
-        "fx_direction": fx_result["fx_direction"],
-        "fx_message": fx_result["fx_message"],
-        "bu_details": fx_result["bu_details"],
-    }
-
-    # ── FEATURE 23: DSO / Working Capital Timing ────────────────
-    dso_transparency: dict[str, dict] = {}
-    total_deferred = 0.0
-    for bu in new_bus:
-        gov_risk = bu.get("governance_risk_score", 0)
-        dso = calc_dso_lag(bu["revenue_base"], gov_risk, current_global["round_number"])
-        deferred_amt = dso["deferred_amount"]
-        if deferred_amt > 0:
-            bu["revenue_base"] = round(bu["revenue_base"] - deferred_amt, 2)
-            total_deferred += deferred_amt
-            # Queue deferred revenue as a 1-round project
-            new_synergy_lag_projects.append({
-                "type": "revenue_generation",
-                "amount": deferred_amt,
-                "rounds_remaining": 1,
-                "description": f"Working capital collection for {bu['bu_id']} (DSO: {dso['dso_days_approx']:.0f} days)",
-            })
-        dso_transparency[bu["bu_id"]] = dso
-    events["dso_working_capital"] = {
-        "total_deferred": round(total_deferred, 2),
-        "bu_details": dso_transparency,
-        "note": "Revenue deferred to next round due to cash collection cycle",
-    }
-
-    # ── FEATURE 11: Working Capital / Cash Conversion ───────────
-    for bu in new_bus:
-        gov_risk = bu.get("governance_risk_score", 0)
-        old_rev = bu["revenue_base"]
-        bu["revenue_base"] = calc_cash_conversion(old_rev, gov_risk)
-        if bu["revenue_base"] < old_rev:
-            events[f"cash_conversion_drag_{bu['bu_id']}"] = round(old_rev - bu["revenue_base"], 2)
-
-    # ── FEATURE 5: Macroeconomic Inflation — apply BEFORE synergy ──
-    inflation_index = current_global.get("inflation_index", 0.05)
-
-    # ── FEATURE 24: Macro-Economic Noise — stochastic volatility ──
-    macro_noise = calc_macro_noise(current_global["round_number"])
-    inflation_index = round(inflation_index + macro_noise["inflation_noise"], 4)
-    events["macro_noise"] = macro_noise
-    # Apply micro-strike: random BU gets a 5% OPEX spike
-    if macro_noise["micro_strike_triggered"] and new_bus:
-        strike_idx = macro_noise["micro_strike_bu_idx"] % len(new_bus)
-        target_bu = new_bus[strike_idx]
-        micro_penalty = round(target_bu["opex_base"] * 0.05, 2)
-        target_bu["opex_base"] = round(target_bu["opex_base"] + micro_penalty, 2)
-        events["micro_strike_applied"] = {
-            "bu_id": target_bu["bu_id"],
-            "opex_penalty": micro_penalty,
-            "message": f"⚡ Localized disruption at {target_bu['bu_id']}: +${micro_penalty:,.0f} OPEX",
-        }
-
-    for bu in new_bus:
-        old_opex = bu["opex_base"]
-        bu["opex_base"] = calc_inflation(old_opex, inflation_index)
-    events["inflation_index_applied"] = inflation_index
-
-    # ── 3. Synergy Engine & Healthcare Revenue Modifiers ──
-    for bu in new_bus:
-        # Healthcare: Dynamic Patient Outcomes Score Revenue Modifier (Value-based care penalties)
-        if bu["bu_id"] in ("hospitals", "clinics"):
-            outcomes = bu.get("patient_outcomes_score", 50.0)
-            # +/- 0.5% revenue swing per point deviation from 50 (max +/- 25%)
-            rev_modifier = 1.0 + ((outcomes - 50.0) / 200.0)
-            # Clamp to prevent extreme anomalies
-            rev_modifier = max(0.75, min(1.25, rev_modifier))
-            bu["revenue_base"] = round(bu["revenue_base"] * rev_modifier, 2)
-            events[f"patient_outcomes_billing_multiplier_{bu['bu_id']}"] = round(rev_modifier, 4)
-
-        dec = decision_map.get(bu["bu_id"], {})
-        inv_ratio = dec.get("investment_ratio", 0.0)
-
-        # ── FEATURE 1: Implementation Lag — defer large synergy investments ──
-        if inv_ratio > 0.10:
-            # Queue the synergy reduction as a pending capex project (1-round delay)
-            deferred_opex_reduction = calc_synergy_opex(
-                bu["opex_base"], inv_ratio, current_global["synergy_multiplier"]
-            )
-            reduction_amount = bu["opex_base"] - deferred_opex_reduction
-            if reduction_amount > 0:
-                new_synergy_lag_projects.append({
-                    "type": "synergy_lag",
-                    "bu_target": bu["bu_id"],
-                    "amount": reduction_amount,
-                    "rounds_remaining": 1,
-                    "description": f"Synergy implementation completing for {bu['bu_id']}",
-                })
-                events[f"implementation_lag_deferred_{bu['bu_id']}"] = round(reduction_amount, 2)
-            # Don't apply synergy reduction this round — it's deferred
-        else:
-            # Small investments (≤10%) apply immediately (minor operational tweaks)
-            bu["opex_base"] = calc_synergy_opex(
-                bu["opex_base"],
-                inv_ratio,
-                current_global["synergy_multiplier"],
-            )
-
-    # ── 1. Corporate Strategic Fund & Short-Term Loan Logic ───────
-    # FIX VULN-001: Clamp dividends to treasury (prevent draining below zero)
-    base_treasury = current_global["corporate_treasury"]
-    clamped_dividends = min(dividends_paid, max(0.0, base_treasury))
-
-    # ── FEATURE 12: Dividend Ratchet — penalize dividend cuts ────
-    last_dividends = current_global.get("active_event_flags", {}).get("last_dividends_paid", 0.0)
-    ratchet_hit, ratchet_penalty = calc_dividend_ratchet(clamped_dividends, last_dividends)
-    if ratchet_hit:
-        # Apply reputation penalty to all BUs
-        for bu in new_bus:
-            bu["reputation_score"] = max(0.0, round(bu["reputation_score"] - ratchet_penalty, 2))
-        events["dividend_ratchet_triggered"] = True
-        events["dividend_ratchet_penalty"] = ratchet_penalty
-    events["last_dividends_paid"] = clamped_dividends
-
-    csf = calc_csf(new_bus, clamped_dividends)
-    if clamped_dividends < dividends_paid:
-        events["dividends_clamped"] = True
-        events["dividends_requested"] = dividends_paid
-        events["dividends_paid"] = clamped_dividends
-    
-    # Calculate free capital allowance (20% of starting treasury)
-    free_csf_limit = base_treasury * 0.20
-    
-    # Advanced Climate Engine: Check available Green Fund for CapEx offsets
-    green_fund_balance = current_global.get("green_transition_fund", 0.0)
-    total_capex_requested = sum(dec.get("capex_allocated", 0) for dec in decisions)
-    
-    green_fund_used = 0.0
-    if decision_paradigm == "advanced_climate" and total_capex_requested > 0 and green_fund_balance > 0:
-        green_fund_used = min(total_capex_requested, green_fund_balance)
-        total_capex_requested -= green_fund_used
-        events["green_fund_used"] = green_fund_used
-    
-    new_green_fund_balance = round(green_fund_balance - green_fund_used, 2)
-    
-    # ── FEATURE 3: Execution Overrun Risk ────────────────────────
-    # Read tunables from god-mode settings (facilitator can override)
-    try:
-        from admin_shared import _god_mode_settings
-        _overrun_prob = _god_mode_settings.get("overrun_probability", 0.25)
-        _overrun_sev = _god_mode_settings.get("overrun_severity", 0.15)
-    except ImportError:
-        _overrun_prob, _overrun_sev = 0.25, 0.15
-    overrun_triggered, overrun_amount = calc_overrun_risk(
-        total_capex_requested,
-        overrun_probability=_overrun_prob,
-        overrun_severity=_overrun_sev,
-    )
-    if overrun_triggered:
-        total_capex_requested = round(total_capex_requested + overrun_amount, 2)
-        events["capex_overrun_triggered"] = True
-        events["capex_overrun_amount"] = overrun_amount
-        events["capex_overrun_message"] = (
-            f"Execution overrun! Project scope creep added "
-            f"${overrun_amount:,.0f} to your capital expenditure."
-        )
-
-    # FIX VULN-006: Cap total CAPEX at 2× treasury to prevent absurd loans
-    capex_cap = base_treasury * 2.0
-    if total_capex_requested > capex_cap:
-        total_capex_requested = capex_cap
-        events["capex_capped"] = True
-        events["capex_cap_limit"] = capex_cap
-    
-    # Determine if a short term loan was triggered
-    loan_interest_payment = 0.0
-    loan_principal = max(0.0, total_capex_requested - free_csf_limit)
-
-    # ── Emergency Credit Line: +$1M at prevailing rate + 2% ────
-    # When the regular CSF pool is exhausted and max credit is utilised,
-    # teams may opt-in to an additional $1M emergency credit at a premium.
-    emergency_credit_interest = 0.0
-    EMERGENCY_CREDIT_AMOUNT = 1_000_000
-    if emergency_credit_used:
-        base_loan_rate = current_global.get("active_event_flags", {}).get("loan_interest_rate", 0.12)
-        emergency_rate = base_loan_rate + 0.02  # +2% premium
-        emergency_credit_interest = round(EMERGENCY_CREDIT_AMOUNT * emergency_rate, 2)
-        events["emergency_credit_used"] = True
-        events["emergency_credit_amount"] = EMERGENCY_CREDIT_AMOUNT
-        events["emergency_credit_rate"] = emergency_rate
-        events["emergency_credit_interest"] = emergency_credit_interest
-
-    if loan_principal > 0:
-        loan_interest_rate = current_global.get("active_event_flags", {}).get("loan_interest_rate", 0.12)
-        loan_interest_payment = round(loan_principal * loan_interest_rate, 2)
-        events["loan_principal"] = round(loan_principal, 2)
-        events["loan_interest_rate"] = loan_interest_rate
-        events["loan_interest_payment"] = loan_interest_payment
-
-    # Total interest = regular loan + emergency credit premium
-    total_interest = loan_interest_payment + emergency_credit_interest
-
-    # Treasury next round: Base + Operational Profit - All Interest Penalties
-    new_treasury = round(base_treasury + csf - total_interest, 2)
-
-    # ── REC-1: Waterfall entries for core treasury movement ─────
-    _wf("Gross Profit (CSF)", csf,
-        because="Revenue minus OPEX across all BUs, net of dividends paid.",
-        counterfactual="Higher synergy investment would have reduced OPEX and increased CSF.")
-    if loan_interest_payment > 0:
-        _wf("Loan Interest", -loan_interest_payment,
-            because=f"You borrowed ${loan_principal:,.0f} at {loan_interest_rate*100:.0f}% to fund CapEx exceeding free CSF.",
-            counterfactual="If total CapEx stayed below CSF, no loan interest would be charged.")
-    if emergency_credit_interest > 0:
-        _wf("Emergency Credit Interest", -emergency_credit_interest,
-            because=f"Emergency credit line of $1M activated at {events.get('emergency_credit_rate', 0)*100:.0f}% (prevailing rate + 2%).",
-            counterfactual="Without the emergency credit line, this interest charge would not apply.")
-
-    # ── FEATURE 13: Talent Allocation Pressure ───────────────────
-    talent_surcharges = calc_talent_allocation_pressure(new_bus, decisions)
-    for bu_id, surcharge in talent_surcharges.items():
-        for bu in new_bus:
-            if bu["bu_id"] == bu_id:
-                bu["opex_base"] = round(bu["opex_base"] + surcharge, 2)
-                events[f"talent_neglect_surcharge_{bu_id}"] = surcharge
-                break
-
-    # ── 8. Natural Decay & Pending CapEx — per BU ───────────────────
-    pending_projects = current_global.get("pending_capex_projects", [])
-    new_pending_projects = []
-    
-    # Process maturing CapEx projects
-    for proj in pending_projects:
-        proj["rounds_remaining"] -= 1
-        if proj["rounds_remaining"] <= 0:
-            events["capex_project_completed"] = proj
-            # Apply the effects
-            if proj.get("type") == "ncd_drop":
-                for bu in new_bus:
-                    if proj.get("bu_target") == "all" or bu["bu_id"] == proj.get("bu_target"):
-                        bu["natural_capital_debt"] = max(0, bu.get("natural_capital_debt", 0) + proj.get("amount", 0))
-            elif proj.get("type") == "resilience_boost":
-                events["active_resilience_factor"] = proj.get("amount", 0.0)
-            elif proj.get("type") == "synergy_boost":
-                current_global["synergy_multiplier"] += proj.get("amount", 0.0)
-            elif proj.get("type") == "truth_premium":
-                events["truth_premium_active"] = True
-            # FEATURE 1: Deferred synergy lag projects completing
-            elif proj.get("type") == "synergy_lag":
-                target_bu_id = proj.get("bu_target")
-                reduction = proj.get("amount", 0)
-                for bu in new_bus:
-                    if bu["bu_id"] == target_bu_id:
-                        bu["opex_base"] = max(0.0, round(bu["opex_base"] - reduction, 2))
-                        events[f"synergy_lag_completed_{target_bu_id}"] = reduction
-                        break
-            # Revenue generation projects (e.g. desalination payback)
-            elif proj.get("type") == "revenue_generation":
-                rev_amount = proj.get("amount", 0)
-                new_treasury = round(new_treasury + rev_amount, 2)
-                events["revenue_generation_completed"] = rev_amount
-                events[f"revenue_generation_desc"] = proj.get("description", "Revenue Generation")
-            # Education lag projects (SDG)
-            elif proj.get("type") == "education_lag":
-                events["education_lag_matured"] = proj.get("amount", 0)
-        else:
-            new_pending_projects.append(proj)
-
-    # Merge synergy lag projects from this tick into the pending queue
-    new_pending_projects.extend(new_synergy_lag_projects)
-
-    for bu in new_bus:
-        dec = decision_map.get(bu["bu_id"], {})
-        invested = dec.get("capex_allocated", 0) > 0
-        bu["reputation_score"], bu["social_license_score"] = apply_natural_decay(
-            bu["reputation_score"],
-            bu["social_license_score"],
-            invested,
-        )
-
-        # ── FEATURE 4: Technical Debt — penalise neglected BUs ──────
-        inv_ratio = dec.get("investment_ratio", 0.0)
-        risk = bu.get("risk_factors", {})
-        streak = risk.get("zero_investment_streak", 0)
-        if inv_ratio == 0.0:
-            streak += 1
-        else:
-            streak = 0
-        risk["zero_investment_streak"] = streak
-        bu["risk_factors"] = risk
-
-        new_opex, debt_hit = calc_technical_debt(bu["opex_base"], streak)
-        if debt_hit:
-            bu["opex_base"] = new_opex
-            events[f"technical_debt_penalty_{bu['bu_id']}"] = True
-            events[f"technical_debt_streak_{bu['bu_id']}"] = streak
-
-    # ── FEATURE 15: Technology Lock-In streak tracking ───────────
-    # Determine which BU got the most CAPEX this round
-    if decisions:
-        top_dec = max(decisions, key=lambda d: d.get("capex_allocated", 0))
-        top_bu_id = top_dec["bu_id"]
-        top_capex = top_dec.get("capex_allocated", 0)
-        for bu in new_bus:
-            risk = bu.get("risk_factors", {})
-            if top_capex > 0 and bu["bu_id"] == top_bu_id:
-                risk["top_investment_streak"] = risk.get("top_investment_streak", 0) + 1
-            else:
-                risk["top_investment_streak"] = 0
-            bu["risk_factors"] = risk
-
-    # ── FEATURE 15: Apply Technology Lock-In penalties ───────────
-    locked_bu, lockin_penalties = calc_technology_lockin(new_bus, decisions)
-    if locked_bu:
-        events["technology_lockin_bu"] = locked_bu
-        events["technology_lockin_penalty"] = True
-        # Reduce synergy effectiveness for non-locked BUs
-        for bu_id, multiplier in lockin_penalties.items():
-            events[f"lockin_synergy_penalty_{bu_id}"] = multiplier
-
-    # ── 2. Contagion Engine ─────────────────────────────────────
-    group_reputation = calc_contagion(new_bus, crisis_severity)
-
-    # ── FEATURE 7: Stakeholder Fatigue — diminish recovery ──────
-    crisis_count = current_global.get("active_event_flags", {}).get("crisis_count_lifetime", 0)
-    if crisis_severity > 0:
-        crisis_count += 1
-    events["crisis_count_lifetime"] = crisis_count
-    # Fatigue applies: the reputation loss from contagion is harder to recover from
-    # (This manifests as a dampened group_reputation floor after repeated crises)
-    if crisis_count > 0:
-        old_rep = sum(bu["reputation_score"] for bu in new_bus) / max(len(new_bus), 1)
-        recovery_gap = max(0, group_reputation - old_rep)
-        if recovery_gap > 0:
-            fatigued_recovery = calc_stakeholder_fatigue(recovery_gap, crisis_count)
-            group_reputation = round(old_rep + fatigued_recovery, 2)
-            group_reputation = max(0.0, min(100.0, group_reputation))
-            events["stakeholder_fatigue_applied"] = True
-            events["stakeholder_fatigue_efficiency"] = round(1.0 / (1.0 + 0.3 * crisis_count), 4)
-
-    # ── 6. Talent Brain-Drain (Software, Hospitals, Clinics) ────────────────
-    for bu in new_bus:
-        # ── Universal Burnout Passive Decay ──
-        # All BUs experience natural burnout recovery through staff rotation.
-        # HC BUs decay faster (−5/round) due to shift-based staffing.
-        # NC/AC BUs decay slower (−2/round) — reflects corporate turnover cycle.
-        current_burnout = bu.get("staff_burnout_index", 0.0)
-        if bu["bu_id"] in ("hospitals", "clinics", "specialised_care", "telehealth"):
-            # Healthcare: faster passive decay simulates shift rotation
-            if current_burnout > 0:
-                bu["staff_burnout_index"] = max(0.0, current_burnout - 10.0)
-                events[f"burnout_passive_decay_{bu['bu_id']}"] = 10.0
-        else:
-            # NC/AC: slower passive decay prevents permanent burnout spirals
-            if current_burnout > 0:
-                bu["staff_burnout_index"] = max(0.0, current_burnout - 4.0)
-                events[f"burnout_passive_decay_{bu['bu_id']}"] = 4.0
-
-        if bu["bu_id"] in ("software", "hospitals", "clinics"):
-            
-            # Healthcare: Utilization Overload Fatigue
-            if bu["bu_id"] in ("hospitals", "clinics"):
-                utilization = bu.get("bed_capacity_utilization", 0.0)
-                if utilization > 85.0:
-                    bu["staff_burnout_index"] = min(100.0, bu.get("staff_burnout_index", 0.0) + 10.0)
-                    events[f"utilization_overload_fatigue_{bu['bu_id']}"] = True
-
-            # Healthcare: Logarithmic bed capacity utilization drift
-            # Uses diminishing approach to 100%: Δ = (100 - current) × 0.05
-            # At 50%: +2.5/round. At 80%: +1.0/round. At 95%: +0.25/round.
-            # More realistic than linear — beds fill fast early, slow near capacity.
-            if bu["bu_id"] in ("hospitals", "clinics"):
-                current_util = bu.get("bed_capacity_utilization", 0.0)
-                utilization_drift = round((100.0 - current_util) * 0.10, 2)
-                bu["bed_capacity_utilization"] = min(100.0, round(current_util + utilization_drift, 2))
-                events[f"bed_utilization_drift_{bu['bu_id']}"] = utilization_drift
-
-            old_opex = bu["opex_base"]
-            bu["opex_base"], talent_penalty = calc_talent_braindrain(
-                bu["opex_base"], group_reputation, bu.get("staff_burnout_index", 0.0)
-            )
-            events[f"talent_penalty_applied_{bu['bu_id']}"] = talent_penalty
-            # Mathematical transparency: show the OPEX impact of brain-drain
-            if talent_penalty:
-                events[f"braindrain_opex_impact_{bu['bu_id']}"] = {
-                    "old_opex": old_opex,
-                    "new_opex": bu["opex_base"],
-                    "penalty_pct": round(((bu["opex_base"] - old_opex) / max(old_opex, 1)) * 100, 1),
-                    "trigger": f"Group reputation ({group_reputation:.0f}) below brain-drain threshold (25)",
-                }
-            # Keep legacy single key for software if expected by dashboard
-            if bu["bu_id"] == "software":
-                events["talent_penalty_applied"] = talent_penalty
-
-    # ── 4. Natural Capital Cost of Debt — per BU ────────────────
-    interest_rates: dict[str, float] = {}
-    corporate_cost_of_capital = current_global.get("cost_of_capital", 0.05)
-
-    # ── FEATURE 21: Apply macro rate environment to CoC ──────────
-    corporate_cost_of_capital = round(
-        corporate_cost_of_capital + macro_rate["coc_modifier"], 4
-    )
-    events["coc_macro_rate_applied"] = macro_rate["coc_modifier"]
-
-    # ── PHASE-1: ESG-Adjusted WACC — dynamic cost of capital ─────
-    # Replaces static CoC with ESG-sensitive WACC (El Ghoul 2011)
-    try:
-        from systemic_risk_engine import calc_esg_adjusted_wacc, calc_supply_chain_transparency, calc_employer_brand, get_foreshadowing_for_round
-        n_bu = max(len(new_bus), 1)
-        _avg_ci = sum(bu.get("carbon_intensity", 50) for bu in new_bus) / n_bu
-        _avg_gov = sum(bu.get("governance_risk_score", 20) for bu in new_bus) / n_bu
-        _avg_slo = sum(bu.get("social_license_score", 50) for bu in new_bus) / n_bu
-        _avg_water = sum(bu.get("water_dependency", 0) for bu in new_bus) / n_bu
-        _sct = current_global.get("active_event_flags", {}).get("supply_chain_transparency", 30)
-
-        esg_wacc, esg_wacc_diag = calc_esg_adjusted_wacc(
-            corporate_cost_of_capital, _avg_ci, _avg_gov, _avg_slo, _avg_water, _sct
-        )
-        corporate_cost_of_capital = esg_wacc
-        events["esg_adjusted_wacc"] = esg_wacc_diag
-
-        # Update Supply Chain Transparency metric
-        _sct_new, _sct_diag = calc_supply_chain_transparency(
-            _sct, current_global.get("active_event_flags", {}), current_global["round_number"]
-        )
-        events["supply_chain_transparency"] = _sct_new
-        events["supply_chain_transparency_diag"] = _sct_diag
-
-        # Employer Brand Score
-        _avg_burnout = sum(bu.get("staff_burnout_index", 0) for bu in new_bus) / n_bu
-        _workforce_readiness = current_global.get("active_event_flags", {}).get("workforce_readiness", 50)
-        _eb, _eb_diag = calc_employer_brand(group_reputation, _avg_burnout, _workforce_readiness)
-        events["employer_brand"] = _eb_diag
-
-        # ── Employer Brand OPEX Penalty (All BUs) ──
-        # When employer brand score drops below 40, ALL BUs face recruitment cost
-        # escalation: turnover increases, replacement hiring is expensive, and
-        # institutional knowledge drains. This extends the talent flight mechanic
-        # from Software/HC-only to the entire organisation.
-        if _eb < 40:
-            # Graded penalty: 0% at 40, max 8% at 0
-            eb_opex_multiplier = round(((40 - _eb) / 40) * 0.08, 4)
-            eb_total_penalty = 0.0
-            for bu in new_bus:
-                bu_opex = bu.get("opex_base", 0)
-                penalty = round(bu_opex * eb_opex_multiplier, 2)
-                bu["opex_base"] = round(bu_opex + penalty, 2)
-                eb_total_penalty += penalty
-            events["employer_brand_opex_penalty"] = {
-                "multiplier": eb_opex_multiplier,
-                "total_penalty": round(eb_total_penalty, 2),
-                "employer_brand_score": _eb,
-                "affected_bus": len(new_bus),
-                "narrative": (
-                    f"⚠️ TALENT CRISIS: Employer brand score has fallen to {_eb:.0f}/100. "
-                    f"Recruitment costs surging across all divisions — "
-                    f"${eb_total_penalty/1_000_000:.1f}M in additional OPEX."
-                ),
-            }
-
-        # Foreshadowing Signals
-        _foreshadowing = get_foreshadowing_for_round(
-            current_global["round_number"], current_global.get("active_event_flags", {})
-        )
-        if _foreshadowing:
-            events["foreshadowing_signals"] = _foreshadowing
-    except ImportError:
-        pass  # Graceful degradation if systemic_risk_engine not available
-    
-    # Stranded Asset Decay: Cost of Capital Spike
-    if decision_paradigm == "advanced_climate":
-        stranded_assets = [bu for bu in new_bus if bu.get("carbon_intensity", 0) > 120]
-        if stranded_assets:
-            corporate_cost_of_capital = round(corporate_cost_of_capital + 0.015, 4)
-            events["stranded_asset_penalty_applied"] = True
-            events["stranded_asset_bu_ids"] = [bu["bu_id"] for bu in stranded_assets]
-            # Divestment Pressure: inbox event when stranded assets detected
-            events["divestment_pressure_active"] = True
-            events["divestment_pressure_message"] = (
-                f"INVESTOR ALERT: {len(stranded_assets)} business unit(s) have carbon intensity "
-                f"above 120 — classified as stranded assets by climate-aware investors. "
-                f"Institutional shareholders are demanding a credible decarbonisation pathway "
-                f"or forced divestiture. Cost of capital increased by +1.5%."
-            )
-    
-    # If treasury is negative, deduct interest
-    if new_treasury < 0:
-        # Compute debt-service interest first (on the pre-clamp balance)
-        debt_service = round(abs(new_treasury) * corporate_cost_of_capital, 2)
-        new_treasury = round(new_treasury - debt_service, 2)
-        # Prevent unbound negative geometry — hard floor AFTER interest (true absolute bound)
-        new_treasury = max(new_treasury, -500_000_000.0)
-
-        events["negative_treasury_interest_applied"] = debt_service
-        events["negative_treasury_interest_because"] = (
-            f"Your treasury is negative. Creditors charge {corporate_cost_of_capital*100:.1f}% "
-            f"interest on the outstanding debt of ${abs(new_treasury):,.0f}."
-        )
-        _wf("Debt Service Interest", -debt_service,
-            because=f"Negative treasury incurs {corporate_cost_of_capital*100:.1f}% interest on ${abs(new_treasury+debt_service):,.0f} debt.",
-            counterfactual="A positive treasury eliminates debt servicing costs entirely.")
-
-        # Insolvency mechanic: Red Card at -$100M
-        if new_treasury < -100_000_000:
-            events["insolvency_active"] = True
-            events["insolvency_message"] = (
-                "CREDIT DOWNGRADE: Treasury has breached -$100M. "
-                "Mandatory austerity: all discretionary CapEx capped at 50%, "
-                "dividend suspension in effect."
-            )
-            events["capex_cap_multiplier"] = 0.50
-            events["dividend_suspended"] = True
-
-    ncd_transparency: dict[str, dict] = {}
-    for bu in new_bus:
-        old_ncd = bu.get("natural_capital_debt", 0)
-        rate = calc_natural_capital_interest(
-            corporate_cost_of_capital,
-            old_ncd,
-        )
-        interest_rates[bu["bu_id"]] = rate
-        # Accrue a simple interest charge on the debt
-        debt_charge = round(old_ncd * rate, 2)
-        new_ncd = round(old_ncd + debt_charge, 2)
-        # FIX VULN-007: Cap NCD at 1,000,000 to prevent float overflow
-        bu["natural_capital_debt"] = min(new_ncd, 1_000_000)
-        # HARD-001: NCD soft-cap warning at 500,000 (credit downgrade event)
-        if bu["natural_capital_debt"] >= 500_000 and old_ncd < 500_000:
-            events[f"ncd_credit_downgrade_{bu['bu_id']}"] = True
-            events.setdefault("custom_black_swans", []).append({
-                "title": f"\U0001f4c9 CREDIT DOWNGRADE: {bu['bu_id']} NCD Critical",
-                "narrative": (
-                    f"Natural Capital Debt for {bu['bu_id']} has reached "
-                    f"${bu['natural_capital_debt']:,.0f} \u2014 50% of the hard cap. "
-                    f"Investors are repricing ecological risk. Urgent NCD reduction "
-                    f"required within 1\u20132 rounds to prevent environmental write-off."
-                ),
-                "icon": "\U0001f4c9",
-                "severity": "critical",
-            })
-        # Mathematical transparency: show NCD compounding per BU
-        ncd_transparency[bu["bu_id"]] = {
-            "old_ncd": old_ncd,
-            "interest_rate_pct": round(rate * 100, 2),
-            "interest_charge": debt_charge,
-            "new_ncd": bu["natural_capital_debt"],
-        }
-    events["interest_rates"] = interest_rates
-    events["ncd_transparency"] = ncd_transparency
-
-    # Toxic OPEX Penalty (Natural Capital Debt Multiplier)
-    avg_ci = sum(bu.get("carbon_intensity", 0) for bu in new_bus) / max(len(new_bus), 1)
-    hostility_multiplier = current_global.get("active_event_flags", {}).get("market_hostility_index", 5)
-    tipping_tier = current_global.get("tipping_tier", "none")  # none/warning/stressed/tipped
-    if decision_paradigm == "advanced_climate":
-        # Graduated Tipping Point — 3-tier hostility escalation (replaces binary)
-        # Tier 1 (warning):  hostility × 1.25 — early regulatory pressure
-        # Tier 2 (stressed): hostility × 1.75 — significant market repricing
-        # Tier 3 (tipped):   hostility × 2.50 — irreversible regime shift
-        if tipping_tier == "tipped":
-            hostility_multiplier = round(hostility_multiplier * 2.5, 2)
-            events["tipping_tier_active"] = "tipped"
-        elif tipping_tier == "stressed":
-            hostility_multiplier = round(hostility_multiplier * 1.75, 2)
-            events["tipping_tier_active"] = "stressed"
-        elif tipping_tier == "warning":
-            hostility_multiplier = round(hostility_multiplier * 1.25, 2)
-            events["tipping_tier_active"] = "warning"
-        # Legacy flag compat
-        if current_global.get("tipping_point_active", False):
-            if avg_ci < 50:
-                events["tipping_point_managed_retreat"] = True
-
-        # NCD Forgiveness: logarithmic curve (easy gains first, diminishing returns)
-        # Formula: forgiveness = 2.0 × ln(1 + green_capex_M) — models ecological restoration
-        total_green_capex = sum(d.get("capex_allocated", 0) for d in decisions)
-        if total_green_capex > 0:
-            import math
-            green_capex_m = total_green_capex / 1_000_000
-            forgiveness_per_bu = round(2.0 * math.log(1 + green_capex_m), 2)
-            for bu in new_bus:
-                old_ncd = bu.get("natural_capital_debt", 0)
-                if old_ncd > 0 and forgiveness_per_bu > 0:
-                    bu["natural_capital_debt"] = max(0, round(old_ncd - forgiveness_per_bu, 2))
-            if forgiveness_per_bu > 0:
-                events["ncd_forgiveness_applied"] = forgiveness_per_bu
-                events["ncd_forgiveness_formula"] = "2.0 × ln(1 + CapEx_M$)"
-
-        # CBAM Border Adjustment: supply chain rounds (R3, R7) face import surcharge
-        # if avg CI remains high — models EU Carbon Border Adjustment Mechanism
-        round_number = current_global.get("round_number", 1)
-        if round_number in (2, 5) and avg_ci > 40:
-            cbam_surcharge = round((avg_ci - 40) * 100_000, 2)  # $100K per CI point above 40
-            new_treasury = round(new_treasury - cbam_surcharge, 2)
-            events["cbam_surcharge_applied"] = cbam_surcharge
-            events["cbam_message"] = (
-                f"EU CBAM border adjustment: avg CI {avg_ci:.0f} exceeds 40 threshold. "
-                f"Import carbon surcharge: -${cbam_surcharge:,.0f}"
-            )
-
-        for bu in new_bus:
-            ncd = max(0, bu.get("natural_capital_debt", 0))
-            ncd_opex_penalty = round((ncd * 50_000 * hostility_multiplier) / 1_000_000, 2)
-            # Post-tipping: stricter cap at 75% revenue (was 50%) to make consequences dramatic
-            if tipping_tier == "tipped":
-                max_penalty = bu.get("revenue_base", 0) * 0.75
-            else:
-                max_penalty = bu.get("revenue_base", 0) * 0.50
-            ncd_opex_penalty = min(ncd_opex_penalty, max_penalty)
-            if ncd_opex_penalty > 0:
-                bu["opex_base"] = round(bu["opex_base"] + ncd_opex_penalty, 2)
-                events[f"{bu['bu_id']}_opex_ncd_penalty"] = ncd_opex_penalty
-
-        # Scope 1/2/3 as ACTUAL BU state variables — DYNAMIC per-BU industry ratios
-        # Real GHG Protocol profiles: manufacturing = high Scope 1, tech = high Scope 2,
-        # consumer/electronics = high Scope 3 (supply chain dominant)
-        _BU_SCOPE_RATIOS = {
-            "pharma":         {"scope_1": 0.35, "scope_2": 0.25, "scope_3": 0.40},  # Chemical processes, lab energy
-            "electronics":    {"scope_1": 0.10, "scope_2": 0.15, "scope_3": 0.75},  # Supply chain dominant
-            "consumer_goods": {"scope_1": 0.15, "scope_2": 0.10, "scope_3": 0.75},  # Product lifecycle
-            "software":       {"scope_1": 0.05, "scope_2": 0.60, "scope_3": 0.35},  # Data centre energy
-            "hospitals":            {"scope_1": 0.25, "scope_2": 0.40, "scope_3": 0.35},  # HVAC, medical gases, intensive 24/7 power
-            "clinics":              {"scope_1": 0.10, "scope_2": 0.50, "scope_3": 0.40},  # General electricity and supply chain
-            "specialised_care":     {"scope_1": 0.20, "scope_2": 0.45, "scope_3": 0.35},  # Specialised equipment power and supply chain
-            "telehealth":           {"scope_1": 0.05, "scope_2": 0.65, "scope_3": 0.30},  # Data centre and remote tech dominant
-        }
-        _DEFAULT_RATIOS = {"scope_1": 0.20, "scope_2": 0.15, "scope_3": 0.65}
-        scope_details = {}
-        for bu in new_bus:
-            ci = bu.get("carbon_intensity", 0)
-            ratios = _BU_SCOPE_RATIOS.get(bu["bu_id"], _DEFAULT_RATIOS)
-            bu["scope_1_ci"] = round(ci * ratios["scope_1"], 2)
-            bu["scope_2_ci"] = round(ci * ratios["scope_2"], 2)
-            bu["scope_3_ci"] = round(ci * ratios["scope_3"], 2)
-            scope_details[bu["bu_id"]] = {
-                "scope_1_pct": round(ratios["scope_1"] * 100),
-                "scope_2_pct": round(ratios["scope_2"] * 100),
-                "scope_3_pct": round(ratios["scope_3"] * 100),
-                "scope_1_ci": bu["scope_1_ci"],
-                "scope_2_ci": bu["scope_2_ci"],
-                "scope_3_ci": bu["scope_3_ci"],
-            }
-        events["scope_transparency"] = {
-            "bu_scope_details": scope_details,
-            "total_ci": round(avg_ci, 2),
-            "note": "Scope 1/2/3 ratios are now DYNAMIC per BU industry profile (GHG Protocol)",
-        }
-
-        # EU Taxonomy Alignment Gate — % of revenue from taxonomy-aligned activities
-        # Revenue from BUs with CI < 25 counts as taxonomy-aligned (simplified proxy)
-        taxonomy_aligned_rev = sum(bu["revenue_base"] for bu in new_bus if bu.get("carbon_intensity", 100) < 25)
-        total_rev = sum(bu["revenue_base"] for bu in new_bus) or 1
-        taxonomy_pct = round((taxonomy_aligned_rev / total_rev) * 100, 1)
-        events["eu_taxonomy_alignment_pct"] = taxonomy_pct
-        # Taxonomy bonus: if > 60% aligned, reduce CoC by 0.5% (green finance discount)
-        if taxonomy_pct > 60:
-            events["taxonomy_green_finance_discount"] = True
-            events["taxonomy_coc_benefit"] = -0.005
-        # Taxonomy penalty: if < 20% aligned, CoC surcharge 0.5% (brown penalty)
-        elif taxonomy_pct < 20:
-            events["taxonomy_brown_penalty"] = True
-            events["taxonomy_coc_surcharge"] = 0.005
-
-        # Climate VaR — composite Value at Risk from physical + transition risk
-        active_resilience = events.get("active_resilience_factor", 0.0)
-        cyclone_prob = 0.75
-        tipping_tier_local = current_global.get("tipping_tier", "none")
-        if tipping_tier_local == "tipped": cyclone_prob = 0.90
-        elif tipping_tier_local == "stressed": cyclone_prob = 0.85
-        elif tipping_tier_local == "warning": cyclone_prob = 0.80
-        physical_var = round(cyclone_prob * 12_000_000 * (1 - active_resilience), 2)
-        stranded_exposure = sum(bu["revenue_base"] for bu in new_bus if bu.get("carbon_intensity", 0) > 80)
-        
-        # Calculate local carbon fee estimate for VaR
-        base_fee = current_global.get("active_event_flags", {}).get("global_carbon_fee", 40)
-        fee_per_ton = round(base_fee * (1 + 0.15) ** (current_global.get("round_number", 1) - 1), 2)
-        local_tco2e = sum(bu.get("carbon_intensity", 0) * bu["revenue_base"] / 1_000_000 for bu in new_bus)
-        local_carbon_fee = round(local_tco2e * fee_per_ton, 2)
-        
-        transition_var = round(stranded_exposure * 0.15 + local_carbon_fee * 5, 2)
-        climate_var_total = round(physical_var + transition_var, 2)
-        events["climate_var"] = {
-            "physical_var": physical_var,
-            "transition_var": transition_var,
-            "total_var": climate_var_total,
-            "physical_components": f"P(cyclone)={cyclone_prob:.0%} × $12M × (1-{active_resilience:.2f})",
-            "transition_components": f"Stranded exposure: ${stranded_exposure:,.0f} + Carbon fee 5yr: ${local_carbon_fee*5:,.0f}",
-        }
-
-        # SBTi Pathway Validation — with multi-round history for dashboard visualization
-        import math
-        round_num = current_global.get("round_number", 1)
-        sbti_target_ci = round(36.25 * (1 - 0.0822) ** (round_num - 1), 2)
-        sbti_aligned = avg_ci <= sbti_target_ci
-        # Build cumulative pathway history from previous rounds
-        sbti_history = list(current_global.get("sbti_pathway_history", []))
-        sbti_history.append({
-            "round": round_num,
-            "target_ci": sbti_target_ci,
-            "actual_ci": round(avg_ci, 2),
-            "aligned": sbti_aligned,
-            "gap": round(avg_ci - sbti_target_ci, 2),
-        })
-        # Calculate consecutive aligned rounds for credibility score
-        consecutive_aligned = 0
-        for entry in reversed(sbti_history):
-            if entry["aligned"]:
-                consecutive_aligned += 1
-            else:
-                break
-        events["sbti_pathway"] = {
-            "target_ci": sbti_target_ci,
-            "actual_ci": round(avg_ci, 2),
-            "aligned": sbti_aligned,
-            "consecutive_aligned_rounds": consecutive_aligned,
-            "credibility_score": min(100, consecutive_aligned * 15),  # 15 pts per aligned round
-            "history": sbti_history,
-            "message": (
-                f"SBTi 1.5°C target for R{round_num}: CI ≤ {sbti_target_ci:.1f}. "
-                f"Actual: {avg_ci:.1f}. {'✅ ON TRACK' if sbti_aligned else '❌ OFF TRACK'}. "
-                f"Credibility: {min(100, consecutive_aligned * 15)}%"
-            ),
-        }
-
-        # Carbon Credit Futures Market — spot + forward contracts
-        # Teams can "lock in" offset prices via forward contracts (3-round duration)
-        # Forward premium: 20% above spot (insurance against volatility)
-        if "carbon_deferred" in current_global.get("active_event_flags", {}):
-            import random as _offset_rng
-            # Spot market: base $500K ± 30% volatility
-            spot_volatility = _offset_rng.uniform(-0.30, 0.30)
-            spot_price = round(500_000 * (1 + spot_volatility), 2)
-            # Check for active forward contracts
-            active_forwards = list(current_global.get("carbon_forwards", []))
-            forward_payment = 0
-            remaining_forwards = []
-            for fwd in active_forwards:
-                if fwd["rounds_remaining"] > 0:
-                    forward_payment += fwd["locked_price"]
-                    remaining_fwd = dict(fwd)
-                    remaining_fwd["rounds_remaining"] -= 1
-                    if remaining_fwd["rounds_remaining"] > 0:
-                        remaining_forwards.append(remaining_fwd)
-            if forward_payment > 0:
-                # Use forward contract price (locked in)
-                offset_actual = forward_payment
-                events["carbon_forward_used"] = True
-                savings = spot_price - forward_payment
-                events["carbon_forward_savings"] = savings
-            else:
-                # Pay spot price
-                offset_actual = spot_price
-            new_treasury = round(new_treasury - offset_actual, 2)
-            # Offer new forward contract for next rounds
-            forward_offer_price = round(500_000 * 1.20, 2)  # 20% premium
-            events["carbon_offset_market"] = {
-                "spot_price": spot_price,
-                "spot_volatility_pct": round(spot_volatility * 100, 1),
-                "actual_cost_paid": offset_actual,
-                "forward_offer_price": forward_offer_price,
-                "forward_duration": 3,
-                "active_forwards": len(remaining_forwards),
-                "message": (
-                    f"Carbon Market: Spot ${spot_price:,.0f} ({spot_volatility*100:+.1f}%). "
-                    f"Paid: ${offset_actual:,.0f}. "
-                    f"Forward contract available: ${forward_offer_price:,.0f}/round for 3 rounds."
-                ),
-            }
-
-    # ── 5. VRIO Decay ───────────────────────────────────────────
-    # Apply to the synergy multiplier as a proxy for group advantage
-    # FIX AUDIT-006: Use pre_tick_synergy to avoid decaying a value
-    # that was already mutated by pending capex project processing.
-    new_synergy = calc_vrio_decay(
-        pre_tick_synergy,
-        imitation_decay_rate,
-    )
-    events["synergy_decayed_from"] = pre_tick_synergy
-
-    # ── 7. Strike Probability — per BU ──────────────────────────
-    strike_probs: dict[str, float] = {}
-    for bu in new_bus:
-        gov_risk = bu.get("governance_risk_score", 0)
-        base_risk = gov_risk / 100.0  # normalise to [0,1]
-        p = calc_strike_probability(base_risk, bu["social_license_score"])
-        strike_probs[bu["bu_id"]] = p
-    events["strike_probabilities"] = strike_probs
-
-    # ── Compute Derived Dashboard Metrics ───────────────────────
-    # EBITDA proxy: group-level gross profit
-    historical_ebitda = round(
-        sum(bu["revenue_base"] - bu["opex_base"] for bu in new_bus), 2
+            d["capex_allocated"]  = 0.0
+
+    # ── 3. Build TickContext ─────────────────────────────────────
+    initial_treasury = current_global.get("corporate_treasury", 0.0)
+
+    ctx = TickContext(
+        # Read-only inputs
+        current_global         = current_global,
+        decisions              = decisions,
+        decision_map           = {d["bu_id"]: d for d in decisions},
+        decision_paradigm      = decision_paradigm,
+        dividends_paid         = dividends_paid,
+        crisis_severity        = crisis_severity,
+        imitation_decay_rate   = imitation_decay_rate,
+        emergency_credit_used  = emergency_credit_used,
+        # FIX AUDIT-006: capture synergy BEFORE project processing
+        pre_tick_synergy       = current_global["synergy_multiplier"],
+        next_round             = current_global["round_number"] + 1,
+        # Working state
+        new_bus                = copy.deepcopy(current_bus),
+        events                 = {},
+        waterfall              = [],
+        _waterfall_running_total = initial_treasury,
+        _waterfall_initial       = initial_treasury,
+        # Scalars initialised from current state
+        new_treasury           = initial_treasury,
+        new_synergy            = current_global["synergy_multiplier"],
+        new_green_fund_balance = current_global.get("green_transition_fund", 0.0),
+        new_inflation_index    = current_global.get("inflation_index", 0.05),
+        corporate_cost_of_capital = current_global.get("cost_of_capital", 0.05),
+        group_reputation       = 0.0,
+        # Project queues
+        new_pending_projects     = [],
+        new_synergy_lag_projects = [],
+        # SDG state carried from previous round
+        sdg_political_capital  = current_global.get("political_capital", 50.0),
+        sdg_community_trust    = current_global.get("community_trust_score", 50.0),
     )
 
-    # Carbon tonnage: intensity × revenue scale (tCO2e)
-    # FIX AUDIT-023: Apply precision of 1 to keep small float values from becoming 0
-    tco2e_emissions = round(
-        sum(
-            bu.get("carbon_intensity", 0) * bu["revenue_base"] / 1_000_000
-            for bu in new_bus
-        ), 1
-    )
+    # ── 4. Run the four pipeline stages ─────────────────────────
+    _run_stochastic_layer(ctx)
+    _run_financial_layer(ctx)
+    _run_operational_layer(ctx)
+    _run_reporting_layer(ctx)
 
-    # ── CAROIC: Carbon-Adjusted Return on Invested Capital ───────
-    # Uses the same carbon tonnage as terminal valuation for consistency.
-    # Shadow carbon price defaults to $250/ton (aligned with R10 carbon tax).
-    _shadow_carbon_price = current_global.get("active_event_flags", {}).get(
-        "carbon_tax_per_ton",
-        current_global.get("active_event_flags", {}).get("shadow_carbon_price", 250.0),
-    )
-    caroic_result = calc_caroic(
-        ebitda=historical_ebitda,
-        invested_capital=new_treasury,
-        carbon_tonnage=tco2e_emissions,
-        tax_rate=0.25,
-        shadow_carbon_price=_shadow_carbon_price,
-    )
-    events["caroic"] = caroic_result
-
-    # HARD CLAMP on all BU sub-scores to prevent math logic from breaking in edge cases
-    for bu in new_bus:
-        bu["social_license_score"] = max(0.0, min(100.0, bu.get("social_license_score", 50.0)))
-        bu["governance_risk_score"] = max(0.0, min(100.0, bu.get("governance_risk_score", 20.0)))
-        bu["carbon_intensity"] = max(0.0, bu.get("carbon_intensity", 50.0))
-
-    # ── FEATURE 16: ESG Greenwashing Risk ────────────────────────
-    primary_choice = ""
-    for dec in decisions:
-        c = dec.get("choice_selected", "")
-        if c.startswith("option_"):
-            primary_choice = c
-            break
-    greenwash_hit, greenwash_penalty = calc_greenwashing_risk(primary_choice, decisions)
-    # Fix #10: Always emit greenwashing diagnostics (transparent to players/facilitators)
-    avg_inv_ratio = (
-        sum(d.get("investment_ratio", 0) for d in decisions) / max(len(decisions), 1)
-    )
-    events["greenwashing_checked"] = True
-    events["greenwashing_avg_investment_ratio"] = round(avg_inv_ratio, 4)
-    events["greenwashing_threshold"] = 0.15
-    events["greenwashing_risk_active"] = greenwash_hit
-    if greenwash_hit:
-        for bu in new_bus:
-            bu["social_license_score"] = max(0.0, round(
-                bu["social_license_score"] - greenwash_penalty, 2
-            ))
-        events["greenwashing_scandal"] = True
-        events["greenwashing_penalty"] = greenwash_penalty
-        events["greenwashing_message"] = (
-            "Greenwashing scandal! Your green rhetoric doesn't match "
-            "your actual investment allocation. Public trust plummets. "
-            f"Avg investment ratio: {avg_inv_ratio:.1%} vs. required 15%."
-        )
-        events["greenwashing_because"] = (
-            f"You chose a green option but allocated only {avg_inv_ratio:.1%} average "
-            f"investment. The market requires ≥15% to back a green claim. "
-            f"SLO penalty: −{greenwash_penalty:.0f} per BU."
-        )
-        events["greenwashing_counterfactual"] = (
-            f"If you had allocated ≥15% average investment, this scandal "
-            f"would not have fired. Alternatively, choosing a non-green option "
-            f"avoids the greenwashing check entirely."
-        )
-    else:
-        events["greenwashing_scandal"] = False
-        events["greenwashing_message"] = (
-            f"Greenwashing check passed. Avg investment ratio: {avg_inv_ratio:.1%} "
-            f"({'above' if avg_inv_ratio >= 0.15 else 'below — no green option selected, hence no penalty'} "
-            f"the 15% threshold)."
-        )
-
-    # ── FEATURE 25: Turnaround Pathway — 3-Act Distress Arc ─────
-    already_survival = current_global.get("active_event_flags", {}).get("survival_mode", False)
-    current_phase = current_global.get("active_event_flags", {}).get("turnaround_phase", "none")
-    distress = detect_distress(
-        new_treasury, group_reputation,
-        current_global["round_number"], already_survival, current_phase,
-    )
-    events["distress_detection"] = distress
-    events["turnaround_phase"] = distress.get("turnaround_phase", "none")
-
-    if distress.get("distress_detected") and distress.get("bailout_amount"):
-        bailout = distress["bailout_amount"]
-        new_treasury = round(new_treasury + bailout, 2)
-        events["survival_mode"] = True
-        events["bailout_applied"] = bailout
-        _wf("Emergency Bailout", bailout,
-            because="Board-appointed Turnaround Manager activates emergency credit line.",
-            counterfactual="Maintaining treasury > $0 and reputation > 30 prevents Survival Mode.")
-        events.setdefault("custom_black_swans", []).append({
-            "title": "🚨 CRISIS — Turnaround Manager Appointed",
-            "narrative": distress["message"],
-            "icon": "🚨",
-            "severity": "critical",
-        })
-    elif distress.get("phase_transition"):
-        # Phase transition within the turnaround arc
-        events["survival_mode"] = distress.get("survival_mode", True)
-        events.setdefault("custom_black_swans", []).append({
-            "title": f"📋 TURNAROUND PHASE: {distress['turnaround_phase'].upper()}",
-            "narrative": distress["message"],
-            "icon": "📋" if distress["turnaround_phase"] != "exit" else "✅",
-            "severity": "info" if distress.get("recovered") else "noteworthy",
-        })
-    elif distress.get("recovered"):
-        events["survival_mode"] = False
-        events.setdefault("custom_black_swans", []).append({
-            "title": "✅ TURNAROUND COMPLETE — Comeback Achieved",
-            "narrative": distress["message"],
-            "icon": "✅",
-            "severity": "info",
-        })
-    else:
-        events["survival_mode"] = distress.get("survival_mode", False)
-
-    # ── FEATURE 9: Regulatory Ratchet — cost_of_capital never drops ─
-    historical_coc_max = current_global.get("active_event_flags", {}).get(
-        "regulatory_floor_coc", current_global.get("cost_of_capital", 0.05)
-    )
-    if corporate_cost_of_capital < historical_coc_max:
-        corporate_cost_of_capital = historical_coc_max
-        events["regulatory_ratchet_active"] = True
-    events["regulatory_floor_coc"] = max(historical_coc_max, corporate_cost_of_capital)
-
-    # ── FEATURE 14: Fog of War — metric noise for undiscovered BUs ──
-    fog_active = current_global.get("round_number", 1) <= 2
-    deep_audit = "deep_audit_completed" in current_global.get("active_event_flags", {})
-    if fog_active and not deep_audit:
-        events["fog_of_war_active"] = True
-        # Add ±10% noise to reported metrics (actual values are untouched,
-        # noise is in events for the frontend to apply as display-only)
-        fog_noise: dict[str, dict] = {}
-        for bu in new_bus:
-            noise_factor = _rng.uniform(-0.10, 0.10)
-            fog_noise[bu["bu_id"]] = {
-                "natural_capital_debt_noise": round(noise_factor, 4),
-                "social_license_noise": round(_rng.uniform(-0.10, 0.10), 4),
-                "governance_risk_noise": round(_rng.uniform(-0.10, 0.10), 4),
-            }
-        events["fog_noise"] = fog_noise
-    else:
-        events["fog_of_war_active"] = False
-    # VRIO capabilities (0-100 each)
-    n = len(new_bus) or 1
-    avg_sl = sum(bu.get("social_license_score", 50) for bu in new_bus) / n
-    avg_ci = sum(bu.get("carbon_intensity", 50) for bu in new_bus) / n
-    avg_gr = sum(bu.get("governance_risk_score", 20) for bu in new_bus) / n
-    vrio_capabilities = {
-        "value": round(max(0, min(100, avg_sl)), 1),
-        "rarity": round(max(0, min(100, 100 - avg_ci)), 1),
-        "imitability": round(max(0, min(100, new_synergy * 100)), 1),
-        "organization": round(max(0, min(100, 100 - avg_gr)), 1),
-    }
-
-    # \u2500\u2500 HARD-004: Boundary Rounding Normalization \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-    # Final precision pass: round all financial fields to 2dp at the
-    # persistence boundary to prevent floating-point drift over 10 rounds.
-    for bu in new_bus:
-        bu["revenue_base"] = round(bu["revenue_base"], 2)
-        bu["opex_base"] = round(bu["opex_base"], 2)
-        bu["natural_capital_debt"] = round(bu.get("natural_capital_debt", 0), 2)
-        bu["social_license_score"] = round(bu.get("social_license_score", 50.0), 2)
-        bu["governance_risk_score"] = round(bu.get("governance_risk_score", 20.0), 2)
-        bu["carbon_intensity"] = round(bu.get("carbon_intensity", 50.0), 2)
-        bu["reputation_score"] = round(bu.get("reputation_score", 50.0), 2)
-        bu["staff_burnout_index"] = round(bu.get("staff_burnout_index", 0.0), 2)
-    new_treasury = round(new_treasury, 2)
-    new_green_fund_balance = round(new_green_fund_balance, 2)
-    new_synergy = round(new_synergy, 4)
-
-    # ── Internal Carbon Pricing — Escalating per Paris Ratchet ────
-    # Base $40/ton escalating 32.25%/round (compounded from 15%/quarter × 2) to model Article 4 ratchet
-    # R1:$40 → R3:$70 → R5:$122 → R7:$214 → R10:$495
-    if decision_paradigm == "advanced_climate":
-        base_carbon_fee = current_global.get("active_event_flags", {}).get("global_carbon_fee", 40)
-        escalation_rate = 0.3225  # 32.25% per 6-month round (1.15² = 1.3225)
-        round_number = current_global.get("round_number", 1)
-        carbon_fee_per_ton = round(base_carbon_fee * (1 + escalation_rate) ** (round_number - 1), 2)
-        round_carbon_fee_total = round(tco2e_emissions * carbon_fee_per_ton, 2)
-        # Deduct from treasury and move to Green Fund
-        new_treasury = round(new_treasury - round_carbon_fee_total, 2)
-        new_green_fund_balance = round(new_green_fund_balance + round_carbon_fee_total, 2)
-        events["internal_carbon_fee_per_ton"] = carbon_fee_per_ton
-        events["internal_carbon_fee_deducted"] = round_carbon_fee_total
-        events["internal_carbon_fee_because"] = (
-            f"Internal carbon price of ${carbon_fee_per_ton:,.0f}/tCO₂e applied to "
-            f"{tco2e_emissions:,.0f} tonnes total emissions. Fee escalates 32.25% per "
-            f"6-month round under Paris Agreement ratchet mechanism."
-        )
-        _wf("Internal Carbon Fee", -round_carbon_fee_total,
-            because=f"${carbon_fee_per_ton:,.0f}/tCO₂e × {tco2e_emissions:,.0f}t = ${round_carbon_fee_total:,.0f} transferred to Green Fund.",
-            counterfactual="Reducing carbon intensity across BUs lowers this fee proportionally.")
-        events["carbon_fee_escalation_message"] = (
-            f"Internal carbon fee: ${carbon_fee_per_ton:.0f}/tCO2e "
-            f"(base $40 × 1.15^{round_number-1}). Total levy: ${round_carbon_fee_total:,.0f}"
-        )
-
-    # ── Graduated Tipping Point — 3 tiers (replaces binary on/off) ──
-    # Tier thresholds (avg CI): Warning > 45, Stressed > 55, Tipped > 65
-    # Lowered from 50/60/70 to ensure procrastinator paths face consequences
-    # Once a tier is reached, it NEVER drops back (hysteresis/ratchet)
-    tipping_point_active = current_global.get("tipping_point_active", False)
-    tipping_tier = current_global.get("tipping_tier", "none")
-    if decision_paradigm == "advanced_climate" and current_global["round_number"] >= 3:
-        # Tier 1: Warning (avg CI > 45)
-        if tipping_tier == "none" and avg_ci > 45:
-            tipping_tier = "warning"
-            events["tipping_tier_escalated"] = "warning"
-            events["custom_black_swans"] = events.get("custom_black_swans", []) + [{
-                "title": "⚠️ CLIMATE WARNING THRESHOLD",
-                "narrative": (
-                    f"Average carbon intensity ({avg_ci:.0f}) has exceeded 45. "
-                    "Early warning: regulatory pressure is building. NCD costs "
-                    "will increase by 25%. Decarbonise now or face escalating penalties."
-                ),
-                "icon": "⚠️",
-                "severity": "warning",
-            }]
-        # Tier 2: Stressed (avg CI > 55)
-        if tipping_tier == "warning" and avg_ci > 55:
-            tipping_tier = "stressed"
-            events["tipping_tier_escalated"] = "stressed"
-            events["custom_black_swans"] = events.get("custom_black_swans", []) + [{
-                "title": "🔶 CLIMATE STRESS THRESHOLD BREACHED",
-                "narrative": (
-                    f"Average carbon intensity ({avg_ci:.0f}) has exceeded 55. "
-                    "Markets are repricing climate risk. NCD costs compound at "
-                    "1.75× hostility. The window for voluntary action is narrowing."
-                ),
-                "icon": "🔶",
-                "severity": "high",
-            }]
-        # Tier 3: Tipped (avg CI > 65) — IRREVERSIBLE
-        if tipping_tier in ("warning", "stressed") and avg_ci > 65:
-            tipping_tier = "tipped"
-            tipping_point_active = True
-            events["tipping_point_reached"] = True
-            events["tipping_tier_escalated"] = "tipped"
-            events["custom_black_swans"] = events.get("custom_black_swans", []) + [{
-                "title": "🌡️ CLIMATE TIPPING POINT BREACHED — IRREVERSIBLE",
-                "narrative": (
-                    f"Average carbon intensity ({avg_ci:.0f}) has crossed the irreversible "
-                    "threshold (65). Natural capital debt costs now compound at 2.5× the rate. "
-                    "Loss & damage levies are now mandatory. The era of voluntary "
-                    "decarbonisation is over — every future round amplifies the cost of inaction."
-                ),
-                "icon": "🌡️",
-                "severity": "critical",
-            }]
-        # Also check direct entry to tipped (for backward compat)
-        if not tipping_point_active and current_global["round_number"] >= 4 and avg_ci > 55:
-            if tipping_tier == "none":
-                tipping_tier = "stressed"
-            tipping_point_active = True
-            events["tipping_point_reached"] = True
-
-        # ── Loss & Damage Levy — post-tipping mandatory contribution ──
-        # Models UNFCCC Loss & Damage Fund (COP27/28)
-        if tipping_tier == "tipped":
-            loss_damage_levy = 4_000_000  # $4M/6-month round (doubled from quarterly $2M)
-            new_treasury = round(new_treasury - loss_damage_levy, 2)
-            events["loss_damage_levy_applied"] = loss_damage_levy
-            events["loss_damage_message"] = (
-                "UNFCCC Loss & Damage Fund contribution: -$4M. "
-                "Post-tipping economies bear the cost of climate inaction "
-                "through mandatory contributions to developing-economy adaptation."
-            )
-        elif tipping_tier == "stressed":
-            loss_damage_levy = 1_000_000  # $1M/6-month round (doubled from quarterly $500K)
-            new_treasury = round(new_treasury - loss_damage_levy, 2)
-            events["loss_damage_levy_applied"] = loss_damage_levy
-            events["loss_damage_message"] = (
-                "Climate adaptation contribution: -$500K. "
-                "Pre-tipping regulatory pressure mandates partial climate liability."
-            )
-
-    # ── UN SDG Non-Linear Feedback & Hooks ──────────────────────
-    # Compute SDG-specific metrics that are CONSUMED by round_logic.py
-    sdg_political_capital = current_global.get("political_capital", 50.0)
-    sdg_community_trust = current_global.get("community_trust_score", 50.0)
-
-    if decision_paradigm == "un_sdg":
-        # ─── 1. VRIO Institutional Capacity Constraint (SDG 16 Governance) ───
-        for bu in new_bus:
-            gov = bu.get("governance", 50)
-            if gov < 40:
-                bu["institutional_leakage_multiplier"] = 0.60
-                events[f"institutional_leakage_{bu['bu_id']}"] = True
-            else:
-                bu["institutional_leakage_multiplier"] = 1.0
-
-        # ─── 2. Non-Linear Feedback: Sanitation Miracle ──────────────────
-        for bu in new_bus:
-            bn = bu.get("basic_needs", 0)
-            hc = bu.get("human_capital", 0)
-            if bn > 75 and hc > 75:
-                bu["sanitation_miracle_bonus"] = 2.0
-                events[f"sanitation_miracle_{bu['bu_id']}"] = True
-            else:
-                bu["sanitation_miracle_bonus"] = 1.0
-
-        # ─── 3. SDG Interlinkage Matrix Application ──────────────────────
-        from sdg_configs import get_sdg_interlinkage_matrix
-        matrix = get_sdg_interlinkage_matrix()
-        sdg_clusters = ["basic_needs", "human_capital", "sustainable_growth",
-                        "planet", "governance", "partnerships"]
-
-        for bu in new_bus:
-            spillover_deltas = {c: 0.0 for c in sdg_clusters}
-            for (source, target), multiplier in matrix.items():
-                source_val = bu.get(source, 0)
-                spillover_deltas[target] += multiplier * (source_val / 100.0)
-
-            for cluster in sdg_clusters:
-                old_val = bu.get(cluster, 0)
-                spillover = max(-5.0, min(5.0, spillover_deltas[cluster] * 10.0))
-                decay = old_val * 0.02
-                new_val = round(max(0, min(100, old_val + spillover - decay)), 2)
-                bu[cluster] = new_val
-
-            events[f"interlinkage_applied_{bu['bu_id']}"] = True
-
-        # ─── 4. Carbon Retribution Hook ──────────────────────────────────
-        global_emissions = current_global.get("global_emissions_intensity", 0.0)
-        if current_global["round_number"] <= 5 and global_emissions > 100:
-            events["carbon_retribution_multiplier"] = 3.0
-            events["carbon_retribution_triggered"] = True
-
-        # ─── 5. Migration Contagion (Wealth Gradients) ───────────────────
-        if len(new_bus) > 1:
-            highest_sg_bu = max(new_bus, key=lambda x: x.get("sustainable_growth", 0))
-            events["migration_contagion_target"] = highest_sg_bu["bu_id"]
-            total_pressure = sum(
-                bu.get("migration_pressure", 0) for bu in new_bus
-                if bu["bu_id"] != highest_sg_bu["bu_id"]
-            )
-            if total_pressure > 0:
-                penalty = round(min(15.0, total_pressure * 0.3), 2)
-                highest_sg_bu["basic_needs"] = max(0, round(highest_sg_bu.get("basic_needs", 0) - penalty, 2))
-                highest_sg_bu["human_capital"] = max(0, round(highest_sg_bu.get("human_capital", 0) - penalty * 0.5, 2))
-                events["migration_service_penalty"] = penalty
-                events["migration_target_affected"] = highest_sg_bu["bu_id"]
-
-        # ─── 6. Pro-cyclical Donor Fatigue Engine (Asymmetric) ───────────
-        avg_gov = sum(bu.get("governance", 0) for bu in new_bus) / max(len(new_bus), 1)
-        avg_part = sum(bu.get("partnerships", 0) for bu in new_bus) / max(len(new_bus), 1)
-        sdg_political_capital = round((avg_gov + avg_part) / 2.0, 2)
-        if sdg_political_capital < 30:
-            budget_multiplier = 0.60
-        elif sdg_political_capital < 50:
-            budget_multiplier = 0.80
-        else:
-            budget_multiplier = round(1.0 + (sdg_political_capital - 50) / 200.0, 4)
-        events["donor_fatigue_budget_multiplier"] = budget_multiplier
-        events["political_capital_score"] = sdg_political_capital
-        sdg_community_trust = round(avg_gov * 0.6 + avg_part * 0.4, 2)
-        events["community_trust_score"] = sdg_community_trust
-
-        # ─── 7. Education Lag Maturation ─────────────────────────────────
-        for proj in new_pending_projects:
-            if proj.get("type") == "education_lag" and proj.get("rounds_remaining", 1) <= 0:
-                events["education_lag_mature"] = True
-                boost = proj.get("amount", 0.8)
-                for bu in new_bus:
-                    old_sg = bu.get("sustainable_growth", 0)
-                    bu["sustainable_growth"] = min(100, round(old_sg + boost * 10, 2))
-                events["sdg_8_work_multiplier"] = 1.0 + boost
-
-        # ─── 8. Update Global Emissions Intensity ────────────────────────
-        global_emissions = round(sum(bu.get("carbon_intensity", 0) for bu in new_bus) / max(len(new_bus), 1), 2)
-
-    # ── Inflation drift: hostility increases inflation ───────────
-    new_inflation_index = inflation_index
-    if hostility_multiplier > 5:
-        new_inflation_index = round(inflation_index + 0.010, 4)  # +1.0% per hostile 6-month round
-        events["inflation_index_increased"] = new_inflation_index
-        events["inflation_drift_hostile"] = True
-        events["inflation_drift_message"] = (
-            f"Hostile regulatory environment is driving inflation above baseline. "
-            f"OPEX inflation increased to {new_inflation_index * 100:.1f}%."
-        )
-
-    # ── FEATURE 10: Competitive NPC Index ────────────────────────
-    competitor_ebitda = current_global.get("competitor_ebitda",
-        current_global.get("historical_ebitda", historical_ebitda))
-    new_competitor, relative_advantage = calc_competitor_pressure(
-        competitor_ebitda, historical_ebitda
-    )
-    events["competitor_ebitda"] = new_competitor
-    events["relative_market_advantage"] = relative_advantage
-    if relative_advantage < 1.0:
-        events["competitor_warning"] = (
-            f"Market competitor EBITDA (${new_competitor:,.0f}) exceeds yours. "
-            f"Relative advantage: {relative_advantage:.2f}x"
-        )
-
-    # ── FEATURE 26: Predictive Forecast ────────────────────────────
-    forecast = calc_forecast(current_global, new_bus)
-    events["forecast"] = forecast
-
-    # ── FEATURE 27: SDG Impact Report ────────────────────────────
-    sdg_report = calc_sdg_impact(new_bus, events)
-    events["sdg_impact"] = sdg_report
-
-    # ── REC-1: Consequence Waterfall — finalize and attach ───────
-    events["consequence_waterfall"] = {
-        "initial_treasury": round(initial_treasury, 2),
-        "final_treasury": round(new_treasury, 2),
-        "net_change": round(new_treasury - initial_treasury, 2),
-        "entries": waterfall,
-        "entry_count": len(waterfall),
-    }
-
-    # ── REC-6: Momentum Score ────────────────────────────────────
-    momentum_history = list(current_global.get("momentum_history", []))
-    prev_states = current_global.get("_prev_global_states", [])
-    momentum = calc_momentum_score(
-        {"corporate_treasury": new_treasury, "group_reputation": group_reputation,
-         "active_event_flags": events, "momentum_history": momentum_history},
-        prev_states if prev_states else [current_global],
-    )
-    events["momentum"] = momentum
-    momentum_history.append(momentum["momentum_score"])
-    if len(momentum_history) > 10:
-        momentum_history = momentum_history[-10:]
-
-    # ── REC-8: Board Room Reflection Prompt ──────────────────────
-    treasury_change_pct = abs(new_treasury - initial_treasury) / max(abs(initial_treasury), 1) * 100
-    contagion_risk = forecast.get("contagion_risk_index", 0)
-    is_midpoint = current_global["round_number"] == 5
-    in_survival = events.get("survival_mode", False)
-
-    reflection_trigger = None
-    if treasury_change_pct > 20 and new_treasury < initial_treasury:
-        # Treasury dropped > 20%
-        top_causes = sorted(waterfall, key=lambda e: abs(e["amount"]))[:3]
-        cause_lines = "\n".join(
-            f"  {i+1}. {e['label']} ({'+' if e['amount']>0 else ''}${e['amount']:,.0f})"
-            for i, e in enumerate(reversed(top_causes))
-        )
-        reflection_trigger = {
-            "type": "treasury_drop",
-            "severity": "critical",
-            "prompt": (
-                f"🪞 **Board Room Moment**\n"
-                f"Your treasury dropped by {treasury_change_pct:.0f}% this round. "
-                f"The three largest contributors were:\n{cause_lines}\n\n"
-                f"**Before proceeding, your team must agree on one sentence:**\n"
-                f"*\"The single most important thing we need to change next round is ___\"*"
-            ),
-        }
-    elif in_survival and distress.get("phase_transition"):
-        reflection_trigger = {
-            "type": "survival_entry",
-            "severity": "critical",
-            "prompt": (
-                f"🪞 **Board Room Moment — Emergency Session**\n"
-                f"Your company has entered {distress.get('turnaround_phase', 'crisis')} phase. "
-                f"The Turnaround Manager requires your team to answer:\n\n"
-                f"**1.** What were the 2 decisions that led us here?\n"
-                f"**2.** What is our single priority for the next round?\n"
-                f"**3.** What metric must improve for us to advance to the next phase?"
-            ),
-        }
-    elif is_midpoint:
-        reflection_trigger = {
-            "type": "midpoint_review",
-            "severity": "noteworthy",
-            "prompt": (
-                f"🪞 **Midpoint Board Review — Round 5 of 10**\n"
-                f"Half your journey is complete. Current position:\n"
-                f"• Treasury: ${new_treasury:,.0f}\n"
-                f"• Reputation: {group_reputation:.0f}\n"
-                f"• Contagion Risk: {forecast.get('contagion_risk_label', 'Unknown')}\n"
-                f"• SDG Grade: {sdg_report.get('sdg_grade', '?')}\n\n"
-                f"**Your team must answer:** *\"If we could undo one decision from "
-                f"Rounds 1-5, which would it be and why?\"*"
-            ),
-        }
-    elif contagion_risk > 60:
-        reflection_trigger = {
-            "type": "contagion_warning",
-            "severity": "material",
-            "prompt": (
-                f"🪞 **Board Room Moment — Risk Committee Alert**\n"
-                f"Your Contagion Risk Index is {contagion_risk:.0f}/100 "
-                f"({forecast.get('contagion_risk_label', '')}). "
-                f"This is a composite of governance risk, SLO gaps, reputation erosion, "
-                f"and carbon intensity.\n\n"
-                f"**Your team must identify:** *\"Which single risk factor should we "
-                f"prioritize reducing, and how?\"*"
-            ),
-        }
-
-    if reflection_trigger:
-        events["reflection_required"] = True
-        events["reflection_prompt"] = reflection_trigger
-    else:
-        events["reflection_required"] = False
-
-    # ── PHASE-1: Systemic Tipping Point Evaluation ────────────────
-    systemic_tipping_state = {}
-    try:
-        from systemic_risk_engine import evaluate_tipping_points, evaluate_materiality_shocks
-        _current_tipped = current_global.get("active_event_flags", {}).get("systemic_tipping_state", {})
-        _tp_result = evaluate_tipping_points(current_global, new_bus, _current_tipped)
-        systemic_tipping_state = _tp_result["tipping_state"]
-        events["systemic_tipping"] = _tp_result
-        if _tp_result["transitions"]:
-            for trans in _tp_result["transitions"]:
-                events.setdefault("custom_black_swans", []).append({
-                    "title": f"⚠️ SYSTEMIC TIPPING — {trans['dimension'].upper()}",
-                    "narrative": trans["message"],
-                    "icon": "⚠️",
-                    "severity": "critical",
-                })
-        # Materiality Shocks
-        _session_tier_ms = current_global.get("active_event_flags", {}).get("difficulty_tier", "standard")
-        _shocks = evaluate_materiality_shocks(current_global["round_number"], _session_tier_ms)
-        if _shocks:
-            events["materiality_shocks"] = _shocks
-            for shock in _shocks:
-                events.setdefault("custom_black_swans", []).append({
-                    "title": f"📊 MATERIALITY SHOCK — {shock['issue']}",
-                    "narrative": shock["narrative"],
-                    "icon": "📊",
-                    "severity": "critical",
-                })
-    except ImportError:
-        pass
-
-    # ── REAL-WORLD SCENARIO MECHANICS ────────────────────────────
-    # 1. Regulatory Ratchet
-    regulatory_baseline = 10.0 + (current_global["round_number"] // 2) * 5.0
-    avg_gov_risk = sum(bu.get("governance_risk_score", 0) for bu in new_bus) / max(len(new_bus), 1)
-    if avg_gov_risk > regulatory_baseline:
-        fine = (avg_gov_risk - regulatory_baseline) * 500_000
-        new_treasury -= fine
-        events["regulatory_ratchet"] = {
-            "active": True, 
-            "baseline": regulatory_baseline, 
-            "fine": fine,
-            "message": f"⚖️ Regulatory Ratchet: Average governance risk ({avg_gov_risk:.1f}) exceeds the shifting industry baseline ({regulatory_baseline:.1f}). Compliance fine: ${fine:,.0f}."
-        }
-    else:
-        events["regulatory_ratchet"] = {"active": False, "baseline": regulatory_baseline, "fine": 0}
-
-    # 2. Supplier Defection & 3. Green Premium Squeeze
-    supplier_defections = []
-    green_premium_squeezes = []
-    
-    for dec in decisions:
-        bu_id = dec["bu_id"]
-        bu = next((b for b in new_bus if b["bu_id"] == bu_id), None)
-        if not bu: continue
-        
-        inv_ratio = dec.get("investment_ratio", 0.0)
-        
-        # Supplier Defection (Check if strict mandate but low subsidy)
-        pillar_decisions = dec.get("pillar_decisions") or {}
-        supply_chain_choice = pillar_decisions.get("supply_chain", "")
-        if supply_chain_choice in ["audit_suppliers", "strict_mandates", "living_wage_mandate"] and inv_ratio < 0.15:
-            bu["opex_base"] = round(bu["opex_base"] * 1.10, 2)  # 10% penalty
-            bu["revenue_base"] = round(bu["revenue_base"] * 0.95, 2) # 5% stockout loss
-            bu["supplier_defection_active"] = True
-            supplier_defections.append(bu_id)
-        else:
-            bu["supplier_defection_active"] = False
-            
-        # Green Premium Squeeze (High cost pass-through but low social license)
-        if inv_ratio > 0.25 and bu.get("social_license_score", 50) < 60:
-            penalty_pct = (60 - bu["social_license_score"]) * 0.005 # 0.5% per point below 60
-            penalty_val = round(bu["revenue_base"] * penalty_pct, 2)
-            bu["revenue_base"] -= penalty_val
-            bu["green_premium_squeeze"] = penalty_val
-            green_premium_squeezes.append({"bu_id": bu_id, "penalty": penalty_val})
-        else:
-            bu["green_premium_squeeze"] = 0.0
-
-    if supplier_defections:
-        events["supplier_defection"] = {
-            "active": True, 
-            "affected_bus": supplier_defections,
-            "message": f"🏭 Supplier Defection: You mandated strict supply chain ESG rules without providing financial subsidies (investment ratio < 15%) for {len(supplier_defections)} BU(s). Suppliers dropped you. +10% OPEX shock, -5% Revenue."
-        }
-    else:
-        events["supplier_defection"] = {"active": False}
-
-    if green_premium_squeezes:
-        total_squeeze = sum(s["penalty"] for s in green_premium_squeezes)
-        events["green_premium_squeeze"] = {
-            "active": True, 
-            "penalty": total_squeeze,
-            "message": f"📉 Green Premium Squeeze: You invested heavily (>25%) but lacked the Social License (<60) to pass costs to consumers. The market rejected the premium pricing. Revenue lost: ${total_squeeze:,.0f}."
-        }
-    else:
-        events["green_premium_squeeze"] = {"active": False}
-
-    # 4. Valley of Death (CFO Austerity Trap)
-    # Check if treasury is < 0 OR if the player took out a massive loan (exceeding 50% of base treasury) to fund CAPEX
-    if new_treasury < 0 or loan_principal > base_treasury * 0.5:
-        events["cfo_austerity_active"] = True
-        events["cfo_austerity_message"] = "🛑 CFO Austerity Override: Heavy ESG investments drained free cash flow. The CFO has frozen all sustainability budgets for the next round."
-    else:
-        events["cfo_austerity_active"] = False
-
-    # ── FIX-QA-005: Final bounds-clamping pass for all BU state variables ──
-    # Prevents logic leaks where compound penalties (cannibalization, FX,
-    # NCD penalties, talent surcharges) could push variables past logical bounds.
-    for bu in new_bus:
-        bu["revenue_base"] = max(0.0, bu.get("revenue_base", 0.0))
-        bu["opex_base"] = max(0.0, bu.get("opex_base", 0.0))
-        bu["reputation_score"] = max(0.0, min(100.0, bu.get("reputation_score", 50.0)))
-        bu["social_license_score"] = max(0.0, min(100.0, bu.get("social_license_score", 50.0)))
-        bu["natural_capital_debt"] = max(0.0, min(1_000_000, bu.get("natural_capital_debt", 0.0)))
-        bu["carbon_intensity"] = max(0.0, bu.get("carbon_intensity", 0.0))
-        bu["staff_burnout_index"] = max(0.0, min(100.0, bu.get("staff_burnout_index", 0.0)))
-
-    # ── Assemble new immutable global state ─────────────────────
-    new_global: dict[str, Any] = {
-        "round_number": next_round,
-        "corporate_treasury": new_treasury,
-        "group_reputation": group_reputation,
-        "synergy_multiplier": new_synergy,
-        "cost_of_capital": corporate_cost_of_capital,
-        "inflation_index": new_inflation_index,
-        "competitor_ebitda": new_competitor,
-        "green_transition_fund": max(0.0, new_green_fund_balance),
-        "tipping_point_active": tipping_point_active,
-        "tipping_tier": tipping_tier,
-        "active_event_flags": events,
-        "historical_ebitda": historical_ebitda,
-        "tco2e_emissions": tco2e_emissions,
-        "vrio_capabilities": vrio_capabilities,
-        "bonus_score": current_global.get("bonus_score", 0),
-        "learning_bonuses_awarded": current_global.get("learning_bonuses_awarded", {}),
-        "stakeholder_map_completed": current_global.get("stakeholder_map_completed", False),
-        "stakeholder_map_accuracy": current_global.get("stakeholder_map_accuracy", 0),
-        "saved_allocations": current_global.get("saved_allocations"),
-        "saved_decision_choice": current_global.get("saved_decision_choice"),
-        "materiality_budget_allocated": current_global.get("materiality_budget_allocated"),
-        "materiality_bu_id": current_global.get("materiality_bu_id"),
-        "pending_capex_projects": new_pending_projects,
-        "political_capital": sdg_political_capital,
-        "community_trust_score": sdg_community_trust,
-        "global_emissions_intensity": current_global.get("global_emissions_intensity", 0.0),
-        "sbti_pathway_history": events.get("sbti_pathway", {}).get("history", []),
-        "carbon_forwards": events.get("carbon_offset_market", {}).get("remaining_forwards", current_global.get("carbon_forwards", [])),
-        "momentum_history": momentum_history,
-        "_prev_global_states": (prev_states + [current_global])[-3:],
-    }
-
+    # ── 5. Assemble and return immutable output ──────────────────
+    new_global = _assemble_global_state(ctx, initial_treasury)
     return {
         "global_state": new_global,
-        "bu_states": new_bus,
-        "events": events,
+        "bu_states":    ctx.new_bus,
+        "events":       ctx.events,
     }

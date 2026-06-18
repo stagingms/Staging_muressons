@@ -1,15 +1,30 @@
-﻿"""
+"""
 Muressons Global Corporation — Abstract Base Side Track
 
 All side simulation tracks inherit from this class.
 Enforces the contract for round configs, data bridges,
 and engine hook integration.
+
+Layer 3: Data Bridge and Type Safety — BaseSideTrack now enforces
+strict Pydantic types (DataBridgeInput / DataBridgeOutput) on both
+bridge method signatures. Any subclass that returns a plain dict
+from write_back_to_main() without using DataBridgeOutput.from_legacy_dict()
+will raise a Pydantic ValidationError at runtime.
 """
 
 from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 import copy
+
+from side_tracks.bridge_schemas import (
+    DataBridgeInput,
+    DataBridgeOutput,
+    BridgeKPIs,
+    BridgeKPIDeltas,
+    BridgeKPIDeltas as KPIDeltas,   # canonical alias for new code
+    KPIOverrides,
+)
 
 
 class BaseSideTrack(ABC):
@@ -21,6 +36,16 @@ class BaseSideTrack(ABC):
         - Tracks run SEQUENTIALLY: the main sim pauses while a side track is active.
         - Tracks use the FULL process_tick() engine with all 8 formulas.
         - Data bridges allow bidirectional state flow with the main simulation.
+
+    Data Bridge Contract (Layer 3):
+        seed_from_main_state() → DataBridgeInput
+            Reads main sim state; returns a strictly-typed seeding payload.
+            The router stores DataBridgeInput.to_seed_dict() in track_data["state"].
+
+        write_back_to_main() → DataBridgeOutput
+            Returns validated flags and KPI deltas.
+            The router merges only DataBridgeOutput.flags_to_set — no blind .update().
+            Unregistered flag prefixes raise ValueError at construction time.
 
     Control hierarchy:
         God Mode → enables/disables tracks globally & per-facilitator
@@ -102,7 +127,7 @@ class BaseSideTrack(ABC):
         cfg = self.get_round_configs().get(round_number, {})
         return copy.deepcopy(cfg.get("options", {}))
 
-    # ── Data Bridges ────────────────────────────────────────────
+    # ── Data Bridges (Layer 3: Strictly Typed) ──────────────────
 
     @abstractmethod
     def seed_from_main_state(
@@ -110,21 +135,25 @@ class BaseSideTrack(ABC):
         main_global: dict,
         main_bus: list[dict],
         completed_tracks: dict[str, dict],
-    ) -> dict:
+    ) -> DataBridgeInput:
         """
-        DATA BRIDGE (READ): Create the initial side-track state
+        DATA BRIDGE (READ): Build the typed seed payload for this side track
         by reading relevant fields from the main simulation.
 
+        Implementations MUST return a DataBridgeInput — not a plain dict.
+        Use DataBridgeInput.to_seed_dict() in the router to extract the
+        storage dict that goes into track_data["state"].
+
         Args:
-            main_global: The main simulation's current global state dict.
-            main_bus: The main simulation's current BU states list.
-            completed_tracks: Dict of track_id → final track state for
-                             any previously completed side tracks
-                             (enables cross-track dependencies).
+            main_global       : Main simulation's current global state dict.
+            main_bus          : Main simulation's current BU states list.
+            completed_tracks  : {track_id → final track state dict} for any
+                                previously completed side tracks (enables
+                                cross-track dependency enrichment).
 
         Returns:
-            A dict representing the initial side-track global state.
-            This is stored in session["side_track_states"][track_id]["state"].
+            DataBridgeInput — strictly validated seed payload.
+            The router stores DataBridgeInput.to_seed_dict() in session state.
         """
 
     @abstractmethod
@@ -132,18 +161,31 @@ class BaseSideTrack(ABC):
         self,
         track_state: dict,
         main_global: dict,
-    ) -> dict:
+    ) -> DataBridgeOutput:
         """
-        DATA BRIDGE (WRITE): When the side track completes,
-        return flags/modifiers to merge into main sim's active_event_flags.
+        DATA BRIDGE (WRITE): When the side track completes, return a
+        strictly-typed, registry-validated payload to merge into the
+        main simulation.
+
+        All flag keys in DataBridgeOutput.flags_to_set MUST match a registered
+        prefix in _ALLOWED_FLAG_PREFIXES (bridge_schemas.py). Unregistered
+        keys raise ValueError at DataBridgeOutput construction — NO silent
+        state leakage.
+
+        KPI changes MUST be expressed as deltas in DataBridgeOutput.kpi_deltas.
+        Side tracks do NOT directly overwrite main-sim KPIs.
+
+        For backwards-compatible migration, use:
+            DataBridgeOutput.from_legacy_dict(your_flags_dict)
+        This still runs registry validation.
 
         Args:
-            track_state: The final side-track global state.
-            main_global: The main simulation's current global state
-                        (read-only reference for context).
+            track_state : The final side-track global state dict.
+            main_global : Main simulation's current global state (read-only
+                          reference for context; do NOT mutate).
 
         Returns:
-            A dict of flags to merge into main_global["active_event_flags"].
+            DataBridgeOutput — validated write-back payload.
         """
 
     @abstractmethod
@@ -218,6 +260,30 @@ class BaseSideTrack(ABC):
 
     # ── Helpers ─────────────────────────────────────────────────
 
+    @staticmethod
+    def _build_bridge_kpis(main_bus: list[dict], main_global: dict) -> BridgeKPIs:
+        """
+        Convenience factory: construct a BridgeKPIs snapshot from raw main-sim
+        state. Call this inside seed_from_main_state() implementations.
+        """
+        n = max(len(main_bus), 1)
+        return BridgeKPIs(
+            avg_carbon_intensity=round(
+                sum(bu.get("carbon_intensity", 0) for bu in main_bus) / n, 2
+            ),
+            avg_governance_risk=round(
+                sum(bu.get("governance_risk_score", 20) for bu in main_bus) / n, 2
+            ),
+            avg_social_license=round(
+                sum(bu.get("social_license_score", 50) for bu in main_bus) / n, 2
+            ),
+            total_ncd=round(
+                sum(bu.get("natural_capital_debt", 0) for bu in main_bus), 2
+            ),
+            group_synergy=float(main_global.get("synergy_multiplier", 1.0)),
+            tco2e_emissions=float(main_global.get("tco2e_emissions", 0.0)),
+        )
+
     def _apply_default_option_impacts(
         self,
         round_number: int,
@@ -241,7 +307,7 @@ class BaseSideTrack(ABC):
         treasury_cost = impacts.get("treasury", 0)
         if treasury_cost != 0:
             gs["corporate_treasury"] = round(
-                gs["corporate_treasury"] + treasury_cost, 2
+                gs.get("corporate_treasury", 0) + treasury_cost, 2
             )
             extra[f"st_{self.track_id}_treasury_r{round_number}"] = treasury_cost
 
@@ -262,14 +328,22 @@ class BaseSideTrack(ABC):
                 )
             extra[f"st_{self.track_id}_ncd_r{round_number}"] = ncd
 
-        # Carbon intensity
+        # I2 — Carbon intensity with scope-aware routing
         ci = impacts.get("carbon_intensity_delta", 0)
+        ci_routing = opt.get("ci_routing", "uniform")
         if ci:
-            for bu in bus:
-                bu["carbon_intensity"] = max(
-                    0, round(bu.get("carbon_intensity", 0) + ci, 2)
-                )
+            try:
+                from engine import apply_ci_delta_to_bus
+                applied = apply_ci_delta_to_bus(bus, ci, routing=ci_routing)
+            except Exception as exc:  # V9: catch ImportError AND any engine-level error
+                # Fallback: uniform application; surface failure in events for debugging
+                for bu in bus:
+                    bu["carbon_intensity"] = max(0, round(bu.get("carbon_intensity", 0) + ci, 2))
+                applied = {}
+                extra[f"st_{self.track_id}_ci_fallback_r{round_number}"] = str(exc)[:120]
             extra[f"st_{self.track_id}_ci_r{round_number}"] = ci
+            if ci_routing == "scope3_weighted":
+                extra[f"st_{self.track_id}_ci_by_bu_r{round_number}"] = applied
 
         # Governance risk
         gov = impacts.get("governance_risk_delta", 0)
@@ -312,8 +386,18 @@ class BaseSideTrack(ABC):
 
     @staticmethod
     def _get_primary_choice(decisions: list[dict]) -> str:
-        """Extract the primary option choice from decisions."""
+        """Extract the primary option choice from decisions.
+
+        VUL-002 FIX: Returns a (choice, defaulted) tuple is not viable here
+        without breaking all callers. Instead: emit a sentinel constant that
+        router.py and post_tick hooks can detect via the module attribute
+        LAST_CHOICE_DEFAULTED (set per-call — NOT thread-safe for concurrent
+        sessions; router must use result not this side-channel).
+
+        Correct fix: the router now emits a 'choice_defaulted' warning event
+        so facilitators can see that no decision was submitted.
+        """
         for dec in decisions:
             if dec.get("choice_selected"):
                 return dec["choice_selected"]
-        return "option_b"  # FIX-004: Harmonized with round_logic default (middle-ground)
+        return "option_b"  # FIX-004: Harmonized default. Router emits warning event.

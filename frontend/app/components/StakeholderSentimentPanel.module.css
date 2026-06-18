@@ -1,0 +1,264 @@
+/* ═══════════════════════════════════════════════════════════
+   StakeholderSentimentPanel.module.css
+   ═══════════════════════════════════════════════════════════ */
+
+.container {
+    background: var(--bg-card, #1e2330);
+    border: 1px solid var(--border-subtle, #2d3446);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-subtle, #2d3446);
+}
+
+.title {
+    margin: 0 0 0.25rem;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-primary, #e2e8f0);
+}
+
+.roundBadge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 20px;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.2);
+    color: #818cf8;
+}
+
+.refreshBtn {
+    padding: 0.4rem 0.85rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle, #2d3446);
+    background: transparent;
+    color: var(--text-muted, #64748b);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.refreshBtn:hover {
+    color: #3b82f6;
+    border-color: #3b82f6;
+    background: rgba(59,130,246,0.07);
+}
+
+/* ─── Cards grid ─── */
+.cardGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 0.85rem;
+}
+
+.card {
+    background: var(--bg-body, #151820);
+    border: 1px solid var(--border-subtle, #2d3446);
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.card:hover {
+    border-color: rgba(59,130,246,0.3);
+    box-shadow: 0 3px 14px rgba(0,0,0,0.2);
+}
+
+/* ─── Card top ─── */
+.cardTop {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.stakeholderIdent {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-width: 0;
+}
+
+.stakeholderIcon {
+    font-size: 1.25rem;
+    flex-shrink: 0;
+}
+
+.stakeholderName {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-primary, #e2e8f0);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.salienceBadge {
+    font-size: 0.63rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 20px;
+    border: 1px solid;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+}
+
+.warningBadge {
+    font-size: 0.63rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 20px;
+    background: rgba(239,68,68,0.15);
+    border: 1px solid rgba(239,68,68,0.4);
+    color: #ef4444;
+    white-space: nowrap;
+    animation: warningPulse 2s infinite;
+}
+
+@keyframes warningPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* ─── Attitude gauge ─── */
+.gauge {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.gaugeTrack {
+    height: 8px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    position: relative;
+    overflow: hidden;
+}
+
+.gaugeFill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease, background 0.4s ease;
+    position: absolute;
+    left: 0;
+    top: 0;
+}
+
+.gaugeMarker {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(255,255,255,0.3);
+    transform: translateX(-50%);
+}
+
+.gaugeLabels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6rem;
+    color: var(--text-muted, #64748b);
+    font-family: var(--font-mono, monospace);
+}
+
+/* ─── Score row ─── */
+.scoreRow {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.scoreValue {
+    font-size: 1.5rem;
+    font-weight: 900;
+    font-family: var(--font-mono, monospace);
+    line-height: 1;
+}
+
+.scoreLabel {
+    font-size: 0.7rem;
+    color: var(--text-muted, #64748b);
+}
+
+/* ─── Narrative ─── */
+.narrative {
+    margin: 0;
+    font-size: 0.75rem;
+    font-style: italic;
+    color: var(--text-muted, #64748b);
+    line-height: 1.5;
+    border-left: 2px solid var(--border-subtle, #2d3446);
+    padding-left: 0.6rem;
+}
+
+/* ─── Summary row ─── */
+.summaryRow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 0.85rem 1rem;
+    background: var(--bg-body, #151820);
+    border-radius: 8px;
+    border: 1px solid var(--border-subtle, #2d3446);
+}
+
+.summaryItem {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+}
+
+.summaryCount {
+    font-size: 1.5rem;
+    font-weight: 900;
+    font-family: var(--font-mono, monospace);
+    line-height: 1;
+}
+
+.summaryLabel {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    opacity: 0.8;
+}
+
+.summaryDivider {
+    width: 1px;
+    height: 30px;
+    background: var(--border-subtle, #2d3446);
+}
+
+/* ─── Placeholder ─── */
+.placeholder {
+    text-align: center;
+    padding: 2.5rem 2rem;
+    color: var(--text-muted, #64748b);
+    font-size: 0.85rem;
+    line-height: 1.6;
+}

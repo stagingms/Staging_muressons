@@ -42,7 +42,14 @@ COPY docker-start.sh /app/docker-start.sh
 RUN chmod +x /app/docker-start.sh
 
 # Railway injects PORT env at runtime; default to 3000
-ENV USE_MEMORY_DB=true
+# SEC-2: do NOT bake USE_MEMORY_DB=true into the production image. The store is
+# selected at deploy time:
+#   • Production: set USE_MEMORY_DB=false + DATABASE_URL (PostgreSQL).
+#   • Local/offline: set USE_MEMORY_DB=true with DEBUG=true (or
+#     ALLOW_MEMORY_DB_IN_PROD=true for an intentional non-durable run).
+# main.py refuses to boot on the in-memory store when DEBUG=false unless the
+# override is set, so an accidental memory-DB production deploy fails loudly
+# instead of silently losing sessions.
 ENV PORT=3000
 EXPOSE 3000
 

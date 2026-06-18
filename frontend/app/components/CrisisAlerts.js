@@ -111,31 +111,44 @@ function speak(text) {
   window.speechSynthesis.speak(utt);
 }
 
-/* ═════════════════════════════════════════════════════════════════
+/* ══════════════════════════════════════════════════
  *  CrisisAlerts Component
  *
+ *  ARCHITECTURE: This component is headless (renders null).
+ *  It owns only the trigger logic: it evaluates globalState against
+ *  thresholds and fires onActivate(crisisType, cfg) when a crisis hits.
+ *
+ *  The parent (page.js) receives that state and renders the crisis
+ *  screen as an early return — exactly like RoundBriefing — so the
+ *  cockpit tree never mounts while the crisis is active.
+ *
  *  Props:
- *   - globalState:  { corporate_treasury, group_reputation, ... }
- *   - roundNumber:  current round (1–10)
- *   - onInjectMessage: (msg: {id, round, type, title, body}) => void
- *      callback to inject a message into the ExecutiveMailbox
- *   - briefingActive: boolean — when true, delay auto-triggers until
- *      the round briefing overlay is dismissed so the crisis overlay
- *      appears on top of the cockpit / Shadow Board Audit screen.
- * ═════════════════════════════════════════════════════════════════ */
+ *   - globalState:      { corporate_treasury, group_reputation, ... }
+ *   - roundNumber:      current round (1–10)
+ *   - onInjectMessage:  (msg) => void  — injects into ExecutiveMailbox
+ *   - briefingActive:   boolean — defer triggers while round briefing shows
+ *   - sessionId:        string
+ *   - onActivate:       (crisisType: string, cfg: object) => void
+ *   - onDismiss:        () => void
+ * ══════════════════════════════════════════════════ */
 
-export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage, briefingActive }) {
-  const [activeAlert, setActiveAlert] = useState(null);   // 'activist_threat' | 'ceo_liquidity_panic' | null
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const firedRef = useRef({});  // track which alerts already fired per round
+export default function CrisisAlerts({
+  globalState, roundNumber, onInjectMessage, briefingActive, sessionId,
+  onActivate, firedRef,
+}) {
+  // firedRef is owned by page.js and passed in — it must NOT live here.
+  // Reason: when CrisisScreen shows as an early return, this component
+  // unmounts. On dismiss, it remounts with a fresh local ref (firedRef={{}}).
+  // That means the just-dismissed crisis immediately re-fires because the
+  // component no longer knows it already fired. Stable ref in page.js fixes this.
 
-  // Re-read config each round change
+  // Re-read config each round
   const configRef = useRef(loadCrisisConfig());
   useEffect(() => {
     configRef.current = loadCrisisConfig();
   }, [roundNumber]);
 
-  // Listen for manual injection events from God Mode (via BroadcastChannel)
+  // Listen for manual injection from God Mode (BroadcastChannel)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const bc = new BroadcastChannel('muressons_crisis_inject');
@@ -148,14 +161,11 @@ export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage
     return () => bc.close();
   }, []);
 
-  // Evaluate auto-triggers whenever globalState changes.
-  // If the round briefing overlay is still showing (briefingActive), defer
-  // evaluation so the crisis overlay fires AFTER the briefing is dismissed —
-  // this ensures the Activist Threat / CEO Liquidity Panic full-screen
-  // overlay is visible on top of the cockpit or Shadow Board Audit.
+  // Evaluate auto-triggers when globalState changes
   useEffect(() => {
     if (!globalState) return;
-    if (briefingActive) return;  // wait until briefing is dismissed
+    if (briefingActive) return;
+    if (roundNumber <= 1) return;
     const config = configRef.current;
 
     for (const key of ['activist_threat', 'ceo_liquidity_panic']) {
@@ -163,7 +173,7 @@ export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage
       if (!cfg?.enabled) continue;
 
       const firedKey = `${key}_r${roundNumber}`;
-      if (firedRef.current[firedKey]) continue;  // already fired this round
+      if (firedRef.current[firedKey]) continue;
 
       const value = globalState[cfg.metric];
       if (value == null) continue;
@@ -171,61 +181,71 @@ export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage
       if (evaluate(value, cfg.operator, cfg.threshold)) {
         firedRef.current[firedKey] = true;
         fireAlert(key, false);
-        break;  // one alert at a time
+        break;
       }
     }
   }, [globalState, roundNumber, briefingActive]);
 
   const fireAlert = useCallback((crisisType, isManual) => {
-    const config = configRef.current;
-    const cfg = config[crisisType];
+    const cfg = configRef.current[crisisType];
     if (!cfg) return;
 
     const delivery = cfg.delivery || 'both';
 
-    // Inject message into mailbox
-    if (delivery === 'text' || delivery === 'both') {
-      onInjectMessage?.({
-        id: `crisis-${crisisType}-r${roundNumber}-${Date.now()}`,
-        round: roundNumber,
-        type: 'warning',
-        title: cfg.title,
-        body: cfg.body,
-        read: false,
-      });
-    }
+    onInjectMessage?.({
+      id: `crisis-${crisisType}-r${roundNumber}-${Date.now()}`,
+      round: roundNumber,
+      type: 'warning',
+      title: cfg.title,
+      body: cfg.body,
+      read: false,
+    });
 
-    // Show full-screen overlay
-    setActiveAlert(crisisType);
+    onActivate?.(crisisType, cfg, delivery);
+  }, [roundNumber, onInjectMessage, onActivate]);
 
-    // Voice playback
+  return null;
+}
+
+/* ══════════════════════════════════════════════════
+ *  CrisisScreen Component
+ *
+ *  Stateless display component — rendered by page.js as an early
+ *  return (same pattern as RoundBriefing). Receives the active crisis
+ *  config and calls onDismiss() when the player clicks Acknowledge.
+ * ══════════════════════════════════════════════════ */
+
+export function CrisisScreen({ crisisType, cfg, globalState, onDismiss, onLogout }) {
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [confirmLogout, setConfirmLogout] = useState(false);
+  const isActivist = crisisType === 'activist_threat';
+
+  // Start voice playback when screen mounts
+  useEffect(() => {
+    const delivery = cfg?.delivery || 'both';
     if (delivery === 'voice' || delivery === 'both') {
       setIsSpeaking(true);
-      // Small delay so the overlay is visible first
-      setTimeout(() => {
+      const t = setTimeout(() => {
         speak(cfg.body);
-        // Track speaking status
-        const checkSpeaking = setInterval(() => {
+        const check = setInterval(() => {
           if (!window.speechSynthesis.speaking) {
             setIsSpeaking(false);
-            clearInterval(checkSpeaking);
+            clearInterval(check);
           }
         }, 500);
       }, 600);
+      return () => {
+        clearTimeout(t);
+        window.speechSynthesis?.cancel();
+      };
     }
-  }, [roundNumber, onInjectMessage]);
+  }, []);
 
   const handleDismiss = () => {
     if (typeof window !== 'undefined') window.speechSynthesis?.cancel();
     setIsSpeaking(false);
-    setActiveAlert(null);
+    onDismiss?.();
   };
-
-  if (!activeAlert) return null;
-
-  const config = configRef.current;
-  const cfg = config[activeAlert];
-  const isActivist = activeAlert === 'activist_threat';
 
   const metricLabel = isActivist ? 'Group Reputation' : 'Corporate Treasury';
   const metricValue = globalState?.[cfg?.metric];
@@ -235,8 +255,32 @@ export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage
 
   return (
     <div className={`${styles.overlay} ${isActivist ? styles.overlayActivist : styles.overlayLiquidity}`}>
+      {/* Logout button — top-right, always visible */}
+      {onLogout && (
+        <button
+          onClick={() => {
+            if (confirmLogout) { if (typeof window !== 'undefined') window.speechSynthesis?.cancel(); onLogout(); setConfirmLogout(false); }
+            else setConfirmLogout(true);
+          }}
+          onBlur={() => setConfirmLogout(false)}
+          title={confirmLogout ? 'Click again to confirm logout' : 'Logout & Exit Simulation'}
+          style={{
+            position: 'fixed', top: 12, right: 16, zIndex: 19100,
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
+            background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
+            backdropFilter: 'blur(8px)',
+            border: confirmLogout ? '1px solid #f87171' : '1px solid rgba(248,113,113,0.25)',
+            borderRadius: 8, color: confirmLogout ? '#fff' : '#fca5a5',
+            fontSize: '0.72rem', fontWeight: 700, fontFamily: "'DM Sans', system-ui, sans-serif",
+            cursor: 'pointer',
+            transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+          }}
+        >
+          {confirmLogout ? '⚠️ Confirm Logout?' : '🚪 Logout'}
+        </button>
+      )}
       <div className={styles.card}>
-        {/* Header */}
         <div className={styles.alertHeader}>
           <span className={styles.alertIcon}>{isActivist ? '🚨' : '💸'}</span>
           <div className={`${styles.alertBadge} ${isActivist ? styles.badgeActivist : styles.badgeLiquidity}`}>
@@ -247,11 +291,9 @@ export default function CrisisAlerts({ globalState, roundNumber, onInjectMessage
           </h1>
         </div>
 
-        {/* Body */}
         <div className={`${styles.alertBody} ${isActivist ? styles.bodyActivist : styles.bodyLiquidity}`}>
           <p className={styles.alertText}>{cfg?.body}</p>
 
-          {/* Metric ribbon */}
           <div className={`${styles.metricRibbon} ${isActivist ? styles.ribbonActivist : styles.ribbonLiquidity}`}>
             <span>{metricLabel}:</span>
             <span className={styles.metricValue}>{formattedValue}</span>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './GameOverSummary.module.css';
 import StudentReportExport from './StudentReportExport';
+import { useCurrency } from '../contexts/CurrencyContext';
 
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
@@ -24,6 +25,9 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
     const [interviewAvailable, setInterviewAvailable] = useState(false);
     const [interviewCompleted, setInterviewCompleted] = useState(false);
     const d = data || {};
+    const { currency } = useCurrency();
+    const sym = currency?.symbol || '$';
+    const isBRSR = decisionParadigm === 'brsr_ngrbc';
     // Dynamic theme: prefer backend-provided icon/gradient (supports custom archetypes),
     // else fall back to PROFILES dict, else universal fallback.
     const baseTheme = PROFILES[d.profile] || FALLBACK_THEME;
@@ -100,8 +104,27 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 {/* Final Stats */}
                 <div className={styles.statsGrid}>
                     <div className={styles.statCard}>
-                        <span className={styles.statLabel}>Terminal Value</span>
+                        <span className={styles.statLabel}>Enterprise Value</span>
                         <span className={styles.statValue}>${((d.terminal_value || 0) / 1_000_000).toFixed(2)}M</span>
+                    </div>
+                    <div className={styles.statCard}>
+                        <span className={styles.statLabel}>Equity Value</span>
+                        <span className={styles.statValue} style={{
+                            color: d.equity_value != null ? (d.equity_value > 0 ? '#10b981' : '#ef4444') : undefined
+                        }}>
+                            {d.equity_value != null ? `$${(d.equity_value / 1_000_000).toFixed(2)}M` : `$${((d.terminal_value || 0) / 1_000_000).toFixed(2)}M`}
+                        </span>
+                    </div>
+                    <div className={styles.statCard}>
+                        <span className={styles.statLabel}>📈 Share Price</span>
+                        <span className={styles.statValue} style={{
+                            color: d.price_per_share != null
+                                ? d.price_per_share >= 50 ? '#10b981' : d.price_per_share >= 30 ? '#f59e0b' : '#ef4444'
+                                : undefined,
+                            fontSize: '1.4rem',
+                        }}>
+                            {d.price_per_share != null ? `$${d.price_per_share.toFixed(2)}` : '—'}
+                        </span>
                     </div>
                     <div className={styles.statCard}>
                         <span className={styles.statLabel}>Regenerative Multiple</span>
@@ -109,7 +132,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     </div>
                     <div className={styles.statCard}>
                         <span className={styles.statLabel}>Rounds Played</span>
-                        <span className={styles.statValue}>10</span>
+                        <span className={styles.statValue}>{isBRSR ? '5' : '10'}</span>
                     </div>
                 </div>
 
@@ -119,7 +142,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     <p>
                         You have presented your strategic recommendation to the Board of Directors.
                         The simulation is now concluded. You may download your Balanced Scorecard report
-                        or review your performance across all 10 rounds.
+                        or review your performance across all {isBRSR ? '5' : '10'} rounds.
                     </p>
                 </div>
 
@@ -515,6 +538,47 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     );
                 })()}
 
+                {/* ── BRSR NGRBC Certificate ── */}
+                {isBRSR && (() => {
+                  const flags = globalState?.active_event_flags || {};
+                  if (!flags.brsr_track_completed) return null;
+                  const brsrGrade = flags.brsr_grade || 'C';
+                  const brsrArchetype = flags.brsr_archetype || 'Compliance Pragmatist';
+                  const brsrScore = flags.brsr_performance_score || 0;
+                  const gradeColors = { 'A+': '#10b981', 'A': '#22c55e', 'B': '#3b82f6', 'C': '#f59e0b', 'D': '#ef4444', 'F': '#dc2626' };
+                  const gradeColor = gradeColors[brsrGrade] || '#94a3b8';
+                  const principleLabels = ['P1/P7: Governance', 'P3/P5: Workforce', 'P6/P2: Environment', 'P4/P8/P9: Value Chain', 'Integrated Disclosure'];
+                  const roundHistory = flags.brsr_round_history || [];
+                  return (
+                    <div style={{
+                      marginTop: 32, padding: 24, borderRadius: 16,
+                      background: 'linear-gradient(135deg, rgba(16,185,129,0.08), rgba(59,130,246,0.08))',
+                      border: `2px solid ${gradeColor}40`,
+                      position: 'relative', overflow: 'hidden'
+                    }}>
+                      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 4, background: `linear-gradient(90deg, ${gradeColor}, ${gradeColor}80)` }} />
+                      <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                        <div style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.15em', color: '#94a3b8', marginBottom: 4 }}>SEBI Business Responsibility Index</div>
+                        <div style={{ fontSize: '2.5rem', fontWeight: 900, color: gradeColor, textShadow: `0 0 20px ${gradeColor}40` }}>{brsrGrade}</div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e2e8f0' }}>{brsrArchetype}</div>
+                        <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 4 }}>Compliance Score: {brsrScore.toFixed(1)} / 100</div>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                        {principleLabels.map((label, i) => {
+                          const rh = roundHistory[i];
+                          const passed = rh && rh.choice !== 'option_c';
+                          return (
+                            <div key={i} style={{ textAlign: 'center', padding: '8px 4px', borderRadius: 8, background: passed ? `${gradeColor}15` : 'rgba(239,68,68,0.1)', border: `1px solid ${passed ? gradeColor + '30' : '#ef444430'}` }}>
+                              <div style={{ fontSize: '1rem', marginBottom: 4 }}>{passed ? '✅' : '❌'}</div>
+                              <div style={{ fontSize: '0.58rem', color: '#94a3b8', lineHeight: 1.3 }}>{label}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 {/* ── SDG Terminal Valuation Waterfall (Fix 7) ── */}
                 {(() => {
                     const flags = globalState?.active_event_flags || {};
@@ -561,7 +625,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     {
                                         label: `Exit Multiple`,
                                         value: `${exitMultiple.toFixed(1)}×`,
-                                        color: '#60a5fa', op: '×', desc: 'Board-approved exit multiple (12× base; SDG Integrated Reporting locks at 12×)',
+                                        color: '#60a5fa', op: '×', desc: 'WACC-based Gordon Growth multiple (dynamic, linked to cost of capital)',
                                     },
                                     {
                                         label: `M_R — Regenerative Multiple`,
@@ -601,7 +665,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                     </div>
                                 ))}
 
-                                {/* Result line */}
+                                {/* Result line — Enterprise Value */}
                                 <div style={{
                                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                     padding: '0.75rem', marginTop: '4px',
@@ -620,6 +684,41 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                         color: '#10b981',
                                     }}>${(vT / 1_000_000).toFixed(2)}M</span>
                                 </div>
+
+                                {/* STRAT-010: Equity Bridge */}
+                                {(() => {
+                                    const flags = globalState?.active_event_flags || {};
+                                    const eqVal = flags.equity_value ?? d.equity_value;
+                                    const pps   = flags.price_per_share ?? d.price_per_share;
+                                    const nd    = flags.net_debt ?? d.net_debt;
+                                    if (eqVal == null || pps == null) return null;
+                                    const spColor = pps >= 50 ? '#10b981' : pps >= 30 ? '#f59e0b' : '#ef4444';
+                                    return (
+                                        <div style={{ marginTop: '0.5rem', padding: '0.6rem 0.75rem', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.12)' }}>
+                                            <div style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', marginBottom: '6px' }}>
+                                                Equity Bridge (EV − Net Debt)
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', marginBottom: '4px', color: '#94a3b8' }}>
+                                                <span>Net Debt</span>
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: '#f87171' }}>
+                                                    −${((nd || 0) / 1_000_000).toFixed(1)}M
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#94a3b8', marginBottom: '6px' }}>
+                                                <span>Equity Value</span>
+                                                <span style={{ fontFamily: "'JetBrains Mono', monospace", color: eqVal > 0 ? '#4ade80' : '#ef4444', fontWeight: 800 }}>
+                                                    ${(eqVal / 1_000_000).toFixed(2)}M
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 8px', borderRadius: '6px', background: `${spColor}15`, border: `1px solid ${spColor}40` }}>
+                                                <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#e2e8f0' }}>📈 Share Price</span>
+                                                <span style={{ fontSize: '1.1rem', fontWeight: 900, color: spColor, fontFamily: "'JetBrains Mono', monospace" }}>
+                                                    ${pps.toFixed(2)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
 
                             {/* SDG contribution callout */}

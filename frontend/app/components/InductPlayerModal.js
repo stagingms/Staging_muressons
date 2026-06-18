@@ -6,11 +6,37 @@ export default function InductPlayerModal({ isOpen, onClose, sessions, onInduct 
     const [email, setEmail] = useState('');
     const [sessionId, setSessionId] = useState('');
     const [assignedBu, setAssignedBu] = useState('Pharma');
+    const [regionId, setRegionId] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [successData, setSuccessData] = useState(null);
 
     const API = process.env.NEXT_PUBLIC_API_URL || '';
+
+    const ASSIGNABLE_ROLES = [
+        // Single-business verticals
+        { value: 'agriculture',                label: '🌾 Agriculture' },
+        { value: 'banking_financial_services', label: '🏦 Banking & Finance' },
+        { value: 'oil_gas',                    label: '⛽ Oil & Gas' },
+        { value: 'retail_fmcg',               label: '🛒 Retail / FMCG' },
+        { value: 'technology',                 label: '💻 Technology' },
+        { value: 'pharma',                     label: '💊 Pharma / Healthcare' },
+        // Legacy conglomerate BUs
+        { value: 'Pharma',         label: 'Muressons Pharma (Legacy Conglomerate)' },
+        { value: 'Electronics',    label: 'Muressons Electronics (Legacy Conglomerate)' },
+        { value: 'Consumer Goods', label: 'Muressons Consumer Goods (Legacy Conglomerate)' },
+        { value: 'Software',       label: 'Muressons Software (Legacy Conglomerate)' },
+        // Special
+        { value: 'Observer',       label: '👁 Observer / Not Assigned' },
+    ];
+
+    const REGIONS = [
+        { id: 'asean',         label: 'ASEAN',          flag: '🌏' },
+        { id: 'south_asia',    label: 'India',           flag: '🇮🇳' },
+        { id: 'europe',        label: 'Europe',          flag: '🇪🇺' },
+        { id: 'north_america', label: 'North America',   flag: '🇺🇸' },
+        { id: 'africa',        label: 'Africa',          flag: '🌍' },
+    ];
 
     if (!isOpen) return null;
 
@@ -28,6 +54,7 @@ export default function InductPlayerModal({ isOpen, onClose, sessions, onInduct 
                     email,
                     session_id: sessionId,
                     assigned_bu: assignedBu,
+                    region_id: regionId,
                 }),
             });
 
@@ -58,6 +85,7 @@ export default function InductPlayerModal({ isOpen, onClose, sessions, onInduct 
         setEmail('');
         setSessionId('');
         setAssignedBu('Pharma');
+        setRegionId('');
         onClose();
     };
 
@@ -134,17 +162,34 @@ export default function InductPlayerModal({ isOpen, onClose, sessions, onInduct 
                             </div>
 
                             <div className={styles.formGroup}>
-                                <label>Business Unit Role</label>
+                                <label>Business Unit / Industry Vertical</label>
                                 <select
                                     value={assignedBu}
                                     onChange={e => setAssignedBu(e.target.value)}
                                     required
                                 >
-                                    <option value="Pharma">Muressons Pharma</option>
-                                    <option value="Electronics">Muressons Electronics</option>
-                                    <option value="Consumer Goods">Muressons Consumer Goods</option>
-                                    <option value="Software">Muressons Software</option>
-                                    <option value="Observer">Observer / Not Assigned</option>
+                                    <option value="">-- Select Role --</option>
+                                    {ASSIGNABLE_ROLES.map(r => (
+                                        <option key={r.value} value={r.value}>{r.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className={styles.formGroup}>
+                                <label>
+                                    Geographic Region
+                                    <span style={{color:'#94a3b8', fontWeight:400, marginLeft:'6px', fontSize:'12px'}}>
+                                        (overrides cohort default)
+                                    </span>
+                                </label>
+                                <select
+                                    value={regionId}
+                                    onChange={e => setRegionId(e.target.value)}
+                                >
+                                    <option value="">-- Select Region --</option>
+                                    {REGIONS.map(r => (
+                                        <option key={r.id} value={r.id}>{r.flag} {r.label}</option>
+                                    ))}
                                 </select>
                             </div>
 

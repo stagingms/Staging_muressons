@@ -383,8 +383,8 @@ class TestPostTick:
     def test_r10_regenerative_multiple_all_bonuses(self):
         """R10: MR structure with all bonuses via community_fund path.
         community_fund (+0.18) > managed_transition (+0.12) — budget arbitrage eliminated.
-        Bonus path: base(1.0) + synergy(+0.3) + resilience(+0.2) + truth(+0.15)
-                    + community_champion(+0.18) + burnout_wellbeing(+0.05) = 1.88."""
+        Bonus path: base(1.0) + synergy(+0.15) + resilience(+0.2) + truth(+0.15)
+                    + community_champion(+0.18) + burnout_wellbeing(+0.05) = 1.73."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -395,7 +395,7 @@ class TestPostTick:
         decs = make_decisions("option_b")
 
         prev_flags = {
-            "synergy_unlock": True,          # R7 synergy → +0.3
+            "synergy_unlock": True,          # R7 synergy → +0.15
             "ethical_ai_overhaul": True,     # R6 truth premium → +0.15
             "community_fund": True,          # R9 community champion → +0.18
             # No insurance_only or electronics_water_priority → +0.2
@@ -409,8 +409,8 @@ class TestPostTick:
         assert extra.get("mr_just_transition_bonus") is None     # managed_transition NOT set
         assert extra.get("mr_wellbeing_bonus") is True           # burnout=0 < 20 → +0.05
         assert extra.get("mr_instability_discount") is None      # SL >= 75
-        # 1.0 + 0.3 + 0.2 + 0.15 + 0.18 + 0.05 = 1.88
-        assert extra["regenerative_multiple"] == 1.88
+        # 1.0 + 0.15 + 0.2 + 0.15 + 0.18 + 0.05 = 1.73
+        assert extra["regenerative_multiple"] == 1.73
 
     def test_r10_instability_discount(self):
         """R10: Social License < 75 applies -0.4 instability discount.
@@ -427,10 +427,10 @@ class TestPostTick:
         assert extra["regenerative_multiple"] == 0.85
 
     def test_r10_profile_regenerative_titan(self):
-        """R10: MR >= 1.8 -> 'The Regenerative Titan'.
+        """R10: MR >= 1.8 -> 'The Regenerative Titan' (Here 1.67 -> 'The De-risked Safe-Haven' due to synergy rebalance).
         managed_transition → +0.12 (split from community_fund at +0.18).
         Wellbeing bonus (+0.05) active since default burnout=0.
-        Total: 1.0+0.3+0.2+0.15+0.12+0.05 = 1.82 exactly."""
+        Total: 1.0+0.15+0.2+0.15+0.12+0.05 = 1.67 exactly."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         bus = make_bus()
@@ -438,20 +438,20 @@ class TestPostTick:
             bu["social_license_score"] = 90  # avoid instability discount
         decs = make_decisions("option_b")
 
-        # synergy(+0.3) + resilience(+0.2) + truth(+0.15) + managed_transition(+0.12) + wellbeing(+0.05) = 1.82
+        # synergy(+0.15) + resilience(+0.2) + truth(+0.15) + managed_transition(+0.12) + wellbeing(+0.05) = 1.67
         prev_flags = {
             "synergy_unlock": True,
             "ethical_ai_overhaul": True,
             "managed_transition": True,   # +0.12 (rebalanced)
         }
         extra = post_tick(10, gs, bus, decs, {}, prev_flags)
-        assert extra["regenerative_multiple"] == 1.82
-        assert extra["profile"] == "regenerative_titan"
-        assert extra["profile_title"] == "The Regenerative Titan"
+        assert extra["regenerative_multiple"] == 1.67
+        assert extra["profile"] == "derisked_safe_haven"
+        assert extra["profile_title"] == "The De-risked Safe-Haven"
 
     def test_r10_profile_regenerative_titan_with_workforce_bonus(self):
-        """R10: All bonuses including workforce readiness → MR = 1.95.
-        community_fund(+0.20) + workforce(+0.10) + wellbeing(+0.05) = peak along with synergy+resilience+truth."""
+        """R10: All bonuses including workforce readiness → MR = 1.83.
+        community_fund(+0.18) + workforce(+0.10) + wellbeing(+0.05) = peak along with synergy+resilience+truth."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
         gs["workforce_readiness"] = 80.0  # Above 75 threshold for +0.10 bonus
@@ -461,15 +461,15 @@ class TestPostTick:
             # burnout not set → 0.0 → wellbeing bonus active
         decs = make_decisions("option_b")
 
-        # All 6 bonuses: synergy(+0.3) + resilience(+0.2) + truth(+0.15)
-        #   + community_champion(+0.18) + workforce(+0.10) + wellbeing(+0.05) = 1.98
+        # All 6 bonuses: synergy(+0.15) + resilience(+0.2) + truth(+0.15)
+        #   + community_champion(+0.18) + workforce(+0.10) + wellbeing(+0.05) = 1.83
         prev_flags = {
             "synergy_unlock": True,
             "ethical_ai_overhaul": True,
             "community_fund": True,          # +0.18 (rebalanced)
         }
         extra = post_tick(10, gs, bus, decs, {}, prev_flags)
-        assert extra["regenerative_multiple"] == 1.98
+        assert extra["regenerative_multiple"] == 1.83
         assert extra.get("mr_workforce_bonus") is True
         assert extra.get("mr_wellbeing_bonus") is True
         assert extra.get("mr_community_champion_bonus") is True

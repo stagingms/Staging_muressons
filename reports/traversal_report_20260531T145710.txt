@@ -1,0 +1,36 @@
+======================================================================
+  MURESSONS GLOBAL STATE TRAVERSAL -- TRACE REPORT
+  Generated: 2026-05-31T14:57:10.991622+00:00
+======================================================================
+
+  SUMMARY
+  -------------------------------------
+  Total runs       : 2
+  Passed           : 1  (50%)
+  Failed           : 1
+  TV flags (+/-5%) : 6
+  Avg collab gap   : +0.00
+  Avg latency (ms) : 34.4
+
+  PARADIGM BREAKDOWN
+  -------------------------------------
+  healthcare           pass=0/1  flags=0  avg_gap=+0.00
+  un_sdg               pass=1/1  flags=6  avg_gap=+0.00
+
+  PATHWAY BREAKDOWN
+  -------------------------------------
+  activist_ultimatum        pass=1/2  flags=6
+
+  BU MODE BREAKDOWN
+  -------------------------------------
+  pharma          pass=1/2  flags=6
+
+  TERMINAL VALUE DEVIATION FLAGS  (threshold +/-5%)
+  -------------------------------------
+  [un_sdg / activist_ultimatum / pharma]  session=c9a7f21e-dc9...  flagged_rounds=[3, 4, 6, 7, 9, 10]
+
+  FAILURES
+  -------------------------------------
+  [healthcare / activist_ultimatum / pharma]  rounds=0  errors=['R1: commit_failed']
+
+======================================================================

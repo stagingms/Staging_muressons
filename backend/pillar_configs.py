@@ -1705,3 +1705,122 @@ def translate_pillars_to_legacy_choice(
         return "option_b"
     else:
         return "option_c"
+
+
+# ═════════════════════════════════════════════════════════════════
+#  VERTICAL-SPECIFIC PILLAR OVERRIDE LOADER
+#  Loads backend/db/pillar_overrides_{bu_id}.json and merges with
+#  the standard PILLAR_OPTIONS for a given round.
+# ═════════════════════════════════════════════════════════════════
+
+_OVERRIDES_DB_DIR = Path(__file__).parent / "db"
+
+
+def _load_pillar_overrides(bu_id: str) -> dict:
+    """
+    Load pillar overrides JSON for a given vertical.
+    Returns empty dict if file not found or invalid.
+    Schema: { "override_areas": {...}, "custom_areas": [...] }
+    """
+    if not bu_id:
+        return {}
+    bu_id_norm = bu_id.lower().replace(" ", "_").replace("-", "_")
+    path = _OVERRIDES_DB_DIR / f"pillar_overrides_{bu_id_norm}.json"
+    if not path.exists():
+        return {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[pillar_configs] Error loading overrides for {bu_id}: {e}")
+        return {}
+
+
+def _save_pillar_overrides(bu_id: str, data: dict) -> None:
+    """Persist pillar overrides JSON for a given vertical."""
+    bu_id_norm = bu_id.lower().replace(" ", "_").replace("-", "_")
+    _OVERRIDES_DB_DIR.mkdir(parents=True, exist_ok=True)
+    path = _OVERRIDES_DB_DIR / f"pillar_overrides_{bu_id_norm}.json"
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+
+
+def get_pillar_config_for_vertical(round_number: int, bu_id: str = "") -> dict:
+    """
+    Return the pillar areas config for a given round and business vertical.
+
+    Resolution order:
+    1. Start with the generic PILLAR_OPTIONS[round_number]
+    2. Apply override_areas (replaces matching standard areas 1-for-1)
+    3. Append custom_areas (sorted by their order field)
+
+    If no bu_id or no overrides file exists, returns the generic config.
+    """
+    base_config = copy.deepcopy(PILLAR_OPTIONS.get(round_number, {}))
+    if not base_config:
+        return base_config
+
+    if not bu_id:
+        return base_config
+
+    overrides = _load_pillar_overrides(bu_id)
+    if not overrides:
+        return base_config
+
+    areas = base_config.get("areas", {})
+
+    # Apply override_areas: replace matching standard area key
+    for area_key, area_override in overrides.get("override_areas", {}).items():
+        areas[area_key] = area_override  # Replaces the standard area at that key
+
+    # Append custom_areas: sorted by order, injected after standard areas
+    custom_areas = overrides.get("custom_areas", [])
+    if custom_areas:
+        sorted_custom = sorted(custom_areas, key=lambda x: x.get("order", 99))
+        for ca in sorted_custom:
+            area_key = ca.get("area_key", f"custom_{len(areas)}")
+            areas[area_key] = {
+                "label": ca.get("label", "Custom Area"),
+                "icon": ca.get("icon", "⭐"),
+                "description_override": ca.get("description", ""),
+                "options": ca.get("options", {}),
+                "is_custom": True,
+                "order": ca.get("order", 99),
+            }
+
+    base_config["areas"] = areas
+    base_config["vertical"] = bu_id
+    return base_config
+
+
+def get_pillar_summary(bu_id: str = "") -> dict:
+    """
+    Return a summary of all standard + override + custom pillar areas for a vertical.
+    Used by the PillarConfigurator admin panel.
+    """
+    overrides = _load_pillar_overrides(bu_id)
+    # Standard areas (from Round 1 as reference)
+    r1 = PILLAR_OPTIONS.get(1, {})
+    standard_areas = [
+        {"area_key": k, "label": v.get("label", k), "icon": v.get("icon", "⭐"), "is_standard": True}
+        for k, v in r1.get("areas", {}).items()
+    ]
+    override_areas = [
+        {
+            "area_key": k,
+            "label": v.get("label", k),
+            "icon": v.get("icon", "⭐"),
+            "is_override": True,
+            "replaces": k,
+            "options": v.get("options", {}),
+        }
+        for k, v in overrides.get("override_areas", {}).items()
+    ]
+    custom_areas = overrides.get("custom_areas", [])
+    return {
+        "bu_id": bu_id,
+        "standard_areas": standard_areas,
+        "override_areas": override_areas,
+        "custom_areas": custom_areas,
+        "total_areas": len(standard_areas) + len(custom_areas),
+    }

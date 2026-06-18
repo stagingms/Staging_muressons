@@ -4,20 +4,20 @@ import { useState, useEffect, useCallback } from 'react';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 const GRADIENT_PRESETS = [
-  { label: '🌱 Emerald', value: 'linear-gradient(135deg, #10b981, #059669)' },
-  { label: '🔵 Sapphire', value: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' },
-  { label: '🟡 Amber', value: 'linear-gradient(135deg, #f59e0b, #d97706)' },
-  { label: '🔴 Crimson', value: 'linear-gradient(135deg, #ef4444, #b91c1c)' },
-  { label: '🟣 Violet', value: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
-  { label: '🔮 Indigo', value: 'linear-gradient(135deg, #6366f1, #4f46e5)' },
-  { label: '🌊 Teal', value: 'linear-gradient(135deg, #14b8a6, #0d9488)' },
-  { label: '🌅 Coral', value: 'linear-gradient(135deg, #f97316, #ea580c)' },
-  { label: '🩷 Rose', value: 'linear-gradient(135deg, #f43f5e, #e11d48)' },
-  { label: '⬛ Slate', value: 'linear-gradient(135deg, #475569, #334155)' },
+  { label: 'Emerald', value: 'linear-gradient(135deg, #10b981, #059669)' },
+  { label: 'Sapphire', value: 'linear-gradient(135deg, #3b82f6, #1d4ed8)' },
+  { label: 'Amber', value: 'linear-gradient(135deg, #f59e0b, #d97706)' },
+  { label: 'Crimson', value: 'linear-gradient(135deg, #ef4444, #b91c1c)' },
+  { label: 'Violet', value: 'linear-gradient(135deg, #8b5cf6, #7c3aed)' },
+  { label: 'Indigo', value: 'linear-gradient(135deg, #6366f1, #4f46e5)' },
+  { label: 'Teal', value: 'linear-gradient(135deg, #14b8a6, #0d9488)' },
+  { label: 'Coral', value: 'linear-gradient(135deg, #f97316, #ea580c)' },
+  { label: 'Rose', value: 'linear-gradient(135deg, #f43f5e, #e11d48)' },
+  { label: 'Slate', value: 'linear-gradient(135deg, #475569, #334155)' },
 ];
 
 const EMPTY_FORM = {
-  key: '', title: '', description: '', mr_threshold: '', icon: '🏅',
+  key: '', title: '', description: '', mr_threshold: '', icon: '',
   gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)',
 };
 
@@ -28,7 +28,7 @@ function PreviewCard({ archetype }) {
       borderRadius: 10, padding: '0.8rem 1.2rem', color: '#fff', minWidth: 160,
       display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.78rem',
     }}>
-      <span style={{ fontSize: '1.4rem' }}>{archetype.icon || '🏅'}</span>
+      {archetype.icon && <span style={{ fontSize: '1.4rem' }}>{archetype.icon}</span>}
       <div>
         <div style={{ fontWeight: 700, lineHeight: 1.2 }}>{archetype.title || 'Preview'}</div>
         <div style={{ opacity: 0.8, fontSize: '0.65rem' }}>M_R ≥ {archetype.mr_threshold ?? '—'}</div>
@@ -67,7 +67,7 @@ export default function ArchetypeEditor() {
       setDefaults(data.defaults || []);
       setUsingCustom(data.using_custom || false);
     } catch {
-      flash('⚠️ Failed to load archetypes — backend may be offline.');
+      flash('Failed to load archetypes — backend may be offline.');
     } finally {
       setLoading(false);
     }
@@ -77,7 +77,7 @@ export default function ArchetypeEditor() {
 
   const handleAddSave = async () => {
     if (!form.key || !form.title || form.mr_threshold === '') {
-      flash('⚠️ Key, Title and M_R Threshold are required.');
+      flash('Key, Title and M_R Threshold are required.');
       return;
     }
     setFormSaving(true);
@@ -89,15 +89,15 @@ export default function ArchetypeEditor() {
       });
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        flash(`⚠️ ${e.detail || 'Save failed'}`);
+        flash(`${e.detail || 'Save failed'}`);
         return;
       }
-      flash(`✅ Archetype "${form.title}" added.`);
+      flash(`Archetype "${form.title}" added.`);
       setForm(EMPTY_FORM);
       setShowAddForm(false);
       loadArchetypes();
     } catch {
-      flash('⚠️ Network error saving archetype.');
+      flash('Network error saving archetype.');
     } finally {
       setFormSaving(false);
     }
@@ -111,7 +111,7 @@ export default function ArchetypeEditor() {
       key: a.key,
       mr_threshold: a.mr_threshold,
       description: a.description || '',
-      icon: a.icon || '🏅',
+      icon: a.icon || '',
       gradient: a.gradient || 'linear-gradient(135deg, #6366f1, #4f46e5)',
     });
   };
@@ -146,15 +146,15 @@ export default function ArchetypeEditor() {
       }
       if (!res.ok) {
         const e = await res.json().catch(() => ({}));
-        flash(`⚠️ ${e.detail || 'Save failed'}`);
+        flash(`${e.detail || 'Save failed'}`);
         return;
       }
-      flash(`✅ Archetype "${updates.title}" saved.`);
+      flash(`Archetype "${updates.title}" saved.`);
       setEditingRow(null);
       setEditData({});
       loadArchetypes();
     } catch {
-      flash('⚠️ Network error saving archetype.');
+      flash('Network error saving archetype.');
     }
   };
 
@@ -177,7 +177,7 @@ export default function ArchetypeEditor() {
 
   const inputSm = {
     padding: '0.3rem 0.5rem', border: '1px solid #cbd5e1', borderRadius: 6,
-    fontSize: '0.75rem', width: '100%', background: '#fff',
+    fontSize: '0.75rem', width: '100%', background: '#fff', color: '#1e293b',
   };
 
   return (
@@ -185,7 +185,7 @@ export default function ArchetypeEditor() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: '#1e293b' }}>
-            🏆 Profile Archetype Editor
+            Profile Archetype Editor
           </h2>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.78rem', color: '#64748b' }}>
             Define the Year 5 outcome profiles that players receive based on their Regenerative Multiple (M_R).
@@ -201,7 +201,7 @@ export default function ArchetypeEditor() {
             fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
           }}
         >
-          + New Archetype
+          New Archetype
         </button>
       </div>
 
@@ -225,7 +225,7 @@ export default function ArchetypeEditor() {
           borderRadius: 12, padding: '1.2rem', marginBottom: '1.5rem',
         }}>
           <div style={{ fontWeight: 700, fontSize: '0.85rem', color: '#065f46', marginBottom: '0.9rem' }}>
-            ✨ New Archetype
+            New Archetype
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 80px', gap: '0.75rem', marginBottom: '0.75rem' }}>
             <div>
@@ -244,8 +244,8 @@ export default function ArchetypeEditor() {
                 onChange={e => setForm(f => ({ ...f, mr_threshold: e.target.value }))} />
             </div>
             <div>
-              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>ICON</label>
-              <input style={inputSm} placeholder="🏅" value={form.icon}
+              <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>ICON (optional)</label>
+              <input style={inputSm} placeholder="" value={form.icon}
                 onChange={e => setForm(f => ({ ...f, icon: e.target.value }))} />
             </div>
           </div>
@@ -273,7 +273,7 @@ export default function ArchetypeEditor() {
                 background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff',
                 border: 'none', padding: '0.55rem 1.5rem', borderRadius: 8, fontSize: '0.8rem', fontWeight: 700, cursor: 'pointer',
               }}>
-              {formSaving ? 'Saving…' : '💾 Save Archetype'}
+              {formSaving ? 'Saving…' : 'Save Archetype'}
             </button>
             <button onClick={() => setShowAddForm(false)}
               style={{ background: 'transparent', border: '1px solid #cbd5e1', borderRadius: 8, padding: '0.55rem 1rem', fontSize: '0.78rem', cursor: 'pointer', color: '#64748b' }}>
@@ -373,7 +373,7 @@ export default function ArchetypeEditor() {
                                 border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem',
                                 fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer',
                               }}>
-                              💾 Save
+                              Save
                             </button>
                             <button
                               onClick={cancelEdit}
@@ -392,7 +392,7 @@ export default function ArchetypeEditor() {
                               background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6,
                               padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#475569',
                             }}>
-                            ✏️ Edit
+                            Edit
                           </button>
                         )}
                       </td>
@@ -412,61 +412,61 @@ export default function ArchetypeEditor() {
             <strong>How it works:</strong> At Round 10, the engine computes M_R (Regenerative Multiple).
             If <em>any</em> custom archetypes exist, they replace the entire default ladder.
             Archetypes are checked highest-threshold first — the player earns the first one where their M_R equals or exceeds the threshold.
-            The result (<code>profile_title</code>, <code>profile_description</code>, icon) appears on the player's final screen.
+            The result (<code>profile_title</code>, <code>profile_description</code>, icon) appears on the player&apos;s final screen.
           </div>
 
           {/* ═══════════════════════════════════════════════════════
            *  SIDE TRACK ARCHETYPE LADDERS
            * ═══════════════════════════════════════════════════════ */}
           <div style={{ marginTop: '2.5rem' }}>
-            <div style={sectionTitle}>🗺️ Side Track Archetype Ladders</div>
+            <div style={sectionTitle}>Side Track Archetype Ladders</div>
             <div style={sectionSub}>
-              Each side track awards its own archetype based on composite score. Click ✏️ Edit to modify any archetype.
+              Each side track awards its own archetype based on composite score. Click Edit to modify any archetype.
             </div>
 
             {[
               {
-                name: '🔗 Supply Chain Deep Dive',
+                name: 'Supply Chain Deep Dive',
                 scoring: '7 dimensions: Visibility, Risk, Scope 3, Circular, Digital, Geopolitical, Consumer Trust',
                 key_prefix: 'sc',
                 archetypes: [
-                  { key: 'resilient_network_architect', title: 'Resilient Network Architect', mr_threshold: 80, icon: '🏗️', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Your supply chain is a strategic asset. Deep visibility, ethical sourcing, and geographic diversification have created a resilient network.' },
-                  { key: 'responsible_operator', title: 'Responsible Operator', mr_threshold: 60, icon: '🛡️', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'A well-managed supply chain with good foundations. Some gaps in digital maturity or geographic diversification leave you exposed.' },
-                  { key: 'reactive_manager', title: 'Reactive Manager', mr_threshold: 40, icon: '⚠️', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Functional but fragile. Limited visibility and deferred investments mean you\'re always one disruption away from crisis.' },
-                  { key: 'exposed_vulnerable', title: 'Exposed & Vulnerable', mr_threshold: 0, icon: '🔥', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Your supply chain is a liability. Blind spots, unresolved ethical issues, and geographic concentration create compounding risks.' },
+                  { key: 'resilient_network_architect', title: 'Resilient Network Architect', mr_threshold: 80, icon: '', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Your supply chain is a strategic asset. Deep visibility, ethical sourcing, and geographic diversification have created a resilient network.' },
+                  { key: 'responsible_operator', title: 'Responsible Operator', mr_threshold: 60, icon: '', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'A well-managed supply chain with good foundations. Some gaps in digital maturity or geographic diversification leave you exposed.' },
+                  { key: 'reactive_manager', title: 'Reactive Manager', mr_threshold: 40, icon: '', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Functional but fragile. Limited visibility and deferred investments mean you\'re always one disruption away from crisis.' },
+                  { key: 'exposed_vulnerable', title: 'Exposed & Vulnerable', mr_threshold: 0, icon: '', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Your supply chain is a liability. Blind spots, unresolved ethical issues, and geographic concentration create compounding risks.' },
                 ],
               },
               {
-                name: '⚖️ Ethics & Sustainability Deep Dive',
+                name: 'Ethics & Sustainability Deep Dive',
                 scoring: '5 dimensions: Ethical Governance (25%), Human Rights DD (25%), Green Claims (20%), Biodiversity (15%), Just Transition (15%)',
                 key_prefix: 'es',
                 archetypes: [
-                  { key: 'ethical_vanguard', title: 'Ethical Vanguard', mr_threshold: 80, icon: '🏛️', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Your organisation leads on ethics, substantiating claims, protecting rights, and transitioning justly.' },
-                  { key: 'responsible_steward', title: 'Responsible Steward', mr_threshold: 60, icon: '🛡️', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Good foundations but some gaps — regulatory exposure remains in specific areas.' },
-                  { key: 'compliance_minimalist', title: 'Compliance Minimalist', mr_threshold: 40, icon: '⚠️', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Meeting minimum requirements but lacking substantive commitment — vulnerable to activist campaigns.' },
-                  { key: 'ethics_liability', title: 'Ethics Liability', mr_threshold: 0, icon: '🔥', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Significant ethical deficits creating material legal, reputational, and regulatory risk.' },
+                  { key: 'ethical_vanguard', title: 'Ethical Vanguard', mr_threshold: 80, icon: '', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Your organisation leads on ethics, substantiating claims, protecting rights, and transitioning justly.' },
+                  { key: 'responsible_steward', title: 'Responsible Steward', mr_threshold: 60, icon: '', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Good foundations but some gaps — regulatory exposure remains in specific areas.' },
+                  { key: 'compliance_minimalist', title: 'Compliance Minimalist', mr_threshold: 40, icon: '', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Meeting minimum requirements but lacking substantive commitment — vulnerable to activist campaigns.' },
+                  { key: 'ethics_liability', title: 'Ethics Liability', mr_threshold: 0, icon: '', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Significant ethical deficits creating material legal, reputational, and regulatory risk.' },
                 ],
               },
               {
-                name: '🤝 Stakeholder Management Deep Dive',
+                name: 'Stakeholder Management Deep Dive',
                 scoring: '4 dimensions: Stakeholder Mapping (25%), Investor Confidence (25%), Community Trust (25%), Crisis Resilience (25%)',
                 key_prefix: 'sm',
                 archetypes: [
-                  { key: 'stakeholder_champion', title: 'Stakeholder Champion', mr_threshold: 80, icon: '🏆', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Deep engagement across all groups creates durable trust and crisis immunity.' },
-                  { key: 'engaged_operator', title: 'Engaged Operator', mr_threshold: 60, icon: '🤝', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Good stakeholder relationships with room for deeper community integration.' },
-                  { key: 'transactional_manager', title: 'Transactional Manager', mr_threshold: 40, icon: '📋', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Stakeholder engagement is procedural — lacking authentic commitment.' },
-                  { key: 'isolated_enterprise', title: 'Isolated Enterprise', mr_threshold: 0, icon: '🏚️', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Stakeholder relationships are adversarial — creating material governance risk.' },
+                  { key: 'stakeholder_champion', title: 'Stakeholder Champion', mr_threshold: 80, icon: '', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Deep engagement across all groups creates durable trust and crisis immunity.' },
+                  { key: 'engaged_operator', title: 'Engaged Operator', mr_threshold: 60, icon: '', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Good stakeholder relationships with room for deeper community integration.' },
+                  { key: 'transactional_manager', title: 'Transactional Manager', mr_threshold: 40, icon: '', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Stakeholder engagement is procedural — lacking authentic commitment.' },
+                  { key: 'isolated_enterprise', title: 'Isolated Enterprise', mr_threshold: 0, icon: '', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Stakeholder relationships are adversarial — creating material governance risk.' },
                 ],
               },
               {
-                name: '📊 Sustainability Reporting Deep Dive',
+                name: 'Sustainability Reporting Deep Dive',
                 scoring: '5 dimensions: Regulatory Readiness (20%), Climate Disclosure (25%), Social & Governance (20%), Assurance (20%), Integrated Value (15%)',
                 key_prefix: 'sr',
                 archetypes: [
-                  { key: 'disclosure_pioneer', title: 'Disclosure Pioneer', mr_threshold: 80, icon: '🌟', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Best-in-class reporting with assured data, integrated value narratives, and full regulatory compliance.' },
-                  { key: 'compliant_reporter', title: 'Compliant Reporter', mr_threshold: 60, icon: '📋', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Meets regulatory requirements with credible data but lacks integration of sustainability into financial narrative.' },
-                  { key: 'selective_discloser', title: 'Selective Discloser', mr_threshold: 40, icon: '⚠️', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Cherry-picks favourable metrics while leaving material gaps — vulnerable to investor scrutiny.' },
-                  { key: 'opaque_enterprise', title: 'Opaque Enterprise', mr_threshold: 0, icon: '🔒', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Minimal disclosure creates investor uncertainty and regulatory exposure — ESG rating downgrades likely.' },
+                  { key: 'disclosure_pioneer', title: 'Disclosure Pioneer', mr_threshold: 80, icon: '', gradient: 'linear-gradient(135deg, #10b981, #059669)', description: 'Best-in-class reporting with assured data, integrated value narratives, and full regulatory compliance.' },
+                  { key: 'compliant_reporter', title: 'Compliant Reporter', mr_threshold: 60, icon: '', gradient: 'linear-gradient(135deg, #3b82f6, #2563eb)', description: 'Meets regulatory requirements with credible data but lacks integration of sustainability into financial narrative.' },
+                  { key: 'selective_discloser', title: 'Selective Discloser', mr_threshold: 40, icon: '', gradient: 'linear-gradient(135deg, #f59e0b, #d97706)', description: 'Cherry-picks favourable metrics while leaving material gaps — vulnerable to investor scrutiny.' },
+                  { key: 'opaque_enterprise', title: 'Opaque Enterprise', mr_threshold: 0, icon: '', gradient: 'linear-gradient(135deg, #ef4444, #b91c1c)', description: 'Minimal disclosure creates investor uncertainty and regulatory exposure — ESG rating downgrades likely.' },
                 ],
               },
             ].map(track => (
@@ -590,7 +590,7 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
                       <div style={{ display: 'flex', gap: '0.4rem', justifyContent: 'center' }}>
                         <button onClick={() => saveEdit(a.key)}
                           style={{ background: 'linear-gradient(135deg, #10b981, #059669)', color: '#fff', border: 'none', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', fontWeight: 700, cursor: 'pointer' }}>
-                          💾 Save
+                          Save
                         </button>
                         <button onClick={cancelEdit}
                           style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#64748b' }}>
@@ -600,7 +600,7 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
                     ) : (
                       <button onClick={() => startEdit(a)} title="Edit this archetype"
                         style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '0.3rem 0.7rem', fontSize: '0.68rem', cursor: 'pointer', color: '#475569' }}>
-                        ✏️ Edit
+                        Edit
                       </button>
                     )}
                   </td>

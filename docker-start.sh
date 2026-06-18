@@ -9,7 +9,10 @@ FRONTEND_PORT="${PORT:-3000}"
 
 # Start backend (bound to localhost — not exposed externally)
 cd /app/backend
-export USE_MEMORY_DB="${USE_MEMORY_DB:-true}"
+# SEC-2: default to the durable PostgreSQL store. Set USE_MEMORY_DB=true
+# explicitly (with DEBUG=true or ALLOW_MEMORY_DB_IN_PROD=true) for a
+# local/offline non-durable run. main.py enforces this at startup.
+export USE_MEMORY_DB="${USE_MEMORY_DB:-false}"
 export BACKEND_URL="http://127.0.0.1:8000"
 
 # Start backend with restart loop — if it crashes, restart it

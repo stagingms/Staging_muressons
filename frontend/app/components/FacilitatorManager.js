@@ -37,6 +37,7 @@ const PARADIGM_LABELS = {
     advanced_climate: { label: 'Advanced Climate', color: '#10b981', bg: 'rgba(16,185,129,0.1)' },
     healthcare: { label: 'Healthcare Ed.', color: '#f43f5e', bg: 'rgba(244,63,94,0.1)' },
     un_sdg: { label: 'UN SDG', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+    brsr_ngrbc: { label: 'BRSR NGRBC', color: '#f97316', bg: 'rgba(249,115,22,0.1)' },
 };
 
 const PARADIGM_OPTIONS = [
@@ -45,6 +46,7 @@ const PARADIGM_OPTIONS = [
     { id: 'advanced_climate', label: 'Advanced Climate', sub: 'Full climate engine with carbon markets', icon: '🌍' },
     { id: 'healthcare', label: 'Healthcare Edition', sub: 'Clinical operations & patient outcomes', icon: '🏥' },
     { id: 'un_sdg', label: 'UN SDG Goals', sub: 'Sustainable Development Goals framework', icon: '🎯' },
+    { id: 'brsr_ngrbc', label: 'BRSR NGRBC Edition', sub: 'India ESG responsibility framework', icon: '🇮🇳' },
 ];
 
 const EMPTY_FORM = {
@@ -53,18 +55,25 @@ const EMPTY_FORM = {
     phone: '',
     programme: '',
     cohorts: 5,
+    role: 'facilitator',
     paradigm: 'legacy_abc',
+    endingPathway: 'activist_ultimatum',
+    sideTracks: [],
+    simulationMode: 'conglomerate',
+    industryVertical: '',
+    buSubstitutions: {},
     startDate: '',
     endDate: '',
     notes: '',
     createdBy: '',
     dateCreated: new Date().toISOString().slice(0, 10),
     permissions: {
-        can_undo_rounds: true,
-        can_override_decisions: true,
-        can_modify_materiality: true,
-        can_manage_auto_pause: true,
-        can_create_cohorts: true,
+        can_undo_rounds: false,
+        can_override_decisions: false,
+        can_modify_materiality: false,
+        can_manage_auto_pause: false,
+        can_create_cohorts: false,
+        can_enable_side_tracks: false,
     },
 };
 
@@ -109,10 +118,28 @@ function mapCSVRowToFacilitator(row) {
 }
 
 
-export default function FacilitatorManager({ onNavigate }) {
+export default function FacilitatorManager({ onNavigate, authContext }) {
+    // ── Derive operator (the admin using this UI) role ──────────────
+    // Priority: explicit authContext prop → localStorage godmode_auth → localStorage facilitator_auth
+    const operatorRole = (() => {
+        if (authContext?.role) return authContext.role;
+        try {
+            const stored =
+                JSON.parse(localStorage.getItem('godmode_auth') || 'null') ||
+                JSON.parse(localStorage.getItem('facilitator_auth') || 'null');
+            return stored?.role || null;
+        } catch { return null; }
+    })();
+
+    // Full permission override: super_admin operators can set ANY permission on
+    // ANY facilitator, regardless of the facilitatee's role.
+    const isElevatedOperator = operatorRole === 'super_admin';
     const [facilitators, setFacilitators] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
+
+    const [endingPathways, setEndingPathways] = useState([]);
+    const [sideTrackCatalog, setSideTrackCatalog] = useState([]);
 
     // Drawer state
     const [drawerOpen, setDrawerOpen] = useState(false);
@@ -156,13 +183,45 @@ export default function FacilitatorManager({ onNavigate }) {
     useEffect(() => {
         fetchFacilitators();
         const interval = setInterval(fetchFacilitators, 10000);
+
+        // Fetch available ending pathways
+        fetch(`${API}/api/admin/ending-pathways`, { credentials: 'include' })
+            .then(r => r.json())
+            .then(d => {
+                setEndingPathways((d.pathways || []).filter(p => p.implemented));
+            })
+            .catch(() => {});
+
+        // Fetch side track catalog
+        fetch(`${API}/api/admin/side-tracks/catalog`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                if (d?.catalog) {
+                    setSideTrackCatalog(d.catalog);
+                }
+            })
+            .catch(() => {});
+
         return () => clearInterval(interval);
     }, [fetchFacilitators]);
 
-    const showToast = (msg, type = 'success') => {
-        setToast({ msg, type });
-        setTimeout(() => setToast(null), 4000);
+    // Persistent toasts (e.g. generated passwords) stay until the browser tab is
+    // hidden or the user clicks the toast. Regular toasts auto-dismiss after 4 s.
+    const showToast = (msg, type = 'success', { persistent = false } = {}) => {
+        setToast({ msg, type, persistent });
+        if (!persistent) {
+            setTimeout(() => setToast(null), 4000);
+        }
     };
+
+    // Dismiss persistent toasts when the user switches / closes the browser tab
+    useEffect(() => {
+        const handleVisChange = () => {
+            if (document.hidden) setToast(prev => (prev?.persistent ? null : prev));
+        };
+        document.addEventListener('visibilitychange', handleVisChange);
+        return () => document.removeEventListener('visibilitychange', handleVisChange);
+    }, []);
 
     // ── Per-facilitator enabled toggle ───────────────────────
     const toggleFacilitatorEnabled = async (facId, currentEnabled) => {
@@ -174,7 +233,7 @@ export default function FacilitatorManager({ onNavigate }) {
                 body: JSON.stringify({ enabled: newVal }),
             });
             if (res.ok) {
-                showToast(`${facId} cohort creation ${newVal ? 'enabled' : 'disabled'}`);
+                showToast(`${facId} ${newVal ? 'enabled' : 'disabled'}`);
             } else {
                 setFacilitators(prev => prev.map(f => f.facilitator_id === facId ? { ...f, enabled: currentEnabled } : f));
                 showToast('Failed to toggle', 'error');
@@ -182,6 +241,64 @@ export default function FacilitatorManager({ onNavigate }) {
         } catch {
             setFacilitators(prev => prev.map(f => f.facilitator_id === facId ? { ...f, enabled: currentEnabled } : f));
             showToast('Network error', 'error');
+        }
+    };
+
+    // ── God Mode: inline can_create_cohorts toggle ───────────
+    // Allows super_admin operators to flip cohort-creation permission directly
+    // from the table row without opening the full edit drawer.
+    const toggleCohortCreationPermission = async (fac) => {
+        const currentVal = fac.permissions?.can_create_cohorts !== false;
+        const newVal = !currentVal;
+        // Optimistic update
+        setFacilitators(prev => prev.map(f =>
+            f.facilitator_id === fac.facilitator_id
+                ? { ...f, permissions: { ...(f.permissions || {}), can_create_cohorts: newVal } }
+                : f
+        ));
+        try {
+            const headers = { 'Content-Type': 'application/json' };
+            try {
+                const auth = JSON.parse(
+                    localStorage.getItem('godmode_auth') ||
+                    localStorage.getItem('facilitator_auth') || '{}'
+                );
+                if (auth.facilitator_id) headers['x-facilitator-id'] = auth.facilitator_id;
+            } catch { /* ignore */ }
+
+            // Send the minimal delta — backend merges with existing record
+            const res = await fetch(`${API}/api/admin/facilitators/${fac.facilitator_id}`, {
+                method: 'PUT',
+                headers,
+                credentials: 'include',
+                body: JSON.stringify({
+                    permissions: { ...(fac.permissions || {}), can_create_cohorts: newVal },
+                }),
+            });
+            if (res.ok) {
+                showToast(
+                    newVal
+                        ? `✅ Cohort creation enabled for ${fac.name}`
+                        : `🔒 Cohort creation disabled for ${fac.name}`
+                );
+            } else {
+                // Rollback on failure
+                setFacilitators(prev => prev.map(f =>
+                    f.facilitator_id === fac.facilitator_id
+                        ? { ...f, permissions: { ...(f.permissions || {}), can_create_cohorts: currentVal } }
+                        : f
+                ));
+                const err = await res.json().catch(() => ({}));
+                showToast(err.detail || 'Failed to update permission', 'error');
+            }
+        } catch {
+            // Rollback on network error
+            setFacilitators(prev => prev.map(f =>
+                f.facilitator_id === fac.facilitator_id
+                    ? { ...f, permissions: { ...(f.permissions || {}), can_create_cohorts: currentVal } }
+                    : f
+            ));
+            showToast('Network error — permission not saved', 'error');
         }
     };
 
@@ -225,6 +342,7 @@ export default function FacilitatorManager({ onNavigate }) {
             const res = await fetch(`${API}/api/admin/facilitators/${facId}/role`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({
                     role: newRole,
                     god_mode_fac_id: roleVerifyFacId.trim(),
@@ -275,9 +393,15 @@ export default function FacilitatorManager({ onNavigate }) {
             programme: fac.programme || '',
             cohorts: fac.max_cohorts ?? 5,
             paradigm: fac.decision_paradigm || 'legacy_abc',
+            endingPathway: fac.ending_pathway || 'activist_ultimatum',
+            sideTracks: fac.side_tracks || [],
+            simulationMode: fac.simulation_mode || 'conglomerate',
+            industryVertical: fac.industry_vertical || '',
+            buSubstitutions: fac.bu_substitutions || {},
             startDate: formatDateInput(fac.start_date),
             endDate: formatDateInput(fac.end_date),
             notes: fac.notes || '',
+            role: fac.role || (fac.is_admin ? 'super_admin' : 'facilitator'),
             permissions: fac.permissions || { ...EMPTY_FORM.permissions },
         });
         setDrawerMode('edit');
@@ -292,6 +416,21 @@ export default function FacilitatorManager({ onNavigate }) {
         ...prev,
         permissions: { ...prev.permissions, [key]: value },
     }));
+    const handleRoleSelect = (selectedRole) => {
+        const isFac = selectedRole === 'facilitator';
+        setForm(prev => ({
+            ...prev,
+            role: selectedRole,
+            permissions: {
+                can_undo_rounds: !isFac,
+                can_override_decisions: !isFac,
+                can_modify_materiality: !isFac,
+                can_manage_auto_pause: !isFac,
+                can_create_cohorts: !isFac,
+                can_enable_side_tracks: !isFac,
+            }
+        }));
+    };
 
     // ── Validation per step ─────────────────────────────────
     const canAdvanceStep = (s) => {
@@ -314,9 +453,15 @@ export default function FacilitatorManager({ onNavigate }) {
                 end_date: form.endDate || null,
                 max_cohorts: form.cohorts,
                 decision_paradigm: form.paradigm,
+                ending_pathway: form.endingPathway,
+                side_tracks: form.sideTracks,
+                simulation_mode: form.simulationMode,
+                industry_vertical: form.industryVertical,
+                bu_substitutions: form.buSubstitutions,
                 permissions: form.permissions,
                 created_by: form.createdBy.trim(),
                 date_created: form.dateCreated,
+                role: form.role,
             };
 
             const getAuthHeaders = () => {
@@ -377,10 +522,34 @@ export default function FacilitatorManager({ onNavigate }) {
                         facilitator_id: fac.facilitator_id,
                         created_by: form.createdBy.trim(),
                         created_when: form.dateCreated,
+                        ending_pathway: form.endingPathway,
+                        simulation_mode: form.simulationMode === 'single_bu' ? 'single_bu' : 'standard',
+                        industry_vertical: form.simulationMode === 'single_bu' ? form.industryVertical : undefined,
                     }),
                 });
 
                 if (seedRes.ok) {
+                    const newSession = await seedRes.json();
+                    if (newSession.session_id) {
+                        // Apply side tracks defaults
+                        if (form.sideTracks && form.sideTracks.length > 0) {
+                            await fetch(`${API}/api/admin/cohorts/${newSession.session_id}/side-tracks`, {
+                                method: 'PUT',
+                                headers: getAuthHeaders(),
+                                credentials: 'include',
+                                body: JSON.stringify({ tracks: form.sideTracks }),
+                            }).catch(() => {});
+                        }
+                        // Apply BU substitutions defaults
+                        if (form.simulationMode === 'single_bu' && form.buSubstitutions && Object.keys(form.buSubstitutions).length > 0) {
+                            await fetch(`${API}/api/admin/${newSession.session_id}/bu-composition`, {
+                                method: 'PUT',
+                                headers: getAuthHeaders(),
+                                credentials: 'include',
+                                body: JSON.stringify({ substitutions: form.buSubstitutions, bu_regions: {} }),
+                            }).catch(() => {});
+                        }
+                    }
                     setFacilitators(prev => [...prev, { ...fac, cohorts_created: 1 }]);
                     showToast(`✅ ${fac.facilitator_id} created & seeded`);
                     closeDrawer();
@@ -436,6 +605,7 @@ export default function FacilitatorManager({ onNavigate }) {
             const res = await fetch(`${API}/api/admin/facilitators/bulk`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ facilitators: bulkData }),
             });
             if (res.ok) {
@@ -479,12 +649,24 @@ export default function FacilitatorManager({ onNavigate }) {
 
 
     // ── Reset Password ───────────────────────────────────────
+    const [pwCopied, setPwCopied] = useState(false);
     const handleResetPassword = async (facId) => {
         try {
-            const res = await fetch(`${API}/api/admin/facilitators/${facId}/reset-password`, { method: 'POST' });
+            const res = await fetch(`${API}/api/admin/facilitators/${facId}/reset-password`, {
+                method: 'POST',
+                credentials: 'include',
+            });
             if (res.ok) {
                 const data = await res.json();
-                showToast(`New password: ${data.new_password || data.password || '(check server)'}`, 'success');
+                const newPw = data.new_password || data.password || '(check server)';
+                const emailSent = data.email_sent;
+                const emailTo = data.email_to;
+                setPwCopied(false);
+                showToast(
+                    { password: newPw, emailSent, emailTo, facId },
+                    'success',
+                    { persistent: true }
+                );
             } else {
                 showToast('Reset failed', 'error');
             }
@@ -562,6 +744,47 @@ export default function FacilitatorManager({ onNavigate }) {
                 <div>
                     <h4 className={styles.stepTitle}>Facilitator Identity</h4>
                     <p className={styles.stepDesc}>Enter the facilitator's personal details. A unique ID (FAC-XXX) and default password will be auto-generated.</p>
+                </div>
+            </div>
+
+            {/* Role Selection at the top of Step 1 */}
+            <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '1.25rem' }}>
+                <label className={styles.formLabel} style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'block' }}>Assign Operative Role <span className={styles.required}>*</span></label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                    {[
+                        { id: 'facilitator', label: 'Facilitator', icon: '🎓', desc: 'Can run preassigned cohorts' },
+                        { id: 'lead_facilitator', label: 'Lead Facilitator', icon: '⭐', desc: 'Can configure all parameters' },
+                        { id: 'super_admin', label: 'Super Admin', icon: '👑', desc: 'Full administrative access' },
+                    ].map(r => {
+                        const isSelected = form.role === r.id;
+                        const activeColor = r.id === 'super_admin' ? '#f59e0b' : r.id === 'lead_facilitator' ? '#818cf8' : '#3b82f6';
+                        const activeBg = r.id === 'super_admin' ? 'rgba(245,158,11,0.1)' : r.id === 'lead_facilitator' ? 'rgba(99,102,241,0.1)' : 'rgba(59,130,246,0.1)';
+                        return (
+                            <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => handleRoleSelect(r.id)}
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    padding: '12px 10px',
+                                    borderRadius: '10px',
+                                    cursor: 'pointer',
+                                    textAlign: 'center',
+                                    border: isSelected ? `2px solid ${activeColor}` : '1.5px solid rgba(100,116,139,0.15)',
+                                    background: isSelected ? activeBg : 'rgba(15,23,42,0.3)',
+                                    transition: 'all 0.15s ease',
+                                    outline: 'none',
+                                }}
+                            >
+                                <span style={{ fontSize: '1.5rem' }}>{r.icon}</span>
+                                <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isSelected ? '#fff' : '#94a3b8' }}>{r.label}</span>
+                                <span style={{ fontSize: '0.62rem', color: isSelected ? '#cbd5e1' : '#64748b', lineHeight: 1.2 }}>{r.desc}</span>
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
 
@@ -730,44 +953,229 @@ export default function FacilitatorManager({ onNavigate }) {
             <div className={styles.stepHeader}>
                 <span className={styles.stepIcon}>⚙️</span>
                 <div>
-                    <h4 className={styles.stepTitle}>Admin Permissions</h4>
-                    <p className={styles.stepDesc}>Configure what this facilitator is allowed to do within their cohort sessions.</p>
+                    <h4 className={styles.stepTitle}>Permissions & Cohort Defaults</h4>
+                    <p className={styles.stepDesc}>Configure what this facilitator is allowed to do, and set the default simulation parameters for their cohorts.</p>
                 </div>
             </div>
 
-
-            <div className={styles.permissionsSection}>
-                <label className={styles.formLabel} style={{ marginBottom: '0.6rem' }}>Admin Permissions</label>
-                <div className={styles.permGrid}>
-                    {[
-                        { key: 'can_create_cohorts', label: 'Create Cohorts', icon: '🚀' },
-                        { key: 'can_undo_rounds', label: 'Undo Rounds', icon: '↩️' },
-                        { key: 'can_override_decisions', label: 'Override Decisions', icon: '🔧' },
-                        { key: 'can_modify_materiality', label: 'Modify Materiality', icon: '📊' },
-                        { key: 'can_manage_auto_pause', label: 'Manage Auto-Pause', icon: '⏸️' },
-                    ].map(perm => (
-                        <div
-                            key={perm.key}
-                            className={`${styles.permCard} ${form.permissions[perm.key] ? styles.permCardActive : ''}`}
-                            onClick={() => updatePermission(perm.key, !form.permissions[perm.key])}
-                        >
-                            <span className={styles.permIcon}>{perm.icon}</span>
-                            <span className={styles.permLabel}>{perm.label}</span>
-                            <div className={styles.permToggle}>
-                                <div
-                                    className={styles.permToggleTrack}
-                                    style={{ background: form.permissions[perm.key] ? '#10b981' : '#475569' }}
-                                >
-                                    <div
-                                        className={styles.permToggleThumb}
-                                        style={{ left: form.permissions[perm.key] ? '14px' : '2px' }}
-                                    />
+            {form.role === 'super_admin' ? (
+                <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', padding: '16px', borderRadius: 10, marginBottom: '1.25rem' }}>
+                    <span style={{ fontSize: '1.25rem', marginRight: 8 }}>👑</span>
+                    <span style={{ fontSize: '0.82rem', color: '#f59e0b', fontWeight: 700 }}>Super Administrator Privileges Enabled</span>
+                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 6, lineHeight: 1.4 }}>Super administrators have unrestricted access across the entire platform, including user management, database resets, and all simulation orchestration tools. Permissions cannot be customized.</p>
+                </div>
+            ) : (
+                <div className={styles.permissionsSection} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '1.25rem' }}>
+                    <label className={styles.formLabel} style={{ marginBottom: '0.6rem' }}>Admin Permissions</label>
+                    <div className={styles.permGrid}>
+                        {/* God Mode Override Banner — visible only when operator is super_admin
+                             editing a plain facilitator (whose perms would normally be locked) */}
+                        {isElevatedOperator && form.role === 'facilitator' && (
+                            <div style={{
+                                gridColumn: '1 / -1',
+                                display: 'flex', alignItems: 'flex-start', gap: '10px',
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                background: 'rgba(245,158,11,0.08)',
+                                border: '1px solid rgba(245,158,11,0.3)',
+                                marginBottom: '4px',
+                            }}>
+                                <span style={{ fontSize: '1rem', flexShrink: 0 }}>👑</span>
+                                <div>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', display: 'block' }}>
+                                        God Mode Override Active
+                                    </span>
+                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                                        All permissions are individually editable for this Facilitator.
+                                        Role-based locking is suspended for Super Administrators.
+                                    </span>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        )}
+
+                        {[
+                            { key: 'can_create_cohorts', label: 'Create Cohorts', icon: '🚀' },
+                            { key: 'can_undo_rounds', label: 'Undo Rounds', icon: '↩️' },
+                            { key: 'can_override_decisions', label: 'Override Decisions', icon: '🔧' },
+                            { key: 'can_modify_materiality', label: 'Modify Materiality', icon: '📊' },
+                            { key: 'can_manage_auto_pause', label: 'Manage Auto-Pause', icon: '⏸️' },
+                            { key: 'can_enable_side_tracks', label: 'Enable Side Tracks', icon: '🛤️' },
+                        ].map(perm => {
+                            // Elevated operators (super_admin) can set any permission on any
+                            // facilitatee regardless of role. Otherwise, plain Facilitator
+                            // role locks all permissions to their role defaults.
+                            const isEditable = isElevatedOperator || form.role !== 'facilitator';
+                            return (
+                                <div
+                                    key={perm.key}
+                                    className={`${styles.permCard} ${form.permissions[perm.key] ? styles.permCardActive : ''}`}
+                                    onClick={() => {
+                                        if (isEditable) {
+                                            updatePermission(perm.key, !form.permissions[perm.key]);
+                                        }
+                                    }}
+                                    style={{
+                                        opacity: !isEditable ? 0.5 : 1,
+                                        cursor: !isEditable ? 'not-allowed' : 'pointer',
+                                        // Subtle amber glow on god-mode-unlocked cards for a facilitator
+                                        ...(isElevatedOperator && form.role === 'facilitator' ? {
+                                            borderColor: 'rgba(245,158,11,0.25)',
+                                        } : {}),
+                                    }}
+                                >
+                                    <span className={styles.permIcon}>{perm.icon}</span>
+                                    <span className={styles.permLabel}>{perm.label}</span>
+                                    <div className={styles.permToggle}>
+                                        <div
+                                            className={styles.permToggleTrack}
+                                            style={{ background: form.permissions[perm.key] ? '#10b981' : '#475569' }}
+                                        >
+                                            <div
+                                                className={styles.permToggleThumb}
+                                                style={{ left: form.permissions[perm.key] ? '14px' : '2px' }}
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
                 </div>
-            </div>
+            )}
+
+            {form.role === 'super_admin' ? (
+                <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: 10, marginTop: '1.25rem' }}>
+                    <span style={{ fontSize: '1.25rem', marginRight: 8 }}>⚙️</span>
+                    <span style={{ fontSize: '0.82rem', color: '#cbd5e1', fontWeight: 700 }}>Cohort Creation Presets Not Applicable</span>
+                    <p style={{ fontSize: '0.72rem', color: '#64748b', marginTop: 6, lineHeight: 1.4 }}>Presets are not required because Super Administrators have full configuration rights on the cohort creation screen itself.</p>
+                </div>
+            ) : (
+                <div className={styles.permissionsSection} style={{ marginTop: '1.25rem' }}>
+                    <label className={styles.formLabel} style={{ marginBottom: '0.6rem' }}>Cohort Defaults Configuration</label>
+                    <p className={styles.stepDesc} style={{ marginBottom: '1rem' }}>
+                        These features will be pre-selected and locked for any cohorts this facilitator creates.
+                    </p>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        {/* Decision Paradigm */}
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Decision Paradigm</label>
+                            <select
+                                className={styles.formInput}
+                                value={form.paradigm}
+                                onChange={e => updateForm('paradigm', e.target.value)}
+                            >
+                                {PARADIGM_OPTIONS.map(opt => (
+                                    <option key={opt.id} value={opt.id}>{opt.label}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Ending Pathway */}
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Ending Pathway</label>
+                            <select
+                                className={styles.formInput}
+                                value={form.endingPathway}
+                                onChange={e => updateForm('endingPathway', e.target.value)}
+                            >
+                                <option value="random">🎲 Random (Surprise Ending)</option>
+                                {endingPathways.map(p => (
+                                    <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
+                                ))}
+                                {endingPathways.length === 0 && (
+                                    <>
+                                        <option value="activist_ultimatum">📣 Activist Ultimatum</option>
+                                        <option value="hostile_takeover">💼 Hostile Takeover</option>
+                                        <option value="regulatory_collapse">⚖️ Regulatory Collapse</option>
+                                        <option value="black_swan_epidemic">🦢 Black Swan Epidemic</option>
+                                    </>
+                                )}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                        {/* Simulation Mode */}
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Simulation Mode</label>
+                            <select
+                                className={styles.formInput}
+                                value={form.simulationMode}
+                                onChange={e => updateForm('simulationMode', e.target.value)}
+                            >
+                                <option value="conglomerate">🏢 4-BU Conglomerate</option>
+                                <option value="single_bu">🏭 Single Business</option>
+                            </select>
+                        </div>
+
+                        {/* Industry Vertical (only for single_bu) */}
+                        {form.simulationMode === 'single_bu' && (
+                            <div className={styles.formGroup}>
+                                <label className={styles.formLabel}>Industry Vertical</label>
+                                <select
+                                    className={styles.formInput}
+                                    value={form.industryVertical}
+                                    onChange={e => {
+                                        const vertical = e.target.value;
+                                        updateForm('industryVertical', vertical);
+                                        // Also set default BU substitution
+                                        if (vertical) {
+                                            let subs = {};
+                                            if (vertical === 'oil_gas') subs = { pharma: 'oil_gas' };
+                                            else if (vertical === 'technology') subs = { software: 'technology' };
+                                            else if (vertical === 'banking_financial_services') subs = { software: 'banking_financial_services' };
+                                            else if (vertical === 'retail_fmcg') subs = { consumer_goods: 'retail_fmcg' };
+                                            else if (vertical === 'agriculture') subs = { agriculture: 'agriculture' };
+                                            updateForm('buSubstitutions', subs);
+                                        } else {
+                                            updateForm('buSubstitutions', {});
+                                        }
+                                    }}
+                                    required
+                                >
+                                    <option value="">-- Select Industry --</option>
+                                    <option value="agriculture">🌾 Agriculture</option>
+                                    <option value="banking_financial_services">🏦 Banking & Finance</option>
+                                    <option value="oil_gas">⛽ Oil & Gas</option>
+                                <option value="retail_fmcg">🛒 Retail / FMCG</option>
+                                <option value="technology">💻 Technology</option>
+                                <option value="pharma">💊 Pharma / Healthcare</option>
+                            </select>
+                        </div>
+                    )}
+                </div>
+
+                {/* Side Tracks Checkboxes */}
+                <div style={{ marginTop: '1.25rem' }}>
+                    <label className={styles.formLabel} style={{ marginBottom: '0.4rem' }}>Default Side Tracks</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                        {sideTrackCatalog.map(track => {
+                            const isChecked = form.sideTracks.includes(track.track_id);
+                            return (
+                                <label key={track.track_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                            if (isChecked) {
+                                                updateForm('sideTracks', form.sideTracks.filter(id => id !== track.track_id));
+                                            } else {
+                                                updateForm('sideTracks', [...form.sideTracks, track.track_id]);
+                                            }
+                                        }}
+                                    />
+                                    <span>{track.icon || '📦'} {track.display_name || track.track_id}</span>
+                                </label>
+                            );
+                        })}
+                        {sideTrackCatalog.length === 0 && (
+                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Loading side tracks...</span>
+                        )}
+                    </div>
+                </div>
+                </div>
+            )}
 
             <div className={styles.stepNavigation}>
                 <button className={styles.navBtnSecondary} onClick={() => setStep(2)}>← Programme</button>
@@ -847,11 +1255,31 @@ export default function FacilitatorManager({ onNavigate }) {
                     <div className={styles.reviewDivider} />
 
                     <div className={styles.reviewSection}>
-                        <h5 className={styles.reviewSectionTitle}>Permissions</h5>
+                        <h5 className={styles.reviewSectionTitle}>Permissions & Cohort Defaults</h5>
                         <div className={styles.reviewGrid}>
                             <div className={styles.reviewItem}>
                                 <span className={styles.reviewKey}>Paradigm</span>
-                                <span className={styles.reviewValue} style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.78rem' }}>Set per-cohort at creation</span>
+                                <span className={styles.reviewValue}>
+                                    {PARADIGM_LABELS[form.paradigm]?.label || form.paradigm}
+                                </span>
+                            </div>
+                            <div className={styles.reviewItem}>
+                                <span className={styles.reviewKey}>Ending Pathway</span>
+                                <span className={styles.reviewValue}>
+                                    {form.endingPathway === 'random' ? '🎲 Random (Surprise)' : (endingPathways.find(p => p.id === form.endingPathway)?.title || form.endingPathway)}
+                                </span>
+                            </div>
+                            <div className={styles.reviewItem}>
+                                <span className={styles.reviewKey}>Simulation Mode</span>
+                                <span className={styles.reviewValue}>
+                                    {form.simulationMode === 'single_bu' ? `🏭 Single BU (${form.industryVertical})` : '🏢 Conglomerate'}
+                                </span>
+                            </div>
+                            <div className={styles.reviewItem}>
+                                <span className={styles.reviewKey}>Side Tracks</span>
+                                <span className={styles.reviewValue}>
+                                    {form.sideTracks && form.sideTracks.length > 0 ? form.sideTracks.map(tid => sideTrackCatalog.find(t => t.track_id === tid)?.display_name || tid).join(', ') : 'None'}
+                                </span>
                             </div>
                             <div className={styles.reviewItem}>
                                 <span className={styles.reviewKey}>Permissions</span>
@@ -884,7 +1312,8 @@ export default function FacilitatorManager({ onNavigate }) {
 
     // ── Edit form (all fields on one screen) ────────────────
     const renderEditForm = () => {
-        const paradigmInfo = PARADIGM_LABELS[form.paradigm] || {};
+        const activePerms = Object.entries(form.permissions).filter(([_, v]) => v).length;
+        const totalPerms = Object.keys(form.permissions).length;
         return (
             <div className={styles.stepContent}>
                 <div className={styles.stepHeader}>
@@ -892,6 +1321,47 @@ export default function FacilitatorManager({ onNavigate }) {
                     <div>
                         <h4 className={styles.stepTitle}>Edit Facilitator</h4>
                         <p className={styles.stepDesc}>Update details for <strong style={{ color: 'var(--text-primary)' }}>{editingFacId}</strong></p>
+                    </div>
+                </div>
+
+                {/* Role Selection */}
+                <div style={{ marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)', paddingBottom: '1.25rem' }}>
+                    <label className={styles.formLabel} style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', display: 'block' }}>Assign Operative Role <span className={styles.required}>*</span></label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                        {[
+                            { id: 'facilitator', label: 'Facilitator', icon: '🎓', desc: 'Can run preassigned cohorts' },
+                            { id: 'lead_facilitator', label: 'Lead Facilitator', icon: '⭐', desc: 'Can configure all parameters' },
+                            { id: 'super_admin', label: 'Super Admin', icon: '👑', desc: 'Full administrative access' },
+                        ].map(r => {
+                            const isSelected = form.role === r.id;
+                            const activeColor = r.id === 'super_admin' ? '#f59e0b' : r.id === 'lead_facilitator' ? '#818cf8' : '#3b82f6';
+                            const activeBg = r.id === 'super_admin' ? 'rgba(245,158,11,0.1)' : r.id === 'lead_facilitator' ? 'rgba(99,102,241,0.1)' : 'rgba(59,130,246,0.1)';
+                            return (
+                                <button
+                                    key={r.id}
+                                    type="button"
+                                    onClick={() => handleRoleSelect(r.id)}
+                                    style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                        padding: '12px 10px',
+                                        borderRadius: '10px',
+                                        cursor: 'pointer',
+                                        textAlign: 'center',
+                                        border: isSelected ? `2px solid ${activeColor}` : '1.5px solid rgba(100,116,139,0.15)',
+                                        background: isSelected ? activeBg : 'rgba(15,23,42,0.3)',
+                                        transition: 'all 0.15s ease',
+                                        outline: 'none',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '1.5rem' }}>{r.icon}</span>
+                                    <span style={{ fontWeight: 700, fontSize: '0.8rem', color: isSelected ? '#fff' : '#94a3b8' }}>{r.label}</span>
+                                    <span style={{ fontSize: '0.62rem', color: isSelected ? '#cbd5e1' : '#64748b', lineHeight: 1.2 }}>{r.desc}</span>
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
 
@@ -925,14 +1395,196 @@ export default function FacilitatorManager({ onNavigate }) {
                         <input className={styles.formInput} type="number" min="1" max="50" value={form.cohorts} onChange={e => updateForm('cohorts', parseInt(e.target.value, 10) || 1)} />
                     </div>
                     <div className={styles.formGroup}>
-                        <label className={styles.formLabel}>Paradigm</label>
+                        <label className={styles.formLabel}>Decision Paradigm</label>
                         <select className={styles.formInput} value={form.paradigm} onChange={e => updateForm('paradigm', e.target.value)}>
                             {PARADIGM_OPTIONS.map(opt => (
                                 <option key={opt.id} value={opt.id}>{opt.label}</option>
                             ))}
                         </select>
                     </div>
+
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Ending Pathway</label>
+                        <select
+                            className={styles.formInput}
+                            value={form.endingPathway}
+                            onChange={e => updateForm('endingPathway', e.target.value)}
+                        >
+                            <option value="random">🎲 Random (Surprise Ending)</option>
+                            {endingPathways.map(p => (
+                                <option key={p.id} value={p.id}>{p.icon} {p.title}</option>
+                            ))}
+                            {endingPathways.length === 0 && (
+                                <>
+                                    <option value="activist_ultimatum">📣 Activist Ultimatum</option>
+                                    <option value="hostile_takeover">💼 Hostile Takeover</option>
+                                    <option value="regulatory_collapse">⚖️ Regulatory Collapse</option>
+                                    <option value="black_swan_epidemic">🦢 Black Swan Epidemic</option>
+                                </>
+                            )}
+                        </select>
+                    </div>
+
+                    <div className={styles.formGroup}>
+                        <label className={styles.formLabel}>Simulation Mode</label>
+                        <select
+                            className={styles.formInput}
+                            value={form.simulationMode}
+                            onChange={e => updateForm('simulationMode', e.target.value)}
+                        >
+                            <option value="conglomerate">🏢 4-BU Conglomerate</option>
+                            <option value="single_bu">🏭 Single Business</option>
+                        </select>
+                    </div>
+
+                    {form.simulationMode === 'single_bu' && (
+                        <div className={styles.formGroup}>
+                            <label className={styles.formLabel}>Industry Vertical</label>
+                            <select
+                                className={styles.formInput}
+                                value={form.industryVertical}
+                                onChange={e => {
+                                    const vertical = e.target.value;
+                                    updateForm('industryVertical', vertical);
+                                    if (vertical) {
+                                        let subs = {};
+                                        if (vertical === 'oil_gas') subs = { pharma: 'oil_gas' };
+                                        else if (vertical === 'technology') subs = { software: 'technology' };
+                                        else if (vertical === 'banking_financial_services') subs = { software: 'banking_financial_services' };
+                                        else if (vertical === 'retail_fmcg') subs = { consumer_goods: 'retail_fmcg' };
+                                        else if (vertical === 'agriculture') subs = { agriculture: 'agriculture' };
+                                        updateForm('buSubstitutions', subs);
+                                    } else {
+                                        updateForm('buSubstitutions', {});
+                                    }
+                                }}
+                                required
+                            >
+                                <option value="">-- Select Industry --</option>
+                                <option value="agriculture">🌾 Agriculture</option>
+                                <option value="banking_financial_services">🏦 Banking & Finance</option>
+                                <option value="oil_gas">⛽ Oil & Gas</option>
+                                <option value="retail_fmcg">🛒 Retail / FMCG</option>
+                                <option value="technology">💻 Technology</option>
+                                <option value="pharma">💊 Pharma / Healthcare</option>
+                            </select>
+                        </div>
+                    )}
                 </div>
+
+                {/* Edit Side Tracks */}
+                <div style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem' }}>
+                    <label className={styles.formLabel} style={{ marginBottom: '0.4rem' }}>Default Side Tracks</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                        {sideTrackCatalog.map(track => {
+                            const isChecked = form.sideTracks.includes(track.track_id);
+                            return (
+                                <label key={track.track_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isChecked}
+                                        onChange={() => {
+                                            if (isChecked) {
+                                                updateForm('sideTracks', form.sideTracks.filter(id => id !== track.track_id));
+                                            } else {
+                                                updateForm('sideTracks', [...form.sideTracks, track.track_id]);
+                                            }
+                                        }}
+                                    />
+                                    <span>{track.icon || '📦'} {track.display_name || track.track_id}</span>
+                                </label>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* Edit Permissions */}
+                {form.role === 'super_admin' ? (
+                    <div style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem' }}>
+                        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', padding: '16px', borderRadius: 10 }}>
+                            <span style={{ fontSize: '1.25rem', marginRight: 8 }}>👑</span>
+                            <span style={{ fontSize: '0.82rem', color: '#f59e0b', fontWeight: 700 }}>Super Administrator Privileges Enabled</span>
+                            <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 6, lineHeight: 1.4 }}>Super administrators have unrestricted access across the entire platform. Permissions cannot be customized.</p>
+                        </div>
+                    </div>
+                ) : (
+                    <div className={styles.permissionsSection} style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem' }}>
+                        <label className={styles.formLabel} style={{ marginBottom: '0.6rem' }}>Admin Permissions</label>
+                        <div className={styles.permGrid}>
+                            {/* God Mode Override Banner — shown in edit drawer when operator is
+                             super_admin and the target is a plain Facilitator */}
+                        {isElevatedOperator && form.role === 'facilitator' && (
+                            <div style={{
+                                gridColumn: '1 / -1',
+                                display: 'flex', alignItems: 'flex-start', gap: '10px',
+                                padding: '10px 14px',
+                                borderRadius: '8px',
+                                background: 'rgba(245,158,11,0.08)',
+                                border: '1px solid rgba(245,158,11,0.3)',
+                                marginBottom: '4px',
+                            }}>
+                                <span style={{ fontSize: '1rem', flexShrink: 0 }}>👑</span>
+                                <div>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', display: 'block' }}>
+                                        God Mode Override Active
+                                    </span>
+                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                                        All permissions are individually editable for this Facilitator.
+                                        Role-based locking is suspended for Super Administrators.
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+
+                        {[
+                                { key: 'can_create_cohorts', label: 'Create Cohorts', icon: '🚀' },
+                                { key: 'can_undo_rounds', label: 'Undo Rounds', icon: '↩️' },
+                                { key: 'can_override_decisions', label: 'Override Decisions', icon: '🔧' },
+                                { key: 'can_modify_materiality', label: 'Modify Materiality', icon: '📊' },
+                                { key: 'can_manage_auto_pause', label: 'Manage Auto-Pause', icon: '⏸️' },
+                                { key: 'can_enable_side_tracks', label: 'Enable Side Tracks', icon: '🛤️' },
+                            ].map(perm => {
+                                // Elevated operators (super_admin) can set any permission on any
+                                // facilitatee regardless of role. Otherwise, plain Facilitator
+                                // role locks all permissions to their role defaults.
+                                const isEditable = isElevatedOperator || form.role !== 'facilitator';
+                                return (
+                                    <div
+                                        key={perm.key}
+                                        className={`${styles.permCard} ${form.permissions[perm.key] ? styles.permCardActive : ''}`}
+                                        onClick={() => {
+                                            if (isEditable) {
+                                                updatePermission(perm.key, !form.permissions[perm.key]);
+                                            }
+                                        }}
+                                        style={{
+                                            opacity: !isEditable ? 0.5 : 1,
+                                            cursor: !isEditable ? 'not-allowed' : 'pointer',
+                                            // Subtle amber glow on god-mode-unlocked cards for a facilitator
+                                            ...(isElevatedOperator && form.role === 'facilitator' ? {
+                                                borderColor: 'rgba(245,158,11,0.25)',
+                                            } : {}),
+                                        }}
+                                    >
+                                        <span className={styles.permIcon}>{perm.icon}</span>
+                                        <span className={styles.permLabel}>{perm.label}</span>
+                                        <div className={styles.permToggle}>
+                                            <div
+                                                className={styles.permToggleTrack}
+                                                style={{ background: form.permissions[perm.key] ? '#10b981' : '#475569' }}
+                                            >
+                                                <div
+                                                    className={styles.permToggleThumb}
+                                                    style={{ left: form.permissions[perm.key] ? '14px' : '2px' }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className={styles.stepNavigation} style={{ marginTop: '1.5rem' }}>
                     <button className={styles.navBtnSecondary} onClick={closeDrawer} disabled={creating}>Cancel</button>
@@ -1269,7 +1921,95 @@ export default function FacilitatorManager({ onNavigate }) {
                                                     title={`Open Facilitator dashboard for ${fac.name}`}
                                                     style={{ color: '#60a5fa', borderColor: 'rgba(59,130,246,0.3)' }}
                                                 >🔗</button>
-                                                {(fac.permissions?.can_create_cohorts !== false) ? (
+                                                {/* ── Cohort Creation button ───────────────────────────────
+                                                 *  Elevated operators (super_admin / God Mode) always see a
+                                                 *  live 🚀 button plus an inline toggle pill to flip
+                                                 *  can_create_cohorts without opening the edit drawer.
+                                                 *  Non-elevated operators see the original behaviour.
+                                                 * ──────────────────────────────────────────────────────── */}
+                                                {isElevatedOperator ? (
+                                                    <>
+                                                        {/* Inline can_create_cohorts toggle pill */}
+                                                        <button
+                                                            onClick={() => toggleCohortCreationPermission(fac)}
+                                                            title={
+                                                                fac.permissions?.can_create_cohorts !== false
+                                                                    ? `Disable cohort creation for ${fac.name}`
+                                                                    : `Enable cohort creation for ${fac.name}`
+                                                            }
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                gap: '4px',
+                                                                padding: '2px 8px',
+                                                                borderRadius: '20px',
+                                                                border: fac.permissions?.can_create_cohorts !== false
+                                                                    ? '1px solid rgba(16,185,129,0.4)'
+                                                                    : '1px solid rgba(245,158,11,0.4)',
+                                                                background: fac.permissions?.can_create_cohorts !== false
+                                                                    ? 'rgba(16,185,129,0.1)'
+                                                                    : 'rgba(245,158,11,0.08)',
+                                                                color: fac.permissions?.can_create_cohorts !== false
+                                                                    ? '#34d399'
+                                                                    : '#f59e0b',
+                                                                fontSize: '0.6rem',
+                                                                fontWeight: 700,
+                                                                letterSpacing: '0.04em',
+                                                                cursor: 'pointer',
+                                                                textTransform: 'uppercase',
+                                                                transition: 'all 0.15s ease',
+                                                                flexShrink: 0,
+                                                            }}
+                                                        >
+                                                            {/* Toggle track */}
+                                                            <span style={{
+                                                                position: 'relative',
+                                                                display: 'inline-block',
+                                                                width: '22px',
+                                                                height: '12px',
+                                                                borderRadius: '6px',
+                                                                background: fac.permissions?.can_create_cohorts !== false
+                                                                    ? '#10b981'
+                                                                    : '#f59e0b',
+                                                                transition: 'background 0.2s',
+                                                                flexShrink: 0,
+                                                            }}>
+                                                                <span style={{
+                                                                    position: 'absolute',
+                                                                    top: '2px',
+                                                                    left: fac.permissions?.can_create_cohorts !== false ? '12px' : '2px',
+                                                                    width: '8px',
+                                                                    height: '8px',
+                                                                    borderRadius: '50%',
+                                                                    background: '#fff',
+                                                                    transition: 'left 0.2s',
+                                                                }} />
+                                                            </span>
+                                                            Cohorts
+                                                        </button>
+
+                                                        {/* 🚀 always clickable for God Mode operators */}
+                                                        <button
+                                                            className={styles.actionBtn}
+                                                            onClick={() => handleOpenNewCohort(fac.facilitator_id)}
+                                                            title={
+                                                                fac.permissions?.can_create_cohorts !== false
+                                                                    ? `Set up a new cohort for ${fac.name}`
+                                                                    : `God Mode override — create cohort for ${fac.name} (permission is off)`
+                                                            }
+                                                            style={{
+                                                                color: fac.permissions?.can_create_cohorts !== false
+                                                                    ? '#34d399'
+                                                                    : '#f59e0b',
+                                                                borderColor: fac.permissions?.can_create_cohorts !== false
+                                                                    ? 'rgba(16,185,129,0.3)'
+                                                                    : 'rgba(245,158,11,0.35)',
+                                                            }}
+                                                        >
+                                                            🚀
+                                                        </button>
+                                                    </>
+                                                ) : fac.permissions?.can_create_cohorts !== false ? (
                                                     <button
                                                         className={styles.actionBtn}
                                                         onClick={() => handleOpenNewCohort(fac.facilitator_id)}
@@ -1315,7 +2055,7 @@ export default function FacilitatorManager({ onNavigate }) {
                 <>
                     <div className={styles.drawerOverlay} onClick={closeDrawer} />
 
-                    <div className={`${styles.drawer} ${drawerMode === 'bulk' ? styles.drawerWide : ''}`}>
+                    <div className={`${styles.drawer} ${(drawerMode === 'bulk' || drawerMode === 'edit' || (drawerMode === 'create' && step >= 3)) ? styles.drawerWide : ''}`}>
                         <div className={styles.drawerHeader}>
                             <div>
                                 <h3 className={styles.drawerTitle}>
@@ -1580,17 +2320,118 @@ export default function FacilitatorManager({ onNavigate }) {
             )}
 
             {/* ── Toast ── */}
-            {toast && (
-                <div className={`${styles.toast} ${toast.type === 'error' ? styles.toastError : ''}`}>
-                    {toast.msg}
-                </div>
-            )}
+            {toast && (() => {
+                const isPasswordToast = toast.persistent && typeof toast.msg === 'object' && toast.msg?.password;
+                if (isPasswordToast) {
+                    const { password, emailSent, emailTo, facId } = toast.msg;
+                    return (
+                        <div
+                            className={styles.toast}
+                            style={{
+                                paddingRight: '2.2rem',
+                                display: 'flex', flexDirection: 'column', gap: '6px',
+                                minWidth: '280px', maxWidth: '380px',
+                            }}
+                        >
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                                <span style={{ fontSize: '0.72rem', color: '#94a3b8', fontWeight: 600 }}>
+                                    🔐 New password {facId ? `for ${facId}` : ''}
+                                </span>
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); setToast(null); }}
+                                    style={{
+                                        background: 'none', border: 'none', color: '#64748b',
+                                        cursor: 'pointer', fontSize: '1rem', lineHeight: 1, padding: '0 2px',
+                                    }}
+                                    title="Dismiss"
+                                >×</button>
+                            </div>
+                            <div style={{
+                                display: 'flex', alignItems: 'center', gap: '8px',
+                                background: 'rgba(15,23,42,0.6)',
+                                border: '1px solid rgba(34,197,94,0.25)',
+                                borderRadius: '8px', padding: '8px 12px',
+                            }}>
+                                <code
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                            await navigator.clipboard.writeText(password);
+                                            setPwCopied(true);
+                                            setTimeout(() => setPwCopied(false), 2500);
+                                        } catch { /* fallback: user can still select text */ }
+                                    }}
+                                    style={{
+                                        flex: 1,
+                                        fontFamily: "'Courier New', monospace",
+                                        fontSize: '1rem', fontWeight: 700, letterSpacing: '0.08em',
+                                        color: '#22c55e',
+                                        cursor: 'pointer',
+                                        userSelect: 'all',
+                                    }}
+                                    title="Click to copy"
+                                >{password}</code>
+                                <button
+                                    onClick={async (e) => {
+                                        e.stopPropagation();
+                                        try {
+                                            await navigator.clipboard.writeText(password);
+                                            setPwCopied(true);
+                                            setTimeout(() => setPwCopied(false), 2500);
+                                        } catch {}
+                                    }}
+                                    style={{
+                                        background: pwCopied ? 'rgba(34,197,94,0.15)' : 'rgba(99,102,241,0.12)',
+                                        border: pwCopied ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(99,102,241,0.25)',
+                                        borderRadius: '6px', padding: '4px 10px',
+                                        color: pwCopied ? '#22c55e' : '#818cf8',
+                                        fontSize: '0.7rem', fontWeight: 700, cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        whiteSpace: 'nowrap',
+                                    }}
+                                    title="Copy to clipboard"
+                                >{pwCopied ? '✅ Copied!' : '📋 Copy'}</button>
+                            </div>
+                            {emailSent !== undefined && (
+                                <div style={{
+                                    fontSize: '0.68rem', color: emailSent ? '#22c55e' : '#f59e0b',
+                                    fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px',
+                                }}>
+                                    {emailSent
+                                        ? <>✉️ Email sent to {emailTo || 'facilitator'}</>
+                                        : <>⚠️ {emailTo ? `No SMTP configured — email not sent to ${emailTo}` : 'No email on file — password not emailed'}</>
+                                    }
+                                </div>
+                            )}
+                        </div>
+                    );
+                }
+                // Regular string toast
+                return (
+                    <div
+                        className={`${styles.toast} ${toast.type === 'error' ? styles.toastError : ''}`}
+                        style={toast.persistent ? { cursor: 'pointer', paddingRight: '2rem', userSelect: 'all' } : undefined}
+                        onClick={toast.persistent ? () => setToast(null) : undefined}
+                        title={toast.persistent ? 'Click to dismiss' : undefined}
+                    >
+                        {toast.msg}
+                        {toast.persistent && (
+                            <span style={{
+                                position: 'absolute', top: '50%', right: '10px',
+                                transform: 'translateY(-50%)',
+                                fontSize: '0.9rem', opacity: 0.6, lineHeight: 1,
+                            }}>×</span>
+                        )}
+                    </div>
+                );
+            })()}
 
             {/* ── Set Up New Cohort Modal ─────────────────────────── */}
             {showCohortModal && (
                 <CreateCohortModal
                     isOpen={true}
                     currentFacilitatorId={cohortFacilitatorId}
+                    currentFacilitatorRole="super_admin"
                     onClose={() => setShowCohortModal(false)}
                     onCreated={() => {
                         setShowCohortModal(false);

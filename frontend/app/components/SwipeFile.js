@@ -225,14 +225,23 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
             )}
 
             <div className={styles.grid}>
-                {allPresets.map((p) => (
+                {allPresets.map((p) => {
+                    // Build a rich tooltip: label + trigger tag + message preview
+                    const tooltipParts = [p.label];
+                    if (p.trigger) tooltipParts.push(`Tag: ${p.trigger}`);
+                    if (p.title) tooltipParts.push(`📨 ${p.title}`);
+                    if (p.body) tooltipParts.push(p.body.length > 120 ? p.body.slice(0, 120) + '…' : p.body);
+                    const tooltipText = tooltipParts.join('\n\n');
+
+                    return (
                     <button
                         key={p.id}
                         className={`${styles.preset} ${sent[p.id] ? styles.sent : ''} ${p.isCustom ? styles.customPresetCard : ''}`}
                         style={{ '--preset-color': p.color }}
                         onClick={() => sendPreset(p.id)}
                         disabled={!sessionId || sending === p.id}
-                        title={`${p.label}\n\nMessage: ${p.title || 'N/A'}\n${p.body || ''}\n\nTrigger: ${p.trigger}`}
+                        data-tooltip={tooltipText}
+                        data-tooltip-pos="above"
                     >
                         <span className={styles.presetLabel}>{p.label}</span>
                         <span className={styles.trigger}>{p.trigger}</span>
@@ -242,13 +251,14 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
                             <span
                                 className={styles.deletePresetBtn}
                                 onClick={(e) => { e.stopPropagation(); handleDeletePreset(p.id); }}
-                                title="Remove this custom preset"
+                                data-tooltip="Remove this custom preset"
                             >
                                 ✕
                             </span>
                         )}
                     </button>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Custom one-off message */}

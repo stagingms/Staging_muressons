@@ -322,9 +322,10 @@ export default function SideTrackPanel({ sessionId, onClose }) {
               <div className={styles.notStartedTitle}>Ready to Begin</div>
               <div className={styles.notStartedDesc}>This side track will seed from your main simulation state. Your decisions here will influence your terminal valuation.</div>
               <button className={styles.startBtn} onClick={() => {
-                setSelectedOption('option_a');
+                setSelectedOption(null);
+                // round_config is already available from the server (preview of round 1),
+                // so we just advance the local round counter to show the play view
                 setActiveTrack({ ...activeTrack, current_round: 1 });
-                fetchTracks();
               }}>▶ Start Track</button>
             </div>
           )}

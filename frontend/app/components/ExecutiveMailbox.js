@@ -193,9 +193,15 @@ export default function ExecutiveMailbox({
     const [expandedArchive, setExpandedArchive] = useState(null);
     const [expandedMessage, setExpandedMessage] = useState(null);
 
-    const truncate = (text, max = 100) => {
-        if (!text || text.length <= max) return text;
-        return text.slice(0, max).trimEnd() + '…';
+    const stripHtml = (html) => {
+        if (!html) return '';
+        return html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+    };
+
+    const truncate = (text, max = 100, isHtml = false) => {
+        const plain = isHtml ? stripHtml(text) : text;
+        if (!plain || plain.length <= max) return plain;
+        return plain.slice(0, max).trimEnd() + '…';
     };
 
     const handleMarkRead = (id) => {
@@ -261,8 +267,8 @@ export default function ExecutiveMailbox({
                                 {!msg.read && <span className={styles.unreadDot} />}
                             </div>
                             <h3 className={styles.msgTitle}>{msg.title}</h3>
-                            <p className={styles.msgBody}>{truncate(msg.body)}</p>
-                            {msg.body && msg.body.length > 100 && (
+                            <p className={styles.msgBody}>{truncate(msg.body, 100, msg.html)}</p>
+                            {msg.body && (msg.html ? stripHtml(msg.body).length > 100 : msg.body.length > 100) && (
                                 <span className={styles.readMore}>Click to read full message ›</span>
                             )}
                         </div>
@@ -325,7 +331,14 @@ export default function ExecutiveMailbox({
                             >✕</button>
                         </div>
                         <h3 className={styles.modalTitle}>{expandedMessage.title}</h3>
-                        <div className={styles.modalBody}>{expandedMessage.body}</div>
+                        {expandedMessage.html ? (
+                            <div
+                                className={`${styles.modalBody} ${styles.htmlArtifact}`}
+                                dangerouslySetInnerHTML={{ __html: expandedMessage.body }}
+                            />
+                        ) : (
+                            <div className={styles.modalBody}>{expandedMessage.body}</div>
+                        )}
                     </div>
                 </div>,
                 document.body

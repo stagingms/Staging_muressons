@@ -11,6 +11,19 @@ from __future__ import annotations
 from typing import Any
 import copy
 import random as _rng
+# GAME-2: shared linear-ramp helper so pathway M_R thresholds are not knife-edges.
+from terminal_valuation import _ramp_fraction, _MR_RAMP_BAND_KPI
+
+# Pathway-specific ramp bands (units differ per metric):
+_BAND_CI            = _MR_RAMP_BAND_KPI   # carbon intensity (0–100-ish): ±5
+_BAND_SLO           = _MR_RAMP_BAND_KPI   # social licence (0–100): ±5
+_BAND_BURNOUT       = _MR_RAMP_BAND_KPI   # burnout (0–100): ±5
+_BAND_READINESS     = _MR_RAMP_BAND_KPI   # readiness (0–100): ±5
+_BAND_CI_REDUCTION  = 0.10                # CI-reduction fraction: ±0.05 around 0.40
+_BAND_SYNERGY       = 0.20                # synergy multiplier: ±0.10
+_BAND_TREASURY      = 10_000_000.0        # treasury USD: ±$5M
+_BAND_MARGIN        = 0.05                # EBITDA margin: ±0.025
+_BAND_ETHICAL       = 1.0                 # ethical score (0–10): ±0.5
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -543,10 +556,11 @@ def calc_climate_black_swan_mr(
     mr_delta = 0.0
     avg_ci = sum(bu.get("carbon_intensity", 0) for bu in bus) / max(len(bus), 1)
 
-    # +0.30: Climate Leader — avg CI < 25 at R10
-    if avg_ci < 25:
-        mr_delta += 0.30
-        extra["mr_climate_leader_bonus"] = True
+    # +0.30: Climate Leader — avg CI < 25 at R10 (GAME-2 ramped)
+    _f = _ramp_fraction(avg_ci, 25.0, _BAND_CI, "below")
+    if _f > 0:
+        b = round(0.30 * _f, 4); mr_delta += b
+        extra["mr_climate_leader_bonus"] = b
         extra["mr_climate_leader_avg_ci"] = round(avg_ci, 2)
 
     # +0.20: Adaptation Premium — nature_based_resilience AND early_decarboniser
@@ -554,18 +568,20 @@ def calc_climate_black_swan_mr(
         mr_delta += 0.20
         extra["mr_adaptation_premium"] = True
 
-    # +0.15: Carbon Transition Bonus — CI reduced ≥ 40% from R1 baseline
+    # +0.15: Carbon Transition Bonus — CI reduced ≥ 40% from R1 baseline (GAME-2 ramped)
     if baseline_ci and baseline_ci > 0:
         ci_reduction_pct = (baseline_ci - avg_ci) / baseline_ci
-        if ci_reduction_pct >= 0.40:
-            mr_delta += 0.15
-            extra["mr_carbon_transition_bonus"] = True
+        _f = _ramp_fraction(ci_reduction_pct, 0.40, _BAND_CI_REDUCTION, "above")
+        if _f > 0:
+            b = round(0.15 * _f, 4); mr_delta += b
+            extra["mr_carbon_transition_bonus"] = b
             extra["mr_carbon_transition_pct"] = round(ci_reduction_pct * 100, 1)
 
-    # −0.40: Stranded Asset Penalty — avg CI > 50 at R10
-    if avg_ci > 50:
-        mr_delta -= 0.40
-        extra["mr_stranded_asset_penalty"] = True
+    # −0.40: Stranded Asset Penalty — avg CI > 50 at R10 (GAME-2 ramped)
+    _f = _ramp_fraction(avg_ci, 50.0, _BAND_CI, "above")
+    if _f > 0:
+        b = round(-0.40 * _f, 4); mr_delta += b
+        extra["mr_stranded_asset_penalty"] = b
         extra["mr_stranded_asset_avg_ci"] = round(avg_ci, 2)
 
     # −0.20: Shadow Board — planet_expendable flag (R5 rejection)
@@ -603,25 +619,32 @@ def calc_stakeholder_revolt_mr(
     avg_burnout = sum(bu.get("staff_burnout_index", 0) for bu in bus) / max(len(bus), 1)
     readiness = gs.get("workforce_readiness", 50.0)
 
-    # +0.35: Social Regeneration — avg SLO ≥ 70 AND avg burnout < 30
-    if avg_slo >= 70 and avg_burnout < 30:
-        mr_delta += 0.35
-        extra["mr_social_regeneration_bonus"] = True
+    # +0.35: Social Regeneration — SLO ≥ 70 AND burnout < 30 (GAME-2: AND → product of ramps)
+    _f = (_ramp_fraction(avg_slo, 70.0, _BAND_SLO, "above")
+          * _ramp_fraction(avg_burnout, 30.0, _BAND_BURNOUT, "below"))
+    if _f > 0:
+        b = round(0.35 * _f, 4); mr_delta += b
+        extra["mr_social_regeneration_bonus"] = b
 
-    # +0.15: Employee Champion — avg burnout < 25 AND readiness ≥ 70
-    if avg_burnout < 25 and readiness >= 70:
-        mr_delta += 0.15
-        extra["mr_employee_champion_bonus"] = True
+    # +0.15: Employee Champion — burnout < 25 AND readiness ≥ 70 (GAME-2: AND → product)
+    _f = (_ramp_fraction(avg_burnout, 25.0, _BAND_BURNOUT, "below")
+          * _ramp_fraction(readiness, 70.0, _BAND_READINESS, "above"))
+    if _f > 0:
+        b = round(0.15 * _f, 4); mr_delta += b
+        extra["mr_employee_champion_bonus"] = b
 
-    # +0.15: Community Trust — avg SLO ≥ 80
-    if avg_slo >= 80:
-        mr_delta += 0.15
-        extra["mr_community_trust_bonus"] = True
+    # +0.15: Community Trust — avg SLO ≥ 80 (GAME-2 ramped)
+    _f = _ramp_fraction(avg_slo, 80.0, _BAND_SLO, "above")
+    if _f > 0:
+        b = round(0.15 * _f, 4); mr_delta += b
+        extra["mr_community_trust_bonus"] = b
 
-    # −0.50: Social Collapse — avg SLO < 40 OR avg burnout > 70
-    if avg_slo < 40 or avg_burnout > 70:
-        mr_delta -= 0.50
-        extra["mr_social_collapse_penalty"] = True
+    # −0.50: Social Collapse — SLO < 40 OR burnout > 70 (GAME-2: OR → max of ramps)
+    _f = max(_ramp_fraction(avg_slo, 40.0, _BAND_SLO, "below"),
+             _ramp_fraction(avg_burnout, 70.0, _BAND_BURNOUT, "above"))
+    if _f > 0:
+        b = round(-0.50 * _f, 4); mr_delta += b
+        extra["mr_social_collapse_penalty"] = b
 
     extra["pathway_mr_delta"] = round(mr_delta, 4)
     extra["pathway_avg_slo"] = round(avg_slo, 2)
@@ -642,28 +665,34 @@ def calc_hostile_takeover_mr(
     total_opex = sum(bu.get("opex_base", 0) for bu in bus)
     ebitda_margin = (total_revenue - total_opex) / max(total_revenue, 1)
 
-    # +0.25: Strategic Integration — synergy ≥ 1.3 AND treasury > $30M
-    if synergy >= 1.3 and treasury > 30_000_000:
-        mr_delta += 0.25
-        extra["mr_strategic_integration_bonus"] = True
+    # +0.25: Strategic Integration — synergy ≥ 1.3 AND treasury > $30M (GAME-2: AND → product)
+    _f = (_ramp_fraction(synergy, 1.3, _BAND_SYNERGY, "above")
+          * _ramp_fraction(treasury, 30_000_000.0, _BAND_TREASURY, "above"))
+    if _f > 0:
+        b = round(0.25 * _f, 4); mr_delta += b
+        extra["mr_strategic_integration_bonus"] = b
         extra["mr_strategic_integration_synergy"] = round(synergy, 3)
 
-    # +0.20: Fortress Premium — EBITDA margin > 20% AND no scandal flags
+    # +0.20: Fortress Premium — EBITDA margin > 20% AND no scandal flags (GAME-2 ramped on margin)
     scandal_flags = {"scandal_erupted", "whistleblower_investigation", "greenwash_exposed"}
-    if ebitda_margin > 0.20 and not all_flags.intersection(scandal_flags):
-        mr_delta += 0.20
-        extra["mr_fortress_premium"] = True
+    _f = _ramp_fraction(ebitda_margin, 0.20, _BAND_MARGIN, "above") if not all_flags.intersection(scandal_flags) else 0.0
+    if _f > 0:
+        b = round(0.20 * _f, 4); mr_delta += b
+        extra["mr_fortress_premium"] = b
         extra["mr_fortress_ebitda_margin"] = round(ebitda_margin * 100, 1)
 
-    # +0.15: Shareholder Value — synergy ≥ 1.5 (conglomerate premium)
-    if synergy >= 1.5:
-        mr_delta += 0.15
-        extra["mr_conglomerate_premium"] = True
+    # +0.15: Shareholder Value — synergy ≥ 1.5 (conglomerate premium) (GAME-2 ramped)
+    _f = _ramp_fraction(synergy, 1.5, _BAND_SYNERGY, "above")
+    if _f > 0:
+        b = round(0.15 * _f, 4); mr_delta += b
+        extra["mr_conglomerate_premium"] = b
 
-    # −0.40: Vulnerable Target — synergy < 1.1 AND treasury < $10M
-    if synergy < 1.1 and treasury < 10_000_000:
-        mr_delta -= 0.40
-        extra["mr_vulnerable_target_penalty"] = True
+    # −0.40: Vulnerable Target — synergy < 1.1 AND treasury < $10M (GAME-2: AND → product)
+    _f = (_ramp_fraction(synergy, 1.1, _BAND_SYNERGY, "below")
+          * _ramp_fraction(treasury, 10_000_000.0, _BAND_TREASURY, "below"))
+    if _f > 0:
+        b = round(-0.40 * _f, 4); mr_delta += b
+        extra["mr_vulnerable_target_penalty"] = b
 
     # −0.20: Shadow Board — shareholder_alienated flag (R5 rejection)
     if "shareholder_alienated" in all_flags:
@@ -695,26 +724,30 @@ def calc_regulatory_shutdown_mr(
     ethical_score = (avg_slo * 0.3 + (100 - avg_ci) * 0.3 + group_rep * 0.4) / 10
     extra["pathway_ethical_score"] = round(ethical_score, 2)
 
-    # +0.30: Regulatory Exemplar — ethical_score > 7 AND no scandal flags
+    # +0.30: Regulatory Exemplar — ethical_score > 7 AND no scandal flags (GAME-2 ramped on score)
     scandal_flags = {"scandal_erupted", "greenwash_exposed", "whistleblower_investigation"}
-    if ethical_score > 7 and not all_flags.intersection(scandal_flags):
-        mr_delta += 0.30
-        extra["mr_regulatory_exemplar_bonus"] = True
+    _f = _ramp_fraction(ethical_score, 7.0, _BAND_ETHICAL, "above") if not all_flags.intersection(scandal_flags) else 0.0
+    if _f > 0:
+        b = round(0.30 * _f, 4); mr_delta += b
+        extra["mr_regulatory_exemplar_bonus"] = b
 
     # +0.20: Supply Chain Transparency — scope_3_transparency flag set
     if "scope_3_transparency" in all_flags or "full_remediation" in all_flags:
         mr_delta += 0.20
         extra["mr_supply_chain_transparency"] = True
 
-    # +0.15: Proactive Compliance — ethical_score > 6 AND avg SLO > 60
-    if ethical_score > 6 and avg_slo > 60:
-        mr_delta += 0.15
-        extra["mr_proactive_compliance"] = True
+    # +0.15: Proactive Compliance — ethical_score > 6 AND avg SLO > 60 (GAME-2: AND → product)
+    _f = (_ramp_fraction(ethical_score, 6.0, _BAND_ETHICAL, "above")
+          * _ramp_fraction(avg_slo, 60.0, _BAND_SLO, "above"))
+    if _f > 0:
+        b = round(0.15 * _f, 4); mr_delta += b
+        extra["mr_proactive_compliance"] = b
 
-    # −0.45: Regulatory Failure — ethical_score < 4
-    if ethical_score < 4:
-        mr_delta -= 0.45
-        extra["mr_regulatory_failure_penalty"] = True
+    # −0.45: Regulatory Failure — ethical_score < 4 (GAME-2 ramped)
+    _f = _ramp_fraction(ethical_score, 4.0, _BAND_ETHICAL, "below")
+    if _f > 0:
+        b = round(-0.45 * _f, 4); mr_delta += b
+        extra["mr_regulatory_failure_penalty"] = b
 
     # −0.25: Shadow Board — governance_fragility flag (R5 rejection)
     if "governance_fragility" in all_flags:

@@ -1,0 +1,319 @@
+{
+  "simulation_settings": {
+    "rounds": 10,
+    "_agents_note": "DOC-2: NPC/autonomous stakeholder agent pool size — NOT the 4 business-unit slots (BUs come from the seed JSON / bu_profiles.py).",
+    "agents": 50,
+    "initial_budget": 50000000
+  },
+  "economic_parameters": {
+    "carbon_price_base": 50,
+    "carbon_price_growth_rate": 0.05,
+    "circular_economy_efficiency_bonus": 0.15
+  },
+  "constraints": {
+    "max_carbon_emissions": 5000,
+    "min_liquidity_ratio": 0.2
+  },
+  "financial_parameters": {
+    "shadow_carbon_price": 250.0,
+    "corporate_tax_rate": 0.25,
+    "free_csf_pct": 0.2,
+    "capex_cap_multiple": 2.0,
+    "emergency_credit_amount": 1000000,
+    "default_loan_rate": 0.12,
+    "emergency_rate_spread": 0.02,
+    "insolvency_threshold": -100000000,
+    "treasury_floor": -500000000,
+    "wacc_lender_threshold": 0.08
+  },
+  "ncd_parameters": {
+    "hard_cap": 1000000,
+    "warn_threshold": 500000,
+    "opex_scaling_factor": 50000,
+    "provision_per_unit": 5000,
+    "event_provision": 2000000
+  },
+  "climate_parameters": {
+    "loss_damage_levy_tipped": 4000000,
+    "loss_damage_levy_stressed": 1000000
+  },
+  "balance_sheet_parameters": {
+    "slo_capital_scaling": 200000,
+    "rep_capital_scaling": 300000,
+    "covenant_green_ratio": 2.5
+  },
+  "contagion_parameters": {
+    "max_reputation_drop": 50.0,
+    "severity_midpoint": 30.0,
+    "steepness_factor": 15.0
+  },
+  "npc_shock_parameters": {
+    "npc_shock_base_prob": 0.05,
+    "npc_shock_max_prob": 0.08,
+    "npc_shock_difficulty_multiplier_applies_to_impact_only": true,
+    "_comment": "Controls Double Materiality Shock stochastic pipeline (systemic_risk_engine.py)."
+  },
+  "engine_parameters": {
+    "synergy": {
+      "dampening_factor": 0.7
+    },
+    "natural_capital": {
+      "interest_coefficient": 0.0001
+    },
+    "natural_decay": {
+      "factor": 0.96
+    },
+    "burnout": {
+      "natural_drift": 6.0,
+      "opex_threshold": 20.0,
+      "critical_threshold": 70.0,
+      "opex_penalty_coeff": 2.8125e-05,
+      "passive_decay_healthcare": 10.0,
+      "passive_decay_default": 4.0
+    },
+    "workforce_readiness": {
+      "delta_high": 16.0,
+      "delta_medium": 8.0,
+      "delta_none": -10.0,
+      "low_threshold": 40.0,
+      "high_threshold": 75.0
+    },
+    "talent_braindrain": {
+      "reputation_threshold": 65.0,
+      "penalty_multiplier": 1.5,
+      "burnout_threshold": 50.0,
+      "burnout_overhead_factor": 2.0
+    },
+    "overrun_risk": {
+      "capex_threshold": 3000000,
+      "default_probability": 0.25,
+      "default_severity": 0.15
+    },
+    "technical_debt": {
+      "rounds_threshold": 2,
+      "penalty_rate": 0.04
+    },
+    "technology_lockin": {
+      "rounds_threshold": 3,
+      "penalty_rate": 0.15
+    },
+    "strike_probability": {
+      "social_license_weight": 0.4
+    },
+    "cannibalization": {
+      "base_rate": 0.03,
+      "aggressor_threshold_multiplier": 1.15
+    },
+    "dividend_ratchet": {
+      "rep_penalty": 5.0,
+      "cut_threshold": 0.8
+    },
+    "talent_allocation": {
+      "neglect_threshold": 0.15,
+      "penalty_rate": 0.02
+    },
+    "stakeholder_fatigue": {
+      "factor": 0.3
+    },
+    "supply_chain": {
+      "overlap_coefficient": 0.002
+    },
+    "competitor": {
+      "growth_rate": 0.06
+    },
+    "greenwashing": {
+      "investment_threshold": 0.15,
+      "slo_penalty": 15.0,
+      "moderate_threshold_scale": 0.67,
+      "moderate_penalty_scale": 0.5,
+      "bu_rep_penalty": -15
+    },
+    "sbti_pathway": {
+      "baseline_ci": 36.25,
+      "annual_reduction_rate": 0.0822,
+      "misalignment_rounds": 3,
+      "coc_surcharge": 0.005,
+      "credibility_per_round": 15
+    },
+    "eu_taxonomy": {
+      "ci_threshold": 25,
+      "green_threshold_pct": 60,
+      "brown_threshold_pct": 20,
+      "coc_benefit": -0.005,
+      "coc_surcharge": 0.005
+    },
+    "cbam": {
+      "ci_threshold": 40,
+      "scope12_fraction": 0.35,
+      "surcharge_rate": 100000
+    },
+    "regulatory_ratchet": {
+      "baseline": 10.0,
+      "round_increment": 5.0,
+      "fine_per_point": 500000
+    },
+    "supplier_defection": {
+      "inv_threshold": 0.15,
+      "opex_multiplier": 1.1,
+      "rev_multiplier": 0.95
+    },
+    "cfo_austerity": {
+      "loan_ratio_trigger": 0.5
+    },
+    "cash_conversion": {
+      "gov_risk_divisor": 500.0,
+      "efficiency_floor": 0.5
+    },
+    "dso": {
+      "baseline_factor": 0.02,
+      "gov_risk_scaling": 0.001,
+      "max_cap": 0.15
+    },
+    "macro_noise": {
+      "inflation_band": 0.004,
+      "carbon_price_band": 0.07,
+      "micro_strike_probability": 0.06,
+      "micro_strike_opex_rate": 0.05
+    },
+    "fx_risk": {
+      "movement_band": 0.07,
+      "default_exposure": 0.2
+    },
+    "emissions_breach": {
+      "rep_penalty": 5.0
+    },
+    "stranded_assets": {
+      "ci_threshold": 120,
+      "coc_surcharge": 0.015
+    },
+    "tipping_hostility": {
+      "tipped_multiplier": 2.5,
+      "stressed_multiplier": 1.75,
+      "warning_multiplier": 1.25
+    },
+    "ncd_forgiveness": {
+      "log_coefficient": 2.0
+    },
+    "implementation_lag": {
+      "inv_threshold": 0.1
+    },
+    "employer_brand": {
+      "penalty_threshold": 40,
+      "max_penalty_rate": 0.08
+    },
+    "patient_outcomes": {
+      "baseline": 50.0,
+      "divisor": 200.0,
+      "modifier_min": 0.75,
+      "modifier_max": 1.25
+    },
+    "utilization": {
+      "overload_threshold": 85.0,
+      "overload_burnout_increment": 10.0,
+      "drift_rate": 0.1
+    },
+    "imitation_decay": {
+      "default_rate": 0.1
+    },
+    "scoring": {
+      "severity_routine_ceiling": 1,
+      "severity_noteworthy_ceiling": 5,
+      "severity_material_ceiling": 15,
+      "sdg_grade_a_plus": 80,
+      "sdg_grade_a": 70,
+      "sdg_grade_b": 55,
+      "sdg_grade_c": 40,
+      "sdg_grade_d": 25,
+      "caroic_grade_a_plus": 25,
+      "caroic_grade_a": 15,
+      "caroic_grade_b": 10,
+      "caroic_grade_c": 5,
+      "cri_weight_gov_risk": 0.3,
+      "cri_weight_slo_deficit": 0.3,
+      "cri_weight_rep_deficit": 0.2,
+      "cri_weight_carbon": 0.2,
+      "cri_tier_low": 25,
+      "cri_tier_moderate": 50,
+      "cri_tier_high": 75,
+      "momentum_weight_treasury": 0.4,
+      "momentum_weight_rep": 0.3,
+      "momentum_weight_ncd": 0.3,
+      "momentum_high_threshold": 70,
+      "momentum_comeback_mr_bonus": 0.05,
+      "momentum_treasury_norm": 500,
+      "momentum_rep_multiplier": 5,
+      "momentum_ncd_multiplier": 10,
+      "insolvency_warning_rounds": 3,
+      "time_to_impact_horizon": 5,
+      "braindrain_rep_threshold": 25,
+      "strike_warning_threshold": 0.2,
+      "strike_critical_threshold": 0.4,
+      "contagion_risk_warning_threshold": 60,
+      "treasury_drop_reflection_pct": 20
+    }
+  },
+  "climate_var_parameters": {
+    "cyclone_prob_base": 0.75,
+    "cyclone_prob_tipped": 0.9,
+    "cyclone_prob_stressed": 0.85,
+    "cyclone_prob_warning": 0.8,
+    "physical_damage_base": 12000000,
+    "tipping_ci_warning": 45,
+    "tipping_ci_stressed": 55,
+    "tipping_ci_tipped": 65,
+    "transition_var_ci_threshold": 80,
+    "transition_var_stranded_multiplier": 0.15,
+    "transition_var_fee_years": 5
+  },
+  "balance_sheet_accounting": {
+    "capex_capitalisation_rate": 0.6,
+    "annual_depreciation_rate": 0.1,
+    "brand_base_per_bu": 6250000,
+    "min_environmental_provision": 1000000,
+    "decommissioning_accretion_rate": 0.03
+  },
+  "terminal_valuation": {
+    "shares_outstanding": 100000000,
+    "ipo_price_per_share": 50.0,
+    "long_run_growth": 0.02,
+    "exit_multiple_floor": 6.0,
+    "exit_multiple_ceiling": 18.0,
+    "_pathway_difficulty_note": "GAME-3: regenerate with scripts/calibrate_pathway_difficulty.py. Values = median(M_R, activist_ultimatum) / median(M_R, pathway). activist_ultimatum is the 1.00 reference.",
+    "pathway_difficulty": {
+      "activist_ultimatum": 1.00,
+      "climate_black_swan": 1.15,
+      "stakeholder_revolt": 1.10,
+      "hostile_takeover": 1.20,
+      "regulatory_shutdown": 1.12
+    }
+  },
+  "black_swan_limits": {
+    "max_event_probability": 0.12
+  },
+  "turnaround_pathway": {
+    "crisis": {
+      "entry_treasury": 0,
+      "entry_reputation": 30,
+      "bailout": 3000000,
+      "capex_cap": 0.0,
+      "mr_cap": 0.6
+    },
+    "stabilisation": {
+      "exit_treasury": 0,
+      "exit_reputation": 20,
+      "capex_cap": 0.5,
+      "mr_cap": 0.8
+    },
+    "recovery": {
+      "exit_treasury": 10000000,
+      "exit_reputation": 45,
+      "capex_cap": 1.0,
+      "mr_cap": 1.2
+    },
+    "exit": {
+      "exit_treasury": 20000000,
+      "exit_reputation": 55,
+      "mr_bonus": 0.1
+    }
+  }
+}

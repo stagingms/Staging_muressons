@@ -1,0 +1,35 @@
+{
+  "bu_id": "agriculture",
+  "description": "Pillar overrides for the Agriculture vertical. Replaces the generic Carbon Offsetting area with Water Stewardship, which is the primary sustainability lever for agricultural operations.",
+  "override_areas": {
+    "offsetting": {
+      "label": "Water Stewardship",
+      "icon": "💧",
+      "description_override": "Manage water resources sustainably across your agricultural operations.",
+      "options": {
+        "drip_irrigation": {
+          "title": "Precision Drip Irrigation",
+          "description": "Install precision drip irrigation across all farm zones, reducing water consumption by up to 50%.",
+          "cost": -3500000,
+          "impacts": { "social_license_delta": 6, "reputation": 4, "natural_capital_debt_delta": -6 },
+          "flags_set": ["drip_irrigation"]
+        },
+        "rainwater_harvesting": {
+          "title": "Rainwater Harvesting Infrastructure",
+          "description": "Build rainwater collection and storage systems across operational zones.",
+          "cost": -2000000,
+          "impacts": { "social_license_delta": 3, "reputation": 2, "natural_capital_debt_delta": -3 },
+          "flags_set": ["rainwater_harvesting"]
+        },
+        "no_water_action": {
+          "title": "No Water Investment",
+          "description": "Defer all water management investments. Risk of regulatory action in water-stressed regions.",
+          "cost": 0,
+          "impacts": { "social_license_delta": -3, "governance_risk_delta": 5 },
+          "flags_set": ["no_water_action"]
+        }
+      }
+    }
+  },
+  "custom_areas": []
+}

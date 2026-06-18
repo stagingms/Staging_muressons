@@ -36,7 +36,7 @@ const PROFILES = {
 
 const MR_LABELS = {
     base: { label: 'Base', description: 'Starting multiple' },
-    synergy_bonus: { label: 'R7 Synergy', description: 'Achieved circularity synergy (waste-to-energy)' },
+    synergy_bonus: { label: 'R7 Synergy Premium', description: 'Strategic integration premium (+0.15 M_R). Note: synergy OPEX savings already flow through terminal EBITDA — this captures the optionality premium.' },
     resilience_bonus: { label: 'R5/R8 Resilience', description: 'Survived without bailout or water prioritisation' },
     truth_premium: { label: 'R6 Truth Premium', description: 'Chose ethical AI overhaul' },
     community_champion_bonus: { label: 'R9 Community Champion', description: 'Invested $20M in community fund' },
@@ -180,6 +180,74 @@ export default function FinalReport({ data = null, onClose }) {
                     )}
                 </section>
 
+                {/* ── Equity Bridge Row (STRAT-010) ─────────────────── */}
+                <section className={styles.metricsRow}>
+                    <div className={styles.metricCard}>
+                        <span className={styles.metricLabel}>Equity Value</span>
+                        <span className={styles.metricValue} style={{ color: d.equity_value != null ? (d.equity_value > 0 ? '#10b981' : '#ef4444') : undefined }}>
+                            {d.equity_value != null ? `$${(d.equity_value / 1_000_000).toFixed(1)}M` : '—'}
+                        </span>
+                        <span className={styles.metricSub}>
+                            EV − Net Debt ({d.net_debt != null ? `$${(d.net_debt / 1_000_000).toFixed(1)}M` : '?'})
+                        </span>
+                    </div>
+                    <div className={styles.metricCard}>
+                        <span className={styles.metricLabel}>📈 Share Price</span>
+                        <span className={styles.metricValue} style={{
+                            color: d.price_per_share != null
+                                ? d.price_per_share >= 50 ? '#10b981' : d.price_per_share >= 30 ? '#f59e0b' : '#ef4444'
+                                : undefined,
+                            fontSize: '1.5rem', fontWeight: 900,
+                        }}>
+                            {d.price_per_share != null ? `$${d.price_per_share.toFixed(2)}` : '—'}
+                        </span>
+                        <span className={styles.metricSub}>
+                            vs IPO $50.00 {d.equity_bridge?.share_price_change_pct != null
+                                ? `(${d.equity_bridge.share_price_change_pct > 0 ? '+' : ''}${d.equity_bridge.share_price_change_pct}%)`
+                                : ''}
+                        </span>
+                    </div>
+                    {d.equity_bridge?.ev_over_revenue != null && (
+                        <div className={styles.metricCard}>
+                            <span className={styles.metricLabel}>EV / Revenue</span>
+                            <span className={styles.metricValue} style={{
+                                color: d.equity_bridge.ev_revenue_signal === 'premium' ? '#10b981'
+                                    : d.equity_bridge.ev_revenue_signal === 'discount' ? '#ef4444' : '#f59e0b'
+                            }}>
+                                {d.equity_bridge.ev_over_revenue.toFixed(1)}×
+                            </span>
+                            <span className={styles.metricSub}>
+                                Sector median: {d.equity_bridge.ev_revenue_benchmark ?? 2.5}× · {d.equity_bridge.ev_revenue_signal ?? '—'}
+                            </span>
+                        </div>
+                    )}
+                    {d.equity_bridge?.price_to_book != null && (
+                        <div className={styles.metricCard}>
+                            <span className={styles.metricLabel}>Price / Book</span>
+                            <span className={styles.metricValue} style={{
+                                color: d.equity_bridge.pb_signal === 'premium' ? '#10b981'
+                                    : d.equity_bridge.pb_signal === 'below_book' ? '#ef4444' : '#f59e0b'
+                            }}>
+                                {d.equity_bridge.price_to_book.toFixed(2)}×
+                            </span>
+                            <span className={styles.metricSub}>
+                                Sector median: {d.equity_bridge.pb_benchmark ?? 1.5}× · {d.equity_bridge.pb_signal ?? '—'}
+                            </span>
+                        </div>
+                    )}
+                    {d.equity_bridge?.exit_multiple_wacc_used != null && (
+                        <div className={styles.metricCard}>
+                            <span className={styles.metricLabel}>Exit Multiple</span>
+                            <span className={styles.metricValue} style={{ color: '#60a5fa' }}>
+                                {(d.exit_multiple || d.equity_bridge?.exit_multiple_applied || 12).toFixed(1)}×
+                            </span>
+                            <span className={styles.metricSub}>
+                                WACC-based ({(d.equity_bridge.exit_multiple_wacc_used * 100).toFixed(1)}% WACC)
+                            </span>
+                        </div>
+                    )}
+                </section>
+
                 {/* ── MR Breakdown ────────────────────────────────── */}
                 <section className={styles.breakdownSection}>
                     <h2 className={styles.sectionTitle}>
@@ -307,6 +375,28 @@ export default function FinalReport({ data = null, onClose }) {
                         <div className={styles.formulaResult} style={{ color: theme.tagColor }}>
                             V<sub>T</sub> = ${(d.terminal_value / 1_000_000).toFixed(2)}M
                         </div>
+                        {/* Equity Bridge */}
+                        {d.equity_value != null && (
+                            <>
+                                <div className={styles.formulaLine} style={{ marginTop: '0.75rem', color: '#94a3b8', fontSize: '0.85rem' }}>
+                                    Equity = V<sub>T</sub> − Net Debt
+                                </div>
+                                <div className={styles.formulaLine} style={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                                    = ${(d.terminal_value / 1_000_000).toFixed(1)}M − ${((d.net_debt || 0) / 1_000_000).toFixed(1)}M
+                                </div>
+                                <div className={styles.formulaResult} style={{ color: d.equity_value > 0 ? '#10b981' : '#ef4444' }}>
+                                    Equity = ${(d.equity_value / 1_000_000).toFixed(2)}M
+                                </div>
+                                {d.price_per_share != null && (
+                                    <div className={styles.formulaResult} style={{
+                                        color: d.price_per_share >= 50 ? '#10b981' : d.price_per_share >= 30 ? '#f59e0b' : '#ef4444',
+                                        fontSize: '1.6rem', marginTop: '0.5rem',
+                                    }}>
+                                        📈 ${d.price_per_share.toFixed(2)} / share
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </div>
                 </section>
 

@@ -1,0 +1,82 @@
+{
+  "bu_id": "banking_financial_services",
+  "region_id": "asean",
+  "stakeholders": [
+    {
+      "id": "asean_central_banks",
+      "name": "ASEAN Central Banks & MAS",
+      "icon": "🏦",
+      "power": "high",
+      "interest": "high",
+      "quadrant": "manage_closely",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "The Monetary Authority of Singapore (MAS), Bank Negara Malaysia, and Bank of Thailand are leading ASEAN's green finance taxonomy and mandatory climate risk stress-testing for financial institutions. Non-compliance risks licence revocation.",
+      "engagement_tactics": [
+        { "option": "Align lending portfolio with ASEAN Taxonomy for Sustainable Finance", "rationale": "Positions institution as taxonomy-compliant, unlocking green bond markets", "is_correct": true },
+        { "option": "Lobby for extended timelines on green taxonomy adoption", "rationale": "Creates adversarial dynamic with the primary regulator", "is_correct": false },
+        { "option": "Publish annual TCFD climate risk disclosures proactively", "rationale": "Exceeds minimum requirements, signals ESG leadership", "is_correct": true }
+      ]
+    },
+    {
+      "id": "unbanked_populations",
+      "name": "Unbanked / Underbanked Populations",
+      "icon": "👥",
+      "power": "low",
+      "interest": "high",
+      "quadrant": "keep_informed",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "~290 million adults across ASEAN remain unbanked (World Bank, 2022). Financial inclusion is a core regulatory expectation and an SDG 10 imperative. Failure to serve this segment attracts NGO scrutiny and government criticism.",
+      "engagement_tactics": [
+        { "option": "Launch mobile banking and micro-lending products for rural communities", "rationale": "Directly addresses financial inclusion gap, builds customer base", "is_correct": true },
+        { "option": "Focus exclusively on high-net-worth and SME segments", "rationale": "Misses the financial inclusion mandate central to ASEAN banking licences", "is_correct": false }
+      ]
+    },
+    {
+      "id": "palm_oil_clients",
+      "name": "Palm Oil & Plantation Sector Clients",
+      "icon": "🌴",
+      "power": "high",
+      "interest": "medium",
+      "quadrant": "keep_satisfied",
+      "urgency": false,
+      "legitimacy": true,
+      "description": "Major plantation and commodity trading firms represent significant loan book exposure. Global deforestation regulations (EU EUDR, ASEAN timber rules) create stranded-asset risk if these clients fail to achieve certification.",
+      "engagement_tactics": [
+        { "option": "Require RSPO/MSPO certification as lending covenant condition", "rationale": "Protects bank from stranded-asset risk while driving client ESG improvement", "is_correct": true },
+        { "option": "Continue lending to uncertified clients without conditions", "rationale": "Creates material climate and reputational risk in the loan book", "is_correct": false }
+      ]
+    },
+    {
+      "id": "fintech_competitors",
+      "name": "Digital Bank & Fintech Disruptors",
+      "icon": "📱",
+      "power": "medium",
+      "interest": "low",
+      "quadrant": "monitor",
+      "urgency": false,
+      "legitimacy": false,
+      "description": "GXS Bank (Singapore), SeaBank (Philippines), and TMRW (UOB Digital) are capturing the mobile-first ASEAN customer segment. They also lead on ESG data transparency, creating a benchmark pressure for incumbents.",
+      "engagement_tactics": [
+        { "option": "Partner with fintech firms for ESG data analytics", "rationale": "Accelerates digital capabilities without full build cost", "is_correct": true },
+        { "option": "Lobby regulators to restrict digital bank licences", "rationale": "Short-term protection that delays necessary transformation", "is_correct": false }
+      ]
+    },
+    {
+      "id": "climate_advocacy",
+      "name": "Climate Finance Advocacy Groups",
+      "icon": "🌊",
+      "power": "medium",
+      "interest": "high",
+      "quadrant": "keep_informed",
+      "urgency": true,
+      "legitimacy": true,
+      "description": "350.org Southeast Asia, WWF Green Finance initiative, and the ASEAN Climate Finance Alliance monitor banks' fossil fuel financing ratios and green loan disclosure. They publish annual banking scorecards.",
+      "engagement_tactics": [
+        { "option": "Commit to a phase-out timeline for new coal financing", "rationale": "Directly responds to the primary advocacy pressure point", "is_correct": true },
+        { "option": "Reject engagement requests from climate advocacy groups", "rationale": "Escalates public campaigns and damages brand", "is_correct": false }
+      ]
+    }
+  ]
+}
