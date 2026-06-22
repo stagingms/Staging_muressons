@@ -181,6 +181,10 @@ muressons-sim/
 
 ## Database Modes
 
+> ⚠️ **For Classroom Sessions**: Use PostgreSQL mode (`USE_MEMORY_DB=false`) to prevent
+> data loss if the server crashes. In-memory mode (`USE_MEMORY_DB=true`) is for local
+> development and demos only. All session data is lost on server restart in memory mode.
+
 | Mode | Set via | Requires |
 |------|---------|----------|
 | **In-Memory** (default) | `USE_MEMORY_DB=true` | Python only |

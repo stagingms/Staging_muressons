@@ -51,8 +51,9 @@ class StakeholderManagementTrack(BaseSideTrack):
         self,
         main_global: dict,
         main_bus: list[dict],
-        completed_tracks: dict[str, dict],
+        completed_tracks: dict[str, dict] = None,
     ) -> DataBridgeInput:
+        completed_tracks = completed_tracks or {}
         n = max(len(main_bus), 1)
         avg_sl = sum(bu.get("social_license_score", 50) for bu in main_bus) / n
         flags = main_global.get("active_event_flags", {})

@@ -10,7 +10,7 @@ class TestBRSRTrack(unittest.TestCase):
 
     def test_identity(self):
         self.assertEqual(self.track.track_id, "brsr_ngrbc")
-        self.assertEqual(self.track.num_rounds, 5)
+        self.assertEqual(self.track.num_rounds, 10)
 
     def test_scoring_pioneer(self):
         state = {
@@ -25,7 +25,7 @@ class TestBRSRTrack(unittest.TestCase):
         self.assertEqual(score["archetype"]["title"], "BRSR Pioneer")
 
         flags = self.track.write_back_to_main(state, self.main_gs)
-        self.assertEqual(flags["brsr_net_positive_dividend"], 0.05)
+        self.assertEqual(flags.flags_to_set["brsr_net_positive_dividend"], 0.05)
 
     def test_greenwash_crisis_injection(self):
         gs = copy.deepcopy(self.main_gs)
@@ -46,6 +46,15 @@ class TestBRSRTrack(unittest.TestCase):
         extra = self.track.post_tick(5, gs, bus, [{"choice_selected": "option_c"}], {}, {}, prev)
         self.assertIn("brsr_governance_crisis", extra)
         self.assertEqual(gs["corporate_treasury"], 47_000_000) # 50m - 2.5m (crisis) - 500k (option C cost)
+
+
+    def test_rounds_6_to_10_exist(self):
+        """BRSR expanded to 10 rounds — verify R6-R10 have valid configs."""
+        configs = self.track.get_round_configs()
+        for rn in range(6, 11):
+            self.assertIn(rn, configs, f"BRSR R{rn} config missing")
+            opts = self.track.get_round_options(rn)
+            self.assertGreaterEqual(len(opts), 2, f"BRSR R{rn} should have >=2 options")
 
 if __name__ == "__main__":
     unittest.main()

@@ -29,13 +29,13 @@ class TestESGAdjustedWACC(unittest.TestCase):
         self.assertLess(wacc, 0.05, "High SLO should give WACC discount")
         self.assertGreater(diag["slo_discount"], 0)
 
-    def test_wacc_clamps_between_3_and_15_pct(self):
+    def test_wacc_clamps_between_3_and_20_pct(self):
         from systemic_risk_engine import calc_esg_adjusted_wacc
         # Extreme inputs should still be clamped
         wacc_low, _ = calc_esg_adjusted_wacc(0.01, 0, 0, 100)
         wacc_high, _ = calc_esg_adjusted_wacc(0.10, 200, 100, 0, biodiversity_dependency=5.0)
         self.assertGreaterEqual(wacc_low, 0.03)
-        self.assertLessEqual(wacc_high, 0.15)
+        self.assertLessEqual(wacc_high, 0.20)  # FIX-C: cap raised from 15% to 20%
 
 
 class TestSupplyChainTransparency(unittest.TestCase):

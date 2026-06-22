@@ -11,6 +11,7 @@ import json
 import uuid
 import pathlib
 import threading
+import asyncio
 from datetime import datetime, timezone
 from typing import Any, Optional
 from config import SIM_INITIAL_BUDGET, SIM_ROUNDS
@@ -21,6 +22,7 @@ from config import SIM_INITIAL_BUDGET, SIM_ROUNDS
 
 _SNAPSHOT_PATH = pathlib.Path(__file__).resolve().parent.parent / "db" / "memory_snapshot.json"
 _save_lock = threading.Lock()
+_async_write_lock = asyncio.Lock()
 
 
 # ── Seed Data ───────────────────────────────────────────────────
@@ -86,17 +88,20 @@ def _persist():
     """Save all in-memory stores to disk as a JSON snapshot."""
     with _save_lock:
         try:
-            # Convert _bu_states keys (int) to str for JSON
+            # FIX BUG-6: Copy-on-write snapshot — prevent dict mutation during iteration
+            sessions_snap = dict(_sessions)
+            gs_snap = {k: list(v) for k, v in dict(_global_states).items()}
             bu_serializable = {}
-            for sid, rounds in _bu_states.items():
-                bu_serializable[sid] = {str(rn): bus for rn, bus in rounds.items()}
+            for sid, rounds in dict(_bu_states).items():
+                bu_serializable[sid] = {str(rn): list(bus) for rn, bus in dict(rounds).items()}
+            dl_snap = list(_decision_log)
 
             import admin_shared
             snapshot = {
-                "sessions": _sessions,
-                "global_states": _global_states,
+                "sessions": sessions_snap,
+                "global_states": gs_snap,
                 "bu_states": bu_serializable,
-                "decision_log": _decision_log,
+                "decision_log": dl_snap,
                 "cohort_marketplaces": getattr(admin_shared, "_cohort_marketplaces", {}),
             }
             _SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -193,6 +198,21 @@ def _cleanup_expired_records():
         _decision_log = [d for d in _decision_log if d.get("session_id") not in expired_sids]
         print(f"[persistence] Hard deleted {len(expired_sids)} expired sessions.")
 
+# ── Short Join Codes ─────────────────────────────────────────────
+_join_codes = {}  # join_code → session_id
+
+def _generate_join_code() -> str:
+    """Generate a unique 6-char uppercase alphanumeric join code."""
+    import random, string
+    while True:
+        code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        if code not in _join_codes:
+            return code
+
+async def resolve_join_code(code: str) -> Optional[str]:
+    """Resolve a short join code to a session_id. Returns None if not found."""
+    return _join_codes.get(code.upper())
+
 # ── Auto-load on import ────────────────────────────────────────
 _load_from_disk()
 
@@ -230,7 +250,7 @@ import string as _string
 
 def _generate_short_code() -> str:
     """Generate a unique human-friendly session identifier like SIM-A3K7."""
-    existing_codes = {s.get("short_code") for s in _sessions.values()}
+    existing_codes = {s.get("short_code") for s in list(_sessions.values())}
     for _ in range(1000):
         code = "SIM-" + "".join(_random.choices(_string.ascii_uppercase + _string.digits, k=4))
         if code not in existing_codes:
@@ -267,7 +287,7 @@ async def create_session(
     """
     # Prevent duplicate cohort names for top-level sessions
     if not parent_cohort_id:
-        for existing in _sessions.values():
+        for existing in list(_sessions.values()):
             if (existing["cohort_name"].strip().lower() == cohort_name.strip().lower()
                     and not existing.get("parent_cohort_id")):
                 raise ValueError(f"A cohort named '{cohort_name}' already exists.")
@@ -405,6 +425,13 @@ async def create_session(
 
     _global_states[session_id] = [global_state]
     _bu_states[session_id] = {1: copy.deepcopy(bus)}
+
+    # REC-2: Generate and store short join code for top-level sessions
+    if not parent_cohort_id:
+        join_code = _generate_join_code()
+        _sessions[session_id]["join_code"] = join_code
+        _join_codes[join_code] = session_id
+
     _persist()
 
     res_global = {
@@ -443,7 +470,7 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
     """Look up an existing session by cohort_name and return its latest state.
     Only matches top-level sessions (not per-player clones)."""
     matching_sessions = [
-        s for s in _sessions.values()
+        s for s in list(_sessions.values())
         if s["cohort_name"] == cohort_name and not s.get("parent_cohort_id")
     ]
     if not matching_sessions:
@@ -464,7 +491,7 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
 
 async def get_active_public_sessions() -> list[dict]:
     """Return all top-level sessions (exclude per-player sub-sessions) that are not deleted."""
-    active = [s for s in _sessions.values() if not s.get("parent_cohort_id") and not s.get("deleted_at")]
+    active = [s for s in list(_sessions.values()) if not s.get("parent_cohort_id") and not s.get("deleted_at")]
     # Sort by start_time descending
     active.sort(key=lambda x: x.get("start_time", datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
     return active
@@ -727,7 +754,7 @@ async def get_decision_log(session_id: str) -> list[dict]:
     """
     # Collect all relevant session IDs (parent + children)
     related_ids = {session_id}
-    for sid, sess in _sessions.items():
+    for sid, sess in list(_sessions.items()):
         if sess.get("parent_cohort_id") == session_id:
             related_ids.add(sid)
 
@@ -755,7 +782,7 @@ async def get_decision_log(session_id: str) -> list[dict]:
 async def fetch_all_sessions() -> list[dict]:
     """Return only top-level cohort sessions for the admin leaderboard (excludes per-player sub-sessions)."""
     # Back-fill short codes for sessions that predate this feature
-    for s in _sessions.values():
+    for s in list(_sessions.values()):
         if not s.get("short_code") and not s.get("parent_cohort_id"):
             s["short_code"] = _generate_short_code()
 
@@ -792,7 +819,7 @@ async def fetch_all_sessions() -> list[dict]:
             "region_id": s.get("region_id", ""),
         }
         for s in sorted(
-            _sessions.values(),
+            list(_sessions.values()),
             key=lambda x: x.get("start_time", datetime.min.replace(tzinfo=timezone.utc)),
             reverse=True,
         ) if not s.get("deleted_at")
@@ -802,7 +829,7 @@ async def fetch_all_sessions() -> list[dict]:
 async def get_child_sessions(parent_session_id: str) -> list[dict]:
     """Return all child player sessions for a given parent cohort session."""
     children = []
-    for sid, sess in _sessions.items():
+    for sid, sess in list(_sessions.items()):
         if sess.get("parent_cohort_id") == parent_session_id:
             children.append({
                 "session_id": sid,
@@ -897,7 +924,7 @@ async def delete_all_sessions(hard: bool = False) -> int:
         _decision_log = []
     else:
         now_str = datetime.now(timezone.utc).isoformat()
-        for sess in _sessions.values():
+        for sess in list(_sessions.values()):
             if not sess.get("deleted_at"):
                 sess["deleted_at"] = now_str
                 
@@ -999,7 +1026,7 @@ async def reset_session_to_round1(session_id: str) -> bool:
 
     # Also reset all child player sessions
     child_ids = [
-        sid for sid, s in _sessions.items()
+        sid for sid, s in list(_sessions.items())
         if s.get("parent_cohort_id") == session_id
     ]
     for child_id in child_ids:

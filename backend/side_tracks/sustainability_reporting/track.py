@@ -54,8 +54,9 @@ class SustainabilityReportingTrack(BaseSideTrack):
         self,
         main_global: dict,
         main_bus: list[dict],
-        completed_tracks: dict[str, dict],
+        completed_tracks: dict[str, dict] = None,
     ) -> DataBridgeInput:
+        completed_tracks = completed_tracks or {}
         flags = main_global.get("active_event_flags", {})
         # Cross-track enrichment
         ethics_done = "ethics_sustainability" in completed_tracks

@@ -463,6 +463,18 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     }
 
 
+@router.get(
+    "/public/join/{join_code}",
+    summary="Resolve a short join code to session ID",
+)
+async def resolve_join_code_endpoint(join_code: str):
+    """Resolve a 6-character join code to the full session UUID."""
+    session_id = await db.resolve_join_code(join_code)
+    if not session_id:
+        raise HTTPException(status_code=404, detail=f"Join code '{join_code}' not found")
+    return {"session_id": session_id, "join_code": join_code.upper()}
+
+
 # ─────────────────────────────────────────────────────────────────
 # POST /api/simulations/start
 # ─────────────────────────────────────────────────────────────────
@@ -500,7 +512,7 @@ async def start_simulation(body: StartSessionRequest):
             )
 
         # 2b. Check facilitator cohort limit
-        if not check_and_increment_cohort_count(body.facilitator_id):
+        if not await check_and_increment_cohort_count(body.facilitator_id):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"Facilitator '{body.facilitator_id}' has reached the maximum cohort limit.",
@@ -780,6 +792,40 @@ async def get_session_info(session_id: str):
         "parent_cohort_id": parent_id,
         "ending_pathway": ending_pathway,
         "pacing_mode": (parent.get("pacing_mode", "free_play") if parent_id and parent else session.get("pacing_mode", "free_play")),
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/final-report
+# ─────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/final-report",
+    summary="Get final game report with terminal valuation",
+)
+async def get_final_report(session_id: str):
+    """Aggregated final report: terminal valuation, M_R, archetype, ending pathway."""
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(status_code=404, detail="Session not found")
+    gs = latest["global_state"]
+    rn = gs.get("round_number", 1)
+    flags = gs.get("active_event_flags", {})
+    if rn < 10 and not gs.get("game_over"):
+        raise HTTPException(status_code=400, detail=f"Game not finished — currently at round {rn}")
+    return {
+        "session_id": session_id,
+        "round_number": rn,
+        "terminal_valuation": gs.get("terminal_valuation"),
+        "regenerative_multiple": gs.get("regenerative_multiple"),
+        "archetype": gs.get("archetype"),
+        "ending_pathway": flags.get("ending_pathway", "activist_ultimatum"),
+        "corporate_treasury": gs.get("corporate_treasury"),
+        "group_reputation": gs.get("group_reputation"),
+        "synergy_multiplier": gs.get("synergy_multiplier"),
+        "consequence_dna_snapshot": flags.get("consequence_dna_snapshot"),
+        "game_over": gs.get("game_over", False),
+        "game_over_reason": gs.get("game_over_reason"),
     }
 
 
@@ -2176,6 +2222,13 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     global_state = current["global_state"]
     bu_states = current["bu_states"]
 
+    # FIX BUG-8: Materiality idempotency guard — prevent double treasury deduction
+    _mat_key = f"materiality_submitted_r{global_state.get('round_number', 2)}"
+    if body.bu_id:
+        _mat_key += f"_{body.bu_id}"
+    if global_state.get(_mat_key):
+        return {"status": "already_submitted", "cached": True, "message": "Materiality already submitted this round"}
+
     # Load dynamic Materiality Config
     # Priority: 1) BU-specific dict (if bu_id), 2) Cohort sandbox, 3) Global
     if body.bu_id:
@@ -2518,6 +2571,9 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         "assurance_signals":       _assurance_signals,
         "esrs_mat_threshold":      12,
     }
+
+    # Mark materiality as submitted for idempotency
+    global_state[_mat_key] = True
 
     # Persist the updated treasury back to the database for this round
     await db.update_latest_global_state(session_id, global_state, bu_states)

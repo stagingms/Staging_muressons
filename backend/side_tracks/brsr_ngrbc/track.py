@@ -47,8 +47,9 @@ class BRSRNGRBCTrack(BaseSideTrack):
         self,
         main_global: dict,
         main_bus: list[dict],
-        completed_tracks: dict[str, dict],
+        completed_tracks: dict[str, dict] = None,
     ) -> DataBridgeInput:
+        completed_tracks = completed_tracks or {}
         flags = main_global.get("active_event_flags", {})
         reporting_data = completed_tracks.get("sustainability_reporting", {})
         ethics_done    = "ethics_sustainability" in completed_tracks

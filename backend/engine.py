@@ -642,19 +642,32 @@ def apply_natural_decay(
     reputation: float,
     social_license: float,
     invested: bool,
+    investment_ratio: float = 0.0,
 ) -> tuple[float, float]:
     """
-    If no investment was made during the tick, both Reputation and
-    Social License decay by ~4% (compounded from 2%/quarter over 6 months).
-    Returns (new_reputation, new_social_license).
+    FIX-B: Gradated SLO/reputation decay based on investment_ratio.
+    - investment_ratio >= 0.30 → SLO GROWS by +3/round (community rewards ESG)
+    - investment_ratio >= 0.15 → No decay (treading water)
+    - investment_ratio <  0.15 → Full 4% decay (neglect erodes trust)
+    Reputation always decays when not invested (harder to rebuild brand).
     """
-    if invested:
+    decay = NATURAL_DECAY_FACTOR  # ~0.96
+    if investment_ratio >= 0.30:
+        # Active ESG commitment → SLO grows, reputation stabilises
+        slo_growth = 3.0 + (investment_ratio - 0.30) * 10  # +3 to +10
+        return (
+            reputation,  # reputation stable
+            round(min(100.0, social_license + slo_growth), 2),
+        )
+    elif investment_ratio >= 0.15 or invested:
+        # Moderate investment → treading water (no decay, no growth)
         return reputation, social_license
-    decay = NATURAL_DECAY_FACTOR  # 1 - (1 - 0.98²) ≈ 0.9604, rounded to 0.96 for 6-month period
-    return (
-        round(reputation * decay, 2),
-        round(social_license * decay, 2),
-    )
+    else:
+        # Neglect → full decay
+        return (
+            round(reputation * decay, 2),
+            round(social_license * decay, 2),
+        )
 
 
 # ── 9. Macroeconomic Inflation Engine ───────────────────────────
@@ -2599,9 +2612,12 @@ def _run_financial_layer(ctx: TickContext) -> None:
     # ── Natural Decay + Technical Debt + Technology Lock-In ──────
     for bu in ctx.new_bus:
         dec     = ctx.decision_map.get(bu["bu_id"], {})
-        invested = dec.get("capex_allocated", 0) > 0
+        # FIX BUG-1C + FIX-B: SLO investment sensitivity with gradated decay
+        _inv_ratio = ctx.events.get("_pre_austerity_avg_invest", dec.get("investment_ratio", 0))
+        invested = _inv_ratio >= 0.15 or dec.get("capex_allocated", 0) > 0
         bu["reputation_score"], bu["social_license_score"] = apply_natural_decay(
             bu["reputation_score"], bu["social_license_score"], invested,
+            investment_ratio=_inv_ratio,
         )
 
         # ── FEATURE 4: Technical Debt ───────────────────────────
@@ -2731,6 +2747,19 @@ def _run_financial_layer(ctx: TickContext) -> None:
                 "icon": "\U0001f4c9",
                 "severity": "critical",
             })
+        # FIX BUG-1D: NCD accumulation based on investment_ratio
+        # Low investment = deferred environmental maintenance → NCD grows
+        # High investment = active remediation → NCD shrinks
+        _bu_dec = ctx.decision_map.get(bu["bu_id"], {})
+        _bu_inv = _bu_dec.get("investment_ratio", 0)
+        if _bu_inv < 0.20:
+            _ncd_accum = (0.20 - _bu_inv) * bu.get("carbon_intensity", 30) * 0.5
+            bu["natural_capital_debt"] = min(
+                bu["natural_capital_debt"] + _ncd_accum, NCD_HARD_CAP
+            )
+        elif _bu_inv >= 0.30:
+            _ncd_reduction = (_bu_inv - 0.25) * 10
+            bu["natural_capital_debt"] = max(0, bu["natural_capital_debt"] - _ncd_reduction)
         ncd_transparency[bu["bu_id"]] = {
             "old_ncd":          old_ncd,
             "interest_rate_pct": round(rate * 100, 2),
@@ -2743,7 +2772,13 @@ def _run_financial_layer(ctx: TickContext) -> None:
     # ── 5. VRIO Decay ────────────────────────────────────────────
     # FIX AUDIT-006 + FIX CRITICAL-3: decay uses pre_tick_synergy baseline;
     # synergy_boost from completed projects is added AFTER decay.
-    new_synergy = calc_vrio_decay(ctx.pre_tick_synergy, ctx.imitation_decay_rate)
+    # FIX BUG-1B: Investment-responsive synergy decay — continuous reinvestment
+    # slows imitation (VRIO theory: sustained advantage requires reinvestment)
+    # Use pre-austerity ratio so austerity doesn't negate ESG commitment
+    _avg_invest_syn = ctx.events.get("_pre_austerity_avg_invest", 0)
+    # 0% invest → full decay; 50% invest → half decay; floor at 20% of base rate
+    _effective_decay = ctx.imitation_decay_rate * max(0.2, 1.0 - _avg_invest_syn)
+    new_synergy = calc_vrio_decay(ctx.pre_tick_synergy, _effective_decay)
     ctx.events["synergy_decayed_from"] = ctx.pre_tick_synergy
     if _proj_delta.synergy_boost_total:
         new_synergy = round(new_synergy + _proj_delta.synergy_boost_total, 4)
@@ -2816,7 +2851,14 @@ def _run_financial_layer(ctx: TickContext) -> None:
     if ctx.new_treasury < 0:
         debt_service     = round(abs(ctx.new_treasury) * corporate_cost_of_capital, 2)
         ctx.new_treasury = round(ctx.new_treasury - debt_service, 2)
-        ctx.new_treasury = max(ctx.new_treasury, FINANCIAL_TREASURY_FLOOR)
+        # FIX BUG-1A: Dynamic treasury floor — ESG-committed firms have better credit lines
+        # Use pre-austerity investment ratio so austerity clamp doesn't zero the floor
+        _avg_invest_floor = ctx.events.get("_pre_austerity_avg_invest", 0)
+        # Better investors get a less punitive floor (lenders trust ESG-committed firms)
+        # Up to +$200M floor relief at 100% investment ratio
+        _floor_adjustment = _avg_invest_floor * 200_000_000
+        _adjusted_floor = FINANCIAL_TREASURY_FLOOR + _floor_adjustment
+        ctx.new_treasury = max(ctx.new_treasury, _adjusted_floor)
         ctx.events["negative_treasury_interest_applied"] = debt_service
         ctx.events["negative_treasury_interest_because"] = (
             f"Your treasury is negative. Creditors charge {corporate_cost_of_capital*100:.1f}% "
@@ -2856,10 +2898,29 @@ def _run_operational_layer(ctx: TickContext) -> None:
     avg_ci         = _calc_rw_avg_ci(ctx.new_bus)
 
     # Hard-clamp all BU sub-scores before ESG calculations
+    _pre_aust_inv_op = ctx.events.get("_pre_austerity_avg_invest", 0)
     for bu in ctx.new_bus:
         bu["social_license_score"]  = max(0.0, min(100.0, bu.get("social_license_score", 50.0)))
         bu["governance_risk_score"] = max(0.0, min(100.0, bu.get("governance_risk_score", 20.0)))
         bu["carbon_intensity"]      = max(0.0, bu.get("carbon_intensity", 50.0))
+
+        # FIX-E: Investment-driven carbon reduction
+        # High investment → active decarbonization (ESG CAPEX reduces emissions)
+        # Low investment → emissions creep from deferred maintenance
+        if _pre_aust_inv_op >= 0.25:
+            bu["carbon_intensity"] *= (1.0 - _pre_aust_inv_op * 0.10)  # up to -5%/round
+        elif _pre_aust_inv_op < 0.10:
+            bu["carbon_intensity"] *= 1.02  # +2% emissions creep
+
+        # FIX-F: Option-driven emissions impact
+        _bu_dec_op = ctx.decision_map.get(bu["bu_id"], {})
+        _choice = _bu_dec_op.get("choice_selected", "")
+        if _choice == "option_a":
+            bu["carbon_intensity"] = max(0, bu["carbon_intensity"] - 3)  # Green tech
+        elif _choice == "option_c":
+            bu["carbon_intensity"] += 2  # Cost-cutting = dirtier ops
+
+        bu["carbon_intensity"] = round(max(0.0, bu["carbon_intensity"]), 2)
 
     # ── PHASE-1: ESG-Adjusted WACC ───────────────────────────────
     try:
@@ -3363,9 +3424,17 @@ def _run_reporting_layer(ctx: TickContext) -> None:
             primary_choice = c
             break
     greenwash_hit, greenwash_penalty = calc_greenwashing_risk(primary_choice, ctx.decisions)
-    avg_inv_ratio = (
-        sum(d.get("investment_ratio", 0) for d in ctx.decisions) / max(len(ctx.decisions), 1)
-    )
+    # FIX-A: Use pre-austerity investment ratio for greenwashing check.
+    # Without this, good players entering austerity are falsely punished for
+    # greenwashing every round (austerity zeroes their investment_ratio).
+    avg_inv_ratio = ctx.events.get("_pre_austerity_avg_invest", 0)
+    if avg_inv_ratio == 0:  # fallback for tests without pre-austerity tracking
+        avg_inv_ratio = sum(d.get("investment_ratio", 0) for d in ctx.decisions) / max(len(ctx.decisions), 1)
+    # Override greenwash_hit: if pre-austerity investment was above threshold,
+    # the team genuinely invested — austerity shouldn't trigger a false scandal
+    if avg_inv_ratio >= GREENWASH_INVESTMENT_THRESHOLD:
+        greenwash_hit = False
+        greenwash_penalty = 0.0
     ctx.events["greenwashing_checked"]              = True
     ctx.events["greenwashing_avg_investment_ratio"] = round(avg_inv_ratio, 4)
     ctx.events["greenwashing_threshold"]            = 0.15
@@ -3445,6 +3514,13 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     historical_coc_max = current_global.get("active_event_flags", {}).get(
         "regulatory_floor_coc", current_global.get("cost_of_capital", 0.05)
     )
+    # FIX-D: Allow regulatory floor erosion for sustained ESG improvers.
+    # If current ESG-adjusted CoC is significantly below the ratchet floor,
+    # the team has genuinely improved — erode the floor by 0.5% per round.
+    _pre_aust_inv = ctx.events.get("_pre_austerity_avg_invest", 0)
+    if ctx.corporate_cost_of_capital < historical_coc_max * 0.95 and _pre_aust_inv >= 0.20:
+        historical_coc_max = max(0.05, historical_coc_max - 0.005)
+        ctx.events["regulatory_floor_eroded"] = True
     if ctx.corporate_cost_of_capital < historical_coc_max:
         ctx.corporate_cost_of_capital = historical_coc_max
         ctx.events["regulatory_ratchet_active"] = True
@@ -3492,6 +3568,12 @@ def _run_reporting_layer(ctx: TickContext) -> None:
         bu["reputation_score"]      = round(bu.get("reputation_score", 50.0), 2)
         bu["staff_burnout_index"]   = round(bu.get("staff_burnout_index", 0.0), 2)
     ctx.new_treasury           = round(ctx.new_treasury, 2)
+    # FIX BUG-1A (final gate): Re-apply dynamic treasury floor after all operational
+    # layer penalties (carbon fees, CBAM, fines) to maintain ESG-adjusted floor
+    if ctx.new_treasury < 0:
+        _avg_inv_final = ctx.events.get("_pre_austerity_avg_invest", 0)
+        _final_floor = FINANCIAL_TREASURY_FLOOR + (_avg_inv_final * 200_000_000)
+        ctx.new_treasury = max(ctx.new_treasury, _final_floor)
     ctx.new_green_fund_balance = round(ctx.new_green_fund_balance, 2)
     ctx.new_synergy            = round(ctx.new_synergy, 4)
 
@@ -3879,6 +3961,10 @@ def process_tick(
 
     # ── 2. Austerity Clamp (pre-processing guard) ────────────────
     # Operates on the local deep-copied decisions — caller's original is untouched.
+    # FIX BUG-1A: Save pre-austerity investment ratio for dynamic floor calculation
+    _pre_austerity_avg_invest = sum(
+        d.get("investment_ratio", 0) for d in decisions
+    ) / max(len(decisions), 1)
     if current_global.get("active_event_flags", {}).get("cfo_austerity_active", False):
         for d in decisions:
             d["investment_ratio"] = 0.0
@@ -3922,6 +4008,8 @@ def process_tick(
     )
 
     # ── 4. Run the four pipeline stages ─────────────────────────
+    # FIX BUG-1A: Store pre-austerity investment ratio for floor calculations
+    ctx.events["_pre_austerity_avg_invest"] = _pre_austerity_avg_invest
     _run_stochastic_layer(ctx)
     _run_financial_layer(ctx)
     _run_operational_layer(ctx)

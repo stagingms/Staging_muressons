@@ -75,8 +75,9 @@ class EthicsSustainabilityTrack(BaseSideTrack):
         self,
         main_global: dict,
         main_bus: list[dict],
-        completed_tracks: dict[str, dict],
+        completed_tracks: dict[str, dict] = None,
     ) -> DataBridgeInput:
+        completed_tracks = completed_tracks or {}
         flags = main_global.get("active_event_flags", {})
         # Cross-track: SC findings enrich starting state
         sc_state = completed_tracks.get("supply_chain", {})

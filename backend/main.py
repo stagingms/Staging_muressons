@@ -132,6 +132,16 @@ async def lifespan(app: FastAPI):
     """Manage the database lifecycle."""
     await db.get_pool()
 
+    # REC-1a: Startup banner warning for memory mode
+    _is_memory_db = _use_memory or getattr(db, "__name__", "") == "database_memory"
+    if _is_memory_db:
+        print("\n" + "=" * 70)
+        print("  ⚠️  RUNNING IN MEMORY MODE")
+        print("  Data will be lost on server restart.")
+        print("  For classroom sessions, set USE_MEMORY_DB=false")
+        print("  and configure DATABASE_URL for PostgreSQL.")
+        print("=" * 70 + "\n")
+
     # Sync and seed missing cohort sessions for facilitators (e.g. if initial seeding failed)
     try:
         from admin_shared import _facilitator_registry

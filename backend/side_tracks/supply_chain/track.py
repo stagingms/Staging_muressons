@@ -85,7 +85,7 @@ class SupplyChainTrack(BaseSideTrack):
         self,
         main_global: dict,
         main_bus: list[dict],
-        completed_tracks: dict[str, dict],
+        completed_tracks: dict[str, dict] = None,
     ) -> DataBridgeInput:
         """
         DATA BRIDGE (READ): Inherit relevant state from the main simulation
@@ -97,6 +97,7 @@ class SupplyChainTrack(BaseSideTrack):
         initial metrics go into extra_state, which to_seed_dict() merges into
         track_data["state"] verbatim.
         """
+        completed_tracks = completed_tracks or {}
         main_flags = main_global.get("active_event_flags", {})
         has_deep_audit = "deep_audit_completed" in main_flags
         has_blockchain  = "blockchain_traceability" in main_flags

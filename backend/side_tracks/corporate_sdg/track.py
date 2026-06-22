@@ -124,12 +124,13 @@ class CorporateSDGTrack(BaseSideTrack):
         self,
         main_global: dict,
         main_bus: list[dict],
-        completed_tracks: dict[str, dict],
+        completed_tracks: dict[str, dict] = None,
     ) -> DataBridgeInput:
         """
         DATA BRIDGE (READ): Initialize SDG track state from main sim.
         Pulls NCD, reputation, governance risk, and existing flags.
         """
+        completed_tracks = completed_tracks or {}
         flags = main_global.get("active_event_flags", {})
         kpis = self._build_bridge_kpis(main_bus, main_global)
         return DataBridgeInput(

@@ -34,7 +34,7 @@ def calc_esg_adjusted_wacc(
     nature_premium = max(0, biodiversity_dependency * (1 - supply_chain_transparency / 100) * 0.02)
 
     adjusted = base_wacc + carbon_premium + gov_premium - slo_discount + nature_premium
-    adjusted = round(max(0.03, min(0.15, adjusted)), 4)
+    adjusted = round(max(0.03, min(0.20, adjusted)), 4)  # FIX-C: raised cap from 15% to 20%
 
     return adjusted, {
         "base_wacc": base_wacc,

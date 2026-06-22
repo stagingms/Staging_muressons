@@ -134,7 +134,7 @@ class BaseSideTrack(ABC):
         self,
         main_global: dict,
         main_bus: list[dict],
-        completed_tracks: dict[str, dict],
+        completed_tracks: dict[str, dict] = None,
     ) -> DataBridgeInput:
         """
         DATA BRIDGE (READ): Build the typed seed payload for this side track
@@ -148,8 +148,9 @@ class BaseSideTrack(ABC):
             main_global       : Main simulation's current global state dict.
             main_bus          : Main simulation's current BU states list.
             completed_tracks  : {track_id → final track state dict} for any
-                                previously completed side tracks (enables
-                                cross-track dependency enrichment).
+                                 previously completed side tracks (enables
+                                 cross-track dependency enrichment).
+                                 Optional — defaults to empty dict.
 
         Returns:
             DataBridgeInput — strictly validated seed payload.

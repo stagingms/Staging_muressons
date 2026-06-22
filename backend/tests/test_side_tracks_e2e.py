@@ -43,10 +43,10 @@ class TestTrackRegistry(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
 
     def test_total_rounds(self):
-        """6 tracks: 7 + 5 + 4 + 5 + 5 + 5 = 31 total rounds."""
+        """6 tracks: 7 + 5 + 4 + 5 + 5 + 10 = 36 total rounds."""
         catalog = get_track_catalog()
         total = sum(t["num_rounds"] for t in catalog)
-        self.assertEqual(total, 31)
+        self.assertEqual(total, 36)
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -123,21 +123,21 @@ class TestEthicsDataBridge(unittest.TestCase):
 
     def test_seed_without_sc(self):
         seed = self.track.seed_from_main_state(self.main_gs, self.main_bus, {})
-        self.assertFalse(seed["sc_track_completed"])
-        self.assertEqual(seed["human_rights_dd"], 10)  # No SC cobalt boost
+        self.assertFalse(seed.extra_state["sc_track_completed"])
+        self.assertEqual(seed.extra_state["human_rights_dd"], 10)  # No SC cobalt boost
 
     def test_seed_with_sc_cobalt(self):
         completed = {"supply_chain": {"sc_cobalt_findings": True}}
         seed = self.track.seed_from_main_state(self.main_gs, self.main_bus, completed)
-        self.assertTrue(seed["sc_track_completed"])
-        self.assertEqual(seed["human_rights_dd"], 30)  # +20 SC cobalt boost
+        self.assertTrue(seed.extra_state["sc_track_completed"])
+        self.assertEqual(seed.extra_state["human_rights_dd"], 30)  # +20 SC cobalt boost
 
     def test_write_back_high_score(self):
         state = {"ethical_governance": 90, "human_rights_dd": 80, "green_claims_integrity": 85, "biodiversity_stewardship": 75, "just_transition": 80}
         flags = self.track.write_back_to_main(state, self.main_gs)
-        self.assertTrue(flags["ethics_track_completed"])
-        self.assertEqual(flags["es_track_mr_bonus"], 0.10)
-        self.assertTrue(flags.get("es_governance_excellence"))
+        self.assertTrue(flags.flags_to_set["ethics_track_completed"])
+        self.assertEqual(flags.flags_to_set["es_track_mr_bonus"], 0.10)
+        self.assertTrue(flags.flags_to_set.get("es_governance_excellence"))
 
 
 class TestEthicsEngineHooks(unittest.TestCase):
@@ -278,14 +278,14 @@ class TestReportingDataBridge(unittest.TestCase):
 
     def test_seed_without_ethics(self):
         seed = self.track.seed_from_main_state(self.main_gs, self.main_bus, {})
-        self.assertFalse(seed["ethics_track_completed"])
-        self.assertEqual(seed["social_governance"], 10)
+        self.assertFalse(seed.extra_state["ethics_track_completed"])
+        self.assertEqual(seed.extra_state["social_governance"], 10)
 
     def test_seed_with_ethics(self):
         completed = {"ethics_sustainability": {"ethical_governance": 80}}
         seed = self.track.seed_from_main_state(self.main_gs, self.main_bus, completed)
-        self.assertTrue(seed["ethics_track_completed"])
-        self.assertEqual(seed["social_governance"], 20)  # +10 ethics boost
+        self.assertTrue(seed.extra_state["ethics_track_completed"])
+        self.assertEqual(seed.extra_state["social_governance"], 20)  # +10 ethics boost
 
 
 class TestReportingEngineHooks(unittest.TestCase):
@@ -329,61 +329,65 @@ class TestCrossTrackDependencies(unittest.TestCase):
     def test_sc_to_ethics_pipeline(self):
         """SC completion enriches Ethics seeding."""
         sc_track = get_track("supply_chain")
-        sc_state = sc_track.seed_from_main_state(self.main_gs, self.main_bus, {})
+        sc_seed = sc_track.seed_from_main_state(self.main_gs, self.main_bus, {})
+        sc_state = sc_seed.extra_state
         sc_state["accumulated_flags"] = ["sc_cobalt_clean"]
         sc_flags = sc_track.write_back_to_main(sc_state, self.main_gs)
 
         # Update main global with SC flags
-        self.main_gs["active_event_flags"].update(sc_flags)
+        self.main_gs["active_event_flags"].update(sc_flags.flags_to_set)
 
         # Now seed Ethics with SC completed
         es_track = get_track("ethics_sustainability")
         completed = {"supply_chain": sc_state}
-        es_state = es_track.seed_from_main_state(self.main_gs, self.main_bus, completed)
-        self.assertTrue(es_state["sc_track_completed"])
+        es_seed = es_track.seed_from_main_state(self.main_gs, self.main_bus, completed)
+        self.assertTrue(es_seed.extra_state["sc_track_completed"])
 
     def test_ethics_to_reporting_pipeline(self):
         """Ethics completion enriches Reporting seeding."""
         es_track = get_track("ethics_sustainability")
-        es_state = es_track.seed_from_main_state(self.main_gs, self.main_bus, {})
+        es_seed = es_track.seed_from_main_state(self.main_gs, self.main_bus, {})
+        es_state = es_seed.extra_state
         es_state["ethical_governance"] = 80
         es_flags = es_track.write_back_to_main(es_state, self.main_gs)
-        self.main_gs["active_event_flags"].update(es_flags)
+        self.main_gs["active_event_flags"].update(es_flags.flags_to_set)
 
         sr_track = get_track("sustainability_reporting")
         completed = {"ethics_sustainability": es_state}
-        sr_state = sr_track.seed_from_main_state(self.main_gs, self.main_bus, completed)
-        self.assertTrue(sr_state["ethics_track_completed"])
-        self.assertEqual(sr_state["ethics_governance_score"], 80)
-        self.assertEqual(sr_state["social_governance"], 20)  # 10 base + 10 ethics
+        sr_seed = sr_track.seed_from_main_state(self.main_gs, self.main_bus, completed)
+        self.assertTrue(sr_seed.extra_state["ethics_track_completed"])
+        self.assertEqual(sr_seed.extra_state["ethics_governance_score"], 80)
+        self.assertEqual(sr_seed.extra_state["social_governance"], 20)  # 10 base + 10 ethics
 
     def test_full_chain_sc_ethics_reporting(self):
         """Full 3-track dependency chain: SC → Ethics → Reporting."""
         # SC
         sc = get_track("supply_chain")
-        sc_state = sc.seed_from_main_state(self.main_gs, self.main_bus, {})
+        sc_seed = sc.seed_from_main_state(self.main_gs, self.main_bus, {})
+        sc_state = sc_seed.extra_state
         sc_flags = sc.write_back_to_main(sc_state, self.main_gs)
-        self.main_gs["active_event_flags"].update(sc_flags)
+        self.main_gs["active_event_flags"].update(sc_flags.flags_to_set)
 
         # Ethics (seeded by SC)
         es = get_track("ethics_sustainability")
-        es_state = es.seed_from_main_state(self.main_gs, self.main_bus, {"supply_chain": sc_state})
+        es_seed = es.seed_from_main_state(self.main_gs, self.main_bus, {"supply_chain": sc_state})
+        es_state = es_seed.extra_state
         es_state["ethical_governance"] = 75
         es_flags = es.write_back_to_main(es_state, self.main_gs)
-        self.main_gs["active_event_flags"].update(es_flags)
+        self.main_gs["active_event_flags"].update(es_flags.flags_to_set)
 
         # Reporting (seeded by Ethics)
         sr = get_track("sustainability_reporting")
-        sr_state = sr.seed_from_main_state(self.main_gs, self.main_bus, {"supply_chain": sc_state, "ethics_sustainability": es_state})
-        self.assertTrue(sr_state["ethics_track_completed"])
-        self.assertEqual(sr_state["ethics_governance_score"], 75)
+        sr_seed = sr.seed_from_main_state(self.main_gs, self.main_bus, {"supply_chain": sc_state, "ethics_sustainability": es_state})
+        self.assertTrue(sr_seed.extra_state["ethics_track_completed"])
+        self.assertEqual(sr_seed.extra_state["ethics_governance_score"], 75)
 
     def test_standalone_track_no_dependencies(self):
         """Stakeholder Management works without any completed tracks."""
         sm = get_track("stakeholder_management")
         self.assertEqual(sm.cross_track_prerequisites, [])
-        state = sm.seed_from_main_state(self.main_gs, self.main_bus, {})
-        score = sm.calculate_score(state)
+        seed = sm.seed_from_main_state(self.main_gs, self.main_bus, {})
+        score = sm.calculate_score(seed.extra_state)
         self.assertGreaterEqual(score["total_score"], 0)
 
 
@@ -405,8 +409,10 @@ class TestMultiplayerStateIsolation(unittest.TestCase):
     def test_independent_seeding(self):
         """Two players seed independently from the same main state."""
         track = get_track("supply_chain")
-        state_p1 = track.seed_from_main_state(self.main_gs, self.main_bus, {})
-        state_p2 = track.seed_from_main_state(self.main_gs, self.main_bus, {})
+        seed_p1 = track.seed_from_main_state(self.main_gs, self.main_bus, {})
+        state_p1 = seed_p1.extra_state
+        seed_p2 = track.seed_from_main_state(self.main_gs, self.main_bus, {})
+        state_p2 = seed_p2.extra_state
 
         # Both should start identically
         self.assertEqual(state_p1["supply_visibility"], state_p2["supply_visibility"])
@@ -436,10 +442,10 @@ class TestMultiplayerStateIsolation(unittest.TestCase):
         flags_good = track.write_back_to_main(state_good, self.main_gs)
         flags_bad = track.write_back_to_main(state_bad, self.main_gs)
 
-        self.assertTrue(flags_good.get("supply_chain_resilient"))
-        self.assertTrue(flags_bad.get("supply_chain_fragile"))
-        self.assertEqual(flags_good.get("sc_track_mr_bonus"), 0.10)
-        self.assertEqual(flags_bad.get("sc_track_mr_penalty"), -0.05)
+        self.assertTrue(flags_good.flags_to_set.get("supply_chain_resilient"))
+        self.assertTrue(flags_bad.flags_to_set.get("supply_chain_fragile"))
+        self.assertEqual(flags_good.flags_to_set.get("sc_track_mr_bonus"), 0.10)
+        self.assertEqual(flags_bad.flags_to_set.get("sc_track_mr_penalty"), -0.05)
 
     def test_post_tick_isolation(self):
         """Post-tick mutations to one player's global state don't affect another's."""
@@ -482,11 +488,11 @@ class TestMRFlagAccumulation(unittest.TestCase):
                 state["supplier_risk_score"] = 10
 
             flags = track.write_back_to_main(state, main_gs)
-            mr_bonus = flags.get(f"{tid[:2]}_track_mr_bonus", flags.get("sm_track_mr_bonus", flags.get("sr_track_mr_bonus", 0)))
+            mr_bonus = flags.flags_to_set.get(f"{tid[:2]}_track_mr_bonus", flags.flags_to_set.get("sm_track_mr_bonus", flags.flags_to_set.get("sr_track_mr_bonus", 0)))
 
             # All high-scoring tracks should yield positive M_R
             total_mr += mr_bonus
-            main_gs["active_event_flags"].update(flags)
+            main_gs["active_event_flags"].update(flags.flags_to_set)
 
         # Should have meaningful cumulative M_R bonus
         self.assertGreater(total_mr, 0.15)

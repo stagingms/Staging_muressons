@@ -1,4 +1,4 @@
-﻿"""
+"""
 Muressons Global Corporation — Supply Chain Side Track Tests
 
 Tests the Supply Chain side track's:
@@ -121,32 +121,32 @@ class TestSupplyChainDataBridgeRead(unittest.TestCase):
             "circular_procurement_index", "digital_maturity", "geopolitical_resilience",
         ]
         for key in required_keys:
-            self.assertIn(key, seed, f"Seed missing track metric: {key}")
+            self.assertIn(key, seed.extra_state, f"Seed missing track metric: {key}")
 
     def test_seed_supply_visibility_baseline(self):
         """Without main sim deep audit, visibility starts at 20."""
         seed = self.track.seed_from_main_state(self.main_global, self.main_bus, {})
-        self.assertEqual(seed["supply_visibility"], 20)
+        self.assertEqual(seed.extra_state["supply_visibility"], 20)
 
     def test_seed_deep_audit_bonus(self):
         """With main sim deep audit, visibility starts at 30 (+10 bonus)."""
         self.main_global["active_event_flags"]["deep_audit_completed"] = True
         seed = self.track.seed_from_main_state(self.main_global, self.main_bus, {})
-        self.assertEqual(seed["supply_visibility"], 30)
+        self.assertEqual(seed.extra_state["supply_visibility"], 30)
 
     def test_seed_blockchain_bonus(self):
         """Main sim blockchain adds +15 to digital maturity."""
         self.main_global["active_event_flags"]["blockchain_traceability"] = True
         seed = self.track.seed_from_main_state(self.main_global, self.main_bus, {})
-        self.assertEqual(seed["digital_maturity"], 25)  # 10 base + 15
+        self.assertEqual(seed.extra_state["digital_maturity"], 25)  # 10 base + 15
 
     def test_seed_inherits_ncd(self):
         seed = self.track.seed_from_main_state(self.main_global, self.main_bus, {})
-        self.assertEqual(seed["inherited_ncd"], 25.0)  # 15 + 10
+        self.assertEqual(seed.extra_state["inherited_ncd"], 25.0)  # 15 + 10
 
     def test_seed_inherits_carbon_intensity(self):
         seed = self.track.seed_from_main_state(self.main_global, self.main_bus, {})
-        self.assertEqual(seed["inherited_carbon_intensity"], 37.5)  # (45+30)/2
+        self.assertEqual(seed.extra_state["inherited_carbon_intensity"], 37.5)  # (45+30)/2
 
 
 class TestSupplyChainDataBridgeWrite(unittest.TestCase):
@@ -163,7 +163,7 @@ class TestSupplyChainDataBridgeWrite(unittest.TestCase):
     def test_completed_flag_always_set(self):
         state = {"supply_visibility": 50}
         flags = self.track.write_back_to_main(state, self.main_global)
-        self.assertTrue(flags["supply_chain_track_completed"])
+        self.assertTrue(flags.flags_to_set["supply_chain_track_completed"])
 
     def test_high_score_resilient_flag(self):
         state = {
@@ -172,8 +172,8 @@ class TestSupplyChainDataBridgeWrite(unittest.TestCase):
             "digital_maturity": 70, "geopolitical_resilience": 65,
         }
         flags = self.track.write_back_to_main(state, self.main_global)
-        self.assertTrue(flags.get("supply_chain_resilient"))
-        self.assertIn(flags.get("sc_track_mr_bonus"), [0.05, 0.10])  # Depends on consumer_trust
+        self.assertTrue(flags.flags_to_set.get("supply_chain_resilient"))
+        self.assertIn(flags.flags_to_set.get("sc_track_mr_bonus"), [0.05, 0.10])  # Depends on consumer_trust
 
     def test_medium_score_adequate_flag(self):
         state = {
@@ -182,7 +182,7 @@ class TestSupplyChainDataBridgeWrite(unittest.TestCase):
             "digital_maturity": 20, "geopolitical_resilience": 20,
         }
         flags = self.track.write_back_to_main(state, self.main_global)
-        self.assertTrue(flags.get("supply_chain_adequate"))
+        self.assertTrue(flags.flags_to_set.get("supply_chain_adequate"))
 
     def test_low_score_fragile_flag(self):
         state = {
@@ -191,14 +191,14 @@ class TestSupplyChainDataBridgeWrite(unittest.TestCase):
             "digital_maturity": 5, "geopolitical_resilience": 5,
         }
         flags = self.track.write_back_to_main(state, self.main_global)
-        self.assertTrue(flags.get("supply_chain_fragile"))
-        self.assertEqual(flags.get("sc_track_mr_penalty"), -0.05)
+        self.assertTrue(flags.flags_to_set.get("supply_chain_fragile"))
+        self.assertEqual(flags.flags_to_set.get("sc_track_mr_penalty"), -0.05)
 
     def test_grade_included(self):
         state = {"supply_visibility": 75, "supplier_risk_score": 25}
         flags = self.track.write_back_to_main(state, self.main_global)
-        self.assertIn("supply_chain_grade", flags)
-        self.assertIn(flags["supply_chain_grade"], ["A+", "A", "B", "C", "D", "F"])
+        self.assertIn("supply_chain_grade", flags.flags_to_set)
+        self.assertIn(flags.flags_to_set["supply_chain_grade"], ["A+", "A", "B", "C", "D", "F"])
 
 
 class TestSupplyChainScoring(unittest.TestCase):
