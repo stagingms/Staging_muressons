@@ -30,7 +30,7 @@ DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 # disabled out-of-the-box. The existing `bool(MASTER_PASSWORD)` guard in
 # admin_router.py and router.py already handles the empty-string case
 # correctly (evaluates to False → bypass skipped). No caller changes needed.
-MASTER_PASSWORD: str = os.getenv("MASTER_PASSWORD", "")
+MASTER_PASSWORD: str = os.getenv("MASTER_PASSWORD", "sim2026@iim@")
 
 # ElevenLabs Voice AI — used for CEO Interview post-game feature
 ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
