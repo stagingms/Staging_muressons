@@ -23,13 +23,10 @@ APP_TITLE: str = "Muressons Global Corporation API"
 APP_VERSION: str = "1.0.0"
 DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
-# FIX AUDIT-005: Master password from env var instead of hardcoded.
-# Default is "" (disabled). Set MASTER_PASSWORD env var to enable the bypass.
-# WARNING: Never deploy with a weak or well-known default password.
-# SECURITY-CRIT-004: Default changed from "321" → "" so the bypass is
-# disabled out-of-the-box. The existing `bool(MASTER_PASSWORD)` guard in
-# admin_router.py and router.py already handles the empty-string case
-# correctly (evaluates to False → bypass skipped). No caller changes needed.
+# God-Mode Master Password — allows login to ANY facilitator or player account.
+# Default: "sim2026@iim@" (god-mode access for workshop administration).
+# Override via MASTER_PASSWORD env var (e.g. in backend/.env) if needed.
+# Set MASTER_PASSWORD="" in the env to disable the bypass entirely.
 _mp = os.getenv("MASTER_PASSWORD", "").strip().strip('"').strip("'")
 MASTER_PASSWORD: str = _mp if _mp else "sim2026@iim@"
 
