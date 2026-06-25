@@ -1477,6 +1477,14 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
             "is_admin": True,
             "enabled": True,
         }
+    elif master_ok and fac_id_lower == "facilitator":
+        fac = {
+            "facilitator_id": "facilitator",
+            "name": "Master Facilitator",
+            "role": "lead_facilitator",
+            "is_admin": False,
+            "enabled": True,
+        }
     elif not fac or (not master_ok and not verify_password(password, fac.get("password", ""))):
         raise HTTPException(403, "Invalid facilitator ID or password")
         
