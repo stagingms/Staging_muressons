@@ -365,6 +365,15 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     const wsRef = useRef(null);
     const [showChangePw, setShowChangePw] = useState(false);
 
+    // Phase 4 (F1): admin-WS liveness. The dashboard previously fetched the
+    // leaderboard once and then depended forever on a socket with no
+    // reconnect — a dropped connection silently froze every panel.
+    const [wsState, setWsState] = useState('connecting'); // 'connecting' | 'live' | 'reconnecting'
+    const [lastDataAt, setLastDataAt] = useState(null);
+    const reconnectAttempts = useRef(0);
+    const reconnectTimer = useRef(null);
+    const wsMountedRef = useRef(true);
+
     // SessionContext persistence — persists selected session across tab switches
     const setSelectedSession = useCallback((sid) => {
         _setSelectedSession(sid);
@@ -497,12 +506,53 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             .catch(() => { /* keep defaults (visible) */ });
     }, []);
 
-    /* ── WebSocket for real-time admin updates ─────────────── */
+    /* ── WebSocket for real-time admin updates — Phase 4 (F1) ──────────
+       Auto-reconnect with capped exponential backoff. ADMIN socket only:
+       the player socket (hooks/useSimulation.js) is deliberately untouched.
+       Wire protocol, URL, and message handling are identical — only the
+       lifecycle around the socket changed. */
     useEffect(() => {
-        let ws;
-        try {
-            ws = new WebSocket(`${WS_URL}/api/admin/ws/admin?facilitator_id=${authData.facilitator_id}`);
+        wsMountedRef.current = true;
+
+        const scheduleReconnect = () => {
+            if (!wsMountedRef.current || reconnectTimer.current) return;
+            setWsState('reconnecting');
+            reconnectAttempts.current += 1;
+            // 2s, 4s, 8s, 16s, 30s cap — fast enough for a venue Wi-Fi blip,
+            // slow enough not to hammer a restarting backend.
+            const delay = Math.min(30000, 1000 * 2 ** Math.min(reconnectAttempts.current, 5));
+            reconnectTimer.current = setTimeout(() => {
+                reconnectTimer.current = null;
+                connect();
+            }, delay);
+        };
+
+        const connect = () => {
+            if (!wsMountedRef.current) return;
+            // Idempotent: close any previous socket so reconnects never leak
+            // connections (verifiable via WS CONNECTIONS in God Mode).
+            try { wsRef.current?.close(); } catch { /* ignore */ }
+            let ws;
+            try {
+                ws = new WebSocket(`${WS_URL}/api/admin/ws/admin?facilitator_id=${authData.facilitator_id}`);
+            } catch {
+                scheduleReconnect();
+                return;
+            }
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                if (!wsMountedRef.current) return;
+                const wasRetry = reconnectAttempts.current > 0;
+                reconnectAttempts.current = 0;
+                setWsState('live');
+                addLog({ type: 'system', message: wasRetry ? 'Admin WebSocket reconnected' : 'Admin WebSocket connected' });
+                // Catch up on anything missed while disconnected. Events from
+                // the gap live in the server-side audit trail, not this feed.
+                if (wasRetry) fetchLeaderboard();
+            };
             ws.onmessage = (evt) => {
+                setLastDataAt(Date.now());
                 const data = JSON.parse(evt.data);
                 if (data.type === 'sessions_refresh' || data.type === 'sessions_refresh_trigger') {
                     fetchLeaderboard();
@@ -525,13 +575,20 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                     addLog(data);
                 }
             };
-            ws.onopen = () => addLog({ type: 'system', message: 'Admin WebSocket connected' });
-            ws.onerror = () => addLog({ type: 'system', message: 'WebSocket error — live updates may be interrupted', severity: 'warning' });
-            wsRef.current = ws;
-        } catch {
-            // Backend offline — use seed data
-        }
-        return () => ws?.close();
+            ws.onerror = () => {
+                if (wsMountedRef.current) addLog({ type: 'system', message: 'WebSocket error — live updates may be interrupted', severity: 'warning' });
+            };
+            ws.onclose = () => {
+                if (wsMountedRef.current) scheduleReconnect();
+            };
+        };
+
+        connect();
+        return () => {
+            wsMountedRef.current = false;
+            if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
+            try { wsRef.current?.close(); } catch { /* ignore */ }
+        };
     }, []);
 
     const addLog = useCallback((entry) => {
@@ -559,6 +616,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             if (res.ok) {
                 const data = await res.json();
                 setLeaderboard(data.leaderboard || []);
+                setLastDataAt(Date.now());
             }
         } catch {
             // Backend offline — keep existing data
@@ -568,6 +626,18 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     useEffect(() => {
         fetchLeaderboard();
     }, [fetchLeaderboard]);
+
+    // Phase 4 (F1): polling fallback — ONLY while the socket is down. The
+    // dashboard degrades to "slow" instead of "silently frozen", and stops
+    // polling the moment the socket is back (no steady-state load change).
+    useEffect(() => {
+        if (wsState === 'live') return;
+        const t = setInterval(() => {
+            fetchLeaderboard();
+            refreshScaffolding();
+        }, 30000);
+        return () => clearInterval(t);
+    }, [wsState, fetchLeaderboard, refreshScaffolding]);
 
     const handleOverride = useCallback(
         (result) => {
@@ -1200,6 +1270,24 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 }}>
                     {authData?.role === 'super_admin' ? '👑 Super Admin' :
                      authData?.role === 'lead_facilitator' ? '⭐ Lead' : '🎓 Facilitator'}
+                </span>
+
+                {/* Phase 4 (F1): connection truth — a facilitator must be able to
+                    tell "live data" from "last known snapshot" at a glance. */}
+                <span
+                    title={wsState === 'live'
+                        ? 'Real-time connection healthy'
+                        : 'Live updates interrupted — reconnecting automatically; data refreshes every 30s meanwhile. Events during the gap are in the server audit trail (Decision History).'}
+                    style={{
+                        padding: '0.2rem 0.6rem', borderRadius: '6px', fontWeight: 700, fontSize: '0.68rem',
+                        background: wsState === 'live' ? 'rgba(34,197,94,0.12)' : 'rgba(245,158,11,0.15)',
+                        color: wsState === 'live' ? '#22c55e' : '#f59e0b',
+                        border: `1px solid ${wsState === 'live' ? 'rgba(34,197,94,0.3)' : 'rgba(245,158,11,0.35)'}`,
+                        whiteSpace: 'nowrap',
+                    }}
+                >
+                    {wsState === 'live' ? '● Live' : wsState === 'connecting' ? '○ Connecting…' : '⟳ Reconnecting…'}
+                    {lastDataAt ? ` · ${new Date(lastDataAt).toLocaleTimeString()}` : ''}
                 </span>
 
                 {/* Phase 3 (F2): the selection is now settable right where the
