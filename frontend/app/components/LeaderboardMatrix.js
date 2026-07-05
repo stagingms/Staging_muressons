@@ -145,7 +145,10 @@ export default function LeaderboardMatrix({
                                     key={sess.session_id}
                                     className={`${styles.row} ${sess.session_id === selectedSession ? styles.selectedRow : ''} ${isPlayer ? styles.playerRow : ''}`}
                                     onClick={() => onSelectSession?.(sess.session_id)}
-                                    style={{ animationDelay: `${i * 50}ms` }}
+                                    title={sess.session_id === selectedSession
+                                        ? 'Selected — session-scoped tools (Override, Undo, Messages…) act on this session'
+                                        : 'Click to select — session-scoped tools will act on this session'}
+                                    style={{ animationDelay: `${i * 50}ms`, cursor: 'pointer' }}
                                 >
                                     <td className={styles.rank}>
                                         {isCohort ? (
@@ -157,6 +160,9 @@ export default function LeaderboardMatrix({
                                         )}
                                     </td>
                                     <td className={styles.cohortName}>
+                                        {sess.session_id === selectedSession && (
+                                            <span title="Selected — session-scoped tools act on this session" style={{ marginRight: '4px', color: '#22c55e', fontWeight: 800 }}>✓</span>
+                                        )}
                                         {isCohort && isPractice && <span title="Practice Mode Active" style={{ marginRight: '4px' }}>🎓</span>}
                                         {isPlayer ? (
                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem', paddingLeft: '8px' }}>

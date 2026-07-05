@@ -41,6 +41,7 @@ import { FACILITATOR_SIDEBAR, filterSidebarForRole, getTabMeta as _getTabMeta } 
 import NotificationBell from '../../components/NotificationBell';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import CohortPulse from '../../components/CohortPulse';
+import CohortSelector from '../../components/CohortSelector';
 import FacilitatorTeachableMoments from '../../components/FacilitatorTeachableMoments';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -658,6 +659,24 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             s => !s.player_id && s.facilitator_id === authData.facilitator_id
         );
 
+        // Phase 3 (F2): session-scoped tools embed the SAME global selector in
+        // their empty state instead of sending the facilitator to hunt for the
+        // hidden click-a-leaderboard-row convention.
+        const requireCohort = (title, node) => {
+            if (selectedSession) return node;
+            return (
+                <div style={{ padding: '3rem 2rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px dashed var(--border-subtle)' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.5 }}>🎯</div>
+                    <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>{title} needs a target cohort</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', maxWidth: '520px', margin: '0 auto 1rem' }}>
+                        Choose the cohort this tool should act on. The same selection drives every
+                        session-scoped tool and the quick actions in the bottom bar.
+                    </p>
+                    <CohortSelector leaderboard={leaderboard} selectedSession={selectedSession} onSelect={setSelectedSession} />
+                </div>
+            );
+        };
+
         switch (activeTab) {
             // ── Overview tabs ──
             case 'dashboard_home':
@@ -725,7 +744,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                         <RoundTimeline sessionId={selectedSession} leaderboard={leaderboard} />
 
                         {/* Round Pacing Controls for Facilitator */}
-                        <RoundPacingControl sessions={filteredSessions} />
+                        <RoundPacingControl sessions={filteredSessions} selectedSession={selectedSession} />
 
                         {/* Quiz Controls for Facilitator */}
                         <QuizControlPanel sessions={filteredSessions} />
@@ -832,22 +851,22 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 );
             case 'undo_round': {
                 const fullSession = leaderboard.find(s => s.session_id === selectedSession);
-                return <UndoRound session={fullSession} />;
+                return requireCohort('Undo Round', <UndoRound session={fullSession} />);
             }
 
             // ── Interventions tabs ──
             case 'intervention_config':
-                return <InterventionConfig sessionId={selectedSession} />;
+                return requireCohort('Interventions', <InterventionConfig sessionId={selectedSession} />);
             case 'auto_pause':
-                return <AutoPauseConfig sessionId={selectedSession} />;
+                return requireCohort('Auto-Pause Triggers', <AutoPauseConfig sessionId={selectedSession} />);
             case 'manual_override':
-                return (
+                return requireCohort('Manual Overrides', (
                     <div className={styles.controlsRow}>
                         <ManualOverride sessionId={selectedSession} onOverrideApplied={handleOverride} />
                     </div>
-                );
+                ));
             case 'swipe_file':
-                return <SwipeFile sessionId={selectedSession} onMessageSent={handleMessageSent} />;
+                return requireCohort('Swipe File / Inbox', <SwipeFile sessionId={selectedSession} onMessageSent={handleMessageSent} />);
             case 'broadcast':
                 return <BulkMessaging leaderboard={leaderboard} />;
 
@@ -879,9 +898,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
 
             // ── Collaboration tabs ──
             case 'bonuses':
-                return <StudentBonuses sessionId={selectedSession} />;
+                return requireCohort('Student Bonuses', <StudentBonuses sessionId={selectedSession} />);
             case 'peer_eval':
-                return <PeerEvaluation sessionId={selectedSession} />;
+                return requireCohort('Peer Evaluations', <PeerEvaluation sessionId={selectedSession} />);
 
             case 'teaching_journal':
                 return (
@@ -1183,8 +1202,16 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                      authData?.role === 'lead_facilitator' ? '⭐ Lead' : '🎓 Facilitator'}
                 </span>
 
-                {/* Selected session context */}
-                <span style={{ color: 'var(--text-muted)', flex: 1 }}>
+                {/* Phase 3 (F2): the selection is now settable right where the
+                    quick actions need it — not only via the hidden
+                    click-a-leaderboard-row convention. */}
+                <span style={{ color: 'var(--text-muted)', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+                    <CohortSelector
+                        leaderboard={leaderboard}
+                        selectedSession={selectedSession}
+                        onSelect={setSelectedSession}
+                        compact
+                    />
                     {selectedSession ? (
                         <>
                             <span style={{ color: '#22c55e', fontWeight: 600 }}>●</span>{' '}
@@ -1193,7 +1220,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                             {leaderboard.find(s => s.session_id === selectedSession)?.round_number || '?'}
                         </>
                     ) : (
-                        <span style={{ opacity: 0.5 }}>No session selected</span>
+                        <span style={{ opacity: 0.5 }}>No cohort selected — session tools disabled</span>
                     )}
                 </span>
 

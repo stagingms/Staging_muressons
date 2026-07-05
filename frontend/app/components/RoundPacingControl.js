@@ -51,7 +51,7 @@ function localToIso(local) {
     return new Date(local).toISOString();
 }
 
-export default function RoundPacingControl({ sessions: propSessions } = {}) {
+export default function RoundPacingControl({ sessions: propSessions, selectedSession: globalSelectedSession = null } = {}) {
     const API = process.env.NEXT_PUBLIC_API_URL || '';
     const [sessions, setSessions] = useState(propSessions || []);
     const [sessionId, setSessionId] = useState('');
@@ -64,17 +64,23 @@ export default function RoundPacingControl({ sessions: propSessions } = {}) {
     // 10-element array of ISO strings (null = unscheduled)
     const [schedule, setSchedule] = useState(Array(TOTAL_ROUNDS).fill(null));
 
-    // Sync propSessions if provided (facilitator mode — already filtered)
+    // Sync propSessions if provided (facilitator mode — already filtered).
+    // Phase 3 (F2): NO silent default-to-first-session. Pacing acting on a
+    // cohort the facilitator never consciously chose is how a mode change
+    // lands on the wrong room. Selection must be explicit (or follow the
+    // dashboard-wide target cohort below).
     useEffect(() => {
-        if (propSessions) {
-            setSessions(propSessions);
-            if (propSessions.length > 0 && !sessionId) {
-                const first = propSessions[0];
-                const id = first?.session_id || first?.id || first;
-                setSessionId(typeof id === 'string' ? id : String(id));
-            }
+        if (propSessions) setSessions(propSessions);
+    }, [propSessions]);
+
+    // Follow the dashboard-wide selection when it is present in our list.
+    useEffect(() => {
+        if (!globalSelectedSession) return;
+        const list = propSessions || sessions;
+        if (list.some(s => (s?.session_id || s?.id || s) === globalSelectedSession)) {
+            setSessionId(globalSelectedSession);
         }
-    }, [propSessions]); // eslint-disable-line react-hooks/exhaustive-deps
+    }, [globalSelectedSession, propSessions]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Fetch sessions list — only in God Mode (no propSessions)
     useEffect(() => {
@@ -84,11 +90,7 @@ export default function RoundPacingControl({ sessions: propSessions } = {}) {
             .then(d => {
                 const list = Array.isArray(d) ? d : (d?.sessions || []);
                 setSessions(list);
-                if (list.length > 0 && !sessionId) {
-                    const first = list[0];
-                    const id = first?.session_id || first?.id || first;
-                    setSessionId(typeof id === 'string' ? id : String(id));
-                }
+                // Phase 3 (F2): no auto-select of the first session — see above.
             })
             .catch(() => { });
     }, [API]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -213,9 +215,7 @@ export default function RoundPacingControl({ sessions: propSessions } = {}) {
                     value={sessionId}
                     onChange={e => setSessionId(e.target.value)}
                 >
-                    {sessions.length === 0 && (
-                        <option value="">No sessions</option>
-                    )}
+                    <option value="">— Select a cohort —</option>
                     {sessions.map(s => {
                         const id = s.session_id || s.id;
                         return (

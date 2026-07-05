@@ -34,6 +34,7 @@ import RegulatorySandboxControl from '../../components/RegulatorySandboxControl'
 import SimulationSwitchboard from '../../components/SimulationSwitchboard';
 import { GOD_MODE_SIDEBAR, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
 import { adminJson } from '../../utils/adminFetch';
+import CohortSelector from '../../components/CohortSelector';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import StakeholderConfig from '../../components/StakeholderConfig';
 import PillarConfigurator from '../../components/PillarConfigurator';
@@ -754,19 +755,12 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 const sandboxSessions = leaderboard.filter(s => !s.player_id);
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {sandboxSessions.length > 0 && (
-                            <div style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>⚖️ Target Cohort:</span>
-                                <select
-                                    value={selectedSession || ''}
-                                    onChange={e => setSelectedSession(e.target.value || null)}
-                                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
-                                >
-                                    <option value=''>— Select a cohort —</option>
-                                    {sandboxSessions.map(s => <option key={s.session_id} value={s.session_id}>{s.cohort_name || s.session_id}</option>)}
-                                </select>
-                            </div>
-                        )}
+                        <div style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <CohortSelector leaderboard={leaderboard} selectedSession={selectedSession} onSelect={setSelectedSession} label="⚖️ Target Cohort:" />
+                            {sandboxSessions.length === 0 && (
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No cohorts yet — provision one first.</span>
+                            )}
+                        </div>
                         <RegulatorySandboxControl sessionId={selectedSession} isGodMode={true} />
                     </div>
                 );
@@ -797,19 +791,12 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 const cohortSessions = leaderboard.filter(s => !s.player_id);
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                        {cohortSessions.length > 0 && (
-                            <div style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                                <span style={{ fontSize: '0.8rem', fontWeight: 700, color: 'var(--text-muted)' }}>📋 Select Cohort:</span>
-                                <select
-                                    value={selectedSession || ''}
-                                    onChange={e => setSelectedSession(e.target.value || null)}
-                                    style={{ padding: '0.4rem 0.8rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.85rem' }}
-                                >
-                                    <option value=''>— Choose a cohort —</option>
-                                    {cohortSessions.map(s => <option key={s.session_id} value={s.session_id}>{s.cohort_name || s.session_id}</option>)}
-                                </select>
-                            </div>
-                        )}
+                        <div style={{ padding: '0.75rem 1.5rem', background: 'var(--bg-card)', borderRadius: '10px', border: '1px solid var(--border-subtle)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <CohortSelector leaderboard={leaderboard} selectedSession={selectedSession} onSelect={setSelectedSession} label="📋 Select Cohort:" />
+                            {cohortSessions.length === 0 && (
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>No cohorts yet — provision one first.</span>
+                            )}
+                        </div>
                         <DebriefReport sessionId={selectedSession} />
                     </div>
                 );
@@ -992,7 +979,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                     failedAttempts={sysStatus.failedAttempts}
                 />
                 <header className={styles.topBar}>
-                    <div className={styles.meta}>
+                    <div className={styles.meta} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', width: '100%' }}>
                         {(() => {
                             const meta = getTabMeta(activeTab);
                             return (
@@ -1005,6 +992,13 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                                 </nav>
                             );
                         })()}
+                        {/* G5: one visible, global target-cohort selection instead of
+                            hidden coupling between per-tab pickers. */}
+                        <CohortSelector
+                            leaderboard={leaderboard}
+                            selectedSession={selectedSession}
+                            onSelect={setSelectedSession}
+                        />
                     </div>
                 </header>
 
