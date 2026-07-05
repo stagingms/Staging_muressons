@@ -42,6 +42,7 @@ import NotificationBell from '../../components/NotificationBell';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import CohortPulse from '../../components/CohortPulse';
 import CohortSelector from '../../components/CohortSelector';
+import { useConfirm } from '../../components/ConfirmModal';
 import FacilitatorTeachableMoments from '../../components/FacilitatorTeachableMoments';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -374,6 +375,10 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     const reconnectTimer = useRef(null);
     const wsMountedRef = useRef(true);
 
+    // Phase 5 (F4): shared tiered confirmation — replaces every chained
+    // native confirm() on this screen. See ConfirmModal.js.
+    const [confirmAction, confirmModal] = useConfirm();
+
     // SessionContext persistence — persists selected session across tab switches
     const setSelectedSession = useCallback((sid) => {
         _setSelectedSession(sid);
@@ -411,9 +416,10 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
         } catch { /* ignore */ }
     }, []);
 
-    // Role-based tab filtering — allowed_tabs from login API response
-    const allowedTabs = authData?.allowed_tabs || ['*'];
-    const canAccessTab = (tabId) => allowedTabs.includes('*') || allowedTabs.includes(tabId);
+    // F9 (Phase 5): tab access is derived from the SAME filtered sidebar the
+    // nav renders from — see canAccessTab below FILTERED_SIDEBAR. Previously
+    // the sidebar used role + allowed_tabs while the quick bar checked
+    // allowed_tabs alone, so the two surfaces could disagree.
 
     // Scaffolding status fetched from God Mode for read-only visibility.
     // Phase 2 (F10): track sync freshness so the strip can show when it last
@@ -661,16 +667,21 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     const handleResetSession = useCallback(async (sid, cohortName, hard = false) => {
         const name = cohortName || leaderboard.find(s => s.session_id === sid)?.cohort_name || sid.slice(0, 12);
         const isPlayer = name.includes('Player');
-        const prompt = isPlayer
-            ? `⚠️ Remove "${name}"?\n\nThis will permanently remove this player's session and all their round data.`
-            : `⚠️ Delete cohort "${name}" and ALL its players?\n\nThis will remove the cohort and every player session under it.`;
-        if (!confirm(prompt)) return;
-        if (hard) {
-            if (!confirm(`🧨 HARD DELETE: Are you absolutely sure you want to completely wipe "${name}" today without the 7-day grace period?\n\nClick OK to confirm HARD DELETION.`)) return;
-        } else {
-            if (!confirm(`Are you absolutely sure you want to delete "${name}"?\n\nClick OK to confirm.`)) return;
-        }
-        
+        // F4: one confirm with a blast-radius preview beats a chain of
+        // identical dialogs that trains click-through.
+        const childPlayers = leaderboard.filter(s => s.parent_cohort_id === sid).length;
+        const round = leaderboard.find(s => s.session_id === sid)?.round_number || 1;
+        const ok = await confirmAction({
+            title: hard ? `🧨 Hard delete "${name}"` : (isPlayer ? `🗑️ Remove "${name}"` : `🗑️ Delete cohort "${name}"`),
+            message: isPlayer
+                ? 'This permanently removes this player session and all of its round data.'
+                : 'This removes the cohort and every player session under it.',
+            impact: `${isPlayer ? 'Player session' : `Cohort + ${childPlayers} player session(s)`} · currently at Round ${round}.${hard ? ' HARD delete bypasses the 7-day recovery window.' : ' Recoverable for 7 days (soft delete).'}`,
+            requirePhrase: hard ? 'DELETE' : null,
+            confirmLabel: hard ? 'Hard delete now' : 'Delete',
+        });
+        if (!ok) return;
+
         try {
             const endpoint = `${API}/api/admin/${sid}/reset${hard ? '?hard=true' : ''}`;
             const res = await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
@@ -691,11 +702,20 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 addLog({ type: 'system', message: `Delete failed: ${res.status}` });
             }
         } catch { addLog({ type: 'system', message: 'Delete failed: network error' }); }
-    }, [leaderboard, selectedSession, addLog, fetchLeaderboard]);
+    }, [leaderboard, selectedSession, addLog, fetchLeaderboard, confirmAction]);
 
     const handleResetAll = useCallback(async () => {
-        if (!confirm('☢️ RESET ALL SESSIONS?\nThis will DELETE every session and all data. Cannot be undone.')) return;
-        if (!confirm('Are you absolutely sure? Type OK to proceed.')) return;
+        // F4: the old second dialog said "Type OK to proceed" — but native
+        // confirm() has no typing; the guard was an illusion. This is the
+        // real typed-phrase gate.
+        const ok = await confirmAction({
+            title: '☢️ Reset ALL sessions',
+            message: 'Deletes every session and all data, for every facilitator. This cannot be undone.',
+            impact: `${leaderboard.filter(s => !s.player_id).length} cohort(s) and ${leaderboard.filter(s => !!s.player_id).length} player session(s) will be destroyed.`,
+            requirePhrase: 'DELETE ALL DATA',
+            confirmLabel: 'Destroy everything',
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${API}/api/admin/reset-all`, { method: 'DELETE', credentials: 'include' });
             if (res.ok) {
@@ -705,7 +725,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 setSelectedSession(null);
             }
         } catch { addLog({ type: 'system', message: 'Reset all failed' }); }
-    }, [addLog]);
+    }, [addLog, confirmAction, leaderboard]);
 
 
     // Apply role-based tab filtering using shared config
@@ -720,6 +740,11 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             }),
         }))
         .filter(group => group.items.length > 0);
+
+    // F9: ONE access gate consumed by the sidebar, the quick-action bar, and
+    // the tab router.
+    const visibleTabIds = new Set(FILTERED_SIDEBAR.flatMap(g => g.items.map(i => i.id)));
+    const canAccessTab = (tabId) => visibleTabIds.has(tabId);
 
     const getTabMeta = (tabId) => _getTabMeta(FILTERED_SIDEBAR, tabId);
 
@@ -746,6 +771,25 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 </div>
             );
         };
+
+        // F9: unknown or role-hidden tabs render an explicit state instead of
+        // silently falling through. 'audit_trail' stays reachable as a legacy
+        // alias (merged into Decision History).
+        const LEGACY_TABS = new Set(['audit_trail']);
+        if (!visibleTabIds.has(activeTab) && !LEGACY_TABS.has(activeTab)) {
+            return (
+                <div style={{ padding: '3rem 2rem', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+                    <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem', opacity: 0.4 }}>🔒</div>
+                    <h3 style={{ color: 'var(--text-primary)', marginBottom: '0.5rem' }}>This view isn&apos;t available</h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem' }}>
+                        It may require a higher role, or the link that brought you here is stale.
+                    </p>
+                    <button onClick={() => setActiveTab('dashboard_home')} style={{ padding: '0.5rem 1.2rem', borderRadius: '8px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-primary)', cursor: 'pointer', fontWeight: 600 }}>
+                        ← Back to Dashboard
+                    </button>
+                </div>
+            );
+        }
 
         switch (activeTab) {
             // ── Overview tabs ──
@@ -1034,6 +1078,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                                         authData={authData} 
                                         handleResetSession={handleResetSession} 
                                         styles={styles} 
+                                        onRefresh={fetchLeaderboard}
+                                        confirmAction={confirmAction}
+                                        isSuperAdmin={isSuperAdmin}
                                     />
                                 </div>
                             </section>
@@ -1097,6 +1144,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     return (
         <div className={styles.dashboard} data-theme="dark">
             
+            {/* Phase 5 (F4): shared tiered confirmation modal */}
+            {confirmModal}
+
             {/* ── Change Password Modal ── */}
             {showChangePw && (
                 <FacilitatorChangePasswordModal
@@ -1845,9 +1895,10 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
  *  FACILITATOR SESSION MANAGER (Multi-select Deletion)
  * ═════════════════════════════════════════════════════════════════ */
 
-function FacilitatorSessionManager({ leaderboard, authData, handleResetSession, styles }) {
+function FacilitatorSessionManager({ leaderboard, authData, handleResetSession, styles, onRefresh, confirmAction, isSuperAdmin = false }) {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [loading, setLoading] = useState(false);
+    const [resultMsg, setResultMsg] = useState('');
 
     // Group leaderboard by unique session_id to list the cohorts/teams.
     // Facilitators ONLY see their own, so we don't need additional filtering.
@@ -1878,15 +1929,27 @@ function FacilitatorSessionManager({ leaderboard, authData, handleResetSession, 
 
     const handleDeleteMultiple = async (hardDelete) => {
         if (selectedIds.size === 0) return;
-        const hardWarning = hardDelete 
-            ? "🧨 HARD DELETE: Are you sure you want to COMPLETELY WIPE these teams and bypass the 7-day retention period?" 
-            : `🗑️ Soft Delete ${selectedIds.size} team(s)? Data stays recoverable for 7 days.`;
-            
-        if (!confirm(hardWarning)) return;
+        // F4: impact preview + typed phrase for the irreversible variant —
+        // and no window.location.reload(), which used to dump the facilitator
+        // back to Dashboard Home mid-session and wipe the live feed.
+        const names = sessionsList
+            .filter(s => selectedIds.has(s.session_id))
+            .map(s => s.cohort_name || s.session_id.slice(0, 8));
+        const ok = await confirmAction?.({
+            title: hardDelete ? `🧨 Hard delete ${selectedIds.size} team(s)` : `🗑️ Soft delete ${selectedIds.size} team(s)`,
+            message: hardDelete
+                ? 'Completely wipes these teams immediately, bypassing the 7-day retention window.'
+                : 'Data stays recoverable for 7 days.',
+            impact: `Affected: ${names.join(', ')}`,
+            requirePhrase: hardDelete ? 'DELETE' : null,
+            confirmLabel: hardDelete ? 'Hard delete now' : 'Soft delete',
+        });
+        if (!ok) return;
 
         setLoading(true);
+        setResultMsg('');
         try {
-            // Wait for all deletions sequentially or in parallel
+            // Same endpoints, same order — only the gate in front changed.
             for (let sid of selectedIds) {
                 const endpoint = hardDelete 
                     ? `${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/sessions/${sid}?hard=true` 
@@ -1894,12 +1957,12 @@ function FacilitatorSessionManager({ leaderboard, authData, handleResetSession, 
                     
                 await fetch(endpoint, { method: 'DELETE', credentials: 'include' });
             }
-            alert(`✅ Successfully deleted ${selectedIds.size} team(s).`);
-            
-            // Trigger a page reload to refresh leaderboard state cleanly
-            window.location.reload();
+            setResultMsg(`✅ ${selectedIds.size} team(s) deleted.`);
+            setSelectedIds(new Set());
+            onRefresh?.();
         } catch (e) {
-            alert('❌ Failed to delete sessions: ' + e.message);
+            setResultMsg('❌ Failed to delete sessions: ' + e.message);
+        } finally {
             setLoading(false);
         }
     };
@@ -1951,6 +2014,14 @@ function FacilitatorSessionManager({ leaderboard, authData, handleResetSession, 
                 </table>
             </div>
 
+            {resultMsg && (
+                <div style={{
+                    padding: '8px 12px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600,
+                    color: resultMsg.startsWith('✅') ? '#10b981' : '#ef4444',
+                    background: resultMsg.startsWith('✅') ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                }}>{resultMsg}</div>
+            )}
+
             <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem', flexDirection: 'column', alignItems: 'flex-start' }}>
                 <button 
                     className={styles.resetSessionBtn} 
@@ -1960,7 +2031,7 @@ function FacilitatorSessionManager({ leaderboard, authData, handleResetSession, 
                 >
                     {loading ? 'Processing...' : `🗑️ Soft Delete ${selectedIds.size} Selected Team(s)`}
                 </button>
-                {authData?.facilitator_id === 'admin' && (
+                {isSuperAdmin && (
                     <button 
                         className={styles.resetSessionBtn} 
                         onClick={() => handleDeleteMultiple(true)}

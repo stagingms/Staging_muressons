@@ -35,6 +35,7 @@ import SimulationSwitchboard from '../../components/SimulationSwitchboard';
 import { GOD_MODE_SIDEBAR, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
 import { adminJson } from '../../utils/adminFetch';
 import CohortSelector from '../../components/CohortSelector';
+import { useConfirm } from '../../components/ConfirmModal';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import StakeholderConfig from '../../components/StakeholderConfig';
 import PillarConfigurator from '../../components/PillarConfigurator';
@@ -1023,6 +1024,10 @@ function DangerZonePanel({ apiBase }) {
     // in a mass-deletion screen, mistaking an auth failure for an empty
     // database changes what an admin will do next.
     const [loadError, setLoadError] = useState(false);
+    // Phase 5 (F4): tiered confirm + inline result feedback replace the
+    // native confirm()/alert() pairs.
+    const [confirmAction, confirmModal] = useConfirm();
+    const [actionMsg, setActionMsg] = useState('');
 
     // Factory Reset guard state
     const [resetPhrase, setResetPhrase] = useState('');
@@ -1076,21 +1081,27 @@ function DangerZonePanel({ apiBase }) {
     };
 
     const handleClearOrphans = async () => {
-        if (!confirm('⚠️ REMOVE ORPHANED COHORTS?\nThis will clear all cohorts globally that do not have a facilitator assigned.')) return;
+        const orphans = topLevelCohorts.filter(s => !s.facilitator_id);
+        if (orphans.length === 0) {
+            setActionMsg('ℹ️ No orphaned cohorts found.');
+            return;
+        }
+        const ok = await confirmAction({
+            title: `🗑️ Remove ${orphans.length} orphaned cohort(s)?`,
+            message: 'Hard-deletes every cohort that has no facilitator assigned, including all player state under them.',
+            impact: `Affected: ${orphans.map(s => s.cohort_name || s.session_id.slice(0, 8)).join(', ')}`,
+            confirmLabel: 'Remove orphans',
+        });
+        if (!ok) return;
         try {
-            const orphans = topLevelCohorts.filter(s => !s.facilitator_id);
-            if (orphans.length === 0) {
-               alert("No orphaned cohorts found.");
-               return;
-            }
             await Promise.all(
                 orphans.map(s => fetch(`${apiBase}/api/admin/sessions/${s.session_id}?hard=true`, { method: 'DELETE', credentials: 'include' }))
             );
-            alert(`✅ Successfully removed ${orphans.length} orphaned cohort(s).`);
-            setSessions(prev => prev.filter(s => !!s.facilitator_id || !!s.player_id));
+            setActionMsg(`✅ Removed ${orphans.length} orphaned cohort(s).`);
             setSelectedIds(new Set());
+            loadSessions(); // F4: refresh in place from the server, no stale local math
         } catch (e) {
-            alert('❌ Failed to clear orphans: ' + e.message);
+            setActionMsg('❌ Failed to clear orphans: ' + e.message);
         }
     };
 
@@ -1104,23 +1115,35 @@ function DangerZonePanel({ apiBase }) {
 
     const handleDeleteSelected = async () => {
         if (selectedIds.size === 0) return;
-        if (!confirm(`⚠️ DELETE ${selectedIds.size} COHORT(S)?\nThis will permanently delete the selected cohorts and all their player state.`)) return;
-        
+        const names = topLevelCohorts
+            .filter(s => selectedIds.has(s.session_id))
+            .map(s => s.cohort_name || s.session_id.slice(0, 8));
+        // F4: hard delete of live cohorts = irreversible + plural → typed phrase.
+        const ok = await confirmAction({
+            title: `🧨 Hard delete ${selectedIds.size} cohort(s)?`,
+            message: 'Permanently deletes the selected cohorts and every player session under them. There is no grace period on this path.',
+            impact: `Affected: ${names.join(', ')}`,
+            requirePhrase: 'DELETE',
+            confirmLabel: 'Delete permanently',
+        });
+        if (!ok) return;
+
         try {
-            // Delete one by one manually, we don't need promise.all to spam it if we're worried about locks, but for speed Promise.all
+            // Same endpoints as before — only the gate in front changed.
             await Promise.all(
                 Array.from(selectedIds).map(id => fetch(`${apiBase}/api/admin/sessions/${id}?hard=true`, { method: 'DELETE', credentials: 'include' }))
             );
-            alert(`✅ ${selectedIds.size} cohort(s) deleted.`);
-            setSessions(prev => prev.filter(s => !selectedIds.has(s.session_id)));
+            setActionMsg(`✅ ${selectedIds.size} cohort(s) deleted.`);
             setSelectedIds(new Set());
+            loadSessions(); // F4: refresh in place from the server
         } catch (e) {
-            alert('❌ Failed to delete cohorts: ' + e.message);
+            setActionMsg('❌ Failed to delete cohorts: ' + e.message);
         }
     };
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', padding: '1.5rem', background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+            {confirmModal}
             <div style={{ borderBottom: '1px solid var(--border-subtle)', paddingBottom: '1rem' }}>
                 <h2 style={{ marginBottom: '0.5rem', color: '#ef4444' }}>☢️ Danger Zone</h2>
                 <p style={{ color: 'var(--text-muted)' }}>Perform destructive operations on the simulation database. These actions cannot be undone.</p>
@@ -1158,6 +1181,13 @@ function DangerZonePanel({ apiBase }) {
                     </button>
                 </div>
 
+                {actionMsg && (
+                    <div style={{
+                        marginBottom: '1rem', padding: '8px 12px', borderRadius: '6px', fontSize: '0.82rem', fontWeight: 600,
+                        color: actionMsg.startsWith('✅') ? '#10b981' : actionMsg.startsWith('ℹ️') ? 'var(--text-muted)' : '#ef4444',
+                        background: actionMsg.startsWith('✅') ? 'rgba(16,185,129,0.1)' : actionMsg.startsWith('ℹ️') ? 'rgba(148,163,184,0.08)' : 'rgba(239,68,68,0.1)',
+                    }}>{actionMsg}</div>
+                )}
                 {loading ? (
                     <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading cohorts...</div>
                 ) : loadError ? (

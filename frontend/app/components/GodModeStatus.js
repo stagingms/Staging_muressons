@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import styles from './GodModeStatus.module.css';
+import { useConfirm } from './ConfirmModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -25,6 +26,62 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
         setTimeout(() => setSettingsStatus(''), ok ? 3000 : 6000);
     };
 
+    // Phase 5 (G2): tiered confirm + per-pill mutation state. These pills are
+    // the most consequential controls on the platform (instant, global) and
+    // were the smallest targets with the weakest feedback.
+    const [confirmAction, confirmModal] = useConfirm();
+    const [pillState, setPillState] = useState({}); // key → 'pending' | 'ok' | 'fail'
+
+    const togglePill = async (t) => {
+        const next = !settings[t.key];
+        // Blast-radius confirm ONLY while players are actually connected —
+        // an empty platform stays frictionless. (Rejected alternative: native
+        // confirm() on every pill = 29 dialogs of fatigue with no impact info.)
+        const playersLive = (status?.total_players || 0) > 0;
+        if (playersLive) {
+            const ok = await confirmAction({
+                title: `${next ? 'Enable' : 'Disable'} ${t.label}?`,
+                message: t.tip,
+                impact: `Applies platform-wide immediately: ${status?.total_cohorts ?? '?'} cohort(s), ${status?.total_players ?? 0} player(s) currently connected${status?.system_frozen ? ' (system frozen)' : ''}. Facilitators are notified via the God Mode event bus.`,
+                confirmLabel: next ? 'Enable now' : 'Disable now',
+                danger: !next,
+            });
+            if (!ok) return;
+        }
+        setPillState(p => ({ ...p, [t.key]: 'pending' }));
+        try {
+            // Same endpoint, method, and body as before — only the gate and
+            // the feedback around the request changed.
+            const res = await fetch(`${API}/api/admin/global-settings`, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [t.key]: next }),
+            });
+            if (res.ok) {
+                loadSettings();
+                setPillState(p => ({ ...p, [t.key]: 'ok' }));
+                flashStatus(`${t.label} ${next ? 'ON' : 'OFF'}`);
+            } else {
+                setPillState(p => ({ ...p, [t.key]: 'fail' }));
+                flashStatus(`❌ ${t.label} NOT saved (HTTP ${res.status}) — retry`, false);
+            }
+        } catch {
+            setPillState(p => ({ ...p, [t.key]: 'fail' }));
+            flashStatus(`❌ ${t.label} NOT saved — network error`, false);
+        }
+        setTimeout(() => setPillState(p => { const q = { ...p }; delete q[t.key]; return q; }), 2500);
+    };
+
+    // Feedback lands ON the pill that was clicked, not only in a distant
+    // status line.
+    const pillMarker = (key, enabled) => (
+        pillState[key] === 'pending' ? '⏳' :
+        pillState[key] === 'ok' ? '✓' :
+        pillState[key] === 'fail' ? '✗' :
+        (enabled ? '●' : '○')
+    );
+
     const loadSettings = async () => {
         try {
             const res = await fetch(`${API}/api/admin/god/settings`, { credentials: 'include' });
@@ -37,8 +94,17 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
     }, []);
 
     // ── Global Settings handlers ──
+    // G3: symmetric guards — a stray click must not be able to RESUME all
+    // simulations any more than it can freeze them; mid-incident, unfreeze
+    // is often the more dangerous direction.
     const handleFreeze = async () => {
-        if (!confirm('⚠️ This will freeze ALL active simulations. Continue?')) return;
+        const ok = await confirmAction({
+            title: '🚨 Freeze ALL simulations?',
+            message: <span>Players see this banner immediately:<br /><em>&ldquo;{freezeMsg}&rdquo;</em></span>,
+            impact: `${status?.total_cohorts ?? '?'} cohort(s) and ${status?.total_players ?? 0} connected player(s) pause instantly.`,
+            confirmLabel: 'Freeze now',
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${API}/api/admin/god/freeze`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -53,6 +119,14 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
     };
 
     const handleUnfreeze = async () => {
+        const ok = await confirmAction({
+            title: '🟢 Unfreeze — resume ALL simulations?',
+            message: 'Every paused cohort resumes immediately. Make sure the incident is actually resolved before releasing.',
+            impact: `${status?.total_cohorts ?? '?'} cohort(s) resume; timers and pacing pick up where they left off.`,
+            confirmLabel: 'Unfreeze now',
+            danger: false,
+        });
+        if (!ok) return;
         try {
             const res = await fetch(`${API}/api/admin/god/unfreeze`, { method: 'POST', credentials: 'include' });
             if (res.ok) { onRefresh?.(); loadSettings(); flashStatus('System UNFROZEN'); }
@@ -83,6 +157,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
 
     return (
         <div className={styles.container}>
+            {confirmModal}
             <div className={styles.header}>
                 <span className={styles.icon}>🏠</span>
                 <div>
@@ -153,10 +228,11 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                         placeholder="Freeze message…"
                                         value={freezeMsg}
                                         onChange={e => setFreezeMsg(e.target.value)}
+                                        title={`Players will see: "${freezeMsg}"`}
                                         style={{
                                             padding: '0.4rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem',
                                             border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
-                                            color: 'var(--text-primary)', width: '180px',
+                                            color: 'var(--text-primary)', flex: 1, minWidth: '220px',
                                         }}
                                     />
                                     <button onClick={handleFreeze} style={{
@@ -212,23 +288,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                     ].map(t => (
                                         <div key={t.key} className={styles.pillWrap} data-tip={t.tip}>
                                         <button
-                                            onClick={async () => {
-                                                const next = !settings[t.key];
-                                                try {
-                                                    // G8: auth is the HttpOnly JWT cookie (require_super_admin);
-                                                    // the X-Facilitator-Id header was never read by the backend.
-                                                    const res = await fetch(`${API}/api/admin/global-settings`, {
-                                                        method: 'PATCH',
-                                                        credentials: 'include',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ [t.key]: next }),
-                                                    });
-                                                    if (res.ok) { loadSettings(); flashStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); }
-                                                    else flashStatus(`❌ ${t.label} NOT saved (HTTP ${res.status}) — retry`, false);
-                                                } catch {
-                                                    flashStatus(`❌ ${t.label} NOT saved — network error`, false);
-                                                }
-                                            }}
+                                            onClick={() => togglePill(t)}
                                             style={{
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
                                                 background: settings[t.key] ? 'rgba(168,85,247,0.15)' : 'rgba(148,163,184,0.08)',
@@ -237,7 +297,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
-                                            {settings[t.key] ? '●' : '○'} {t.label}
+                                            {pillMarker(t.key, settings[t.key])} {t.label}
                                         </button>
                                         </div>
                                     ))}
@@ -284,23 +344,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                     ].map(t => (
                                         <div key={t.key} className={styles.pillWrap} data-tip={t.tip}>
                                         <button
-                                            onClick={async () => {
-                                                const next = !settings[t.key];
-                                                try {
-                                                    // G8: auth is the HttpOnly JWT cookie (require_super_admin);
-                                                    // the X-Facilitator-Id header was never read by the backend.
-                                                    const res = await fetch(`${API}/api/admin/global-settings`, {
-                                                        method: 'PATCH',
-                                                        credentials: 'include',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        body: JSON.stringify({ [t.key]: next }),
-                                                    });
-                                                    if (res.ok) { loadSettings(); flashStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); }
-                                                    else flashStatus(`❌ ${t.label} NOT saved (HTTP ${res.status}) — retry`, false);
-                                                } catch {
-                                                    flashStatus(`❌ ${t.label} NOT saved — network error`, false);
-                                                }
-                                            }}
+                                            onClick={() => togglePill(t)}
                                             style={{
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
                                                 background: settings[t.key] ? 'rgba(16,185,129,0.15)' : 'rgba(148,163,184,0.08)',
@@ -309,7 +353,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
-                                            {settings[t.key] ? '●' : '○'} {t.label}
+                                            {pillMarker(t.key, settings[t.key])} {t.label}
                                         </button>
                                         </div>
                                     ))}

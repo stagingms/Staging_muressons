@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import styles from './UndoRound.module.css';
+import { useConfirm } from './ConfirmModal';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -14,6 +15,9 @@ export default function UndoRound({ session }) {
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    // Phase 5 (F4): tiered confirm with an impact preview replaces the old
+    // double native confirm().
+    const [confirmAction, confirmModal] = useConfirm();
 
     const fetchRound = useCallback(async () => {
         if (!sessionId) return;
@@ -42,12 +46,16 @@ export default function UndoRound({ session }) {
         if (!sessionId || !targetRound || targetRound >= currentRound) return;
 
         const roundsToUndo = currentRound - targetRound;
-        const promptMsg = cohortWide
-            ? `⚠️ Roll back ENTIRE COHORT from Round ${currentRound} → Round ${targetRound}?\n\nThis will delete ALL decisions and state for ${roundsToUndo} round(s) across all connected player sessions.`
-            : `⚠️ Roll back from Round ${currentRound} → Round ${targetRound}?\n\nThis will permanently delete decisions and state for ${roundsToUndo} round(s). This cannot be undone.`;
-
-        if (!confirm(promptMsg)) return;
-        if (!confirm(`Are you absolutely sure? Click OK to confirm rollback to Round ${targetRound}.`)) return;
+        const ok = await confirmAction({
+            title: cohortWide ? '⏪ Roll back the ENTIRE cohort' : '⏪ Roll back this session',
+            message: cohortWide
+                ? `Roll the whole cohort back from Round ${currentRound} to Round ${targetRound}? Every connected player session is rolled back with it.`
+                : `Roll this session back from Round ${currentRound} to Round ${targetRound}?`,
+            impact: `${roundsToUndo} round(s) of decisions, KPI history, and audit entries will be permanently erased. Players are notified of the rollback. This cannot be undone.`,
+            requirePhrase: cohortWide ? 'ROLL BACK' : null,
+            confirmLabel: `Erase ${roundsToUndo} round(s)`,
+        });
+        if (!ok) return;
 
         setLoading(true);
         setError(null);
@@ -92,6 +100,7 @@ export default function UndoRound({ session }) {
 
     return (
         <div className={styles.container}>
+            {confirmModal}
             <div className={styles.header}>
                 <span className={styles.icon}>⏪</span>
                 <div>
