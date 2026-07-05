@@ -41,6 +41,7 @@ import { FACILITATOR_SIDEBAR, filterSidebarForRole, getTabMeta as _getTabMeta } 
 import NotificationBell from '../../components/NotificationBell';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import CohortPulse from '../../components/CohortPulse';
+import FacilitatorTeachableMoments from '../../components/FacilitatorTeachableMoments';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:8000'}`;
@@ -946,6 +947,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                         <PlatformAnalytics visibility={null} leaderboard={leaderboard} onNavigate={setActiveTab} onSelectSession={setSelectedSession} />
                         {/* Cohort Pulse heatmap — shows live KPI grid across all teams in selected cohort */}
                         <CohortPulse cohortId={selectedSession} />
+                        {/* B5: teachable-moment prompts when a cohort converges on an adverse flag */}
+                        <FacilitatorTeachableMoments cohortId={selectedSession} />
                     </div>
                 );
 

@@ -7,6 +7,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 export default function GodModeStatus({ facilitatorId }) {
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [failed, setFailed] = useState(false);
 
     // Global settings state (merged from GlobalSettings)
     const [settings, setSettings] = useState(null);
@@ -14,11 +15,17 @@ export default function GodModeStatus({ facilitatorId }) {
     const [settingsStatus, setSettingsStatus] = useState('');
 
     const load = async () => {
+        // Resilience: bound every request so a hung/unreachable backend can
+        // never leave the panel spinning on "Loading…" forever. On timeout or
+        // error we surface a clear, retryable state instead.
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
         try {
-            const res = await fetch(`${API}/api/admin/god/system-status`);
-            if (res.ok) setStatus(await res.json());
-        } catch { /* ignore */ }
-        setLoading(false);
+            const res = await fetch(`${API}/api/admin/god/system-status`, { signal: ctrl.signal });
+            if (res.ok) { setStatus(await res.json()); setFailed(false); }
+            else setFailed(true);
+        } catch { setFailed(true); }
+        finally { clearTimeout(timer); setLoading(false); }
     };
 
     const loadSettings = async () => {
@@ -50,8 +57,24 @@ export default function GodModeStatus({ facilitatorId }) {
         if (res.ok) { load(); loadSettings(); setSettingsStatus('System UNFROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
     };
 
-    if (loading) return <div className={styles.loading}>Loading system status…</div>;
-    if (!status) return <div className={styles.error}>Failed to load system status</div>;
+    if (loading && !status) return <div className={styles.loading}>Loading system status…</div>;
+    if (!status) return (
+        <div className={styles.error} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', padding: '1.5rem' }}>
+            <div>⚠️ Backend unreachable — retrying automatically every 10s.</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-muted, #8899a6)' }}>
+                Check that the API server is running (e.g. <code>http://localhost:8000/health</code>).
+            </div>
+            <button
+                onClick={() => { setLoading(true); load(); loadSettings(); }}
+                style={{
+                    padding: '0.4rem 1rem', borderRadius: 6, border: 'none', cursor: 'pointer',
+                    background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: '0.8rem',
+                }}
+            >
+                🔄 Retry now
+            </button>
+        </div>
+    );
 
     return (
         <div className={styles.container}>
@@ -172,6 +195,7 @@ export default function GodModeStatus({ facilitatorId }) {
                                         { key: 'confidence_calibration_enabled', label: '🎰 Confidence', default: false, tip: 'Students rate their confidence (1-5) in each prediction. Tracks calibration accuracy over rounds to reveal overconfidence bias.' },
                                         { key: 'board_room_moments_enabled', label: '🏢 Board Room', default: true, tip: 'Triggers Boardroom Showdown mini-game at key rounds. Students defend their strategy under simulated board scrutiny.' },
                                         { key: 'round_recap_enabled', label: '📋 Recap', default: false, tip: 'Shows an auto-generated summary at round end: key decisions, KPI deltas, and engine events. Reduces need for facilitator verbal recap.' },
+                                        { key: 'front_page_enabled', label: '📰 Front Page', default: true, tip: 'Feature 5: at Year 5, each team gets a mock newspaper front page reflecting their result, with a downloadable PNG. Turn off to hide the reveal.' },
                                         { key: 'real_world_cards_enabled', label: '🌍 Case Cards', default: false, tip: 'Surfaces real-world case study cards (e.g. BP Deepwater, Unilever Living Plan) when relevant engine events fire.' },
                                         { key: 'strategy_memo_enabled', label: '📝 Memo', default: false, tip: 'Students write a strategy memo before Round 1, then compare against actual outcomes post-game. Encourages strategic planning.' },
                                         { key: 'debrief_protocol_enabled', label: '🎭 Debrief', default: false, tip: 'Enables structured debrief protocol at game end: guided reflection questions, peer discussion prompts, and learning journal.' },
