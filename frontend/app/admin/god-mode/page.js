@@ -33,6 +33,7 @@ import SimulationReference from '../../components/SimulationReference';
 import RegulatorySandboxControl from '../../components/RegulatorySandboxControl';
 import SimulationSwitchboard from '../../components/SimulationSwitchboard';
 import { GOD_MODE_SIDEBAR, getTabMeta as _getTabMeta } from '../../config/sidebarConfig';
+import { adminJson } from '../../utils/adminFetch';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import StakeholderConfig from '../../components/StakeholderConfig';
 import PillarConfigurator from '../../components/PillarConfigurator';
@@ -1024,6 +1025,10 @@ function DangerZonePanel({ apiBase }) {
     const [sessions, setSessions] = useState([]);
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [loading, setLoading] = useState(true);
+    // G6: a failed load must be distinguishable from "no cohorts exist" —
+    // in a mass-deletion screen, mistaking an auth failure for an empty
+    // database changes what an admin will do next.
+    const [loadError, setLoadError] = useState(false);
 
     // Factory Reset guard state
     const [resetPhrase, setResetPhrase] = useState('');
@@ -1031,15 +1036,17 @@ function DangerZonePanel({ apiBase }) {
     const [resetResult, setResetResult] = useState('');
     const REQUIRED_PHRASE = 'DELETE ALL DATA';
 
-    useEffect(() => {
-        fetch(`${apiBase}/api/admin/sessions`)
-            .then(res => res.json())
-            .then(data => {
-                setSessions(data.sessions || []);
-                setLoading(false);
-            })
-            .catch(() => setLoading(false));
-    }, [apiBase]);
+    const loadSessions = useCallback(() => {
+        setLoading(true);
+        setLoadError(false);
+        adminJson('/api/admin/sessions').then(({ ok, data }) => {
+            if (ok) setSessions(data.sessions || []);
+            else setLoadError(true);
+            setLoading(false);
+        });
+    }, []);
+
+    useEffect(() => { loadSessions(); }, [loadSessions]);
 
     // Factory Reset countdown effect
     useEffect(() => {
@@ -1047,7 +1054,7 @@ function DangerZonePanel({ apiBase }) {
         if (resetCountdown === 1) {
             (async () => {
                 try {
-                    const res = await fetch(`${apiBase}/api/admin/reset-all`, { method: 'DELETE' });
+                    const res = await fetch(`${apiBase}/api/admin/reset-all`, { method: 'DELETE', credentials: 'include' });
                     if (res.ok) {
                         const d = await res.json();
                         setResetResult(`✅ All ${d.sessions_removed} sessions wiped.`);
@@ -1083,7 +1090,7 @@ function DangerZonePanel({ apiBase }) {
                return;
             }
             await Promise.all(
-                orphans.map(s => fetch(`${apiBase}/api/admin/sessions/${s.session_id}?hard=true`, { method: 'DELETE' }))
+                orphans.map(s => fetch(`${apiBase}/api/admin/sessions/${s.session_id}?hard=true`, { method: 'DELETE', credentials: 'include' }))
             );
             alert(`✅ Successfully removed ${orphans.length} orphaned cohort(s).`);
             setSessions(prev => prev.filter(s => !!s.facilitator_id || !!s.player_id));
@@ -1108,7 +1115,7 @@ function DangerZonePanel({ apiBase }) {
         try {
             // Delete one by one manually, we don't need promise.all to spam it if we're worried about locks, but for speed Promise.all
             await Promise.all(
-                Array.from(selectedIds).map(id => fetch(`${apiBase}/api/admin/sessions/${id}?hard=true`, { method: 'DELETE' }))
+                Array.from(selectedIds).map(id => fetch(`${apiBase}/api/admin/sessions/${id}?hard=true`, { method: 'DELETE', credentials: 'include' }))
             );
             alert(`✅ ${selectedIds.size} cohort(s) deleted.`);
             setSessions(prev => prev.filter(s => !selectedIds.has(s.session_id)));
@@ -1159,6 +1166,15 @@ function DangerZonePanel({ apiBase }) {
 
                 {loading ? (
                     <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>Loading cohorts...</div>
+                ) : loadError ? (
+                    <div style={{ padding: '1.25rem', textAlign: 'center', borderRadius: '6px', border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)' }}>
+                        <div style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                            ⚠️ Couldn&apos;t load cohorts — this is a fetch/auth failure, not an empty database.
+                        </div>
+                        <button onClick={loadSessions} style={{ padding: '0.45rem 1.1rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-primary)', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 600 }}>
+                            🔄 Retry
+                        </button>
+                    </div>
                 ) : (
                     <>
                         <div style={{ maxHeight: '350px', overflowY: 'auto', border: '1px solid var(--border-subtle)', borderRadius: '6px', marginBottom: '1rem', background: 'var(--bg-card)' }}>

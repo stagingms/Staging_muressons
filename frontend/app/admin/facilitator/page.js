@@ -405,21 +405,25 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     const allowedTabs = authData?.allowed_tabs || ['*'];
     const canAccessTab = (tabId) => allowedTabs.includes('*') || allowedTabs.includes(tabId);
 
-    // Scaffolding status fetched from God Mode for read-only visibility
+    // Scaffolding status fetched from God Mode for read-only visibility.
+    // Phase 2 (F10): track sync freshness so the strip can show when it last
+    // agreed with God Mode instead of silently rendering stale pills.
     const [scaffoldingStatus, setScaffoldingStatus] = useState(null);
-    useEffect(() => {
+    const [scaffoldingSync, setScaffoldingSync] = useState({ at: null, failed: false });
+    const refreshScaffolding = useCallback(() => {
         fetch(`${API}/api/admin/scaffolding-status`)
             .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d) setScaffoldingStatus(d); })
-            .catch(() => {});
-        const interval = setInterval(() => {
-            fetch(`${API}/api/admin/scaffolding-status`)
-                .then(r => r.ok ? r.json() : null)
-                .then(d => { if (d) setScaffoldingStatus(d); })
-                .catch(() => {});
-        }, 30000);
-        return () => clearInterval(interval);
+            .then(d => {
+                if (d) { setScaffoldingStatus(d); setScaffoldingSync({ at: Date.now(), failed: false }); }
+                else setScaffoldingSync(s => ({ ...s, failed: true }));
+            })
+            .catch(() => setScaffoldingSync(s => ({ ...s, failed: true })));
     }, []);
+    useEffect(() => {
+        refreshScaffolding();
+        const interval = setInterval(refreshScaffolding, 30000);
+        return () => clearInterval(interval);
+    }, [refreshScaffolding]);
 
     // God Mode analytics visibility state — controls which sections are shown to facilitators
     const [godVisibility, setGodVisibility] = useState({
@@ -503,20 +507,14 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                     fetchLeaderboard();
                 } else if (data.type === 'settings_changed') {
                     // God Mode Event Bus: refresh scaffolding strip immediately
-                    fetch(`${API}/api/admin/scaffolding-status`)
-                        .then(r => r.ok ? r.json() : null)
-                        .then(d => { if (d) setScaffoldingStatus(d); })
-                        .catch(() => {});
+                    refreshScaffolding();
                     addLog({ type: 'god_mode', message: `⚙️ God Mode updated: ${(data.changed_keys || []).join(', ')}` });
                 } else if (data.type === 'pacing_override') {
                     addLog({ type: 'god_mode', message: `⏱️ Pacing changed to "${data.new_mode}" on session ${data.session_id}`, severity: 'warning' });
                     fetchLeaderboard();
                 } else if (data.type === 'system_freeze') {
                     // Refresh scaffolding to pick up freeze state
-                    fetch(`${API}/api/admin/scaffolding-status`)
-                        .then(r => r.ok ? r.json() : null)
-                        .then(d => { if (d) setScaffoldingStatus(d); })
-                        .catch(() => {});
+                    refreshScaffolding();
                     addLog({ type: 'god_mode', message: data.frozen ? '❄️ System FROZEN by God Mode' : '🟢 System UNFROZEN', severity: data.frozen ? 'critical' : 'info' });
                 } else if (data.type === 'universal_broadcast') {
                     // Facilitators also see God Mode broadcasts in their activity log
@@ -694,6 +692,15 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                                         🧊 SYSTEM FROZEN
                                     </span>
                                 )}
+                                {scaffoldingSync.failed ? (
+                                    <span style={{ marginLeft: 'auto', fontSize: '0.68rem', fontWeight: 700, color: '#ef4444' }}>
+                                        ⚠️ Not synced{scaffoldingSync.at ? ` — showing state from ${new Date(scaffoldingSync.at).toLocaleTimeString()}` : ''}
+                                    </span>
+                                ) : scaffoldingSync.at ? (
+                                    <span style={{ marginLeft: 'auto', fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                                        synced {new Date(scaffoldingSync.at).toLocaleTimeString()}
+                                    </span>
+                                ) : null}
                             </div>
                         )}
                         <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} selectedSession={selectedSession} onCreateCohort={authData.role === 'facilitator' ? null : () => setCreateCohortOpen(true)} />
@@ -1194,6 +1201,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 <button
                     onClick={() => setActiveTab('manual_override')}
                     disabled={!selectedSession || !canAccessTab('manual_override')}
+                    title={!canAccessTab('manual_override') ? 'Not available for your role'
+                        : !selectedSession ? 'Select a cohort first — click its row in the Leaderboard'
+                        : 'Open Manual Overrides for the selected cohort'}
                     style={{
                         padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
                         fontWeight: 600, border: '1px solid rgba(245,158,11,0.3)',
@@ -1205,6 +1215,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 <button
                     onClick={() => setActiveTab('swipe_file')}
                     disabled={!selectedSession}
+                    title={!selectedSession ? 'Select a cohort first — click its row in the Leaderboard'
+                        : 'Send a message to the selected cohort'}
                     style={{
                         padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
                         fontWeight: 600, border: '1px solid rgba(59,130,246,0.3)',
@@ -1216,6 +1228,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 <button
                     onClick={() => setActiveTab('undo_round')}
                     disabled={!selectedSession || !canAccessTab('undo_round')}
+                    title={!canAccessTab('undo_round') ? 'Not available for your role'
+                        : !selectedSession ? 'Select a cohort first — click its row in the Leaderboard'
+                        : 'Roll back a round for the selected cohort'}
                     style={{
                         padding: '0.3rem 0.7rem', borderRadius: '6px', fontSize: '0.72rem',
                         fontWeight: 600, border: '1px solid rgba(107,114,128,0.3)',
@@ -1277,6 +1292,13 @@ function QuizControlPanel({ sessions = [] }) {
     const [quizDifficulty, setQuizDifficulty] = useState('medium');
     const [quizEnabledMap, setQuizEnabledMap] = useState({});
     const [status, setStatus] = useState(null);
+    // Phase 2 (F10): failures must be visible, not console-only.
+    const [statusOk, setStatusOk] = useState(true);
+    const flash = (msg, ok = true) => {
+        setStatusOk(ok);
+        setStatus(msg);
+        setTimeout(() => setStatus(null), ok ? 3000 : 6000);
+    };
 
     // Fetch current difficulty
     useEffect(() => {
@@ -1308,10 +1330,11 @@ function QuizControlPanel({ sessions = [] }) {
             });
             if (res.ok) {
                 setQuizDifficulty(level);
-                setStatus(`✅ Quiz difficulty set to ${level.charAt(0).toUpperCase() + level.slice(1)}`);
-                setTimeout(() => setStatus(null), 3000);
+                flash(`✅ Quiz difficulty set to ${level.charAt(0).toUpperCase() + level.slice(1)}`);
+            } else {
+                flash(`❌ Difficulty NOT saved (HTTP ${res.status}) — still ${quizDifficulty}`, false);
             }
-        } catch (e) { console.error(e); }
+        } catch { flash('❌ Difficulty NOT saved — network error', false); }
     };
 
     const toggleQuiz = async (sessionId, enabled) => {
@@ -1323,10 +1346,11 @@ function QuizControlPanel({ sessions = [] }) {
             });
             if (res.ok) {
                 setQuizEnabledMap(prev => ({ ...prev, [sessionId]: enabled }));
-                setStatus(`✅ Quiz ${enabled ? 'enabled' : 'disabled'} for cohort`);
-                setTimeout(() => setStatus(null), 3000);
+                flash(`✅ Quiz ${enabled ? 'enabled' : 'disabled'} for cohort`);
+            } else {
+                flash(`❌ Quiz toggle NOT saved (HTTP ${res.status})`, false);
             }
-        } catch (e) { console.error(e); }
+        } catch { flash('❌ Quiz toggle NOT saved — network error', false); }
     };
 
     return (
@@ -1350,8 +1374,9 @@ function QuizControlPanel({ sessions = [] }) {
             {status && (
                 <div style={{
                     padding: '8px 14px', borderRadius: 10, marginBottom: 12,
-                    background: '#f0fdf4', border: '1px solid #86efac',
-                    fontSize: '0.8rem', color: '#166534', fontWeight: 600,
+                    background: statusOk ? '#f0fdf4' : '#fef2f2',
+                    border: `1px solid ${statusOk ? '#86efac' : '#fca5a5'}`,
+                    fontSize: '0.8rem', color: statusOk ? '#166534' : '#991b1b', fontWeight: 600,
                 }}>{status}</div>
             )}
 
@@ -1430,6 +1455,13 @@ function QuizControlPanel({ sessions = [] }) {
 function InterviewControlPanel({ sessions = [] }) {
     const [interviewMap, setInterviewMap] = useState({});
     const [status, setStatus] = useState(null);
+    // Phase 2 (F10): failures must be visible, not console-only.
+    const [statusOk, setStatusOk] = useState(true);
+    const flash = (msg, ok = true) => {
+        setStatusOk(ok);
+        setStatus(msg);
+        setTimeout(() => setStatus(null), ok ? 3000 : 6000);
+    };
 
     useEffect(() => {
         fetch(`${API}/api/admin/global-settings`)
@@ -1456,10 +1488,11 @@ function InterviewControlPanel({ sessions = [] }) {
             });
             if (res.ok) {
                 setInterviewMap(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], enabled } }));
-                setStatus(`✅ Interview ${enabled ? 'enabled' : 'disabled'}`);
-                setTimeout(() => setStatus(null), 3000);
+                flash(`✅ Interview ${enabled ? 'enabled' : 'disabled'}`);
+            } else {
+                flash(`❌ Interview toggle NOT saved (HTTP ${res.status})`, false);
             }
-        } catch (e) { console.error(e); }
+        } catch { flash('❌ Interview toggle NOT saved — network error', false); }
     };
 
     const switchVoice = async (sessionId, gender) => {
@@ -1471,10 +1504,11 @@ function InterviewControlPanel({ sessions = [] }) {
             });
             if (res.ok) {
                 setInterviewMap(prev => ({ ...prev, [sessionId]: { ...prev[sessionId], voice_gender: gender } }));
-                setStatus(`✅ Voice → ${gender === 'female' ? 'Victoria' : 'Alexander'}`);
-                setTimeout(() => setStatus(null), 3000);
+                flash(`✅ Voice → ${gender === 'female' ? 'Victoria' : 'Alexander'}`);
+            } else {
+                flash(`❌ Voice NOT changed (HTTP ${res.status})`, false);
             }
-        } catch (e) { console.error(e); }
+        } catch { flash('❌ Voice NOT changed — network error', false); }
     };
 
     return (
@@ -1497,8 +1531,9 @@ function InterviewControlPanel({ sessions = [] }) {
             {status && (
                 <div style={{
                     padding: '8px 14px', borderRadius: 10, marginBottom: 12,
-                    background: '#f0fdf4', border: '1px solid #86efac',
-                    fontSize: '0.8rem', color: '#166534', fontWeight: 600,
+                    background: statusOk ? '#f0fdf4' : '#fef2f2',
+                    border: `1px solid ${statusOk ? '#86efac' : '#fca5a5'}`,
+                    fontSize: '0.8rem', color: statusOk ? '#166534' : '#991b1b', fontWeight: 600,
                 }}>{status}</div>
             )}
             <div style={{

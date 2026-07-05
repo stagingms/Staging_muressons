@@ -15,6 +15,15 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
     const [settings, setSettings] = useState(null);
     const [freezeMsg, setFreezeMsg] = useState('System maintenance in progress.');
     const [settingsStatus, setSettingsStatus] = useState('');
+    // Phase 2 (F10): success/failure variant for the status flash — a failed
+    // mutation must be visibly different from a successful one.
+    const [settingsOk, setSettingsOk] = useState(true);
+
+    const flashStatus = (msg, ok = true) => {
+        setSettingsOk(ok);
+        setSettingsStatus(msg);
+        setTimeout(() => setSettingsStatus(''), ok ? 3000 : 6000);
+    };
 
     const loadSettings = async () => {
         try {
@@ -30,16 +39,27 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
     // ── Global Settings handlers ──
     const handleFreeze = async () => {
         if (!confirm('⚠️ This will freeze ALL active simulations. Continue?')) return;
-        const res = await fetch(`${API}/api/admin/god/freeze`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: freezeMsg }),
-        });
-        if (res.ok) { onRefresh?.(); loadSettings(); setSettingsStatus('System FROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
+        try {
+            const res = await fetch(`${API}/api/admin/god/freeze`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ message: freezeMsg }),
+            });
+            if (res.ok) { onRefresh?.(); loadSettings(); flashStatus('System FROZEN'); }
+            else flashStatus(`❌ Freeze failed (HTTP ${res.status}) — system is NOT frozen`, false);
+        } catch {
+            flashStatus('❌ Freeze failed — network error. System is NOT frozen', false);
+        }
     };
 
     const handleUnfreeze = async () => {
-        const res = await fetch(`${API}/api/admin/god/unfreeze`, { method: 'POST' });
-        if (res.ok) { onRefresh?.(); loadSettings(); setSettingsStatus('System UNFROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
+        try {
+            const res = await fetch(`${API}/api/admin/god/unfreeze`, { method: 'POST', credentials: 'include' });
+            if (res.ok) { onRefresh?.(); loadSettings(); flashStatus('System UNFROZEN'); }
+            else flashStatus(`❌ Unfreeze failed (HTTP ${res.status}) — system is STILL frozen`, false);
+        } catch {
+            flashStatus('❌ Unfreeze failed — network error. System is STILL frozen', false);
+        }
     };
 
     if (loading && !status) return <div className={styles.loading}>Loading system status…</div>;
@@ -108,8 +128,9 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                     {settingsStatus && (
                         <div style={{
                             marginBottom: '1rem', padding: '0.5rem 1rem', borderRadius: '6px',
-                            background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
-                            fontSize: '0.82rem', fontWeight: 600, color: '#10b981',
+                            background: settingsOk ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                            border: `1px solid ${settingsOk ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.3)'}`,
+                            fontSize: '0.82rem', fontWeight: 600, color: settingsOk ? '#10b981' : '#ef4444',
                         }}>
                             {settingsStatus}
                         </div>
@@ -193,12 +214,20 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                         <button
                                             onClick={async () => {
                                                 const next = !settings[t.key];
-                                                const res = await fetch(`${API}/api/admin/global-settings`, {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json', ...(facilitatorId ? { 'X-Facilitator-Id': facilitatorId } : {}) },
-                                                    body: JSON.stringify({ [t.key]: next }),
-                                                });
-                                                if (res.ok) { loadSettings(); setSettingsStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); setTimeout(() => setSettingsStatus(''), 3000); }
+                                                try {
+                                                    // G8: auth is the HttpOnly JWT cookie (require_super_admin);
+                                                    // the X-Facilitator-Id header was never read by the backend.
+                                                    const res = await fetch(`${API}/api/admin/global-settings`, {
+                                                        method: 'PATCH',
+                                                        credentials: 'include',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ [t.key]: next }),
+                                                    });
+                                                    if (res.ok) { loadSettings(); flashStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); }
+                                                    else flashStatus(`❌ ${t.label} NOT saved (HTTP ${res.status}) — retry`, false);
+                                                } catch {
+                                                    flashStatus(`❌ ${t.label} NOT saved — network error`, false);
+                                                }
                                             }}
                                             style={{
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
@@ -257,12 +286,20 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                         <button
                                             onClick={async () => {
                                                 const next = !settings[t.key];
-                                                const res = await fetch(`${API}/api/admin/global-settings`, {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json', ...(facilitatorId ? { 'X-Facilitator-Id': facilitatorId } : {}) },
-                                                    body: JSON.stringify({ [t.key]: next }),
-                                                });
-                                                if (res.ok) { loadSettings(); setSettingsStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); setTimeout(() => setSettingsStatus(''), 3000); }
+                                                try {
+                                                    // G8: auth is the HttpOnly JWT cookie (require_super_admin);
+                                                    // the X-Facilitator-Id header was never read by the backend.
+                                                    const res = await fetch(`${API}/api/admin/global-settings`, {
+                                                        method: 'PATCH',
+                                                        credentials: 'include',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ [t.key]: next }),
+                                                    });
+                                                    if (res.ok) { loadSettings(); flashStatus(`${t.label} ${next ? 'ON' : 'OFF'}`); }
+                                                    else flashStatus(`❌ ${t.label} NOT saved (HTTP ${res.status}) — retry`, false);
+                                                } catch {
+                                                    flashStatus(`❌ ${t.label} NOT saved — network error`, false);
+                                                }
                                             }}
                                             style={{
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
@@ -288,12 +325,18 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                             value={settings.decision_timer_seconds || 300}
                                             onChange={async (e) => {
                                                 const val = parseInt(e.target.value) || 300;
-                                                const res = await fetch(`${API}/api/admin/global-settings`, {
-                                                    method: 'PATCH',
-                                                    headers: { 'Content-Type': 'application/json', ...(facilitatorId ? { 'X-Facilitator-Id': facilitatorId } : {}) },
-                                                    body: JSON.stringify({ decision_timer_seconds: val }),
-                                                });
-                                                if (res.ok) loadSettings();
+                                                try {
+                                                    const res = await fetch(`${API}/api/admin/global-settings`, {
+                                                        method: 'PATCH',
+                                                        credentials: 'include',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        body: JSON.stringify({ decision_timer_seconds: val }),
+                                                    });
+                                                    if (res.ok) loadSettings();
+                                                    else flashStatus(`❌ Timer duration NOT saved (HTTP ${res.status})`, false);
+                                                } catch {
+                                                    flashStatus('❌ Timer duration NOT saved — network error', false);
+                                                }
                                             }}
                                             style={{
                                                 width: '70px', padding: '2px 6px', borderRadius: 4,
