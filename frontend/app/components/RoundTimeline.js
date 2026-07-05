@@ -6,23 +6,42 @@ import { formatSessionId } from '../utils/sessionUtils';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-const ROUND_LABELS = {
-    1: 'Water Crisis',
-    2: 'CFO Gate',
-    3: 'Supply Chain',
-    4: 'Data Ethics',
-    5: 'Carbon Trading',
-    6: 'Talent War',
-    7: 'Board Pressure',
-    8: 'Innovation',
-    9: 'Regulation',
-    10: 'Terminal',
-};
-
 const ROUNDS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+/**
+ * F5: Round labels are sourced from the same backend teleprompter scripts the
+ * facilitator reads from — NOT hardcoded here. A previous hardcoded map had
+ * drifted ("Water Crisis", "Data Ethics", …) and contradicted the actual round
+ * content on the same screen. Fallback when the fetch fails: round number only.
+ */
+function shortRoundTitle(raw) {
+    if (!raw || typeof raw !== 'string') return '';
+    // Strip a leading "Round N:" / "Round N —" prefix, keep the segment before
+    // any em-dash subtitle, then truncate for the node footprint.
+    let t = raw.replace(/^round\s*\d+\s*[:—–-]\s*/i, '').split('—')[0].trim();
+    if (t.length > 24) t = `${t.slice(0, 23).trimEnd()}…`;
+    return t;
+}
 
 export default function RoundTimeline({ sessionId, leaderboard = [] }) {
     const [pacingMap, setPacingMap] = useState({});
+    const [roundTitles, setRoundTitles] = useState({});
+
+    // Single source of truth for round names (same endpoint the Teleprompter
+    // and the Dashboard briefing card already use).
+    useEffect(() => {
+        fetch(`${API}/api/admin/teleprompter`)
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                if (!d?.scripts) return;
+                const titles = {};
+                Object.entries(d.scripts).forEach(([round, s]) => {
+                    titles[round] = shortRoundTitle(s?.title);
+                });
+                setRoundTitles(titles);
+            })
+            .catch(() => { /* fallback: nodes show round numbers only */ });
+    }, []);
 
     // ── Derive cohort groups from leaderboard ──
     const cohorts = useMemo(() => {
@@ -181,7 +200,7 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
                                                 {status === 'completed' ? '✓' : status === 'active' ? '●' : status === 'unlocked' ? '○' : '🔒'}
                                             </div>
                                             <div className={styles.nodeLabel}>R{r}</div>
-                                            <div className={styles.nodeDesc}>{ROUND_LABELS[r]}</div>
+                                            <div className={styles.nodeDesc}>{roundTitles[r] || ''}</div>
                                         </div>
                                     );
                                 })}
@@ -209,7 +228,7 @@ export default function RoundTimeline({ sessionId, leaderboard = [] }) {
                                                                     r === pRound ? styles.miniActive :
                                                                     styles.miniLocked
                                                                 }`}
-                                                                title={`R${r}: ${ROUND_LABELS[r]}`}
+                                                                title={roundTitles[r] ? `R${r}: ${roundTitles[r]}` : `R${r}`}
                                                             />
                                                         ))}
                                                     </div>

@@ -4,42 +4,27 @@ import styles from './GodModeStatus.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-export default function GodModeStatus({ facilitatorId }) {
-    const [status, setStatus] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [failed, setFailed] = useState(false);
-
+/**
+ * GodModeStatus — System Overview panel.
+ * G4: system-status polling now lives in the god-mode page (single shared
+ * poller with the context bar). This component receives the status via props
+ * and only fetches its own /god/settings.
+ */
+export default function GodModeStatus({ facilitatorId, status = null, loading = false, onRefresh }) {
     // Global settings state (merged from GlobalSettings)
     const [settings, setSettings] = useState(null);
     const [freezeMsg, setFreezeMsg] = useState('System maintenance in progress.');
     const [settingsStatus, setSettingsStatus] = useState('');
 
-    const load = async () => {
-        // Resilience: bound every request so a hung/unreachable backend can
-        // never leave the panel spinning on "Loading…" forever. On timeout or
-        // error we surface a clear, retryable state instead.
-        const ctrl = new AbortController();
-        const timer = setTimeout(() => ctrl.abort(), 8000);
-        try {
-            const res = await fetch(`${API}/api/admin/god/system-status`, { signal: ctrl.signal });
-            if (res.ok) { setStatus(await res.json()); setFailed(false); }
-            else setFailed(true);
-        } catch { setFailed(true); }
-        finally { clearTimeout(timer); setLoading(false); }
-    };
-
     const loadSettings = async () => {
         try {
-            const res = await fetch(`${API}/api/admin/god/settings`);
+            const res = await fetch(`${API}/api/admin/god/settings`, { credentials: 'include' });
             if (res.ok) setSettings(await res.json());
         } catch {}
     };
 
     useEffect(() => {
-        load();
         loadSettings();
-        const i = setInterval(load, 10000);
-        return () => clearInterval(i);
     }, []);
 
     // ── Global Settings handlers ──
@@ -49,12 +34,12 @@ export default function GodModeStatus({ facilitatorId }) {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ message: freezeMsg }),
         });
-        if (res.ok) { load(); loadSettings(); setSettingsStatus('System FROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
+        if (res.ok) { onRefresh?.(); loadSettings(); setSettingsStatus('System FROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
     };
 
     const handleUnfreeze = async () => {
         const res = await fetch(`${API}/api/admin/god/unfreeze`, { method: 'POST' });
-        if (res.ok) { load(); loadSettings(); setSettingsStatus('System UNFROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
+        if (res.ok) { onRefresh?.(); loadSettings(); setSettingsStatus('System UNFROZEN'); setTimeout(() => setSettingsStatus(''), 3000); }
     };
 
     if (loading && !status) return <div className={styles.loading}>Loading system status…</div>;
@@ -65,7 +50,7 @@ export default function GodModeStatus({ facilitatorId }) {
                 Check that the API server is running (e.g. <code>http://localhost:8000/health</code>).
             </div>
             <button
-                onClick={() => { setLoading(true); load(); loadSettings(); }}
+                onClick={() => { onRefresh?.(); loadSettings(); }}
                 style={{
                     padding: '0.4rem 1rem', borderRadius: 6, border: 'none', cursor: 'pointer',
                     background: '#6366f1', color: '#fff', fontWeight: 700, fontSize: '0.8rem',

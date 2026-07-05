@@ -7,37 +7,60 @@ import { fmtCompact } from '../utils/formatCurrency';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCohort }) {
+// F6: absolute pedagogical thresholds — alerts must not depend on the
+// cross-cohort average (a healthy room with one rich cohort would flag
+// everyone else). Starting treasury is $50M; below $10M is genuinely low.
+const TREASURY_FLOOR = 10_000_000;
+const REPUTATION_FLOOR = 40;
+
+export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCohort, selectedSession = null }) {
     const stats = useMemo(() => {
         const cohorts = leaderboard.filter(s => !s.player_id);
         const players = leaderboard.filter(s => !!s.player_id);
         const allSessions = leaderboard;
 
-        const avgTreasury = allSessions.length
-            ? allSessions.reduce((sum, s) => sum + (s.total_cash || s.corporate_treasury || 0), 0) / allSessions.length
-            : 0;
-        const avgReputation = allSessions.length
-            ? allSessions.reduce((sum, s) => sum + (s.group_reputation || 0), 0) / allSessions.length
-            : 0;
         const avgRound = allSessions.length
             ? allSessions.reduce((sum, s) => sum + (s.round_number || 1), 0) / allSessions.length
             : 0;
 
-        const lagging = allSessions.filter(s => (s.round_number || 1) < avgRound - 1);
-        const lowTreasury = allSessions.filter(s => (s.total_cash || s.corporate_treasury || 0) < avgTreasury * 0.5);
-        const lowRep = allSessions.filter(s => (s.group_reputation || 0) < 40);
+        // F6: evaluate each *team* exactly once. A "team" is a player
+        // sub-session; a cohort row only counts as a team when it has no
+        // player sub-sessions (i.e. the cohort session is played directly).
+        const cohortIdsWithPlayers = new Set(players.map(p => p.parent_cohort_id).filter(Boolean));
+        const cohortRoundById = new Map(cohorts.map(c => [c.session_id, c.round_number || 1]));
+        const teams = [
+            ...players,
+            ...cohorts.filter(c => !cohortIdsWithPlayers.has(c.session_id)),
+        ];
+
+        // One entry per team, with all of its alert flags (no double counting).
+        const alertTeams = [];
+        for (const t of teams) {
+            const flags = [];
+            const treasury = t.total_cash || t.corporate_treasury || 0;
+            const rep = t.group_reputation || 0;
+            // Lagging is relative to the team's own cohort round, not a global mean.
+            const cohortRound = t.parent_cohort_id ? cohortRoundById.get(t.parent_cohort_id) : null;
+            if (cohortRound && (t.round_number || 1) < cohortRound - 1) flags.push('lagging');
+            if (treasury < TREASURY_FLOOR) flags.push('lowTreasury');
+            if (rep < REPUTATION_FLOOR) flags.push('lowRep');
+            if (flags.length) alertTeams.push({ session: t, flags });
+        }
+
+        const lagging = alertTeams.filter(a => a.flags.includes('lagging'));
+        const lowTreasury = alertTeams.filter(a => a.flags.includes('lowTreasury'));
+        const lowRep = alertTeams.filter(a => a.flags.includes('lowRep'));
 
         return {
             totalCohorts: cohorts.length,
             totalPlayers: players.length,
             totalSessions: allSessions.length,
-            avgTreasury,
-            avgReputation,
             avgRound: Math.round(avgRound * 10) / 10,
             lagging,
             lowTreasury,
             lowRep,
-            alertCount: lagging.length + lowTreasury.length + lowRep.length,
+            // A team with several problems is still one team needing attention.
+            alertCount: alertTeams.length,
         };
     }, [leaderboard]);
 
@@ -45,10 +68,19 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
     const formatCurrency = fmtCompact;
 
     // ── Round Briefing Data ──
-    const currentRound = useMemo(() => {
-        if (!leaderboard.length) return 1;
-        return Math.max(...leaderboard.map(s => s.round_number || 1));
-    }, [leaderboard]);
+    // F3: key the directive card to the cohort being facilitated, never the
+    // global max round (which could belong to a different facilitator's
+    // cohort). Priority: explicitly selected cohort → the only cohort →
+    // fallback to latest round with an explicit "across all cohorts" label.
+    const briefingTarget = useMemo(() => {
+        const cohorts = leaderboard.filter(s => !s.player_id);
+        const selected = cohorts.find(s => s.session_id === selectedSession);
+        if (selected) return { cohort: selected, round: selected.round_number || 1 };
+        if (cohorts.length === 1) return { cohort: cohorts[0], round: cohorts[0].round_number || 1 };
+        if (!leaderboard.length) return { cohort: null, round: 1 };
+        return { cohort: null, round: Math.max(...leaderboard.map(s => s.round_number || 1)) };
+    }, [leaderboard, selectedSession]);
+    const currentRound = briefingTarget.round;
 
     const [briefingScript, setBriefingScript] = useState(null);
 
@@ -97,32 +129,56 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
             {/* ── Alert Panels ── */}
             {stats.alertCount > 0 && (
                 <div className={styles.alertSection}>
-                    <h3 className={styles.alertTitle}>⚠️ Attention Required</h3>
+                    <h3 className={styles.alertTitle}>⚠️ Attention Required — {stats.alertCount} team{stats.alertCount > 1 ? 's' : ''}</h3>
                     <div className={styles.alertGrid}>
                         {stats.lagging.length > 0 && (
-                            <div className={styles.alertCard}>
+                            <div
+                                className={styles.alertCard}
+                                role="button"
+                                tabIndex={0}
+                                style={{ cursor: 'pointer' }}
+                                title={stats.lagging.map(a => a.session.cohort_name || a.session.session_id).join(', ')}
+                                onClick={() => onNavigate?.('leaderboard')}
+                                onKeyDown={e => e.key === 'Enter' && onNavigate?.('leaderboard')}
+                            >
                                 <div className={styles.alertCardIcon}>🐢</div>
                                 <div>
                                     <strong>{stats.lagging.length} Lagging Team{stats.lagging.length > 1 ? 's' : ''}</strong>
-                                    <p>Below average round progress</p>
+                                    <p>More than 1 round behind their cohort — view in Leaderboard</p>
                                 </div>
                             </div>
                         )}
                         {stats.lowTreasury.length > 0 && (
-                            <div className={styles.alertCard}>
+                            <div
+                                className={styles.alertCard}
+                                role="button"
+                                tabIndex={0}
+                                style={{ cursor: 'pointer' }}
+                                title={stats.lowTreasury.map(a => a.session.cohort_name || a.session.session_id).join(', ')}
+                                onClick={() => onNavigate?.('leaderboard')}
+                                onKeyDown={e => e.key === 'Enter' && onNavigate?.('leaderboard')}
+                            >
                                 <div className={styles.alertCardIcon}>💸</div>
                                 <div>
                                     <strong>{stats.lowTreasury.length} Low Treasury</strong>
-                                    <p>Below 50% of average treasury</p>
+                                    <p>Below {fmtCompact(TREASURY_FLOOR)} floor — view in Leaderboard</p>
                                 </div>
                             </div>
                         )}
                         {stats.lowRep.length > 0 && (
-                            <div className={styles.alertCard}>
+                            <div
+                                className={styles.alertCard}
+                                role="button"
+                                tabIndex={0}
+                                style={{ cursor: 'pointer' }}
+                                title={stats.lowRep.map(a => a.session.cohort_name || a.session.session_id).join(', ')}
+                                onClick={() => onNavigate?.('leaderboard')}
+                                onKeyDown={e => e.key === 'Enter' && onNavigate?.('leaderboard')}
+                            >
                                 <div className={styles.alertCardIcon}>📉</div>
                                 <div>
                                     <strong>{stats.lowRep.length} Low Reputation</strong>
-                                    <p>Reputation below 40 threshold</p>
+                                    <p>Reputation below {REPUTATION_FLOOR} threshold — view in Leaderboard</p>
                                 </div>
                             </div>
                         )}
@@ -145,8 +201,11 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
                     <button className={styles.actionBtn} onClick={() => onNavigate?.('registry')}>
                         👥 Player Registry
                     </button>
-                    <button className={styles.actionBtn} onClick={() => onNavigate?.('audit_trail')}>
-                        📝 Audit Trail
+                    {/* F9: was 'audit_trail' — a tab id that no longer exists in the
+                        facilitator sidebar (merged into Decision History). Navigating
+                        there broke the breadcrumb and nav highlight. */}
+                    <button className={styles.actionBtn} onClick={() => onNavigate?.('decision_replay')}>
+                        🕰️ Decision History
                     </button>
                     <button className={styles.actionBtn} onClick={() => onNavigate?.('reports')}>
                         📊 Export Reports
@@ -162,7 +221,13 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
                         <div className={styles.briefingHeader}>
                             <div className={styles.briefingRoundBadge}>R{currentRound}</div>
                             <div style={{ flex: 1 }}>
-                                <div className={styles.briefingDirectiveLabel}>ROUND {currentRound} DIRECTIVE</div>
+                                <div className={styles.briefingDirectiveLabel}>
+                                    ROUND {currentRound} DIRECTIVE
+                                    {' — '}
+                                    {briefingTarget.cohort
+                                        ? (briefingTarget.cohort.cohort_name || formatSessionId(briefingTarget.cohort))
+                                        : 'latest round across all cohorts (select a cohort to pin)'}
+                                </div>
                                 <h3 className={styles.briefingTitle}>{script.title}</h3>
                             </div>
                             <button
@@ -244,8 +309,10 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
                                 const round = s.round_number || 1;
                                 const treasury = s.total_cash || s.corporate_treasury || 0;
                                 const rep = s.group_reputation || 0;
-                                const isLagging = round < stats.avgRound - 1;
-                                const isLowCash = treasury < stats.avgTreasury * 0.5;
+                                // F6: same absolute thresholds as the alert cards, so the
+                                // table's status column and the alert counts always agree.
+                                const isLagging = stats.lagging.some(a => a.session.session_id === s.session_id);
+                                const isLowCash = treasury < TREASURY_FLOOR;
                                 return (
                                     <tr key={s.session_id}>
                                          <td className={styles.cohortName}>{s.cohort_name || formatSessionId(s)}</td>

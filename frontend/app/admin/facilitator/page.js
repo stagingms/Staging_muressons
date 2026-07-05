@@ -46,37 +46,8 @@ import FacilitatorTeachableMoments from '../../components/FacilitatorTeachableMo
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:8000'}`;
 
-/* ── Seed data for standalone frontend development ─────────── */
-const SEED_LEADERBOARD = [
-    {
-        session_id: 'demo-alpha',
-        cohort_name: 'Cohort Alpha — MBA Spring 2026',
-        round_number: 6,
-        terminal_value: 67_320_000,
-        total_cash: 42_100_000,
-        group_synergy: 1.28,
-        group_reputation: 62,
-        avg_natural_capital_debt: 14.2,
-        avg_social_license: 58.5,
-        talent_flight_risk: false,
-        talent_penalty_multiplier: 1.04,
-        active_flags: ['deep_audit_completed', 'green_bond_active'],
-    },
-    {
-        session_id: 'demo-beta',
-        cohort_name: 'Cohort Beta — Exec Program',
-        round_number: 4,
-        terminal_value: 51_800_000,
-        total_cash: 38_500_000,
-        group_synergy: 1.12,
-        group_reputation: 44,
-        avg_natural_capital_debt: 28.7,
-        avg_social_license: 41.2,
-        talent_flight_risk: true,
-        talent_penalty_multiplier: 1.47,
-        active_flags: ['electronics_blindspot', 'carbon_deferred'],
-    }
-];
+/* F1(d): the old SEED_LEADERBOARD constant was removed — it was never wired
+ * to anything, and the WS error handler falsely claimed "using seed data". */
 
 /* ═════════════════════════════════════════════════════════════════
  *  LOGIN GATE — Facilitator must authenticate before accessing
@@ -556,7 +527,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 }
             };
             ws.onopen = () => addLog({ type: 'system', message: 'Admin WebSocket connected' });
-            ws.onerror = () => addLog({ type: 'system', message: 'WebSocket: using seed data (backend offline)' });
+            ws.onerror = () => addLog({ type: 'system', message: 'WebSocket error — live updates may be interrupted', severity: 'warning' });
             wsRef.current = ws;
         } catch {
             // Backend offline — use seed data
@@ -725,7 +696,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                                 )}
                             </div>
                         )}
-                        <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} onCreateCohort={authData.role === 'facilitator' ? null : () => setCreateCohortOpen(true)} />
+                        <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} selectedSession={selectedSession} onCreateCohort={authData.role === 'facilitator' ? null : () => setCreateCohortOpen(true)} />
                         <CreateCohortModal
                             isOpen={createCohortOpen}
                             onClose={() => setCreateCohortOpen(false)}
@@ -973,7 +944,20 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                         )}
 
                         <section className={styles.logPanel}>
-                            <h2>Facilitator Activity Log</h2>
+                            {/* F11: this log is in-memory only (50 entries, cleared on
+                                refresh) — it must not present itself as the audit trail. */}
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                                <h2>Live Feed (this browser session)</h2>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    Entries are kept in memory only and cleared on refresh — the durable record is{' '}
+                                    <button
+                                        onClick={() => setActiveTab('decision_replay')}
+                                        style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', textDecoration: 'underline', fontSize: '0.75rem', padding: 0 }}
+                                    >
+                                        Decision History
+                                    </button>.
+                                </span>
+                            </div>
                             <div className={styles.logBox}>
                                 {activityLog.map((log, i) => (
                                     <div key={i} className={`${styles.logEntry} ${styles[log.type]}`}>

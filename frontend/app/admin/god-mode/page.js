@@ -459,30 +459,73 @@ export default function GodModePage() {
 
 
 /* ═════════════════════════════════════════════════════════════════
- *  SYSTEM CONTEXT BAR
+ *  SYSTEM STATUS — single shared poller (G4)
+ *  One 10s poll on /god/system-status feeds both the context bar and the
+ *  System Overview cards, so the two surfaces can never disagree. Replaces
+ *  the previous duplicated pollers (bar @15s + GodModeStatus @10s).
  * ═════════════════════════════════════════════════════════════════ */
-function SystemContextBar() {
+function useGodSystemStatus(intervalMs = 10000) {
     const [status, setStatus] = useState(null);
+    const [lastSuccess, setLastSuccess] = useState(null);
+    const [failedAttempts, setFailedAttempts] = useState(0);
+    const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchStatus = () => {
-            // Bound the request so a hung backend can't leave stale connections.
-            const ctrl = new AbortController();
-            const timer = setTimeout(() => ctrl.abort(), 8000);
-            fetch(`${API}/api/admin/god/system-status`, { signal: ctrl.signal })
-                .then(r => r.json())
-                .then(d => setStatus(d))
-                .catch(() => {})
-                .finally(() => clearTimeout(timer));
-        };
-        fetchStatus();
-        const t = setInterval(fetchStatus, 15000);
-        return () => clearInterval(t);
+    const load = useCallback(async () => {
+        // Bound the request so a hung backend can't leave stale connections.
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), 8000);
+        try {
+            const res = await fetch(`${API}/api/admin/god/system-status`, {
+                signal: ctrl.signal,
+                credentials: 'include',
+            });
+            if (res.ok) {
+                setStatus(await res.json());
+                setLastSuccess(Date.now());
+                setFailedAttempts(0);
+            } else {
+                setFailedAttempts(n => n + 1);
+            }
+        } catch {
+            setFailedAttempts(n => n + 1);
+        } finally {
+            clearTimeout(timer);
+            setLoading(false);
+        }
     }, []);
 
-    const activeCohorts = status ? status.total_cohorts : 0;
-    const activePlayers = status ? status.total_players : 0;
-    const isOptimal = status ? (status.system_memory_mb || 0) < 500 : true;
+    useEffect(() => {
+        load();
+        const t = setInterval(load, intervalMs);
+        return () => clearInterval(t);
+    }, [load, intervalMs]);
+
+    return { status, lastSuccess, failedAttempts, loading, refresh: load };
+}
+
+/* ═════════════════════════════════════════════════════════════════
+ *  SYSTEM CONTEXT BAR
+ *  G1: tri-state (Live / Stale / Unreachable). Never fabricates zeros or
+ *  an "Optimal" verdict when the backend can't be reached — during an
+ *  outage the bar must alarm, not reassure.
+ * ═════════════════════════════════════════════════════════════════ */
+function SystemContextBar({ status, lastSuccess, failedAttempts }) {
+    // Polling is every 10s; two consecutive failures ≈ >20s without truth.
+    const unreachable = !status && failedAttempts > 0;
+    const stale = !!status && failedAttempts >= 2;
+    const live = !!status && failedAttempts < 2;
+
+    const asOf = lastSuccess ? new Date(lastSuccess).toLocaleTimeString() : null;
+    const isOptimal = live && (status.system_memory_mb || 0) < 500;
+    const frozen = !!status?.system_frozen;
+
+    const healthChip = live
+        ? { icon: isOptimal ? '🟢' : '🔴', label: isOptimal ? 'Optimal' : 'Warning', color: isOptimal ? '#10b981' : '#ef4444' }
+        : stale
+            ? { icon: '🟡', label: `Stale — as of ${asOf}`, color: '#f59e0b' }
+            : { icon: '⛔', label: 'Backend unreachable', color: '#ef4444' };
+
+    const countVal = (v) => (status ? v : '—');
 
     return (
         <div style={{
@@ -500,29 +543,40 @@ function SystemContextBar() {
                     60% { transform: scale(1); opacity: 1; }
                 }
             `}} />
-            <div style={{ display: 'flex', gap: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'center', opacity: live ? 1 : 0.65 }}>
                 <span style={{ color: '#38bdf8' }}>📡 COMMAND UPLINK</span>
-                <span>Live Cohorts: <span style={{ color: 'var(--text-primary)' }}>{activeCohorts}</span></span>
-                <span>Active Players: <span style={{ color: 'var(--text-primary)' }}>{activePlayers}</span></span>
+                <span>Live Cohorts: <span style={{ color: 'var(--text-primary)' }}>{countVal(status?.total_cohorts)}</span></span>
+                <span>Active Players: <span style={{ color: 'var(--text-primary)' }}>{countVal(status?.total_players)}</span></span>
+                {stale && <span style={{ color: '#f59e0b' }}>as of {asOf}</span>}
+                {frozen && (
+                    <span style={{
+                        color: '#ef4444', fontWeight: 800, padding: '2px 8px', borderRadius: '12px',
+                        background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                    }}>
+                        ❄️ SYSTEM FROZEN
+                    </span>
+                )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                System Health: 
+                System Health:
                 <span style={{
-                    color: isOptimal ? '#10b981' : '#ef4444',
+                    color: healthChip.color,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px',
                     padding: '2px 8px',
                     borderRadius: '12px',
-                    background: isOptimal ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'
+                    background: `${healthChip.color}1a`,
                 }}>
-                    <span style={{ 
+                    <span style={{
                         display: 'inline-block',
-                        animation: 'heartbeatPulse 2.5s infinite'
+                        // Heartbeat only when data is actually live — the animation
+                        // must not imply liveness during an outage.
+                        animation: live ? 'heartbeatPulse 2.5s infinite' : 'none',
                     }}>
-                        {isOptimal ? '🟢' : '🔴'}
-                    </span> 
-                    {isOptimal ? 'Optimal' : 'Warning'}
+                        {healthChip.icon}
+                    </span>
+                    {healthChip.label}
                 </span>
             </div>
         </div>
@@ -543,6 +597,10 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
     // Global leaderboard — used by DecisionTimeline, DebriefReport, SimulationManager
     const [leaderboard, setLeaderboard] = useState([]);
     const [selectedSession, setSelectedSession] = useState(null);
+
+    // G4: single system-status poller shared by the context bar and the
+    // System Overview cards (previously two independent pollers).
+    const sysStatus = useGodSystemStatus();
 
     useEffect(() => {
         const fetchLb = () => fetch(`${API}/api/admin/leaderboard`, {
@@ -617,7 +675,12 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
             case 'system_overview':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <GodModeStatus facilitatorId={authData?.facilitator_id} />
+                        <GodModeStatus
+                            facilitatorId={authData?.facilitator_id}
+                            status={sysStatus.status}
+                            loading={sysStatus.loading}
+                            onRefresh={sysStatus.refresh}
+                        />
                         <SessionHealthDashboard />
                     </div>
                 );
@@ -638,13 +701,8 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} authContext={authData} />;
             case 'cohort_provisioning':
                 return <SimulationManager fetchInternal={false} leaderboard={leaderboard} currentFacilitatorId={authData.facilitator_id} currentFacilitatorRole={authData.role} />;
-            case 'cohort_orchestration':
-                return (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <SimulationManager fetchInternal={false} leaderboard={leaderboard} currentFacilitatorId={authData.facilitator_id} currentFacilitatorRole={authData.role} />
-                        <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} authContext={authData} />
-                    </div>
-                );
+            // G7: removed dead 'cohort_orchestration' case — no sidebar item has
+            // that id, so it was unreachable code that invited config drift.
             case 'session_controls':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -927,7 +985,11 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
 
             {/* ── Main Workspace ── */}
             <main className={styles.mainPanel}>
-                <SystemContextBar />
+                <SystemContextBar
+                    status={sysStatus.status}
+                    lastSuccess={sysStatus.lastSuccess}
+                    failedAttempts={sysStatus.failedAttempts}
+                />
                 <header className={styles.topBar}>
                     <div className={styles.meta}>
                         {(() => {

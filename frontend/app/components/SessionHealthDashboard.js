@@ -19,12 +19,21 @@ const pulseKeyframes = `
 export default function SessionHealthDashboard() {
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
+    // G1/Phase 1: track freshness so a failed refresh is visible instead of
+    // silently rendering stale cards.
+    const [lastUpdated, setLastUpdated] = useState(null);
+    const [refreshFailed, setRefreshFailed] = useState(false);
 
     const refresh = () => {
-        fetch(`${API}/api/admin/session-health`)
+        fetch(`${API}/api/admin/session-health`, { credentials: 'include' })
             .then(r => r.json())
-            .then(d => { setSessions(d.sessions || []); setLoading(false); })
-            .catch(() => setLoading(false));
+            .then(d => {
+                setSessions(d.sessions || []);
+                setLastUpdated(Date.now());
+                setRefreshFailed(false);
+                setLoading(false);
+            })
+            .catch(() => { setRefreshFailed(true); setLoading(false); });
     };
 
     useEffect(() => { refresh(); const t = setInterval(refresh, 15000); return () => clearInterval(t); }, []);
@@ -38,7 +47,18 @@ export default function SessionHealthDashboard() {
             <style dangerouslySetInnerHTML={{ __html: pulseKeyframes }} />
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-primary)' }}>🏥 Session Health Monitor</h2>
-                <button onClick={refresh} style={{ padding: '0.4rem 1rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}>🔄 Refresh</button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    {refreshFailed ? (
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#ef4444' }}>
+                            ⚠️ Refresh failed{lastUpdated ? ` — showing data as of ${new Date(lastUpdated).toLocaleTimeString()}` : ''}
+                        </span>
+                    ) : lastUpdated ? (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            Updated {new Date(lastUpdated).toLocaleTimeString()}
+                        </span>
+                    ) : null}
+                    <button onClick={refresh} style={{ padding: '0.4rem 1rem', borderRadius: '6px', border: '1px solid var(--border-subtle)', background: 'var(--bg-body)', color: 'var(--text-muted)', fontSize: '0.8rem', cursor: 'pointer' }}>🔄 Refresh</button>
+                </div>
             </div>
 
             {/* Status Summary */}

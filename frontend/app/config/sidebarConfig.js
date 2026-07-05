@@ -33,7 +33,9 @@ export const GOD_MODE_SIDEBAR = [
         items: [
             { id: 'facilitator_registry', label: 'Facilitator Registry', icon: '👥', tooltip: 'Manage facilitators: create, edit roles (Super Admin / Lead / Facilitator), set permissions and cohort limits' },
             { id: 'cohort_provisioning',  label: 'Cohort Provisioning',  icon: '🗂️', tooltip: 'Provision and manage cohort sessions, assign facilitators, and configure paradigms' },
-            { id: 'session_controls',     label: 'Session Controls',     icon: '🎛️', tooltip: 'Round pacing, universal broadcasts, visibility controls, and cross-cohort scheduling' },
+            // G7: tooltip previously promised pacing/visibility/scheduling that this
+            // tab does not contain — it must describe what the tab actually renders.
+            { id: 'session_controls',     label: 'Session Controls',     icon: '🎛️', tooltip: 'Send universal broadcasts and announcements to every active cohort' },
             { id: 'master_interventions', label: 'Team Interventions',   icon: '🚀', tooltip: 'Directly inject capital, penalties, or narrative events into target teams' },
             { id: 'crisis_overrides',     label: 'Crisis Overrides',     icon: '🚨', tooltip: 'Manually activate crises, deploy Black Swans, or trigger end-game pathways' },
             { id: 'decision_timeline',    label: 'Decision History',     icon: '🕰️', tooltip: 'Chronological audit trail of every decision across all sessions with KPI deltas and CapEx breakdowns' },
