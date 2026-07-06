@@ -85,7 +85,7 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
     // Fetch sessions list — only in God Mode (no propSessions)
     useEffect(() => {
         if (propSessions) return; // skip: caller provides sessions
-        fetch(`${API}/api/admin/sessions`)
+        fetch(`${API}/api/admin/sessions`, { credentials: 'include' })
             .then(r => r.ok ? r.json() : [])
             .then(d => {
                 const list = Array.isArray(d) ? d : (d?.sessions || []);

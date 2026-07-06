@@ -36,6 +36,8 @@ import { GOD_MODE_SIDEBAR, getTabMeta as _getTabMeta } from '../../config/sideba
 import { adminJson } from '../../utils/adminFetch';
 import CohortSelector from '../../components/CohortSelector';
 import { useConfirm } from '../../components/ConfirmModal';
+import ShortcutSheet from '../../components/ShortcutSheet';
+import RoundPacingControl from '../../components/RoundPacingControl';
 import OnboardingWizard from '../../components/OnboardingWizard';
 import StakeholderConfig from '../../components/StakeholderConfig';
 import PillarConfigurator from '../../components/PillarConfigurator';
@@ -642,24 +644,31 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
     };
 
-    // Keyboard shortcuts
+    // Keyboard shortcuts — Phase 6 (F12): identical semantics to the
+    // facilitator dashboard. Ctrl+1–5 toggles a group without collapsing the
+    // rest; broadcast lives on Ctrl+Shift+B on both screens; '?' opens the
+    // shortcut sheet.
+    const [showShortcuts, setShowShortcuts] = useState(false);
     useEffect(() => {
         const handler = (e) => {
+            const tag = e.target?.tagName;
+            const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable;
+            if (!typing && e.key === '?' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                setShowShortcuts(s => !s);
+                return;
+            }
+            if (e.key === 'Escape') setShowShortcuts(false);
             if (e.ctrlKey || e.metaKey) {
                 const categoryKeys = ['command_center', 'orchestration', 'engine_core', 'content', 'danger'];
                 if (e.key >= '1' && e.key <= '5') {
                     e.preventDefault();
                     const idx = parseInt(e.key) - 1;
                     if (categoryKeys[idx]) {
-                        setOpenCategories(prev => {
-                            const newState = {};
-                            categoryKeys.forEach(k => { newState[k] = false; });
-                            newState[categoryKeys[idx]] = true;
-                            return newState;
-                        });
+                        setOpenCategories(prev => ({ ...prev, [categoryKeys[idx]]: !prev[categoryKeys[idx]] }));
                     }
                 }
-                if (e.key === 'b' || e.key === 'B') {
+                if (e.shiftKey && (e.key === 'b' || e.key === 'B')) {
                     e.preventDefault();
                     setActiveTab('session_controls');
                 }
@@ -710,6 +719,9 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         <UniversalBroadcast />
+                        {/* Phase 6: pacing control added here — self-fetching in
+                            god-mode, following the global target-cohort selection. */}
+                        <RoundPacingControl selectedSession={selectedSession} />
                     </div>
                 );
             case 'master_interventions':
@@ -820,6 +832,19 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
 
     return (
         <div className={styles.dashboard}>
+            {/* Phase 6 (F12): shortcut sheet ('?') */}
+            {showShortcuts && (
+                <ShortcutSheet
+                    onClose={() => setShowShortcuts(false)}
+                    shortcuts={[
+                        ['Ctrl+1…5', 'Toggle sidebar group open/closed'],
+                        ['Ctrl+Shift+B', 'Open Session Controls (broadcast)'],
+                        ['?', 'Show / hide this sheet'],
+                        ['Esc', 'Close dialogs'],
+                    ]}
+                />
+            )}
+
             {/* ── Change Password Modal ── */}
             {showChangePw && (
                 <GodModeChangePasswordModal
@@ -957,7 +982,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className={styles.navItem}
-                        data-tooltip="Detonate a synchronized crisis across every team in a cohort"
+                        data-tooltip="DESTRUCTIVE — opens the console that detonates a synchronized crisis across every team in a cohort. Nothing fires until you confirm inside the console."
                         data-tooltip-pos="right"
                         style={{
                             display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
@@ -967,7 +992,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                         }}
                     >
                         <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🌊</span>
-                        <span>Shockwave ↗</span>
+                        <span>Shockwave Console ↗</span>
                     </a>
                 </nav>
             </aside>
@@ -1007,6 +1032,41 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                     {renderActiveComponent()}
                 </div>
             </main>
+
+            {/* ── Mobile Sidebar Toggle (Phase 6: parity with the facilitator
+                screen; makes the previously-dead sidebarOpen state real) ── */}
+            <button
+                onClick={() => setSidebarOpen(prev => !prev)}
+                style={{
+                    display: 'none', position: 'fixed', bottom: '1rem', right: '1rem', zIndex: 1300,
+                    width: '48px', height: '48px', borderRadius: '50%',
+                    background: 'var(--accent-gold, #f59e0b)', color: '#fff', border: 'none',
+                    fontSize: '1.3rem', cursor: 'pointer',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+                }}
+                className="mobile-sidebar-toggle"
+                aria-label="Toggle sidebar"
+            >
+                {sidebarOpen ? '✕' : '☰'}
+            </button>
+
+            {/* Mobile responsive CSS */}
+            <style>{`
+                @media (max-width: 768px) {
+                    .mobile-sidebar-toggle { display: flex !important; align-items: center; justify-content: center; }
+                    .${styles.sidebar} {
+                        position: fixed !important;
+                        left: ${sidebarOpen ? '0' : '-280px'} !important;
+                        top: 0 !important;
+                        z-index: 1250 !important;
+                        transition: left 0.3s ease !important;
+                        box-shadow: ${sidebarOpen ? '4px 0 24px rgba(0,0,0,0.5)' : 'none'} !important;
+                    }
+                    .${styles.mainPanel} {
+                        margin-left: 0 !important;
+                    }
+                }
+            `}</style>
         </div>
     );
 }
@@ -1322,7 +1382,7 @@ function DangerZonePanel({ apiBase }) {
                             boxShadow: resetPhrase === REQUIRED_PHRASE ? '0 4px 12px rgba(239,68,68,0.3)' : 'none',
                         }}
                     >
-                        ☢️ Factory Nuke All Sessions
+                        ☢️ Erase All Sessions Permanently
                     </button>
                 )}
                 {resetResult && (

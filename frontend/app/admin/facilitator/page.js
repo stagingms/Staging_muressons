@@ -43,6 +43,7 @@ import OnboardingWizard from '../../components/OnboardingWizard';
 import CohortPulse from '../../components/CohortPulse';
 import CohortSelector from '../../components/CohortSelector';
 import { useConfirm } from '../../components/ConfirmModal';
+import ShortcutSheet from '../../components/ShortcutSheet';
 import FacilitatorTeachableMoments from '../../components/FacilitatorTeachableMoments';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -463,24 +464,33 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
         setOpenCategories(prev => ({ ...prev, [catId]: !prev[catId] }));
     };
 
-    // Keyboard shortcuts
+    // Keyboard shortcuts — Phase 6 (F12):
+    //  · Ctrl+1–4 toggles the target group WITHOUT collapsing the others
+    //    (the old exclusive-open was a surprise, not a feature)
+    //  · broadcast moved off Ctrl+B (browser bookmark/bold conflict) to
+    //    Ctrl+Shift+B — same binding semantics as God Mode
+    //  · '?' opens a discoverable shortcut sheet
+    const [showShortcuts, setShowShortcuts] = useState(false);
     useEffect(() => {
         const handler = (e) => {
+            const tag = e.target?.tagName;
+            const typing = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || e.target?.isContentEditable;
+            if (!typing && e.key === '?' && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                setShowShortcuts(s => !s);
+                return;
+            }
+            if (e.key === 'Escape') setShowShortcuts(false);
             if (e.ctrlKey || e.metaKey) {
                 const categoryKeys = ['command', 'classroom', 'analytics', 'config'];
                 if (e.key >= '1' && e.key <= '4') {
                     e.preventDefault();
                     const idx = parseInt(e.key) - 1;
                     if (categoryKeys[idx]) {
-                        setOpenCategories(prev => {
-                            const newState = {};
-                            categoryKeys.forEach(k => { newState[k] = false; });
-                            newState[categoryKeys[idx]] = true;
-                            return newState;
-                        });
+                        setOpenCategories(prev => ({ ...prev, [categoryKeys[idx]]: !prev[categoryKeys[idx]] }));
                     }
                 }
-                if (e.key === 'b' || e.key === 'B') {
+                if (e.shiftKey && (e.key === 'b' || e.key === 'B')) {
                     e.preventDefault();
                     setActiveTab('broadcast');
                 }
@@ -850,19 +860,41 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                     </>
                 );
             case 'timeline': {
+                // F7: keep the per-cohort ceo_interview_* fields the leaderboard
+                // already carries, so the Interview panel renders each cohort's
+                // actual configuration instead of a copied global.
                 const filteredSessions = leaderboard
                     .filter(s => !s.player_id && (authData.role !== 'facilitator' || s.facilitator_id === authData.facilitator_id))
-                    .map(s => ({ session_id: s.session_id, cohort_name: s.cohort_name }));
+                    .map(s => ({
+                        session_id: s.session_id,
+                        cohort_name: s.cohort_name,
+                        ceo_interview_enabled: s.ceo_interview_enabled,
+                        ceo_interview_voice_gender: s.ceo_interview_voice_gender,
+                    }));
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         <RoundTimeline sessionId={selectedSession} leaderboard={leaderboard} />
 
-                        {/* Round Pacing Controls for Facilitator */}
-                        <RoundPacingControl sessions={filteredSessions} selectedSession={selectedSession} />
-
-                        {/* Quiz Controls for Facilitator */}
-                        <QuizControlPanel sessions={filteredSessions} />
-                        <InterviewControlPanel sessions={filteredSessions} />
+                        {/* F7: pacing/quiz/interview grouped under an explicit
+                            "Session Setup" heading. A dedicated sidebar tab was
+                            rejected: the backend's ROLE_ALLOWED_TABS lists are
+                            explicit, so an unknown tab id would silently vanish
+                            for non-super-admins (backend edits are out of scope). */}
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.6rem', margin: '0 0 0.75rem' }}>
+                                <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 800, color: 'var(--text-primary)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                    ⚙️ Session Setup
+                                </h2>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    pacing · quizzes · CEO interview — configured per cohort
+                                </span>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                                <RoundPacingControl sessions={filteredSessions} selectedSession={selectedSession} />
+                                <QuizControlPanel sessions={filteredSessions} />
+                                <InterviewControlPanel sessions={filteredSessions} />
+                            </div>
+                        </div>
                     </div>
                 );
             }
@@ -1147,6 +1179,19 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             {/* Phase 5 (F4): shared tiered confirmation modal */}
             {confirmModal}
 
+            {/* Phase 6 (F12): shortcut sheet ('?') */}
+            {showShortcuts && (
+                <ShortcutSheet
+                    onClose={() => setShowShortcuts(false)}
+                    shortcuts={[
+                        ['Ctrl+1…4', 'Toggle sidebar group open/closed'],
+                        ['Ctrl+Shift+B', 'Open Bulk Messaging (broadcast)'],
+                        ['?', 'Show / hide this sheet'],
+                        ['Esc', 'Close dialogs'],
+                    ]}
+                />
+            )}
+
             {/* ── Change Password Modal ── */}
             {showChangePw && (
                 <FacilitatorChangePasswordModal
@@ -1407,7 +1452,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
 
                 {/* Keyboard shortcut hints */}
                 <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
-                    Ctrl+1-4: categories · Ctrl+B: broadcast
+                    Ctrl+1–4: toggle groups · Ctrl+Shift+B: broadcast · ?: shortcuts
                 </span>
             </div>
 
@@ -1539,20 +1584,20 @@ function QuizControlPanel({ sessions = [] }) {
             {status && (
                 <div style={{
                     padding: '8px 14px', borderRadius: 10, marginBottom: 12,
-                    background: statusOk ? '#f0fdf4' : '#fef2f2',
-                    border: `1px solid ${statusOk ? '#86efac' : '#fca5a5'}`,
-                    fontSize: '0.8rem', color: statusOk ? '#166534' : '#991b1b', fontWeight: 600,
+                    background: statusOk ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)',
+                    border: `1px solid ${statusOk ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    fontSize: '0.8rem', color: statusOk ? '#10b981' : '#ef4444', fontWeight: 600,
                 }}>{status}</div>
             )}
 
             <div style={{
-                background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)', borderRadius: 14,
-                padding: '16px 20px', border: '1px solid #c7d2fe',
+                background: 'rgba(99,102,241,0.08)', borderRadius: 14,
+                padding: '16px 20px', border: '1px solid rgba(99,102,241,0.25)',
             }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: 20 }}>
                     {/* Difficulty Toggle */}
                     <div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', marginBottom: 6 }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', marginBottom: 6 }}>
                             Difficulty Level
                         </div>
                         <div style={{ display: 'flex', gap: 4 }}>
@@ -1564,8 +1609,8 @@ function QuizControlPanel({ sessions = [] }) {
                                         padding: '6px 16px', borderRadius: 8, border: 'none',
                                         background: quizDifficulty === level
                                             ? (level === 'easy' ? '#22c55e' : level === 'medium' ? '#eab308' : '#ef4444')
-                                            : '#e2e8f0',
-                                        color: quizDifficulty === level ? '#fff' : '#64748b',
+                                            : 'rgba(148,163,184,0.15)',
+                                        color: quizDifficulty === level ? '#fff' : 'var(--text-muted)',
                                         fontWeight: 600, fontSize: '0.78rem', cursor: 'pointer',
                                         transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}
@@ -1578,7 +1623,7 @@ function QuizControlPanel({ sessions = [] }) {
 
                     {/* Per-Cohort Toggle */}
                     <div>
-                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#4338ca', textTransform: 'uppercase', marginBottom: 6 }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase', marginBottom: 6 }}>
                             🎯 Quiz Availability by Cohort
                         </div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -1592,9 +1637,9 @@ function QuizControlPanel({ sessions = [] }) {
                                         onClick={() => toggleQuiz(s.session_id, !enabled)}
                                         style={{
                                             padding: '5px 12px', borderRadius: 8,
-                                            border: `1px solid ${enabled ? '#86efac' : '#fca5a5'}`,
-                                            background: enabled ? '#f0fdf4' : '#fef2f2',
-                                            color: enabled ? '#166534' : '#991b1b',
+                                            border: `1px solid ${enabled ? 'rgba(34,197,94,0.35)' : 'rgba(239,68,68,0.35)'}`,
+                                            background: enabled ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.10)',
+                                            color: enabled ? '#4ade80' : '#f87171',
                                             fontWeight: 600, fontSize: '0.72rem', cursor: 'pointer',
                                             transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                         }}
@@ -1628,20 +1673,19 @@ function InterviewControlPanel({ sessions = [] }) {
         setTimeout(() => setStatus(null), ok ? 3000 : 6000);
     };
 
+    // F7: seed from the per-cohort values the leaderboard already carries.
+    // The old code fetched GLOBAL settings and painted the same value onto
+    // every row — silently misrepresenting cohorts configured differently.
+    // (Per-session PUTs were already correct; only the read lied.)
     useEffect(() => {
-        fetch(`${API}/api/admin/global-settings`)
-            .then(r => r.json())
-            .then(d => {
-                const map = {};
-                sessions.forEach(s => {
-                    map[s.session_id] = {
-                        enabled: d.ceo_interview_enabled || false,
-                        voice_gender: d.ceo_interview_voice_gender || 'female',
-                    };
-                });
-                setInterviewMap(map);
-            })
-            .catch(() => {});
+        const map = {};
+        sessions.forEach(s => {
+            map[s.session_id] = {
+                enabled: s.ceo_interview_enabled || false,
+                voice_gender: s.ceo_interview_voice_gender || 'female',
+            };
+        });
+        setInterviewMap(map);
     }, [sessions]);
 
     const toggleInterview = async (sessionId, enabled) => {
@@ -1696,16 +1740,16 @@ function InterviewControlPanel({ sessions = [] }) {
             {status && (
                 <div style={{
                     padding: '8px 14px', borderRadius: 10, marginBottom: 12,
-                    background: statusOk ? '#f0fdf4' : '#fef2f2',
-                    border: `1px solid ${statusOk ? '#86efac' : '#fca5a5'}`,
-                    fontSize: '0.8rem', color: statusOk ? '#166534' : '#991b1b', fontWeight: 600,
+                    background: statusOk ? 'rgba(16,185,129,0.10)' : 'rgba(239,68,68,0.10)',
+                    border: `1px solid ${statusOk ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    fontSize: '0.8rem', color: statusOk ? '#10b981' : '#ef4444', fontWeight: 600,
                 }}>{status}</div>
             )}
             <div style={{
-                background: 'linear-gradient(135deg, #fef3c7, #fef9c3)', borderRadius: 14,
-                padding: '16px 20px', border: '1px solid #fbbf24',
+                background: 'rgba(245,158,11,0.08)', borderRadius: 14,
+                padding: '16px 20px', border: '1px solid rgba(245,158,11,0.3)',
             }}>
-                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#92400e', textTransform: 'uppercase', marginBottom: 8 }}>
+                <div style={{ fontSize: '0.7rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', marginBottom: 8 }}>
                     🎙️ Per-Cohort Configuration
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -1716,18 +1760,18 @@ function InterviewControlPanel({ sessions = [] }) {
                         return (
                             <div key={s.session_id} style={{
                                 display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-                                padding: '6px 10px', background: 'rgba(255,255,255,0.6)',
+                                padding: '6px 10px', background: 'rgba(255,255,255,0.04)',
                                 borderRadius: 8, border: '1px solid rgba(251,191,36,0.2)',
                             }}>
-                                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: '#1e293b', minWidth: 100 }}>
+                                <span style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', minWidth: 100 }}>
                                     {s.cohort_name}
                                 </span>
                                 <button
                                     onClick={() => toggleInterview(s.session_id, !cfg.enabled)}
                                     style={{
                                         padding: '4px 12px', borderRadius: 6, border: 'none',
-                                        background: cfg.enabled ? '#10b981' : '#e2e8f0',
-                                        color: cfg.enabled ? '#fff' : '#64748b',
+                                        background: cfg.enabled ? '#10b981' : 'rgba(148,163,184,0.15)',
+                                        color: cfg.enabled ? '#fff' : 'var(--text-muted)',
                                         fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
                                     }}
                                 >
@@ -1737,9 +1781,9 @@ function InterviewControlPanel({ sessions = [] }) {
                                     <button
                                         onClick={() => switchVoice(s.session_id, cfg.voice_gender === 'female' ? 'male' : 'female')}
                                         style={{
-                                            padding: '4px 10px', borderRadius: 6, border: '1px solid #c7d2fe',
-                                            background: 'rgba(99,102,241,0.08)',
-                                            color: '#4f46e5', fontWeight: 700, fontSize: '0.65rem', cursor: 'pointer',
+                                            padding: '4px 10px', borderRadius: 6, border: '1px solid rgba(99,102,241,0.35)',
+                                            background: 'rgba(99,102,241,0.10)',
+                                            color: '#818cf8', fontWeight: 700, fontSize: '0.65rem', cursor: 'pointer',
                                         }}
                                     >
                                         {cfg.voice_gender === 'female' ? '👩‍💼 Victoria' : '👨‍💼 Alexander'}

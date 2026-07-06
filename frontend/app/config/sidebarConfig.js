@@ -33,9 +33,9 @@ export const GOD_MODE_SIDEBAR = [
         items: [
             { id: 'facilitator_registry', label: 'Facilitator Registry', icon: '👥', tooltip: 'Manage facilitators: create, edit roles (Super Admin / Lead / Facilitator), set permissions and cohort limits' },
             { id: 'cohort_provisioning',  label: 'Cohort Provisioning',  icon: '🗂️', tooltip: 'Provision and manage cohort sessions, assign facilitators, and configure paradigms' },
-            // G7: tooltip previously promised pacing/visibility/scheduling that this
-            // tab does not contain — it must describe what the tab actually renders.
-            { id: 'session_controls',     label: 'Session Controls',     icon: '🎛️', tooltip: 'Send universal broadcasts and announcements to every active cohort' },
+            // G7/Phase 6: the tab now contains what the original tooltip always
+            // promised — broadcasts AND per-cohort round pacing.
+            { id: 'session_controls',     label: 'Session Controls',     icon: '🎛️', tooltip: 'Universal broadcasts to every active cohort, plus per-cohort round pacing (free play / manual / scheduled)' },
             { id: 'master_interventions', label: 'Team Interventions',   icon: '🚀', tooltip: 'Directly inject capital, penalties, or narrative events into target teams' },
             { id: 'crisis_overrides',     label: 'Crisis Overrides',     icon: '🚨', tooltip: 'Manually activate crises, deploy Black Swans, or trigger end-game pathways' },
             { id: 'decision_timeline',    label: 'Decision History',     icon: '🕰️', tooltip: 'Chronological audit trail of every decision across all sessions with KPI deltas and CapEx breakdowns' },
@@ -90,7 +90,7 @@ export const FACILITATOR_SIDEBAR = [
         id: 'command',
         items: [
             { id: 'dashboard_home', label: 'Dashboard Home',      icon: '🏠', tooltip: 'At-a-glance overview: active cohort count, enrolled players, average round progression, and KPI health alerts (lagging teams, low treasury, low reputation). Includes quick-action buttons and the current round\'s Teleprompter briefing card. Answers: "What\'s the overall state of my simulation right now?"' },
-            { id: 'timeline',       label: 'Round Timeline',       icon: '📅', tooltip: 'Visual timeline of round progression across all cohorts. Includes quiz controls for setting difficulty (easy/medium/hard) and enabling/disabling quizzes per cohort. Answers: "Which cohorts are ahead or behind, and are quizzes active?"' },
+            { id: 'timeline',       label: 'Round Timeline',       icon: '📅', tooltip: 'Visual timeline of round progression across all cohorts, plus the per-cohort Session Setup group: round pacing, quiz difficulty & availability, and the CEO Interview toggle. Answers: "Which cohorts are ahead or behind, and how is each session configured?"' },
             { id: 'teleprompter',   label: 'Teleprompter',         icon: '🎤', tooltip: 'Full-screen teleprompter with round-by-round facilitator briefing scripts: talking points to deliver, engines likely to fire, discussion prompts for class debate, and key themes. Answers: "What should I say to the class before this round?"' },
             { id: 'leaderboard',    label: 'Leaderboard',          icon: '🏆', tooltip: 'Ranked matrix of all cohorts and players showing Treasury, Reputation, Synergy, EBITDA, round progress, and terminal value scores. Sortable and searchable with delete/reset controls per session. Answers: "Who\'s winning and who needs help?"' },
         ]
