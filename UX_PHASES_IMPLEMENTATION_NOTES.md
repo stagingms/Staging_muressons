@@ -1,4 +1,4 @@
-# UX Phases 1–5 — Implementation Notes & Test Evidence
+# UX Phases 1–6 — Implementation Notes & Test Evidence
 
 Branch: `ux/phases-1-5` (branched from `main`, which still holds all your other
 uncommitted work — nothing of yours was committed except the 7 files I touched,
@@ -12,6 +12,7 @@ checkpointed first).
 | `2095ef9` | Phase 3 | Unified session selection — F2, G5 + `components/CohortSelector.js` |
 | `18d7bdd` | Phase 4 | Admin-WS resilience — F1 (reconnect, poll fallback, liveness chip) |
 | `80a854c` | Phase 5 | Destructive-action hardening — F4, G2, G3, F9 + `components/ConfirmModal.js` |
+| `d422693` | Phase 6 | Polish — F7, F12, G9, theming, mobile toggle, pacing→Session Controls + `components/ShortcutSheet.js` |
 
 **Rollback:** each phase is one commit — `git revert <sha>` individually, or
 `git reset --hard bc9b60d` to return to the exact pre-UX state. No schema, no
@@ -76,6 +77,13 @@ consolidation and declared frequency changes:
   handlers deduped into `togglePill`). All delete/rollback/freeze payloads
   byte-identical — only the confirmation gate in front changed; Cancel sends
   nothing.
+- **Phase 6:** ONE removal — the Interview panel's `GET /api/admin/global-settings`
+  is gone (it was the source of the per-cohort lie; the leaderboard payload
+  already carries `ceo_interview_enabled`/`voice_gender` per session, verified
+  in `admin_router.py` `get_leaderboard`). God-mode Session Controls now
+  renders `RoundPacingControl` (existing pacing endpoints, new caller on the
+  god-mode surface — the tab's original tooltip finally tells the truth).
+  Post-Phase-6 gates re-run: pytest **961 passed**, player smoke passes.
 
 ### 5. Two-browser rehearsal ⚠️ — run this on your machine (can't be done in the sandbox)
 Facilitator screen + player screen side by side, two rounds. Watch the player
@@ -99,6 +107,15 @@ screen for ANY unprompted change. Per phase:
   WS CONNECTIONS shows no leaked sockets after repeated bounces. **The player
   screen must never reconnect or flicker during any of this.** Laptop
   sleep/wake → reconnects without a manual refresh.
+- **P6:** '?' opens the shortcut sheet on both screens (and doesn't fire while
+  typing in an input); Ctrl+Shift+B opens broadcast on both; Ctrl+1–4/5 toggles
+  a group without collapsing the rest; Round Timeline shows the "Session Setup"
+  group and the Interview panel shows each cohort's true ON/OFF after a reload;
+  Quiz/Interview panels are legible in dark theme; god-mode Session Controls
+  contains pacing driven by the global cohort selector; narrow the window
+  <768px → god-mode sidebar toggle appears; Factory Reset button reads "Erase
+  All Sessions Permanently"; Shockwave link reads "Shockwave Console ↗" with
+  the destructive tooltip.
 - **P5:** Every wrapped action: Cancel → no network request (check dev tools);
   confirm → request identical to before. Hard-delete a test cohort → preview
   count matches the server's `players_removed`. Type the wrong phrase → button
@@ -124,6 +141,8 @@ screen for ANY unprompted change. Per phase:
 3. `next build` was not run in the sandbox (Turbopack + memory limits). Run
    `npm run build` (or dev) once before the next session; esbuild parse checks
    passed on every file, so surprises should be limited to lint-level issues.
-4. Phase 6 (optional polish: quiz/interview panel relocation + per-cohort read,
-   shortcut sheet, "Factory Nuke" copy, dead-state cleanup) was intentionally
-   not implemented, per "all 5 phases".
+4. Phase 6 is now implemented. One scoped-out variant documented: a dedicated
+   "Session Setup" sidebar tab was rejected because the backend's
+   `ROLE_ALLOWED_TABS` lists are explicit — an unknown tab id would silently
+   vanish for facilitators/leads. If you ever want the separate tab, add the id
+   to `admin_shared.py` first, then move the group out of Round Timeline.
