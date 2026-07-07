@@ -341,9 +341,57 @@ async def create_session(
 
     bus = copy.deepcopy(seed["business_units"])
     if assigned_bu:
-        filtered = [b for b in bus if b.get("bu_id") == assigned_bu]
+        # Resolve the seed slot and (optional) substitute vertical this session
+        # scopes to. assigned_bu is normally a seed slot id (normalised via
+        # VERTICAL_SLOT_MAP at the API layer), but legacy cohorts may still
+        # carry a raw vertical id (e.g. 'retail_fmcg').
+        _slot = assigned_bu
+        _vertical = (industry_vertical or "").strip()
+        try:
+            from bu_profiles import SLOT_FIT_MAP, BU_PROFILES, build_bu_states
+            _seed_ids = {b.get("bu_id") for b in bus}
+            if _slot not in _seed_ids:
+                # Legacy path: assigned_bu is itself a vertical id — derive its
+                # owning slot from the single source of truth (SLOT_FIT_MAP).
+                _vertical = _vertical or _slot
+                _slot = next(
+                    (s for s, vs in SLOT_FIT_MAP.items() if _slot == s or _slot in vs),
+                    _slot,
+                )
+            if (
+                simulation_mode == "single_bu"
+                and _vertical
+                and _vertical != _slot
+                and _vertical in BU_PROFILES
+            ):
+                # Single-BU with a substitute vertical: the player's one BU
+                # carries the VERTICAL's profile (stats/label/icon) — consistent
+                # with how 4-BU substitution applies vertical profiles via
+                # build_bu_states. Previously the vertical id silently failed
+                # the seed-slot filter and the player received the full 4-BU
+                # conglomerate (the reported anomaly).
+                filtered = [b for b in build_bu_states({_slot: _vertical})
+                            if b.get("bu_id") == _vertical]
+            else:
+                filtered = [b for b in bus if b.get("bu_id") == _slot]
+        except Exception:
+            # Defensive: profile resolution must never break session creation.
+            filtered = [b for b in bus if b.get("bu_id") == assigned_bu]
         if filtered:
             bus = filtered
+            # Record the bu_id the session ACTUALLY scopes to, so allocation
+            # validation, briefing labels, and child-session inheritance all
+            # agree with bu_states (vertical id when substituted, else slot).
+            assigned_bu = filtered[0].get("bu_id", assigned_bu)
+        elif simulation_mode == "single_bu":
+            # Final guard for unknown ids: 1 BU is always better than silently
+            # granting the full conglomerate in single-BU mode.
+            bus = [bus[0]] if bus else bus
+            if bus:
+                assigned_bu = bus[0].get("bu_id", assigned_bu)
+        # The session record was written above with the raw value — sync it to
+        # the effective scope id resolved here.
+        _sessions[session_id]["assigned_bu"] = assigned_bu or ""
     if decision_paradigm == "un_sdg":
         for bu in bus:
             for cluster in ["basic_needs", "human_capital", "sustainable_growth", "planet", "governance", "partnerships"]:
@@ -893,6 +941,32 @@ async def update_latest_global_state(
 
 
 # ── Reset / Delete Operations ─────────────────────────────────
+
+async def fetch_sessions_by_facilitator(facilitator_id: str) -> list[dict]:
+    """Return all top-level sessions owned by the given facilitator.
+
+    Mirrors database.fetch_sessions_by_facilitator so the cascade-delete
+    path in delete_facilitator works identically in memory-DB mode.
+    Both active and soft-deleted sessions are included so that a hard
+    facilitator delete can permanently erase everything.
+    """
+    result = []
+    for sid, sess in list(_sessions.items()):
+        if sess.get("facilitator_id") != facilitator_id:
+            continue
+        # Skip child player sessions — those are handled by _cascade_delete_session
+        if sess.get("parent_cohort_id"):
+            continue
+        result.append({
+            "session_id": sid,
+            "cohort_name": sess.get("cohort_name", ""),
+            "facilitator_id": sess.get("facilitator_id", facilitator_id),
+            "start_time": sess.get("start_time"),
+        })
+    # Return newest first, matching the PostgreSQL ORDER BY start_time DESC
+    result.sort(key=lambda s: s.get("start_time") or datetime.min.replace(tzinfo=timezone.utc), reverse=True)
+    return result
+
 
 async def delete_session(session_id: str, hard: bool = False) -> bool:
     """Delete a single session and all its state. Returns True if found."""

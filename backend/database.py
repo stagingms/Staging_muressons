@@ -213,12 +213,40 @@ async def create_session(
     # Calculate baseline metrics
     n = len(bus) or 1
 
-    # Single-BU mode: restrict bu_states to only the assigned BU
+    # Single-BU mode: restrict bu_states to only the assigned BU.
+    # Mirrors database_memory.create_session — see comments there.
     if assigned_bu:
-        filtered = [b for b in bus if b.get("bu_id") == assigned_bu]
+        _slot = assigned_bu
+        _vertical = (industry_vertical or "").strip()
+        try:
+            from bu_profiles import SLOT_FIT_MAP, BU_PROFILES, build_bu_states
+            _seed_ids = {b.get("bu_id") for b in bus}
+            if _slot not in _seed_ids:
+                _vertical = _vertical or _slot
+                _slot = next(
+                    (s for s, vs in SLOT_FIT_MAP.items() if _slot == s or _slot in vs),
+                    _slot,
+                )
+            if (
+                simulation_mode == "single_bu"
+                and _vertical
+                and _vertical != _slot
+                and _vertical in BU_PROFILES
+            ):
+                filtered = [b for b in build_bu_states({_slot: _vertical})
+                            if b.get("bu_id") == _vertical]
+            else:
+                filtered = [b for b in bus if b.get("bu_id") == _slot]
+        except Exception:
+            filtered = [b for b in bus if b.get("bu_id") == assigned_bu]
         if filtered:
             bus = filtered
-        # else fall through with all BUs (defensive — bad bu_id ignored)
+            assigned_bu = filtered[0].get("bu_id", assigned_bu)
+        elif simulation_mode == "single_bu":
+            bus = [bus[0]] if bus else bus
+            if bus:
+                assigned_bu = bus[0].get("bu_id", assigned_bu)
+        # else conglomerate mode with unknown bu_id — fall through with all BUs (defensive)
 
     # ── Single-BU mode: scale treasury proportionally ──
     # When running with 1 BU out of N total, divide treasury by N so the
@@ -983,17 +1011,67 @@ async def get_active_public_sessions() -> list[dict]:
 
 
 async def delete_session(session_id: str, hard: bool = False) -> bool:
-    """Delete a single session. Soft-deletes unless hard=True."""
+    """Delete a single session. Soft-deletes unless hard=True.
+
+    Soft delete (hard=False): marks the session with deleted_at in metadata.
+    Hard delete (hard=True): permanently removes all rows from the DB.
+      - Explicitly cascades child tables (decision_audit_log, bu_round_states,
+        global_round_states) with immutability triggers temporarily disabled,
+        matching the pattern used in reset_session_to_round1().
+      - Then removes the sessions row itself.
+    """
     pool = await get_pool()
     async with pool.acquire() as conn:
         row = await conn.fetchrow("SELECT session_id FROM sessions WHERE session_id = $1", uuid.UUID(session_id))
         if row is None:
             return False
         if hard:
-            await conn.execute("DELETE FROM sessions WHERE session_id = $1", uuid.UUID(session_id))
+            async with conn.transaction():
+                # Disable immutability triggers so historical data can be deleted
+                # (mirrors the pattern in reset_session_to_round1)
+                try:
+                    await conn.execute("ALTER TABLE decision_audit_log DISABLE TRIGGER trg_immutable_decision_audit_log")
+                    await conn.execute("ALTER TABLE bu_round_states DISABLE TRIGGER trg_immutable_bu_round_states")
+                    await conn.execute("ALTER TABLE global_round_states DISABLE TRIGGER trg_immutable_global_round_states")
+                except Exception:
+                    pass  # Triggers may not exist in all deployments — safe to proceed
+
+                # Cascade: child game-state rows first, then the session itself
+                await conn.execute(
+                    "DELETE FROM decision_audit_log WHERE session_id = $1",
+                    uuid.UUID(session_id),
+                )
+                await conn.execute(
+                    """
+                    DELETE FROM bu_round_states
+                    WHERE global_state_id IN (
+                        SELECT state_id FROM global_round_states WHERE session_id = $1
+                    )
+                    """,
+                    uuid.UUID(session_id),
+                )
+                await conn.execute(
+                    "DELETE FROM global_round_states WHERE session_id = $1",
+                    uuid.UUID(session_id),
+                )
+                await conn.execute(
+                    "DELETE FROM sessions WHERE session_id = $1",
+                    uuid.UUID(session_id),
+                )
+
+                # Re-enable immutability triggers
+                try:
+                    await conn.execute("ALTER TABLE decision_audit_log ENABLE TRIGGER trg_immutable_decision_audit_log")
+                    await conn.execute("ALTER TABLE bu_round_states ENABLE TRIGGER trg_immutable_bu_round_states")
+                    await conn.execute("ALTER TABLE global_round_states ENABLE TRIGGER trg_immutable_global_round_states")
+                except Exception:
+                    pass
+
+            # Evict from in-memory cache
             from database_memory import _sessions
             _sessions.pop(session_id, None)
         else:
+            # Soft delete: stamp deleted_at in metadata only
             now_str = datetime.now(timezone.utc).isoformat()
             await _update_session_metadata(session_id, {"deleted_at": now_str})
         return True
@@ -1183,3 +1261,40 @@ async def reset_session_to_round1(session_id: str) -> bool:
         await reset_session_to_round1(child["session_id"])
         
     return True
+
+
+async def fetch_sessions_by_facilitator(facilitator_id: str) -> list[dict]:
+    """Return all top-level sessions (no parent_cohort_id) owned by a facilitator.
+
+    Used by the cascade-delete path when a facilitator account is removed so
+    every cohort they own is cleaned up together with the account.  Both
+    soft-deleted and active sessions are included so that a hard facilitator
+    delete can permanently erase everything, and a soft delete can mark them.
+    """
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT session_id, cohort_name, facilitator_id, start_time, metadata
+            FROM sessions
+            WHERE facilitator_id = $1
+            ORDER BY start_time DESC
+            """,
+            facilitator_id,
+        )
+        res = []
+        for row in rows:
+            metadata = json.loads(row["metadata"]) if row["metadata"] else {}
+            # Only return top-level cohorts — child player sessions are handled
+            # inside _cascade_delete_session via get_child_sessions()
+            if metadata.get("parent_cohort_id"):
+                continue
+            sess = {
+                "session_id": str(row["session_id"]),
+                "cohort_name": row["cohort_name"],
+                "facilitator_id": row["facilitator_id"],
+                "start_time": row["start_time"],
+            }
+            sess.update(metadata)
+            res.append(sess)
+        return res

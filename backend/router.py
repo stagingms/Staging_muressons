@@ -65,6 +65,29 @@ _BU_NAMES = {
     "technology": "Muressons Technology",
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# VERTICAL_SLOT_MAP — maps every industry vertical ID to its owning seed slot.
+# Used by /simulations/start, join_session, and session-info to derive the
+# correct assigned_bu (always a seed slot ID: pharma|electronics|consumer_goods|software).
+#
+# Mirror of frontend VERTICAL_CATALOG in frontend/app/lib/verticalCatalog.js
+# and backend SLOT_FIT_MAP in bu_profiles.py. Add new verticals to all three.
+# ═══════════════════════════════════════════════════════════════════════════════
+VERTICAL_SLOT_MAP: dict[str, str] = {
+    # pharma slot
+    "pharma": "pharma", "oil_gas": "pharma", "chemical": "pharma",
+    "cosmetics": "pharma", "food_beverage": "pharma", "power_utilities": "pharma",
+    # electronics slot
+    "electronics": "electronics", "semiconductor": "electronics",
+    "medical_devices": "electronics", "automotive": "electronics", "telecom": "electronics",
+    # consumer_goods slot
+    "consumer_goods": "consumer_goods", "retail_fmcg": "consumer_goods",
+    "agriculture": "consumer_goods",
+    # software slot
+    "software": "software", "technology": "software",
+    "banking_financial_services": "software",
+}
+
 
 def _bu_out(bu: dict) -> BUStateOut:
     """Map a raw BU dict to the Pydantic output model."""
@@ -284,6 +307,22 @@ async def player_login(request: Request, req: PlayerLoginRequest):
     # LOW-003: Use bcrypt-aware verify (falls back to plaintext for legacy records)
     stored_pw = player_record.get("password", "")
     master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(req.password, MASTER_PASSWORD)
+    # SEC: An empty stored password must never *bypass* a real one. If this
+    # record's password is blank (e.g. the `allowed_player_ids` fallback path),
+    # cross-check the authoritative registry so a placeholder can't skip a
+    # password that actually exists. Genuinely passwordless players (blank
+    # everywhere) keep their intended ID-only join flow unchanged.
+    if not stored_pw and not master_ok:
+        try:
+            from admin_shared import _player_registry as _reg
+            real_pw = next(
+                (p.get("password", "") for p in _reg if p.get("player_id") == req.player_id),
+                "",
+            )
+            if real_pw:
+                stored_pw = real_pw
+        except Exception:
+            pass
     if stored_pw and not master_ok and not _verify_pw(req.password, stored_pw):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -321,6 +360,16 @@ async def player_login(request: Request, req: PlayerLoginRequest):
     except Exception:
         pass
 
+    # SEC/HIGH-001: mint a signed, session-scoped ws ticket so the player push
+    # channel no longer treats the raw session_id as a credential. Best-effort:
+    # if JWT is unavailable the ticket is "" and the client degrades to polling.
+    ws_ticket = ""
+    try:
+        from auth_jwt import create_player_ws_ticket
+        ws_ticket = create_player_ws_ticket(player_sid, req.player_id)
+    except Exception:
+        ws_ticket = ""
+
     return {
         "status": join_result.get("status", "joined") if isinstance(join_result, dict) else "joined",
         "session_id": player_sid,
@@ -329,6 +378,9 @@ async def player_login(request: Request, req: PlayerLoginRequest):
         "player_name": player_record.get("name", ""),
         "username": player_record.get("username", ""),
         "current_round": current_round,
+        "ws_ticket": ws_ticket,
+        # Signal the frontend to force a password change on first login
+        "must_change_password": bool(player_record.get("must_change_password", False)),
     }
 
 
@@ -345,6 +397,8 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid Player ID for this session.")
 
     # Validate password against player registry
+    # Pre-initialise to None so it's always in scope below for assigned_bu lookup.
+    player_record = None
     try:
         from admin_shared import _player_registry
         player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
@@ -386,9 +440,40 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     if len(players) >= 5:
         raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 5 players.")
 
-    # Get the cohort info for naming
+    # Fetch parent cohort info for naming and mode inheritance
     cohort_info = await db.get_session_info(session_id)
     cohort_name = cohort_info["cohort_name"] if cohort_info else "Unknown"
+
+    # Inherit simulation mode from the parent cohort so player sub-sessions
+    # reflect whether this cohort runs as single-BU or full conglomerate.
+    _cohort_sim_mode = cohort_info.get("simulation_mode", "") if cohort_info else ""
+    _cohort_industry = cohort_info.get("industry_vertical", "") if cohort_info else ""
+
+    # Resolve the player's individual assigned_bu:
+    #   Priority 1 — per-player registry entry set by the facilitator at induction time
+    #                 (e.g. 'pharma', 'electronics', 'consumer_goods', 'software').
+    #   Priority 2 — cohort-level assigned_bu (used only when the whole cohort runs
+    #                 as a single entity, e.g. god-mode global single-BU deployment).
+    # player_record was already fetched above for password validation.
+    _player_assigned_bu = ""
+    try:
+        if player_record is None:
+            from admin_shared import _player_registry as _reg
+            player_record = next((p for p in _reg if p["player_id"] == req.player_id), None)
+        if player_record:
+            _player_assigned_bu = player_record.get("assigned_bu", "") or ""
+    except Exception:
+        pass
+
+    _cohort_assigned_bu = cohort_info.get("assigned_bu", "") if cohort_info else ""
+    _effective_assigned_bu = _player_assigned_bu or _cohort_assigned_bu or None
+    # Single-BU fallback (mirrors session-info Fallback 3): cohorts created
+    # before the per-session assigned_bu write carry only industry_vertical —
+    # derive the scope from it so a joining player never silently lands in the
+    # 4-BU conglomerate. create_session resolves vertical ids itself, so the
+    # raw industry_vertical is a valid value to pass here.
+    if not _effective_assigned_bu and _cohort_sim_mode == "single_bu" and _cohort_industry:
+        _effective_assigned_bu = VERTICAL_SLOT_MAP.get(_cohort_industry, _cohort_industry)
 
     # Create an independent session for this player
     player_session = await db.create_session(
@@ -398,6 +483,9 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         parent_cohort_id=session_id,
         decision_paradigm=cohort_info.get("decision_paradigm", "legacy_abc") if cohort_info else "legacy_abc",
         currency_symbol=cohort_info.get("currency_symbol", "$") if cohort_info else "$",
+        simulation_mode=_cohort_sim_mode or None,
+        industry_vertical=_cohort_industry or None,
+        assigned_bu=_effective_assigned_bu,
     )
 
     player_sid = str(player_session["session_id"])
@@ -518,9 +606,23 @@ async def start_simulation(body: StartSessionRequest):
                 detail=f"Facilitator '{body.facilitator_id}' has reached the maximum cohort limit.",
             )
 
+        # Resolve assigned_bu for single_bu mode.
+        # Uses the module-level VERTICAL_SLOT_MAP to convert a substitute vertical
+        # (e.g. 'oil_gas') to its owning seed slot ('pharma').
+        _sim_mode = getattr(body, 'simulation_mode', None) or 'conglomerate'
+        _industry_vertical = getattr(body, 'industry_vertical', None)
+        # assigned_bu = the slot id (always one of the 4 seed BU ids); falls back to
+        # the vertical itself for forward-compat when a new vertical is added before
+        # the map is updated.
+        _assigned_bu = (
+            VERTICAL_SLOT_MAP.get(_industry_vertical, _industry_vertical)
+            if _sim_mode == 'single_bu' and _industry_vertical
+            else None
+        )
+
         result = await db.create_session(
-            body.cohort_name, 
-            body.facilitator_id, 
+            body.cohort_name,
+            body.facilitator_id,
             loan_interest_rate=body.loan_interest_rate,
             decision_paradigm=_req_paradigm,
             currency_symbol=getattr(body, 'currency_symbol', '$') or '$',
@@ -531,6 +633,10 @@ async def start_simulation(body: StartSessionRequest):
             created_when=getattr(body, 'created_when', None),
             start_date=getattr(body, 'start_date', None),
             end_date=getattr(body, 'end_date', None),
+            simulation_mode=_sim_mode,
+            industry_vertical=_industry_vertical,
+            assigned_bu=_assigned_bu,
+            region_id=getattr(body, 'region_id', None),
         )
         
         # 2c. Persist decision_paradigm on the facilitator record
@@ -780,6 +886,44 @@ async def get_session_info(session_id: str):
     except Exception:
         pass
 
+    # Resolve simulation_mode, assigned_bu, and industry_vertical.
+    # For player sub-sessions these fields live directly on the session;
+    # for legacy sessions created before this fix, we apply a two-stage
+    # fallback: (1) parent cohort metadata, (2) _player_registry entry.
+    _sim_mode      = session.get("simulation_mode", "") or ""
+    _assigned_bu   = session.get("assigned_bu", "") or ""
+    _industry_vert = session.get("industry_vertical", "") or ""
+
+    # Fallback 1 — parent cohort's fields (for sessions missing their own values)
+    if parent_id and parent and not _sim_mode:
+        _sim_mode      = parent.get("simulation_mode", "") or ""
+        _industry_vert = parent.get("industry_vertical", "") or _industry_vert
+    if parent_id and parent and not _assigned_bu:
+        _assigned_bu = parent.get("assigned_bu", "") or ""
+
+    # Fallback 2 — per-player registry entry (authoritative source for per-player BU
+    # assignments; set by the facilitator during induction).  This covers both legacy
+    # sub-sessions (created before assigned_bu was written at join time) and any future
+    # cases where the registry entry is the only source of truth.
+    if not _assigned_bu:
+        _player_id = session.get("player_id", "")
+        if _player_id:
+            try:
+                from admin_shared import _player_registry as _reg
+                _prec = next((p for p in _reg if p.get("player_id") == _player_id), None)
+                if _prec:
+                    _assigned_bu = _prec.get("assigned_bu", "") or ""
+            except Exception:
+                pass
+
+    # Fallback 3 — single_bu mode: industry_vertical IS the BU.
+    # If simulation_mode is 'single_bu' but assigned_bu is still unresolved
+    # (e.g. cohort was created before the per-session assigned_bu write was added,
+    # or the player has no per-player BU entry), derive assigned_bu from the
+    # cohort's industry_vertical so the player session always scopes to 1 BU.
+    if not _assigned_bu and _sim_mode == "single_bu" and _industry_vert:
+        _assigned_bu = VERTICAL_SLOT_MAP.get(_industry_vert, _industry_vert)
+
     return {
         "session_id": session_id,
         "cohort_name": session.get("cohort_name"),
@@ -792,6 +936,9 @@ async def get_session_info(session_id: str):
         "parent_cohort_id": parent_id,
         "ending_pathway": ending_pathway,
         "pacing_mode": (parent.get("pacing_mode", "free_play") if parent_id and parent else session.get("pacing_mode", "free_play")),
+        "simulation_mode":   _sim_mode   or None,
+        "assigned_bu":       _assigned_bu or None,
+        "industry_vertical": _industry_vert or None,
     }
 
 
@@ -2296,8 +2443,25 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     total_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["total_materiality_budget"]
     disclosure_budget = ROUND_2_DEFAULT_CONFIG["round_2_config"]["disclosure_investment_budget"]
 
-    # ── Stakeholder Panel Survey Fee (tiered pricing) ──────────────────────────
-    if body.consultant_used:
+    # ── Stakeholder Panel Survey Fee — Multi-Group Model ─────────────────────
+    # New: each group is commissioned independently at flat $750K each.
+    # Legacy single-survey path (consultant_used + panel_issue_count) is still
+    # supported for backward compatibility with existing saved sessions.
+    from round2_csrd import compute_panel_recommendations
+    panel_fee = 0
+    if body.panel_groups_commissioned:
+        group_configs = panel_config.get("groups", {})
+        valid_groups = [g for g in body.panel_groups_commissioned if g in group_configs]
+        panel_fee = sum(
+            group_configs[g].get("fee_usd", 750_000) for g in valid_groups
+        )
+        global_state["corporate_treasury"] -= panel_fee
+        global_state["stakeholder_panel_fee_paid"] = panel_fee
+        global_state["stakeholder_panel_groups_commissioned"] = valid_groups
+        # Tag panel fee as a CSF deduction so InvestmentMatrix can surface it
+        global_state["panel_fee_deducted_from_csf"] = panel_fee
+    elif body.consultant_used:
+        # Legacy path: single tiered survey
         panel_issue_count = max(1, min(8, body.panel_issue_count))
         tier_break = panel_config.get("tier_break", 4)
         base_fee = panel_config.get("base_fee_per_issue_usd", 250_000)
@@ -2309,6 +2473,7 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         global_state["corporate_treasury"] -= panel_fee
         global_state["stakeholder_panel_fee_paid"] = panel_fee
         global_state["stakeholder_panel_issues_rated"] = panel_issue_count
+        global_state["panel_fee_deducted_from_csf"] = panel_fee
 
     # ── CFO Override Validation (Strict) ──────────────────────────────────────
     q1_submission = set(body.matrix_submission.quadrant_1_top_right)
@@ -2586,6 +2751,12 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     if disclosure_allocated:
         msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,}.")
 
+    # Enrich debrief with panel fee breakdown for frontend success modal
+    global_state["r2_esrs_debrief"]["panel_fee_paid"] = panel_fee
+    global_state["r2_esrs_debrief"]["panel_groups_commissioned"] = (
+        global_state.get("stakeholder_panel_groups_commissioned", [])
+    )
+
     return MaterialitySubmissionResponse(
         success=True,
         allocated_budget=allocated_budget,
@@ -2736,6 +2907,25 @@ async def change_password(body: ChangePasswordRequest):
         raise HTTPException(400, "New password must be at least 8 characters")
 
     player["password"] = _hash_pw(body.new_password.strip())
+    # Clear the forced-change flag now that the player has set a personal password
+    player["must_change_password"] = False
+
+    # Persist the cleared flag to session metadata so it survives server restarts
+    try:
+        import database as _db
+        session_id = player.get("session_id", "")
+        if session_id:
+            sess = await _db.get_session_info(session_id)
+            if sess:
+                for rp in sess.get("registered_players", []):
+                    if rp.get("player_id") == body.player_id:
+                        rp["must_change_password"] = False
+                        rp["password"] = player["password"]
+                        break
+                _db._persist()
+    except Exception:
+        pass  # Non-critical — in-memory flag is already cleared
+
     return {"status": "success", "message": "Password updated successfully"}
 
 
