@@ -21,6 +21,11 @@ export default function MarketTicker({ roundNumber = 1 }) {
   const scrollRef = useRef(null);
   const [items, setItems] = useState([]);
   const [isDark, setIsDark] = useState(true);
+  // Phase B (F-P7): ambient theatrics yield to concentration — the ticker
+  // dims while the allocation/commit stage is open. The cockpit flags the
+  // stage on <html data-allocation-open>; observed here with the same
+  // MutationObserver pattern this file already uses for theming.
+  const [dimmed, setDimmed] = useState(false);
 
   useEffect(() => {
     // Randomize prices slightly based on round
@@ -48,6 +53,15 @@ export default function MarketTicker({ roundNumber = 1 }) {
     return () => observer.disconnect();
   }, []);
 
+  // Phase B: observe the allocation flag set by ExecutiveCockpit
+  useEffect(() => {
+    const check = () => setDimmed(document.documentElement.hasAttribute('data-allocation-open'));
+    check();
+    const obs = new MutationObserver(check);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-allocation-open'] });
+    return () => obs.disconnect();
+  }, []);
+
   const bg = '#000000';
   const border = '1px solid rgba(255, 255, 255, 0.08)';
   const fadeL = 'linear-gradient(90deg, #000000, transparent)';
@@ -62,9 +76,10 @@ export default function MarketTicker({ roundNumber = 1 }) {
       background: bg,
       borderTop: border,
       overflow: 'hidden', zIndex: 7000,
-      fontFamily: "'JetBrains Mono', 'SF Mono', monospace",
+      fontFamily: 'var(--font-numeral)',
       display: 'flex', alignItems: 'center',
-      transition: 'background 0.3s ease, border-color 0.3s ease',
+      opacity: dimmed ? 0.35 : 1,
+      transition: 'background 0.3s ease, border-color 0.3s ease, opacity 0.4s ease',
     }}>
       {/* Left fade edge */}
       <div style={{
@@ -101,7 +116,7 @@ export default function MarketTicker({ roundNumber = 1 }) {
             </span>
             {/* Pill badge for change */}
             <span style={{
-              color: item.up ? '#4ade80' : '#f87171',
+              color: item.up ? 'var(--positive-text)' : 'var(--danger-text)',
               fontSize: '0.68rem',
               fontWeight: 700,
               background: item.up ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)',

@@ -564,6 +564,17 @@ export default function ExecutiveCockpit({
     selfLearningMode: globalState?.self_learning_mode,
   });
 
+  // Phase B (F-P7): flag the concentration stages on <html> so ambient
+  // chrome rendered outside this component (the market ticker in page.js)
+  // can dim itself. Attribute-based to avoid new prop drilling through
+  // page.js; removed on unmount.
+  useEffect(() => {
+    const dim = isFocusActive && (focusStep === 'allocation' || focusStep === 'commit');
+    if (dim) document.documentElement.setAttribute('data-allocation-open', '1');
+    else document.documentElement.removeAttribute('data-allocation-open');
+    return () => document.documentElement.removeAttribute('data-allocation-open');
+  }, [isFocusActive, focusStep]);
+
 
   // Legacy A/B/C tile click
   const handleLegacySelect = useCallback((optionId) => {

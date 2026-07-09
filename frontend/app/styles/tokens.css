@@ -45,6 +45,24 @@
     --neutral:         #94a3b8;
     --neutral-soft:    rgba(148, 163, 184, 0.12);
 
+    /* ── Text-tier variants — brighter hues reserved for text on dark
+       surfaces so contrast survives the hue discipline ─── */
+    --accent-text:   #a5b4fc;
+    --positive-text: #4ade80;
+    --danger-text:   #f87171;
+    --caution-text:  #fbbf24;
+
+    /* ── Phase B: the module stylesheets' ACTUAL brand families, captured
+       as tokens at their current exact values (pure indirection — zero
+       visual change today). Flipping these three lines repaints the whole
+       player chrome; that decision belongs on a real screen, not in a
+       blind regex. ─── */
+    --brand:         #0d9488;   /* teal — primary chrome accent            */
+    --brand-bright:  #00e5c3;   /* mint — emphasis / live indicators       */
+    --brand-text:    #5eead4;   /* teal-300 — text on dark surfaces        */
+    --info:          #2563eb;   /* blue — informational panels             */
+    --info-text:     #93c5fd;   /* blue-300 — text on dark surfaces        */
+
     /* ── Elevation — exactly two levels ─────────────────── */
     --elevation-card:    0 4px 16px rgba(0, 0, 0, 0.18);
     --elevation-overlay: 0 20px 60px rgba(0, 0, 0, 0.35);

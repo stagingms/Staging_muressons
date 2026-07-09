@@ -25,7 +25,7 @@
   flex-direction: column;
   background: linear-gradient(165deg, #0f1528, #0b1020);
   border: 1px solid rgba(0, 229, 195, 0.12);
-  border-radius: 16px;
+  border-radius: var(--radius-card);
   box-shadow:
     0 0 60px rgba(0, 229, 195, 0.06),
     0 25px 80px rgba(0, 0, 0, 0.5),
@@ -56,7 +56,7 @@
 }
 
 .stepLabel {
-  font-size: 0.82rem;
+  font-size: var(--type-body);
   font-weight: 800;
   color: var(--text-primary);
   letter-spacing: 0.02em;
@@ -66,10 +66,10 @@
   font-size: 0.6rem;
   font-weight: 700;
   padding: 3px 8px;
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   background: rgba(0, 229, 195, 0.1);
   border: 1px solid rgba(0, 229, 195, 0.2);
-  color: #0d9488;
+  color: var(--brand);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
@@ -81,7 +81,7 @@
   padding: 6px 14px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 700;
@@ -105,7 +105,7 @@
   padding: 5px 12px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  border-radius: var(--radius-chip);
   color: var(--text-muted);
   font-size: 0.68rem;
   font-weight: 700;
@@ -163,7 +163,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.75rem;
+  font-size: var(--type-caption);
   background: rgba(255, 255, 255, 0.04);
   border: 1.5px solid rgba(100, 116, 139, 0.25);
   transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease, opacity 0.3s ease, transform 0.3s ease;
@@ -177,7 +177,7 @@
 
 .breadcrumbActive {
   background: rgba(0, 229, 195, 0.15);
-  border-color: #00e5c3;
+  border-color: var(--brand-bright);
   box-shadow: 0 0 12px rgba(0, 229, 195, 0.2);
   animation: dotPulse 2s ease-in-out infinite;
 }
@@ -211,9 +211,9 @@
   padding: 8px 16px;
   background: rgba(15, 21, 40, 0.97);
   border: 1px solid rgba(0, 229, 195, 0.25);
-  border-radius: 10px;
-  color: #00e5c3;
-  font-size: 0.72rem;
+  border-radius: var(--radius-card);
+  color: var(--brand-bright);
+  font-size: var(--type-caption);
   font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
@@ -236,7 +236,7 @@
   padding: 10px 14px;
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid rgba(0, 229, 195, 0.06);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
@@ -248,13 +248,13 @@
   padding: 4px 10px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 6px;
+  border-radius: var(--radius-chip);
   flex: 1;
   min-width: 100px;
 }
 
 .kpiPillIcon {
-  font-size: 0.8rem;
+  font-size: var(--type-caption);
 }
 
 .kpiPillLabel {
@@ -266,7 +266,7 @@
 }
 
 .kpiPillValue {
-  font-size: 0.78rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   color: var(--text-primary);
   font-family: var(--font-mono);
@@ -294,12 +294,12 @@
   width: 100%;
   padding: 12px 20px;
   margin-top: 16px;
-  background: linear-gradient(135deg, #00e5c3, #0dd9b0);
+  background: linear-gradient(135deg, var(--brand-bright), var(--brand-bright));
   color: #0a0e1a;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   font-family: var(--font-sans);
-  font-size: 0.78rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -345,7 +345,7 @@
   padding: 12px 16px;
   background: rgba(0, 229, 195, 0.04);
   border: 1px solid rgba(0, 229, 195, 0.1);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   margin-bottom: 16px;
 }
 
@@ -353,7 +353,7 @@
   font-size: 0.68rem;
   font-weight: 800;
   text-transform: uppercase;
-  color: #0d9488;
+  color: var(--brand);
   letter-spacing: 0.08em;
   margin-bottom: 8px;
 }
@@ -363,7 +363,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 4px 0;
-  font-size: 0.75rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
 }
 
@@ -384,14 +384,14 @@
 }
 
 .gateTitle {
-  font-size: 1.1rem;
+  font-size: var(--type-title);
   font-weight: 800;
   color: var(--text-primary);
   margin-bottom: 8px;
 }
 
 .gateDescription {
-  font-size: 0.85rem;
+  font-size: var(--type-body);
   color: var(--text-muted);
   line-height: 1.7;
   max-width: 480px;
@@ -403,11 +403,11 @@
   align-items: center;
   gap: 8px;
   padding: 12px 28px;
-  background: linear-gradient(135deg, #00e5c3, #0dd9b0);
+  background: linear-gradient(135deg, var(--brand-bright), var(--brand-bright));
   color: #0a0e1a;
   border: none;
-  border-radius: 8px;
-  font-size: 0.78rem;
+  border-radius: var(--radius-chip);
+  font-size: var(--type-caption);
   font-weight: 800;
   font-family: var(--font-sans);
   letter-spacing: 0.06em;
@@ -435,7 +435,7 @@
 }
 
 .gateCompleteText {
-  font-size: 0.85rem;
+  font-size: var(--type-body);
   font-weight: 700;
   color: var(--gauge-green);
 }
@@ -478,12 +478,12 @@
   padding: 14px 16px;
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   text-align: center;
 }
 
 .focusResultIcon {
-  font-size: 1.4rem;
+  font-size: var(--type-display);
   margin-bottom: 4px;
 }
 
@@ -497,7 +497,7 @@
 }
 
 .focusResultValue {
-  font-size: 1.05rem;
+  font-size: var(--type-title);
   font-weight: 900;
   color: var(--text-primary);
   font-family: var(--font-mono);
@@ -508,7 +508,7 @@
   padding: 16px 18px;
   background: rgba(0, 229, 195, 0.03);
   border: 1px solid rgba(0, 229, 195, 0.08);
-  border-radius: 10px;
+  border-radius: var(--radius-card);
   margin-bottom: 16px;
 }
 
@@ -516,7 +516,7 @@
   font-size: 0.65rem;
   font-weight: 800;
   text-transform: uppercase;
-  color: #0d9488;
+  color: var(--brand);
   letter-spacing: 0.08em;
   margin-bottom: 10px;
 }
@@ -525,7 +525,7 @@
   display: flex;
   justify-content: space-between;
   padding: 5px 0;
-  font-size: 0.78rem;
+  font-size: var(--type-caption);
   color: var(--text-secondary);
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
@@ -541,7 +541,7 @@
 }
 
 .predictionPrompt {
-  font-size: 0.82rem;
+  font-size: var(--type-body);
   font-weight: 600;
   color: var(--text-secondary);
   margin-bottom: 8px;
@@ -553,9 +553,9 @@
   padding: 10px 14px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(0, 229, 195, 0.1);
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   color: var(--text-primary);
-  font-size: 0.8rem;
+  font-size: var(--type-caption);
   font-family: var(--font-sans);
   line-height: 1.6;
   resize: vertical;
@@ -585,10 +585,10 @@
   padding: 12px 16px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 0.72rem;
+  font-size: var(--type-caption);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -604,12 +604,12 @@
 .primaryAction {
   flex: 2;
   padding: 12px 20px;
-  background: linear-gradient(135deg, #00e5c3, #0dd9b0);
+  background: linear-gradient(135deg, var(--brand-bright), var(--brand-bright));
   color: #0a0e1a;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-chip);
   font-family: var(--font-sans);
-  font-size: 0.78rem;
+  font-size: var(--type-caption);
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -664,7 +664,7 @@
 }
 
 :global([data-theme="light"]) .header {
-  background: #f1f5f9;
+  background: var(--text-primary);
   border-bottom-color: var(--text-primary);
 }
 
@@ -675,7 +675,7 @@
 :global([data-theme="light"]) .stepBadge {
   background: rgba(37, 99, 235, 0.08);
   border-color: rgba(37, 99, 235, 0.2);
-  color: #2563eb;
+  color: var(--info);
 }
 
 :global([data-theme="light"]) .closeButton {
@@ -685,7 +685,7 @@
 }
 
 :global([data-theme="light"]) .closeButton:hover {
-  background: #f1f5f9;
+  background: var(--text-primary);
   color: #0f172a;
   border-color: var(--text-secondary);
 }
@@ -706,7 +706,7 @@
 }
 
 :global([data-theme="light"]) .breadcrumbDot {
-  background: #f1f5f9;
+  background: var(--text-primary);
   border-color: var(--text-secondary);
 }
 
@@ -717,7 +717,7 @@
 
 :global([data-theme="light"]) .breadcrumbActive {
   background: rgba(37, 99, 235, 0.08);
-  border-color: #2563eb;
+  border-color: var(--info);
   box-shadow: 0 0 10px rgba(37, 99, 235, 0.15);
 }
 
@@ -726,14 +726,14 @@
 }
 
 :global([data-theme="light"]) .breadcrumbLineComplete {
-  background: #10b981;
+  background: var(--kpi-good);
 }
 
 /* Re-enter button */
 :global([data-theme="light"]) .reenterButton {
   background: rgba(255, 255, 255, 0.95);
-  border-color: #2563eb;
-  color: #2563eb;
+  border-color: var(--info);
+  color: var(--info);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
@@ -744,7 +744,7 @@
 
 /* KPI Strip */
 :global([data-theme="light"]) .kpiStrip {
-  background: #f1f5f9;
+  background: var(--text-primary);
   border-color: var(--text-primary);
 }
 
@@ -763,7 +763,7 @@
 
 /* Section Titles */
 :global([data-theme="light"]) .sectionTitle {
-  color: #1e293b;
+  color: var(--bg-elevated);
   border-bottom-color: var(--text-primary);
 }
 
@@ -781,11 +781,11 @@
 }
 
 :global([data-theme="light"]) .decisionSummaryTitle {
-  color: #2563eb;
+  color: var(--info);
 }
 
 :global([data-theme="light"]) .decisionSummaryRow {
-  color: #1e293b;
+  color: var(--bg-elevated);
 }
 
 :global([data-theme="light"]) .decisionSummaryValue {
@@ -822,11 +822,11 @@
 }
 
 :global([data-theme="light"]) .commitRecapTitle {
-  color: #2563eb;
+  color: var(--info);
 }
 
 :global([data-theme="light"]) .commitRecapRow {
-  color: #1e293b;
+  color: var(--bg-elevated);
   border-bottom-color: var(--text-secondary);
 }
 
@@ -836,7 +836,7 @@
 
 /* Prediction */
 :global([data-theme="light"]) .predictionPrompt {
-  color: #1e293b;
+  color: var(--bg-elevated);
 }
 
 :global([data-theme="light"]) .predictionInput {
@@ -846,7 +846,7 @@
 }
 
 :global([data-theme="light"]) .predictionInput:focus {
-  border-color: #2563eb;
+  border-color: var(--info);
   box-shadow: 0 0 10px rgba(37, 99, 235, 0.1);
 }
 
@@ -862,7 +862,7 @@
 }
 
 :global([data-theme="light"]) .secondaryAction:hover {
-  background: #f1f5f9;
+  background: var(--text-primary);
   color: #0f172a;
 }
 
@@ -885,7 +885,7 @@
 }
 
 :global([data-theme="light"]) .backButton:hover {
-  background: #f1f5f9;
+  background: var(--text-primary);
   color: #0f172a;
   border-color: var(--text-secondary);
 }
