@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styles from './CreateCohortModal.module.css';
 import { CURRENCIES } from '../contexts/CurrencyContext';
+import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META } from '../lib/verticalCatalog';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -151,6 +152,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const errorRef = useRef(null);
+
+    // ═══ Phase R3 (V2-3): cohort setup integrity ════════════════════════
+    // setupResults = { session, steps: [{name,url,payload,method,ok,error}] }
+    // Non-null after a submit whose sub-config chain had failures — renders
+    // the checklist panel with per-item retry instead of a dead-end string.
+    const [setupResults, setSetupResults] = useState(null);
+    const [retryingIdx, setRetryingIdx] = useState(null);
 
     // Scroll to error banner and open the relevant tab whenever an error is set
     const setValidationError = (msg, tab = null) => {
@@ -326,14 +334,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         );
     };
 
-    const INDUSTRY_VERTICALS = [
-        { id: 'agriculture',                label: 'Agriculture',         icon: '🌾' },
-        { id: 'banking_financial_services', label: 'Banking & Finance',   icon: '🏦' },
-        { id: 'oil_gas',                    label: 'Oil & Gas',           icon: '⛽' },
-        { id: 'retail_fmcg',               label: 'Retail / FMCG',       icon: '🛒' },
-        { id: 'technology',                 label: 'Technology',          icon: '💻' },
-        { id: 'pharma',                     label: 'Pharma / Healthcare', icon: '💊' },
-    ];
+    // Backward-compat alias used in summary card (full catalog lookup)
+    const INDUSTRY_VERTICALS = VERTICAL_CATALOG;
+
 
     const REGIONS = [
         { id: 'asean',         label: 'ASEAN',          flag: '🌏' },
@@ -435,31 +438,109 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     };
 
     // ── Edit handler: PATCH metadata + re-apply all sub-configs ──────────────
+    // ═══ Phase R3 (V2-3): ONE sub-config pipeline for create AND edit ═══
+    // The two previous copies had already drifted (different warning
+    // formats). Step ORDER and PAYLOADS are byte-identical to the pre-R3
+    // chains; the only change is that outcomes are captured per step.
+    const buildSubConfigSteps = (sid) => {
+        const steps = [];
+        if (hasVisibilityOverrides()) {
+            steps.push({ name: 'Visibility', method: 'PUT', url: `${API}/api/admin/cohort/${sid}/analytics-visibility`, payload: visibility });
+        }
+        steps.push({
+            name: 'Pedagogical Settings', method: 'PUT',
+            url: `${API}/api/admin/cohort/${sid}/pedagogical-settings`,
+            payload: {
+                experience_level: selectedExperienceLevel,
+                difficulty_tier: (scenarioPresets.find(pr => pr.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
+                ...pedagogicalToggles,
+                ...engineModuleToggles,
+            },
+        });
+        steps.push({
+            name: 'CEO Interview', method: 'PUT',
+            url: `${API}/api/admin/sessions/${sid}/ceo-interview`,
+            payload: { ceo_interview_enabled: ceoInterviewEnabled, ceo_interview_voice_gender: ceoVoiceGender },
+        });
+        if (selectedSideTracks.length > 0) {
+            steps.push({ name: 'Side Tracks', method: 'PUT', url: `${API}/api/admin/cohorts/${sid}/side-tracks`, payload: { tracks: selectedSideTracks } });
+        }
+        steps.push({
+            name: 'Pacing', method: 'PUT',
+            url: `${API}/api/admin/cohort/${sid}/pacing`,
+            payload: {
+                pacing_mode: pacingMode,
+                max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
+                round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
+            },
+        });
+        steps.push({
+            name: 'Switchboard', method: 'PATCH',
+            url: `${API}/api/admin/sessions/${sid}/cohort-settings`,
+            payload: {
+                simulation_mode: engageAdvancedClimate ? 'advanced_climate' : 'standard',
+                global_carbon_fee: carbonFee,
+                market_hostility_index: hostility,
+                scope_3_threshold: scope3,
+            },
+        });
+        if (Object.keys(buSubstitutions).length > 0 || Object.values(buRegions).some(v => v)) {
+            steps.push({ name: 'BU Substitutions', method: 'PUT', url: `${API}/api/admin/${sid}/bu-composition`, payload: { substitutions: buSubstitutions, bu_regions: buRegions } });
+        }
+        return steps;
+    };
+
+    const runOneStep = async (step) => {
+        try {
+            const subRes = await fetch(step.url, {
+                method: step.method,
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(step.payload),
+            });
+            if (!subRes.ok) {
+                const errData = await subRes.json().catch(() => ({}));
+                throw new Error(errData.detail || `HTTP ${subRes.status}`);
+            }
+            return { ...step, ok: true, error: null };
+        } catch (err) {
+            console.error(`[Cohort Config] Failed to apply ${step.name}:`, err);
+            return { ...step, ok: false, error: err.message };
+        }
+    };
+
+    // Sequential, same as the pre-R3 chains.
+    const runSubConfigChain = async (sid) => {
+        const results = [];
+        for (const step of buildSubConfigSteps(sid)) {
+            results.push(await runOneStep(step));
+        }
+        return results;
+    };
+
+    // Per-item retry: re-sends ONLY the failed step's identical payload.
+    const retryStep = async (idx) => {
+        setRetryingIdx(idx);
+        const r = await runOneStep(setupResults.steps[idx]);
+        setSetupResults(prev => ({ ...prev, steps: prev.steps.map((st, i) => (i === idx ? r : st)) }));
+        setRetryingIdx(null);
+    };
+
+    // Leaving the panel — the cohort EXISTS either way, so the parent must
+    // refresh; "Done" requires all-green, "Keep as-is" is the explicit escape.
+    const finishSetup = () => {
+        const sess = setupResults.session;
+        setSetupResults(null);
+        onCreated(sess);
+    };
+
     const handleEdit = async (e) => {
         e.preventDefault();
         setError(null);
         if (!editSession?.session_id) return;
         setLoading(true);
         const sid = editSession.session_id;
-        const configWarnings = [];
-
-        const runSubConfig = async (name, url, payload, method = 'PUT') => {
-            try {
-                const subRes = await fetch(url, {
-                    method,
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(payload),
-                });
-                if (!subRes.ok) {
-                    const errData = await subRes.json().catch(() => ({}));
-                    throw new Error(errData.detail || `HTTP ${subRes.status}`);
-                }
-            } catch (err) {
-                console.error(`[Cohort Edit] Failed to apply ${name}:`, err);
-                configWarnings.push(`${name}: ${err.message}`);
-            }
-        };
+        // Phase R3: sub-config execution moved to the shared pipeline above.
 
         try {
             // 1. PATCH core session metadata
@@ -490,43 +571,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 throw new Error(d.detail || `Metadata update failed (${metaRes.status})`);
             }
 
-            // 2. Re-apply all sub-configs (same endpoints as create, already accept existing sessions)
-            if (hasVisibilityOverrides()) {
-                await runSubConfig('Visibility', `${API}/api/admin/cohort/${sid}/analytics-visibility`, visibility);
-            }
-            await runSubConfig('Pedagogical Settings', `${API}/api/admin/cohort/${sid}/pedagogical-settings`, {
-                experience_level: selectedExperienceLevel,
-                difficulty_tier: (scenarioPresets.find(p => p.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
-                ...pedagogicalToggles,
-                ...engineModuleToggles,
-            });
-            await runSubConfig('CEO Interview', `${API}/api/admin/sessions/${sid}/ceo-interview`, {
-                ceo_interview_enabled: ceoInterviewEnabled,
-                ceo_interview_voice_gender: ceoVoiceGender,
-            });
-            if (selectedSideTracks.length > 0) {
-                await runSubConfig('Side Tracks', `${API}/api/admin/cohorts/${sid}/side-tracks`, { tracks: selectedSideTracks });
-            }
-            await runSubConfig('Pacing', `${API}/api/admin/cohort/${sid}/pacing`, {
-                pacing_mode: pacingMode,
-                max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
-                round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
-            });
-            await runSubConfig('Switchboard', `${API}/api/admin/sessions/${sid}/cohort-settings`, {
-                simulation_mode: engageAdvancedClimate ? 'advanced_climate' : 'standard',
-                global_carbon_fee: carbonFee,
-                market_hostility_index: hostility,
-                scope_3_threshold: scope3,
-            }, 'PATCH');
-            if (Object.keys(buSubstitutions).length > 0 || Object.values(buRegions).some(v => v)) {
-                await runSubConfig('BU Substitutions', `${API}/api/admin/${sid}/bu-composition`, {
-                    substitutions: buSubstitutions,
-                    bu_regions: buRegions,
+            // 2. Re-apply all sub-configs via the shared pipeline (same
+            // endpoints, order, and payloads as before — outcomes per step).
+            const results = await runSubConfigChain(sid);
+            if (results.some(r => !r.ok)) {
+                setSetupResults({
+                    session: { session_id: sid, cohort_name: cohortName.trim() || editSession.cohort_name },
+                    steps: results,
                 });
-            }
-
-            if (configWarnings.length > 0) {
-                setError(`Cohort updated, but some settings failed: ${configWarnings.join(' | ')}`);
             } else {
                 onCreated({ session_id: sid, cohort_name: cohortName.trim() });
             }
@@ -598,86 +650,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             }
 
             const newSession = await res.json();
-            const configWarnings = [];
 
-            // Helper to handle sub-config fetch with telemetry
-            const runSubConfig = async (name, url, payload, method = 'PUT') => {
-                try {
-                    const subRes = await fetch(url, {
-                        method,
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify(payload),
-                    });
-                    if (!subRes.ok) {
-                        const errData = await subRes.json().catch(() => ({}));
-                        throw new Error(errData.detail || `HTTP ${subRes.status}`);
-                    }
-                } catch (err) {
-                    console.error(`[Cohort Config] Failed to apply ${name}:`, err);
-                    configWarnings.push(`Failed to apply ${name}: ${err.message}`);
-                }
-            };
-
-            // Save per-cohort visibility overrides if any differ from defaults
-            if (hasVisibilityOverrides() && newSession.session_id) {
-                await runSubConfig('Visibility Overrides', `${API}/api/admin/cohort/${newSession.session_id}/analytics-visibility`, visibility);
-            }
-
-            // Save per-cohort pedagogical scaffolding settings
-            if (newSession.session_id) {
-                await runSubConfig('Pedagogical Settings', `${API}/api/admin/cohort/${newSession.session_id}/pedagogical-settings`, {
-                    experience_level: selectedExperienceLevel,
-                    difficulty_tier: (scenarioPresets.find(p => p.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
-                    ...pedagogicalToggles,
-                    ...engineModuleToggles,
-                });
-            }
-
-            // Apply per-cohort CEO Interview settings
-            if (newSession.session_id) {
-                await runSubConfig('CEO Interview Settings', `${API}/api/admin/sessions/${newSession.session_id}/ceo-interview`, {
-                    ceo_interview_enabled: ceoInterviewEnabled,
-                    ceo_interview_voice_gender: ceoVoiceGender,
-                });
-            }
-
-            // Assign per-cohort side tracks
-            if (newSession.session_id && selectedSideTracks.length > 0) {
-                await runSubConfig('Side Tracks', `${API}/api/admin/cohorts/${newSession.session_id}/side-tracks`, { 
-                    tracks: selectedSideTracks 
-                });
-            }
-
-            // Save per-cohort round pacing settings
-            if (newSession.session_id) {
-                await runSubConfig('Pacing Settings', `${API}/api/admin/cohort/${newSession.session_id}/pacing`, {
-                    pacing_mode: pacingMode,
-                    max_unlocked_round: pacingMode === 'free_play' ? 10 : maxUnlockedRound,
-                    round_schedules: pacingMode === 'scheduled' ? roundSchedules : null,
-                });
-            }
-
-            // Save simulation switchboard override settings
-            if (newSession.session_id) {
-                await runSubConfig('Simulation Switchboard Settings', `${API}/api/admin/sessions/${newSession.session_id}/cohort-settings`, {
-                    simulation_mode: engageAdvancedClimate ? 'advanced_climate' : 'standard',
-                    global_carbon_fee: carbonFee,
-                    market_hostility_index: hostility,
-                    scope_3_threshold: scope3,
-                }, 'PATCH');
-            }
-
-            // Apply BU vertical substitutions (at cohort formation time)
-            if (newSession.session_id && (Object.keys(buSubstitutions).length > 0 || Object.values(buRegions).some(v => v))) {
-                await runSubConfig('BU Substitutions', `${API}/api/admin/${newSession.session_id}/bu-composition`, {
-                    substitutions: buSubstitutions,
-                    bu_regions: buRegions,
-                });
-            }
-
-            if (configWarnings.length > 0) {
-                setError(`Cohort created, but some configurations failed: ${configWarnings.join(' | ')}`);
+            // Phase R3: sub-configs via the shared pipeline (same endpoints,
+            // order, and payloads as the previous inline copy — outcomes are
+            // now captured per step, with retry, instead of one dead-end
+            // warning string).
+            const results = newSession.session_id ? await runSubConfigChain(newSession.session_id) : [];
+            if (results.some(r => !r.ok)) {
+                setSetupResults({ session: newSession, steps: results });
             } else {
                 onCreated(newSession);
             }
@@ -690,7 +670,93 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
     return (
         <div className={styles.overlay}>
-            <div className={styles.modal}>
+            <div className={styles.modal} style={{ position: 'relative' }}>
+                {/* ═══ Phase R3 (V2-3): setup-integrity panel ═══
+                    Shown when any sub-config step failed. The cohort EXISTS
+                    at this point — this panel makes its true configuration
+                    state explicit and recoverable instead of a dead-end
+                    warning string. */}
+                {setupResults && (
+                    <div style={{
+                        position: 'absolute', inset: 0, zIndex: 10,
+                        background: 'var(--bg-card, #0f172a)', borderRadius: 'inherit',
+                        display: 'flex', flexDirection: 'column',
+                        padding: '1.5rem 1.75rem', overflowY: 'auto',
+                    }}>
+                        <h3 style={{ margin: '0 0 0.35rem', color: 'var(--text-primary)', fontSize: '1.05rem', fontWeight: 800 }}>
+                            {setupResults.steps.every(st => st.ok)
+                                ? '✅ Cohort setup complete'
+                                : '⚠️ Cohort saved — but NOT fully configured'}
+                        </h3>
+                        <p style={{ margin: '0 0 1rem', color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                            &ldquo;{setupResults.session.cohort_name}&rdquo; exists and will run either way.
+                            A failed item below means the cohort is on platform defaults for that
+                            area — retry each one before running a live class with it.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '1.25rem' }}>
+                            {setupResults.steps.map((st, i) => (
+                                <div key={st.name} style={{
+                                    display: 'flex', alignItems: 'center', gap: '10px',
+                                    padding: '8px 12px', borderRadius: '8px',
+                                    background: st.ok ? 'rgba(34,197,94,0.08)' : 'rgba(239,68,68,0.08)',
+                                    border: `1px solid ${st.ok ? 'rgba(34,197,94,0.25)' : 'rgba(239,68,68,0.3)'}`,
+                                }}>
+                                    <span style={{ width: 18, textAlign: 'center', fontWeight: 800, color: st.ok ? '#4ade80' : '#f87171' }}>{st.ok ? '✓' : '✗'}</span>
+                                    <span style={{ flex: 1, fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-primary)' }}>{st.name}</span>
+                                    {!st.ok && (
+                                        <span title={st.error} style={{ fontSize: '0.72rem', color: '#f87171', maxWidth: '42%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            {st.error}
+                                        </span>
+                                    )}
+                                    {!st.ok && (
+                                        <button
+                                            type="button"
+                                            onClick={() => retryStep(i)}
+                                            disabled={retryingIdx !== null}
+                                            style={{
+                                                padding: '4px 12px', borderRadius: '6px',
+                                                border: '1px solid rgba(239,68,68,0.4)', background: 'rgba(239,68,68,0.12)',
+                                                color: '#f87171', fontWeight: 700, fontSize: '0.75rem',
+                                                cursor: retryingIdx !== null ? 'wait' : 'pointer',
+                                            }}
+                                        >
+                                            {retryingIdx === i ? '⏳ Retrying…' : '↻ Retry'}
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: 'auto' }}>
+                            {!setupResults.steps.every(st => st.ok) && (
+                                <button
+                                    type="button"
+                                    onClick={finishSetup}
+                                    style={{
+                                        padding: '0.55rem 1.1rem', borderRadius: '8px',
+                                        border: '1px solid var(--border-subtle, #475569)', background: 'transparent',
+                                        color: 'var(--text-muted)', fontWeight: 600, fontSize: '0.82rem', cursor: 'pointer',
+                                    }}
+                                >
+                                    Keep as-is (failed settings stay unapplied)
+                                </button>
+                            )}
+                            <button
+                                type="button"
+                                onClick={finishSetup}
+                                disabled={!setupResults.steps.every(st => st.ok)}
+                                style={{
+                                    padding: '0.55rem 1.4rem', borderRadius: '8px', border: 'none',
+                                    background: setupResults.steps.every(st => st.ok) ? '#22c55e' : 'rgba(34,197,94,0.2)',
+                                    color: setupResults.steps.every(st => st.ok) ? '#fff' : 'rgba(255,255,255,0.4)',
+                                    fontWeight: 800, fontSize: '0.85rem',
+                                    cursor: setupResults.steps.every(st => st.ok) ? 'pointer' : 'not-allowed',
+                                }}
+                            >
+                                ✓ Done
+                            </button>
+                        </div>
+                    </div>
+                )}
                 <div className={styles.header} style={isEditMode ? { borderBottom: '2px solid rgba(251,191,36,0.4)', background: 'rgba(251,191,36,0.06)' } : {}}>
                     <h2>{isEditMode ? '✏️ Edit Cohort' : '🚀 Set Up New Cohort'}</h2>
                     {isEditMode && (
@@ -698,7 +764,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                             Editing: {editSession?.cohort_name}
                         </span>
                     )}
-                    <button className={styles.closeBtn} onClick={onClose} disabled={loading}>×</button>
+                    <button className={styles.closeBtn} onClick={setupResults ? finishSetup : onClose} disabled={loading}>×</button>
                 </div>
 
                 <div className={styles.body}>
@@ -767,12 +833,29 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     {simulationMode === 'single_bu' && (
                                         <div className={styles.formGroup}>
                                             <label>Industry Vertical <span style={{color:'#ef4444'}}>*</span></label>
+                                            <small style={{ color: '#94a3b8', display: 'block', marginBottom: 4 }}>
+                                                All verticals available — grouped by their simulation slot.
+                                            </small>
                                             <select value={industryVertical} onChange={e => setIndustryVertical(e.target.value)} required>
                                                 <option value="">-- Select Industry --</option>
-                                                {INDUSTRY_VERTICALS.map(v => (
-                                                    <option key={v.id} value={v.id}>{v.icon} {v.label}</option>
-                                                ))}
+                                                {SLOT_META.map(sm => {
+                                                    const entries = VERTICAL_CATALOG.filter(v => v.slot === sm.slot);
+                                                    return (
+                                                        <optgroup key={sm.slot} label={`${sm.icon} ${sm.label} slot`}>
+                                                            {entries.map(v => (
+                                                                <option key={v.id} value={v.id}>
+                                                                    {v.icon} {v.label}{v.isDefault ? '' : ' ↔'}
+                                                                </option>
+                                                            ))}
+                                                        </optgroup>
+                                                    );
+                                                })}
                                             </select>
+                                            {industryVertical && !VERTICAL_CATALOG.find(v => v.id === industryVertical)?.isDefault && (
+                                                <small style={{ color: '#818cf8', marginTop: 3, display: 'block' }}>
+                                                    ↔ Substitute: replaces the {SLOT_META.find(s => s.slot === VERTICAL_SLOT_MAP[industryVertical])?.label} slot in the seed.
+                                                </small>
+                                            )}
                                         </div>
                                     )}
 
@@ -1239,46 +1322,15 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         <strong> Cannot be changed after the simulation begins.</strong>
                                     </p>
                                 </div>
-                                {[
-                                    // Slot order = DEFAULT_SLOTS; alternatives = SLOT_FIT_MAP (bu_profiles.py)
-                                    {
-                                        slot: 'pharma', slotLabel: 'Pharma', slotIcon: '💊',
-                                        // SLOT_FIT_MAP['pharma'] = [oil_gas, chemical, cosmetics, food_beverage, power_utilities]
-                                        alternatives: [
-                                            { id: 'oil_gas',        label: 'Oil & Gas',               icon: '🛢️', desc: 'Upstream E&P, midstream pipelines, downstream refining. Extreme carbon intensity and stranded-asset risk.' },
-                                            { id: 'chemical',       label: 'Chemical',                icon: '⚗️', desc: 'Specialty & bulk chemicals. High process-heat emissions, toxic discharge liability, REACH/TSCA compliance.' },
-                                            { id: 'cosmetics',      label: 'Cosmetics & Personal Care', icon: '💄', desc: 'Beauty and personal care. Ingredient sourcing controversy, microplastics liability, animal-testing regulation.' },
-                                            { id: 'food_beverage',  label: 'Food & Beverage',         icon: '🍽️', desc: 'Food processing & branded beverages. Extreme water intensity, deforestation-linked sourcing, food-safety recall risk.' },
-                                            { id: 'power_utilities', label: 'Power & Utilities',      icon: '⚡', desc: 'Electricity generation & distribution. Highest carbon intensity of all verticals, stranded-asset exposure, energy-transition capex.' },
-                                        ],
-                                    },
-                                    {
-                                        slot: 'electronics', slotLabel: 'Electronics', slotIcon: '⚡',
-                                        // SLOT_FIT_MAP['electronics'] = [semiconductor, medical_devices, automotive, telecom]
-                                        alternatives: [
-                                            { id: 'semiconductor',   label: 'Semiconductor',    icon: '💎', desc: 'Wafer fab & chip design. Extreme water/energy intensity, rare-mineral supply risk, geopolitical fab concentration.' },
-                                            { id: 'medical_devices', label: 'Medical Devices',  icon: '🩺', desc: 'Implantables, diagnostics & surgical equipment. Heavy FDA/CE burden, IP-intensive R&D, single-use plastics exposure.' },
-                                            { id: 'automotive',      label: 'Automotive',       icon: '🚗', desc: 'ICE & EV manufacturing. Scope 3 tailpipe dominance, battery mineral dependency, EV transition capex.' },
-                                            { id: 'telecom',         label: 'Telecom',          icon: '📶', desc: 'Mobile & fixed-line networks. Spectrum licensing risk, e-waste obligations, tower energy intensity, data privacy.' },
-                                        ],
-                                    },
-                                    {
-                                        slot: 'consumer_goods', slotLabel: 'Consumer Goods', slotIcon: '🛒',
-                                        // SLOT_FIT_MAP['consumer_goods'] = [retail_fmcg, agriculture]
-                                        alternatives: [
-                                            { id: 'retail_fmcg',  label: 'Retail / FMCG',  icon: '🛍️', desc: 'Fast-moving consumer goods. Packaging waste, plastic lifecycle, sustainable supply chain, consumer sentiment.' },
-                                            { id: 'agriculture',  label: 'Agriculture',     icon: '🌾', desc: 'Industrial farming & agri-tech. Extreme water dependency, biodiversity impact, land-use emissions.' },
-                                        ],
-                                    },
-                                    {
-                                        slot: 'software', slotLabel: 'Software', slotIcon: '💻',
-                                        // SLOT_FIT_MAP['software'] = [banking_financial_services, technology]
-                                        alternatives: [
-                                            { id: 'technology',                 label: 'Technology',                  icon: '🧠', desc: 'Cloud, AI/ML platforms & data centres. Governance sensitivity, energy growth trajectory, talent risk.' },
-                                            { id: 'banking_financial_services', label: 'Banking & Financial Services', icon: '🏦', desc: 'Systemic risk, prudential regulation, ESG lending, financed emissions, digital banking disruption.' },
-                                        ],
-                                    },
-                                ].map(({ slot, slotLabel, slotIcon, alternatives }) => {
+                                {/* Derived from VERTICAL_CATALOG: adding a new vertical to the catalog
+                                    automatically populates it here in its slot's row. */}
+                                {SLOT_META.map(sm => {
+                                    const alternatives = VERTICAL_CATALOG.filter(v => v.slot === sm.slot && !v.isDefault);
+                                    const slot = sm.slot;
+                                    const slotLabel = sm.label;
+                                    const slotIcon = sm.icon;
+                                    return ({ slot, slotLabel, slotIcon, alternatives });
+                                }).map(({ slot, slotLabel, slotIcon, alternatives }) => {
                                     const currentVertical = buSubstitutions[slot] || '';
                                     return (
                                         <div key={slot} className={styles.formGroup} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.75rem' }}>
@@ -2025,14 +2077,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                             </span>
                                                         </div>
                                                     )}
-                                                    {regionId && (
-                                                        <div style={rowS}>
-                                                            <span style={lblS}>Region</span>
-                                                            <span style={{ ...valS, color: '#67e8f9' }}>
-                                                                🌐 {regionId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-                                                            </span>
-                                                        </div>
-                                                    )}
+                                                    {/* Region is shown in Core Configuration card — not duplicated here */}
                                                 </div>
                                             </div>
 
