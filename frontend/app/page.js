@@ -12,6 +12,10 @@ import GameOverSummary from './components/GameOverSummary';
 import ArchetypeReveal from './components/ArchetypeReveal';
 import StakeholderMapModal from './components/StakeholderMapModal';
 import CFOOverrideModal from './components/CFOOverrideModal';
+// Phase A (player redesign): documented overlay priority ladder — values are
+// IDENTICAL to the previous magic numbers; this only names the contract.
+import { OVERLAY_PRIORITY } from './components/overlayPriority';
+
 const FullScreenLoader = () => <div style={{position: 'fixed', inset: 0, background: '#080c18', zIndex: 20000}}></div>;
 const DoubleMaterialityMatrix = dynamic(() => import('./components/DoubleMaterialityMatrix'), { ssr: false });
 const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false, loading: FullScreenLoader });
@@ -31,7 +35,9 @@ import AchievementBadges from './components/AchievementBadges';
 import AIAdvisor from './components/AIAdvisor';
 import PeerComparison from './components/PeerComparison';
 import PlayerAnalytics from './components/PlayerAnalytics';
+import ShockwaveOverlay from './components/ShockwaveOverlay';
 import soundManager from './utils/soundManager';
+import { VERTICAL_SLOT_MAP, resolveVerticalMeta } from './lib/verticalCatalog';
 
 // ── Advanced Climate Engine modules (lazy-loaded) ─────────────
 const GreenFundBidding = dynamic(() => import('./components/GreenFundBidding'), { ssr: false });
@@ -252,7 +258,7 @@ export default function CockpitPage() {
   const BU_LABELS = { pharma: 'Pharma Division', software: 'Software Division', consumer_goods: 'Consumer Goods Division', electronics: 'Electronics Division' };
   const activeBriefing = useMemo(() => {
     if (!assignedBu) return PODCAST_TRANSCRIPTS;
-    const label = BU_LABELS[assignedBu] || assignedBu;
+    const label = BU_LABELS[assignedBu] || resolveVerticalMeta(assignedBu).label + ' Division';
     const modified = {};
     for (const [round, lines] of Object.entries(PODCAST_TRANSCRIPTS)) {
       modified[round] = [
@@ -377,6 +383,16 @@ export default function CockpitPage() {
             if (!cancelled) setAssignedBu(sessionBu);
             return; // session-level takes priority
           }
+          // Single-BU mode: industry_vertical is the cohort-level BU when no
+          // per-player assigned_bu exists. Promote it so the player only sees
+          // their one BU (guards against the config-propagation gap where
+          // simulation_mode='single_bu' but assigned_bu was not written to the
+          // player sub-session).
+          if (siData.simulation_mode === 'single_bu' && siData.industry_vertical) {
+            // Map the vertical to its slot so the BU filter (b.bu_id === assignedBu) matches.
+            if (!cancelled) setAssignedBu(VERTICAL_SLOT_MAP[siData.industry_vertical] || siData.industry_vertical);
+            return;
+          }
         }
         // 2. Fall back to global-settings (deployment-wide single-BU mode)
         const gsRes = await fetch(`${API}/api/admin/global-settings`);
@@ -467,6 +483,7 @@ export default function CockpitPage() {
 
   // Universal Broadcast — receives God Mode announcements over WebSocket
   const [broadcast, setBroadcast] = useState(null); // { title, message, priority }
+  const [shockwave, setShockwave] = useState(null); // Feature 6: { event, countdown }
 
   // ── Save State Hydration ──────────────────────────────────
   // Pre-load saved allocations and decisions if they exist
@@ -619,7 +636,11 @@ export default function CockpitPage() {
   useEffect(() => {
     if (!sim.sessionId || sim.sessionId === 'demo' || typeof window === 'undefined') return;
     const wsBase = (process.env.NEXT_PUBLIC_API_URL || '').replace(/^http/, 'ws');
-    const wsUrl = `${wsBase}/api/admin/ws/session/${sim.sessionId}`;
+    // SEC/HIGH-001: attach the signed ws ticket (session_id is no longer a
+    // bearer credential). Absent ticket → server rejects and we fall back to
+    // the existing REST polling, so pushes degrade gracefully.
+    const wsTicket = localStorage.getItem('muressons_ws_ticket') || '';
+    const wsUrl = `${wsBase}/api/admin/ws/session/${sim.sessionId}${wsTicket ? `?token=${encodeURIComponent(wsTicket)}` : ''}`;
     let ws;
     let retryTimeout;
     const connect = () => {
@@ -630,6 +651,15 @@ export default function CockpitPage() {
             const msg = JSON.parse(evt.data);
             if (msg.type === 'universal_broadcast') {
               setBroadcast({ title: msg.title, message: msg.message, priority: msg.priority });
+            }
+            // Trading-Floor Finale: market close — celebratory overlay, point them at the main screen.
+            if (msg.type === 'market_close') {
+              setBroadcast({ title: '🔔 Market Closed', message: 'Year 5 results are in — watch the main screen for the final ranking!', priority: 'info' });
+            }
+            // Feature 6: synchronized shockwave — full-screen crisis takeover.
+            if (msg.type === 'shockwave' && msg.event) {
+              setShockwave({ event: msg.event, countdown: msg.countdown || 60 });
+              sim.fetchDashboard?.(sim.sessionId); // pull the applied impact
             }
             // Forward round_unlocked / advance events to simulation hook
             if (msg.type === 'round_unlocked' || msg.type === 'game_advanced') {
@@ -1157,11 +1187,20 @@ export default function CockpitPage() {
         />
       )}
 
+      {/* ── Feature 6: Synchronized Shockwave takeover ── */}
+      {shockwave && (
+        <ShockwaveOverlay
+          event={shockwave.event}
+          countdown={shockwave.countdown}
+          onDismiss={() => setShockwave(null)}
+        />
+      )}
+
       {/* ── Universal Broadcast Banner (God Mode → Students) ── */}
       {broadcast && (
         <div style={{
           position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 20500, maxWidth: 560, width: '90%',
+          zIndex: OVERLAY_PRIORITY.BROADCAST_BANNER, maxWidth: 560, width: '90%',
           background: broadcast.priority === 'critical'
             ? 'rgba(127,29,29,0.96)' : broadcast.priority === 'warning'
             ? 'rgba(120,53,15,0.96)' : 'rgba(14,20,36,0.96)',

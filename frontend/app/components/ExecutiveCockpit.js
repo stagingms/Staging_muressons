@@ -58,24 +58,13 @@ const ESGImpactConstellation = dynamic(() => import('./ESGImpactConstellation'),
   loading: () => null,
 });
 
-// AI Board Member Personas (Improvement #4.2)
-const BOARD_PERSONAS = {
-  financial: { name: 'Sarah Chen, CFO', avatar: '👩‍💼', color: '#6366f1' },
-  sustainability: { name: 'Dr. Kwame Asante, CSO', avatar: '🧑‍🔬', color: '#16a34a' },
-  legal: { name: 'Marcus Wong, General Counsel', avatar: '👨‍⚖️', color: '#f59e0b' },
-  crisis: { name: 'Elena Vasquez, CRO', avatar: '🧑‍💻', color: '#ef4444' },
-  default: { name: 'Board of Directors', avatar: '🏛️', color: '#64748b' },
-};
-
-function getPersona(msg) {
-  const t = (msg.type || '').toLowerCase();
-  const title = (msg.title || '').toLowerCase();
-  if (t === 'crisis' || title.includes('crisis') || title.includes('alert')) return BOARD_PERSONAS.crisis;
-  if (t === 'facilitator') return BOARD_PERSONAS.sustainability;
-  if (title.includes('financial') || title.includes('treasury') || title.includes('ebitda')) return BOARD_PERSONAS.financial;
-  if (title.includes('legal') || title.includes('regulation') || title.includes('compliance')) return BOARD_PERSONAS.legal;
-  return BOARD_PERSONAS.default;
-}
+// Phase A (player redesign): module-scope pieces extracted verbatim to their
+// own files — BoardPersonas, EngineWidgetsPanel, ArchiveAccordion — and the
+// focus stage machine to hooks/useRoundStage. Zero behavioural change.
+import useRoundStage from '../hooks/useRoundStage';
+import { BOARD_PERSONAS, getPersona } from './BoardPersonas';
+import EngineWidgetsPanel from './EngineWidgetsPanel';
+import ArchiveAccordion from './ArchiveAccordion';
 
 /**
  * ExecutiveCockpit — Premium enterprise dashboard layout.
@@ -148,224 +137,6 @@ const BASE_YEAR = new Date().getFullYear();
 // Pre-compute period label for a given round using the shared utility
 const getRoundLabel = (round) => roundToQuarter(round, BASE_YEAR).label;
 
-// ══════════════════════════════════════════════════════════════════
-//  ENGINE WIDGETS PANEL — Biodiversity · Board Governance · Supply Chain
-//  Renders in the right-panel "Engines" tab. Each widget fetches its
-//  own endpoint, degrades silently if the engine is toggled off.
-// ══════════════════════════════════════════════════════════════════
-function EngineWidgetsPanel({ sessionId, globalState, commitResults }) {
-  const API = process.env.NEXT_PUBLIC_API_URL || '';
-  const [bio, setBio] = useState(null);
-  const [board, setBoard] = useState(null);
-  const [supply, setSupply] = useState(null);
-  const [balanceSheet, setBalanceSheet] = useState(null);
-  const [bsModalOpen, setBsModalOpen] = useState(false); // CL-2: Balance Sheet Modal
-  const [open, setOpen] = useState({ bio: true, board: false, supply: false, bs: true });
-  const [enginesLoaded, setEnginesLoaded] = useState(false); // Friction #5: track initial load
-
-  useEffect(() => {
-    if (!sessionId) return;
-    // Biodiversity
-    fetch(`${API}/api/simulations/${sessionId}/biodiversity`)
-      .then(r => r.ok ? r.json() : null).then(d => d && setBio(d)).catch(() => {});
-    // Board Governance
-    fetch(`${API}/api/simulations/${sessionId}/board-governance`)
-      .then(r => r.ok ? r.json() : null).then(d => d && setBoard(d)).catch(() => {});
-    // Supply Chain
-    fetch(`${API}/api/simulations/${sessionId}/supply-chain`)
-      .then(r => r.ok ? r.json() : null).then(d => d && setSupply(d)).catch(() => {});
-    // Balance Sheet
-    fetch(`${API}/api/simulations/${sessionId}/balance-sheet`)
-      .then(r => r.ok ? r.json() : null).then(d => d && setBalanceSheet(d.balance_sheet || d)).catch(() => {});
-    // Mark engines as loaded after a short delay (covers network round-trip)
-    const t = setTimeout(() => setEnginesLoaded(true), 600);
-    return () => clearTimeout(t);
-  }, [sessionId]);
-
-  // Re-sync balance sheet after each commit (so sidebar panel shows latest)
-  useEffect(() => {
-    if (!commitResults) return;
-    // Prefer inline data from commit response
-    const bsFromCommit = commitResults.globalState?.balance_sheet;
-    if (bsFromCommit && bsFromCommit.total_assets) {
-      setBalanceSheet(bsFromCommit);
-    } else if (sessionId) {
-      // Fallback: re-fetch from API
-      fetch(`${API}/api/simulations/${sessionId}/balance-sheet`)
-        .then(r => r.ok ? r.json() : null).then(d => d && setBalanceSheet(d.balance_sheet || d)).catch(() => {});
-    }
-  }, [commitResults, sessionId]);
-
-  const toggle = (key) => setOpen(prev => ({ ...prev, [key]: !prev[key] }));
-
-  // AC-4: Migrated from inline styles to CSS module classes
-  const Bar = ({ value, max = 100, color }) => (
-    <div className={styles.ewBarTrack}>
-      <div className={styles.ewBarFill} style={{ width: `${Math.min(100, (value / max) * 100)}%`, background: color }} />
-    </div>
-  );
-
-  const Pill = ({ label, value, good }) => (
-    <div className={styles.ewPill}>
-      <span className={styles.ewPillLabel}>{label}</span>
-      <span className={styles.ewPillValue} style={{ color: good ? '#10b981' : '#f59e0b' }}>{value}</span>
-    </div>
-  );
-
-  const noEngine = (name) => (
-    <div className={styles.ewNoEngine}>
-      {name} engine not active this session.
-    </div>
-  );
-
-  // Friction #5: Loading skeleton
-  const skeleton = () => (
-    <div className={styles.ewSkeleton}>
-      <div className={styles.ewSkeletonBar} style={{ height: 8, width: '80%', marginBottom: 8 }} />
-      <div className={styles.ewSkeletonBarNarrow} style={{ width: '100%' }} />
-      <div className={styles.ewSkeletonBar} style={{ height: 8, width: '60%', marginBottom: 8 }} />
-      <div className={styles.ewSkeletonBarNarrow} style={{ width: '100%' }} />
-    </div>
-  );
-
-  return (
-    <div style={{ paddingTop: 4 }}>
-      <div style={{ fontSize: '0.68rem', color: '#475569', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
-        🔬 Active System Engines
-      </div>
-
-      {/* ── Biodiversity ── */}
-      <div className={styles.ewCard}>
-        <div className={styles.ewHeader} style={{ background: 'rgba(16,185,129,0.08)', borderBottom: '1px solid rgba(16,185,129,0.15)' }} onClick={() => toggle('bio')}>
-          <span className={styles.ewLabel} style={{ color: '#34d399' }}>🌿 Biodiversity</span>
-          <span className={styles.ewChevron}>{open.bio ? '▲' : '▼'}</span>
-        </div>
-        {open.bio && (bio ? (
-          <div className={styles.ewBody}>
-            <Pill label="Ecosystem Health Index" value={`${(bio.ehi ?? bio.ecosystem_health_index ?? 0).toFixed(1)} / 100`} good={(bio.ehi ?? bio.ecosystem_health_index ?? 0) >= 60} />
-            <Bar value={bio.ehi ?? bio.ecosystem_health_index ?? 0} color="#34d399" />
-            <Pill label="Deforestation Risk" value={(bio.deforestation_risk ?? 'Low')} good={(bio.deforestation_risk ?? 'Low') === 'Low'} />
-            <Pill label="Water Stress Index" value={`${(bio.water_stress_index ?? 0).toFixed(1)}`} good={(bio.water_stress_index ?? 0) < 50} />
-            {bio.tnfd_flags?.length > 0 && (
-              <div style={{ marginTop: 6 }}>
-                <div style={{ fontSize: '0.6rem', color: '#64748b', marginBottom: 3 }}>TNFD Flags:</div>
-                {bio.tnfd_flags.map((f, i) => (
-                  <div key={i} style={{ fontSize: '0.65rem', color: '#fbbf24', marginBottom: 2 }}>⚠ {f}</div>
-                ))}
-              </div>
-            )}
-          </div>
-        ) : (!enginesLoaded ? skeleton() : noEngine('Biodiversity')))}
-      </div>
-
-      {/* ── Board Governance ── */}
-      <div className={styles.ewCard}>
-        <div className={styles.ewHeader} style={{ background: 'rgba(99,102,241,0.08)', borderBottom: '1px solid rgba(99,102,241,0.15)' }} onClick={() => toggle('board')}>
-          <span className={styles.ewLabel} style={{ color: '#818cf8' }}>🏛️ Board Governance</span>
-          <span className={styles.ewChevron}>{open.board ? '▲' : '▼'}</span>
-        </div>
-        {open.board && (board ? (
-          <div className={styles.ewBody}>
-            <Pill label="ESG Alignment Score" value={`${(board.esg_alignment_score ?? board.board_esg_score ?? 0).toFixed(1)} / 100`} good={(board.esg_alignment_score ?? board.board_esg_score ?? 0) >= 60} />
-            <Bar value={board.esg_alignment_score ?? board.board_esg_score ?? 0} color="#818cf8" />
-            <Pill label="Board Confidence" value={`${(board.board_confidence ?? 0).toFixed(1)}%`} good={(board.board_confidence ?? 0) >= 60} />
-            {board.resolution_outcome && (
-              <div style={{ marginTop: 6, padding: '5px 8px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', fontSize: '0.65rem', color: '#a5b4fc' }}>
-                📋 Last Resolution: {board.resolution_outcome}
-              </div>
-            )}
-          </div>
-        ) : (!enginesLoaded ? skeleton() : noEngine('Board Governance')))}
-      </div>
-
-      {/* ── Supply Chain ── */}
-      <div className={styles.ewCard}>
-        <div className={styles.ewHeader} style={{ background: 'rgba(245,158,11,0.08)', borderBottom: '1px solid rgba(245,158,11,0.15)' }} onClick={() => toggle('supply')}>
-          <span className={styles.ewLabel} style={{ color: '#fbbf24' }}>🔗 Supply Chain</span>
-          <span className={styles.ewChevron}>{open.supply ? '▲' : '▼'}</span>
-        </div>
-        {open.supply && (supply ? (
-          <div className={styles.ewBody}>
-            <Pill label="Scope 3 Completeness" value={`${(supply.scope3_completeness ?? supply.data_completeness ?? 0).toFixed(0)}%`} good={(supply.scope3_completeness ?? supply.data_completeness ?? 0) >= 60} />
-            <Bar value={supply.scope3_completeness ?? supply.data_completeness ?? 0} color="#fbbf24" />
-            <Pill label="Tier 1 Compliance" value={`${(supply.tier1_compliance ?? 0).toFixed(0)}%`} good={(supply.tier1_compliance ?? 0) >= 70} />
-            <Pill label="Risk Exposure" value={supply.risk_level ?? 'Moderate'} good={(supply.risk_level ?? '') === 'Low'} />
-            {supply.disruption_events?.length > 0 && (
-              <div style={{ marginTop: 6, fontSize: '0.68rem', color: '#ef4444' }}>
-                ⚡ {supply.disruption_events[0]}
-              </div>
-            )}
-          </div>
-        ) : (!enginesLoaded ? skeleton() : noEngine('Supply Chain')))}
-      </div>
-
-      {/* ── Balance Sheet (CL-2: Compact summary + modal for full IFRS view) ── */}
-      <div className={styles.ewCard}>
-        <div className={styles.ewHeader} style={{ background: 'rgba(56,189,248,0.08)', borderBottom: '1px solid rgba(56,189,248,0.15)' }} onClick={() => toggle('bs')}>
-          <span className={styles.ewLabel} style={{ color: '#38bdf8' }}>📊 Balance Sheet</span>
-          <span className={styles.ewChevron}>{open.bs ? '▲' : '▼'}</span>
-        </div>
-        {open.bs && (balanceSheet ? (() => {
-          const fmtM = (v) => `$${((v || 0) / 1_000_000).toFixed(1)}M`;
-          const totalAssets = balanceSheet.total_assets || 0;
-          const totalLiabilities = balanceSheet.total_liabilities || 0;
-          const netAssets = balanceSheet.net_assets || 0;
-          const deRatio = balanceSheet.debt_to_equity || 0;
-          const covenantStatus = balanceSheet.covenant_status || 'green';
-          const covenantColors = { green: '#10b981', amber: '#f59e0b', red: '#ef4444', breached: '#dc2626' };
-          return (
-            <div className={styles.ewBody}>
-              {/* Compact 3-line summary */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Assets</span>
-                  <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#38bdf8' }}>{fmtM(totalAssets)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem' }}>
-                  <span style={{ fontWeight: 600, color: 'var(--text-secondary, #94a3b8)' }}>Liabilities</span>
-                  <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: '#f87171' }}>{fmtM(totalLiabilities)}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', borderTop: '1px solid rgba(148,163,184,0.15)', paddingTop: 3 }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>Net Assets</span>
-                  <span style={{ fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", color: netAssets >= 0 ? '#4ade80' : '#ef4444' }}>{fmtM(netAssets)}</span>
-                </div>
-              </div>
-              {/* Quick ratio pills */}
-              <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
-                <Pill label="D/E" value={`${deRatio.toFixed(1)}×`} good={deRatio < 2.0} />
-                <span style={{ fontSize: '0.6rem', fontWeight: 700, color: covenantColors[covenantStatus], padding: '2px 6px', borderRadius: 4, background: `${covenantColors[covenantStatus]}15`, border: `1px solid ${covenantColors[covenantStatus]}25` }}>
-                  {covenantStatus === 'green' ? '🟢' : covenantStatus === 'amber' ? '🟡' : '🔴'} Covenant
-                </span>
-              </div>
-              {/* Open full modal button */}
-              <button
-                onClick={() => setBsModalOpen(true)}
-                style={{
-                  marginTop: 8, width: '100%', padding: '5px 0', borderRadius: 5,
-                  background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)',
-                  color: '#38bdf8', fontSize: '0.65rem', fontWeight: 700, cursor: 'pointer',
-                  fontFamily: "'DM Sans', sans-serif", letterSpacing: '0.04em',
-                  transition: 'background 0.15s',
-                }}
-                onMouseOver={(e) => e.currentTarget.style.background = 'rgba(56,189,248,0.15)'}
-                onMouseOut={(e) => e.currentTarget.style.background = 'rgba(56,189,248,0.08)'}
-              >
-                📊 View Full Statement →
-              </button>
-            </div>
-          );
-        })() : (!enginesLoaded ? skeleton() : noEngine('Balance Sheet')))}
-      </div>
-
-      {/* CL-2: Balance Sheet Full Modal */}
-      <BalanceSheetModal
-        balanceSheet={balanceSheet}
-        isOpen={bsModalOpen}
-        onClose={() => setBsModalOpen(false)}
-      />
-    </div>
-  );
-}
 
 
 export default function ExecutiveCockpit({
@@ -769,93 +540,29 @@ export default function ExecutiveCockpit({
   }, [tippingPointActive]);
 
   // ── Focus Mode: Stepped Decision Overlays ──
-  // Optional with escape hatch — auto-opens but student can dismiss at any time
-  const [focusStep, setFocusStep] = useState(null); // null | 'gate' | 'strategy' | 'allocation' | 'commit' | 'results'
-  const [focusDismissed, setFocusDismissed] = useState(false);
-  const [focusPredictionText, setFocusPredictionText] = useState('');
-  const [skipPredictionConfirm, setSkipPredictionConfirm] = useState(false);
-
-  // Compute focus steps for this round — gates are mandatory in ALL modes
-  const isSelfLearning = globalState?.self_learning_mode === true;
-  const hasGate = roundNumber === 1 || roundNumber === 2;
-  const focusSteps = useMemo(() => {
-    const s = [];
-    if (hasGate) s.push('gate');
-    s.push('strategy', 'allocation', 'commit');
-    return s;
-  }, [hasGate]);
-
-  // Determine the first incomplete focus step
-  const getFirstIncompleteStep = useCallback(() => {
-    if (hasGate && !roundPrerequisiteMet) return 'gate';
-    if (!hasDecision) return 'strategy';
-    if (Object.keys(allocations).length === 0) return 'allocation';
-    if (!commitResults) return 'commit';
-    return 'results';
-  }, [hasGate, roundPrerequisiteMet, hasDecision, allocations, commitResults]);
-
-  // Auto-trigger focus mode when briefing is dismissed (entering the cockpit)
-  // Suppressed while the onboarding tour is active to prevent z-index conflicts
-  useEffect(() => {
-    if (!hasReadBriefing || sim?.gameOver) return;
-    if (focusDismissed) return;
-    if (tourActive) return; // Don't auto-trigger while intro tour is running
-    // Only auto-open if no focus step is active yet
-    if (focusStep === null) {
-      setFocusStep(getFirstIncompleteStep());
-    }
-  }, [hasReadBriefing, sim?.gameOver, focusDismissed, tourActive]);
-
-  // Auto-advance: gate completed → strategy
-  useEffect(() => {
-    if (focusStep === 'gate' && roundPrerequisiteMet) {
-      setFocusStep('strategy');
-    }
-  }, [focusStep, roundPrerequisiteMet]);
-
-  // Auto-advance: commit done → results
-  useEffect(() => {
-    if (focusStep === 'commit' && commitResults) {
-      setFocusStep('results');
-    }
-  }, [focusStep, commitResults]);
-
-  // Reset focus mode on round change
-  useEffect(() => {
-    setFocusStep(null);
-    setFocusDismissed(false);
-    setFocusPredictionText('');
-  }, [roundNumber]);
-
-  const isFocusActive = focusStep !== null && !focusDismissed && !tourActive;
-
-  // Quick Resume: returning players (round 3+) can skip to decisions
-  const isReturningPlayer = roundNumber >= 3;
-
-  const handleFocusDismiss = useCallback(() => {
-    setFocusDismissed(true);
-    setFocusStep(null);
-  }, []);
-
-  // Quick Resume: skip briefing + focus gate, jump straight to allocation
-  const handleQuickResume = useCallback(() => {
-    setFocusDismissed(true);
-    setFocusStep(null);
-    // Scroll to decision area if available
-    setTimeout(() => {
-      const decisionArea = document.getElementById('tour-decisions-target');
-      if (decisionArea) decisionArea.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }, 200);
-  }, []);
-
-  const handleFocusReenter = useCallback(() => {
-    setFocusDismissed(false);
-    setFocusStep(getFirstIncompleteStep());
-  }, [getFirstIncompleteStep]);
-
-  const handleFocusAdvance = useCallback((nextStep) => {
-    setFocusStep(nextStep);
-  }, []);
+  // Phase A: the stage machine lives in hooks/useRoundStage.js (verbatim
+  // extraction). Identical bindings are destructured so every downstream
+  // reference in this file is untouched.
+  const {
+    focusStep, setFocusStep,
+    focusDismissed, setFocusDismissed,
+    prefersDashboardRef,
+    focusPredictionText, setFocusPredictionText,
+    skipPredictionConfirm, setSkipPredictionConfirm,
+    hasGate, focusSteps, getFirstIncompleteStep,
+    isFocusActive, isReturningPlayer,
+    handleFocusDismiss, handleQuickResume, handleFocusReenter, handleFocusAdvance,
+  } = useRoundStage({
+    roundNumber,
+    hasReadBriefing,
+    gameOver: sim?.gameOver,
+    tourActive,
+    roundPrerequisiteMet,
+    hasDecision,
+    allocations,
+    commitResults,
+    selfLearningMode: globalState?.self_learning_mode,
+  });
 
 
   // Legacy A/B/C tile click
@@ -4170,80 +3877,3 @@ export default function ExecutiveCockpit({
   );
 }
 
-/* ── Sub-component: Archive Accordion for previous rounds ── */
-function ArchiveAccordion({ round, roundLabel, items, onMarkRead, onExpand }) {
-  const [open, setOpen] = useState(false);
-  const handleToggle = (e) => {
-    e.stopPropagation();
-    e.preventDefault();
-    setOpen(prev => !prev);
-  };
-  return (
-    <div style={{
-      marginTop: 6,
-      borderTop: '1px solid #eef0f6',
-    }}>
-      <button
-        onClick={handleToggle}
-        type="button"
-        style={{
-          width: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '8px 10px',
-          background: open ? '#eef4ff' : '#f7f8fc',
-          border: open ? '1px solid #c7d2fe' : '1px solid transparent',
-          borderRadius: 5,
-          cursor: 'pointer',
-          fontSize: '0.65rem',
-          fontWeight: 700,
-          color: open ? '#3b5998' : '#6b7a8d',
-          textTransform: 'uppercase',
-          letterSpacing: '0.06em',
-          fontFamily: 'Inter, sans-serif',
-          transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
-        }}
-      >
-        <span>{open ? '▾' : '▸'} {roundLabel || `Round ${round}`}</span>
-        <span style={{
-          fontSize: '0.68rem',
-          background: open ? '#c7d2fe' : '#e2e8f0',
-          color: open ? '#3b5998' : '#475569',
-          padding: '2px 6px',
-          borderRadius: 4,
-          fontWeight: 700,
-        }}>{items.length}</span>
-      </button>
-      {open && (
-        <div style={{ padding: '4px 0' }}>
-          {items.map((msg, idx) => (
-            <div
-              key={msg.id || `archived-msg-${idx}`}
-              onClick={(e) => { e.stopPropagation(); onMarkRead?.(msg.id); onExpand?.(msg); }}
-              style={{
-                padding: '6px 10px 6px 18px',
-                fontSize: '0.65rem',
-                color: '#334155',
-                lineHeight: 1.5,
-                borderLeft: '2px solid #c7d2fe',
-                marginLeft: 10,
-                marginBottom: 3,
-                cursor: 'pointer',
-                opacity: msg.read ? 0.7 : 1,
-                borderRadius: '0 4px 4px 0',
-                background: '#fafbff',
-                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
-              }}
-            >
-              <strong style={{ fontSize: '0.65rem', color: '#334155' }}>{msg.title}</strong>
-              <p style={{ margin: '2px 0 0', fontSize: '0.6rem', color: '#475569' }}>
-                {msg.body?.substring(0, 80)}...
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}

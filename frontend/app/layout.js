@@ -1,4 +1,7 @@
 import './globals.css';
+// Phase A (player redesign): design tokens — definitions only, nothing
+// consumes them yet, so this import is zero-visual-change by construction.
+import './styles/tokens.css';
 import { DM_Sans, JetBrains_Mono } from 'next/font/google';
 import ThemeToggle from './components/ThemeToggle';
 import GlobalTooltip from './components/GlobalTooltip';
