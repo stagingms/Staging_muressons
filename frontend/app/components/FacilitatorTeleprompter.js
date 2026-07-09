@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BRIEFINGS, HEALTHCARE_BRIEFINGS, SDG_BRIEFINGS } from './RoundBriefing';
 import TCFDScenarioDashboard from './TCFDScenarioDashboard';
 import { sanitizeHtml } from '@/app/utils/sanitize';
@@ -597,6 +597,34 @@ const ENGINE_TOOLTIPS = {
 };
 
 export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = null, leaderboard = [], onSelectSession = null }) {
+    // ── Phase R4 (V2-2): presentation mode ─────────────────────────────
+    // The teleprompter's job is being read ALOUD at a podium; reading
+    // distance is a mode, not a constant. `zoom` reflows the script content
+    // (unlike transform), the choice persists, and everything else —
+    // scripts, checkpoints, fetches — is untouched.
+    const rootRef = useRef(null);
+    const [tpScale, setTpScaleState] = useState(1);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+    useEffect(() => {
+        try {
+            const v = parseFloat(localStorage.getItem('tp_text_scale'));
+            if (v && [1, 1.3, 1.6].includes(v)) setTpScaleState(v);
+        } catch { /* ignore */ }
+    }, []);
+    const setTpScale = (v) => {
+        setTpScaleState(v);
+        try { localStorage.setItem('tp_text_scale', String(v)); } catch { /* ignore */ }
+    };
+    const toggleFullscreen = () => {
+        if (document.fullscreenElement) document.exitFullscreen?.();
+        else rootRef.current?.requestFullscreen?.().catch(() => { /* unsupported */ });
+    };
+    useEffect(() => {
+        const onFs = () => setIsFullscreen(!!document.fullscreenElement);
+        document.addEventListener('fullscreenchange', onFs);
+        return () => document.removeEventListener('fullscreenchange', onFs);
+    }, []);
+
     const [scripts, setScripts] = useState({});
     const [roundConfig, setRoundConfig] = useState(null);
     const [activeRound, setActiveRound] = useState(currentRound);
@@ -669,9 +697,11 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
     const totalPoints = (script.talking_points || []).length;
 
     return (
-        <div style={{
+        <div ref={rootRef} style={{
             padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem',
             fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
+            background: isFullscreen ? 'var(--bg-body, #0b1020)' : undefined,
+            overflowY: isFullscreen ? 'auto' : undefined,
         }}>
             {/* ── Header ── */}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
@@ -777,6 +807,39 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 )}
             </div>
 
+            {/* ── Phase R4 (V2-2): presentation controls ── */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', marginTop: '-0.85rem' }}>
+                <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em' }}>SCRIPT TEXT</span>
+                {[1, 1.3, 1.6].map(sc => (
+                    <button
+                        key={sc}
+                        onClick={() => setTpScale(sc)}
+                        aria-pressed={tpScale === sc}
+                        title={`Script text at ${Math.round(sc * 100)}%`}
+                        style={{
+                            padding: '2px 10px', borderRadius: '6px', cursor: 'pointer', lineHeight: 1.4,
+                            border: `1px solid ${tpScale === sc ? 'rgba(201,168,76,0.5)' : 'var(--border-subtle, rgba(255,255,255,0.12))'}`,
+                            background: tpScale === sc ? 'rgba(201,168,76,0.15)' : 'transparent',
+                            color: tpScale === sc ? '#c9a84c' : 'var(--text-muted)',
+                            fontWeight: 800,
+                            fontSize: sc === 1 ? '0.66rem' : sc === 1.3 ? '0.76rem' : '0.86rem',
+                        }}
+                    >A</button>
+                ))}
+                <button
+                    onClick={toggleFullscreen}
+                    aria-pressed={isFullscreen}
+                    title={isFullscreen ? 'Exit fullscreen (Esc)' : 'Fullscreen — projector / podium'}
+                    style={{
+                        padding: '3px 10px', borderRadius: '6px', cursor: 'pointer', marginLeft: '0.4rem',
+                        border: '1px solid var(--border-subtle, rgba(255,255,255,0.12))',
+                        background: isFullscreen ? 'rgba(201,168,76,0.15)' : 'transparent',
+                        color: isFullscreen ? '#c9a84c' : 'var(--text-muted)',
+                        fontWeight: 700, fontSize: '0.7rem',
+                    }}
+                >{isFullscreen ? '🗗 Exit' : '⛶ Fullscreen'}</button>
+            </div>
+
             {/* ── Round Selector ── */}
             <div style={{
                 display: 'flex', gap: '0.3rem', padding: '0.5rem',
@@ -816,6 +879,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         background: 'linear-gradient(135deg, rgba(201,168,76,0.08), rgba(201,168,76,0.02))',
                         border: '1px solid rgba(201,168,76,0.18)',
                         borderLeft: '3px solid #c9a84c',
+                        zoom: tpScale, /* R4: podium scale */
                     }}>
                         <div style={{ fontSize: '0.6rem', fontWeight: 700, color: '#c9a84c', letterSpacing: '0.15em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
                             ROUND {activeRound} DIRECTIVE
@@ -826,7 +890,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                     </div>
 
                     {/* ── Two-Column: Talking Points + Engines/Discussion ── */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', zoom: tpScale /* R4: podium scale */ }}>
 
                         {/* Left: Talking Points */}
                         <div style={{
@@ -965,7 +1029,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         background: 'rgba(244,114,182,0.06)', border: '1px solid rgba(244,114,182,0.12)',
                         fontSize: '0.78rem', color: '#fda4af', lineHeight: 1.6, marginBottom: '0.75rem',
                     }}>
-                        ★ <strong>PEDAGOGICAL GAP — BY DESIGN:</strong> The Consequence Preview panel on the student cockpit shows <em>only first-order configured deltas</em> (revenue, reputation, carbon intensity, social license). It deliberately omits cascade effects (contagion, NPC reactions), engine-computed impacts (WACC adjustments, balance sheet, employer brand), multi-round compounding (NCD interest, green bond payback), stochastic events (R5 cyclone, black swans), and systemic tipping penalties. <strong>This gap is intentional</strong> — it creates metacognitive friction that forces students to ask: "What happened that I didn't predict?"
+                        ★ <strong>PEDAGOGICAL GAP — BY DESIGN:</strong> The Consequence Preview panel on the student cockpit shows <em>only first-order configured deltas</em> (revenue, reputation, carbon intensity, social license). It deliberately omits cascade effects (contagion, NPC reactions), engine-computed impacts (WACC adjustments, balance sheet, employer brand), multi-round compounding (NCD interest, green bond payback), stochastic events (R5 cyclone, black swans), and systemic tipping penalties. <strong>This gap is intentional</strong> — it creates metacognitive friction that forces students to ask: &ldquo;What happened that I didn&apos;t predict?&rdquo;
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
                         <div style={{
@@ -974,7 +1038,7 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                             borderLeft: '2px solid rgba(244,114,182,0.3)',
                             fontSize: '0.75rem', color: '#fecdd3', fontStyle: 'italic', lineHeight: 1.5,
                         }}>
-                            &ldquo;Before you commit: what does the Consequence Preview show you? After you commit: what ACTUALLY happened that the preview didn't warn you about? Where did the gap come from?&rdquo;
+                            &ldquo;Before you commit: what does the Consequence Preview show you? After you commit: what ACTUALLY happened that the preview didn&apos;t warn you about? Where did the gap come from?&rdquo;
                         </div>
                         <div style={{
                             padding: '0.45rem 0.65rem', borderRadius: '6px',
