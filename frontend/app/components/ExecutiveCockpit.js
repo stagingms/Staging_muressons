@@ -66,6 +66,14 @@ import { BOARD_PERSONAS, getPersona } from './BoardPersonas';
 import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
 
+// Phase D (player redesign): CANVAS-FIRST SHELL SWITCH — the one-line
+// rollback. true → the stage flow renders inline in the center column (the
+// Decision Canvas) and the dense center content becomes the disclosure
+// layer shown when the canvas is dismissed (D1 preference, unchanged
+// semantics). false → the pre-Phase-D arrangement: fullscreen takeover
+// overlay above the always-rendered dense center.
+const CANVAS_FIRST = true;
+
 /**
  * ExecutiveCockpit — Premium enterprise dashboard layout.
  *
@@ -1480,6 +1488,606 @@ export default function ExecutiveCockpit({
             </div>
           )}
 
+          {/* ═══ DECISION CANVAS (Phase D) ═══
+              The stage flow (gate → strategy → allocation → commit → results)
+              renders INLINE here as the primary surface when CANVAS_FIRST is
+              on; with CANVAS_FIRST off it is the pre-Phase-D fullscreen
+              takeover, unchanged. Children are the former focus-overlay steps,
+              moved verbatim — same state, same handlers, same gating. */}
+          <FocusOverlay
+            variant={CANVAS_FIRST ? 'inline' : 'takeover'}
+            isOpen={isFocusActive}
+            step={focusStep}
+            steps={focusSteps}
+            onClose={handleFocusDismiss}
+            onBack={handleFocusAdvance}
+            onReenter={handleFocusReenter}
+          >
+        {/* ── GATE STEP ── */}
+        {focusStep === 'gate' && (
+          <div className={focusStyles.gateCard}>
+            {roundNumber === 1 && !hasCompletedStakeholderMap && (
+              <>
+                <div className={focusStyles.gateIcon}>⚖️</div>
+                <h3 className={focusStyles.gateTitle}>Stakeholder Power / Interest Grid</h3>
+                <p className={focusStyles.gateDescription}>
+                  Before making strategic decisions, you must map your key stakeholders. This assessment will influence crisis severity in later rounds.
+                </p>
+                <button className={focusStyles.gateLaunchButton} onClick={onOpenStakeholderMap}>
+                  🗺️ Open Stakeholder Map
+                </button>
+              </>
+            )}
+            {roundNumber === 1 && hasCompletedStakeholderMap && (
+              <div className={focusStyles.gateComplete}>
+                <div className={focusStyles.gateCompleteBadge}>✅</div>
+                <div className={focusStyles.gateCompleteText}>
+                  Stakeholder Map Complete{stakeholderAccuracy != null ? ` — ${stakeholderAccuracy.toFixed(0)}% accuracy` : ''}
+                </div>
+                <button className={focusStyles.actionButton} onClick={() => handleFocusAdvance('strategy')}>
+                  Proceed to Strategic Decision →
+                </button>
+              </div>
+            )}
+            {roundNumber === 2 && !hasSubmittedMatrix && (
+              <>
+                <div className={focusStyles.gateIcon}>🚨</div>
+                <h3 className={focusStyles.gateTitle}>CSRD Materiality Assessment</h3>
+                <p className={focusStyles.gateDescription}>
+                  The board requires a double materiality assessment before capital can be deployed. Complete the CSRD matrix to unlock strategic options.
+                </p>
+                <button className={focusStyles.gateLaunchButton} onClick={onOpenCSRD}>
+                  📋 Open CSRD Assessment
+                </button>
+              </>
+            )}
+            {roundNumber === 2 && hasSubmittedMatrix && (
+              <div className={focusStyles.gateComplete}>
+                <div className={focusStyles.gateCompleteBadge}>✅</div>
+                <div className={focusStyles.gateCompleteText}>CSRD Assessment Submitted</div>
+                <button className={focusStyles.actionButton} onClick={() => handleFocusAdvance('strategy')}>
+                  Proceed to Strategic Decision →
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── STRATEGY STEP ── */}
+        {focusStep === 'strategy' && (
+          <div>
+            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
+
+            <div className={focusStyles.sectionTitle}>
+              <span>{isPillarMode ? '🎛️' : '📋'}</span>
+              {isPillarMode ? 'Strategic Pillars' : 'Strategic Options'}
+              {projectedCost !== 0 && (
+                <span style={{ marginLeft: 'auto', color: projectedCost > 0 ? '#f87171' : '#4ade80', fontWeight: 800, fontSize: '0.72rem' }}>
+                  Impact: {fmtCurrency(projectedCost)}
+                </span>
+              )}
+            </div>
+
+            {isPillarMode ? (
+              <div className={focusStyles.focusPillarTiles}>
+                {pillarConfig?.areas && Object.entries(pillarConfig.areas).map(([areaKey, area]) => {
+                  const selectedOpt = pillarSelections?.[areaKey];
+                  return (
+                    <div key={areaKey} className={`${styles.pillarTile} ${selectedOpt ? styles.pillarTileActive : ''}`}>
+                      <div className={styles.pillarIcon}>{AREA_ICONS[areaKey] || '📌'}</div>
+                      <div className={styles.pillarLabel}>{area.label}</div>
+                      <PillarSelectDropdown
+                        options={area.options || {}}
+                        value={selectedOpt || null}
+                        onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
+                        fmtCurrency={fmtCurrency}
+                        detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className={focusStyles.focusDecisionTiles}>
+                {['option_a', 'option_b', 'option_c'].map((optId) => {
+                  const opt = options[optId];
+                  if (!opt) return null;
+                  const isActive = decisionChoice === optId;
+                  const optMeta = {
+                    option_a: { icon: '⚡', label: 'OPTION A' },
+                    option_b: { icon: '⚖️', label: 'OPTION B' },
+                    option_c: { icon: '🛡️', label: 'OPTION C' },
+                  }[optId];
+                  const costVal = opt.impacts?.treasury || opt.cost_impact || 0;
+                  return (
+                    <div
+                      key={optId}
+                      className={`${styles.decisionTile} ${isActive ? styles.decisionTileActive : ''}`}
+                      onClick={() => handleLegacySelect(optId)}
+                      style={{ flex: '1 1 0', minWidth: 0 }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: '1rem' }}>{optMeta.icon}</span>
+                        <span className={styles.tileLabel} style={{ margin: 0 }}>{optMeta.label}</span>
+                      </div>
+                      <div className={styles.tileTitle}>{opt.title}</div>
+                      <p className={styles.tileDesc}>{opt.description}</p>
+                      {costVal ? (
+                        <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6rem' }}>
+                          <span style={{ color: '#64748b', fontWeight: 600 }}>💰 Cost</span>
+                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: costVal < 0 ? '#ef4444' : '#16a34a' }}>{fmtCurrency(costVal)}</span>
+                        </div>
+                      ) : (
+                        <div style={{ marginTop: 6, fontSize: '0.6rem', fontWeight: 700, color: '#f59e0b' }}>⚠️ $0 CapEx — deferred risk</div>
+                      )}
+                      {isActive && opt.impacts && (
+                        <div style={{ marginTop: 6, padding: '4px 6px', background: 'rgba(0,229,195,0.04)', borderRadius: 4, fontSize: '0.68rem', lineHeight: 1.6, border: '1px solid rgba(0,229,195,0.08)' }}>
+                          {opt.impacts.treasury && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.treasury < 0 ? '#f87171' : '#4ade80' }}>
+                              <span>💰 Treasury</span>
+                              <span style={{ fontWeight: 700 }}>{fmtCurrency(treasury)} → {fmtCurrency(treasury + (opt.impacts.treasury || 0))}</span>
+                            </div>
+                          )}
+                          {opt.impacts.reputation !== undefined && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.reputation > 0 ? '#4ade80' : '#f87171' }}>
+                              <span>🌍 Reputation</span>
+                              <span style={{ fontWeight: 700 }}>{reputation} → {reputation + (opt.impacts.reputation || 0)}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Comparison Matrix for legacy A/B/C */}
+            {!isPillarMode && Object.keys(options).length > 0 && (
+              <div style={{ marginTop: 16, padding: '12px 14px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f8fafc', borderRadius: 10, border: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0' }}>
+                <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: isDark ? '#94a3b8' : '#475569', marginBottom: 8 }}>Comparison Matrix</div>
+                <table style={{ width: '100%', fontSize: '0.7rem', borderCollapse: 'collapse', color: isDark ? '#d1d9e6' : '#1e293b' }}>
+                  <thead>
+                    <tr style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0' }}>
+                      <th style={{ textAlign: 'left', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Option</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Treasury</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Revenue</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Reputation</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>CO₂</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>SLO</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Gov. Risk</th>
+                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>NCD</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(options).map(([optId, opt]) => {
+                      const imp = opt.impacts || {};
+                      const rep = imp.reputation ?? imp.reputation_delta ?? null;
+                      const ci = imp.carbon_intensity_delta ?? null;
+                      const slo = imp.social_license ?? imp.social_license_delta ?? imp.social_license_boost ?? null;
+                      const rev = imp.revenue_delta ?? null;
+                      const gov = imp.governance_risk_delta ?? null;
+                      const ncd = imp.natural_capital_debt_delta ?? null;
+                      const muted = isDark ? '#64748b' : '#94a3b8';
+                      return (
+                      <tr key={optId} style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
+                        <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#f87171' : imp.treasury > 0 ? '#4ade80' : muted }}>
+                          {imp.treasury != null ? fmtCurrency(imp.treasury) : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center', color: rev > 0 ? '#4ade80' : rev < 0 ? '#f87171' : muted }}>
+                          {rev != null ? (rev > 0 ? '+' : '') + fmtCurrency(rev) : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center', color: rep > 0 ? '#4ade80' : rep < 0 ? '#f87171' : muted }}>
+                          {rep != null ? (rep > 0 ? '+' : '') + rep : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center', color: ci < 0 ? '#4ade80' : ci > 0 ? '#f87171' : muted }}>
+                          {ci != null ? (ci > 0 ? '+' : '') + ci : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center', color: slo > 0 ? '#4ade80' : slo < 0 ? '#f87171' : muted }}>
+                          {slo != null ? (slo > 0 ? '+' : '') + slo : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center', color: gov < 0 ? '#4ade80' : gov > 0 ? '#f87171' : muted }}>
+                          {gov != null ? (gov > 0 ? '+' : '') + gov : '—'}
+                        </td>
+                        <td style={{ textAlign: 'center', color: ncd < 0 ? '#4ade80' : ncd > 0 ? '#f87171' : muted }}>
+                          {ncd != null ? (ncd > 0 ? '+' : '') + ncd : '—'}
+                        </td>
+                      </tr>
+                    );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <button
+              className={focusStyles.actionButton}
+              disabled={!hasDecision}
+              onClick={() => handleFocusAdvance('allocation')}
+            >
+              {hasDecision ? 'Lock Decision & Continue →' : 'Select an option above to continue'}
+            </button>
+          </div>
+        )}
+
+        {/* ── ALLOCATION STEP ── */}
+        {focusStep === 'allocation' && (
+          <div>
+            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
+
+            {/* Locked decision summary */}
+            <div className={focusStyles.decisionSummary}>
+              <div className={focusStyles.decisionSummaryTitle}>📋 Locked Strategic Decision</div>
+              {isPillarMode ? (
+                Object.entries(pillarSelections || {}).map(([areaKey, optKey]) => (
+                  <div key={areaKey} className={focusStyles.decisionSummaryRow}>
+                    <span>{AREA_ICONS[areaKey] || '📌'} {pillarConfig?.areas?.[areaKey]?.label || areaKey}</span>
+                    <span className={focusStyles.decisionSummaryValue}>{pillarConfig?.areas?.[areaKey]?.options?.[optKey]?.title || optKey}</span>
+                  </div>
+                ))
+              ) : (
+                <div className={focusStyles.decisionSummaryRow}>
+                  <span>Selected Strategy</span>
+                  <span className={focusStyles.decisionSummaryValue}>
+                    {decisionChoice?.replace('option_', 'Option ').toUpperCase()} — {options[decisionChoice]?.title || ''}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className={focusStyles.sectionTitle}>
+              <span>💰</span> Capital Allocation
+              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 800, color: '#00e5c3' }}>
+                Budget: {fmtCurrency(csfPool)}
+              </span>
+            </div>
+
+            <InvestmentMatrix
+              csfPool={csfPool}
+              globalState={globalState}
+              businessUnits={businessUnits}
+              allocations={allocations}
+              historyData={historyData}
+              decisionParadigm={decisionParadigm}
+              onAllocationsChange={onAllocationsChange}
+            />
+
+            {/* Over-allocation warning */}
+            {(Object.values(allocations || {}).reduce((s, v) => s + v, 0) > (csfPool || 0)) && (csfPool > 0) && (
+              <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.7rem', color: '#fca5a5', textAlign: 'center', marginTop: 10 }}>
+                ⚠️ Over-allocated by {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0) - (csfPool || 0))}
+              </div>
+            )}
+
+            <button
+              className={focusStyles.actionButton}
+              disabled={Object.keys(allocations).length === 0}
+              onClick={() => handleFocusAdvance('commit')}
+            >
+              {Object.keys(allocations).length > 0 ? 'Confirm Allocation & Continue →' : 'Allocate capital to at least one BU'}
+            </button>
+          </div>
+        )}
+
+        {/* ── COMMIT STEP ── */}
+        {focusStep === 'commit' && !commitResults && (() => {
+          const predictionEnabled = pedToggles.prediction_gates_enabled;
+          const hasPrediction = focusPredictionText.trim().length > 0;
+
+          const doCommit = () => {
+            if (hasPrediction) {
+              const key = `prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`;
+              try { sessionStorage.setItem(key, focusPredictionText); } catch {}
+            }
+            setFocusPredictionText('');
+            setSkipPredictionConfirm(false);
+            onCommit?.();
+          };
+
+          const handleCommitClick = () => {
+            if (predictionEnabled && !hasPrediction && !skipPredictionConfirm) {
+              setSkipPredictionConfirm(true);
+              return;
+            }
+            doCommit();
+          };
+
+          return (
+          <div>
+            {/* Prediction Section — only when enabled */}
+            {predictionEnabled && (
+              <div className={focusStyles.predictionArea}>
+                <div className={focusStyles.sectionTitle}><span>🔮</span> Predict Before You Commit</div>
+                <p style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: 12 }}>
+                  Pausing to predict outcomes strengthens strategic intuition. What do you expect will happen?
+                </p>
+                <div className={focusStyles.predictionPrompt}>
+                  💰 What will happen to your <strong style={{ color: '#e2e8f0' }}>Treasury</strong> and <strong style={{ color: '#e2e8f0' }}>Reputation</strong>?
+                </div>
+                <textarea
+                  className={focusStyles.predictionInput}
+                  placeholder="e.g., Treasury will drop by ~$3M due to ESG compliance costs, but reputation should rise..."
+                  value={focusPredictionText}
+                  onChange={(e) => { setFocusPredictionText(e.target.value); setSkipPredictionConfirm(false); }}
+                  rows={3}
+                />
+              </div>
+            )}
+
+            {/* Full Recap */}
+            <div className={focusStyles.commitRecap}>
+              <div className={focusStyles.commitRecapTitle}>📋 Decision Summary</div>
+              <div className={focusStyles.commitRecapRow}>
+                <span>Strategy</span>
+                <span className={focusStyles.commitRecapValue} style={{ position: 'relative' }}>
+                  {isPillarMode
+                    ? `${Object.keys(pillarSelections || {}).length} pillars selected`
+                    : (() => {
+                        const opt = options[decisionChoice];
+                        const label = decisionChoice?.replace('option_', 'Option ').toUpperCase();
+                        if (!opt) return label;
+                        return (
+                          <span className="strategy-tip-trigger" style={{ cursor: 'help', borderBottom: '1px dashed rgba(255,255,255,0.3)', position: 'relative' }}>
+                            {label} — {opt.title}
+                            <span className="strategy-tip-box" style={{
+                              position: 'absolute', top: 'calc(100% + 8px)', left: 0,
+                              width: '280px', maxWidth: '70vw',
+                              padding: '12px 16px', borderRadius: '12px',
+                              background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.98))',
+                              border: '1px solid rgba(99,102,241,0.25)',
+                              boxShadow: '0 16px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.08)',
+                              backdropFilter: 'blur(16px)',
+                              fontSize: '0.73rem', lineHeight: 1.6, color: '#cbd5e1',
+                              fontWeight: 400, textTransform: 'none', letterSpacing: 'normal',
+                              pointerEvents: 'none', opacity: 0,
+                              transform: 'translateY(-4px)',
+                              transition: 'opacity 0.2s ease, transform 0.2s ease',
+                              zIndex: 100,
+                            }}>
+                              <div style={{ fontWeight: 700, color: '#a5b4fc', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                                {opt.title}
+                              </div>
+                              {opt.description}
+                            </span>
+                          </span>
+                        );
+                      })()}
+                </span>
+              </div>
+              <div className={focusStyles.commitRecapRow}>
+                <span>Capital Deployed</span>
+                <span className={focusStyles.commitRecapValue}>
+                  {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0))}
+                </span>
+              </div>
+              {projectedCost !== 0 && (
+                <div className={focusStyles.commitRecapRow}>
+                  <span>Projected Impact</span>
+                  <span className={focusStyles.commitRecapValue} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80' }}>
+                    {fmtCurrency(projectedCost)}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
+
+            {/* Skip prediction nudge */}
+            {skipPredictionConfirm && (
+              <div style={{
+                padding: '10px 14px', marginBottom: 10, borderRadius: 8,
+                background: isDark ? 'rgba(245,158,11,0.1)' : '#fef3c7',
+                border: `1px solid ${isDark ? 'rgba(245,158,11,0.3)' : '#fbbf24'}`,
+                fontSize: '0.78rem', color: isDark ? '#fbbf24' : '#92400e',
+                display: 'flex', alignItems: 'center', gap: 8,
+              }}>
+                <span>⚠️</span>
+                <span style={{ flex: 1 }}>Predictions improve your learning outcomes. Are you sure you want to skip?</span>
+                <button
+                  onClick={() => setSkipPredictionConfirm(false)}
+                  style={{
+                    padding: '4px 10px', fontSize: '0.7rem', fontWeight: 700,
+                    background: 'transparent', border: `1px solid ${isDark ? '#fbbf24' : '#d97706'}`,
+                    borderRadius: 6, color: isDark ? '#fbbf24' : '#92400e', cursor: 'pointer',
+                  }}
+                >Go Back</button>
+              </div>
+            )}
+
+            <button className={focusStyles.primaryAction} onClick={handleCommitClick} style={{ width: '100%' }}>
+              {skipPredictionConfirm ? '⏩ Skip Prediction & Commit' : '✓ Commit & Proceed'}
+            </button>
+          </div>
+          );
+        })()}
+
+        {/* ── RESULTS STEP ── */}
+        {focusStep === 'results' && commitResults && (
+          <div>
+            <div style={{ textAlign: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: '2rem', marginBottom: 4 }}>📊</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
+              <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Review your outcomes before advancing.</p>
+            </div>
+
+            <div className={focusStyles.focusResultsGrid}>
+              {(() => {
+                const newTreasury = commitResults.globalState?.corporate_treasury || 0;
+                const newEbitda = commitResults.globalState?.historical_ebitda || 0;
+                const newRep = commitResults.globalState?.group_reputation || 50;
+                const newCarbon = commitResults.globalState?.tco2e_emissions || 0;
+                const dTreasury = newTreasury - treasury;
+                const dRep = newRep - reputation;
+                const dCarbon = newCarbon - tco2e;
+                return (
+                  <>
+                    <div className={focusStyles.focusResultCard}>
+                      <div className={focusStyles.focusResultIcon}>💰</div>
+                      <div className={focusStyles.focusResultLabel}>Treasury</div>
+                      <div className={focusStyles.focusResultValue}>{fmtCurrency(newTreasury)}</div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dTreasury >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
+                        {dTreasury >= 0 ? '▲' : '▼'} {fmtCurrency(Math.abs(dTreasury))}
+                      </div>
+                    </div>
+                    <div className={focusStyles.focusResultCard}>
+                      <div className={focusStyles.focusResultIcon}>📈</div>
+                      <div className={focusStyles.focusResultLabel}>EBITDA</div>
+                      <div className={focusStyles.focusResultValue}>{fmtCurrency(newEbitda)}</div>
+                    </div>
+                    <div className={focusStyles.focusResultCard}>
+                      <div className={focusStyles.focusResultIcon}>🌍</div>
+                      <div className={focusStyles.focusResultLabel}>Reputation</div>
+                      <div className={focusStyles.focusResultValue}>{newRep.toFixed(0)}/100</div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dRep >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
+                        {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
+                      </div>
+                    </div>
+                    <div className={focusStyles.focusResultCard}>
+                      <div className={focusStyles.focusResultIcon}>🏭</div>
+                      <div className={focusStyles.focusResultLabel}>CO₂</div>
+                      <div className={focusStyles.focusResultValue}>{newCarbon.toLocaleString()}t</div>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dCarbon <= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
+                        {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()}t
+                      </div>
+                    </div>
+                    {/* Balance Sheet (Focus Results) — clickable */}
+                    {(() => {
+                      const bsF = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
+                      if (!bsF || typeof bsF !== 'object' || bsF.net_assets == null) return null;
+                      const cColor = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
+                      const cIcon = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
+                      return (
+                        <div className={focusStyles.focusResultCard} style={{ cursor: 'pointer' }} onClick={() => setResultsBsModalOpen(true)} title="Click to view full Balance Sheet">
+                          <div className={focusStyles.focusResultIcon}>📊</div>
+                          <div className={focusStyles.focusResultLabel}>Net Assets</div>
+                          <div className={focusStyles.focusResultValue}>${((bsF.net_assets || 0) / 1_000_000).toFixed(0)}M</div>
+                          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cColor[bsF.covenant_status] || '#38bdf8', marginTop: 2 }}>
+                            {cIcon[bsF.covenant_status] || '📊'} D/E: {(bsF.debt_to_equity || 0).toFixed(2)}×
+                          </div>
+                          <div style={{ fontSize: '0.55rem', color: '#64748b', marginTop: 4, fontWeight: 600 }}>🔍 Click to expand</div>
+                        </div>
+                      );
+                    })()}
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Events summary */}
+            {commitResults.events && Object.keys(commitResults.events).length > 0 && (
+              <div style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.2)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16, fontSize: '0.72rem', color: '#cbd5e1' }}>
+                <div style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', marginBottom: 6, fontSize: '0.68rem' }}>⚡ Key Events</div>
+                {commitResults.events.talent_penalty_applied > 1 && (
+                  <div style={{ marginBottom: 3 }}>🧠 Brain-Drain: Software OPEX inflated by {((commitResults.events.talent_penalty_applied - 1) * 100).toFixed(1)}%</div>
+                )}
+                {commitResults.events.loan_interest_payment > 0 && (
+                  <div style={{ marginBottom: 3 }}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
+                )}
+                {commitResults.events.covenant_surcharge > 0 && (
+                  <div style={{ marginBottom: 3, color: '#f87171' }}>📊 Covenant Penalty: -{fmtCurrency(commitResults.events.covenant_surcharge)} interest surcharge</div>
+                )}
+                {commitResults.events.covenant_warning && (
+                  <div style={{ marginBottom: 3, color: '#fbbf24' }}>⚠️ {typeof commitResults.events.covenant_warning === 'string' ? commitResults.events.covenant_warning : 'Debt covenant under pressure'}</div>
+                )}
+                {commitResults.events.esg_adjusted_wacc && commitResults.events.esg_adjusted_wacc.adjusted_wacc > 0.08 && (
+                  <div style={{ marginBottom: 3, color: '#f87171' }}>📊 ESG-WACC at {(commitResults.events.esg_adjusted_wacc.adjusted_wacc * 100).toFixed(1)}% — lender covenant thresholds tightening</div>
+                )}
+                {commitResults.events.employer_brand_opex_penalty && (
+                  <div style={{ marginBottom: 3, color: '#f87171' }}>👥 Talent Crisis: +{((commitResults.events.employer_brand_opex_penalty.multiplier || 0) * 100).toFixed(1)}% OPEX across all BUs</div>
+                )}
+              </div>
+            )}
+
+            {/* ── EBITDA Decomposition Waterfall (Gap 1: visual strategy storytelling) ── */}
+            <EBITDAWaterfall
+              businessUnits={commitResults.businessUnits || businessUnits}
+              globalState={commitResults.globalState || globalState}
+              events={commitResults.events || events}
+              commitResults={commitResults}
+              isDark={isDark}
+            />
+
+            {/* ── Inline Peer Performance (Focus Results) ── */}
+            {peerLeaderboard.length > 0 && (
+              <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)', marginBottom: 16 }}>
+                <div style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#818cf8', marginBottom: 8, fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>📊</span> {peerLeaderboard.some(t => t.isAI) ? 'AI Benchmark Comparison' : 'Cohort Leaderboard'}
+                  {peerLeaderboard.some(t => t.isAI) && <span style={{ fontSize: '0.5rem', background: 'rgba(245,158,11,0.15)', color: '#fbbf24', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>🤖 AI</span>}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {peerLeaderboard.slice(0, 5).map(team => (
+                    <div key={team.rank} style={{
+                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
+                      background: team.isYou ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)',
+                      border: team.isYou ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
+                    }}>
+                      <span style={{ fontSize: '0.85rem', width: 22, textAlign: 'center', flexShrink: 0 }}>
+                        {team.rank <= 3 ? ['🥇', '🥈', '🥉'][team.rank - 1] : team.rank}
+                      </span>
+                      <span style={{ flex: 1, fontSize: '0.72rem', fontWeight: team.isYou ? 800 : 600, color: team.isYou ? '#a5b4fc' : '#cbd5e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {team.name}
+                        {team.isYou && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: 'rgba(99,102,241,0.3)', padding: '1px 6px', borderRadius: 4, fontWeight: 800, color: '#c7d2fe' }}>YOU</span>}
+                      </span>
+                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
+                        {fmtCurrency(team.treasury)}
+                      </span>
+                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0, width: 28, textAlign: 'right' }}>
+                        {team.reputation?.toFixed(0) ?? '—'}
+                      </span>
+                      <span style={{
+                        fontSize: '0.72rem', flexShrink: 0,
+                        color: team.trend === '↑' ? '#4ade80' : team.trend === '↓' ? '#f87171' : '#94a3b8',
+                      }}>{team.trend}</span>
+                    </div>
+                  ))}
+                </div>
+                {peerLeaderboard.length > 5 && (
+                  <div style={{ fontSize: '0.6rem', color: '#64748b', textAlign: 'center', marginTop: 6 }}>
+                    +{peerLeaderboard.length - 5} more teams
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Advance button */}
+            {(() => {
+              const teamCount = globalState?.cohort_team_count || 0;
+              const commitsCount = globalState?.team_commits_this_round || 0;
+              const isMultiTeam = teamCount > 1;
+              const allCommitted = commitsCount >= teamCount;
+              if (isMultiTeam && !allCommitted) {
+                return (
+                  <div style={{ padding: '12px 16px', borderRadius: 10, textAlign: 'center', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                    <div style={{ fontSize: '1rem', marginBottom: 4 }}>⏳</div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>Waiting for Other Teams</div>
+                    <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{commitsCount}/{teamCount} committed</div>
+                  </div>
+                );
+              }
+              return (
+                <div className={focusStyles.twoActions}>
+                  <button className={focusStyles.secondaryAction} onClick={handleFocusDismiss}>
+                    View Dashboard
+                  </button>
+                  <button className={focusStyles.primaryAction} onClick={() => { handleFocusDismiss(); onAdvance?.(); }}>
+                    ⏩ Advance to Round {commitResults.newRoundNumber}
+                  </button>
+                </div>
+              );
+            })()}
+          </div>
+        )}
+          </FocusOverlay>
+
+          {/* Phase D: the dense center content is the DISCLOSURE layer now —
+              it renders when the canvas is dismissed (D1 pinned-dashboard
+              preference) or when CANVAS_FIRST is rolled back. Under the old
+              takeover the overlay covered it anyway, so gating it on
+              isFocusActive is visually equivalent in both shells. */}
+          {!(CANVAS_FIRST && isFocusActive) && (
+            <>
+
           {/* Briefing Panel */}
           <div className={styles.briefingArea} id="tour-briefing-target">
             <div className={styles.briefingHeader} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -2186,6 +2794,9 @@ export default function ExecutiveCockpit({
             </div>
           )}
 
+            </>
+          )}
+
           {/* Spacer to prevent Fixed RoundChecklist from overlapping bottom content */}
           <div style={{ height: '80px', flexShrink: 0 }} />
         </main>
@@ -2664,591 +3275,6 @@ export default function ExecutiveCockpit({
         )}
       </div>
 
-      {/* ═══ FOCUS MODE OVERLAY ═══ */}
-      <FocusOverlay
-        isOpen={isFocusActive}
-        step={focusStep}
-        steps={focusSteps}
-        onClose={handleFocusDismiss}
-        onBack={handleFocusAdvance}
-        onReenter={handleFocusReenter}
-      >
-        {/* ── GATE STEP ── */}
-        {focusStep === 'gate' && (
-          <div className={focusStyles.gateCard}>
-            {roundNumber === 1 && !hasCompletedStakeholderMap && (
-              <>
-                <div className={focusStyles.gateIcon}>⚖️</div>
-                <h3 className={focusStyles.gateTitle}>Stakeholder Power / Interest Grid</h3>
-                <p className={focusStyles.gateDescription}>
-                  Before making strategic decisions, you must map your key stakeholders. This assessment will influence crisis severity in later rounds.
-                </p>
-                <button className={focusStyles.gateLaunchButton} onClick={onOpenStakeholderMap}>
-                  🗺️ Open Stakeholder Map
-                </button>
-              </>
-            )}
-            {roundNumber === 1 && hasCompletedStakeholderMap && (
-              <div className={focusStyles.gateComplete}>
-                <div className={focusStyles.gateCompleteBadge}>✅</div>
-                <div className={focusStyles.gateCompleteText}>
-                  Stakeholder Map Complete{stakeholderAccuracy != null ? ` — ${stakeholderAccuracy.toFixed(0)}% accuracy` : ''}
-                </div>
-                <button className={focusStyles.actionButton} onClick={() => handleFocusAdvance('strategy')}>
-                  Proceed to Strategic Decision →
-                </button>
-              </div>
-            )}
-            {roundNumber === 2 && !hasSubmittedMatrix && (
-              <>
-                <div className={focusStyles.gateIcon}>🚨</div>
-                <h3 className={focusStyles.gateTitle}>CSRD Materiality Assessment</h3>
-                <p className={focusStyles.gateDescription}>
-                  The board requires a double materiality assessment before capital can be deployed. Complete the CSRD matrix to unlock strategic options.
-                </p>
-                <button className={focusStyles.gateLaunchButton} onClick={onOpenCSRD}>
-                  📋 Open CSRD Assessment
-                </button>
-              </>
-            )}
-            {roundNumber === 2 && hasSubmittedMatrix && (
-              <div className={focusStyles.gateComplete}>
-                <div className={focusStyles.gateCompleteBadge}>✅</div>
-                <div className={focusStyles.gateCompleteText}>CSRD Assessment Submitted</div>
-                <button className={focusStyles.actionButton} onClick={() => handleFocusAdvance('strategy')}>
-                  Proceed to Strategic Decision →
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ── STRATEGY STEP ── */}
-        {focusStep === 'strategy' && (
-          <div>
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-
-            <div className={focusStyles.sectionTitle}>
-              <span>{isPillarMode ? '🎛️' : '📋'}</span>
-              {isPillarMode ? 'Strategic Pillars' : 'Strategic Options'}
-              {projectedCost !== 0 && (
-                <span style={{ marginLeft: 'auto', color: projectedCost > 0 ? '#f87171' : '#4ade80', fontWeight: 800, fontSize: '0.72rem' }}>
-                  Impact: {fmtCurrency(projectedCost)}
-                </span>
-              )}
-            </div>
-
-            {isPillarMode ? (
-              <div className={focusStyles.focusPillarTiles}>
-                {pillarConfig?.areas && Object.entries(pillarConfig.areas).map(([areaKey, area]) => {
-                  const selectedOpt = pillarSelections?.[areaKey];
-                  return (
-                    <div key={areaKey} className={`${styles.pillarTile} ${selectedOpt ? styles.pillarTileActive : ''}`}>
-                      <div className={styles.pillarIcon}>{AREA_ICONS[areaKey] || '📌'}</div>
-                      <div className={styles.pillarLabel}>{area.label}</div>
-                      <PillarSelectDropdown
-                        options={area.options || {}}
-                        value={selectedOpt || null}
-                        onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
-                        fmtCurrency={fmtCurrency}
-                        detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <div className={focusStyles.focusDecisionTiles}>
-                {['option_a', 'option_b', 'option_c'].map((optId) => {
-                  const opt = options[optId];
-                  if (!opt) return null;
-                  const isActive = decisionChoice === optId;
-                  const optMeta = {
-                    option_a: { icon: '⚡', label: 'OPTION A' },
-                    option_b: { icon: '⚖️', label: 'OPTION B' },
-                    option_c: { icon: '🛡️', label: 'OPTION C' },
-                  }[optId];
-                  const costVal = opt.impacts?.treasury || opt.cost_impact || 0;
-                  return (
-                    <div
-                      key={optId}
-                      className={`${styles.decisionTile} ${isActive ? styles.decisionTileActive : ''}`}
-                      onClick={() => handleLegacySelect(optId)}
-                      style={{ flex: '1 1 0', minWidth: 0 }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                        <span style={{ fontSize: '1rem' }}>{optMeta.icon}</span>
-                        <span className={styles.tileLabel} style={{ margin: 0 }}>{optMeta.label}</span>
-                      </div>
-                      <div className={styles.tileTitle}>{opt.title}</div>
-                      <p className={styles.tileDesc}>{opt.description}</p>
-                      {costVal ? (
-                        <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6rem' }}>
-                          <span style={{ color: '#64748b', fontWeight: 600 }}>💰 Cost</span>
-                          <span style={{ fontSize: '0.72rem', fontWeight: 800, color: costVal < 0 ? '#ef4444' : '#16a34a' }}>{fmtCurrency(costVal)}</span>
-                        </div>
-                      ) : (
-                        <div style={{ marginTop: 6, fontSize: '0.6rem', fontWeight: 700, color: '#f59e0b' }}>⚠️ $0 CapEx — deferred risk</div>
-                      )}
-                      {isActive && opt.impacts && (
-                        <div style={{ marginTop: 6, padding: '4px 6px', background: 'rgba(0,229,195,0.04)', borderRadius: 4, fontSize: '0.68rem', lineHeight: 1.6, border: '1px solid rgba(0,229,195,0.08)' }}>
-                          {opt.impacts.treasury && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.treasury < 0 ? '#f87171' : '#4ade80' }}>
-                              <span>💰 Treasury</span>
-                              <span style={{ fontWeight: 700 }}>{fmtCurrency(treasury)} → {fmtCurrency(treasury + (opt.impacts.treasury || 0))}</span>
-                            </div>
-                          )}
-                          {opt.impacts.reputation !== undefined && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', color: opt.impacts.reputation > 0 ? '#4ade80' : '#f87171' }}>
-                              <span>🌍 Reputation</span>
-                              <span style={{ fontWeight: 700 }}>{reputation} → {reputation + (opt.impacts.reputation || 0)}</span>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Comparison Matrix for legacy A/B/C */}
-            {!isPillarMode && Object.keys(options).length > 0 && (
-              <div style={{ marginTop: 16, padding: '12px 14px', background: isDark ? 'rgba(0,0,0,0.2)' : '#f8fafc', borderRadius: 10, border: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0' }}>
-                <div style={{ fontSize: '0.65rem', fontWeight: 800, textTransform: 'uppercase', color: isDark ? '#94a3b8' : '#475569', marginBottom: 8 }}>Comparison Matrix</div>
-                <table style={{ width: '100%', fontSize: '0.7rem', borderCollapse: 'collapse', color: isDark ? '#d1d9e6' : '#1e293b' }}>
-                  <thead>
-                    <tr style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid #e2e8f0' }}>
-                      <th style={{ textAlign: 'left', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Option</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Treasury</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Revenue</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Reputation</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>CO₂</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>SLO</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>Gov. Risk</th>
-                      <th style={{ textAlign: 'center', paddingBottom: 4, color: isDark ? '#b0bec5' : '#475569' }}>NCD</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {Object.entries(options).map(([optId, opt]) => {
-                      const imp = opt.impacts || {};
-                      const rep = imp.reputation ?? imp.reputation_delta ?? null;
-                      const ci = imp.carbon_intensity_delta ?? null;
-                      const slo = imp.social_license ?? imp.social_license_delta ?? imp.social_license_boost ?? null;
-                      const rev = imp.revenue_delta ?? null;
-                      const gov = imp.governance_risk_delta ?? null;
-                      const ncd = imp.natural_capital_debt_delta ?? null;
-                      const muted = isDark ? '#64748b' : '#94a3b8';
-                      return (
-                      <tr key={optId} style={{ borderBottom: isDark ? '1px solid rgba(255,255,255,0.04)' : '1px solid #f1f5f9' }}>
-                        <td style={{ padding: '6px 0', fontWeight: 600 }}>{optId.replace('option_', 'Option ').toUpperCase()}</td>
-                        <td style={{ textAlign: 'center', color: imp.treasury < 0 ? '#f87171' : imp.treasury > 0 ? '#4ade80' : muted }}>
-                          {imp.treasury != null ? fmtCurrency(imp.treasury) : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: rev > 0 ? '#4ade80' : rev < 0 ? '#f87171' : muted }}>
-                          {rev != null ? (rev > 0 ? '+' : '') + fmtCurrency(rev) : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: rep > 0 ? '#4ade80' : rep < 0 ? '#f87171' : muted }}>
-                          {rep != null ? (rep > 0 ? '+' : '') + rep : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: ci < 0 ? '#4ade80' : ci > 0 ? '#f87171' : muted }}>
-                          {ci != null ? (ci > 0 ? '+' : '') + ci : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: slo > 0 ? '#4ade80' : slo < 0 ? '#f87171' : muted }}>
-                          {slo != null ? (slo > 0 ? '+' : '') + slo : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: gov < 0 ? '#4ade80' : gov > 0 ? '#f87171' : muted }}>
-                          {gov != null ? (gov > 0 ? '+' : '') + gov : '—'}
-                        </td>
-                        <td style={{ textAlign: 'center', color: ncd < 0 ? '#4ade80' : ncd > 0 ? '#f87171' : muted }}>
-                          {ncd != null ? (ncd > 0 ? '+' : '') + ncd : '—'}
-                        </td>
-                      </tr>
-                    );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <button
-              className={focusStyles.actionButton}
-              disabled={!hasDecision}
-              onClick={() => handleFocusAdvance('allocation')}
-            >
-              {hasDecision ? 'Lock Decision & Continue →' : 'Select an option above to continue'}
-            </button>
-          </div>
-        )}
-
-        {/* ── ALLOCATION STEP ── */}
-        {focusStep === 'allocation' && (
-          <div>
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-
-            {/* Locked decision summary */}
-            <div className={focusStyles.decisionSummary}>
-              <div className={focusStyles.decisionSummaryTitle}>📋 Locked Strategic Decision</div>
-              {isPillarMode ? (
-                Object.entries(pillarSelections || {}).map(([areaKey, optKey]) => (
-                  <div key={areaKey} className={focusStyles.decisionSummaryRow}>
-                    <span>{AREA_ICONS[areaKey] || '📌'} {pillarConfig?.areas?.[areaKey]?.label || areaKey}</span>
-                    <span className={focusStyles.decisionSummaryValue}>{pillarConfig?.areas?.[areaKey]?.options?.[optKey]?.title || optKey}</span>
-                  </div>
-                ))
-              ) : (
-                <div className={focusStyles.decisionSummaryRow}>
-                  <span>Selected Strategy</span>
-                  <span className={focusStyles.decisionSummaryValue}>
-                    {decisionChoice?.replace('option_', 'Option ').toUpperCase()} — {options[decisionChoice]?.title || ''}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <div className={focusStyles.sectionTitle}>
-              <span>💰</span> Capital Allocation
-              <span style={{ marginLeft: 'auto', fontSize: '0.72rem', fontWeight: 800, color: '#00e5c3' }}>
-                Budget: {fmtCurrency(csfPool)}
-              </span>
-            </div>
-
-            <InvestmentMatrix
-              csfPool={csfPool}
-              globalState={globalState}
-              businessUnits={businessUnits}
-              allocations={allocations}
-              historyData={historyData}
-              decisionParadigm={decisionParadigm}
-              onAllocationsChange={onAllocationsChange}
-            />
-
-            {/* Over-allocation warning */}
-            {(Object.values(allocations || {}).reduce((s, v) => s + v, 0) > (csfPool || 0)) && (csfPool > 0) && (
-              <div style={{ padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: '0.7rem', color: '#fca5a5', textAlign: 'center', marginTop: 10 }}>
-                ⚠️ Over-allocated by {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0) - (csfPool || 0))}
-              </div>
-            )}
-
-            <button
-              className={focusStyles.actionButton}
-              disabled={Object.keys(allocations).length === 0}
-              onClick={() => handleFocusAdvance('commit')}
-            >
-              {Object.keys(allocations).length > 0 ? 'Confirm Allocation & Continue →' : 'Allocate capital to at least one BU'}
-            </button>
-          </div>
-        )}
-
-        {/* ── COMMIT STEP ── */}
-        {focusStep === 'commit' && !commitResults && (() => {
-          const predictionEnabled = pedToggles.prediction_gates_enabled;
-          const hasPrediction = focusPredictionText.trim().length > 0;
-
-          const doCommit = () => {
-            if (hasPrediction) {
-              const key = `prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`;
-              try { sessionStorage.setItem(key, focusPredictionText); } catch {}
-            }
-            setFocusPredictionText('');
-            setSkipPredictionConfirm(false);
-            onCommit?.();
-          };
-
-          const handleCommitClick = () => {
-            if (predictionEnabled && !hasPrediction && !skipPredictionConfirm) {
-              setSkipPredictionConfirm(true);
-              return;
-            }
-            doCommit();
-          };
-
-          return (
-          <div>
-            {/* Prediction Section — only when enabled */}
-            {predictionEnabled && (
-              <div className={focusStyles.predictionArea}>
-                <div className={focusStyles.sectionTitle}><span>🔮</span> Predict Before You Commit</div>
-                <p style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: 12 }}>
-                  Pausing to predict outcomes strengthens strategic intuition. What do you expect will happen?
-                </p>
-                <div className={focusStyles.predictionPrompt}>
-                  💰 What will happen to your <strong style={{ color: '#e2e8f0' }}>Treasury</strong> and <strong style={{ color: '#e2e8f0' }}>Reputation</strong>?
-                </div>
-                <textarea
-                  className={focusStyles.predictionInput}
-                  placeholder="e.g., Treasury will drop by ~$3M due to ESG compliance costs, but reputation should rise..."
-                  value={focusPredictionText}
-                  onChange={(e) => { setFocusPredictionText(e.target.value); setSkipPredictionConfirm(false); }}
-                  rows={3}
-                />
-              </div>
-            )}
-
-            {/* Full Recap */}
-            <div className={focusStyles.commitRecap}>
-              <div className={focusStyles.commitRecapTitle}>📋 Decision Summary</div>
-              <div className={focusStyles.commitRecapRow}>
-                <span>Strategy</span>
-                <span className={focusStyles.commitRecapValue} style={{ position: 'relative' }}>
-                  {isPillarMode
-                    ? `${Object.keys(pillarSelections || {}).length} pillars selected`
-                    : (() => {
-                        const opt = options[decisionChoice];
-                        const label = decisionChoice?.replace('option_', 'Option ').toUpperCase();
-                        if (!opt) return label;
-                        return (
-                          <span className="strategy-tip-trigger" style={{ cursor: 'help', borderBottom: '1px dashed rgba(255,255,255,0.3)', position: 'relative' }}>
-                            {label} — {opt.title}
-                            <span className="strategy-tip-box" style={{
-                              position: 'absolute', top: 'calc(100% + 8px)', left: 0,
-                              width: '280px', maxWidth: '70vw',
-                              padding: '12px 16px', borderRadius: '12px',
-                              background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.98))',
-                              border: '1px solid rgba(99,102,241,0.25)',
-                              boxShadow: '0 16px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.08)',
-                              backdropFilter: 'blur(16px)',
-                              fontSize: '0.73rem', lineHeight: 1.6, color: '#cbd5e1',
-                              fontWeight: 400, textTransform: 'none', letterSpacing: 'normal',
-                              pointerEvents: 'none', opacity: 0,
-                              transform: 'translateY(-4px)',
-                              transition: 'opacity 0.2s ease, transform 0.2s ease',
-                              zIndex: 100,
-                            }}>
-                              <div style={{ fontWeight: 700, color: '#a5b4fc', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-                                {opt.title}
-                              </div>
-                              {opt.description}
-                            </span>
-                          </span>
-                        );
-                      })()}
-                </span>
-              </div>
-              <div className={focusStyles.commitRecapRow}>
-                <span>Capital Deployed</span>
-                <span className={focusStyles.commitRecapValue}>
-                  {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0))}
-                </span>
-              </div>
-              {projectedCost !== 0 && (
-                <div className={focusStyles.commitRecapRow}>
-                  <span>Projected Impact</span>
-                  <span className={focusStyles.commitRecapValue} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80' }}>
-                    {fmtCurrency(projectedCost)}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-
-            {/* Skip prediction nudge */}
-            {skipPredictionConfirm && (
-              <div style={{
-                padding: '10px 14px', marginBottom: 10, borderRadius: 8,
-                background: isDark ? 'rgba(245,158,11,0.1)' : '#fef3c7',
-                border: `1px solid ${isDark ? 'rgba(245,158,11,0.3)' : '#fbbf24'}`,
-                fontSize: '0.78rem', color: isDark ? '#fbbf24' : '#92400e',
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                <span>⚠️</span>
-                <span style={{ flex: 1 }}>Predictions improve your learning outcomes. Are you sure you want to skip?</span>
-                <button
-                  onClick={() => setSkipPredictionConfirm(false)}
-                  style={{
-                    padding: '4px 10px', fontSize: '0.7rem', fontWeight: 700,
-                    background: 'transparent', border: `1px solid ${isDark ? '#fbbf24' : '#d97706'}`,
-                    borderRadius: 6, color: isDark ? '#fbbf24' : '#92400e', cursor: 'pointer',
-                  }}
-                >Go Back</button>
-              </div>
-            )}
-
-            <button className={focusStyles.primaryAction} onClick={handleCommitClick} style={{ width: '100%' }}>
-              {skipPredictionConfirm ? '⏩ Skip Prediction & Commit' : '✓ Commit & Proceed'}
-            </button>
-          </div>
-          );
-        })()}
-
-        {/* ── RESULTS STEP ── */}
-        {focusStep === 'results' && commitResults && (
-          <div>
-            <div style={{ textAlign: 'center', marginBottom: 16 }}>
-              <div style={{ fontSize: '2rem', marginBottom: 4 }}>📊</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
-              <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Review your outcomes before advancing.</p>
-            </div>
-
-            <div className={focusStyles.focusResultsGrid}>
-              {(() => {
-                const newTreasury = commitResults.globalState?.corporate_treasury || 0;
-                const newEbitda = commitResults.globalState?.historical_ebitda || 0;
-                const newRep = commitResults.globalState?.group_reputation || 50;
-                const newCarbon = commitResults.globalState?.tco2e_emissions || 0;
-                const dTreasury = newTreasury - treasury;
-                const dRep = newRep - reputation;
-                const dCarbon = newCarbon - tco2e;
-                return (
-                  <>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>💰</div>
-                      <div className={focusStyles.focusResultLabel}>Treasury</div>
-                      <div className={focusStyles.focusResultValue}>{fmtCurrency(newTreasury)}</div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dTreasury >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                        {dTreasury >= 0 ? '▲' : '▼'} {fmtCurrency(Math.abs(dTreasury))}
-                      </div>
-                    </div>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>📈</div>
-                      <div className={focusStyles.focusResultLabel}>EBITDA</div>
-                      <div className={focusStyles.focusResultValue}>{fmtCurrency(newEbitda)}</div>
-                    </div>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>🌍</div>
-                      <div className={focusStyles.focusResultLabel}>Reputation</div>
-                      <div className={focusStyles.focusResultValue}>{newRep.toFixed(0)}/100</div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dRep >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                        {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
-                      </div>
-                    </div>
-                    <div className={focusStyles.focusResultCard}>
-                      <div className={focusStyles.focusResultIcon}>🏭</div>
-                      <div className={focusStyles.focusResultLabel}>CO₂</div>
-                      <div className={focusStyles.focusResultValue}>{newCarbon.toLocaleString()}t</div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dCarbon <= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                        {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()}t
-                      </div>
-                    </div>
-                    {/* Balance Sheet (Focus Results) — clickable */}
-                    {(() => {
-                      const bsF = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
-                      if (!bsF || typeof bsF !== 'object' || bsF.net_assets == null) return null;
-                      const cColor = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
-                      const cIcon = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
-                      return (
-                        <div className={focusStyles.focusResultCard} style={{ cursor: 'pointer' }} onClick={() => setResultsBsModalOpen(true)} title="Click to view full Balance Sheet">
-                          <div className={focusStyles.focusResultIcon}>📊</div>
-                          <div className={focusStyles.focusResultLabel}>Net Assets</div>
-                          <div className={focusStyles.focusResultValue}>${((bsF.net_assets || 0) / 1_000_000).toFixed(0)}M</div>
-                          <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cColor[bsF.covenant_status] || '#38bdf8', marginTop: 2 }}>
-                            {cIcon[bsF.covenant_status] || '📊'} D/E: {(bsF.debt_to_equity || 0).toFixed(2)}×
-                          </div>
-                          <div style={{ fontSize: '0.55rem', color: '#64748b', marginTop: 4, fontWeight: 600 }}>🔍 Click to expand</div>
-                        </div>
-                      );
-                    })()}
-                  </>
-                );
-              })()}
-            </div>
-
-            {/* Events summary */}
-            {commitResults.events && Object.keys(commitResults.events).length > 0 && (
-              <div style={{ padding: '10px 14px', background: 'rgba(0,0,0,0.2)', borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)', marginBottom: 16, fontSize: '0.72rem', color: '#cbd5e1' }}>
-                <div style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#94a3b8', marginBottom: 6, fontSize: '0.68rem' }}>⚡ Key Events</div>
-                {commitResults.events.talent_penalty_applied > 1 && (
-                  <div style={{ marginBottom: 3 }}>🧠 Brain-Drain: Software OPEX inflated by {((commitResults.events.talent_penalty_applied - 1) * 100).toFixed(1)}%</div>
-                )}
-                {commitResults.events.loan_interest_payment > 0 && (
-                  <div style={{ marginBottom: 3 }}>🏦 Loan Interest: -{fmtCurrency(commitResults.events.loan_interest_payment)}</div>
-                )}
-                {commitResults.events.covenant_surcharge > 0 && (
-                  <div style={{ marginBottom: 3, color: '#f87171' }}>📊 Covenant Penalty: -{fmtCurrency(commitResults.events.covenant_surcharge)} interest surcharge</div>
-                )}
-                {commitResults.events.covenant_warning && (
-                  <div style={{ marginBottom: 3, color: '#fbbf24' }}>⚠️ {typeof commitResults.events.covenant_warning === 'string' ? commitResults.events.covenant_warning : 'Debt covenant under pressure'}</div>
-                )}
-                {commitResults.events.esg_adjusted_wacc && commitResults.events.esg_adjusted_wacc.adjusted_wacc > 0.08 && (
-                  <div style={{ marginBottom: 3, color: '#f87171' }}>📊 ESG-WACC at {(commitResults.events.esg_adjusted_wacc.adjusted_wacc * 100).toFixed(1)}% — lender covenant thresholds tightening</div>
-                )}
-                {commitResults.events.employer_brand_opex_penalty && (
-                  <div style={{ marginBottom: 3, color: '#f87171' }}>👥 Talent Crisis: +{((commitResults.events.employer_brand_opex_penalty.multiplier || 0) * 100).toFixed(1)}% OPEX across all BUs</div>
-                )}
-              </div>
-            )}
-
-            {/* ── EBITDA Decomposition Waterfall (Gap 1: visual strategy storytelling) ── */}
-            <EBITDAWaterfall
-              businessUnits={commitResults.businessUnits || businessUnits}
-              globalState={commitResults.globalState || globalState}
-              events={commitResults.events || events}
-              commitResults={commitResults}
-              isDark={isDark}
-            />
-
-            {/* ── Inline Peer Performance (Focus Results) ── */}
-            {peerLeaderboard.length > 0 && (
-              <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)', marginBottom: 16 }}>
-                <div style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#818cf8', marginBottom: 8, fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <span>📊</span> {peerLeaderboard.some(t => t.isAI) ? 'AI Benchmark Comparison' : 'Cohort Leaderboard'}
-                  {peerLeaderboard.some(t => t.isAI) && <span style={{ fontSize: '0.5rem', background: 'rgba(245,158,11,0.15)', color: '#fbbf24', padding: '1px 5px', borderRadius: 3, fontWeight: 700 }}>🤖 AI</span>}
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                  {peerLeaderboard.slice(0, 5).map(team => (
-                    <div key={team.rank} style={{
-                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 10px', borderRadius: 6,
-                      background: team.isYou ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.02)',
-                      border: team.isYou ? '1px solid rgba(99,102,241,0.4)' : '1px solid transparent',
-                    }}>
-                      <span style={{ fontSize: '0.85rem', width: 22, textAlign: 'center', flexShrink: 0 }}>
-                        {team.rank <= 3 ? ['🥇', '🥈', '🥉'][team.rank - 1] : team.rank}
-                      </span>
-                      <span style={{ flex: 1, fontSize: '0.72rem', fontWeight: team.isYou ? 800 : 600, color: team.isYou ? '#a5b4fc' : '#cbd5e1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {team.name}
-                        {team.isYou && <span style={{ marginLeft: 6, fontSize: '0.68rem', background: 'rgba(99,102,241,0.3)', padding: '1px 6px', borderRadius: 4, fontWeight: 800, color: '#c7d2fe' }}>YOU</span>}
-                      </span>
-                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#4ade80', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0 }}>
-                        {fmtCurrency(team.treasury)}
-                      </span>
-                      <span style={{ fontSize: '0.68rem', color: '#94a3b8', flexShrink: 0, width: 28, textAlign: 'right' }}>
-                        {team.reputation?.toFixed(0) ?? '—'}
-                      </span>
-                      <span style={{
-                        fontSize: '0.72rem', flexShrink: 0,
-                        color: team.trend === '↑' ? '#4ade80' : team.trend === '↓' ? '#f87171' : '#94a3b8',
-                      }}>{team.trend}</span>
-                    </div>
-                  ))}
-                </div>
-                {peerLeaderboard.length > 5 && (
-                  <div style={{ fontSize: '0.6rem', color: '#64748b', textAlign: 'center', marginTop: 6 }}>
-                    +{peerLeaderboard.length - 5} more teams
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Advance button */}
-            {(() => {
-              const teamCount = globalState?.cohort_team_count || 0;
-              const commitsCount = globalState?.team_commits_this_round || 0;
-              const isMultiTeam = teamCount > 1;
-              const allCommitted = commitsCount >= teamCount;
-              if (isMultiTeam && !allCommitted) {
-                return (
-                  <div style={{ padding: '12px 16px', borderRadius: 10, textAlign: 'center', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
-                    <div style={{ fontSize: '1rem', marginBottom: 4 }}>⏳</div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>Waiting for Other Teams</div>
-                    <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{commitsCount}/{teamCount} committed</div>
-                  </div>
-                );
-              }
-              return (
-                <div className={focusStyles.twoActions}>
-                  <button className={focusStyles.secondaryAction} onClick={handleFocusDismiss}>
-                    View Dashboard
-                  </button>
-                  <button className={focusStyles.primaryAction} onClick={() => { handleFocusDismiss(); onAdvance?.(); }}>
-                    ⏩ Advance to Round {commitResults.newRoundNumber}
-                  </button>
-                </div>
-              );
-            })()}
-          </div>
-        )}
-      </FocusOverlay>
 
       {/* Balance Sheet full modal — for Focus Mode BS card clicks */}
       {resultsBsModalOpen && commitResults && (

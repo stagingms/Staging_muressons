@@ -24,7 +24,14 @@ const STEP_META = {
  * @param {Function} onReenter  - Called when the user re-enters focus mode (renders floating button)
  * @param {React.ReactNode} children - Step-specific content
  */
-export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onReenter, children }) {
+/**
+ * Phase D: `variant` — 'takeover' (pre-Phase-D fullscreen overlay) or
+ * 'inline' (the Decision Canvas: same header/content/breadcrumb rendered
+ * in-flow inside the center column; no backdrop, no fixed positioning).
+ * Header, Esc-to-dismiss, back navigation, and the re-enter button behave
+ * identically in both variants.
+ */
+export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onReenter, children, variant = 'takeover' }) {
   const currentIdx = steps.indexOf(step);
   const canGoBack = currentIdx > 0 && step !== 'results';
 
@@ -37,6 +44,103 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
+
+  const inner = isOpen && step ? (
+    <>
+      {/* ── Header ── */}
+      <div className={styles.header}>
+        <div className={styles.headerLeft}>
+          {canGoBack && (
+            <button
+              className={styles.backButton}
+              onClick={() => onBack?.(steps[currentIdx - 1])}
+              title={`Back to ${STEP_META[steps[currentIdx - 1]]?.label}`}
+            >
+              ← Back
+            </button>
+          )}
+          <span className={styles.stepIcon}>{STEP_META[step]?.icon}</span>
+          <span className={styles.stepLabel}>{STEP_META[step]?.label}</span>
+          <span className={styles.stepBadge}>
+            Step {currentIdx + 1} / {steps.length}
+          </span>
+        </div>
+        <button
+          className={styles.closeButton}
+          onClick={onClose}
+          title="View Full Dashboard (Esc)"
+        >
+          📊 Dashboard
+        </button>
+      </div>
+
+      {/* ── Content ── */}
+      <div className={styles.content}>
+        {children}
+      </div>
+
+      {/* ── Step Breadcrumb ── */}
+      <div className={styles.breadcrumb}>
+        {steps.flatMap((s, i) => {
+          const els = [
+            <div
+              key={s}
+              className={[
+                styles.breadcrumbDot,
+                i < currentIdx ? styles.breadcrumbComplete : '',
+                i === currentIdx ? styles.breadcrumbActive : '',
+              ].filter(Boolean).join(' ')}
+            >
+              <span>{STEP_META[s]?.icon}</span>
+            </div>,
+          ];
+          if (i < steps.length - 1) {
+            els.push(
+              <div
+                key={`line-${i}`}
+                className={[
+                  styles.breadcrumbLine,
+                  i < currentIdx ? styles.breadcrumbLineComplete : '',
+                ].filter(Boolean).join(' ')}
+              />
+            );
+          }
+          return els;
+        })}
+      </div>
+    </>
+  ) : null;
+
+  if (variant === 'inline') {
+    return (
+      <>
+        <AnimatePresence>
+          {isOpen && step && (
+            <motion.div
+              className={`${styles.panel} ${styles.panelInline}`}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25, ease: 'easeOut' }}
+            >
+              {inner}
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {!isOpen && onReenter && (
+          <motion.button
+            className={styles.reenterButton}
+            onClick={onReenter}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            title="Re-enter guided flow"
+          >
+            🎯 Focus Mode
+          </motion.button>
+        )}
+      </>
+    );
+  }
 
   return (
     <>
@@ -58,67 +162,7 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
               transition={{ duration: 0.3, ease: 'easeOut' }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* ── Header ── */}
-              <div className={styles.header}>
-                <div className={styles.headerLeft}>
-                  {canGoBack && (
-                    <button
-                      className={styles.backButton}
-                      onClick={() => onBack?.(steps[currentIdx - 1])}
-                      title={`Back to ${STEP_META[steps[currentIdx - 1]]?.label}`}
-                    >
-                      ← Back
-                    </button>
-                  )}
-                  <span className={styles.stepIcon}>{STEP_META[step]?.icon}</span>
-                  <span className={styles.stepLabel}>{STEP_META[step]?.label}</span>
-                  <span className={styles.stepBadge}>
-                    Step {currentIdx + 1} / {steps.length}
-                  </span>
-                </div>
-                <button
-                  className={styles.closeButton}
-                  onClick={onClose}
-                  title="View Full Dashboard (Esc)"
-                >
-                  📊 Dashboard
-                </button>
-              </div>
-
-              {/* ── Content ── */}
-              <div className={styles.content}>
-                {children}
-              </div>
-
-              {/* ── Step Breadcrumb ── */}
-              <div className={styles.breadcrumb}>
-                {steps.flatMap((s, i) => {
-                  const els = [
-                    <div
-                      key={s}
-                      className={[
-                        styles.breadcrumbDot,
-                        i < currentIdx ? styles.breadcrumbComplete : '',
-                        i === currentIdx ? styles.breadcrumbActive : '',
-                      ].filter(Boolean).join(' ')}
-                    >
-                      <span>{STEP_META[s]?.icon}</span>
-                    </div>,
-                  ];
-                  if (i < steps.length - 1) {
-                    els.push(
-                      <div
-                        key={`line-${i}`}
-                        className={[
-                          styles.breadcrumbLine,
-                          i < currentIdx ? styles.breadcrumbLineComplete : '',
-                        ].filter(Boolean).join(' ')}
-                      />
-                    );
-                  }
-                  return els;
-                })}
-              </div>
+              {inner}
             </motion.div>
           </motion.div>
         )}

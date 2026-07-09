@@ -889,3 +889,16 @@
   color: #0f172a;
   border-color: var(--text-secondary);
 }
+
+
+/* ── Phase D: the Decision Canvas (inline variant) ─────────────────────
+   Same .panel skin, rendered in-flow inside the center column: no fixed
+   positioning, no viewport cap, full column width. */
+.panelInline {
+  position: relative;
+  max-width: 100%;
+  max-height: none;
+  margin: 4px 12px 12px;
+  width: auto;
+  box-shadow: var(--elevation-card);
+}
