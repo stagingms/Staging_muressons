@@ -3,6 +3,12 @@
  * Single source of truth for both God Mode and Facilitator sidebar navigation.
  * Generates role-filtered tab lists using the 3-tier RBAC model.
  *
+ * TOOLTIP CONVENTION (Phase R1 / V2-7): a tooltip must describe what the tab
+ * actually RENDERS today — never planned or aspirational capability. Three
+ * separate audits (G7, Phase 6 timeline, V2-1 leaderboard) each found a
+ * tooltip promising features the tab didn't have. When you change what a tab
+ * contains, update its tooltip in the same commit.
+ *
  * Architecture (Audit §9.1):
  *   admin_shared.py  ─── ROLE_ALLOWED_TABS (backend enforcement)
  *   sidebarConfig.js ─── Tab definitions + role filtering (frontend display)
@@ -137,7 +143,7 @@ export const FACILITATOR_SIDEBAR = [
             { id: 'materiality',         label: 'Materiality Matrix',    icon: '🧩', tooltip: 'Mendelow\'s Materiality Matrix — interactive drag-and-drop issue mapping grid. Lead facilitators can customize per-cohort; base facilitators have read-only access to global defaults. Answers: "How do I view/configure the materiality framework?"' },
             { id: 'teaching_journal',    label: 'Teaching Journal',       icon: '📝', tooltip: 'Private workspace combining notes and timestamped annotations. Jot observations, bookmark key moments, and prepare debrief commentary. Persisted across sessions. Answers: "Where can I keep my private teaching notes and bookmarks?"' },
             { id: 'technical_glossary',  label: 'Technical Reference',   icon: '📐', tooltip: 'Comprehensive reference guide explaining simulation terminology, engine mechanics (Contagion, Talent/Burnout, NCD, Governance), KPI calculation formulas, scorecard weighting, and decision paradigm differences. Answers: "How do the simulation engines and calculations actually work?"' },
-            { id: 'activity_log',        label: 'Activity Logs & Resets', icon: '📋', tooltip: 'Facilitator activity audit log showing all actions taken (overrides, messages, resets) with timestamps. Includes session management controls for soft/hard deleting cohorts, removing individual players, or performing a full system reset. Answers: "What actions have been taken and how do I clean up sessions?"', requiredRole: 'lead_facilitator' },
+            { id: 'activity_log',        label: 'Activity Logs & Resets', icon: '📋', tooltip: 'Facilitator activity audit log showing all actions taken (overrides, messages, resets) with timestamps. Includes session management controls for soft/hard deleting cohorts or removing individual players. Answers: "What actions have been taken and how do I clean up sessions?"', requiredRole: 'lead_facilitator' },
         ]
     },
 ];

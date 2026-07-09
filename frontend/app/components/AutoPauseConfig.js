@@ -84,6 +84,8 @@ export default function AutoPauseConfig({ sessionId }) {
                 const { session_id: _sid, reset: _r, ...cfg } = data;
                 setConfig({ ...DEFAULT_CONFIG, ...cfg });
                 showStatus('↩️ Reset to platform defaults');
+            } else {
+                showStatus('❌ Reset failed — this cohort keeps its current triggers');
             }
         } catch { showStatus('❌ Reset failed'); }
         setResetting(false);

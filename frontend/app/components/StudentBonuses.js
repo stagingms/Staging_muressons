@@ -21,6 +21,8 @@ export default function StudentBonuses({ sessionId }) {
     const [reason, setReason] = useState('');
     const [badge, setBadge] = useState('');
     const [loading, setLoading] = useState(false);
+    // Phase R1 (V2-4): visible failure states for award/revoke.
+    const [error, setError] = useState('');
 
     const fetchBonuses = useCallback(async () => {
         if (!sessionId) return;
@@ -42,8 +44,14 @@ export default function StudentBonuses({ sessionId }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ player_name: playerName.trim(), points, reason: reason.trim(), badge: badge || null }),
             });
-            if (res.ok) { const b = await res.json(); setBonuses(prev => [b, ...prev]); setPlayerName(''); setReason(''); setBadge(''); setPoints(10); }
-        } catch { /* error */ }
+            if (res.ok) {
+                const b = await res.json(); setBonuses(prev => [b, ...prev]);
+                setPlayerName(''); setReason(''); setBadge(''); setPoints(10); setError('');
+            } else {
+                const eb = await res.json().catch(() => ({}));
+                setError(`❌ Bonus NOT awarded (${eb.detail || `HTTP ${res.status}`}) — the form is preserved.`);
+            }
+        } catch { setError('❌ Bonus NOT awarded — network error. The form is preserved.'); }
         finally { setLoading(false); }
     };
 
@@ -51,8 +59,9 @@ export default function StudentBonuses({ sessionId }) {
         if (!confirm('Revoke this bonus?')) return;
         try {
             const res = await fetch(`${API}/api/admin/${sessionId}/bonuses/${bonusId}`, { method: 'DELETE' });
-            if (res.ok) setBonuses(prev => prev.filter(b => b.bonus_id !== bonusId));
-        } catch { /* error */ }
+            if (res.ok) { setBonuses(prev => prev.filter(b => b.bonus_id !== bonusId)); setError(''); }
+            else setError(`❌ Bonus NOT revoked (HTTP ${res.status}) — it still counts toward the player.`);
+        } catch { setError('❌ Bonus NOT revoked — network error. It still counts toward the player.'); }
     };
 
     if (!sessionId) {
@@ -66,6 +75,14 @@ export default function StudentBonuses({ sessionId }) {
     return (
         <div className={styles.container}>
             <div className={styles.header}><span className={styles.icon}>🏅</span><div><h2 className={styles.title}>Student Bonuses & Awards</h2><p className={styles.subtitle}>Reward exceptional performance with bonus points and badges.</p></div></div>
+
+            {error && (
+                <div style={{
+                    margin: '0.5rem 0', padding: '8px 12px', borderRadius: '6px',
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#ef4444', fontSize: '0.82rem', fontWeight: 600,
+                }}>{error}</div>
+            )}
 
             <form className={styles.form} onSubmit={handleAward}>
                 <div className={styles.formGrid}>

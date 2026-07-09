@@ -15,6 +15,9 @@ export default function BulkMessaging({ leaderboard = [] }) {
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(false);
     const [result, setResult] = useState(null);
+    // Phase R1 (V2-4): a failed broadcast must be loudly visible — the old
+    // handler had no failure branch at all.
+    const [error, setError] = useState('');
 
     const fetchHistory = useCallback(async () => {
         try {
@@ -37,6 +40,7 @@ export default function BulkMessaging({ leaderboard = [] }) {
         if (!title.trim() || !body.trim()) return;
         setLoading(true);
         setResult(null);
+        setError('');
         try {
             const res = await fetch(`${API}/api/admin/broadcast`, {
                 method: 'POST',
@@ -53,8 +57,13 @@ export default function BulkMessaging({ leaderboard = [] }) {
                 setResult(data);
                 setTitle(''); setBody(''); setScheduledRound('');
                 fetchHistory();
+            } else {
+                const eb = await res.json().catch(() => ({}));
+                setError(`❌ Broadcast NOT sent (${eb.detail || `HTTP ${res.status}`}) — your message is preserved above. Retry when ready.`);
             }
-        } catch { /* error */ }
+        } catch {
+            setError('❌ Broadcast NOT sent — network error. Your message is preserved above.');
+        }
         finally { setLoading(false); }
     };
 
@@ -103,6 +112,13 @@ export default function BulkMessaging({ leaderboard = [] }) {
                 </button>
             </form>
 
+            {error && (
+                <div style={{
+                    marginTop: '0.75rem', padding: '8px 12px', borderRadius: '6px',
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#ef4444', fontSize: '0.82rem', fontWeight: 600,
+                }}>{error}</div>
+            )}
             {result && (
                 <div className={styles.success}>
                     ✅ {result.status === 'scheduled' ? `Scheduled for Round ${result.scheduled_round}` : `Sent to ${result.delivered_to?.length || 0} session(s)`}

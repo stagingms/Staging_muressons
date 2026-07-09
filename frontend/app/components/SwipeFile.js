@@ -14,6 +14,10 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
  */
 export default function SwipeFile({ sessionId, onMessageSent }) {
     const [sending, setSending] = useState(null);
+    // Phase R1 (V2-4): the old handlers never checked res.ok — an error
+    // response still flashed the ✓ sent state. False success is worse than
+    // silence in a live room.
+    const [sendError, setSendError] = useState('');
     const [sent, setSent] = useState({});
     const [customOpen, setCustomOpen] = useState(false);
     const [customTitle, setCustomTitle] = useState('');
@@ -67,17 +71,23 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
                         preset_id: presetId,
                     };
 
+                setSendError('');
                 const res = await fetch(`${API}/api/admin/${sessionId}/inject-message`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload),
                 });
+                if (!res.ok) {
+                    const eb = await res.json().catch(() => ({}));
+                    throw new Error(eb.detail || `HTTP ${res.status}`);
+                }
                 const data = await res.json();
                 setSent((prev) => ({ ...prev, [presetId]: true }));
                 onMessageSent?.(data);
                 setTimeout(() => setSent((prev) => ({ ...prev, [presetId]: false })), 3000);
             } catch (err) {
                 console.error('Inject failed:', err);
+                setSendError(`❌ Message NOT delivered — ${err.message}. Nothing reached the team; retry when ready.`);
             } finally {
                 setSending(null);
             }
@@ -88,6 +98,7 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
     const sendCustom = useCallback(async () => {
         if (!sessionId || !customTitle.trim()) return;
         setSending('custom');
+        setSendError('');
         try {
             const res = await fetch(`${API}/api/admin/${sessionId}/inject-message`, {
                 method: 'POST',
@@ -99,6 +110,10 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
                     body: customBody,
                 }),
             });
+            if (!res.ok) {
+                const eb = await res.json().catch(() => ({}));
+                throw new Error(eb.detail || `HTTP ${res.status}`);
+            }
             const data = await res.json();
             onMessageSent?.(data);
             setCustomTitle('');
@@ -106,6 +121,7 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
             setCustomOpen(false);
         } catch (err) {
             console.error('Custom inject failed:', err);
+            setSendError(`❌ Custom message NOT delivered — ${err.message}. Your draft is preserved; retry when ready.`);
         } finally {
             setSending(null);
         }
@@ -144,6 +160,14 @@ export default function SwipeFile({ sessionId, onMessageSent }) {
                     {createOpen ? '✕ Close' : '＋ New Preset'}
                 </button>
             </div>
+
+            {sendError && (
+                <div style={{
+                    margin: '0.5rem 0', padding: '8px 12px', borderRadius: '6px',
+                    background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                    color: '#ef4444', fontSize: '0.82rem', fontWeight: 600,
+                }}>{sendError}</div>
+            )}
 
             {/* Create New Preset Form */}
             {createOpen && (

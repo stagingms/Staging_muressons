@@ -49,6 +49,15 @@ import FacilitatorTeachableMoments from '../../components/FacilitatorTeachableMo
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:8000'}`;
 
+// Phase R1 (V2-8): single source for the shortcut sheet — if a binding in the
+// keydown handler changes, change it HERE too (same file, one constant).
+const FACILITATOR_SHORTCUTS = [
+    ['Ctrl+1…4', 'Toggle sidebar group open/closed'],
+    ['Ctrl+Shift+B', 'Open Bulk Messaging (broadcast)'],
+    ['?', 'Show / hide this sheet'],
+    ['Esc', 'Close dialogs'],
+];
+
 /* F1(d): the old SEED_LEADERBOARD constant was removed — it was never wired
  * to anything, and the WS error handler falsely claimed "using seed data". */
 
@@ -714,28 +723,12 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
         } catch { addLog({ type: 'system', message: 'Delete failed: network error' }); }
     }, [leaderboard, selectedSession, addLog, fetchLeaderboard, confirmAction]);
 
-    const handleResetAll = useCallback(async () => {
-        // F4: the old second dialog said "Type OK to proceed" — but native
-        // confirm() has no typing; the guard was an illusion. This is the
-        // real typed-phrase gate.
-        const ok = await confirmAction({
-            title: '☢️ Reset ALL sessions',
-            message: 'Deletes every session and all data, for every facilitator. This cannot be undone.',
-            impact: `${leaderboard.filter(s => !s.player_id).length} cohort(s) and ${leaderboard.filter(s => !!s.player_id).length} player session(s) will be destroyed.`,
-            requirePhrase: 'DELETE ALL DATA',
-            confirmLabel: 'Destroy everything',
-        });
-        if (!ok) return;
-        try {
-            const res = await fetch(`${API}/api/admin/reset-all`, { method: 'DELETE', credentials: 'include' });
-            if (res.ok) {
-                const d = await res.json();
-                addLog({ type: 'system', message: `All ${d.sessions_removed} sessions reset` });
-                setLeaderboard([]);
-                setSelectedSession(null);
-            }
-        } catch { addLog({ type: 'system', message: 'Reset all failed' }); }
-    }, [addLog, confirmAction, leaderboard]);
+    // Phase R1 (V2-7): the old handleResetAll callback was DEAD CODE — no
+    // button ever invoked it, while the activity_log tooltip advertised a
+    // "full system reset" that therefore didn't exist on this screen. The
+    // real reset-all lives in God Mode's Danger Zone (typed-phrase guarded).
+    // Removed rather than wired: a facilitator screen has no business
+    // destroying every other facilitator's cohorts.
 
 
     // Apply role-based tab filtering using shared config
@@ -1183,12 +1176,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             {showShortcuts && (
                 <ShortcutSheet
                     onClose={() => setShowShortcuts(false)}
-                    shortcuts={[
-                        ['Ctrl+1…4', 'Toggle sidebar group open/closed'],
-                        ['Ctrl+Shift+B', 'Open Bulk Messaging (broadcast)'],
-                        ['?', 'Show / hide this sheet'],
-                        ['Esc', 'Close dialogs'],
-                    ]}
+                    shortcuts={FACILITATOR_SHORTCUTS}
                 />
             )}
 

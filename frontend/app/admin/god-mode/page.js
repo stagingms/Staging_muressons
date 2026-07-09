@@ -44,6 +44,15 @@ import PillarConfigurator from '../../components/PillarConfigurator';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
+// Phase R1 (V2-8): single source for the shortcut sheet — if a binding in the
+// keydown handler changes, change it HERE too (same file, one constant).
+const GOD_SHORTCUTS = [
+    ['Ctrl+1…5', 'Toggle sidebar group open/closed'],
+    ['Ctrl+Shift+B', 'Open Session Controls (broadcast)'],
+    ['?', 'Show / hide this sheet'],
+    ['Esc', 'Close dialogs'],
+];
+
 
 /* ═════════════════════════════════════════════════════════════════
  *  LOGIN GATE — Same facilitator-based auth as Workshop Facilitator
@@ -692,6 +701,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                             status={sysStatus.status}
                             loading={sysStatus.loading}
                             onRefresh={sysStatus.refresh}
+                            lastSuccess={sysStatus.lastSuccess}
                         />
                         <SessionHealthDashboard />
                     </div>
@@ -836,12 +846,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
             {showShortcuts && (
                 <ShortcutSheet
                     onClose={() => setShowShortcuts(false)}
-                    shortcuts={[
-                        ['Ctrl+1…5', 'Toggle sidebar group open/closed'],
-                        ['Ctrl+Shift+B', 'Open Session Controls (broadcast)'],
-                        ['?', 'Show / hide this sheet'],
-                        ['Esc', 'Close dialogs'],
-                    ]}
+                    shortcuts={GOD_SHORTCUTS}
                 />
             )}
 

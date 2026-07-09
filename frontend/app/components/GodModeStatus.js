@@ -11,7 +11,10 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
  * poller with the context bar). This component receives the status via props
  * and only fetches its own /god/settings.
  */
-export default function GodModeStatus({ facilitatorId, status = null, loading = false, onRefresh }) {
+export default function GodModeStatus({ facilitatorId, status = null, loading = false, onRefresh, lastSuccess = null }) {
+    // Phase R1 (V2-6): blast-radius confirms kick a refresh and timestamp
+    // their counts — the number in the dialog is a decision input.
+    const countsAsOf = lastSuccess ? ` Counts as of ${new Date(lastSuccess).toLocaleTimeString()}.` : '';
     // Global settings state (merged from GlobalSettings)
     const [settings, setSettings] = useState(null);
     const [freezeMsg, setFreezeMsg] = useState('System maintenance in progress.');
@@ -39,10 +42,11 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
         // confirm() on every pill = 29 dialogs of fatigue with no impact info.)
         const playersLive = (status?.total_players || 0) > 0;
         if (playersLive) {
+            onRefresh?.(); // V2-6: freshen counts while the dialog is open
             const ok = await confirmAction({
                 title: `${next ? 'Enable' : 'Disable'} ${t.label}?`,
                 message: t.tip,
-                impact: `Applies platform-wide immediately: ${status?.total_cohorts ?? '?'} cohort(s), ${status?.total_players ?? 0} player(s) currently connected${status?.system_frozen ? ' (system frozen)' : ''}. Facilitators are notified via the God Mode event bus.`,
+                impact: `Applies platform-wide immediately: ${status?.total_cohorts ?? '?'} cohort(s), ${status?.total_players ?? 0} player(s) currently connected${status?.system_frozen ? ' (system frozen)' : ''}. Facilitators are notified via the God Mode event bus.${countsAsOf}`,
                 confirmLabel: next ? 'Enable now' : 'Disable now',
                 danger: !next,
             });
@@ -98,10 +102,11 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
     // simulations any more than it can freeze them; mid-incident, unfreeze
     // is often the more dangerous direction.
     const handleFreeze = async () => {
+        onRefresh?.(); // V2-6: freshen counts while the dialog is open
         const ok = await confirmAction({
             title: '🚨 Freeze ALL simulations?',
             message: <span>Players see this banner immediately:<br /><em>&ldquo;{freezeMsg}&rdquo;</em></span>,
-            impact: `${status?.total_cohorts ?? '?'} cohort(s) and ${status?.total_players ?? 0} connected player(s) pause instantly.`,
+            impact: `${status?.total_cohorts ?? '?'} cohort(s) and ${status?.total_players ?? 0} connected player(s) pause instantly.${countsAsOf}`,
             confirmLabel: 'Freeze now',
         });
         if (!ok) return;
@@ -119,10 +124,11 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
     };
 
     const handleUnfreeze = async () => {
+        onRefresh?.(); // V2-6: freshen counts while the dialog is open
         const ok = await confirmAction({
             title: '🟢 Unfreeze — resume ALL simulations?',
             message: 'Every paused cohort resumes immediately. Make sure the incident is actually resolved before releasing.',
-            impact: `${status?.total_cohorts ?? '?'} cohort(s) resume; timers and pacing pick up where they left off.`,
+            impact: `${status?.total_cohorts ?? '?'} cohort(s) resume; timers and pacing pick up where they left off.${countsAsOf}`,
             confirmLabel: 'Unfreeze now',
             danger: false,
         });
