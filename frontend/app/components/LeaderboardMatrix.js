@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import styles from './LeaderboardMatrix.module.css';
 import { Abbr } from './Glossary';
 import { fmtM } from '../utils/formatCurrency';
@@ -25,6 +25,90 @@ export default function LeaderboardMatrix({
 
     const [practiceStates, setPracticeStates] = useState({}); // {session_id: true/false}
     const [loadingPractice, setLoadingPractice] = useState({});
+
+    // ── Phase R2 (V2-1): sort / search / column triage ──────────────────
+    // Display-only: rows are reordered/hidden client-side; the leaderboard
+    // array, its fetches, and row identity (session_id) are untouched, so
+    // selection and delete/practice controls keep operating on the right
+    // session regardless of sort order.
+    const [sortKey, setSortKey] = useState(null);   // null = server order
+    const [sortDir, setSortDir] = useState('desc');
+    const [query, setQuery] = useState('');
+    const [showAllCols, setShowAllCols] = useState(false);
+
+    const displayRows = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        const matches = (r) => !q
+            || (r.cohort_name || '').toLowerCase().includes(q)
+            || (r.player_id || '').toLowerCase().includes(q)
+            || (r.player_name || '').toLowerCase().includes(q);
+
+        // Default path: byte-identical to the pre-R2 rendering.
+        if (!sortKey && !q) return leaderboard;
+
+        const byId = new Map(leaderboard.map(r => [r.session_id, r]));
+        const parentOf = (r) => r.parent_cohort_id ? byId.get(r.parent_cohort_id) : null;
+
+        // Search only: keep server order; a cohort survives if it or any of
+        // its players matches; a player survives if it or its parent matches.
+        if (!sortKey) {
+            const cohortHasMatch = new Set(
+                leaderboard.filter(r => r.parent_cohort_id && matches(r)).map(r => r.parent_cohort_id)
+            );
+            return leaderboard.filter(r => r.parent_cohort_id
+                ? (matches(r) || matches(parentOf(r) || {}))
+                : (matches(r) || cohortHasMatch.has(r.session_id)));
+        }
+
+        // Sorted: cohorts ordered by key, each followed by its (sorted) players,
+        // so grouping survives the sort.
+        const val = (r) => sortKey === 'cohort_name'
+            ? (r.cohort_name || '')
+            : (typeof r[sortKey] === 'number' ? r[sortKey] : (r[sortKey] ?? -Infinity));
+        const cmp = (a, b) => {
+            const va = val(a), vb = val(b);
+            const d = typeof va === 'string' ? va.localeCompare(String(vb)) : (va - vb);
+            return sortDir === 'asc' ? d : -d;
+        };
+        const cohorts = [...leaderboard.filter(r => !r.parent_cohort_id)].sort(cmp);
+        const out = [];
+        const seen = new Set();
+        for (const c of cohorts) {
+            const kids = [...leaderboard.filter(r => r.parent_cohort_id === c.session_id)].sort(cmp);
+            const anyMatch = matches(c) || kids.some(matches);
+            if (!q || anyMatch) {
+                out.push(c); seen.add(c.session_id);
+                for (const k of kids) {
+                    if (!q || matches(k) || matches(c)) { out.push(k); seen.add(k.session_id); }
+                }
+            }
+        }
+        for (const r of leaderboard) { // orphans (parent not in list)
+            if (!seen.has(r.session_id) && (!q || matches(r))) out.push(r);
+        }
+        return out;
+    }, [leaderboard, sortKey, sortDir, query]);
+
+    const toggleSort = (key) => {
+        if (sortKey === key) {
+            if (sortDir === 'desc') setSortDir('asc');
+            else { setSortKey(null); setSortDir('desc'); } // third click: server order
+        } else { setSortKey(key); setSortDir('desc'); }
+    };
+
+    const SortTh = ({ label, k, title, className }) => (
+        <th
+            className={className}
+            title={title ? `${title} — click to sort` : 'Click to sort'}
+            aria-sort={sortKey === k ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'}
+            onClick={() => toggleSort(k)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSort(k); } }}
+            tabIndex={0}
+            style={{ cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}
+        >
+            {label}{sortKey === k ? (sortDir === 'asc' ? ' ▲' : ' ▼') : ''}
+        </th>
+    );
 
     // Fetch practice mode status for all top-level cohorts
     const fetchPracticeStates = useCallback(async () => {
@@ -104,6 +188,44 @@ export default function LeaderboardMatrix({
                         {playerCount > 0 && ` · ${playerCount} player${playerCount !== 1 ? 's' : ''}`}
                     </span>
                 </div>
+                {/* Phase R2 (V2-1): triage controls — search, sort reset, column split */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexWrap: 'wrap' }}>
+                    <input
+                        type="search"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="🔎 Filter by cohort or player…"
+                        aria-label="Filter leaderboard by cohort or player name"
+                        style={{
+                            padding: '0.35rem 0.7rem', borderRadius: 'var(--radius-chip, 6px)',
+                            border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
+                            color: 'var(--text-primary)', fontSize: '0.78rem', minWidth: '210px',
+                        }}
+                    />
+                    {sortKey && (
+                        <button
+                            onClick={() => { setSortKey(null); setSortDir('desc'); }}
+                            title="Back to server ranking order"
+                            style={{
+                                padding: '0.3rem 0.6rem', borderRadius: 'var(--radius-chip, 6px)',
+                                border: '1px solid var(--border-subtle)', background: 'var(--bg-body)',
+                                color: 'var(--text-muted)', fontSize: '0.72rem', cursor: 'pointer', fontWeight: 600,
+                            }}
+                        >✕ Clear sort</button>
+                    )}
+                    <button
+                        onClick={() => setShowAllCols(v => !v)}
+                        aria-pressed={showAllCols}
+                        title={showAllCols ? 'Show the 11 triage columns only' : 'Show all 18 columns (assessment metrics)'}
+                        style={{
+                            padding: '0.3rem 0.7rem', borderRadius: 'var(--radius-chip, 6px)',
+                            border: '1px solid var(--border-subtle)',
+                            background: showAllCols ? 'var(--accent-soft, rgba(99,102,241,0.12))' : 'var(--bg-body)',
+                            color: showAllCols ? 'var(--accent, #6366f1)' : 'var(--text-muted)',
+                            fontSize: '0.72rem', cursor: 'pointer', fontWeight: 700,
+                        }}
+                    >{showAllCols ? '▾ Fewer metrics' : '▸ More metrics'}</button>
+                </div>
             </div>
 
             <div className={styles.tableWrap}>
@@ -111,27 +233,27 @@ export default function LeaderboardMatrix({
                     <thead>
                         <tr>
                             <th className={styles.rank}>#</th>
-                            <th>Cohort</th>
+                            <SortTh label="Cohort" k="cohort_name" />
                             <th>Player</th>
-                            <th>Round</th>
-                            <th>Terminal Value</th>
-                            <th>Total Cash</th>
-                            <th>Synergy</th>
-                            <th title="Reputation — public perception score">Reputation</th>
-                            <th title="Bonus points from quizzes & learning">Bonus</th>
-                            <th className={styles.heatCol} title="Stakeholder Map accuracy %">Stakeholder</th>
-                            <th className={styles.heatCol} title="CSRD Materiality accuracy %">Materiality</th>
-                            <th className={styles.heatCol} title="Learning activities completed (podcasts + quizzes)">Learning</th>
-                            <th className={styles.heatCol}><Abbr term="NCD">NCD Risk</Abbr></th>
-                            <th className={styles.heatCol}><Abbr term="SL">Social License</Abbr></th>
+                            <SortTh label="Round" k="round_number" />
+                            <SortTh label="Terminal Value" k="terminal_value" />
+                            <SortTh label="Total Cash" k="total_cash" />
+                            <SortTh label="Synergy" k="group_synergy" />
+                            <SortTh label="Reputation" k="group_reputation" title="Reputation — public perception score" />
+                            {showAllCols && <SortTh label="Bonus" k="bonus_score" title="Bonus points from quizzes & learning" />}
+                            {showAllCols && <th className={styles.heatCol} title="Stakeholder Map accuracy %">Stakeholder</th>}
+                            {showAllCols && <th className={styles.heatCol} title="CSRD Materiality accuracy %">Materiality</th>}
+                            {showAllCols && <th className={styles.heatCol} title="Learning activities completed (podcasts + quizzes)">Learning</th>}
+                            {showAllCols && <th className={styles.heatCol}><Abbr term="NCD">NCD Risk</Abbr></th>}
+                            {showAllCols && <th className={styles.heatCol}><Abbr term="SL">Social License</Abbr></th>}
                             <th>Talent Risk</th>
-                            <th title="Shadow Board Audit archetype — R5 value judgment">Shadow Board</th>
+                            {showAllCols && <th title="Shadow Board Audit archetype — R5 value judgment">Shadow Board</th>}
                             <th>Practice</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {leaderboard.map((sess, i) => {
+                        {displayRows.map((sess, i) => {
                             const isCohort = !sess.parent_cohort_id;
                             const isPlayer = !!sess.parent_cohort_id;
                             const isPractice = practiceStates[sess.session_id];
@@ -216,22 +338,29 @@ export default function LeaderboardMatrix({
                                     <td className={styles.mono}>
                                         {sess.group_reputation.toFixed(0)}
                                     </td>
+                                    {showAllCols && (
                                     <td className={styles.mono} style={{ color: sess.bonus_score > 0 ? '#059669' : '#94a3b8' }}>
                                         {sess.bonus_score > 0 ? `🏅 ${(sess.bonus_score || 0).toLocaleString()}` : '–'}
                                     </td>
+                                    )}
                                     {/* Individual Player Scores */}
+                                    {showAllCols && (
                                     <td style={{ textAlign: 'center' }}>
                                         {sess.stakeholder_map_completed
                                             ? scoreBadge(sess.stakeholder_map_accuracy, 100)
                                             : <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
                                         }
                                     </td>
+                                    )}
+                                    {showAllCols && (
                                     <td style={{ textAlign: 'center' }}>
                                         {sess.csrd_completed
                                             ? scoreBadge(sess.materiality_accuracy, 100)
                                             : <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
                                         }
                                     </td>
+                                    )}
+                                    {showAllCols && (
                                     <td style={{ textAlign: 'center' }}>
                                         {sess.learning_bonus_count > 0 ? (
                                             <span style={{
@@ -251,16 +380,21 @@ export default function LeaderboardMatrix({
                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
                                         )}
                                     </td>
+                                    )}
+                                    {showAllCols && (
                                     <td>
                                         <div className={`${styles.heatCell} ${riskColor(sess.avg_natural_capital_debt)}`}>
                                             {sess.avg_natural_capital_debt.toFixed(1)}
                                         </div>
                                     </td>
+                                    )}
+                                    {showAllCols && (
                                     <td>
                                         <div className={`${styles.heatCell} ${riskColor(sess.avg_social_license, true)}`}>
                                             {sess.avg_social_license.toFixed(1)}
                                         </div>
                                     </td>
+                                    )}
                                     <td>
                                         {sess.talent_flight_risk ? (
                                             <span className={styles.flightRisk}>
@@ -270,6 +404,7 @@ export default function LeaderboardMatrix({
                                             <span className={styles.safe}>✓ Safe</span>
                                         )}
                                     </td>
+                                    {showAllCols && (
                                     <td>
                                         {sess.shadow_board_archetype ? (
                                             <span
@@ -305,6 +440,7 @@ export default function LeaderboardMatrix({
                                             <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>–</span>
                                         )}
                                     </td>
+                                    )}
                                     <td>
                                         {isCohort ? (
                                             <button
@@ -353,8 +489,15 @@ export default function LeaderboardMatrix({
                         })}
                         {leaderboard.length === 0 && (
                             <tr>
-                                <td colSpan={18} className={styles.empty}>
+                                <td colSpan={showAllCols ? 18 : 11} className={styles.empty}>
                                     No active sessions. Start a simulation to see the leaderboard.
+                                </td>
+                            </tr>
+                        )}
+                        {leaderboard.length > 0 && displayRows.length === 0 && (
+                            <tr>
+                                <td colSpan={showAllCols ? 18 : 11} className={styles.empty}>
+                                    No cohorts or players match “{query}”.
                                 </td>
                             </tr>
                         )}
