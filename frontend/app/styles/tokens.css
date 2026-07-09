@@ -72,3 +72,18 @@
     --motion-stage: 260ms;
     --motion-ease:  cubic-bezier(0.2, 0, 0, 1);
 }
+
+
+/* ── Phase E: reduced-motion pass ────────────────────────────────────
+   Honours OS-level "reduce motion": collapses every animation/transition
+   (framer-motion springs, heartbeat pulses, the ticker marquee) to an
+   instant state change. Blunt by design — decorative motion has no
+   reduced-motion fallback worth preserving here. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

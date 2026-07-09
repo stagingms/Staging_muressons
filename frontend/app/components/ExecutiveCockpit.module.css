@@ -2234,6 +2234,15 @@
 .terminalTotalValue { font-size: var(--type-title); font-weight: 900; color: var(--accent-gold); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 /* â•â•â• Phase 4.3 â€” RESPONSIVE BREAKPOINTS â•â•â• */
+/* Phase E: laptop refinement (1366×768 projector/laptop class) — between
+   full desktop and the 1200px wrap, give the canvas more room by slimming
+   both rails; percentages keep the 3-column arrangement intact. */
+@media (max-width: 1440px) and (min-width: 1201px) {
+  .leftSidebar { width: 21%; }
+  .centerConsole { width: 57%; }
+  .rightSidebar { width: 22%; }
+}
+
 @media (max-width: 1200px) {
   .mainContent { flex-wrap: wrap; }
   .leftSidebar { width: 100%; height: auto; max-height: 180px; flex-direction: row; flex-wrap: wrap; overflow-x: auto; border-right: none; border-bottom: 1px solid rgba(0,229,195,0.08); }

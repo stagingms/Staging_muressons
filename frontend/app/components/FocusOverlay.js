@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './FocusOverlay.module.css';
 
@@ -35,6 +35,14 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
   const currentIdx = steps.indexOf(step);
   const canGoBack = currentIdx > 0 && step !== 'results';
 
+  // Phase E (a11y): when the stage changes, move keyboard/screen-reader
+  // focus to the stage heading so the flow is navigable without a mouse
+  // and each step announces itself.
+  const headingRef = useRef(null);
+  useEffect(() => {
+    if (isOpen && step) headingRef.current?.focus();
+  }, [isOpen, step]);
+
   // Escape key to dismiss
   useEffect(() => {
     if (!isOpen) return;
@@ -59,8 +67,8 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
               ← Back
             </button>
           )}
-          <span className={styles.stepIcon}>{STEP_META[step]?.icon}</span>
-          <span className={styles.stepLabel}>{STEP_META[step]?.label}</span>
+          <span className={styles.stepIcon} aria-hidden="true">{STEP_META[step]?.icon}</span>
+          <span className={styles.stepLabel} ref={headingRef} tabIndex={-1} role="heading" aria-level={2}>{STEP_META[step]?.label}</span>
           <span className={styles.stepBadge}>
             Step {currentIdx + 1} / {steps.length}
           </span>
@@ -118,6 +126,8 @@ export default function FocusOverlay({ isOpen, step, steps, onClose, onBack, onR
           {isOpen && step && (
             <motion.div
               className={`${styles.panel} ${styles.panelInline}`}
+              role="region"
+              aria-label={`Decision canvas — ${STEP_META[step]?.label || 'round flow'}`}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}

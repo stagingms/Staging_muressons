@@ -902,3 +902,21 @@
   width: auto;
   box-shadow: var(--elevation-card);
 }
+
+
+/* ── Phase E (F-P4): KPI de-duplication in the Decision Canvas ─────────
+   The inline canvas renders INSIDE the 3-column layout where the real KPI
+   panel is always visible (full column on desktop, horizontal strip under
+   1200px, stacked band under 768px) — so the compact KPIStrip inside the
+   step content would be the same numbers twice. The takeover variant keeps
+   its strip: there, no panels are visible. */
+.panelInline .kpiStrip {
+  display: none;
+}
+
+/* Phase E: canvas margins tighten on small screens */
+@media (max-width: 768px) {
+  .panelInline {
+    margin: 4px 4px 8px;
+  }
+}
