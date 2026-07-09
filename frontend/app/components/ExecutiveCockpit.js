@@ -189,6 +189,12 @@ export default function ExecutiveCockpit({
   // Logout confirmation (2-click to prevent accidents)
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState('mailbox');
+  // Phase C (F-P2/F-P4): the context rail's tab CONTENT is collapsed by
+  // default — the tab strip itself stays visible as badge tabs (unread
+  // counts, pending markers), and nothing required to complete a turn lives
+  // inside it. Content stays MOUNTED (display:none) so child fetch effects
+  // and data flow are byte-identical to the always-open version.
+  const [railExpanded, setRailExpanded] = useState(false);
   const [leftPanelTab, setLeftPanelTab] = useState('kpis'); // 'kpis' | 'charts' | 'metrics'
   const [hoveredOption, setHoveredOption] = useState(null); // Phase 4.6: What-If shadow
   const [showKeyboardHelp, setShowKeyboardHelp] = useState(false); // #8: Keyboard cheatsheet
@@ -2213,7 +2219,7 @@ export default function ExecutiveCockpit({
           )}
 
           {/* Executive Mailbox / Decision History (tabbed) */}
-          <div className={styles.rightMailbox}>
+          <div className={styles.rightMailbox} style={{ flex: railExpanded ? undefined : '0 0 auto', minHeight: railExpanded ? undefined : 0 }}>
             {/* Sticky Tab Header */}
             <div style={{
               position: 'sticky', top: 0, zIndex: 10,
@@ -2231,7 +2237,12 @@ export default function ExecutiveCockpit({
                 return (
                   <button
                     key={tab.id}
-                    onClick={() => setRightPanelTab(tab.id)}
+                    onClick={() => {
+                      if (!railExpanded) { setRightPanelTab(tab.id); setRailExpanded(true); }
+                      else if (rightPanelTab === tab.id) setRailExpanded(false);
+                      else setRightPanelTab(tab.id);
+                    }}
+                    title={railExpanded && rightPanelTab === tab.id ? 'Collapse panel' : `Open ${tab.id}`}
                     style={{
                       flex: 1, padding: '8px 6px', cursor: 'pointer',
                       fontSize: '0.66rem', fontWeight: isActive ? 800 : 600, textTransform: 'uppercase',
@@ -2263,10 +2274,22 @@ export default function ExecutiveCockpit({
                   </button>
                 );
               })}
+              <button
+                onClick={() => setRailExpanded(e => !e)}
+                title={railExpanded ? 'Collapse panel' : 'Expand panel'}
+                aria-expanded={railExpanded}
+                style={{
+                  flex: '0 0 auto', width: 26, border: 'none', cursor: 'pointer',
+                  background: 'transparent', color: 'var(--neutral, #64748b)',
+                  fontSize: '0.7rem', fontWeight: 800,
+                }}
+              >
+                {railExpanded ? '▾' : '▸'}
+              </button>
             </div>
 
             {/* Tab Content */}
-            <div key={rightPanelTab} className={styles.tabContentEnter} style={{ padding: '8px 12px', overflowY: 'auto', flex: 1 }}>
+            <div key={rightPanelTab} className={styles.tabContentEnter} style={{ padding: '8px 12px', overflowY: 'auto', flex: 1, display: railExpanded ? undefined : 'none' }}>
               {rightPanelTab === 'mailbox' ? (
                 <>
                   <div className={styles.mailboxTitle}>

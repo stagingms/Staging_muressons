@@ -17,6 +17,104 @@ import CFOOverrideModal from './components/CFOOverrideModal';
 import { OVERLAY_PRIORITY } from './components/overlayPriority';
 
 const FullScreenLoader = () => <div style={{position: 'fixed', inset: 0, background: '#080c18', zIndex: 20000}}></div>;
+
+/* Phase C (player redesign): the ten always-visible launcher pills collapse
+   into one ⋯ More menu. Every handler is passed through UNCHANGED — this is
+   pure chrome. Escalation rights preserved: flow-relevant items (Side Tracks
+   when they block the main round) stay inline with their pulse; keyboard
+   shortcuts (A, ?) remain globally bound and are shown in the menu. */
+function PlayerUtilityDock({ inlineItems = [], menuItems = [] }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
+  const pill = {
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+    padding: '4px 10px', borderRadius: 'var(--radius-chip)',
+    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+    cursor: 'pointer', color: '#e2e8f0',
+    transition: 'transform 0.15s, background 0.15s',
+  };
+
+  return (
+    <div style={{
+      position: 'relative', display: 'flex', flexWrap: 'wrap',
+      justifyContent: 'center', alignItems: 'center', gap: 6,
+      width: '100%', padding: '6px', fontFamily: 'Inter, sans-serif',
+    }}>
+      {inlineItems.map(btn => (
+        <button
+          key={btn.label}
+          onClick={btn.onClick}
+          title={btn.label}
+          style={{
+            ...pill,
+            background: btn.highlight ? 'rgba(245,158,11,0.15)' : pill.background,
+            border: btn.highlight ? '1px solid rgba(245,158,11,0.5)' : pill.border,
+            color: btn.highlight ? 'var(--caution)' : pill.color,
+            animation: btn.highlight ? 'pulse 2s infinite' : 'none',
+          }}
+        >
+          <span style={{ fontSize: '0.85rem' }}>{btn.icon}</span>
+          <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase' }}>{btn.label}</span>
+        </button>
+      ))}
+
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        title="More tools (Podcast, Leaderboard, Badges, Advisor, Analytics…)"
+        style={{ ...pill, fontWeight: 800 }}
+      >
+        <span style={{ fontSize: '0.85rem' }}>⋯</span>
+        <span style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase' }}>More</span>
+      </button>
+
+      {open && (
+        <>
+          <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: OVERLAY_PRIORITY.DROPDOWN }} />
+          <div
+            role="menu"
+            style={{
+              position: 'absolute', bottom: 'calc(100% + 8px)', left: '50%', transform: 'translateX(-50%)',
+              zIndex: OVERLAY_PRIORITY.DROPDOWN, minWidth: 200,
+              background: 'var(--bg-card, #0f172a)', border: '1px solid var(--border-subtle, #334155)',
+              borderRadius: 'var(--radius-card)', boxShadow: 'var(--elevation-overlay)',
+              padding: 6, display: 'flex', flexDirection: 'column', gap: 2,
+            }}
+          >
+            {menuItems.map(item => (
+              <button
+                key={item.label}
+                role="menuitem"
+                onClick={() => { item.onClick(); if (!item.keepOpen) setOpen(false); }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px',
+                  borderRadius: 'var(--radius-chip)', background: 'transparent', border: 'none',
+                  cursor: 'pointer', color: '#e2e8f0', textAlign: 'left', width: '100%',
+                }}
+                onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.07)'; }}
+                onMouseOut={e => { e.currentTarget.style.background = 'transparent'; }}
+              >
+                <span style={{ width: 18, textAlign: 'center' }}>{item.icon}</span>
+                <span style={{ flex: 1, fontSize: '0.78rem', fontWeight: 600 }}>{item.label}</span>
+                {item.shortcut && (
+                  <code style={{ fontSize: '0.62rem', color: 'var(--neutral)', border: '1px solid rgba(148,163,184,0.25)', borderRadius: 4, padding: '0 4px' }}>{item.shortcut}</code>
+                )}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 const DoubleMaterialityMatrix = dynamic(() => import('./components/DoubleMaterialityMatrix'), { ssr: false });
 const JoinCohortModal = dynamic(() => import('./components/JoinCohortModal'), { ssr: false, loading: FullScreenLoader });
 const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptModal'), { ssr: false, loading: FullScreenLoader });
@@ -1266,49 +1364,29 @@ export default function CockpitPage() {
         decisionParadigm={decisionParadigm}
         actionToolbar={
           sim.sessionId && !sim.gameOver ? (
-            <div style={{
-              display: 'flex', flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', gap: 6,
-              fontFamily: 'Inter, sans-serif', width: '100%', padding: '6px',
-            }}>
-              {[
-                { icon: '🎧', label: 'Podcast', shortcut: null, onClick: () => setShowPodcast(true) },
-                { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
+            <PlayerUtilityDock
+              inlineItems={[
+                // Escalation rights: Side Tracks can BLOCK the main round —
+                // it stays inline (with its pulse) rather than in the menu.
                 ...(sideTrackInfo && sideTrackInfo.count > 0 ? [{
-                  icon: '🛤️', label: sideTrackInfo.unlocked > 0 ? `Tracks (${sideTrackInfo.unlocked})` : 'Tracks', shortcut: null,
+                  icon: '🛤️', label: sideTrackInfo.unlocked > 0 ? `Tracks (${sideTrackInfo.unlocked})` : 'Tracks',
                   onClick: () => setSideTracksOpen(true),
                   highlight: sideTrackInfo.mainBlocked,
                 }] : []),
+              ]}
+              menuItems={[
+                { icon: '🎧', label: 'Podcast', shortcut: null, onClick: () => setShowPodcast(true) },
+                { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
                 { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
                 { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
                 { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
                 { icon: '🌐', label: 'SDG Radar', shortcut: null, onClick: () => setSdgRadarOpen(true) },
                 ...(decisionParadigm === 'brsr_ngrbc' ? [{ icon: '🇮🇳', label: 'BRSR', shortcut: null, onClick: () => setBrsrDashboardOpen(true) }] : []),
                 { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
-                { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound' : 'Muted', shortcut: null, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
-                { icon: '👋', label: 'Log Out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
-              ].map(btn => (
-                <button
-                  key={btn.label}
-                  onClick={btn.onClick}
-                  title={btn.shortcut ? `${btn.label} (${btn.shortcut})` : btn.label}
-                  style={{
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-                    padding: '4px 8px', borderRadius: 10,
-                    background: btn.highlight ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)',
-                    border: btn.highlight ? '1px solid rgba(245,158,11,0.5)' : '1px solid rgba(255,255,255,0.1)',
-                    cursor: 'pointer',
-                    transition: 'transform 0.15s, background 0.15s',
-                    color: btn.highlight ? '#f59e0b' : '#e2e8f0',
-                    animation: btn.highlight ? 'pulse 2s infinite' : 'none',
-                  }}
-                  onMouseOver={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; }}
-                  onMouseOut={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)'; }}
-                >
-                  <span style={{ fontSize: '0.85rem' }}>{btn.icon}</span>
-                  <span style={{ fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.02em', textTransform: 'uppercase' }}>{btn.label}</span>
-                </button>
-              ))}
-            </div>
+                { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound on' : 'Muted', shortcut: null, keepOpen: true, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
+                { icon: '👋', label: 'Log out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
+              ]}
+            />
           ) : null
         }
         roundChecklist={
