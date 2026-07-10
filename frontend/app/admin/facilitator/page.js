@@ -1347,6 +1347,25 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                             <span>Shockwave Console ↗</span>
                         </a>
                     )}
+                    {/* W-E (W7): Region War-Map projector — read-only view of the
+                        existing leaderboard; the page has its own ON/OFF switch,
+                        so the link needs no capability flag. */}
+                    <a
+                        href="/admin/war-map"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.navItem}
+                        data-tooltip="Project the live situation map — teams by region, crisis pulses, R5 cyclone track. Read-only."
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
+                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
+                            color: '#2dd4bf', fontWeight: 700,
+                            border: '1px solid rgba(45,212,191,0.35)', background: 'rgba(45,212,191,0.08)',
+                        }}
+                    >
+                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🗺️</span>
+                        <span>Region War-Map ↗</span>
+                    </a>
                 </nav>
 
 
