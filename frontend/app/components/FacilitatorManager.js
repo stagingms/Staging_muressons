@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import styles from './FacilitatorManager.module.css';
 import dynamic from 'next/dynamic';
+import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META, resolveVerticalMeta } from '../lib/verticalCatalog';
 
 const CreateCohortModal = dynamic(() => import('./CreateCohortModal'), { ssr: false });
 
@@ -64,6 +65,8 @@ const EMPTY_FORM = {
     buSubstitutions: {},
     startDate: '',
     endDate: '',
+    shockwaveEnabled: true,
+    tradingFloorEnabled: true,   // Feature 1: Trading-Floor finale console capability
     notes: '',
     createdBy: '',
     dateCreated: new Date().toISOString().slice(0, 10),
@@ -403,6 +406,11 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
             notes: fac.notes || '',
             role: fac.role || (fac.is_admin ? 'super_admin' : 'facilitator'),
             permissions: fac.permissions || { ...EMPTY_FORM.permissions },
+            // Console capabilities — hydrate from the record. (Pre-existing
+            // bug fixed here: shockwaveEnabled was NOT hydrated on edit, so
+            // saving any edit silently re-enabled Shockwave.)
+            shockwaveEnabled: fac.shockwave_enabled !== false,
+            tradingFloorEnabled: fac.trading_floor_enabled !== false,
         });
         setDrawerMode('edit');
         setEditingFacId(fac.facilitator_id);
@@ -462,6 +470,8 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 created_by: form.createdBy.trim(),
                 date_created: form.dateCreated,
                 role: form.role,
+                shockwave_enabled: form.shockwaveEnabled !== false,  // Feature 6 capability
+                trading_floor_enabled: form.tradingFloorEnabled !== false,  // Feature 1 capability
             };
 
             const getAuthHeaders = () => {
@@ -634,12 +644,16 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
         setDeleteModal(null);
         setDeleteConfirmInput('');
         try {
-            const res = await fetch(`${API}/api/admin/facilitators/${facId}`, { method: 'DELETE' });
+            const res = await fetch(`${API}/api/admin/facilitators/${facId}`, {
+                method: 'DELETE',
+                credentials: 'include',
+            });
             if (res.ok) {
                 setFacilitators(prev => prev.filter(f => f.facilitator_id !== facId));
                 showToast(`Deleted ${facId}`);
             } else {
-                showToast('Delete failed', 'error');
+                const err = await res.json().catch(() => ({}));
+                showToast(`Delete failed: ${err.detail || res.status}`, 'error');
             }
         } catch {
             showToast('Delete failed: network error', 'error');
@@ -743,7 +757,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 <span className={styles.stepIcon}>👤</span>
                 <div>
                     <h4 className={styles.stepTitle}>Facilitator Identity</h4>
-                    <p className={styles.stepDesc}>Enter the facilitator's personal details. A unique ID (FAC-XXX) and default password will be auto-generated.</p>
+                    <p className={styles.stepDesc}>Enter the facilitator&apos;s personal details. A unique ID (FAC-XXX) and default password will be auto-generated.</p>
                 </div>
             </div>
 
@@ -1095,6 +1109,34 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         </div>
                     </div>
 
+                    {/* Feature 6: per-facilitator Shockwave capability */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)' }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🌊 Shockwave detonation</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to trigger synchronized cohort-wide crisis events.</div>
+                        </div>
+                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.shockwaveEnabled !== false ? '#ef4444' : '#8899a6' }}>{form.shockwaveEnabled !== false ? 'ON' : 'OFF'}</span>
+                            <span onClick={() => updateForm('shockwaveEnabled', !(form.shockwaveEnabled !== false))} style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, background: form.shockwaveEnabled !== false ? '#ef4444' : 'rgba(148,163,184,0.3)', transition: 'background 0.2s', display: 'inline-block' }}>
+                                <span style={{ position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', transform: form.shockwaveEnabled !== false ? 'translateX(20px)' : 'translateX(0)' }} />
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* Feature 1: per-facilitator Trading-Floor finale capability */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.06)' }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🔔 Trading-Floor finale</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to open the projector market board and ring the closing bell.</div>
+                        </div>
+                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.tradingFloorEnabled !== false ? '#f59e0b' : '#8899a6' }}>{form.tradingFloorEnabled !== false ? 'ON' : 'OFF'}</span>
+                            <span onClick={() => updateForm('tradingFloorEnabled', !(form.tradingFloorEnabled !== false))} style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, background: form.tradingFloorEnabled !== false ? '#f59e0b' : 'rgba(148,163,184,0.3)', transition: 'background 0.2s', display: 'inline-block' }}>
+                                <span style={{ position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', transform: form.tradingFloorEnabled !== false ? 'translateX(20px)' : 'translateX(0)' }} />
+                            </span>
+                        </label>
+                    </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
                         {/* Simulation Mode */}
                         <div className={styles.formGroup}>
@@ -1119,15 +1161,11 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                     onChange={e => {
                                         const vertical = e.target.value;
                                         updateForm('industryVertical', vertical);
-                                        // Also set default BU substitution
+                                        // Auto-set buSubstitutions: only for non-default verticals
                                         if (vertical) {
-                                            let subs = {};
-                                            if (vertical === 'oil_gas') subs = { pharma: 'oil_gas' };
-                                            else if (vertical === 'technology') subs = { software: 'technology' };
-                                            else if (vertical === 'banking_financial_services') subs = { software: 'banking_financial_services' };
-                                            else if (vertical === 'retail_fmcg') subs = { consumer_goods: 'retail_fmcg' };
-                                            else if (vertical === 'agriculture') subs = { agriculture: 'agriculture' };
-                                            updateForm('buSubstitutions', subs);
+                                            const slot = VERTICAL_SLOT_MAP[vertical];
+                                            const isDefault = VERTICAL_CATALOG.find(v => v.id === vertical)?.isDefault;
+                                            updateForm('buSubstitutions', isDefault ? {} : (slot ? { [slot]: vertical } : {}));
                                         } else {
                                             updateForm('buSubstitutions', {});
                                         }
@@ -1135,45 +1173,51 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                     required
                                 >
                                     <option value="">-- Select Industry --</option>
-                                    <option value="agriculture">🌾 Agriculture</option>
-                                    <option value="banking_financial_services">🏦 Banking & Finance</option>
-                                    <option value="oil_gas">⛽ Oil & Gas</option>
-                                <option value="retail_fmcg">🛒 Retail / FMCG</option>
-                                <option value="technology">💻 Technology</option>
-                                <option value="pharma">💊 Pharma / Healthcare</option>
-                            </select>
-                        </div>
-                    )}
-                </div>
-
-                {/* Side Tracks Checkboxes */}
-                <div style={{ marginTop: '1.25rem' }}>
-                    <label className={styles.formLabel} style={{ marginBottom: '0.4rem' }}>Default Side Tracks</label>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
-                        {sideTrackCatalog.map(track => {
-                            const isChecked = form.sideTracks.includes(track.track_id);
-                            return (
-                                <label key={track.track_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)' }}>
-                                    <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={() => {
-                                            if (isChecked) {
-                                                updateForm('sideTracks', form.sideTracks.filter(id => id !== track.track_id));
-                                            } else {
-                                                updateForm('sideTracks', [...form.sideTracks, track.track_id]);
-                                            }
-                                        }}
-                                    />
-                                    <span>{track.icon || '📦'} {track.display_name || track.track_id}</span>
-                                </label>
-                            );
-                        })}
-                        {sideTrackCatalog.length === 0 && (
-                            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Loading side tracks...</span>
+                                    {SLOT_META.map(sm => {
+                                        const entries = VERTICAL_CATALOG.filter(v => v.slot === sm.slot);
+                                        return (
+                                            <optgroup key={sm.slot} label={`${sm.icon} ${sm.label} slot`}>
+                                                {entries.map(v => (
+                                                    <option key={v.id} value={v.id}>
+                                                        {v.icon} {v.label}{v.isDefault ? '' : ' ↔'}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        );
+                                    })}
+                                </select>
+                            </div>
                         )}
                     </div>
-                </div>
+
+                    {/* Side Tracks Checkboxes */}
+                    <div style={{ marginTop: '1.25rem' }}>
+                        <label className={styles.formLabel} style={{ marginBottom: '0.4rem' }}>Default Side Tracks</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.4rem' }}>
+                            {sideTrackCatalog.map(track => {
+                                const isChecked = form.sideTracks.includes(track.track_id);
+                                return (
+                                    <label key={track.track_id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-secondary)', cursor: 'pointer', background: 'rgba(255,255,255,0.02)', padding: '0.4rem 0.6rem', borderRadius: '6px', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <input
+                                            type="checkbox"
+                                            checked={isChecked}
+                                            onChange={() => {
+                                                if (isChecked) {
+                                                    updateForm('sideTracks', form.sideTracks.filter(id => id !== track.track_id));
+                                                } else {
+                                                    updateForm('sideTracks', [...form.sideTracks, track.track_id]);
+                                                }
+                                            }}
+                                        />
+                                        <span>{track.icon || '📦'} {track.display_name || track.track_id}</span>
+                                    </label>
+                                );
+                            })}
+                            {sideTrackCatalog.length === 0 && (
+                                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Loading side tracks...</span>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
 
@@ -1272,7 +1316,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             <div className={styles.reviewItem}>
                                 <span className={styles.reviewKey}>Simulation Mode</span>
                                 <span className={styles.reviewValue}>
-                                    {form.simulationMode === 'single_bu' ? `🏭 Single BU (${form.industryVertical})` : '🏢 Conglomerate'}
+                                    {form.simulationMode === 'single_bu' ? `🏭 Single BU (${resolveVerticalMeta(form.industryVertical).icon} ${resolveVerticalMeta(form.industryVertical).label})` : '🏢 Conglomerate'}
                                 </span>
                             </div>
                             <div className={styles.reviewItem}>
@@ -1447,13 +1491,9 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                     const vertical = e.target.value;
                                     updateForm('industryVertical', vertical);
                                     if (vertical) {
-                                        let subs = {};
-                                        if (vertical === 'oil_gas') subs = { pharma: 'oil_gas' };
-                                        else if (vertical === 'technology') subs = { software: 'technology' };
-                                        else if (vertical === 'banking_financial_services') subs = { software: 'banking_financial_services' };
-                                        else if (vertical === 'retail_fmcg') subs = { consumer_goods: 'retail_fmcg' };
-                                        else if (vertical === 'agriculture') subs = { agriculture: 'agriculture' };
-                                        updateForm('buSubstitutions', subs);
+                                        const slot = VERTICAL_SLOT_MAP[vertical];
+                                        const isDefault = VERTICAL_CATALOG.find(v => v.id === vertical)?.isDefault;
+                                        updateForm('buSubstitutions', isDefault ? {} : (slot ? { [slot]: vertical } : {}));
                                     } else {
                                         updateForm('buSubstitutions', {});
                                     }
@@ -1461,15 +1501,22 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                 required
                             >
                                 <option value="">-- Select Industry --</option>
-                                <option value="agriculture">🌾 Agriculture</option>
-                                <option value="banking_financial_services">🏦 Banking & Finance</option>
-                                <option value="oil_gas">⛽ Oil & Gas</option>
-                                <option value="retail_fmcg">🛒 Retail / FMCG</option>
-                                <option value="technology">💻 Technology</option>
-                                <option value="pharma">💊 Pharma / Healthcare</option>
+                                {SLOT_META.map(sm => {
+                                    const entries = VERTICAL_CATALOG.filter(v => v.slot === sm.slot);
+                                    return (
+                                        <optgroup key={sm.slot} label={`${sm.icon} ${sm.label} slot`}>
+                                            {entries.map(v => (
+                                                <option key={v.id} value={v.id}>
+                                                    {v.icon} {v.label}{v.isDefault ? '' : ' ↔'}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    );
+                                })}
                             </select>
                         </div>
                     )}
+
                 </div>
 
                 {/* Edit Side Tracks */}

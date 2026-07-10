@@ -269,13 +269,15 @@ def require_facilitator(role: str = Depends(get_fac_role)):
 
 
 def _generate_temp_password() -> tuple[str, str]:
-    """Generate a random 12-char alphanumeric password for newly created facilitators.
+    """Return the fixed default password for newly registered players.
+
+    All players are created with the well-known default password 'Muressons123'.
+    must_change_password=True is always set alongside this, so the player is
+    forced to pick a personal password on first login before accessing the sim.
+
     Returns (plaintext, hashed) — store the hash, show the plaintext to admin once.
-    LOW-003: Uses secrets module and bcrypt hashing."""
-    import secrets as _s
-    import string as _str
-    alphabet = _str.ascii_letters + _str.digits
-    plaintext = ''.join(_s.choice(alphabet) for _ in range(12))
+    """
+    plaintext = "Muressons123"
     hashed = hash_password(plaintext)
     return plaintext, hashed
 
@@ -308,6 +310,8 @@ from admin_shared import (
     get_role, has_role_level, get_allowed_tabs, can_access_tab, owns_session,
     # SEC-1: token-version revocation kill-switch
     get_token_version, bump_token_version,
+    # Shared marketplace (used by cascade delete cleanup)
+    _cohort_marketplaces,
 )
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin \u2014 God Mode"])
@@ -338,6 +342,8 @@ class FacilitatorCreateRequest(BaseModel):
     created_by: str | None = Field(None, max_length=100)
     date_created: str | None = None
     role: str = "facilitator"
+    shockwave_enabled: bool = True   # Feature 6: allow this facilitator to detonate synchronized shockwaves
+    trading_floor_enabled: bool = True   # Feature 1: allow this facilitator to run the Trading-Floor finale console
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -359,6 +365,8 @@ class FacilitatorUpdateRequest(BaseModel):
     date_created: str | None = None
     role: str | None = None
     is_admin: bool | None = None
+    shockwave_enabled: bool | None = None   # Feature 6 per-facilitator capability
+    trading_floor_enabled: bool | None = None   # Feature 1 per-facilitator capability
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
@@ -381,6 +389,7 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
     s = get_effective_settings(session_id)
     return {
         "simulation_mode": s.get("simulation_mode", "standard"),
+        "front_page_enabled": s.get("front_page_enabled", True),  # Feature 5 toggle (player-readable)
         "global_carbon_fee": s.get("global_carbon_fee", 40),
         "market_hostility_index": s.get("market_hostility_index", 5),
         "scope_3_threshold": s.get("scope_3_threshold", 2.5),
@@ -500,6 +509,7 @@ class GlobalSettingsPatch(BaseModel):
     round_recap_enabled: bool | None = None
     real_world_cards_enabled: bool | None = None
     real_world_cards_teleprompter: bool | None = None
+    front_page_enabled: bool | None = None  # Feature 5: Year-5 front page reveal
     debrief_protocol_enabled: bool | None = None
     self_learning_mode: bool | None = None
     flag_diagram_enabled: bool | None = None
@@ -1324,6 +1334,8 @@ async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depen
             "role": role,
             "is_admin": role == "super_admin",
             "enabled": True,
+            "shockwave_enabled": req.shockwave_enabled if req.shockwave_enabled is not None else True,  # Feature 6
+            "trading_floor_enabled": req.trading_floor_enabled if req.trading_floor_enabled is not None else True,  # Feature 1
             "permissions": req.permissions or default_perms,
             "created_by": req.created_by or "",
             "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -1426,26 +1438,77 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: No
 
 
 @admin_router.delete("/facilitators/{fac_id}", summary="Delete a facilitator")
-async def delete_facilitator(fac_id: str, hard: bool = False, _guard: None = Depends(require_super_admin)):
+async def delete_facilitator(
+    fac_id: str,
+    hard: bool = False,
+    _guard: None = Depends(require_super_admin),
+):
+    """Delete a facilitator account and cascade-delete all cohorts they own.
+
+    Soft delete (default, hard=False):
+      - Stamps deleted_at on the facilitator record.
+      - Soft-deletes every top-level cohort the facilitator owns (and their
+        child player-sessions) via _cascade_delete_session(hard=False).
+      - Bumps the facilitator's JWT token version so their active session
+        cookie is immediately invalidated.
+
+    Hard delete (hard=True):
+      - Permanently removes the facilitator record from the JSON registry.
+      - Hard-deletes every top-level cohort they own (full DB + memory cleanup).
+      - Bumps the JWT token version to revoke any outstanding session.
+
+    Returns: { status, facilitator_id, hard, sessions_deleted, players_removed }
+    """
     global _facilitator_registry
+
+    # Resolve the facilitator record first (needed by both branches)
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, f"Facilitator {fac_id} not found")
+
+    # ── Cascade: delete all top-level cohorts owned by this facilitator ──
+    owned_sessions = await db.fetch_sessions_by_facilitator(fac_id)
+    total_sessions_deleted = 0
+    total_players_removed = 0
+    for sess in owned_sessions:
+        result = await _cascade_delete_session(sess["session_id"], hard=hard)
+        total_sessions_deleted += result["sessions_deleted"]
+        total_players_removed += result["players_removed"]
+        # Broadcast each deleted session so the admin dashboard updates live
+        await manager.broadcast_admin({
+            "type": "session_deleted",
+            "session_id": sess["session_id"],
+        })
+
+    # ── Immediately revoke outstanding JWT tokens for this facilitator ───
+    bump_token_version(fac_id)
+
+    # ── Remove / soft-delete the facilitator record ──────────────────────
     if hard:
-        before = len(_facilitator_registry)
-        # BUG-05 FIX: Find the fac first so we
-        # can decrement the parent facilitator's cohort count if needed
-        fac_being_deleted = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
         _facilitator_registry[:] = [f for f in _facilitator_registry if f["facilitator_id"] != fac_id]
-        if len(_facilitator_registry) == before:
-            raise HTTPException(404, f"Facilitator {fac_id} not found")
-        # Reset the cohort count since the facilitator is permanently gone
-        # (any future recreated account starts fresh)
     else:
-        fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
-        if not fac:
-            raise HTTPException(404, f"Facilitator {fac_id} not found")
         fac["deleted_at"] = datetime.now(timezone.utc).isoformat()
-        
+
     _persist_facilitators()
-    return {"status": "deleted", "facilitator_id": fac_id}
+
+    _audit(
+        "facilitator_deleted",
+        actor="god_mode",
+        details={
+            "facilitator_id": fac_id,
+            "hard": hard,
+            "sessions_deleted": total_sessions_deleted,
+            "players_removed": total_players_removed,
+        },
+    )
+
+    return {
+        "status": "deleted",
+        "facilitator_id": fac_id,
+        "hard": hard,
+        "sessions_deleted": total_sessions_deleted,
+        "players_removed": total_players_removed,
+    }
 
 
 @admin_router.post("/facilitators/login", summary="Facilitator login")
@@ -1533,6 +1596,10 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         "role": role,
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
+        # Live-console capabilities (display-safe booleans; the server-side
+        # gates on ring-bell/shockwave remain authoritative)
+        "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
+        "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
     }
 
 
@@ -1655,6 +1722,8 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "is_admin": role == "super_admin",
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
+        "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
+        "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
     }
 
 
@@ -2820,33 +2889,152 @@ async def clear_all_players(_guard: None = Depends(require_super_admin)):
     return {"status": "cleared", "players_removed": count}
 
 
-@admin_router.delete("/sessions/{session_id}", summary="Delete a session/cohort")
-async def delete_session(session_id: str, hard: bool = False, _guard: None = Depends(require_super_admin)):
-    """Remove a session and all associated players from the registry."""
-    global _player_registry
-    deleted = await db.delete_session(session_id, hard=hard)
-    if not deleted:
-        raise HTTPException(404, "Session not found")
-        
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CASCADE DELETE HELPER
+# Centralises full cleanup of one cohort (session) and everything under it.
+# Both the DELETE /sessions/{id} endpoint and the facilitator-delete cascade
+# call this so the logic is never duplicated.
+# ─────────────────────────────────────────────────────────────────────────────
+
+async def _cascade_delete_session(session_id: str, hard: bool = False) -> dict:
+    """Full cascade delete/soft-delete of one cohort and every child session.
+
+    Soft delete (hard=False):
+      - Stamps deleted_at on the cohort and each child player session in DB.
+      - Marks matching _player_registry entries with deleted_at.
+      - All in-memory admin data is LEFT in place (it is keyed by session_id
+        and the session still exists in the DB; it will be repopulated on
+        next access if the session is un-deleted).
+
+    Hard delete (hard=True):
+      - Permanently removes cohort + child sessions from DB (with explicit
+        child-table cascade and immutability trigger disable via db.delete_session).
+      - Removes ALL matching _player_registry entries.
+      - Purges all in-memory admin data for the cohort and children:
+          _session_messages, _session_interventions, _practice_mode,
+          _round_pacing, _facilitator_notes, _student_bonuses,
+          _peer_evaluations, _annotations, cohort_settings,
+          _cohort_marketplaces, _session_players.
+
+    Returns {"sessions_deleted": N, "players_removed": M}.
+    """
+    from router import _session_players
+
+    # Resolve all session IDs to clean up (parent + children)
     children = await db.get_child_sessions(session_id)
-    for child in children:
-        await db.delete_session(child["session_id"], hard=hard)
-        
-    # Remove associated players if hard delete, otherwise soft delete them
+    child_ids = [c["session_id"] for c in children]
+    all_ids = [session_id] + child_ids
+
+    now_str = datetime.now(timezone.utc).isoformat()
+    sessions_deleted = 0
+    players_removed = 0
+
+    # ── DB deletions ──────────────────────────────────────────────────────
+    # Delete children first (they reference parent via parent_cohort_id)
+    for cid in child_ids:
+        ok = await db.delete_session(cid, hard=hard)
+        if ok:
+            sessions_deleted += 1
+
+    # Delete the parent cohort itself
+    ok = await db.delete_session(session_id, hard=hard)
+    if ok:
+        sessions_deleted += 1
+
+    # ── Player registry ───────────────────────────────────────────────────
+    global _player_registry
     if hard:
         before = len(_player_registry)
-        _player_registry[:] = [p for p in _player_registry if p.get("session_id") != session_id]
-        removed_players = before - len(_player_registry)
+        _player_registry[:] = [
+            p for p in _player_registry
+            if p.get("session_id") not in all_ids
+        ]
+        players_removed = before - len(_player_registry)
     else:
-        now_str = datetime.now(timezone.utc).isoformat()
-        removed_players = 0
         for p in _player_registry:
-            if p.get("session_id") == session_id and not p.get("deleted_at"):
+            if p.get("session_id") in all_ids and not p.get("deleted_at"):
                 p["deleted_at"] = now_str
-                removed_players += 1
-                
+                players_removed += 1
+
+    # ── In-memory admin data (hard delete only) ───────────────────────────
+    if hard:
+        def _purge(sid):
+            _session_messages.pop(sid, None)
+            _session_interventions.pop(sid, None)
+            _practice_mode.pop(sid, None)
+            _round_pacing.pop(sid, None)
+            cohort_settings.pop(sid, None)
+            _cohort_marketplaces.pop(sid, None)
+            _session_players.pop(sid, None)
+            # These stores are defined later in the file; use globals() to
+            # avoid forward-reference errors at module parse time.
+            g = globals()
+            for store_name in (
+                "_facilitator_notes", "_student_bonuses",
+                "_peer_evaluations", "_annotations",
+            ):
+                store = g.get(store_name)
+                if isinstance(store, dict):
+                    store.pop(sid, None)
+
+        for sid in all_ids:
+            _purge(sid)
+
+    return {"sessions_deleted": sessions_deleted, "players_removed": players_removed}
+
+
+@admin_router.delete("/sessions/{session_id}", summary="Delete a session/cohort")
+async def delete_session(
+    session_id: str,
+    hard: bool = False,
+    request: Request = None,
+    _guard: None = Depends(require_super_admin),
+):
+    """Remove a cohort and all associated data.
+
+    Soft delete (default, hard=False):
+      Marks the cohort and its child player-sessions as deleted in the DB.
+      Player registry entries are stamped with deleted_at.
+      In-memory admin data is preserved (session still exists in DB).
+
+    Hard delete (hard=True):
+      Permanently removes the cohort, all child player-sessions, all DB rows
+      (global_round_states, bu_round_states, decision_audit_log), all player
+      registry entries, and all in-memory admin data for those sessions.
+
+    Access:
+      super_admin / god_mode: may delete any cohort.
+      lead_facilitator: may only delete cohorts they own.
+    """
+    # Lead facilitators may only delete their own cohorts
+    fac_role = get_fac_role(request) if request else "super_admin"
+    if ROLE_HIERARCHY.get(fac_role, 0) < ROLE_HIERARCHY.get("super_admin", 3):
+        session_info = await db.get_session_info(session_id)
+        if session_info:
+            from auth_jwt import get_facilitator_from_request
+            caller_id = get_facilitator_from_request(request) if request else None
+            if session_info.get("facilitator_id") != caller_id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Access denied: you may only delete your own cohorts",
+                )
+
+    session_info = await db.get_session_info(session_id)
+    if not session_info:
+        raise HTTPException(404, "Session not found")
+
+    result = await _cascade_delete_session(session_id, hard=hard)
+
     await manager.broadcast_admin({"type": "session_deleted", "session_id": session_id})
-    return {"status": "deleted", "session_id": session_id, "players_removed": removed_players}
+    return {
+        "status": "deleted",
+        "session_id": session_id,
+        "hard": hard,
+        "sessions_deleted": result["sessions_deleted"],
+        "players_removed": result["players_removed"],
+    }
 
 
 @admin_router.delete("/players/orphans", summary="Clear orphaned players whose session no longer exists")
@@ -3772,6 +3960,87 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, req
     return {"status": "injected", "event": event_record, "message": message}
 
 
+# ── Feature 6: Synchronized Shockwave ────────────────────────────────────────
+# Preset dramatic events. Same impact model as inject_custom_event (treasury +
+# reputation deltas), applied identically to EVERY team in the cohort so the
+# debrief is a clean comparison of crisis leadership.
+_SHOCKWAVE_EVENTS = {
+    "pandemic":       {"title": "Global Pandemic Shockwave",  "narrative": "A novel pathogen halts supply chains overnight. Every division must respond — now.",        "financial_impact": -6000000, "reputation_impact": -6},
+    "carbon_tax":     {"title": "Emergency Carbon Tax",       "narrative": "Regulators impose an emergency carbon levy, effective immediately. Brown assets bleed cash.", "financial_impact": -5000000, "reputation_impact": -3},
+    "supply_collapse":{"title": "Supply-Chain Collapse",      "narrative": "A critical logistics corridor is severed. Costs spike across the entire group.",             "financial_impact": -4500000, "reputation_impact": -4},
+    "cyber_attack":   {"title": "Coordinated Cyber Attack",   "narrative": "A ransomware wave locks systems sector-wide. Operations stall and trust is shaken.",          "financial_impact": -4000000, "reputation_impact": -7},
+}
+
+
+def _require_console_capability(request: Request, flag: str, label: str) -> None:
+    """Per-facilitator capability gate for the live consoles (Trading Floor /
+    Shockwave). god_mode always passes; the caller is already authenticated by
+    require_facilitator — this only rejects a registry record whose flag was
+    explicitly switched off at facilitator setup."""
+    from auth_jwt import get_facilitator_from_request
+    _fid = get_facilitator_from_request(request)
+    if _fid and _fid != "god_mode":
+        _fac = next((f for f in _facilitator_registry if f.get("facilitator_id") == _fid and not f.get("deleted_at")), None)
+        if _fac is not None and _fac.get(flag, True) is False:
+            raise HTTPException(status_code=403, detail=f"{label} is disabled for your facilitator profile.")
+
+
+@admin_router.post("/{cohort_id}/shockwave", summary="Feature 6: detonate a synchronized black-swan across a cohort")
+async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body(default={}), _guard: None = Depends(require_facilitator)):
+    """Applies an identical black-swan impact (treasury + reputation) to every
+    team in the cohort and broadcasts a dramatic full-screen 'shockwave' alert.
+    Reuses the same impact model as inject_custom_event; deterministic by
+    construction (forced, not rolled). Gated by the caller's per-profile
+    `shockwave_enabled` capability (Feature 6 toggle set at facilitator setup)."""
+    # Per-facilitator capability check (god_mode always allowed).
+    _require_console_capability(request, "shockwave_enabled", "Shockwave")
+
+    event_id = (body or {}).get("event_id", "pandemic")
+    countdown = int((body or {}).get("countdown", 60))
+    ev = _SHOCKWAVE_EVENTS.get(event_id) or _SHOCKWAVE_EVENTS["pandemic"]
+
+    all_sessions = await db.fetch_all_sessions()
+    children = [s["session_id"] for s in all_sessions if s.get("parent_cohort_id") == cohort_id]
+    applied = 0
+    for sid in children:
+        cur = await db.fetch_latest_state(sid)
+        if not cur:
+            continue
+        gs = cur["global_state"]; bus = cur["bu_states"]
+        gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) + ev["financial_impact"], 2)
+        gs["group_reputation"] = max(0, min(100, round(gs.get("group_reputation", 50) + ev["reputation_impact"], 2)))
+        rec = {
+            "type": "shockwave", "event_id": event_id, "title": ev["title"], "narrative": ev["narrative"],
+            "financial_impact": ev["financial_impact"], "reputation_impact": ev["reputation_impact"],
+            "injected_at": datetime.now(timezone.utc).isoformat(),
+        }
+        gs.setdefault("active_event_flags", {})
+        if not isinstance(gs["active_event_flags"], dict):
+            gs["active_event_flags"] = {}
+        sw = gs["active_event_flags"].get("custom_black_swans", [])
+        sw.append(rec)
+        gs["active_event_flags"]["custom_black_swans"] = sw
+        await db.update_latest_global_state(sid, gs, bus)
+        msg = {
+            "id": f"shockwave_{datetime.now(timezone.utc).timestamp():.0f}_{sid[:6]}",
+            "round": cur["round_number"], "type": "crisis", "title": f"🌊 {ev['title']}",
+            "body": ev["narrative"], "read": False, "source": "god_mode",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        _session_messages.setdefault(sid, []).append(msg)
+        applied += 1
+
+    await manager.broadcast_students({
+        "type": "shockwave",
+        "event": {"id": event_id, "title": ev["title"], "narrative": ev["narrative"],
+                  "financial_impact": ev["financial_impact"], "reputation_impact": ev["reputation_impact"]},
+        "countdown": countdown, "cohort_id": cohort_id,
+    })
+    await manager.broadcast_admin({"type": "shockwave_detonated", "cohort_id": cohort_id, "event_id": event_id, "applied": applied})
+    _audit("shockwave_detonated", details={"cohort_id": cohort_id, "event_id": event_id, "applied": applied})
+    return {"status": "detonated", "event_id": event_id, "teams_hit": applied, "event": ev}
+
+
 @admin_router.get(
     "/custom-black-swan-log",
     summary="Get history of all injected custom Black Swan events",
@@ -3970,12 +4239,30 @@ async def auto_inject_scheduled_interventions(
 
 @admin_router.get(
     "/materiality-config",
-    response_model=MaterialityConfig,
     summary="Get the dynamic materiality configuration"
 )
 async def get_materiality_config():
-    """Returns the current materiality issues, interdependencies, and fee."""
-    return mat_db.get_current_config()
+    """
+    Returns the current materiality issues, interdependencies, fee, plus:
+      - panel_group_config: per-group fee/color/label data for the multi-survey UI
+      - panel_recommendations: per-issue, per-group quadrant recommendations
+        (deterministic, bias-aware per ESRS §1.47 group mandates)
+    """
+    from round2_csrd import (
+        ROUND_2_DEFAULT_CONFIG,
+        compute_panel_recommendations,
+    )
+    config = mat_db.get_current_config()
+    issues = config.get("issues", [])
+    panel_group_config = (
+        ROUND_2_DEFAULT_CONFIG["round_2_config"]["stakeholder_panel"].get("groups", {})
+    )
+    panel_recommendations = compute_panel_recommendations(issues)
+    return {
+        **config,
+        "panel_group_config": panel_group_config,
+        "panel_recommendations": panel_recommendations,
+    }
 
 
 @admin_router.put(
@@ -4232,11 +4519,28 @@ async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: No
     summary="Get the BU-specific materiality configuration"
 )
 async def get_bu_materiality_config(bu_id: str):
-    """Returns the materiality issues dictionary for a specific Business Unit."""
+    """
+    Returns the materiality issues dictionary for a specific Business Unit,
+    plus panel_group_config and panel_recommendations (same as global endpoint).
+    """
+    from round2_csrd import (
+        ROUND_2_DEFAULT_CONFIG,
+        compute_panel_recommendations,
+    )
     valid = mat_db.get_bu_ids()
     if bu_id not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid BU ID: {bu_id}. Valid: {valid}")
-    return mat_db.get_bu_config(bu_id)
+    config = mat_db.get_bu_config(bu_id)
+    issues = config.get("issues", [])
+    panel_group_config = (
+        ROUND_2_DEFAULT_CONFIG["round_2_config"]["stakeholder_panel"].get("groups", {})
+    )
+    panel_recommendations = compute_panel_recommendations(issues)
+    return {
+        **config,
+        "panel_group_config": panel_group_config,
+        "panel_recommendations": panel_recommendations,
+    }
 
 
 @admin_router.put(
@@ -4272,6 +4576,7 @@ async def upload_materiality_excel(
     and persists the new config.
     """
     import tempfile, os
+    from pathlib import Path
     from materiality_config_excel import import_materiality_from_excel
 
     # ── MIME / extension check ────────────────────────────────
@@ -4367,6 +4672,7 @@ async def download_materiality_excel(
     config and returns it as a streaming download.
     """
     import tempfile, os
+    from pathlib import Path
     from fastapi.responses import StreamingResponse
     from materiality_config_excel import export_materiality_to_excel
 
@@ -5245,6 +5551,19 @@ async def delete_master_swipe(swipe_id: str, _guard: None = Depends(require_supe
     return {"status": "deleted", "id": swipe_id}
 
 
+def _sanitise_upload_name(filename: str | None) -> str:
+    """Reduce an uploaded filename to a safe bare name on ANY OS.
+
+    CRIT-005: os.path.basename alone does NOT strip Windows-style backslash
+    separators on POSIX hosts (our Docker/Railway target), so we additionally
+    strip '..', both separators, and null bytes explicitly. The caller still
+    performs a realpath containment check as defence-in-depth.
+    """
+    bare_name = os.path.basename(filename or "upload")
+    bare_name = bare_name.replace("..", "").replace("/", "").replace("\\", "").replace("\x00", "")
+    return bare_name or "upload"
+
+
 @admin_router.post(
     "/interventions/upload-media",
     summary="Upload media (audio/video) for an intervention",
@@ -5268,12 +5587,8 @@ async def upload_intervention_media(file: UploadFile = File(...), _guard: None =
             detail=f"File type '{content_type}' is not allowed. Permitted types: audio, video, image, PDF."
         )
 
-    # ── Path traversal: strip to bare filename only ──────────────
-    bare_name = os.path.basename(file.filename or "upload")
-    # Remove any remaining path separators and null bytes
-    bare_name = bare_name.replace("..", "").replace("/", "").replace("\\", "").replace("\x00", "")
-    if not bare_name:
-        bare_name = "upload"
+    # ── Path traversal: strip to bare filename only (cross-platform) ──
+    bare_name = _sanitise_upload_name(file.filename)
     # Prepend timestamp to prevent collisions
     safe_name = f"{int(datetime.now(timezone.utc).timestamp())}_{bare_name}"
 
@@ -5675,12 +5990,15 @@ async def admin_websocket(websocket: WebSocket, facilitator_id: str = None, toke
 @admin_router.websocket("/ws/session/{session_id}")
 async def session_websocket(websocket: WebSocket, session_id: str, token: str = None):
     """WebSocket for player session — receives God Mode pushes.
-    HIGH-001: Requires ?token=<session_id> for the player WebSocket
-    (session_id acts as the player bearer token for this channel)."""
-    # Player WS: accept if the token matches the session_id (player bearer)
-    # OR if it's an authenticated facilitator observing the session.
+    SEC/HIGH-001: The player must present a signed, session-scoped ws ticket
+    (issued at login via auth_jwt.create_player_ws_ticket). The raw session_id
+    is no longer accepted as a bearer credential. Facilitators observing the
+    session authenticate with their normal JWT. This is a receive-only push
+    channel; when a client cannot present a ticket it simply degrades to REST
+    polling, so the classroom flow is unaffected."""
+    from auth_jwt import verify_player_ws_ticket
     is_facilitator = _ws_authenticate_facilitator(websocket, token)
-    is_player = (token == session_id)
+    is_player = verify_player_ws_ticket(token or "", session_id)
     if not is_facilitator and not is_player:
         await websocket.close(code=4001, reason="Unauthorized: valid session token required")
         return
@@ -6559,6 +6877,25 @@ async def universal_broadcast(body: dict = Body(...), _guard: None = Depends(req
         
     _audit("universal_broadcast", details={"title": title, "priority": priority, "target": target})
     return {"status": "sent", "payload": payload}
+
+
+@admin_router.post("/{cohort_id}/finale/ring-bell", summary="Trading-Floor Finale: broadcast market close to the room")
+async def finale_ring_bell(cohort_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    """Feature 1 — Trading-Floor Finale. Broadcasts a 'market_close' signal so
+    every player screen shows the close overlay and the projector view freezes
+    and reveals the final ranking. Presentation-only: touches no game state.
+    Gated by the caller's per-profile `trading_floor_enabled` capability
+    (set at facilitator setup, mirroring the Shockwave gate)."""
+    _require_console_capability(request, "trading_floor_enabled", "Trading Floor")
+    payload = {
+        "type": "market_close",
+        "cohort_id": cohort_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    await manager.broadcast_students(payload)
+    await manager.broadcast_admin(payload)
+    _audit("finale_ring_bell", details={"cohort_id": cohort_id})
+    return {"status": "bell_rung", "cohort_id": cohort_id}
 
 
 # ═════════════════════════════════════════════════════════════════

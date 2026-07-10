@@ -95,9 +95,9 @@ function FacilitatorLoginGate({ onLogin }) {
                 // Sensitive profile fields (email, contact, programme) must not
                 // be persisted to localStorage — XSS can read everything there.
                 // The JWT cookie (HttpOnly) holds the real session credential.
-                const { facilitator_id, role, allowed_tabs, is_admin, username, name } = data;
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled } = data;
                 localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name }
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled }
                 ));
                 onLogin(data);
             } else {
@@ -305,6 +305,8 @@ export default function FacilitatorPage() {
                             permissions: data.permissions || cachedAuth.permissions,
                             name: data.name || cachedAuth.name,
                             username: data.username ?? cachedAuth.username,
+                            shockwave_enabled: data.shockwave_enabled ?? cachedAuth.shockwave_enabled,
+                            trading_floor_enabled: data.trading_floor_enabled ?? cachedAuth.trading_floor_enabled,
                         };
                         localStorage.setItem('facilitator_auth', JSON.stringify(synced));
                         setAuthData(synced);
@@ -1156,8 +1158,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                     role="facilitator"
                     onComplete={(newUsername) => {
                         // C-2: keep only the safe display subset (same rule as login)
-                        const { facilitator_id, role, allowed_tabs, is_admin, name } = authData;
-                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername };
+                        const { facilitator_id, role, allowed_tabs, is_admin, name, shockwave_enabled, trading_floor_enabled } = authData;
+                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername, shockwave_enabled, trading_floor_enabled };
                         localStorage.setItem('facilitator_auth', JSON.stringify(updated));
                         window.location.reload();
                     }}
@@ -1302,6 +1304,49 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                             </div>
                         </div>
                     ))}
+
+                    {/* ── Live-session consoles (moved from God Mode) ──
+                        Visibility is driven by the per-facilitator capability
+                        flags set in the Facilitator Registry; the ring-bell and
+                        shockwave endpoints enforce the same flags server-side
+                        (403 when off), so hiding the link is presentation, not
+                        the security boundary. */}
+                    {authData?.trading_floor_enabled !== false && (
+                        <a
+                            href="/admin/trading-floor"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.navItem}
+                            data-tooltip="Project the live market board + closing bell on the room screen"
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 8px 0',
+                                padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
+                                color: 'var(--accent-gold, #f59e0b)', fontWeight: 700,
+                                border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)',
+                            }}
+                        >
+                            <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🔔</span>
+                            <span>Trading Floor ↗</span>
+                        </a>
+                    )}
+                    {authData?.shockwave_enabled !== false && (
+                        <a
+                            href="/admin/shockwave"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={styles.navItem}
+                            data-tooltip="DESTRUCTIVE — opens the console that detonates a synchronized crisis across every team in a cohort. Nothing fires until you confirm inside the console."
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
+                                padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
+                                color: '#ef4444', fontWeight: 700,
+                                border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)',
+                            }}
+                        >
+                            <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🌊</span>
+                            <span>Shockwave Console ↗</span>
+                        </a>
+                    )}
                 </nav>
 
 

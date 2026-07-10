@@ -962,43 +962,10 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                         </div>
                     ))}
 
-                    {/* Trading-Floor Finale — opens the projector view in a new tab for the room screen */}
-                    <a
-                        href="/admin/trading-floor"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.navItem}
-                        data-tooltip="Project the live market board + closing bell on the room screen"
-                        data-tooltip-pos="right"
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', margin: '12px 8px 0',
-                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
-                            color: 'var(--accent-gold, #f59e0b)', fontWeight: 700,
-                            border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)',
-                        }}
-                    >
-                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🔔</span>
-                        <span>Trading Floor ↗</span>
-                    </a>
-
-                    {/* Feature 6 — synchronized shockwave detonation console */}
-                    <a
-                        href="/admin/shockwave"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.navItem}
-                        data-tooltip="DESTRUCTIVE — opens the console that detonates a synchronized crisis across every team in a cohort. Nothing fires until you confirm inside the console."
-                        data-tooltip-pos="right"
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
-                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
-                            color: '#ef4444', fontWeight: 700,
-                            border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)',
-                        }}
-                    >
-                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🌊</span>
-                        <span>Shockwave Console ↗</span>
-                    </a>
+                    {/* Trading Floor + Shockwave Console moved to the FACILITATOR
+                        screen (per-facilitator capability flags set in the
+                        Facilitator Registry; server-enforced). Super admins see
+                        them there too — their flags default to enabled. */}
                 </nav>
             </aside>
 
