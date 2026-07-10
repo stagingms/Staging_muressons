@@ -1431,6 +1431,39 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
     except Exception as exc:
         print(f"[WARN] New engines batch failed: {exc}")
 
+    # ══ REPORTING-TRUTH RESYNC (math audit, 2026-07) ═══════════════════════
+    # process_tick derives historical_ebitda / tco2e_emissions / per-BU
+    # absolute_emissions inside its FINANCIAL layer, but the BU table keeps
+    # mutating afterwards: the engine's operational layer adjusts carbon
+    # intensity (green tech −3, cost-cutting +2, austerity scaling, +2%
+    # creep) and OPEX (burnout/NCD penalties), the reporting layer applies
+    # supplier defection, and this route then applies pillar aggregate
+    # deltas, post_tick round mutations, and the new-engines batch. The
+    # dashboard was therefore reporting a CO₂ total that did not equal the
+    # sum of its own per-BU rows (audited live: 2,387.4 t reported vs
+    # 2,265.2 t recomputed from the same response's BUs; EBITDA 9.41M vs
+    # 11.35M), and every history/trend point after R1 carried the stale
+    # value.
+    #
+    # Recompute the three DISPLAY metrics from the FINAL BU table so the
+    # response and persisted state are self-consistent. Gameplay is
+    # untouched: the internal carbon fee and competitor-pressure
+    # calculations consumed their mid-pipeline ctx values before this point,
+    # and nothing downstream reads these persisted fields as a logic input
+    # (terminal valuation recomputes from BU state; the competitor seeding
+    # fallback only ever fires on the first commit, where it reads the
+    # creation-time baseline, not this value).
+    new_global["historical_ebitda"] = round(
+        sum((bu.get("revenue_base") or 0) - (bu.get("opex_base") or 0) for bu in new_bus), 2
+    )
+    new_global["tco2e_emissions"] = round(
+        sum((bu.get("carbon_intensity") or 0) * (bu.get("revenue_base") or 0) / 1_000_000 for bu in new_bus), 1
+    )
+    for bu in new_bus:
+        bu["absolute_emissions"] = round(
+            (bu.get("carbon_intensity") or 0) * (bu.get("revenue_base") or 0) / 1_000_000, 2
+        )
+
     # Ensure active_event_flags contains everything (preserve history)
     # Merge order: historical flags → post_tick flags (rN_flags) → events
     # FIX: Previously used current_global (input state) as base, which
