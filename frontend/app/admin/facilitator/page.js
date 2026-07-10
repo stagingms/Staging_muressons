@@ -1334,7 +1334,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             {/* ── Floating Action Bar ── */}
             <div style={{
                 position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 1200,
-                display: 'flex', alignItems: 'center', gap: '1rem',
+                display: 'flex', alignItems: 'center', gap: '0.75rem', rowGap: '0.4rem',
+                flexWrap: 'wrap', /* R5 (V2-5): wrap at laptop widths, never clip */
                 padding: '0.6rem 1.5rem',
                 background: 'rgba(17,24,39,0.95)', backdropFilter: 'blur(12px)',
                 borderTop: '1px solid var(--border-subtle)',
@@ -1384,14 +1385,17 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                         compact
                     />
                     {selectedSession ? (
-                        <>
+                        <span
+                            title={`${leaderboard.find(s => s.session_id === selectedSession)?.cohort_name || selectedSession} — R${leaderboard.find(s => s.session_id === selectedSession)?.round_number || '?'}`}
+                            style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                        >
                             <span style={{ color: '#22c55e', fontWeight: 600 }}>●</span>{' '}
                             {leaderboard.find(s => s.session_id === selectedSession)?.cohort_name || selectedSession.slice(0, 12)}
                             {' — R'}
                             {leaderboard.find(s => s.session_id === selectedSession)?.round_number || '?'}
-                        </>
+                        </span>
                     ) : (
-                        <span style={{ opacity: 0.5 }}>No cohort selected — session tools disabled</span>
+                        <span style={{ opacity: 0.5, whiteSpace: 'nowrap' }}>No cohort selected — session tools disabled</span>
                     )}
                 </span>
 
@@ -1439,7 +1443,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 >↩️ Undo</button>
 
                 {/* Keyboard shortcut hints */}
-                <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
+                <span className="fac-bar-hint" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
                     Ctrl+1–4: toggle groups · Ctrl+Shift+B: broadcast · ?: shortcuts
                 </span>
             </div>
@@ -1461,6 +1465,11 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
 
             {/* Mobile responsive CSS */}
             <style>{`
+                /* R5 (V2-5): the hint is duplicated in the ? sheet — below
+                   1200px its row-space belongs to the actual controls. */
+                @media (max-width: 1200px) {
+                    .fac-bar-hint { display: none !important; }
+                }
                 @media (max-width: 768px) {
                     .mobile-sidebar-toggle { display: flex !important; align-items: center; justify-content: center; }
                     .${styles.sidebar} {

@@ -1010,7 +1010,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                     failedAttempts={sysStatus.failedAttempts}
                 />
                 <header className={styles.topBar}>
-                    <div className={styles.meta} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', width: '100%' }}>
+                    <div className={styles.meta} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', rowGap: '0.4rem', flexWrap: 'wrap', width: '100%' }}>
                         {(() => {
                             const meta = getTabMeta(activeTab);
                             return (
