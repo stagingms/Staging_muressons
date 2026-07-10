@@ -41,7 +41,7 @@ import StrategicRadar from './StrategicRadar';
 import RiskRadar from './RiskRadar';
 import ConsequenceTimeline from './ConsequenceTimeline';
 import ConsequencePreview from './ConsequencePreview';
-import { playDeepDiveEnter, playDeepDiveExit, playCommitSuccess, playTippingWarning } from './CockpitSounds';
+import { playDeepDiveEnter, playDeepDiveExit, playCommitSuccess, playTippingWarning, playTurnKey } from './CockpitSounds';
 import StakeholderAgentPanel from './StakeholderAgentPanel';
 import EBITDAWaterfall from './EBITDAWaterfall';
 import PlayerAnnotations from './PlayerAnnotations';
@@ -146,6 +146,94 @@ const BASE_YEAR = new Date().getFullYear();
 const getRoundLabel = (round) => roundToQuarter(round, BASE_YEAR).label;
 
 
+
+/**
+ * W-A (W5): Hold-to-commit "turn-key" button.
+ * The single most-repeated action in the game gets a moment of ceremony:
+ * press and hold 600ms — a progress sheen fills the button, a mechanical
+ * key-click plays, then onActivate fires (exactly once; the commit payload
+ * and handler chain are untouched).
+ *
+ * Flow-safety by construction:
+ * - `immediate` = plain click (used while the prediction nudge may appear,
+ *   so the nudge remains a zero-friction tap, same as before).
+ * - Keyboard activation (Enter/Space → click with e.detail === 0) commits
+ *   directly — no hold gesture required for a11y.
+ * - Releasing early resets; onActivate can never double-fire (firedRef).
+ */
+function HoldToCommitButton({ immediate, onActivate, label, className }) {
+  const HOLD_MS = 600;
+  const [pct, setPct] = useState(0);
+  const rafRef = useRef(null);
+  const startRef = useRef(0);
+  const firedRef = useRef(false);
+
+  const stopHold = () => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    setPct(0);
+  };
+
+  const tick = (now) => {
+    const p = Math.min(1, (now - startRef.current) / HOLD_MS);
+    setPct(p);
+    if (p >= 1) {
+      if (!firedRef.current) {
+        firedRef.current = true;
+        try { playTurnKey(); } catch (e) {}
+        onActivate();
+      }
+      stopHold();
+    } else {
+      rafRef.current = requestAnimationFrame(tick);
+    }
+  };
+
+  const onDown = (e) => {
+    if (immediate) return;
+    e.preventDefault();
+    firedRef.current = false;
+    startRef.current = performance.now();
+    rafRef.current = requestAnimationFrame(tick);
+  };
+  const onUp = () => { if (!immediate) stopHold(); };
+  const onClick = (e) => {
+    if (immediate) { onActivate(); return; }
+    // Keyboard activation fires click with detail === 0 — commit directly.
+    if (e.detail === 0 && !firedRef.current) {
+      try { playTurnKey(); } catch (err) {}
+      onActivate();
+    }
+  };
+
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  return (
+    <button
+      className={className}
+      onPointerDown={onDown}
+      onPointerUp={onUp}
+      onPointerLeave={onUp}
+      onPointerCancel={onUp}
+      onClick={onClick}
+      title={immediate ? undefined : 'Press and hold to commit'}
+      style={{ width: '100%', position: 'relative', overflow: 'hidden', touchAction: 'none' }}
+    >
+      {!immediate && (
+        <span aria-hidden="true" style={{
+          position: 'absolute', top: 0, left: 0, bottom: 0,
+          width: `${pct * 100}%`,
+          background: 'rgba(255,255,255,0.22)',
+          transition: pct === 0 ? 'width 0.15s ease' : 'none',
+          pointerEvents: 'none',
+        }} />
+      )}
+      <span style={{ position: 'relative' }}>
+        {(!immediate && pct > 0) ? '🗝️ Turning key…' : label}
+      </span>
+    </button>
+  );
+}
 
 export default function ExecutiveCockpit({
   sim,
@@ -382,6 +470,14 @@ export default function ExecutiveCockpit({
   const costOfCapital = globalState?.cost_of_capital || 0.05;
   const tippingPointActive = globalState?.tipping_point_active || false;
   const pendingProjects = globalState?.pending_capex_projects || [];
+
+  // W-A (W5): atmosphere tier — extends the existing health-based mood classes
+  // with a subtle full-viewport backdrop. CSS-only, pointer-events none,
+  // opacity-capped, killed under prefers-reduced-motion. Derivation only —
+  // reads the same state the mood classes already read, writes nothing.
+  const atmoTier = tippingPointActive
+    ? 'tipping'
+    : (reputation < 35 ? 'strain' : null);
 
   // EX-5: Play tipping point warning sound on activation (false → true transition)
   const prevTippingRef = useRef(false);
@@ -910,6 +1006,35 @@ export default function ExecutiveCockpit({
 
   return (
     <div className={`${styles.cockpit} ${uiStateClass} ${roundTierClass} ${boardMoodClass}`}>
+      {/* ═══ W-A (W5): Atmosphere layer — ambient, non-blocking, capped ═══ */}
+      {atmoTier && (
+        <div
+          aria-hidden="true"
+          data-atmo={atmoTier}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1, pointerEvents: 'none',
+            opacity: atmoTier === 'tipping' ? 0.12 : 0.08,
+            background: atmoTier === 'tipping'
+              ? 'radial-gradient(ellipse 80% 60% at 70% 100%, rgba(239, 68, 68, 0.55) 0%, transparent 60%), radial-gradient(ellipse 60% 50% at 20% 90%, rgba(245, 158, 11, 0.45) 0%, transparent 55%)'
+              : 'radial-gradient(ellipse 90% 70% at 50% 110%, rgba(59, 130, 246, 0.4) 0%, transparent 65%)',
+            animation: 'atmoDrift 26s ease-in-out infinite alternate',
+          }}
+        />
+      )}
+      <style>{`
+        @keyframes atmoDrift {
+          0% { transform: translate3d(0, 0, 0) scale(1); }
+          100% { transform: translate3d(-2.5%, 1.5%, 0) scale(1.06); }
+        }
+        @keyframes stampIn {
+          0% { opacity: 0; transform: rotate(-14deg) scale(1.9); }
+          100% { opacity: 1; transform: rotate(-4deg) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [data-atmo] { animation: none !important; opacity: 0.05 !important; }
+          .stamp-ceremony { animation: none !important; }
+        }
+      `}</style>
       {/* ═══ SHADOW BOARD AUDIT — R5 Mandatory Middleware ═══ */}
       {showShadowBoardAudit && (
         <ShadowBoardAudit
@@ -1901,9 +2026,20 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
-            <button className={focusStyles.primaryAction} onClick={handleCommitClick} style={{ width: '100%' }}>
-              {skipPredictionConfirm ? '⏩ Skip Prediction & Commit' : '✓ Commit & Proceed'}
-            </button>
+            {/* W5: hold-to-commit turn-key. `immediate` keeps the prediction
+                nudge a plain tap (unchanged behaviour); once the click would
+                actually commit, a 600ms hold is required. handleCommitClick
+                and the payload chain are byte-identical. */}
+            <HoldToCommitButton
+              className={focusStyles.primaryAction}
+              onActivate={handleCommitClick}
+              immediate={predictionEnabled && !hasPrediction && !skipPredictionConfirm}
+              label={skipPredictionConfirm
+                ? '⏩ Hold to Skip Prediction & Commit'
+                : (predictionEnabled && !hasPrediction)
+                  ? '✓ Commit & Proceed'
+                  : '🗝️ Hold to Commit & Proceed'}
+            />
           </div>
           );
         })()}
@@ -1915,6 +2051,17 @@ export default function ExecutiveCockpit({
               <div style={{ fontSize: '2rem', marginBottom: 4 }}>📊</div>
               <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
               <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Review your outcomes before advancing.</p>
+              {/* W5: ceremony stamp — pure decoration on the results card */}
+              <div aria-hidden="true" className="stamp-ceremony" style={{
+                display: 'inline-block', marginTop: 10, padding: '4px 14px',
+                border: '2px solid rgba(74, 222, 128, 0.55)', borderRadius: 6,
+                color: '#4ade80', fontSize: '0.68rem', fontWeight: 800,
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                fontFamily: 'var(--font-numeral, monospace)',
+                animation: 'stampIn 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) 0.15s both',
+              }}>
+                ✦ Board Resolution Passed ✦
+              </div>
             </div>
 
             <div className={focusStyles.focusResultsGrid}>

@@ -62,6 +62,24 @@ export function playCommitSuccess() {
   });
 }
 
+// W-A (W5): mechanical turn-key click — plays when the hold-to-commit
+// gesture completes. Two short low blips, like a key turning in a lock.
+export function playTurnKey() {
+  const ctx = getCtx(); if (!ctx) return;
+  [{ f: 180, t: 0, d: 0.06 }, { f: 90, t: 0.07, d: 0.1 }].forEach(({ f, t, d }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.type = 'square';
+    osc.frequency.value = f;
+    const at = ctx.currentTime + t;
+    gain.gain.setValueAtTime(0.05, at);
+    gain.gain.exponentialRampToValueAtTime(0.001, at + d);
+    osc.start(at);
+    osc.stop(at + d);
+  });
+}
+
 // Low tension drone — tipping point warning
 export function playTippingWarning() {
   const ctx = getCtx(); if (!ctx) return;

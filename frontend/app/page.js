@@ -1755,9 +1755,14 @@ export default function CockpitPage() {
 
       {/* ═══ IMPROVEMENT: Action Toolbar has been moved to ExecutiveCockpit leftSidebar ═══ */}
 
-      {/* ═══ IMPROVEMENT: Market Ticker (4.3) ═══ */}
+      {/* ═══ IMPROVEMENT: Market Ticker (4.3) — W1: live engine-derived data ═══ */}
       {sim.sessionId && !sim.gameOver && (
-        <MarketTicker roundNumber={roundNumber} />
+        <MarketTicker
+          roundNumber={roundNumber}
+          globalState={globalState}
+          history={sim.history}
+          businessUnits={businessUnits}
+        />
       )}
 
       {/* ═══ IMPROVEMENT: Glossary Panel (1.2) ═══ */}

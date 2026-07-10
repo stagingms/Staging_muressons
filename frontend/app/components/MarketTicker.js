@@ -1,25 +1,56 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
+import { calculateRoundStockPrice, IPO_PRICE } from './stockValuationEngine';
 
 /**
  * MarketTicker — Enhanced scrolling stock ticker bar.
  * Supports dark (default) and light themes.
+ *
+ * W-A (W1): the ticker is now LIVE. Every symbol is derived from real engine
+ * state already on the client (globalState / history / businessUnits props) —
+ * no Math.random, no static symbols, no new fetches. Deltas are true
+ * round-over-round moves: current derived state vs the last committed round
+ * in `history` (MURS anchors to the IPO price before the first commit).
+ * Display-only: reads props, never writes game state.
  */
 
-const BASE_ITEMS = [
-  { symbol: 'MURS', price: '42.50', change: '+2.3%', up: true },
-  { symbol: 'ESG Index', price: '1,247', change: '-0.8%', up: false },
-  { symbol: 'Carbon Credit', price: '€45.20', change: '+1.2%', up: true },
-  { symbol: 'EU Taxonomy', price: '72%', change: '+0.5%', up: true },
-  { symbol: 'Water Futures', price: '$128', change: '-2.1%', up: false },
-  { symbol: 'Green Bond', price: '$98.40', change: '+0.3%', up: true },
-  { symbol: 'S&P Clean', price: '3,891', change: '+1.8%', up: true },
-  { symbol: 'Pharma ETF', price: '$62.30', change: '-0.4%', up: false },
-];
+// Derive per-round core metrics from a global_state + business_units pair.
+// Fallback definitions are IDENTICAL to ExecutiveCockpit / stock chart:
+//   ebitda  = historical_ebitda            || Σ(revenue − opex)
+//   tco2e   = max(0, tco2e_emissions > 0 ? it : Σ(CI × revenue / 1e6))
+function deriveMetrics(gs, bus) {
+  const g = gs || {};
+  const list = bus || [];
+  if (!gs && list.length === 0) return null;
+  const ebitda = g.historical_ebitda ||
+    (list.reduce((acc, bu) => acc + (bu.revenue_base || 0) - (bu.opex_base || 0), 0) || 0);
+  const rawT = g.tco2e_emissions;
+  const tco2e = Math.max(
+    0,
+    (rawT != null && rawT > 0)
+      ? rawT
+      : (list.reduce((acc, bu) => acc + ((bu.carbon_intensity || 0) * (bu.revenue_base || 0)) / 1_000_000, 0) || 0)
+  );
+  const avgNCD = list.length
+    ? list.reduce((s, bu) => s + (bu.natural_capital_debt || 0), 0) / list.length
+    : 0;
+  const reputation = g.group_reputation || 50;
+  const wacc = g.cost_of_capital || 0.05;
+  const inflation = g.inflation_index || 0;
+  const carbonFee = g.carbon_fee_per_ton ?? g.internal_carbon_fee_rate ?? 15;
+  const greenFund = g.green_transition_fund || 0;
+  const price = calculateRoundStockPrice({
+    ebitda,
+    synergy_multiplier: g.synergy_multiplier || 1.0,
+    natural_capital_debt: avgNCD,
+    group_reputation: reputation,
+    cost_of_capital: wacc,
+  });
+  return { ebitda, tco2e, reputation, wacc, inflation, carbonFee, greenFund, price };
+}
 
-export default function MarketTicker({ roundNumber = 1 }) {
+export default function MarketTicker({ roundNumber = 1, globalState, history, businessUnits }) {
   const scrollRef = useRef(null);
-  const [items, setItems] = useState([]);
   const [isDark, setIsDark] = useState(true);
   // Phase B (F-P7): ambient theatrics yield to concentration — the ticker
   // dims while the allocation/commit stage is open. The cockpit flags the
@@ -27,19 +58,48 @@ export default function MarketTicker({ roundNumber = 1 }) {
   // MutationObserver pattern this file already uses for theming.
   const [dimmed, setDimmed] = useState(false);
 
-  useEffect(() => {
-    // Randomize prices slightly based on round
-    const randomized = BASE_ITEMS.map(item => {
-      const delta = (Math.random() - 0.5) * 4;
-      const isUp = delta > 0;
-      return {
-        ...item,
-        change: `${isUp ? '+' : ''}${delta.toFixed(1)}%`,
-        up: isUp,
-      };
-    });
-    setItems([...randomized, ...randomized]); // duplicate for seamless scroll
-  }, [roundNumber]);
+  // W1: build the symbol list from real engine state. Recomputes only when
+  // committed state changes (globalState updates after round advance), so the
+  // ticker visibly "prints" the consequences of the previous commit.
+  const items = useMemo(() => {
+    const cur = deriveMetrics(globalState, businessUnits);
+    if (!cur) return [];
+    const prevH = (history || []).length ? history[history.length - 1] : null;
+    const prev = prevH ? deriveMetrics(prevH.global_state, prevH.business_units) : null;
+
+    const pct = (now, before) =>
+      (before == null || before === 0) ? null : ((now - before) / Math.abs(before)) * 100;
+    const fmtPct = (v) => (v == null ? null : `${v >= 0 ? '+' : ''}${v.toFixed(1)}%`);
+
+    const out = [];
+    // MURS — real share price (macro valuation engine) vs last committed round
+    const prevPrice = prev ? prev.price : IPO_PRICE;
+    const dPrice = pct(cur.price, prevPrice);
+    out.push({ symbol: 'MURS', price: `$${cur.price.toFixed(2)}`, change: fmtPct(dPrice), rising: (dPrice ?? 0) >= 0, good: (dPrice ?? 0) >= 0 });
+    // ESG Sentiment Index — reputation-scaled composite (rep 50 = 1,000)
+    const dEsg = prev ? pct(cur.reputation, prev.reputation) : null;
+    out.push({ symbol: 'ESG Index', price: Math.round(cur.reputation * 20).toLocaleString(), change: fmtPct(dEsg), rising: (dEsg ?? 0) >= 0, good: (dEsg ?? 0) >= 0 });
+    // Internal carbon fee actually charged by the engine each round
+    const dFee = prev ? pct(cur.carbonFee, prev.carbonFee) : null;
+    out.push({ symbol: 'Carbon $/t', price: `$${Number(cur.carbonFee).toFixed(2)}`, change: fmtPct(dFee), rising: (dFee ?? 0) >= 0, good: (dFee ?? 0) <= 0 });
+    // WACC print — falling is good (rating-linked cost of capital)
+    const dWacc = prev ? (cur.wacc - prev.wacc) * 10000 : null;
+    out.push({ symbol: 'WACC', price: `${(cur.wacc * 100).toFixed(1)}%`, change: dWacc == null ? null : `${dWacc >= 0 ? '+' : ''}${Math.round(dWacc)}bps`, rising: (dWacc ?? 0) >= 0, good: (dWacc ?? 0) <= 0 });
+    // CPI — engine inflation print (fractional index → %); falling is good
+    const dCpi = prev ? (cur.inflation - prev.inflation) * 100 : null;
+    out.push({ symbol: 'CPI', price: `${(cur.inflation * 100).toFixed(1)}%`, change: dCpi == null ? null : `${dCpi >= 0 ? '+' : ''}${dCpi.toFixed(1)}pp`, rising: (dCpi ?? 0) >= 0, good: (dCpi ?? 0) <= 0 });
+    // Green Transition Fund balance (accrues from internal carbon taxation)
+    const dGf = prev ? pct(cur.greenFund, prev.greenFund) : null;
+    out.push({ symbol: 'Green Fund', price: `$${(cur.greenFund / 1_000_000).toFixed(1)}M`, change: fmtPct(dGf), rising: (dGf ?? 0) >= 0, good: (dGf ?? 0) >= 0 });
+    // Group emissions — falling is good (pill colour inverts)
+    const dCo2 = prev ? pct(cur.tco2e, prev.tco2e) : null;
+    out.push({ symbol: 'tCO₂e', price: Math.round(cur.tco2e).toLocaleString(), change: fmtPct(dCo2), rising: (dCo2 ?? 0) >= 0, good: (dCo2 ?? 0) <= 0 });
+    // Group EBITDA print
+    const dEb = prev ? pct(cur.ebitda, prev.ebitda) : null;
+    out.push({ symbol: 'EBITDA', price: `$${(cur.ebitda / 1_000_000).toFixed(1)}M`, change: fmtPct(dEb), rising: (dEb ?? 0) >= 0, good: (dEb ?? 0) >= 0 });
+
+    return [...out, ...out]; // duplicate for seamless scroll
+  }, [globalState, businessUnits, history]);
 
   // Listen for theme changes
   useEffect(() => {
@@ -70,6 +130,8 @@ export default function MarketTicker({ roundNumber = 1 }) {
   const priceColor = '#e2e8f0';
   const dotColor = 'rgba(148, 163, 184, 0.3)';
 
+  if (items.length === 0) return null;
+
   return (
     <div style={{
       position: 'fixed', bottom: 0, left: 0, right: 0, height: 32,
@@ -96,6 +158,7 @@ export default function MarketTicker({ roundNumber = 1 }) {
 
       <div
         ref={scrollRef}
+        className="tickerScrollRow"
         style={{
           display: 'flex', gap: 8,
           animation: 'tickerScroll 45s linear infinite',
@@ -114,18 +177,21 @@ export default function MarketTicker({ roundNumber = 1 }) {
             <span style={{ color: priceColor, fontVariantNumeric: 'tabular-nums' }}>
               {item.price}
             </span>
-            {/* Pill badge for change */}
-            <span style={{
-              color: item.up ? 'var(--positive-text)' : 'var(--danger-text)',
-              fontSize: '0.68rem',
-              fontWeight: 700,
-              background: item.up ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)',
-              border: `1px solid ${item.up ? 'rgba(74, 222, 128, 0.25)' : 'rgba(248, 113, 113, 0.25)'}`,
-              borderRadius: 3,
-              padding: '1px 5px',
-            }}>
-              {item.up ? '▲' : '▼'} {item.change}
-            </span>
+            {/* Pill badge for change — colour = good/bad, arrow = direction.
+                (For emissions/WACC/CPI a falling print renders green.) */}
+            {item.change != null && (
+              <span style={{
+                color: item.good ? 'var(--positive-text)' : 'var(--danger-text)',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                background: item.good ? 'rgba(74, 222, 128, 0.1)' : 'rgba(248, 113, 113, 0.1)',
+                border: `1px solid ${item.good ? 'rgba(74, 222, 128, 0.25)' : 'rgba(248, 113, 113, 0.25)'}`,
+                borderRadius: 3,
+                padding: '1px 5px',
+              }}>
+                {item.rising ? '▲' : '▼'} {item.change}
+              </span>
+            )}
             {/* Separator dot */}
             {i < items.length - 1 && (
               <span style={{
@@ -139,6 +205,9 @@ export default function MarketTicker({ roundNumber = 1 }) {
         @keyframes tickerScroll {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .tickerScrollRow { animation: none !important; }
         }
       `}</style>
     </div>
