@@ -67,6 +67,7 @@ const EMPTY_FORM = {
     endDate: '',
     shockwaveEnabled: true,
     tradingFloorEnabled: true,   // Feature 1: Trading-Floor finale console capability
+    situationRoomEnabled: true,  // W-D (W4): Situation-Room voice bulletin capability
     notes: '',
     createdBy: '',
     dateCreated: new Date().toISOString().slice(0, 10),
@@ -411,6 +412,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
             // saving any edit silently re-enabled Shockwave.)
             shockwaveEnabled: fac.shockwave_enabled !== false,
             tradingFloorEnabled: fac.trading_floor_enabled !== false,
+            situationRoomEnabled: fac.situation_room_enabled !== false,
         });
         setDrawerMode('edit');
         setEditingFacId(fac.facilitator_id);
@@ -472,6 +474,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 role: form.role,
                 shockwave_enabled: form.shockwaveEnabled !== false,  // Feature 6 capability
                 trading_floor_enabled: form.tradingFloorEnabled !== false,  // Feature 1 capability
+                situation_room_enabled: form.situationRoomEnabled !== false,  // W-D (W4) capability
             };
 
             const getAuthHeaders = () => {
@@ -1133,6 +1136,20 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.tradingFloorEnabled !== false ? '#f59e0b' : '#8899a6' }}>{form.tradingFloorEnabled !== false ? 'ON' : 'OFF'}</span>
                             <span onClick={() => updateForm('tradingFloorEnabled', !(form.tradingFloorEnabled !== false))} style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, background: form.tradingFloorEnabled !== false ? '#f59e0b' : 'rgba(148,163,184,0.3)', transition: 'background 0.2s', display: 'inline-block' }}>
                                 <span style={{ position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', transform: form.tradingFloorEnabled !== false ? 'translateX(20px)' : 'translateX(0)' }} />
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* W-D (W4): per-facilitator Situation-Room bulletin capability */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(201,168,76,0.3)', background: 'rgba(201,168,76,0.06)' }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🎙️ Situation-Room bulletin</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to fire voiced market-news bulletins from the Teleprompter (facilitator screen only).</div>
+                        </div>
+                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.situationRoomEnabled !== false ? '#c9a84c' : '#8899a6' }}>{form.situationRoomEnabled !== false ? 'ON' : 'OFF'}</span>
+                            <span onClick={() => updateForm('situationRoomEnabled', !(form.situationRoomEnabled !== false))} style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, background: form.situationRoomEnabled !== false ? '#c9a84c' : 'rgba(148,163,184,0.3)', transition: 'background 0.2s', display: 'inline-block' }}>
+                                <span style={{ position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', transform: form.situationRoomEnabled !== false ? 'translateX(20px)' : 'translateX(0)' }} />
                             </span>
                         </label>
                     </div>

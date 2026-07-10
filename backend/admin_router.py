@@ -344,6 +344,7 @@ class FacilitatorCreateRequest(BaseModel):
     role: str = "facilitator"
     shockwave_enabled: bool = True   # Feature 6: allow this facilitator to detonate synchronized shockwaves
     trading_floor_enabled: bool = True   # Feature 1: allow this facilitator to run the Trading-Floor finale console
+    situation_room_enabled: bool = True   # W-D (W4): allow this facilitator to fire Situation-Room voice bulletins
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -367,6 +368,7 @@ class FacilitatorUpdateRequest(BaseModel):
     is_admin: bool | None = None
     shockwave_enabled: bool | None = None   # Feature 6 per-facilitator capability
     trading_floor_enabled: bool | None = None   # Feature 1 per-facilitator capability
+    situation_room_enabled: bool | None = None   # W-D (W4) per-facilitator capability
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
@@ -1338,6 +1340,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depen
             "enabled": True,
             "shockwave_enabled": req.shockwave_enabled if req.shockwave_enabled is not None else True,  # Feature 6
             "trading_floor_enabled": req.trading_floor_enabled if req.trading_floor_enabled is not None else True,  # Feature 1
+            "situation_room_enabled": req.situation_room_enabled if req.situation_room_enabled is not None else True,  # W-D (W4)
             "permissions": req.permissions or default_perms,
             "created_by": req.created_by or "",
             "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -1599,9 +1602,10 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
         # Live-console capabilities (display-safe booleans; the server-side
-        # gates on ring-bell/shockwave remain authoritative)
+        # gates on ring-bell/shockwave/bulletin remain authoritative)
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
+        "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
     }
 
 
@@ -1726,6 +1730,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "permissions": fac.get("permissions", {}),
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
+        "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
     }
 
 
@@ -6922,6 +6927,64 @@ async def finale_ring_bell(cohort_id: str, request: Request, _guard: None = Depe
     await manager.broadcast_admin(payload)
     _audit("finale_ring_bell", details={"cohort_id": cohort_id})
     return {"status": "bell_rung", "cohort_id": cohort_id}
+
+
+@admin_router.post("/{cohort_id}/situation-room/bulletin", summary="Situation Room: synthesize a market-news voice bulletin")
+async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    """W-D (W4) — Situation-Room bulletin. Assembles a ~15-second market-news
+    script from the cohort's REAL state (biggest EBITDA mover, live crisis
+    flags, the Nordhaven NPC print) and synthesizes it through the same
+    ElevenLabs plumbing the CEO interview owns. Facilitator-screen theatre
+    only: reads state, writes nothing, broadcasts nothing to players.
+    Gated by the caller's per-profile `situation_room_enabled` capability
+    (403 when off), mirroring the Shockwave/Trading-Floor gates.
+    Returns the script plus base64 MP3; audio_b64 is null when synthesis
+    is unavailable (no key / API error) and the console falls back to a
+    chyron-only bulletin."""
+    _require_console_capability(request, "situation_room_enabled", "Situation Room")
+
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    has_children = any(s.get("parent_cohort_id") == cohort_id for s in all_sessions.values())
+
+    teams = []
+    round_number = 1
+    for sid, sess in all_sessions.items():
+        is_child = sess.get("parent_cohort_id") == cohort_id
+        is_self = sid == cohort_id
+        if not (is_child or is_self):
+            continue
+        if is_self and has_children:
+            continue  # prefer player sub-sessions over the parent shell
+        gs_list = global_states.get(sid, [])
+        if not gs_list:
+            continue
+        latest = gs_list[-1]
+        prev = gs_list[-2] if len(gs_list) > 1 else None
+        flags = latest.get("active_event_flags", {}) or {}
+        round_number = max(round_number, int(latest.get("round_number", 1) or 1))
+        teams.append({
+            "name": sess.get("player_name") or sess.get("cohort_name") or sid[:8],
+            "ebitda": float(latest.get("historical_ebitda", 0) or 0),
+            "prev_ebitda": float(prev.get("historical_ebitda", 0) or 0) if prev else None,
+            "flags": [k for k, v in flags.items() if v],
+            "competitor_ebitda": float(latest.get("competitor_ebitda", 0) or 0),
+        })
+    if not teams:
+        raise HTTPException(status_code=404, detail="No active sessions found for this cohort.")
+
+    from situation_room import assemble_bulletin_text
+    text = assemble_bulletin_text(teams, round_number)
+
+    audio_b64 = None
+    try:
+        from elevenlabs_tts import synthesize_speech
+        audio_b64 = await synthesize_speech(text=text, voice_id="21m00Tcm4TlvDq8ikWAM")
+    except Exception:
+        audio_b64 = None
+
+    _audit("situation_room_bulletin", details={"cohort_id": cohort_id, "chars": len(text), "voiced": audio_b64 is not None})
+    return {"text": text, "audio_b64": audio_b64, "cohort_id": cohort_id, "round_number": round_number}
 
 
 # ═════════════════════════════════════════════════════════════════

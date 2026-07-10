@@ -596,7 +596,7 @@ const ENGINE_TOOLTIPS = {
     resist_integrate:           'Resist & Integrate — R10 premium option. Only available if synergy multiplier ≥ 1.20. Preserves all BUs with enhanced synergy.',
 };
 
-export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = null, leaderboard = [], onSelectSession = null }) {
+export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = null, leaderboard = [], onSelectSession = null, situationRoomEnabled = true }) {
     // ── Phase R4 (V2-2): presentation mode ─────────────────────────────
     // The teleprompter's job is being read ALOUD at a podium; reading
     // distance is a mode, not a constant. `zoom` reflows the script content
@@ -605,6 +605,65 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
     const rootRef = useRef(null);
     const [tpScale, setTpScaleState] = useState(1);
     const [isFullscreen, setIsFullscreen] = useState(false);
+
+    // ── W-D (W4): Situation-Room bulletin ─────────────────────────────
+    // Fires a ~15s market-news bulletin assembled server-side from the
+    // cohort's REAL state and voiced through the CEO-interview ElevenLabs
+    // plumbing. Plays on THIS screen only (facilitator/projector); players
+    // hear nothing. Server enforces the situation_room_enabled capability
+    // (403 when off) — hiding the button is presentation, not security.
+    const [bulletin, setBulletin] = useState(null);        // { text, audio_b64, round_number }
+    const [bulletinBusy, setBulletinBusy] = useState(false);
+    const [bulletinError, setBulletinError] = useState('');
+    const bulletinAudioRef = useRef(null);
+    const bulletinTimerRef = useRef(null);
+
+    const dismissBulletin = () => {
+        try { bulletinAudioRef.current?.pause(); } catch {}
+        bulletinAudioRef.current = null;
+        clearTimeout(bulletinTimerRef.current);
+        setBulletin(null);
+    };
+
+    const fireBulletin = async () => {
+        if (!sessionId || bulletinBusy) return;
+        setBulletinBusy(true);
+        setBulletinError('');
+        try {
+            const res = await fetch(`/api/admin/${encodeURIComponent(sessionId)}/situation-room/bulletin`, {
+                method: 'POST', credentials: 'include',
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setBulletinError(typeof data.detail === 'string' ? data.detail : `Bulletin failed (${res.status}).`);
+                return;
+            }
+            setBulletin(data);
+            clearTimeout(bulletinTimerRef.current);
+            if (data.audio_b64) {
+                try {
+                    const audio = new Audio(`data:audio/mp3;base64,${data.audio_b64}`);
+                    bulletinAudioRef.current = audio;
+                    audio.onended = () => { bulletinAudioRef.current = null; setBulletin(null); };
+                    audio.play().catch(() => {
+                        // Autoplay refused — keep the chyron up on a timer instead.
+                        bulletinTimerRef.current = setTimeout(() => setBulletin(null), 18000);
+                    });
+                } catch {
+                    bulletinTimerRef.current = setTimeout(() => setBulletin(null), 18000);
+                }
+            } else {
+                // Chyron-only fallback (no ElevenLabs key configured)
+                bulletinTimerRef.current = setTimeout(() => setBulletin(null), 18000);
+            }
+        } catch {
+            setBulletinError('Network error — bulletin not fired.');
+        } finally {
+            setBulletinBusy(false);
+        }
+    };
+
+    useEffect(() => () => { try { bulletinAudioRef.current?.pause(); } catch {} clearTimeout(bulletinTimerRef.current); }, []);
     useEffect(() => {
         try {
             const v = parseFloat(localStorage.getItem('tp_text_scale'));
@@ -807,6 +866,41 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                 )}
             </div>
 
+            {/* ── W-D (W4): live bulletin chyron — lower-third broadcast card ── */}
+            {bulletin && (
+                <div role="status" aria-live="polite" style={{
+                    position: 'fixed', left: '4%', right: '4%', bottom: 28, zIndex: 12000,
+                    background: 'linear-gradient(135deg, rgba(10,14,26,0.97), rgba(20,28,46,0.97))',
+                    border: '1px solid rgba(201,168,76,0.4)', borderLeft: '6px solid #c9a84c',
+                    borderRadius: 10, padding: '12px 16px',
+                    boxShadow: '0 18px 60px rgba(0,0,0,0.6)',
+                    animation: 'tpChyronIn 0.35s ease-out',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+                        <span className="tp-live-dot" style={{ width: 9, height: 9, borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                        <span style={{ fontSize: '0.66rem', fontWeight: 900, letterSpacing: '0.18em', color: '#c9a84c', fontFamily: 'var(--font-mono, monospace)' }}>
+                            MGN · MURESSONS GLOBAL NEWS · ROUND {bulletin.round_number}
+                        </span>
+                        {!bulletin.audio_b64 && (
+                            <span style={{ fontSize: '0.6rem', color: '#8899a6', fontStyle: 'italic' }}>text bulletin — voice unavailable</span>
+                        )}
+                        <button onClick={dismissBulletin} aria-label="Dismiss bulletin" style={{
+                            marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer',
+                            color: '#8899a6', fontSize: '0.9rem', fontWeight: 700, lineHeight: 1,
+                        }}>✕</button>
+                    </div>
+                    <div style={{ fontSize: '0.95rem', lineHeight: 1.55, color: '#f1f5f9' }}>{bulletin.text}</div>
+                    <style>{`
+                        @keyframes tpChyronIn { 0% { opacity: 0; transform: translateY(16px); } 100% { opacity: 1; transform: translateY(0); } }
+                        @keyframes tpLivePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+                        .tp-live-dot { animation: tpLivePulse 1.2s ease-in-out infinite; }
+                        @media (prefers-reduced-motion: reduce) {
+                            .tp-live-dot { animation: none !important; }
+                        }
+                    `}</style>
+                </div>
+            )}
+
             {/* ── Phase R4 (V2-2): presentation controls ── */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: '0.4rem', marginTop: '-0.85rem' }}>
                 <span style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontWeight: 700, letterSpacing: '0.08em' }}>SCRIPT TEXT</span>
@@ -838,7 +932,28 @@ export default function FacilitatorTeleprompter({ currentRound = 1, sessionId = 
                         fontWeight: 700, fontSize: '0.7rem',
                     }}
                 >{isFullscreen ? '🗗 Exit' : '⛶ Fullscreen'}</button>
+                {/* W-D (W4): fire the Situation-Room bulletin */}
+                {situationRoomEnabled !== false && (
+                    <button
+                        onClick={fireBulletin}
+                        disabled={bulletinBusy || !sessionId}
+                        title={!sessionId ? 'Select a cohort first' : 'Fire a ~15s market-news voice bulletin assembled from this cohort\u2019s real state. Plays on this screen only.'}
+                        style={{
+                            padding: '3px 10px', borderRadius: '6px', cursor: bulletinBusy || !sessionId ? 'not-allowed' : 'pointer', marginLeft: '0.4rem',
+                            border: '1px solid rgba(201,168,76,0.4)',
+                            background: bulletinBusy ? 'rgba(201,168,76,0.2)' : 'rgba(201,168,76,0.08)',
+                            color: '#c9a84c', fontWeight: 700, fontSize: '0.7rem',
+                            opacity: !sessionId ? 0.5 : 1,
+                        }}
+                    >{bulletinBusy ? '📡 Synthesizing…' : '🎙️ Market Bulletin'}</button>
+                )}
             </div>
+            {bulletinError && (
+                <div role="alert" style={{
+                    textAlign: 'right', fontSize: '0.68rem', color: '#f87171',
+                    marginTop: '0.25rem', paddingRight: '0.2rem',
+                }}>⚠ {bulletinError}</div>
+            )}
 
             {/* ── Round Selector ── */}
             <div style={{

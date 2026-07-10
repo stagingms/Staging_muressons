@@ -95,9 +95,9 @@ function FacilitatorLoginGate({ onLogin }) {
                 // Sensitive profile fields (email, contact, programme) must not
                 // be persisted to localStorage — XSS can read everything there.
                 // The JWT cookie (HttpOnly) holds the real session credential.
-                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled } = data;
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled } = data;
                 localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled }
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled }
                 ));
                 onLogin(data);
             } else {
@@ -307,6 +307,7 @@ export default function FacilitatorPage() {
                             username: data.username ?? cachedAuth.username,
                             shockwave_enabled: data.shockwave_enabled ?? cachedAuth.shockwave_enabled,
                             trading_floor_enabled: data.trading_floor_enabled ?? cachedAuth.trading_floor_enabled,
+                            situation_room_enabled: data.situation_room_enabled ?? cachedAuth.situation_room_enabled,
                         };
                         localStorage.setItem('facilitator_auth', JSON.stringify(synced));
                         setAuthData(synced);
@@ -903,6 +904,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                         sessionId={selectedSession}
                         leaderboard={leaderboard}
                         onSelectSession={setSelectedSession}
+                        situationRoomEnabled={authData?.situation_room_enabled !== false}
                     />
                 );
             }
@@ -1158,8 +1160,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                     role="facilitator"
                     onComplete={(newUsername) => {
                         // C-2: keep only the safe display subset (same rule as login)
-                        const { facilitator_id, role, allowed_tabs, is_admin, name, shockwave_enabled, trading_floor_enabled } = authData;
-                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername, shockwave_enabled, trading_floor_enabled };
+                        const { facilitator_id, role, allowed_tabs, is_admin, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled } = authData;
+                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername, shockwave_enabled, trading_floor_enabled, situation_room_enabled };
                         localStorage.setItem('facilitator_auth', JSON.stringify(updated));
                         window.location.reload();
                     }}
