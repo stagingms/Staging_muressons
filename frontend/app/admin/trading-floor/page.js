@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { RIVAL, rivalBenchmarkEV } from '../../components/rivalIntel';
 
 /**
  * Trading-Floor Finale (Feature 1) — a full-screen projector view for the room.
@@ -100,6 +101,22 @@ export default function TradingFloorPage() {
   }, [teams]);
 
   const maxTv = Math.max(1, ...teams.map((t) => t.terminal_value || 0));
+  // W-B (W2c): Nordhaven NPC benchmark — presentation-only estimate from the
+  // engine's competitor growth model. Greyed, unranked, excluded from medals,
+  // reveal sequence and the winner highlight.
+  const maxRound = Math.max(1, ...teams.map((t) => t.round_number || 1));
+  const rivalEV = rivalBenchmarkEV(maxRound);
+  const rivalAfterIdx = teams.filter((t) => (t.terminal_value || 0) >= rivalEV).length;
+  const rivalRow = (
+    <div key="npc-nordhaven" style={{ ...S.row, opacity: 0.55, border: '1px dashed rgba(148,163,184,0.35)', background: 'rgba(148,163,184,0.05)' }}>
+      <span style={{ ...S.rank, fontSize: '1rem', color: '#8899a6' }}>—</span>
+      <span style={{ ...S.team, color: '#8899a6' }}>{RIVAL.avatar} {RIVAL.name.toUpperCase()} <span style={{ fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.08em' }}>· NPC BENCHMARK</span></span>
+      <div style={S.barTrack}>
+        <div style={{ ...S.barFill, width: `${Math.min(100, (rivalEV / maxTv) * 100)}%`, background: 'rgba(148,163,184,0.45)' }} />
+      </div>
+      <span style={{ ...S.value, color: '#8899a6' }}>{fmtM(rivalEV)} <span style={{ fontSize: '0.6rem' }}>EST</span></span>
+    </div>
+  );
   const medal = (i) => (i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `#${i + 1}`);
   const IPO_PRICE = 50; // Fixed IPO starting share price
 
@@ -149,6 +166,7 @@ export default function TradingFloorPage() {
           <div style={S.board}>
             {teams.map((t, i) => {
               const isWinner = closed && i === 0;
+              const showRivalBefore = i === rivalAfterIdx; // W-B: NPC row slots in by EV
               const isRevealed = !closed || revealedRows.has(t.session_id || i);
               const sharePrice = Number(t.price_per_share) || 0;
               const ipoDelta = sharePrice - IPO_PRICE;
@@ -156,8 +174,9 @@ export default function TradingFloorPage() {
               const deltaArrow = ipoDelta >= 0 ? '▲' : '▼';
 
               return (
+                <div key={`wrap-${t.session_id || i}`} style={{ display: 'contents' }}>
+                {showRivalBefore && rivalRow}
                 <div
-                  key={t.session_id || i}
                   style={{
                     ...S.row,
                     ...(isWinner && revealComplete ? S.winner : {}),
@@ -179,8 +198,10 @@ export default function TradingFloorPage() {
                     </span>
                   )}
                 </div>
+                </div>
               );
             })}
+            {rivalAfterIdx === teams.length && rivalRow}
           </div>
 
           {/* Bell */}

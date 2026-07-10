@@ -63,6 +63,7 @@ const ESGImpactConstellation = dynamic(() => import('./ESGImpactConstellation'),
 // focus stage machine to hooks/useRoundStage. Zero behavioural change.
 import useRoundStage from '../hooks/useRoundStage';
 import { BOARD_PERSONAS, getPersona } from './BoardPersonas';
+import MarketIntel from './MarketIntelCards';
 import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
 
@@ -545,6 +546,8 @@ export default function ExecutiveCockpit({
         reputation: h.global_state?.group_reputation || 50,
         treasury: h.global_state?.corporate_treasury || 0,
         synergy: h.global_state?.synergy_multiplier || 1.0,
+        // W-B (W2a): rival ghost series — engine already simulates this every round
+        competitor_ebitda: h.global_state?.competitor_ebitda || null,
         previous_ebitda: prev ? (prev.business_units || []).reduce((acc, bu) => acc + (bu.revenue_base || 0) - (bu.opex_base || 0), 0) : 0,
         previous_treasury: prev?.global_state?.corporate_treasury || 0,
         previous_reputation: prev?.global_state?.group_reputation || 50,
@@ -562,6 +565,7 @@ export default function ExecutiveCockpit({
         yearLabel: roundToQuarter(roundNumber, BASE_YEAR).shortLabel,
         ebitda, tco2e, reputation, treasury,
         synergy: globalState?.synergy_multiplier || 1.0,
+        competitor_ebitda: globalState?.competitor_ebitda || null,
         previous_ebitda: lastEntry?.ebitda || 0,
         previous_treasury: lastEntry?.treasury || 0,
         previous_reputation: lastEntry?.reputation || 50,
@@ -584,6 +588,7 @@ export default function ExecutiveCockpit({
           reputation: commitResults.globalState.group_reputation || 50,
           treasury: commitResults.globalState.corporate_treasury || 0,
           synergy: commitResults.globalState.synergy_multiplier || 1.0,
+          competitor_ebitda: commitResults.globalState.competitor_ebitda || null,
           previous_ebitda: ebitda,
           previous_treasury: treasury,
           previous_reputation: reputation,
@@ -3103,6 +3108,11 @@ export default function ExecutiveCockpit({
                     <div className={styles.feedItem} style={{ color: '#94a3b8', textAlign: 'center' }}>No messages this round</div>
                   )}
 
+                  {/* W-B: Market Intelligence — client-derived rival press +
+                      rating letters (rivalIntel.js). Not messages: no read
+                      state, never counted in unreadCount. */}
+                  <MarketIntel history={history} roundNumber={roundNumber} />
+
                   {/* ── Previous Rounds Accordion ── */}
                   {(() => {
                     const archivedRounds = {};
@@ -3713,6 +3723,9 @@ export default function ExecutiveCockpit({
                       }}>
                         <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.2rem' }} className={styles.resultCardLabel}>
                           {label}
+                          {key === 'ebitda' && (
+                            <span style={{ marginLeft: 6, fontSize: '0.56rem', fontWeight: 600, color: '#64748b', textTransform: 'none', letterSpacing: 0 }}>· ⋯ Nordhaven</span>
+                          )}
                         </div>
                         <ResponsiveContainer width="100%" height={72}>
                           <AreaChart data={historyData} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
@@ -3726,10 +3739,14 @@ export default function ExecutiveCockpit({
                             <YAxis hide domain={yDomain} />
                             <Tooltip
                               contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
-                              formatter={(v) => [fmt(v), label.replace(' Trend', '')]}
+                              formatter={(v, name) => [fmt(v), name === 'competitor_ebitda' ? 'Nordhaven Group (est.)' : label.replace(' Trend', '')]}
                               labelFormatter={(l) => `${l}`}
                             />
                             <Area type="monotone" dataKey={key} stroke="#e2e8f0" strokeWidth={1.5} fill={`url(#grad-${key})`} dot={{ r: 2.5, fill: '#e2e8f0', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#fff', stroke: '#94a3b8', strokeWidth: 1 }} />
+                            {/* W-B (W2a): Nordhaven ghost line — dashed, no fill, display-only */}
+                            {key === 'ebitda' && (
+                              <Area type="monotone" dataKey="competitor_ebitda" stroke="#64748b" strokeDasharray="4 3" strokeWidth={1.2} fill="none" fillOpacity={0} dot={false} activeDot={{ r: 3, fill: '#64748b', strokeWidth: 0 }} connectNulls />
+                            )}
                           </AreaChart>
                         </ResponsiveContainer>
                       </div>
