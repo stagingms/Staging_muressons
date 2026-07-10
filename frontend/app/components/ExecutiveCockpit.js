@@ -429,17 +429,21 @@ export default function ExecutiveCockpit({
     const arr = raw.map((h, idx) => {
       const prev = idx > 0 ? raw[idx - 1] : null;
       // NEW-01/NEW-10: Derive a per-round EBITDA from BU states (revenue - opex).
-      // The historical_ebitda field is cumulative and causes stock price calculation errors.
-      // Fall back to a per-round estimate (cumulative / round_number) if BU data unavailable.
+      // Math-audit correction: historical_ebitda is NOT cumulative — the
+      // engine computes it per round as Σ(revenue − opex) over the final BU
+      // table (see engine._run_financial_layer + the commit route's
+      // reporting-truth resync). We still prefer deriving from BU data
+      // (identical definition, robust to old snapshots), but the fallback
+      // uses the raw value — the old ÷ round_number divided a per-round
+      // figure and understated later rounds.
       const roundBUs = h.business_units || [];
       const perRoundEbitda = roundBUs.length > 0
         ? roundBUs.reduce((acc, bu) => acc + (bu.revenue_base || 0) - (bu.opex_base || 0), 0)
-        : (h.global_state?.historical_ebitda
-            ? Math.max(0, h.global_state.historical_ebitda / Math.max(1, h.round_number))
-            : 0);
+        : Math.max(0, h.global_state?.historical_ebitda || 0);
       return {
         round: h.round_number,
         year: roundToQuarter(h.round_number, BASE_YEAR).year,
+        yearLabel: roundToQuarter(h.round_number, BASE_YEAR).shortLabel,
         ebitda: perRoundEbitda,
         tco2e: h.global_state?.tco2e_emissions || 0,
         reputation: h.global_state?.group_reputation || 50,
@@ -459,6 +463,7 @@ export default function ExecutiveCockpit({
       const lastEntry = arr[arr.length - 1];
       arr.push({
         round: roundNumber, year: roundToQuarter(roundNumber, BASE_YEAR).year,
+        yearLabel: roundToQuarter(roundNumber, BASE_YEAR).shortLabel,
         ebitda, tco2e, reputation, treasury,
         synergy: globalState?.synergy_multiplier || 1.0,
         previous_ebitda: lastEntry?.ebitda || 0,
@@ -477,6 +482,7 @@ export default function ExecutiveCockpit({
         arr.push({
           round: nextRound,
           year: roundToQuarter(nextRound, BASE_YEAR).year,
+          yearLabel: roundToQuarter(nextRound, BASE_YEAR).shortLabel,
           ebitda: commitResults.globalState.historical_ebitda || 0,
           tco2e: commitResults.globalState.tco2e_emissions || 0,
           reputation: commitResults.globalState.group_reputation || 50,
@@ -1926,9 +1932,11 @@ export default function ExecutiveCockpit({
                       <div className={focusStyles.focusResultIcon}>💰</div>
                       <div className={focusStyles.focusResultLabel}>Treasury</div>
                       <div className={focusStyles.focusResultValue}>{fmtCurrency(newTreasury)}</div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dTreasury >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                        {dTreasury >= 0 ? '▲' : '▼'} {fmtCurrency(Math.abs(dTreasury))}
-                      </div>
+                      {dTreasury !== 0 && (
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dTreasury >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
+                          {dTreasury >= 0 ? '▲' : '▼'} {fmtCurrency(Math.abs(dTreasury))}
+                        </div>
+                      )}
                     </div>
                     <div className={focusStyles.focusResultCard}>
                       <div className={focusStyles.focusResultIcon}>📈</div>
@@ -1939,17 +1947,21 @@ export default function ExecutiveCockpit({
                       <div className={focusStyles.focusResultIcon}>🌍</div>
                       <div className={focusStyles.focusResultLabel}>Reputation</div>
                       <div className={focusStyles.focusResultValue}>{newRep.toFixed(0)}/100</div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dRep >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                        {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
-                      </div>
+                      {dRep !== 0 && (
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dRep >= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
+                          {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
+                        </div>
+                      )}
                     </div>
                     <div className={focusStyles.focusResultCard}>
                       <div className={focusStyles.focusResultIcon}>🏭</div>
                       <div className={focusStyles.focusResultLabel}>CO₂</div>
                       <div className={focusStyles.focusResultValue}>{newCarbon.toLocaleString()}t</div>
-                      <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dCarbon <= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
-                        {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()}t
-                      </div>
+                      {dCarbon !== 0 && (
+                        <div style={{ fontSize: '0.72rem', fontWeight: 800, color: dCarbon <= 0 ? '#4ade80' : '#f87171', marginTop: 2 }}>
+                          {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()}t
+                        </div>
+                      )}
                     </div>
                     {/* Balance Sheet (Focus Results) — clickable */}
                     {(() => {
@@ -3443,9 +3455,11 @@ export default function ExecutiveCockpit({
                         <div className={styles.resultCardLabel}>Reputation</div>
                         <div className={styles.resultCardValue}>
                           {newRep.toFixed(0)}
-                          <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dRep >= 0 ? '#4ade80' : '#ef4444' }}>
-                            {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
-                          </span>
+                          {dRep !== 0 && (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dRep >= 0 ? '#4ade80' : '#ef4444' }}>
+                              {dRep >= 0 ? '▲' : '▼'} {Math.abs(dRep).toFixed(0)}
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className={styles.resultCard}>
@@ -3453,9 +3467,11 @@ export default function ExecutiveCockpit({
                         <div className={styles.resultCardLabel}>CO₂ Emissions</div>
                         <div className={styles.resultCardValue}>
                           {newCarbon.toLocaleString()} t
-                          <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dCarbon <= 0 ? '#4ade80' : '#ef4444' }}>
-                            {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()} t
-                          </span>
+                          {dCarbon !== 0 && (
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, marginLeft: 8, color: dCarbon <= 0 ? '#4ade80' : '#ef4444' }}>
+                              {dCarbon > 0 ? '▲' : '▼'} {Math.abs(dCarbon).toLocaleString()} t
+                            </span>
+                          )}
                         </div>
                       </div>
                       {/* Balance Sheet Health Card — clickable to open full IFRS balance sheet */}
@@ -3506,9 +3522,10 @@ export default function ExecutiveCockpit({
                   ? businessUnits.reduce((s, bu) => s + (bu.natural_capital_debt || 0), 0) / businessUnits.length
                   : 0;
                 const stockData = [
-                  { year: 'IPO', price: IPO_PRICE },
+                  { year: 'IPO', yearLabel: 'IPO', price: IPO_PRICE },
                   ...historyData.map(h => ({
                     year: h.year,
+                    yearLabel: h.yearLabel,
                     price: calculateRoundStockPrice({
                       ebitda: h.ebitda,
                       synergy_multiplier: globalState?.synergy_multiplier || 1.0,
@@ -3558,12 +3575,12 @@ export default function ExecutiveCockpit({
                                 <stop offset="95%" stopColor="#e2e8f0" stopOpacity={0.02} />
                               </linearGradient>
                             </defs>
-                            <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                            <XAxis dataKey="yearLabel" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                             <YAxis hide domain={yDomain} />
                             <Tooltip
                               contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
                               formatter={(v) => [fmt(v), label.replace(' Trend', '')]}
-                              labelFormatter={(year) => `Year ${year}`}
+                              labelFormatter={(l) => `${l}`}
                             />
                             <Area type="monotone" dataKey={key} stroke="#e2e8f0" strokeWidth={1.5} fill={`url(#grad-${key})`} dot={{ r: 2.5, fill: '#e2e8f0', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#fff', stroke: '#94a3b8', strokeWidth: 1 }} />
                           </AreaChart>
@@ -3593,12 +3610,12 @@ export default function ExecutiveCockpit({
                               <stop offset="95%" stopColor="#e2e8f0" stopOpacity={0.02} />
                             </linearGradient>
                           </defs>
-                          <XAxis dataKey="year" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                          <XAxis dataKey="yearLabel" tick={{ fontSize: 9, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
                           <YAxis hide domain={[Math.max(0, minP - pad), maxP + pad]} />
                           <Tooltip
                             contentStyle={{ fontSize: '0.72rem', borderRadius: 6, border: '1px solid #e2e8f0', boxShadow: '0 4px 12px rgba(0,0,0,0.08)' }}
                             formatter={(v) => [`$${v.toFixed(2)}`, 'Stock Price']}
-                            labelFormatter={(year) => year === 'IPO' ? 'IPO' : `Year ${year}`}
+                            labelFormatter={(l) => `${l}`}
                           />
                           <ReferenceLine y={IPO_PRICE} stroke="#475569" strokeDasharray="3 3" />
                           <Area type="monotone" dataKey="price" stroke="#e2e8f0" strokeWidth={1.5} fill="url(#grad-stock-res)" dot={{ r: 2.5, fill: '#e2e8f0', strokeWidth: 0 }} activeDot={{ r: 4, fill: '#fff', stroke: '#94a3b8', strokeWidth: 1 }} />
