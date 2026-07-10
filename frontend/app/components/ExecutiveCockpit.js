@@ -64,6 +64,7 @@ const ESGImpactConstellation = dynamic(() => import('./ESGImpactConstellation'),
 import useRoundStage from '../hooks/useRoundStage';
 import { BOARD_PERSONAS, getPersona } from './BoardPersonas';
 import MarketIntel from './MarketIntelCards';
+import AnnualReport from './AnnualReport';
 import EngineWidgetsPanel from './EngineWidgetsPanel';
 import ArchiveAccordion from './ArchiveAccordion';
 
@@ -775,6 +776,12 @@ export default function ExecutiveCockpit({
   const unreadCount = currentMessages.filter(m => !m.read).length;
   const [expandedMessage, setExpandedMessage] = useState(null);
 
+  // W-C (W3): year-end Annual Report overlay — offered in the results step
+  // after even rounds. Optional (never gates advance); resets when the
+  // results snapshot clears on round advance.
+  const [showAnnualReport, setShowAnnualReport] = useState(false);
+  useEffect(() => { if (!commitResults) setShowAnnualReport(false); }, [commitResults]);
+
   // Market events from round_config + engine events
   const marketEvents = useMemo(() => {
     const items = [];
@@ -1040,6 +1047,19 @@ export default function ExecutiveCockpit({
           .stamp-ceremony { animation: none !important; }
         }
       `}</style>
+      {/* ═══ W-C (W3): Year-End Integrated Annual Report — optional overlay ═══ */}
+      {showAnnualReport && focusStep === 'results' && commitResults && (
+        <AnnualReport
+          open
+          onClose={() => setShowAnnualReport(false)}
+          roundNumber={roundNumber}
+          commitResults={commitResults}
+          history={history}
+          businessUnits={businessUnits}
+          teamName={sim?.teamName || sim?.team_name || ''}
+        />
+      )}
+
       {/* ═══ SHADOW BOARD AUDIT — R5 Mandatory Middleware ═══ */}
       {showShadowBoardAudit && (
         <ShadowBoardAudit
@@ -2068,6 +2088,21 @@ export default function ExecutiveCockpit({
                 ✦ Board Resolution Passed ✦
               </div>
             </div>
+
+            {/* W-C (W3): year-boundary artifact — optional, never gates advance */}
+            {roundNumber % 2 === 0 && roundNumber < 10 && (
+              <div style={{ textAlign: 'center', marginBottom: 14 }}>
+                <button
+                  onClick={() => setShowAnnualReport(true)}
+                  style={{
+                    padding: '7px 16px', borderRadius: 8, cursor: 'pointer',
+                    fontWeight: 700, fontSize: '0.78rem',
+                    border: '1px solid rgba(13, 148, 136, 0.5)',
+                    background: 'rgba(13, 148, 136, 0.12)', color: '#5eead4',
+                  }}
+                >📄 Year {Math.ceil(roundNumber / 2)} Integrated Report ready — view</button>
+              </div>
+            )}
 
             <div className={focusStyles.focusResultsGrid}>
               {(() => {
