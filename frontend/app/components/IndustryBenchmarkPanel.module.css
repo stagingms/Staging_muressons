@@ -223,7 +223,7 @@
     border-radius: 8px;
     background: rgba(239,68,68,0.08);
     border: 1px solid rgba(239,68,68,0.25);
-    color: #ef4444;
+    color: var(--kpi-danger);
     font-size: 0.82rem;
     font-weight: 600;
 }

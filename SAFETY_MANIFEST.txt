@@ -1,0 +1,729 @@
+﻿MURESSONS SIMULATION — REFACTOR-BY-ISOLATION SAFETY MANIFEST
+================================================================
+Generated  : 2026-07-08T08:17:16+05:30
+Operator   : Antigravity AI (approved by user on 2026-07-08)
+Archive Dir: c:\Users\Home\.gemini\antigravity\scratch\muressons-sim\temp_archive
+Total Files: 139
+
+REVERSIBILITY: Run revert.py in the project root to restore all files.
+
+PROTECTED FILES (NOT MOVED):
+  backend/main.py, router.py, admin_router.py, admin_teleprompter.py,
+  admin_resources.py, admin_analytics.py, admin_shared.py, engine.py,
+  round_logic.py, config.py, database.py, database_memory.py,
+  materiality_db.py, round_configs.py, pillar_configs.py, models.py,
+  option_shuffle.py, round2_csrd.py, stakeholder_map.py, auth_jwt.py,
+  healthcare_configs.py, quiz_banks.py, rng_util.py, impact_engine.py,
+  validation_logic.py, password_hashing.py, + all extended engine modules
+  backend/tests/ (organized test suite), backend/side_tracks/,
+  backend/verticals/, frontend/ (Next.js app),
+  market_dynamics.py (explicit user decision: do not archive),
+  sessions.json (live session state: do not archive)
+
+CATEGORY LEGEND:
+  A = Root-level one-shot document generators
+  B = Root-level ad-hoc test scripts
+  C = Root-level output artifacts
+  D = Backend one-shot/patch/verify scripts or output artifacts
+  F = Superseded versioned .docx duplicates (root)
+  G = docs/ directory generators and duplicate .docx
+  H = scripts/ directory one-shot utilities
+
+FILES MOVED:
+─────────────────────────────────────────────────────────────────────
+[1] CAT-A
+    ORIGINAL : append_balance_sheet_glossary.py
+    ARCHIVED : temp_archive\root\append_balance_sheet_glossary.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[2] CAT-A
+    ORIGINAL : append_brsr_pillars_to_manuals.py
+    ARCHIVED : temp_archive\root\append_brsr_pillars_to_manuals.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[3] CAT-A
+    ORIGINAL : append_brsr_track_manuals.py
+    ARCHIVED : temp_archive\root\append_brsr_track_manuals.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[4] CAT-A
+    ORIGINAL : append_caroic_to_manuals.py
+    ARCHIVED : temp_archive\root\append_caroic_to_manuals.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[5] CAT-A
+    ORIGINAL : append_ceo_debrief_to_manuals.py
+    ARCHIVED : temp_archive\root\append_ceo_debrief_to_manuals.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[6] CAT-A
+    ORIGINAL : append_esg_constellation_to_manuals.py
+    ARCHIVED : temp_archive\root\append_esg_constellation_to_manuals.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[7] CAT-A
+    ORIGINAL : append_factory_reset_appendix.py
+    ARCHIVED : temp_archive\root\append_factory_reset_appendix.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[8] CAT-A
+    ORIGINAL : append_materiality_calculations.py
+    ARCHIVED : temp_archive\root\append_materiality_calculations.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[9] CAT-A
+    ORIGINAL : append_section17.py
+    ARCHIVED : temp_archive\root\append_section17.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[10] CAT-A
+    ORIGINAL : append_single_bu_to_manuals.py
+    ARCHIVED : temp_archive\root\append_single_bu_to_manuals.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[11] CAT-A
+    ORIGINAL : append_tcfd_to_manuals.py
+    ARCHIVED : temp_archive\root\append_tcfd_to_manuals.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[12] CAT-A
+    ORIGINAL : apply_ux_refactor.py
+    ARCHIVED : temp_archive\root\apply_ux_refactor.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[13] CAT-A
+    ORIGINAL : clean_sdg.py
+    ARCHIVED : temp_archive\root\clean_sdg.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[14] CAT-A
+    ORIGINAL : clean_sdg_round.py
+    ARCHIVED : temp_archive\root\clean_sdg_round.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[15] CAT-A
+    ORIGINAL : clean_sdg_terminal.py
+    ARCHIVED : temp_archive\root\clean_sdg_terminal.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[16] CAT-A
+    ORIGINAL : combine_guide.py
+    ARCHIVED : temp_archive\root\combine_guide.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[17] CAT-A
+    ORIGINAL : embed_screenshots.py
+    ARCHIVED : temp_archive\root\embed_screenshots.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[18] CAT-A
+    ORIGINAL : extract_briefings.py
+    ARCHIVED : temp_archive\root\extract_briefings.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[19] CAT-A
+    ORIGINAL : gen_guide_p2.py
+    ARCHIVED : temp_archive\root\gen_guide_p2.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[20] CAT-A
+    ORIGINAL : gen_guide_p3.py
+    ARCHIVED : temp_archive\root\gen_guide_p3.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[21] CAT-A
+    ORIGINAL : generate_benchmark_docx.py
+    ARCHIVED : temp_archive\root\generate_benchmark_docx.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[22] CAT-A
+    ORIGINAL : generate_briefings_doc.py
+    ARCHIVED : temp_archive\root\generate_briefings_doc.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[23] CAT-A
+    ORIGINAL : generate_glossary.py
+    ARCHIVED : temp_archive\root\generate_glossary.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[24] CAT-A
+    ORIGINAL : generate_player_briefing_pptx.py
+    ARCHIVED : temp_archive\root\generate_player_briefing_pptx.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[25] CAT-A
+    ORIGINAL : generate_student_guide.py
+    ARCHIVED : temp_archive\root\generate_student_guide.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[26] CAT-A
+    ORIGINAL : generate_student_guide_v2_part1.py
+    ARCHIVED : temp_archive\root\generate_student_guide_v2_part1.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[27] CAT-A
+    ORIGINAL : generate_student_manual.py
+    ARCHIVED : temp_archive\root\generate_student_manual.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[28] CAT-A
+    ORIGINAL : patch_glossary.py
+    ARCHIVED : temp_archive\root\patch_glossary.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[29] CAT-A
+    ORIGINAL : patch_tech_glossary.py
+    ARCHIVED : temp_archive\root\patch_tech_glossary.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[30] CAT-A
+    ORIGINAL : reorder.py
+    ARCHIVED : temp_archive\root\reorder.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[31] CAT-A
+    ORIGINAL : section14_walkthrough.py
+    ARCHIVED : temp_archive\root\section14_walkthrough.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[32] CAT-A
+    ORIGINAL : student_manual_additions.py
+    ARCHIVED : temp_archive\root\student_manual_additions.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[33] CAT-A
+    ORIGINAL : student_manual_helpers.py
+    ARCHIVED : temp_archive\root\student_manual_helpers.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[34] CAT-A
+    ORIGINAL : student_manual_part1.py
+    ARCHIVED : temp_archive\root\student_manual_part1.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[35] CAT-A
+    ORIGINAL : student_manual_part2.py
+    ARCHIVED : temp_archive\root\student_manual_part2.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[36] CAT-A
+    ORIGINAL : update_manuals_csrd.py
+    ARCHIVED : temp_archive\root\update_manuals_csrd.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[37] CAT-A
+    ORIGINAL : verify_glossary.py
+    ARCHIVED : temp_archive\root\verify_glossary.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[38] CAT-A
+    ORIGINAL : verify_manual.py
+    ARCHIVED : temp_archive\root\verify_manual.py
+    RATIONALE: Root-level one-shot document generator - output .docx already exists in project root
+
+[39] CAT-B
+    ORIGINAL : test_api.py
+    ARCHIVED : temp_archive\root\test_api.py
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[40] CAT-B
+    ORIGINAL : test_api_flow.py
+    ARCHIVED : temp_archive\root\test_api_flow.py
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[41] CAT-B
+    ORIGINAL : test_new_engines.py
+    ARCHIVED : temp_archive\root\test_new_engines.py
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[42] CAT-B
+    ORIGINAL : test_override.py
+    ARCHIVED : temp_archive\root\test_override.py
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[43] CAT-B
+    ORIGINAL : test_sandbox.py
+    ARCHIVED : temp_archive\root\test_sandbox.py
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[44] CAT-B
+    ORIGINAL : test_upload.js
+    ARCHIVED : temp_archive\root\test_upload.js
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[45] CAT-B
+    ORIGINAL : test_commit.ps1
+    ARCHIVED : temp_archive\root\test_commit.ps1
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[46] CAT-B
+    ORIGINAL : test_suite.py.txt
+    ARCHIVED : temp_archive\root\test_suite.py.txt
+    RATIONALE: Root-level ad-hoc test/smoke script - superseded by organized backend/tests/ suite
+
+[47] CAT-C
+    ORIGINAL : check_lines.txt
+    ARCHIVED : temp_archive\root\check_lines.txt
+    RATIONALE: Root-level output artifact or standalone visualization - not part of runtime
+
+[48] CAT-C
+    ORIGINAL : test_out.txt
+    ARCHIVED : temp_archive\root\test_out.txt
+    RATIONALE: Root-level output artifact or standalone visualization - not part of runtime
+
+[49] CAT-C
+    ORIGINAL : test_results.txt
+    ARCHIVED : temp_archive\root\test_results.txt
+    RATIONALE: Root-level output artifact or standalone visualization - not part of runtime
+
+[50] CAT-C
+    ORIGINAL : test_comprehensive_results.json
+    ARCHIVED : temp_archive\root\test_comprehensive_results.json
+    RATIONALE: Root-level output artifact or standalone visualization - not part of runtime
+
+[51] CAT-C
+    ORIGINAL : flowchart.html
+    ARCHIVED : temp_archive\root\flowchart.html
+    RATIONALE: Root-level output artifact or standalone visualization - not part of runtime
+
+[52] CAT-D
+    ORIGINAL : backend\append_briefings.py
+    ARCHIVED : temp_archive\backend\append_briefings.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[53] CAT-D
+    ORIGINAL : backend\append_optimal_strategy.py
+    ARCHIVED : temp_archive\backend\append_optimal_strategy.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[54] CAT-D
+    ORIGINAL : backend\append_pathways_v8.py
+    ARCHIVED : temp_archive\backend\append_pathways_v8.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[55] CAT-D
+    ORIGINAL : backend\append_pedagogy.py
+    ARCHIVED : temp_archive\backend\append_pedagogy.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[56] CAT-D
+    ORIGINAL : backend\append_sandbox_controller_v10.py
+    ARCHIVED : temp_archive\backend\append_sandbox_controller_v10.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[57] CAT-D
+    ORIGINAL : backend\audit_api.py
+    ARCHIVED : temp_archive\backend\audit_api.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[58] CAT-D
+    ORIGINAL : backend\audit_esrs.py
+    ARCHIVED : temp_archive\backend\audit_esrs.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[59] CAT-D
+    ORIGINAL : backend\bulk_esrs_patch.py
+    ARCHIVED : temp_archive\backend\bulk_esrs_patch.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[60] CAT-D
+    ORIGINAL : backend\check_cats.py
+    ARCHIVED : temp_archive\backend\check_cats.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[61] CAT-D
+    ORIGINAL : backend\debug_bs.py
+    ARCHIVED : temp_archive\backend\debug_bs.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[62] CAT-D
+    ORIGINAL : backend\extract_docs.py
+    ARCHIVED : temp_archive\backend\extract_docs.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[63] CAT-D
+    ORIGINAL : backend\extracted_docs.md
+    ARCHIVED : temp_archive\backend\extracted_docs.md
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[64] CAT-D
+    ORIGINAL : backend\extracted_docs.txt
+    ARCHIVED : temp_archive\backend\extracted_docs.txt
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[65] CAT-D
+    ORIGINAL : backend\fix_categories.py
+    ARCHIVED : temp_archive\backend\fix_categories.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[66] CAT-D
+    ORIGINAL : backend\gen_section17_bs.py
+    ARCHIVED : temp_archive\backend\gen_section17_bs.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[67] CAT-D
+    ORIGINAL : backend\generate_docx.py
+    ARCHIVED : temp_archive\backend\generate_docx.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[68] CAT-D
+    ORIGINAL : backend\generate_docx_v2.py
+    ARCHIVED : temp_archive\backend\generate_docx_v2.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[69] CAT-D
+    ORIGINAL : backend\generate_industry_master.py
+    ARCHIVED : temp_archive\backend\generate_industry_master.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[70] CAT-D
+    ORIGINAL : backend\patch_materiality.py
+    ARCHIVED : temp_archive\backend\patch_materiality.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[71] CAT-D
+    ORIGINAL : backend\patch_rbac.py
+    ARCHIVED : temp_archive\backend\patch_rbac.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[72] CAT-D
+    ORIGINAL : backend\sample_calc.py
+    ARCHIVED : temp_archive\backend\sample_calc.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[73] CAT-D
+    ORIGINAL : backend\verify_esg_toggle.py
+    ARCHIVED : temp_archive\backend\verify_esg_toggle.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[74] CAT-D
+    ORIGINAL : backend\verify_fix.py
+    ARCHIVED : temp_archive\backend\verify_fix.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[75] CAT-D
+    ORIGINAL : backend\verify_improvements.py
+    ARCHIVED : temp_archive\backend\verify_improvements.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[76] CAT-D
+    ORIGINAL : backend\verify_reversal.py
+    ARCHIVED : temp_archive\backend\verify_reversal.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[77] CAT-D
+    ORIGINAL : backend\verify_script.py
+    ARCHIVED : temp_archive\backend\verify_script.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[78] CAT-D
+    ORIGINAL : backend\verify_shuffle.py
+    ARCHIVED : temp_archive\backend\verify_shuffle.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[79] CAT-D
+    ORIGINAL : backend\old_test_out.txt
+    ARCHIVED : temp_archive\backend\old_test_out.txt
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[80] CAT-D
+    ORIGINAL : backend\pytest_out.txt
+    ARCHIVED : temp_archive\backend\pytest_out.txt
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[81] CAT-D
+    ORIGINAL : backend\test_comprehensive_results.json
+    ARCHIVED : temp_archive\backend\test_comprehensive_results.json
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[82] CAT-D
+    ORIGINAL : backend\test_cross_product_results.json
+    ARCHIVED : temp_archive\backend\test_cross_product_results.json
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[83] CAT-D
+    ORIGINAL : backend\vertical_csrd_issues.py
+    ARCHIVED : temp_archive\backend\vertical_csrd_issues.py
+    RATIONALE: Backend one-shot/audit/verify script or output artifact - not imported by any runtime module
+
+[84] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[85] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v2.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v2.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[86] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v3.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v3.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[87] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v4.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v4.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[88] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v4_with_Constellation.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v4_with_Constellation.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[89] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v5.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v5.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[90] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v6.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v6.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[91] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v7.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v7.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[92] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v8.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v8.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[93] CAT-F
+    ORIGINAL : Muressons_Facilitator_Manual_v9.docx
+    ARCHIVED : temp_archive\root\Muressons_Facilitator_Manual_v9.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[94] CAT-F
+    ORIGINAL : Muressons_Simulation_Briefings.docx
+    ARCHIVED : temp_archive\root\Muressons_Simulation_Briefings.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[95] CAT-F
+    ORIGINAL : Muressons_Simulation_Briefings ver 1.docx
+    ARCHIVED : temp_archive\root\Muressons_Simulation_Briefings ver 1.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[96] CAT-F
+    ORIGINAL : Muressons_Simulation_Briefings ver 5.docx
+    ARCHIVED : temp_archive\root\Muressons_Simulation_Briefings ver 5.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[97] CAT-F
+    ORIGINAL : Muressons_Simulation_Briefings ver 6.docx
+    ARCHIVED : temp_archive\root\Muressons_Simulation_Briefings ver 6.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[98] CAT-F
+    ORIGINAL : Muressons_Simulation_Briefings ver 8.docx
+    ARCHIVED : temp_archive\root\Muressons_Simulation_Briefings ver 8.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[99] CAT-F
+    ORIGINAL : Muressons_Simulation_Briefings ver 9.docx
+    ARCHIVED : temp_archive\root\Muressons_Simulation_Briefings ver 9.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[100] CAT-F
+    ORIGINAL : Muressons_Simulation_Briefings ver 10.docx
+    ARCHIVED : temp_archive\root\Muressons_Simulation_Briefings ver 10.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[101] CAT-F
+    ORIGINAL : Muressons_Student_Guide ver 1.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Guide ver 1.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[102] CAT-F
+    ORIGINAL : Muressons_Student_Guide ver1.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Guide ver1.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[103] CAT-F
+    ORIGINAL : _student_guide_part1.docx
+    ARCHIVED : temp_archive\root\_student_guide_part1.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[104] CAT-F
+    ORIGINAL : _student_guide_part2.docx
+    ARCHIVED : temp_archive\root\_student_guide_part2.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[105] CAT-F
+    ORIGINAL : _student_guide_part3.docx
+    ARCHIVED : temp_archive\root\_student_guide_part3.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[106] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v2.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v2.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[107] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v3.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v3.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[108] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v4.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v4.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[109] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v5.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v5.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[110] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v5_with_CAROIC.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v5_with_CAROIC.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[111] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v5_with_CAROIC_with_CEO_Debrief.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v5_with_CAROIC_with_CEO_Debrief.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[112] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v5_with_CAROIC_with_CEO_Debrief_with_Constellation.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v5_with_CAROIC_with_CEO_Debrief_with_Constellation.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[113] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v6.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v6.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[114] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v7.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v7.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[115] CAT-F
+    ORIGINAL : Muressons_Student_Manual_v8.docx
+    ARCHIVED : temp_archive\root\Muressons_Student_Manual_v8.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[116] CAT-F
+    ORIGINAL : Muressons_Technical_Glossary.docx
+    ARCHIVED : temp_archive\root\Muressons_Technical_Glossary.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[117] CAT-F
+    ORIGINAL : ~$ressons_Simulation_Context_Full.docx
+    ARCHIVED : temp_archive\root\~$ressons_Simulation_Context_Full.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[118] CAT-F
+    ORIGINAL : ~$ressons_Student_Guide ver1.docx
+    ARCHIVED : temp_archive\root\~$ressons_Student_Guide ver1.docx
+    RATIONALE: Superseded versioned .docx - latest version retained in project root
+
+[119] CAT-G
+    ORIGINAL : docs\docx_styles.py
+    ARCHIVED : temp_archive\docs\docx_styles.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[120] CAT-G
+    ORIGINAL : docs\gen_appendix_d.py
+    ARCHIVED : temp_archive\docs\gen_appendix_d.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[121] CAT-G
+    ORIGINAL : docs\gen_part1.py
+    ARCHIVED : temp_archive\docs\gen_part1.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[122] CAT-G
+    ORIGINAL : docs\gen_part2.py
+    ARCHIVED : temp_archive\docs\gen_part2.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[123] CAT-G
+    ORIGINAL : docs\gen_part3.py
+    ARCHIVED : temp_archive\docs\gen_part3.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[124] CAT-G
+    ORIGINAL : docs\gen_part4.py
+    ARCHIVED : temp_archive\docs\gen_part4.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[125] CAT-G
+    ORIGINAL : docs\gen_section3.py
+    ARCHIVED : temp_archive\docs\gen_section3.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[126] CAT-G
+    ORIGINAL : docs\generate_manual.py
+    ARCHIVED : temp_archive\docs\generate_manual.py
+    RATIONALE: docs/ one-shot document generator script - generated output .docx already exists
+
+[127] CAT-G
+    ORIGINAL : docs\Parameter_Provenance.md.docx
+    ARCHIVED : temp_archive\docs\Parameter_Provenance.md.docx
+    RATIONALE: docs/ duplicate or superseded .docx document
+
+[128] CAT-G
+    ORIGINAL : docs\Muressons_Simulation_Briefings ver 10.docx
+    ARCHIVED : temp_archive\docs\Muressons_Simulation_Briefings ver 10.docx
+    RATIONALE: docs/ duplicate or superseded .docx document
+
+[129] CAT-G
+    ORIGINAL : docs\Muressons_Simulation_Briefings ver 11.docx
+    ARCHIVED : temp_archive\docs\Muressons_Simulation_Briefings ver 11.docx
+    RATIONALE: docs/ duplicate or superseded .docx document
+
+[130] CAT-G
+    ORIGINAL : docs\Muressons_Facilitator_Manual ver 2.0.docx
+    ARCHIVED : temp_archive\docs\Muressons_Facilitator_Manual ver 2.0.docx
+    RATIONALE: docs/ duplicate or superseded .docx document
+
+[131] CAT-G
+    ORIGINAL : docs\Muressons_Facilitator_Manual_v2.docx
+    ARCHIVED : temp_archive\docs\Muressons_Facilitator_Manual_v2.docx
+    RATIONALE: docs/ duplicate or superseded .docx document
+
+[132] CAT-G
+    ORIGINAL : docs\Muressons Student Manual v2.docx
+    ARCHIVED : temp_archive\docs\Muressons Student Manual v2.docx
+    RATIONALE: docs/ duplicate or superseded .docx document
+
+[133] CAT-H
+    ORIGINAL : scripts\_evi_run.py
+    ARCHIVED : temp_archive\scripts\_evi_run.py
+    RATIONALE: scripts/ one-shot utility script - already applied or superseded
+
+[134] CAT-H
+    ORIGINAL : scripts\append_brsr_to_manuals.py
+    ARCHIVED : temp_archive\scripts\append_brsr_to_manuals.py
+    RATIONALE: scripts/ one-shot utility script - already applied or superseded
+
+[135] CAT-H
+    ORIGINAL : scripts\build_word_docs.py
+    ARCHIVED : temp_archive\scripts\build_word_docs.py
+    RATIONALE: scripts/ one-shot utility script - already applied or superseded
+
+[136] CAT-H
+    ORIGINAL : scripts\calibrate_pathway_difficulty.py
+    ARCHIVED : temp_archive\scripts\calibrate_pathway_difficulty.py
+    RATIONALE: scripts/ one-shot utility script - already applied or superseded
+
+[137] CAT-H
+    ORIGINAL : scripts\generate_strategy_report.py
+    ARCHIVED : temp_archive\scripts\generate_strategy_report.py
+    RATIONALE: scripts/ one-shot utility script - already applied or superseded
+
+[138] CAT-H
+    ORIGINAL : scripts\make_reference_docx.py
+    ARCHIVED : temp_archive\scripts\make_reference_docx.py
+    RATIONALE: scripts/ one-shot utility script - already applied or superseded
+
+[139] CAT-H
+    ORIGINAL : scripts\migrate_css_tokens.py
+    ARCHIVED : temp_archive\scripts\migrate_css_tokens.py
+    RATIONALE: scripts/ one-shot utility script - already applied or superseded
+
+END OF MANIFEST

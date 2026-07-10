@@ -25,6 +25,14 @@
   --gauge-yellow: #f59e0b;
   --gauge-red: #ef4444;
 
+  /* C2: Colour-blind-safe semantic KPI tokens. Good = teal-emerald (distinct
+     from red on deutan/protan), warn = amber, danger = red (reserved strictly
+     for danger). Always pair with a shape/icon in the UI, never colour alone. */
+  --kpi-good: #10b981;
+  --kpi-warn: #f59e0b;
+  --kpi-danger: #ef4444;
+  --kpi-neutral: #64748b;
+
   /* Text â€” contrast-safe (WCAG AA 4.5:1+ on dark) */
   --text-primary: #f1f5f9;
   --text-secondary: #b0bec5;   /* Upgraded from #94a3b8 â†’ 5.8:1 ratio */
@@ -137,6 +145,13 @@
   --gauge-green: #059669;
   --gauge-yellow: #d97706;
   --gauge-red: #dc2626;
+
+  /* C2/C3: KPI tokens tuned for a bright room (deeper than dark theme so they
+     keep 4.5:1+ contrast on white surfaces). Always paired with a shape/icon. */
+  --kpi-good: #059669;
+  --kpi-warn: #d97706;
+  --kpi-danger: #dc2626;
+  --kpi-neutral: #475569;
 
   /* Text */
   --text-primary: #0f172a;

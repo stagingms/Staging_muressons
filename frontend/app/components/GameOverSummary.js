@@ -4,6 +4,13 @@ import dynamic from 'next/dynamic';
 import styles from './GameOverSummary.module.css';
 import StudentReportExport from './StudentReportExport';
 import { useCurrency } from '../contexts/CurrencyContext';
+import RewindRibbon from './RewindRibbon';
+import RegretMeter from './RegretMeter';
+import MRLadderReveal from './MRLadderReveal';
+import MirrorDebrief from './MirrorDebrief';
+import ESGLeadershipProfile from './ESGLeadershipProfile';
+import ArchetypeCard from './ArchetypeCard';
+import FrontPageReveal from './FrontPageReveal';
 
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
@@ -36,6 +43,9 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
         gradient: d.profile_gradient || baseTheme.gradient,
         title: baseTheme.title,
     };
+    // First hex in the archetype gradient — used to brand the shareable card.
+    const accentHex = (theme.gradient.match(/#[0-9a-fA-F]{6}/) || ['#10b981'])[0];
+    const activeFlags = globalState?.active_event_flags || {};
 
     const handleDownload = () => {
         // Open the scorecard which has the full report download capability
@@ -135,6 +145,38 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                         <span className={styles.statValue}>{isBRSR ? '5' : '10'}</span>
                     </div>
                 </div>
+
+                {/* Wow moments: replay the journey, name the regret, keep a card */}
+                <RewindRibbon flags={activeFlags} />
+                {/* WOW-10: M_R Ladder — animated stacking reveal of each M_R component */}
+                <MRLadderReveal mr={d.regenerative_multiple} flags={activeFlags} />
+                <RegretMeter mr={d.regenerative_multiple} flags={activeFlags} />
+                {/* WOW-3: Mirror Debrief — single highest-impact counterfactual */}
+                <MirrorDebrief
+                    mr={Number(d.regenerative_multiple) || 0}
+                    flags={activeFlags}
+                    terminalValue={Number(d.terminal_value) || 0}
+                />
+                <div style={{ textAlign: 'center' }}>
+                    <ArchetypeCard
+                        title={d.profile_title || theme.title}
+                        icon={theme.icon}
+                        mr={d.regenerative_multiple || 0}
+                        terminalValueM={(d.terminal_value || 0) / 1_000_000}
+                        sharePrice={d.price_per_share}
+                        accent={accentHex}
+                        cohortName={d.cohort_name || ''}
+                    />
+                </div>
+                <FrontPageReveal sessionId={sessionId} data={d} cohortName={d.cohort_name || ''} />
+                {/* WOW-12: ESG Leadership Profile — radar chart + PNG export */}
+                <ESGLeadershipProfile
+                    data={d}
+                    flags={activeFlags}
+                    sessionId={sessionId}
+                    cohortName={d.cohort_name || ''}
+                    businessUnits={businessUnits}
+                />
 
                 {/* Message */}
                 <div className={styles.message}>

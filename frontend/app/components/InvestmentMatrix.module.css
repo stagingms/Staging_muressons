@@ -284,17 +284,17 @@
 }
 
 .healthGood {
-    background: #10b981;
+    background: var(--kpi-good);
     box-shadow: 0 0 6px rgba(16, 185, 129, 0.5);
 }
 
 .healthWarning {
-    background: #f59e0b;
+    background: var(--accent-gold);
     box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
 }
 
 .healthDanger {
-    background: #ef4444;
+    background: var(--kpi-danger);
     box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
     animation: healthPulse 2s ease-in-out infinite;
 }
@@ -534,8 +534,8 @@
 }
 
 .gaugeValueGood { color: var(--gauge-green, #059669); }
-.gaugeValueWarning { color: #f59e0b; }
-.gaugeValueDanger { color: var(--gauge-red, #ef4444); }
+.gaugeValueWarning { color: var(--accent-gold); }
+.gaugeValueDanger { color: var(--gauge-red, var(--kpi-danger)); }
 
 .gaugeTrack {
     height: 3px;
@@ -551,15 +551,15 @@
 }
 
 .gaugeFillGood {
-    background: linear-gradient(90deg, #059669, #10b981);
+    background: linear-gradient(90deg, #059669, var(--kpi-good));
 }
 
 .gaugeFillWarning {
-    background: linear-gradient(90deg, #d97706, #f59e0b);
+    background: linear-gradient(90deg, #d97706, var(--accent-gold));
 }
 
 .gaugeFillDanger {
-    background: linear-gradient(90deg, #dc2626, #ef4444);
+    background: linear-gradient(90deg, #dc2626, var(--kpi-danger));
 }
 
 .gaugeFillNeutral {
@@ -572,8 +572,8 @@
     line-height: 1;
 }
 
-.trendUp { color: var(--gauge-green, #10b981); }
-.trendDown { color: var(--gauge-red, #ef4444); }
+.trendUp { color: var(--gauge-green, var(--kpi-good)); }
+.trendDown { color: var(--gauge-red, var(--kpi-danger)); }
 .trendFlat { color: var(--text-muted); }
 
 /* ── Slider Footer ────────────────────────────────────────── */
@@ -693,8 +693,8 @@
 }
 
 :global([data-theme="light"]) .buIconWrap {
-    background: color-mix(in srgb, var(--bu-accent, #3b82f6) 10%, #f1f5f9);
-    border-color: color-mix(in srgb, var(--bu-accent, #3b82f6) 15%, #e2e8f0);
+    background: color-mix(in srgb, var(--bu-accent, var(--accent-blue)) 10%, var(--text-primary));
+    border-color: color-mix(in srgb, var(--bu-accent, var(--accent-blue)) 15%, #e2e8f0);
 }
 
 :global([data-theme="light"]) .buLabel {

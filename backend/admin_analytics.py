@@ -698,3 +698,18 @@ async def get_cohort_diversity_endpoint(
     """Return cohort diversity heatmap — Industry Vertical × Region player counts."""
     return get_cohort_diversity(session_id)
 
+
+@analytics_router.get(
+    "/{session_id}/teachable-moments",
+    summary="Facilitator prompts when a cohort converges on an adverse decision flag",
+)
+async def get_teachable_moments_endpoint(
+    session_id: str,
+    _guard: None = Depends(_require_facilitator),
+):
+    """B5: read-only detector — surfaces a prompt when >= half a cohort's teams
+    share a flag the dependency graph marks as adverse (doubles a crisis, BLOCKS
+    a bonus, triggers a penalty). Players are unaffected."""
+    from teachable_moments import compute_cohort_teachable_moments
+    return await compute_cohort_teachable_moments(session_id)
+

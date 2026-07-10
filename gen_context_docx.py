@@ -1848,15 +1848,233 @@ add_para(doc, "SDG Multiplier boost (if Corporate SDG track, all Option A): M_SD
 add_para(doc, "Combined maximum: TV = EBITDA × Exit × 2.07 × 1.26 ≈ EBITDA × Exit × 2.61", bold=True)
 add_para(doc, "(Compared to base case: TV = EBITDA × Exit × 1.00 × 1.00). The ESG premium represents a 2.61× terminal value multiplier for the best possible ESG performance vs. the worst.", italic=True)
 
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 16: RUNTIME DEPENDENCY MAP
+# ════════════════════════════════════════════════════════════════
+
+divider(doc)
+add_heading(doc, "16.  Runtime Dependency Map", 1)
+
+add_para(doc, (
+    "This section documents the live runtime import graph — which Python modules the running "
+    "server loads, how they depend on each other, and the rules that govern adding new code. "
+    "The full, machine-readable version is in DEPENDENCY_MAP.md at the project root."
+))
+
+add_callout(doc,
+    "Use this map when adding new features, refactoring imports, or deciding where new modules belong. "
+    "Any file NOT listed in the tables below is a standalone script safe to move or archive without "
+    "breaking the running application.",
+    "📌 Developer Rule"
+)
+
+add_heading(doc, "16.1  Application Entry Point", 2)
+add_para(doc, "backend/main.py — FastAPI startup sequence:", bold=True)
+bullets_16 = [
+    "Reads USE_MEMORY_DB env var — selects database.py (PostgreSQL) or database_memory.py (in-memory fallback).",
+    "Injects the selected db module as sys.modules[\"database\"] so all routers share the same backend.",
+    "Mounts 5 routers: simulation_router, admin_router, teleprompter_router, resources_router, analytics_router.",
+    "Seeds missing facilitator cohorts on startup via admin_shared._facilitator_registry.",
+]
+for b in bullets_16:
+    add_bullet(doc, b)
+
+add_heading(doc, "16.2  Layer 1 — Routers", 2)
+add_table(doc,
+    ["Router File", "URL Prefix", "Responsibility"],
+    [
+        ["router.py", "/api/*", "All player-facing endpoints: tick, login, decisions, stakeholder map, CEO interview"],
+        ["admin_router.py", "/api/admin/*", "Facilitator + God Mode admin endpoints; WebSocket broadcast manager"],
+        ["admin_teleprompter.py", "/api/admin/teleprompter/*", "Live teleprompter and slide presentation endpoints"],
+        ["admin_resources.py", "/api/admin/resources/*", "File upload/download, quiz bank management"],
+        ["admin_analytics.py", "/api/admin/analytics/*", "Session analytics, real-time score aggregation"],
+    ],
+    header_color="059669"
+)
+
+add_heading(doc, "16.3  Layer 2 — Core Infrastructure", 2)
+add_table(doc,
+    ["Module", "Depends On", "Purpose"],
+    [
+        ["config.py", "stdlib, dotenv", "All env vars: DATABASE_URL, MASTER_PASSWORD, SIM_ROUNDS, carbon price, etc."],
+        ["database.py", "config", "PostgreSQL async connection pool (asyncpg)"],
+        ["database_memory.py", "config", "Thread-safe in-memory dict store; optional SQLite snapshot for offline use"],
+        ["materiality_db.py", "stdlib", "JSON-backed materiality issue store — no DB connection required"],
+        ["admin_shared.py", "config", "Shared in-process mutable state: _facilitator_registry, _god_mode_settings"],
+        ["models.py", "pydantic", "Pydantic request/response models"],
+        ["password_hashing.py", "bcrypt", "Password hash / verify / upgrade helpers"],
+        ["auth_jwt.py", "jose, fastapi", "JWT token issue, verify, cookie management"],
+        ["option_shuffle.py", "stdlib", "Deterministic option shuffling per player"],
+    ]
+)
+
+add_heading(doc, "16.4  Layer 3 — Simulation Engine", 2)
+add_table(doc,
+    ["Module", "Key Local Imports", "Role"],
+    [
+        ["engine.py", "rng_util, config, stakeholder_sentiment, systemic_risk_engine, sdg_configs", "Core tick processor — advances game state each round"],
+        ["round_logic.py", "round_configs, impact_engine, config, healthcare_configs, npc_stakeholders, pedagogical_engine, round_analytics, dynamic_cases, biodiversity_engine", "Pre/post tick; calls run_new_engines()"],
+        ["impact_engine.py", "round_configs", "Computes ESG impact deltas per decision"],
+        ["rng_util.py", "stdlib (hashlib)", "Deterministic per-cohort RNG seeding"],
+        ["round_configs.py", "stdlib", "Loads per-round configuration; reads simulation_config.json"],
+        ["pillar_configs.py", "stdlib", "ESG pillar option configuration"],
+        ["healthcare_configs.py", "stdlib", "Healthcare vertical round options"],
+    ]
+)
+
+add_heading(doc, "16.5  Layer 4 — Extended Engine Modules", 2)
+add_para(doc, "All 39 modules below are actively imported by the core routers or engine. None are standalone scripts.", italic=True)
+add_table(doc,
+    ["Module", "Imported By", "Description"],
+    [
+        ["autonomous_agents.py", "router", "Autonomous NPC agent logic"],
+        ["balance_sheet.py", "router", "IAS 1 balance sheet engine"],
+        ["biodiversity_engine.py", "round_logic", "Biodiversity impact scoring"],
+        ["black_swan_registry.py", "admin_router", "Fat-tail stochastic event registry + evaluator"],
+        ["board_governance.py", "router", "Board governance decision layer"],
+        ["branching_engine.py", "router", "Narrative branching logic"],
+        ["brsr_controller.py", "admin_router", "BRSR/NGRBC track controller"],
+        ["bu_profiles.py", "admin_router", "Business unit profile definitions"],
+        ["ceo_diary.py", "router", "CEO diary narrative system"],
+        ["ceo_interview.py", "router", "CEO interview dialogue engine"],
+        ["consequence_dna_api.py", "router", "Consequence chain API"],
+        ["dynamic_cases.py", "router, round_logic", "Dynamic case injection"],
+        ["elevenlabs_tts.py", "router", "ElevenLabs TTS voice integration"],
+        ["email_service.py", "admin_router", "Email dispatch (SMTP)"],
+        ["ending_pathways.py", "router", "Game ending pathway logic"],
+        ["journey_improvements.py", "admin_teleprompter", "Player journey improvement suggestions"],
+        ["meadows_leverage.py", "router", "Meadows leverage point analysis"],
+        ["npc_stakeholders.py", "round_logic", "NPC stakeholder behaviour"],
+        ["org_politics.py", "router", "Organisational politics layer"],
+        ["pedagogical_engine.py", "round_logic", "Pedagogical scaffolding logic"],
+        ["real_world_parallels.py", "admin_teleprompter", "Real-world case parallel data"],
+        ["regional_reporting.py", "admin_router", "Regional reporting aggregation"],
+        ["regulatory_sandbox.py", "router", "Regulatory sandbox simulation (CSRD/ESRS gate)"],
+        ["round_analytics.py", "round_logic", "Per-round analytics computation"],
+        ["round_recap_engine.py", "admin_teleprompter", "Round recap generation for facilitators"],
+        ["sdg_configs.py", "engine, router", "SDG configuration and linkage data"],
+        ["sdg_linkage_engine.py", "router", "SDG linkage scoring engine"],
+        ["shadow_board_audit.py", "router", "Shadow board audit layer"],
+        ["stakeholder_db.py", "admin_router", "Stakeholder persistence helpers"],
+        ["stakeholder_sentiment.py", "engine", "Stakeholder sentiment scoring"],
+        ["supply_chain_network.py", "router", "Supply chain network model"],
+        ["systemic_risk_engine.py", "engine", "Systemic risk calculation"],
+        ["tcfd_scenarios.py", "router", "TCFD climate scenario data"],
+        ["teachable_moments.py", "admin_analytics", "Teachable moments identification"],
+        ["terminal_valuation.py", "consequence_dna_api, ending_pathways", "Terminal valuation model (M_R, M_SDG, archetypes)"],
+        ["vertical_stakeholders.py", "admin_router", "Industry vertical stakeholder sets"],
+        ["config_excel.py", "admin_router", "Excel-based session config reader"],
+        ["materiality_config_excel.py", "admin_router", "Materiality config Excel reader"],
+        ["stakeholder_config_excel.py", "admin_router", "Stakeholder config Excel reader"],
+    ]
+)
+
+add_heading(doc, "16.6  Dependency Rules for New Development", 2)
+dev_rules = [
+    "New feature module → per-request: import it in router.py or admin_router.py.",
+    "New feature module → per-tick: import it in round_logic.py or engine.py.",
+    "Admin/facilitator-only feature: import in one of the admin_*.py modules.",
+    "One-shot script (data migration, doc generator): place in scripts/ or temp_archive/ — do NOT import from any runtime module.",
+    "Never import router.py or admin_router.py from within an engine module — this creates a circular dependency.",
+    "Database access pattern: always use 'import database as db' (resolved by main.py injection). Never import database_memory directly in engine modules.",
+    "Adding a new side track: create backend/side_tracks/<name>/track.py extending BaseSideTrack, then register in side_tracks/__init__.py.",
+    "Adding a new vertical: add <name>.py with _STAKEHOLDERS, _SALIENCE_MIGRATIONS, _CSRD_ISSUES; export from verticals/__init__.py; reference in vertical_stakeholders.py.",
+]
+for r in dev_rules:
+    add_bullet(doc, r)
+
+divider(doc)
+
+# ════════════════════════════════════════════════════════════════
+# SECTION 17: CODEBASE PROVENANCE & REFACTOR LOG
+# ════════════════════════════════════════════════════════════════
+
+add_heading(doc, "17.  Codebase Provenance & Refactor Log", 1)
+
+add_heading(doc, "17.1  Infrastructure & Architecture History", 2)
+add_table(doc,
+    ["Date", "Change"],
+    [
+        ["2026-05", "Initial production deployment; PostgreSQL + in-memory fallback (SEC-2 durability guard)"],
+        ["2026-05", "JWT authentication hardening (SEC-6); CORS explicit origins whitelist (AUDIT-011)"],
+        ["2026-05", "HTTP security headers middleware (HIGH-010); generic error handler (LOW-009)"],
+        ["2026-05", "Admin router split into four sub-routers: admin_router, teleprompter, resources, analytics (ARCH-002)"],
+        ["2026-05", "111 automated tests across 29 test files in backend/tests/ (pytest)"],
+        ["2026-07-08", "Refactor-by-isolation: 139 non-runtime files archived to /temp_archive/; DEPENDENCY_MAP.md written"],
+    ],
+    header_color="1D4ED8"
+)
+
+add_heading(doc, "17.2  2026-07-08 Refactor-by-Isolation", 2)
+add_para(doc, (
+    "A full static dependency trace was performed from backend/main.py using import-chain analysis across "
+    "all Python files. 139 files were identified as non-runtime (one-shot scripts, versioned document "
+    "duplicates, ad-hoc test scripts, output artifacts) and moved to /temp_archive/ in the project root. "
+    "The running application was not affected — zero runtime dependencies were touched."
+))
+
+add_para(doc, "Files protected (never moved):", bold=True)
+protected = [
+    "All 46 core runtime Python modules (traced via full import-chain from main.py)",
+    "backend/tests/ — 29-file organized pytest suite",
+    "backend/side_tracks/ and backend/verticals/ — runtime plugin sub-packages",
+    "frontend/ — entire Next.js application",
+    "All Docker, .env, and infrastructure files",
+    "sessions.json — live session state for memory-DB mode",
+    "backend/market_dynamics.py — kept for future development",
+]
+for p in protected:
+    add_bullet(doc, p)
+
+add_para(doc, "Archive breakdown:", bold=True)
+add_table(doc,
+    ["Category", "Description", "Files Archived"],
+    [
+        ["A", "Root-level one-shot document generators", "38"],
+        ["B", "Root-level ad-hoc test scripts", "8"],
+        ["C", "Root-level output artifacts (.txt, .json, .html)", "5"],
+        ["D", "Backend one-shot patch/audit/verify scripts + vertical_csrd_issues.py", "32"],
+        ["F", "Superseded versioned .docx duplicates (Facilitator Manual v2–v9, Student Manual v2–v8, Briefings v1–v10)", "35"],
+        ["G", "docs/ directory generators + duplicate .docx files", "14"],
+        ["H", "scripts/ directory one-shot utilities", "7"],
+        ["TOTAL", "", "139"],
+    ]
+)
+
+add_para(doc, "Safety documents created:", bold=True)
+safety_docs = [
+    "SAFETY_MANIFEST.txt — logs every moved file: original path, archive destination, rationale (729 lines, 31 KB).",
+    "revert.py — run 'python revert.py' to restore all 139 files from /temp_archive/ to their original paths.",
+    "DEPENDENCY_MAP.md — full layer-by-layer import-chain reference for ongoing development (18 KB, 411 lines).",
+]
+for s in safety_docs:
+    add_bullet(doc, s)
+
+add_para(doc, "Latest document versions retained at project root:", bold=True)
+retained = [
+    "Facilitator Manual: Muressons_Facilitator_Manual_v10.docx",
+    "Student Manual: Muressons_Student_Manual_v9.docx",
+    "Simulation Briefings: Muressons_Simulation_Briefings ver 11.docx + ver 11_with_CEO_Debrief.docx",
+    "Technical Glossary: Muressons_Technical_Glossary_with_CAROIC.docx",
+    "Benchmark Report: Muressons_Global_Benchmark_Report_v3.docx",
+    "Simulation Context: Muressons_Simulation_Context_Full.docx (this document)",
+]
+for r in retained:
+    add_bullet(doc, r)
+
+divider(doc)
+
 # ── FINAL PAGE ───────────────────────────────────────────────────
 
 doc.add_page_break()
 footer_p = doc.add_paragraph()
 footer_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 footer_run = footer_p.add_run(
-    "Muressons Global Corporation — Simulation Context Summary | Version 2026-05\n"
+    "Muressons Global Corporation — Simulation Context Summary | Version 2026-07\n"
     "Maintained by the Muressons Simulation Engineering Team\n"
-    "Reference files: round_configs.py · pillar_configs.py · ending_pathways.py · terminal_valuation.py · black_swan_registry.py · bu_profiles.py · side_tracks/"
+    "Reference files: round_configs.py · pillar_configs.py · ending_pathways.py · terminal_valuation.py"
+    " · black_swan_registry.py · bu_profiles.py · side_tracks/ · DEPENDENCY_MAP.md"
 )
 footer_run.font.size = Pt(9)
 footer_run.font.italic = True

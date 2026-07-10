@@ -22,6 +22,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { resolveVerticalMeta } from '../lib/verticalCatalog';
 
 /* ── Label maps shared with SimulationManager ───────────────────── */
 const PARADIGM_LABELS = {
@@ -201,7 +202,9 @@ export default function CohortSummaryTooltip({ session, anchorRect, visible }) {
     // Simulation engine
     const endingPathway = (s.ending_pathway || s.active_event_flags?.ending_pathway || '—').replace(/_/g, ' ');
     const simMode       = MODE_LABELS[s.simulation_mode] || s.simulation_mode || '—';
-    const buSelected    = s.industry_vertical || s.selected_business_unit || '—';
+    const _rawVertical  = s.industry_vertical || s.selected_business_unit;
+    const _vMeta        = resolveVerticalMeta(_rawVertical);
+    const buSelected    = _rawVertical ? `${_vMeta.icon} ${_vMeta.label}` : '—';
     const rawRegion     = s.region || s.selected_region || s.region_id || '—';
     const REGION_LABELS = {
         asean: 'ASEAN',
@@ -306,6 +309,7 @@ export default function CohortSummaryTooltip({ session, anchorRect, visible }) {
                     <Row label="Facilitator" value={facilitator} />
                     <Row label="Level"       value={expLevel} accent="#a78bfa" />
                     <Row label="Dates"       value={`${startDate} → ${endDate}`} />
+                    {region !== '—'     && <Row label="Region"      value={region}     accent="#34d399" />}
                     <Row label="Currency"    value={currency} accent="#22c55e" />
                 </Panel>
 
@@ -315,7 +319,6 @@ export default function CohortSummaryTooltip({ session, anchorRect, visible }) {
                     <Row label="Ending"   value={endingPathway} accent="#f59e0b" />
                     <Row label="Mode"     value={simMode}       accent="#818cf8" />
                     {buSelected !== '—' && <Row label="BU Selected" value={buSelected} accent="#60a5fa" />}
-                    {region !== '—'     && <Row label="Region"      value={region}     accent="#34d399" />}
                 </Panel>
 
                 {/* OPTIONAL MODULES */}

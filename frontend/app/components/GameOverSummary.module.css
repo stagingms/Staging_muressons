@@ -138,7 +138,7 @@
 .primaryBtn {
     width: 100%;
     padding: 0.8rem;
-    background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-deep, #8b5cf6));
+    background: linear-gradient(135deg, var(--accent-purple), var(--accent-purple-deep, var(--accent-purple)));
     color: var(--text-inverse-always, #fff);
     border: none;
     border-radius: 10px;

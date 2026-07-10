@@ -80,6 +80,10 @@ export default function CapitalGauges({ globalState, businessUnits, roundNumber 
         if (value <= thresholds.yellow) return 'yellow';
         return 'green';
     };
+    // C2: pair each status with a SHAPE + label so colour is never the only
+    // signal (colour-blind-safe, and announced to screen readers).
+    const STATUS_GLYPH = { green: '▲', yellow: '■', red: '▼' };
+    const STATUS_LABEL = { green: 'healthy', yellow: 'watch', red: 'critical' };
 
     return (
         <header className={styles.header}>
@@ -88,7 +92,7 @@ export default function CapitalGauges({ globalState, businessUnits, roundNumber 
                 <span className={styles.roundBadge}>Round {roundNumber || 1} / 10</span>
             </div>
 
-            <div className={styles.gaugesRow}>
+            <div className={styles.gaugesRow} role="group" aria-label="Key performance indicators" aria-live="polite">
                 {gauges.map((g, i) => {
                     const color = getColor(g.value, g.thresholds);
                     return (
@@ -110,9 +114,14 @@ export default function CapitalGauges({ globalState, businessUnits, roundNumber 
                             </div>
                             <div className={styles.gaugeBottom}>
                                 <span className={`${styles.gaugeValue} ${styles[`text_${color}`]}`}>
+                                    <span aria-hidden="true" style={{ fontSize: '0.65rem', marginRight: 3 }}>{STATUS_GLYPH[color]}</span>
                                     {g.display}
                                 </span>
-                                <span className={`${styles.statusDot} ${styles[`dot_${color}`]}`} />
+                                <span
+                                    className={`${styles.statusDot} ${styles[`dot_${color}`]}`}
+                                    role="img"
+                                    aria-label={`${g.label}: ${STATUS_LABEL[color]}`}
+                                />
                             </div>
                         </div>
                     );

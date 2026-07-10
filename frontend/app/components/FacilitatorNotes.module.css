@@ -10,7 +10,7 @@
 .roundInput { width: 80px; padding: 0.5rem 0.75rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-md); background: var(--bg-body); color: var(--text-primary); font-size: 0.82rem; outline: none; }
 .visibleToggle { display: flex; align-items: center; gap: 0.4rem; font-size: 0.78rem; color: var(--text-secondary); cursor: pointer; }
 .visibleToggle input { accent-color: var(--accent-blue); }
-.submitBtn { margin-left: auto; background: linear-gradient(135deg, #3b82f6, #06b6d4); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.6rem 1.25rem; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s; font-family: inherit; }
+.submitBtn { margin-left: auto; background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.6rem 1.25rem; font-size: 0.82rem; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s; font-family: inherit; }
 .submitBtn:hover { transform: translateY(-1px); }
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .notesList { display: flex; flex-direction: column; gap: 0.5rem; }

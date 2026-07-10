@@ -428,6 +428,16 @@ export default function RoundBriefing({
               <div style={{ fontSize: '0.68rem', color: '#94a3b8', marginTop: '0.3rem' }}>
                 {stochastic.description}
               </div>
+              {/* Determinism chip — makes the seeded-RNG fairness guarantee visible */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                marginTop: '0.5rem', padding: '0.25rem 0.55rem', borderRadius: '999px',
+                fontSize: '0.66rem', fontWeight: 600,
+                background: 'rgba(99,102,241,0.12)', color: 'var(--accent, #818cf8)',
+                border: '1px solid rgba(99,102,241,0.35)',
+              }} title="Outcomes are seeded per cohort, so this event rolls identically for every team. Results reflect strategy, not luck.">
+                🎲 Shared dice — every team faces the identical roll
+              </div>
             </div>
           )}
 
@@ -527,4 +537,5 @@ export default function RoundBriefing({
     </div>
   );
 }
+// tier1: determinism chip added
 

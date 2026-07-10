@@ -358,7 +358,7 @@
     font-size: 0.78rem;
     font-weight: 700;
     color: #fff;
-    background: linear-gradient(135deg, #059669, #10b981);
+    background: linear-gradient(135deg, #059669, var(--kpi-good));
     border: none;
     border-radius: var(--radius-md);
     cursor: pointer;

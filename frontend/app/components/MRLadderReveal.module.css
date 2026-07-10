@@ -1,0 +1,266 @@
+/* ═══════════════════════════════════════════════════════════════
+   MRLadderReveal.module.css — WOW-10
+   Stacking animation for the Regenerative Multiple breakdown.
+   Uses CSS keyframes only (no JS animation libraries).
+   Respects prefers-reduced-motion via the component's state.
+   ═══════════════════════════════════════════════════════════════ */
+
+.container {
+  margin-top: var(--space-md, 16px);
+  padding: var(--space-md, 16px) var(--space-lg, 20px);
+  border-radius: var(--radius-md, 10px);
+  background: var(--bg-card, rgba(22, 30, 46, 0.6));
+  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.15));
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Header ── */
+.header {
+  text-align: center;
+  margin-bottom: var(--space-md, 16px);
+}
+
+.headerIcon {
+  font-size: 1.5rem;
+  margin-bottom: 4px;
+}
+
+.headerTitle {
+  font-size: var(--fs-md, 0.95rem);
+  font-weight: 800;
+  color: var(--text-primary, #f1f5f9);
+  letter-spacing: 0.02em;
+}
+
+.headerSubtitle {
+  font-size: var(--fs-xs, 0.72rem);
+  color: var(--text-muted, #8899a6);
+  margin-top: 2px;
+}
+
+/* ── Row (each M_R component) ── */
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm, 6px);
+  margin-bottom: 4px;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.rowHidden {
+  opacity: 0;
+  transform: translateY(12px);
+  pointer-events: none;
+}
+
+.rowVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.rowBase {
+  background: rgba(59, 130, 246, 0.06);
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.rowMissed {
+  opacity: 0.7;
+}
+
+.rowBlocked {
+  background: rgba(239, 68, 68, 0.04);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+}
+
+/* Shake animation for blocked/missed items */
+.rowBlocked.rowVisible {
+  animation: mr-shake 0.4s ease 0.3s;
+}
+
+@keyframes mr-shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  50% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+}
+
+/* ── Row content ── */
+.rowLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.rowRound {
+  font-size: var(--fs-xs, 0.72rem);
+  font-weight: 800;
+  color: var(--text-muted, #8899a6);
+  font-family: var(--font-mono, monospace);
+  width: 24px;
+  flex-shrink: 0;
+}
+
+.rowIcon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.rowLabel {
+  font-size: var(--fs-sm, 0.78rem);
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blockedBadge,
+.missedBadge {
+  font-size: 0.55rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 1px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.blockedBadge {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.missedBadge {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* ── Row right (value + bar) ── */
+.rowRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowValue {
+  font-size: var(--fs-sm, 0.78rem);
+  font-weight: 800;
+  font-family: var(--font-mono, monospace);
+  min-width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.rowBar {
+  flex: 1;
+  height: 10px;
+  border-radius: 5px;
+  background: rgba(148, 163, 184, 0.1);
+  overflow: hidden;
+}
+
+.rowBarFill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 0.6s ease;
+}
+
+.rowBarMissed {
+  opacity: 0.5;
+}
+
+/* ── Divider ── */
+.divider {
+  height: 2px;
+  margin: 12px 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--border-subtle, rgba(148, 163, 184, 0.25)) 20%,
+    var(--border-subtle, rgba(148, 163, 184, 0.25)) 80%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+
+.dividerVisible {
+  opacity: 1;
+}
+
+/* ── Total row ── */
+.totalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.totalVisible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.totalLabel {
+  font-size: var(--fs-sm, 0.85rem);
+  font-weight: 800;
+  color: var(--text-primary, #f1f5f9);
+  letter-spacing: 0.02em;
+}
+
+.totalValue {
+  font-size: 1.6rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  animation: mr-pulse 1.5s ease infinite;
+}
+
+@keyframes mr-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.85; }
+}
+
+/* ── Skip button ── */
+.skipBtn {
+  position: absolute;
+  bottom: 10px;
+  right: 14px;
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.2));
+  background: transparent;
+  color: var(--text-muted, #8899a6);
+  font-size: var(--fs-xs, 0.72rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.skipBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary, #f1f5f9);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+  .rowRight {
+    padding-left: 32px;
+  }
+}

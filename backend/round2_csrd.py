@@ -352,25 +352,73 @@ ROUND_2_DEFAULT_CONFIG = {
         #   data collection systems, third-party assurance, stakeholder engagement
         # Separate from capex — not deducted from materiality_budget.
         "disclosure_investment_budget": 1_000_000,
-        # ── Stakeholder Panel Survey (replaces "Hire External Consultant") ───
-        # Framing: pay to get N issues pre-rated by external stakeholders
-        # (employees, NGOs, suppliers, investors) — reducing scoring ambiguity.
-        # 1-4 issues: base_fee_usd per issue
-        # 5-8 issues: cost doubles (wider stakeholder engagement is more expensive)
+        # ── Stakeholder Panel Survey — Multi-Group Model ─────────────────────
+        # Each of the 4 ESRS §1.47 stakeholder groups can be commissioned
+        # independently, once per Round 2. Fee: flat $750K per group.
+        # Maximum total: $3M (all 4 groups).
+        # Each group provides deterministic per-issue quadrant recommendations
+        # based on its ESRS-aligned priority bias.
         "stakeholder_panel": {
             "enabled": True,
             "label": "Commission Stakeholder Panel Survey",
             "description": (
-                "Engage an independent stakeholder panel (employees, NGOs, investors, suppliers) "
-                "to pre-rate up to 8 issues. The panel reduces ambiguity by revealing the "
-                "community and societal weight of each issue — modelling real ESRS stakeholder "
-                "engagement requirements (ESRS 1 §1.47-1.50)."
+                "Engage independent stakeholder panels (Investors, Own Workforce, NGOs, "
+                "Subject Matter Experts) to rate issues. Each group can be commissioned "
+                "once per Round 2, revealing stakeholder-specific materiality perspectives "
+                "modelled on ESRS 1 §1.47-1.50."
             ),
-            "base_fee_per_issue_usd": 250_000,   # $250K per issue (1-4)
-            "extended_fee_per_issue_usd": 500_000, # $500K per issue (5-8) — doubles
+            # ── Legacy per-issue pricing (kept for backward compatibility) ────
+            "base_fee_per_issue_usd": 250_000,
+            "extended_fee_per_issue_usd": 500_000,
             "min_issues": 1,
             "max_issues": 8,
-            "tier_break": 4,  # Cost doubles above this count
+            "tier_break": 4,
+            # ── Per-group panel config (multi-survey model) ───────────────────
+            # Flat $750K per group; max $3M for all 4 groups.
+            "groups": {
+                "investors": {
+                    "label": "\U0001f4b0 Investors",
+                    "description": (
+                        "Investors prioritise Q3 financial risks and transition risks (ESRS E1, G1). "
+                        "They may underweight community and social impacts relative to NGOs."
+                    ),
+                    "esrs_ref": "ESRS \u00a71.47(a)",
+                    "fee_usd": 750_000,
+                    "color": "#6366f1",
+                },
+                "workers": {
+                    "label": "\U0001f477 Own Workforce",
+                    "description": (
+                        "Own workforce focuses on S1 issues: fair wages, health & safety, "
+                        "working conditions. Strong signal for internal impacts."
+                    ),
+                    "esrs_ref": "ESRS \u00a71.47(b)",
+                    "fee_usd": 750_000,
+                    "color": "#3b82f6",
+                },
+                "ngos": {
+                    "label": "\U0001f30d NGOs / Communities",
+                    "description": (
+                        "NGOs and affected communities elevate Q2 environmental harms "
+                        "(E3, E4, S2, S3). ESRS \u00a71.50: their views may conflict with investor "
+                        "priorities \u2014 this tension is pedagogically important."
+                    ),
+                    "esrs_ref": "ESRS \u00a71.47(c)",
+                    "fee_usd": 750_000,
+                    "color": "#10b981",
+                },
+                "experts": {
+                    "label": "\U0001f393 Subject Matter Experts",
+                    "description": (
+                        "Subject matter experts (academics, assurance providers) calibrate ESRS "
+                        "topic mapping and materiality thresholds. They validate whether issues "
+                        "are correctly classified under E1\u2013E5 and S1\u2013S4."
+                    ),
+                    "esrs_ref": "ESRS \u00a71.47(d)",
+                    "fee_usd": 750_000,
+                    "color": "#f59e0b",
+                },
+            },
         },
     }
 }
@@ -389,3 +437,83 @@ ELECTRONICS_SENSITIVE_ISSUES = {
     if issue.get("electronics_sensitive")
 }
 
+
+# ── Panel Group Biases ─────────────────────────────────────────────────────────
+# Deterministic perturbation rules per ESRS §1.47 stakeholder group.
+# Bias keys:
+#   "accurate"  → always returns the correct quadrant
+#   "q3_push"   → social Q2 issues pushed to Q3 (investors underweigh community harm)
+#   "q2_push"   → financial Q3 issues pushed to Q2 (NGOs surface community impact)
+#   "s1_boost"  → workforce issues bumped to Q1 (workers amplify social priority)
+_PANEL_GROUP_BIASES: dict[str, str] = {
+    "investors": "q3_push",
+    "workers":   "s1_boost",
+    "ngos":      "q2_push",
+    "experts":   "accurate",
+}
+
+# Issue sets for bias routing (must match IDs in CSRD_ISSUES)
+_SOCIAL_ISSUE_IDS: set[str] = {
+    "tier3_labor", "ai_bias", "living_wage", "employee_volunteering", "philanthropy"
+}
+_FINANCIAL_ISSUE_IDS: set[str] = {
+    "semi_prices", "software_competitor", "currency_exchange", "eu_tax"
+}
+
+
+def compute_panel_recommendations(issues: list[dict]) -> dict[str, dict[str, str]]:
+    """
+    Compute per-group quadrant recommendations for every issue.
+
+    Returns:
+        {
+            "water_scarcity": {"investors": "q1", "workers": "q1", "ngos": "q1", "experts": "q1"},
+            "semi_prices":    {"investors": "q3", "workers": "q4", "ngos": "q2", "experts": "q3"},
+            ...
+        }
+
+    Bias rules (per group):
+        experts  : always correct
+        investors: Q2 social issues → Q3 (focus on financial risk, miss community harm)
+        ngos     : Q3 financial issues → Q2 (surface community impact in financial risks)
+        workers  : Social issues in Q2/Q4 → Q1 (amplify own-workforce materiality)
+    """
+    recs: dict[str, dict[str, str]] = {}
+
+    for issue in issues:
+        iid = issue.get("id", "")
+        cq_num = issue.get("correct_quadrant", 4)
+        cq = f"q{cq_num}"
+        issue_recs: dict[str, str] = {}
+
+        for group, bias in _PANEL_GROUP_BIASES.items():
+            if bias == "accurate":
+                issue_recs[group] = cq
+
+            elif bias == "q3_push":
+                # Investors: community/social Q2 issues mis-classified as Q3
+                if cq == "q2" and iid in _SOCIAL_ISSUE_IDS:
+                    issue_recs[group] = "q3"
+                else:
+                    issue_recs[group] = cq
+
+            elif bias == "q2_push":
+                # NGOs: pure-financial Q3 issues get elevated to Q2
+                if cq == "q3" and iid in _FINANCIAL_ISSUE_IDS:
+                    issue_recs[group] = "q2"
+                else:
+                    issue_recs[group] = cq
+
+            elif bias == "s1_boost":
+                # Workers: workforce/social issues always recommended as Q1
+                if iid in _SOCIAL_ISSUE_IDS and cq in ("q2", "q4"):
+                    issue_recs[group] = "q1"
+                else:
+                    issue_recs[group] = cq
+
+            else:
+                issue_recs[group] = cq
+
+        recs[iid] = issue_recs
+
+    return recs

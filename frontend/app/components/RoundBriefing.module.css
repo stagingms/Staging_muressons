@@ -304,7 +304,7 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, var(--accent-blue), #2563eb);
   color: #fff;
   border: none;
   border-radius: 12px;

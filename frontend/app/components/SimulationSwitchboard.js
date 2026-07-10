@@ -79,15 +79,15 @@ function TimelineSVG({ advanced, carbonFee, hostility, scope3 }) {
                     </feMerge>
                 </filter>
                 <linearGradient id="advGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#ff4444" />
-                    <stop offset="40%" stopColor="#ff8800" />
-                    <stop offset="100%" stopColor="#00ff88" />
+                    <stop offset="0%" stopColor="#ef4444" />
+                    <stop offset="40%" stopColor="#f97316" />
+                    <stop offset="100%" stopColor="#f59e0b" />
                 </linearGradient>
                 <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                    <path d="M0,0 L0,6 L8,3 z" fill="#00ff88" />
+                    <path d="M0,0 L0,6 L8,3 z" fill="#f59e0b" />
                 </marker>
                 <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-                    <path d="M0,0 L0,6 L8,3 z" fill="#ff4444" />
+                    <path d="M0,0 L0,6 L8,3 z" fill="#ef4444" />
                 </marker>
             </defs>
 
@@ -112,7 +112,7 @@ function TimelineSVG({ advanced, carbonFee, hostility, scope3 }) {
             <path
                 d={stdLinePath}
                 fill="none"
-                stroke={advanced ? 'rgba(180,180,180,0.18)' : 'rgba(0,255,136,0.6)'}
+                stroke={advanced ? 'rgba(160,160,180,0.15)' : 'rgba(245,158,11,0.65)'}
                 strokeWidth={advanced ? 1.5 : 2.5}
                 strokeDasharray={advanced ? '6 4' : 'none'}
                 style={{ transition: 'stroke 0.4s, stroke-width 0.4s, opacity 0.4s' }}
@@ -124,12 +124,12 @@ function TimelineSVG({ advanced, carbonFee, hostility, scope3 }) {
             {stdPoints.map((p, i) => {
                 const isBeforeBranch = i <= branchIdx;
                 const opacity = advanced ? (isBeforeBranch ? 0.9 : 0.18) : 1;
-                const color = advanced ? (isBeforeBranch ? '#00ff88' : '#666') : '#00ff88';
+                const color = advanced ? (isBeforeBranch ? '#f59e0b' : '#4b5563') : '#f59e0b';
                 return (
                     <g key={`std-${p.id}`} style={{ transition: 'opacity 0.4s' }} opacity={opacity}>
                         <circle
                             cx={p.x} cy={p.y} r={isBeforeBranch ? 7 : 5}
-                            fill="#000" stroke={color} strokeWidth={isBeforeBranch ? 2 : 1.5}
+                            fill="#0a0e1a" stroke={color} strokeWidth={isBeforeBranch ? 2 : 1.5}
                             filter={!advanced ? 'url(#softGlow)' : undefined}
                         />
                         {/* Node number */}
@@ -153,7 +153,7 @@ function TimelineSVG({ advanced, carbonFee, hostility, scope3 }) {
             {/* "STANDARD" label */}
             {!advanced && (
                 <text x={W - 6} y={stdY - 14} textAnchor="end"
-                    fontSize="9" fill="#00ff88" fontFamily="monospace" opacity="0.5"
+                    fontSize="9" fill="#f59e0b" fontFamily="monospace" opacity="0.5"
                     letterSpacing="2"
                 >STANDARD PATH</text>
             )}
@@ -202,7 +202,7 @@ function TimelineSVG({ advanced, carbonFee, hostility, scope3 }) {
 
                     {/* Advanced module dots & labels */}
                     {advPoints.map((p, i) => {
-                        const hue = i < 2 ? '#ff4444' : i < 5 ? '#ff8800' : '#00ff88';
+                        const hue = i < 2 ? '#ef4444' : i < 5 ? '#f97316' : '#f59e0b';
                         return (
                             <g key={`adv-${p.id}`} style={{ animation: `fadeInBranch 0.35s ease-out ${0.3 + i * 0.07}s both` }}>
                                 {/* Vertical drop line */}
@@ -233,16 +233,16 @@ function TimelineSVG({ advanced, carbonFee, hostility, scope3 }) {
 
                     {/* ADVANCED PATH label */}
                     <text x={W - 6} y={advY - 44} textAnchor="end"
-                        fontSize="9" fill="#ff4444" fontFamily="monospace"
+                        fontSize="9" fill="#ef4444" fontFamily="monospace"
                         letterSpacing="2"
                         style={{ animation: 'neonPulse 2s ease-in-out infinite' }}
                     >⚡ ADVANCED CLIMATE ENGINE</text>
 
                     {/* Live readout near bottom of SVG */}
                     <rect x={pad.x} y={H - 22} width={W - pad.x * 2} height={18}
-                        fill="rgba(255,68,68,0.06)" stroke="rgba(255,68,68,0.2)" strokeWidth="1"
+                        fill="rgba(245,158,11,0.05)" stroke="rgba(245,158,11,0.18)" strokeWidth="1"
                     />
-                    <text x={pad.x + 8} y={H - 10} fontSize="8.5" fill="#ff8800" fontFamily="monospace">
+                    <text x={pad.x + 8} y={H - 10} fontSize="8.5" fill="#f59e0b" fontFamily="monospace">
                         {`CARBON: $${carbonFee}/t  |  HOSTILITY: ${hostility}/10  |  SCOPE3: ${scope3.toFixed(1)} kg CO₂e/unit`}
                     </text>
                 </>
@@ -438,7 +438,7 @@ export default function SimulationSwitchboard() {
                             value={carbonFee}
                             onChange={e => setCarbonFee(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
                             <span>$20</span><span>$150</span>
                         </div>
                     </div>
@@ -459,7 +459,7 @@ export default function SimulationSwitchboard() {
                             value={hostility}
                             onChange={e => setHostility(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
                             <span>LOW</span><span>CRITICAL</span>
                         </div>
                     </div>
@@ -480,7 +480,7 @@ export default function SimulationSwitchboard() {
                             value={scope3}
                             onChange={e => setScope3(Number(e.target.value))}
                         />
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.4, color: '#00ff88', marginTop: '2px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', opacity: 0.45, color: 'var(--text-muted)', marginTop: '2px' }}>
                             <span>1.0</span><span>5.0</span>
                         </div>
                     </div>
@@ -489,7 +489,7 @@ export default function SimulationSwitchboard() {
                 {/* ── Single-BU Mode ── */}
                 <div style={{ marginTop: '1.2rem' }}>
                     <div className={styles.sectionLabel} style={{ marginBottom: '0.5rem' }}>Single-BU Mode</div>
-                    <div style={{ fontSize: '0.62rem', color: 'rgba(0,255,136,0.45)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', marginBottom: '0.5rem', lineHeight: 1.5 }}>
                         Restrict all player views to one Business Unit only.
                         Set to <em>All BUs</em> for the standard 4-BU simulation.
                     </div>
@@ -499,14 +499,15 @@ export default function SimulationSwitchboard() {
                         style={{
                             width: '100%',
                             padding: '0.45rem 0.6rem',
-                            background: 'rgba(0,0,0,0.6)',
-                            border: assignedBu ? '1px solid rgba(255,170,0,0.6)' : '1px solid rgba(0,255,136,0.25)',
-                            color: assignedBu ? '#ffaa00' : '#00ff88',
-                            fontFamily: '"Courier New", monospace',
+                            background: 'var(--bg-elevated)',
+                            border: assignedBu ? '1px solid rgba(245,158,11,0.5)' : '1px solid var(--border-subtle)',
+                            color: assignedBu ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                            fontFamily: 'var(--font-mono)',
                             fontSize: '0.72rem',
-                            borderRadius: 3,
+                            borderRadius: 'var(--radius-sm)',
                             cursor: 'pointer',
                             letterSpacing: '0.04em',
+                            outline: 'none',
                         }}
                     >
                         <option value=''>— All BUs (Standard) —</option>
@@ -516,7 +517,7 @@ export default function SimulationSwitchboard() {
                         <option value='software'>Software</option>
                     </select>
                     {assignedBu && (
-                        <div style={{ marginTop: '0.4rem', fontSize: '0.63rem', color: '#ffaa00', letterSpacing: '0.06em' }}>
+                        <div style={{ marginTop: '0.4rem', fontSize: '0.63rem', color: 'var(--accent-gold)', letterSpacing: '0.06em' }}>
                             ⚠ SINGLE-BU MODE ACTIVE — players see only: {assignedBu.toUpperCase()}
                         </div>
                     )}
@@ -525,7 +526,7 @@ export default function SimulationSwitchboard() {
                 {/* ── Apply button ── */}
                 <div style={{ marginTop: 'auto' }}>
                     {saveMsg && (
-                        <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', color: '#00ff88', marginBottom: '0.75rem', opacity: 0.8 }}>
+                        <div style={{ fontSize: '0.68rem', letterSpacing: '0.06em', color: 'var(--gauge-green)', marginBottom: '0.75rem', fontWeight: 600 }}>
                             {saveMsg}
                         </div>
                     )}
@@ -534,27 +535,28 @@ export default function SimulationSwitchboard() {
                         disabled={saving}
                         style={{
                             width: '100%',
-                            padding: '0.65rem',
+                            padding: '0.7rem',
                             background: advanced
-                                ? 'linear-gradient(135deg, rgba(255,68,68,0.15), rgba(255,136,0,0.12))'
-                                : 'rgba(0,255,136,0.06)',
-                            border: `1px solid ${advanced ? 'rgba(255,68,68,0.5)' : 'rgba(0,255,136,0.25)'}`,
-                            color: advanced ? '#ff4444' : '#00ff88',
-                            fontFamily: 'inherit',
-                            fontSize: '0.68rem',
-                            letterSpacing: '0.12em',
+                                ? 'linear-gradient(135deg, rgba(245,158,11,0.18), rgba(239,68,68,0.12))'
+                                : 'rgba(59,130,246,0.08)',
+                            border: advanced ? '1px solid rgba(245,158,11,0.45)' : '1px solid rgba(59,130,246,0.3)',
+                            color: advanced ? 'var(--accent-gold)' : 'var(--accent-blue)',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            letterSpacing: '0.1em',
                             textTransform: 'uppercase',
                             cursor: saving ? 'not-allowed' : 'pointer',
                             opacity: saving ? 0.5 : 1,
-                            borderRadius: '3px',
-                            transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
+                            borderRadius: 'var(--radius-sm)',
+                            transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s',
                         }}
                     >
                         {saving ? '⟳ TRANSMITTING...' : '▶ APPLY TO LIVE ENGINE'}
                     </button>
 
-                    {/* Data state readout */}
-                    <div style={{ marginTop: '0.75rem', fontSize: '0.68rem', color: '#00ff88', opacity: 0.35, lineHeight: 1.8 }}>
+                    {/* Data state readout — monospace mini-table */}
+                    <div style={{ marginTop: '0.75rem', fontSize: '0.65rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', opacity: 0.55, lineHeight: 1.9 }}>
                         <div>timeline_branch: {advanced ? '"ADVANCED"' : '"STANDARD"'}</div>
                         <div>global_carbon_fee: {carbonFee}</div>
                         <div>market_hostility_index: {hostility}</div>
@@ -596,31 +598,31 @@ export default function SimulationSwitchboard() {
         {sideTrackCatalog.length > 0 && (
             <div style={{
                 marginTop: '1.5rem',
-                background: 'rgba(0,0,0,0.45)',
-                border: '1px solid rgba(0,255,136,0.18)',
-                borderRadius: 6,
+                background: 'var(--bg-card)',
+                border: '1px solid rgba(255,255,255,0.04)',
+                borderRadius: 'var(--radius-md)',
                 padding: '1.25rem 1.5rem',
-                fontFamily: '"Courier New", monospace',
             }}>
                 {/* Header */}
                 <div style={{
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    marginBottom: '0.9rem', borderBottom: '1px solid rgba(0,255,136,0.12)',
+                    marginBottom: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.04)',
                     paddingBottom: '0.6rem',
                 }}>
                     <div>
-                        <span style={{ color: '#00ff88', fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+                        <span style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
                             🛤️ Side Track Simulations — Global Master Control
                         </span>
-                        <div style={{ fontSize: '0.62rem', color: 'rgba(0,255,136,0.45)', marginTop: 3 }}>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
                             Toggle which side-track simulations are available platform-wide.
                             Lead facilitators may assign any registered track to their cohorts regardless of this setting.
                         </div>
                     </div>
                     {trackMsg && (
                         <span style={{
-                            fontSize: '0.65rem', color: trackMsg.startsWith('✓') ? '#00ff88' : '#ff8800',
-                            letterSpacing: '0.06em', flexShrink: 0, marginLeft: '1rem',
+                            fontSize: '0.72rem', fontWeight: 600,
+                            color: trackMsg.startsWith('✓') ? 'var(--gauge-green)' : 'var(--gauge-yellow)',
+                            flexShrink: 0, marginLeft: '1rem',
                         }}>
                             {trackMsg}
                         </span>
@@ -639,13 +641,15 @@ export default function SimulationSwitchboard() {
                                 onClick={() => toggleTrack(track.track_id)}
                                 style={{
                                     display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
-                                    padding: '0.7rem 0.9rem', borderRadius: 4, cursor: trackSaving ? 'not-allowed' : 'pointer',
+                                    padding: '0.75rem 1rem',
+                                    borderRadius: 'var(--radius-sm)',
+                                    cursor: trackSaving ? 'not-allowed' : 'pointer',
                                     border: isOn
-                                        ? '1px solid rgba(0,255,136,0.45)'
-                                        : '1px solid rgba(100,116,139,0.25)',
+                                        ? '1px solid rgba(245,158,11,0.35)'
+                                        : '1px solid rgba(255,255,255,0.05)',
                                     background: isOn
-                                        ? 'rgba(0,255,136,0.06)'
-                                        : 'rgba(15,23,42,0.5)',
+                                        ? 'rgba(245,158,11,0.06)'
+                                        : 'var(--bg-elevated)',
                                     textAlign: 'left', width: '100%',
                                     transition: 'background 0.15s, border-color 0.15s, opacity 0.15s',
                                     opacity: trackSaving ? 0.6 : 1,
@@ -654,18 +658,17 @@ export default function SimulationSwitchboard() {
                                 <span style={{ fontSize: '1.3rem', flexShrink: 0, lineHeight: 1 }}>{track.icon || '📦'}</span>
                                 <span style={{ flex: 1 }}>
                                     <span style={{
-                                        display: 'block', fontSize: '0.72rem', fontWeight: 700,
-                                        color: isOn ? '#00ff88' : '#64748b',
-                                        letterSpacing: '0.04em',
+                                        display: 'block', fontSize: '0.78rem', fontWeight: 700,
+                                        color: isOn ? 'var(--accent-gold)' : 'var(--text-muted)',
                                     }}>
                                         {track.display_name || track.track_id}
-                                        <span style={{ fontWeight: 400, marginLeft: 6, fontSize: '0.65rem', opacity: 0.7 }}>
+                                        <span style={{ fontWeight: 400, marginLeft: 6, fontSize: '0.68rem', opacity: 0.7 }}>
                                             ({track.num_rounds || '?'} rounds)
                                         </span>
                                     </span>
                                     <span style={{
-                                        display: 'block', fontSize: '0.63rem', marginTop: 3, lineHeight: 1.4,
-                                        color: isOn ? 'rgba(0,255,136,0.5)' : 'rgba(100,116,139,0.6)',
+                                        display: 'block', fontSize: '0.7rem', marginTop: 3, lineHeight: 1.4,
+                                        color: isOn ? 'var(--text-secondary)' : 'var(--text-muted)',
                                     }}>
                                         {track.description?.substring(0, 90)}{track.description?.length > 90 ? '…' : ''}
                                     </span>
@@ -673,15 +676,15 @@ export default function SimulationSwitchboard() {
                                 {/* Toggle pill */}
                                 <div style={{
                                     flexShrink: 0, width: 32, height: 18, borderRadius: 9,
-                                    background: isOn ? '#00ff88' : 'rgba(100,116,139,0.35)',
-                                    position: 'relative', transition: 'background 0.15s', marginTop: 2,
+                                    background: isOn ? 'var(--accent-gold)' : 'rgba(148,163,184,0.2)',
+                                    position: 'relative', transition: 'background 0.2s', marginTop: 2,
                                 }}>
                                     <div style={{
                                         width: 14, height: 14, borderRadius: 7,
-                                        background: isOn ? '#000' : '#475569',
+                                        background: isOn ? '#0a0e1a' : 'var(--text-muted)',
                                         position: 'absolute', top: 2,
                                         left: isOn ? 16 : 2,
-                                        transition: 'left 0.15s, background 0.15s',
+                                        transition: 'left 0.2s, background 0.2s',
                                     }} />
                                 </div>
                             </button>
@@ -692,8 +695,8 @@ export default function SimulationSwitchboard() {
                 {/* Summary footer */}
                 <div style={{
                     marginTop: '0.8rem', paddingTop: '0.6rem',
-                    borderTop: '1px solid rgba(0,255,136,0.08)',
-                    fontSize: '0.62rem', color: 'rgba(0,255,136,0.35)',
+                    borderTop: '1px solid rgba(255,255,255,0.04)',
+                    fontSize: '0.68rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', opacity: 0.6,
                     display: 'flex', justifyContent: 'space-between',
                 }}>
                     <span>enabled_tracks: [{enabledTracks.join(', ') || 'none'}]</span>
@@ -793,24 +796,23 @@ function SimConfigUploader() {
     return (
         <div style={{
             marginTop: '1.5rem',
-            background: 'rgba(0,0,0,0.45)',
-            border: '1px solid rgba(0,255,136,0.18)',
-            borderRadius: 6,
+            background: 'var(--bg-card)',
+            border: '1px solid rgba(255,255,255,0.04)',
+            borderRadius: 'var(--radius-md)',
             padding: '1.25rem 1.5rem',
-            fontFamily: '"Courier New", monospace',
         }}>
             {/* Header */}
             <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                marginBottom: '0.9rem', borderBottom: '1px solid rgba(0,255,136,0.12)',
+                marginBottom: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.04)',
                 paddingBottom: '0.6rem',
             }}>
                 <div>
-                    <span style={{ color: '#00ff88', fontSize: '0.72rem', letterSpacing: '0.12em', textTransform: 'uppercase', fontWeight: 700 }}>
+                    <span style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
                         📄 Simulation Config — Upload &amp; Hot-Reload
                     </span>
-                    <div style={{ fontSize: '0.62rem', color: 'rgba(0,255,136,0.45)', marginTop: 3, lineHeight: 1.5 }}>
-                        Upload a modified <code style={{ color: '#00ff88', opacity: 0.7 }}>simulation_config.xlsx</code> to update all engine parameters live.
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                        Upload a modified <code style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>simulation_config.xlsx</code> to update all engine parameters live.
                         Changes take effect immediately — no server restart required.
                     </div>
                 </div>
@@ -819,17 +821,17 @@ function SimConfigUploader() {
                     disabled={downloading}
                     style={{
                         flexShrink: 0, marginLeft: '1rem',
-                        padding: '0.4rem 0.8rem', borderRadius: 3,
-                        border: '1px solid rgba(0,255,136,0.25)',
-                        background: 'rgba(0,255,136,0.04)',
-                        color: '#00ff88', fontSize: '0.65rem',
-                        fontFamily: 'inherit', letterSpacing: '0.06em',
+                        padding: '0.4rem 0.9rem', borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)',
+                        background: 'transparent',
+                        color: 'var(--text-secondary)', fontSize: '0.72rem',
+                        fontWeight: 600,
                         cursor: downloading ? 'not-allowed' : 'pointer',
                         opacity: downloading ? 0.5 : 1,
-                        transition: 'background 0.15s, opacity 0.15s',
+                        transition: 'background 0.15s, opacity 0.15s, color 0.15s',
                     }}
                 >
-                    {downloading ? '⟳ ...' : '⬇ DOWNLOAD CURRENT JSON'}
+                    {downloading ? '⟳ ...' : '⬇ Download Current JSON'}
                 </button>
             </div>
 
@@ -841,15 +843,15 @@ function SimConfigUploader() {
                 onClick={() => fileRef.current?.click()}
                 style={{
                     border: dragOver
-                        ? '2px solid #00ff88'
-                        : '2px dashed rgba(0,255,136,0.2)',
-                    borderRadius: 6,
+                        ? '2px solid var(--accent-gold)'
+                        : '2px dashed var(--border-subtle)',
+                    borderRadius: 'var(--radius-sm)',
                     padding: '2rem 1.5rem',
                     textAlign: 'center',
                     cursor: uploading ? 'not-allowed' : 'pointer',
                     background: dragOver
-                        ? 'rgba(0,255,136,0.06)'
-                        : 'rgba(0,0,0,0.3)',
+                        ? 'rgba(245,158,11,0.05)'
+                        : 'var(--bg-elevated)',
                     transition: 'border-color 0.2s, background 0.2s',
                     position: 'relative',
                 }}
@@ -864,25 +866,25 @@ function SimConfigUploader() {
                 {uploading ? (
                     <div>
                         <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem', animation: 'spin 1s linear infinite' }}>⟳</div>
-                        <div style={{ color: '#00ff88', fontSize: '0.72rem', letterSpacing: '0.08em' }}>
-                            UPLOADING &amp; VALIDATING...
+                        <div style={{ color: 'var(--accent-gold)', fontSize: '0.78rem', fontWeight: 600 }}>
+                            Uploading &amp; Validating...
                         </div>
                         <style>{`@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`}</style>
                     </div>
                 ) : (
                     <div>
-                        <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem', opacity: 0.6 }}>
+                        <div style={{ fontSize: '1.8rem', marginBottom: '0.5rem', opacity: 0.5 }}>
                             {dragOver ? '📥' : '📄'}
                         </div>
                         <div style={{
-                            color: dragOver ? '#00ff88' : 'rgba(0,255,136,0.5)',
-                            fontSize: '0.72rem', letterSpacing: '0.06em',
+                            color: dragOver ? 'var(--accent-gold)' : 'var(--text-muted)',
+                            fontSize: '0.78rem', fontWeight: 500,
                         }}>
                             {dragOver
-                                ? 'DROP TO UPLOAD'
-                                : 'DRAG & DROP simulation_config.xlsx HERE — OR CLICK TO BROWSE'}
+                                ? 'Drop to upload'
+                                : 'Drag & drop simulation_config.xlsx here — or click to browse'}
                         </div>
-                        <div style={{ fontSize: '0.6rem', color: 'rgba(0,255,136,0.25)', marginTop: '0.4rem' }}>
+                        <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.55, marginTop: '0.4rem' }}>
                             .xlsx only · max 5 MB · requires Super Admin
                         </div>
                     </div>
@@ -892,9 +894,9 @@ function SimConfigUploader() {
             {/* Error message */}
             {error && (
                 <div style={{
-                    marginTop: '0.75rem', padding: '0.6rem 0.9rem', borderRadius: 4,
-                    background: 'rgba(255,68,68,0.08)', border: '1px solid rgba(255,68,68,0.3)',
-                    color: '#ff4444', fontSize: '0.7rem', lineHeight: 1.5,
+                    marginTop: '0.75rem', padding: '0.6rem 0.9rem', borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                    color: 'var(--gauge-red)', fontSize: '0.78rem', lineHeight: 1.5,
                 }}>
                     ⚠ {error}
                 </div>
@@ -905,14 +907,14 @@ function SimConfigUploader() {
                 <div style={{ marginTop: '0.75rem' }}>
                     {/* Status banner */}
                     <div style={{
-                        padding: '0.6rem 0.9rem', borderRadius: 4,
-                        background: 'rgba(0,255,136,0.06)', border: '1px solid rgba(0,255,136,0.3)',
+                        padding: '0.6rem 0.9rem', borderRadius: 'var(--radius-sm)',
+                        background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     }}>
-                        <span style={{ color: '#00ff88', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em' }}>
-                            ✓ CONFIG UPLOADED &amp; HOT-RELOADED SUCCESSFULLY
+                        <span style={{ color: 'var(--gauge-green)', fontSize: '0.78rem', fontWeight: 700 }}>
+                            ✓ Config Uploaded &amp; Hot-Reloaded Successfully
                         </span>
-                        <span style={{ color: 'rgba(0,255,136,0.5)', fontSize: '0.63rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.68rem' }}>
                             {result.parameters_loaded} params · {changeCount} changed · backup: {result.backup}
                         </span>
                     </div>
@@ -921,24 +923,23 @@ function SimConfigUploader() {
                     {changeCount > 0 && (
                         <div style={{ marginTop: '0.6rem' }}>
                             <div style={{
-                                fontSize: '0.65rem', color: 'rgba(0,255,136,0.5)',
-                                letterSpacing: '0.08em', marginBottom: '0.4rem',
-                                textTransform: 'uppercase',
+                                fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted)',
+                                marginBottom: '0.4rem',
                             }}>
                                 ▼ Parameter Changes ({changeCount})
                             </div>
                             <div style={{
                                 maxHeight: '280px', overflowY: 'auto',
-                                border: '1px solid rgba(0,255,136,0.1)',
-                                borderRadius: 4,
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: 'var(--radius-sm)',
                             }}>
                                 <table style={{
                                     width: '100%', borderCollapse: 'collapse',
-                                    fontSize: '0.65rem',
+                                    fontSize: '0.68rem',
                                 }}>
                                     <thead>
                                         <tr style={{
-                                            background: 'rgba(0,255,136,0.04)',
+                                            background: 'var(--bg-elevated)',
                                             position: 'sticky', top: 0,
                                         }}>
                                             <th style={{ ...diffTh, width: '18%' }}>Section</th>
@@ -951,13 +952,13 @@ function SimConfigUploader() {
                                     <tbody>
                                         {result.changes.map((c, i) => (
                                             <tr key={i} style={{
-                                                borderBottom: '1px solid rgba(0,255,136,0.06)',
+                                                borderBottom: '1px solid rgba(255,255,255,0.04)',
                                             }}>
                                                 <td style={diffTd}>{c.section}</td>
                                                 <td style={diffTd}>{c.subsection || '—'}</td>
-                                                <td style={{ ...diffTd, color: '#00ff88', fontWeight: 600 }}>{c.parameter}</td>
-                                                <td style={{ ...diffTd, color: '#ff4444' }}>{formatVal(c.old_value)}</td>
-                                                <td style={{ ...diffTd, color: '#00ff88' }}>{formatVal(c.new_value)}</td>
+                                                <td style={{ ...diffTd, color: 'var(--text-primary)', fontWeight: 600 }}>{c.parameter}</td>
+                                                <td style={{ ...diffTd, color: 'var(--gauge-red)' }}>{formatVal(c.old_value)}</td>
+                                                <td style={{ ...diffTd, color: 'var(--gauge-green)' }}>{formatVal(c.new_value)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -968,8 +969,8 @@ function SimConfigUploader() {
 
                     {changeCount === 0 && (
                         <div style={{
-                            marginTop: '0.5rem', fontSize: '0.65rem',
-                            color: 'rgba(0,255,136,0.4)', fontStyle: 'italic',
+                            marginTop: '0.5rem', fontSize: '0.72rem',
+                            color: 'var(--text-muted)', fontStyle: 'italic',
                         }}>
                             No parameter changes detected — uploaded config is identical to the current one.
                         </div>
@@ -982,22 +983,22 @@ function SimConfigUploader() {
 
 /* ── Diff table style helpers ─────────────────────────────────── */
 const diffTh = {
-    padding: '0.4rem 0.6rem',
+    padding: '0.4rem 0.7rem',
     textAlign: 'left',
-    color: 'rgba(0,255,136,0.6)',
+    color: 'var(--text-muted)',
     fontWeight: 700,
+    fontSize: '0.65rem',
     letterSpacing: '0.06em',
     textTransform: 'uppercase',
-    borderBottom: '1px solid rgba(0,255,136,0.15)',
-    fontFamily: '"Courier New", monospace',
-    fontSize: '0.6rem',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    fontFamily: 'var(--font-mono, monospace)',
 };
 
 const diffTd = {
-    padding: '0.35rem 0.6rem',
-    color: 'rgba(0,255,136,0.5)',
-    fontFamily: '"Courier New", monospace',
-    fontSize: '0.65rem',
+    padding: '0.35rem 0.7rem',
+    color: 'var(--text-muted)',
+    fontFamily: 'var(--font-mono, monospace)',
+    fontSize: '0.68rem',
 };
 
 function formatVal(v) {

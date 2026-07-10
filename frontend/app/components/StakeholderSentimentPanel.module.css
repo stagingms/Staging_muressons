@@ -50,8 +50,8 @@
 }
 
 .refreshBtn:hover {
-    color: #3b82f6;
-    border-color: #3b82f6;
+    color: var(--accent-blue);
+    border-color: var(--accent-blue);
     background: rgba(59,130,246,0.07);
 }
 
@@ -133,7 +133,7 @@
     border-radius: 20px;
     background: rgba(239,68,68,0.15);
     border: 1px solid rgba(239,68,68,0.4);
-    color: #ef4444;
+    color: var(--kpi-danger);
     white-space: nowrap;
     animation: warningPulse 2s infinite;
 }

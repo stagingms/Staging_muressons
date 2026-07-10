@@ -127,7 +127,7 @@
 }
 
 .metricBtnActive {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, var(--accent-blue), #2563eb);
   color: #ffffff;
   font-weight: 700;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.25);

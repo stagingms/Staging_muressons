@@ -204,3 +204,25 @@ def get_facilitator_from_request(request: Request) -> Optional[str]:
     return None
 
 
+
+
+def create_player_ws_ticket(session_id: str, player_id: str = "", ttl_hours=None) -> str:
+    if not _jwt_available():
+        return ""
+    hours = int(ttl_hours if ttl_hours is not None else JWT_EXPIRY_HOURS)
+    now = datetime.now(timezone.utc)
+    payload = {"sid": session_id, "pid": player_id, "typ": "ws",
+               "iat": now, "exp": now + timedelta(hours=hours)}
+    return _jose_jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def verify_player_ws_ticket(token: str, session_id: str) -> bool:
+    if not token or not _jwt_available():
+        return False
+    try:
+        payload = _jose_jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+    except Exception:
+        return False
+    return payload.get("typ") == "ws" and payload.get("sid") == session_id
+
+

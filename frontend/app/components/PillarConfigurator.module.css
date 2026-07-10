@@ -158,7 +158,7 @@
     border-radius: 6px;
     border: 1px solid rgba(239,68,68,0.35);
     background: transparent;
-    color: #ef4444;
+    color: var(--kpi-danger);
     font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
@@ -184,8 +184,8 @@
 }
 
 .btnGhost:hover {
-    color: #10b981;
-    border-color: #10b981;
+    color: var(--kpi-good);
+    border-color: var(--kpi-good);
     background: rgba(16,185,129,0.07);
 }
 

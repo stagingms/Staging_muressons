@@ -17,25 +17,39 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess }) {
 
     const handleDownload = async () => {
         try {
-            const res = await fetch(`${API}/api/admin/materiality-config/download?scope=${encodeURIComponent(selectedDict)}`, { credentials: 'include' });
+            const res = await fetch(
+                `${API}/api/admin/materiality-config/download?scope=${encodeURIComponent(selectedDict)}`,
+                { credentials: 'include' }
+            );
             if (!res.ok) {
-                const err = await res.json().catch(() => ({}));
-                alert(err.detail || 'Download failed.');
+                let detail = 'Download failed.';
+                try { detail = (await res.json()).detail || detail; } catch { /* plain-text body */ }
+                console.error('[MatDownload] Server error', res.status, detail);
+                alert(detail);
                 return;
             }
+            // Use a real Blob + object URL but revoke *after* the click event
+            // loop tick to avoid CSP issues with immediate revocation.
             const blob = await res.blob();
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
             a.download = `materiality_config_${selectedDict}.xlsx`;
+            a.style.display = 'none';
             document.body.appendChild(a);
             a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-        } catch {
-            alert('Network error downloading Excel file.');
+            // Defer revocation — browsers need the URL to persist through the
+            // download initiation before it can be safely cleaned up.
+            setTimeout(() => {
+                a.remove();
+                URL.revokeObjectURL(url);
+            }, 5000);
+        } catch (err) {
+            console.error('[MatDownload] Fetch threw:', err);
+            alert('Network error downloading Excel file: ' + (err?.message || String(err)));
         }
     };
+
 
     const doUpload = async (file) => {
         if (!file) return;
@@ -58,15 +72,25 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess }) {
                 `${API}/api/admin/materiality-config/upload?scope=${encodeURIComponent(selectedDict)}`,
                 { method: 'POST', credentials: 'include', body: formData }
             );
-            const data = await res.json();
+            // Parse body — some error responses are plain text, not JSON
+            let data = {};
+            const ct = res.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                data = await res.json().catch(() => ({}));
+            } else {
+                const txt = await res.text().catch(() => '');
+                data = { detail: txt || `HTTP ${res.status}` };
+            }
             if (res.ok) {
                 setResult({ status: 'ok', ...data });
                 if (onUploadSuccess) onUploadSuccess(data);
             } else {
-                setResult({ error: data.detail || 'Upload failed.' });
+                console.error('[MatUpload] Server error', res.status, data);
+                setResult({ error: `${res.status}: ${data.detail || 'Upload failed.'}` });
             }
-        } catch {
-            setResult({ error: 'Network error during upload.' });
+        } catch (err) {
+            console.error('[MatUpload] Fetch threw:', err);
+            setResult({ error: `Upload error: ${err?.message || String(err)}` });
         }
         setUploading(false);
     };
@@ -209,15 +233,13 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     const [activeTab, setActiveTab] = useState('economic');
     const [showConfigurator, setShowConfigurator] = useState(false);
 
-    // Dictionary selector: loaded dynamically from backend
+    // Dictionary selector: loaded dynamically from backend.
+    // Only the Global (Narrative Crisis) dictionary is a non-vertical category.
+    // Pharma, Electronics, Consumer Goods, and Software are classified as
+    // Industry Verticals and appear in the dedicated verticals row below.
     const [selectedDict, setSelectedDict] = useState('global');
     const [dictOptions, setDictOptions] = useState([
         { id: 'global', label: 'Global (Narrative Crisis)', icon: '🌐', is_custom: false },
-        { id: 'pharma', label: 'Pharma', icon: '💊', is_custom: false },
-        { id: 'electronics', label: 'Electronics', icon: '⚡', is_custom: false },
-        { id: 'consumer_goods', label: 'Consumer Goods', icon: '🛒', is_custom: false },
-        { id: 'software', label: 'Software', icon: '💻', is_custom: false },
-        { id: 'hospitals', label: 'Hospitals', icon: '🏥', is_custom: false },
     ]);
     const [showAddCategory, setShowAddCategory] = useState(false);
     const [newCategory, setNewCategory] = useState({ id: '', label: '', icon: '🏢' });

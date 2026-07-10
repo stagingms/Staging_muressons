@@ -157,7 +157,7 @@
 }
 .roundBarFill {
     height: 100%;
-    background: linear-gradient(90deg, #f59e0b, #f97316);
+    background: linear-gradient(90deg, var(--accent-gold), #f97316);
     border-radius: 3px;
     transition: width 0.5s ease;
 }
@@ -252,7 +252,7 @@
     align-items: center;
     padding: 2px;
 }
-.toggleOn { background: #10b981; }
+.toggleOn { background: var(--kpi-good); }
 .toggleOff { background: rgba(255,255,255,0.1); }
 .toggleKnob {
     display: block;

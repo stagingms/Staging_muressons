@@ -22,7 +22,7 @@ import random
 import os
 import shutil
 from fastapi import APIRouter, HTTPException, Request, Response, WebSocket, WebSocketDisconnect, status, Body, UploadFile, File
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 from fastapi import Header, Depends
 
 # ── HIGH-009 / SECURITY-HIGH-003: Rate limiter with trusted-proxy allowlist ──
@@ -390,6 +390,7 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
     return {
         "simulation_mode": s.get("simulation_mode", "standard"),
         "front_page_enabled": s.get("front_page_enabled", True),  # Feature 5 toggle (player-readable)
+        "consequence_replay_enabled": s.get("consequence_replay_enabled", True),  # WOW-1: post-commit causal chain animation
         "global_carbon_fee": s.get("global_carbon_fee", 40),
         "market_hostility_index": s.get("market_hostility_index", 5),
         "scope_3_threshold": s.get("scope_3_threshold", 2.5),
@@ -510,6 +511,7 @@ class GlobalSettingsPatch(BaseModel):
     real_world_cards_enabled: bool | None = None
     real_world_cards_teleprompter: bool | None = None
     front_page_enabled: bool | None = None  # Feature 5: Year-5 front page reveal
+    consequence_replay_enabled: bool | None = None  # WOW-1: post-commit causal chain animation
     debrief_protocol_enabled: bool | None = None
     self_learning_mode: bool | None = None
     flag_diagram_enabled: bool | None = None
@@ -2115,9 +2117,16 @@ async def update_decision_config(req: OverridesUpdateRequest, _guard: None = Dep
 
 class RoundPacingRequest(BaseModel):
     mode: str = "free"              # "free" | "manual" | "timed"
-    interval_seconds: int = 300     # Used when mode = "timed" (0 = immediate)
+    interval_seconds: int = 300     # WOW-11: 180-1800 (3-30 minutes). Clamped if out of range.
     scheduled_at: str | None = None # ISO datetime for single scheduled unlock
     schedule: list[str | None] = [] # ISO datetimes for each round (index 0 = round 1)
+
+    @validator("interval_seconds")
+    def clamp_interval(cls, v):
+        """WOW-11: Ensure timer stays within 3-30 minute range."""
+        if v <= 0:
+            return 0  # 0 = immediate unlock, special case
+        return max(180, min(1800, v))  # 3 min – 30 min
 
 # Per-session pacing config: {session_id: {mode, unlocked_round, interval_seconds, timer_task}}
 # _round_pacing imported from admin_shared
@@ -3991,13 +4000,30 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
     team in the cohort and broadcasts a dramatic full-screen 'shockwave' alert.
     Reuses the same impact model as inject_custom_event; deterministic by
     construction (forced, not rolled). Gated by the caller's per-profile
-    `shockwave_enabled` capability (Feature 6 toggle set at facilitator setup)."""
+    `shockwave_enabled` capability (Feature 6 toggle set at facilitator setup).
+
+    WOW-4E: Pass `rehearsal: true` in the body to preview the event on the
+    facilitator's screen only — NO game state changes, NO student broadcast.
+    """
     # Per-facilitator capability check (god_mode always allowed).
     _require_console_capability(request, "shockwave_enabled", "Shockwave")
 
     event_id = (body or {}).get("event_id", "pandemic")
     countdown = int((body or {}).get("countdown", 60))
+    rehearsal = bool((body or {}).get("rehearsal", False))
     ev = _SHOCKWAVE_EVENTS.get(event_id) or _SHOCKWAVE_EVENTS["pandemic"]
+
+    # ── WOW-4E: Rehearsal mode — facilitator-only preview, no state changes ──
+    if rehearsal:
+        await manager.broadcast_admin({
+            "type": "shockwave_rehearsal",
+            "cohort_id": cohort_id,
+            "event": {"id": event_id, "title": ev["title"], "narrative": ev["narrative"],
+                      "financial_impact": ev["financial_impact"], "reputation_impact": ev["reputation_impact"]},
+            "countdown": countdown,
+        })
+        _audit("shockwave_rehearsal", details={"cohort_id": cohort_id, "event_id": event_id})
+        return {"status": "rehearsal", "event_id": event_id, "event": ev, "message": "Rehearsal only — students NOT affected"}
 
     all_sessions = await db.fetch_all_sessions()
     children = [s["session_id"] for s in all_sessions if s.get("parent_cohort_id") == cohort_id]

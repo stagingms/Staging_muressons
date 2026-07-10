@@ -12,7 +12,7 @@
 .badgeBtn { background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: var(--radius-full); padding: 4px 10px; font-size: 0.72rem; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s; color: var(--text-secondary); font-family: inherit; }
 .badgeBtn:hover { border-color: var(--accent-blue); }
 .badgeActive { background: rgba(59,130,246,0.12); border-color: var(--accent-blue); color: var(--accent-blue); font-weight: 700; }
-.awardBtn { background: linear-gradient(135deg, #f59e0b, #22c55e); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s; font-family: inherit; }
+.awardBtn { background: linear-gradient(135deg, var(--accent-gold), #22c55e); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s; font-family: inherit; }
 .awardBtn:hover { transform: translateY(-1px); }
 .awardBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .summary { font-size: 0.78rem; color: var(--text-muted); }

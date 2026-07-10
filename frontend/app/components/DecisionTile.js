@@ -33,6 +33,23 @@ const OPT_META = {
   option_c: { icon: '🛡️', label: 'OPTION C', color: '#16a34a' },
 };
 
+/**
+ * Build a one-line "projected trade-off" from an option's impacts, so the
+ * player reasons about the choice BEFORE committing (the pedagogical goal).
+ * Favourable directions: treasury < 0 (frees cash), reputation > 0, carbon < 0.
+ * Uses only data already passed to the tile — no new fetch, no state.
+ */
+function buildTradeoff(impacts) {
+  if (!impacts) return null;
+  const good = [], bad = [];
+  const t = impacts.treasury, r = impacts.reputation, c = impacts.carbon;
+  if (typeof t === 'number' && t !== 0) (t < 0 ? good : bad).push(t < 0 ? 'frees cash' : 'spends cash');
+  if (typeof r === 'number' && r !== 0) (r > 0 ? good : bad).push(r > 0 ? 'lifts reputation' : 'risks reputation');
+  if (typeof c === 'number' && c !== 0) (c < 0 ? good : bad).push(c < 0 ? 'cuts carbon' : 'adds carbon');
+  if (!good.length && !bad.length) return null;
+  return { good, bad };
+}
+
 export default function DecisionTile({
   optId,
   option,
@@ -84,6 +101,25 @@ export default function DecisionTile({
       {!compact && (
         <p className={styles.tileDesc}>{option.description}</p>
       )}
+
+      {/* Projected trade-off (B1) — a testable hypothesis shown BEFORE commit */}
+      {!compact && (() => {
+        const to = buildTradeoff(option.impacts);
+        if (!to) return null;
+        return (
+          <div style={{
+            marginTop: 4, fontSize: '0.7rem', lineHeight: 1.5,
+            display: 'flex', flexWrap: 'wrap', gap: '2px 8px',
+          }} title="Projected — commit and see next round whether you were right.">
+            {to.good.length > 0 && (
+              <span style={{ color: '#16a34a', fontWeight: 600 }}>✓ {to.good.join(', ')}</span>
+            )}
+            {to.bad.length > 0 && (
+              <span style={{ color: '#d97706', fontWeight: 600 }}>✗ {to.bad.join(', ')}</span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Cost Bar */}
       {costVal ? (

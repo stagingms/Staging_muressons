@@ -46,7 +46,7 @@
     padding: 0.55rem 1rem;
     border-radius: 8px;
     border: none;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
+    background: linear-gradient(135deg, var(--accent-gold), #f97316);
     color: #fff;
     font-size: 0.78rem;
     font-weight: 700;
@@ -652,7 +652,7 @@
     padding: 0.65rem 1.25rem;
     border-radius: var(--radius-md, 8px);
     border: none;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     color: #fff;
     font-size: 0.82rem;
     font-weight: 700;
@@ -689,7 +689,7 @@
     padding: 0.65rem 1.25rem;
     border-radius: var(--radius-md, 8px);
     border: none;
-    background: linear-gradient(135deg, #10b981, #059669);
+    background: linear-gradient(135deg, var(--kpi-good), #059669);
     color: #fff;
     font-size: 0.82rem;
     font-weight: 700;

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import PanelEmptyState from './PanelEmptyState';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -11,14 +12,16 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [error, setError] = useState(false);
 
   useEffect(() => {
     if (!sessionId || !expanded) return;
     setLoading(true);
+    setError(false);
     fetch(`${API}/api/simulations/${sessionId}/benchmarks`)
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('unavailable')))
       .then(d => { if (d) setData(d); })
-      .catch(() => {})
+      .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, [sessionId, expanded, roundNumber]);
 
@@ -65,6 +68,9 @@ export default function BenchmarksPanel({ sessionId, roundNumber }) {
             <div style={{ fontSize: '0.68rem', color: '#64748b', padding: '8px 0' }}>
               Loading benchmark data…
             </div>
+          )}
+          {!loading && (!data || !data.benchmarks) && (
+            <PanelEmptyState reason={error ? 'unavailable' : 'empty'} compact />
           )}
           {data && data.benchmarks && (
             <>

@@ -21,7 +21,7 @@
     position: absolute;
     top: 0; left: 0; right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #6366f1, #f59e0b, #10b981, #3b82f6);
+    background: linear-gradient(90deg, #6366f1, var(--accent-gold), var(--kpi-good), var(--accent-blue));
     opacity: 0.7;
 }
 

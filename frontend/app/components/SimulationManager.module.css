@@ -1,6 +1,6 @@
 .container { display: flex; flex-direction: column; gap: 1.25rem; }
 .header { display: flex; align-items: flex-start; gap: 1rem; }
-.createBtn { background: linear-gradient(135deg, #3b82f6, #06b6d4); color: #fff; border: none; padding: 0.55rem 1.2rem; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; white-space: nowrap; transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s; box-shadow: 0 4px 16px rgba(59,130,246,0.25); align-self: center; }
+.createBtn { background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan)); color: #fff; border: none; padding: 0.55rem 1.2rem; border-radius: 8px; font-weight: 700; font-size: 0.82rem; cursor: pointer; white-space: nowrap; transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s; box-shadow: 0 4px 16px rgba(59,130,246,0.25); align-self: center; }
 .createBtn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.35); }
 .icon { font-size: 2rem; }
 .title { font-size: 1.2rem; font-weight: 800; margin: 0; color: var(--text-primary); }

@@ -7,6 +7,14 @@ If not, falls back to an in-memory database for zero-dependency deployment.
 
 import os
 import sys
+
+# Force UTF-8 output on Windows to avoid UnicodeEncodeError with emoji/special chars
+if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf-8-sig"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
 from contextlib import asynccontextmanager
 
 import logging
@@ -136,7 +144,7 @@ async def lifespan(app: FastAPI):
     _is_memory_db = _use_memory or getattr(db, "__name__", "") == "database_memory"
     if _is_memory_db:
         print("\n" + "=" * 70)
-        print("  ⚠️  RUNNING IN MEMORY MODE")
+        print("  [!] RUNNING IN MEMORY MODE")
         print("  Data will be lost on server restart.")
         print("  For classroom sessions, set USE_MEMORY_DB=false")
         print("  and configure DATABASE_URL for PostgreSQL.")

@@ -297,7 +297,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0.8rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     border-radius: 8px;
     font-size: 0.75rem;
     font-weight: 700;
@@ -323,7 +323,7 @@
 }
 
 .submitBtn {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     color: #fff;
     border: none;
     padding: 0.7rem 1.5rem;
@@ -491,7 +491,7 @@
 
 .dismissBtn {
     margin-top: 1rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     color: #fff;
     border: none;
     padding: 0.7rem 2rem;

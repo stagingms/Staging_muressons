@@ -144,8 +144,18 @@ def test_bcrypt_roundtrip():
 
 
 def test_path_traversal_sanitisation():
-    """Verify os.path.basename strips directory traversal sequences."""
-    import os
+    """Verify the real upload sanitiser strips traversal sequences on ANY OS.
+
+    Exercises admin_router._sanitise_upload_name rather than os.path.basename
+    directly: basename does NOT strip Windows-style backslash separators on
+    POSIX hosts (our deploy target), so testing basename gave a false result
+    that only passed on Windows.
+    """
+    import sys, pathlib
+    backend_dir = pathlib.Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(backend_dir))
+    from admin_router import _sanitise_upload_name
+
     malicious_names = [
         "../../etc/passwd",
         "../../../windows/system32/cmd.exe",
@@ -154,9 +164,11 @@ def test_path_traversal_sanitisation():
         "\x00evil.sh",
     ]
     for name in malicious_names:
-        result = os.path.basename(name)
-        assert ".." not in result, f"basename did not strip '..': {result}"
-        assert "/" not in result, f"basename left slash in: {result}"
+        result = _sanitise_upload_name(name)
+        assert ".." not in result, f"did not strip '..': {result}"
+        assert "/" not in result, f"left forward slash in: {result}"
+        assert "\\" not in result, f"left backslash in: {result}"
+        assert "\x00" not in result, f"left null byte in: {result}"
 
 
 def test_pydantic_field_length_limits():

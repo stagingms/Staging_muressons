@@ -302,7 +302,7 @@
 
 .modalClose {
     margin-left: auto;
-    background: #f1f5f9;
+    background: var(--text-primary);
     border: 1px solid #e2e8f0;
     color: var(--text-muted);
     width: 28px;
@@ -319,7 +319,7 @@
 
 .modalClose:hover {
     background: #e2e8f0;
-    color: #1e293b;
+    color: var(--bg-elevated);
 }
 
 .modalTitle {
@@ -328,7 +328,7 @@
     color: #0f172a;
     margin-bottom: 0.75rem;
     line-height: 1.3;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--text-primary);
     padding-bottom: 0.75rem;
 }
 

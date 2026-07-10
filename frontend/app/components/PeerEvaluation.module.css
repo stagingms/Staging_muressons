@@ -13,7 +13,7 @@
 .star { background: none; border: none; font-size: 1.2rem; cursor: pointer; color: var(--text-muted); transition: color 0.15s; padding: 0; }
 .starActive { color: var(--accent-gold); }
 .star:hover { color: var(--accent-gold); }
-.submitBtn { background: linear-gradient(135deg, #6366f1, #3b82f6); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit; }
+.submitBtn { background: linear-gradient(135deg, #6366f1, var(--accent-blue)); color: #fff; border: none; border-radius: var(--radius-md); padding: 0.65rem 1.25rem; font-size: 0.85rem; font-weight: 700; cursor: pointer; font-family: inherit; }
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .avgSection { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden; }
 .avgTitle { font-size: 0.85rem; font-weight: 700; margin: 0; padding: 0.75rem 1rem; background: var(--bg-elevated); border-bottom: 1px solid var(--border-subtle); color: var(--text-primary); }

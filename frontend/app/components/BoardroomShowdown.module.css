@@ -356,7 +356,7 @@
     display: block;
     width: 100%;
     padding: 0.8rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     color: #fff;
     border: none;
     border-radius: 10px;
@@ -389,7 +389,7 @@
 }
 
 .submitBtn {
-    background: linear-gradient(135deg, #10b981, #059669);
+    background: linear-gradient(135deg, var(--kpi-good), #059669);
     color: #fff;
     border: none;
     padding: 0.8rem 2rem;

@@ -347,7 +347,7 @@
 
 .confirmYes {
     padding: 0.6rem 1.5rem;
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, var(--kpi-danger), #dc2626);
     color: #fff;
     border: none;
     border-radius: 8px;
@@ -502,7 +502,7 @@
 .proceedBtn {
     display: inline-block;
     padding: 0.8rem 3rem;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     color: #fff;
     border: none;
     border-radius: 12px;

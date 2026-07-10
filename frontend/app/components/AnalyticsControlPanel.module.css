@@ -81,7 +81,7 @@
     transition: background 0.3s;
     flex-shrink: 0;
 }
-.toggleOn { background: #10b981; }
+.toggleOn { background: var(--kpi-good); }
 .toggleOff { background: #d1d5db; }
 
 .toggleKnob {

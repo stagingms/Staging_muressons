@@ -167,7 +167,7 @@
 }
 .timingFill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #06b6d4);
+    background: linear-gradient(90deg, var(--accent-blue), var(--accent-cyan));
     border-radius: 8px;
     display: flex;
     align-items: center;
@@ -303,7 +303,7 @@
 .badgeRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .badgeName { font-size: 0.75rem; font-weight: 600; text-transform: capitalize; min-width: 120px; color: var(--text-primary); }
 .badgeBar { flex: 1; height: 16px; background: var(--bg-elevated); border-radius: 8px; overflow: hidden; }
-.badgeFill { height: 100%; background: linear-gradient(90deg, #f59e0b, #f97316); border-radius: 8px; transition: width 0.4s; }
+.badgeFill { height: 100%; background: linear-gradient(90deg, var(--accent-gold), #f97316); border-radius: 8px; transition: width 0.4s; }
 .badgeCount { font-size: 0.75rem; font-weight: 800; color: var(--text-muted); min-width: 30px; }
 
 .catGrid { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -241,7 +241,7 @@
 }
 
 .saveBtn {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     color: #fff;
     border: none;
     padding: 0.6rem 1.5rem;

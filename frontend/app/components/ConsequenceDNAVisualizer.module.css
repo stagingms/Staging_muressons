@@ -216,7 +216,7 @@
 
 .leakPath {
   fill: none;
-  stroke: #ef4444;
+  stroke: var(--kpi-danger);
   stroke-dasharray: 6 3;
   stroke-linecap: round;
   animation: leakPulse 2s ease-in-out infinite;
@@ -224,8 +224,8 @@
 
 /* â”€â”€ Cascade Pulse â”€â”€ */
 .cascadePulse {
-  fill: #ef4444;
-  filter: drop-shadow(0 0 4px #ef4444);
+  fill: var(--kpi-danger);
+  filter: drop-shadow(0 0 4px var(--kpi-danger));
 }
 
 /* â”€â”€ Archetype Badges â”€â”€ */
@@ -244,7 +244,7 @@
 .badgeText {
   font-size: 7px;
   font-weight: 700;
-  fill: #f59e0b;
+  fill: var(--accent-gold);
 }
 
 /* â”€â”€ Interference Pair Arrows â”€â”€ */
@@ -253,7 +253,7 @@
   stroke-width: 1.5;
   fill: none;
   opacity: 0.5;
-  stroke: #f59e0b;
+  stroke: var(--accent-gold);
 }
 
 /* â”€â”€ Dormant Overlay â”€â”€ */
@@ -387,7 +387,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #10b981;
+  background: var(--kpi-good);
   animation: pulseGlow 2s ease-in-out infinite;
 }
 

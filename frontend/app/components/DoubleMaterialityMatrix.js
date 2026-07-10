@@ -21,8 +21,9 @@ let _customFactorCounter = 0;
 
 /**
  * Draggable Issue Chip component — Fix 7 (cost badge), Fix 10 (IRO badge + data-tooltip)
+ * Updated: panel group recommendation badges below the cost badge
  */
-function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBoosted = false }) {
+function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBoosted = false, commissionedGroups = [], panelRecommendations = {}, panelGroupConfig = {} }) {
     const { attributes, listeners, setNodeRef, transform } = useDraggable({
         id: issue.id,
         data: issue,
@@ -67,6 +68,13 @@ function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBooste
     const esrsTopic = issue.esrs_topic || null;
     const vcScope = issue.value_chain_scope || null;
     const isAmbiguous = !!issue.is_ambiguous;
+
+    // ── Panel recommendation badges ──
+    const issueRecs = panelRecommendations[issue.id] || {};
+    const commissionedGroupsArray = Array.from(commissionedGroups);
+    const hasPanelData = commissionedGroupsArray.length > 0 && Object.keys(issueRecs).length > 0;
+
+    const quadrantLabel = { q1: 'Q1 ↗', q2: 'Q2 ↖', q3: 'Q3 ↘', q4: 'Q4 ↙' };
 
     return (
         <div
@@ -123,6 +131,31 @@ function IssueChip({ issue, isDragging, isBlindspot = false, isStakeholderBooste
             )}
             {costDisplay && (
                 <span className={styles.costBadge}>{costDisplay}</span>
+            )}
+            {/* Panel group recommendation badges — shown after at least one group is commissioned */}
+            {hasPanelData && (
+                <div className={styles.panelBadgeRow}>
+                    {commissionedGroupsArray.map(groupKey => {
+                        const rec = issueRecs[groupKey];
+                        const cfg = panelGroupConfig[groupKey];
+                        if (!rec || !cfg) return null;
+                        const emojiMap = { investors: '💰', workers: '👷', ngos: '🌍', experts: '🎓' };
+                        return (
+                            <span
+                                key={groupKey}
+                                className={styles.panelGroupBadge}
+                                style={{
+                                    background: `${cfg.color}18`,
+                                    color: cfg.color,
+                                    border: `1px solid ${cfg.color}44`,
+                                }}
+                                title={`${cfg.label} recommends: ${rec.toUpperCase()} — ${cfg.esrs_ref || ''}`}
+                            >
+                                {emojiMap[groupKey] || '👥'} {quadrantLabel[rec] || rec.toUpperCase()}
+                            </span>
+                        );
+                    })}
+                </div>
             )}
         </div>
     );
@@ -277,11 +310,14 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     const [loading, setLoading] = useState(true);
 
     const [activeId, setActiveId] = useState(null);
-    const [consultantUsed, setConsultantUsed] = useState(false);
     const [consultantAllowed, setConsultantAllowed] = useState(true);
 
-    // Stakeholder Panel Survey state
-    const [panelIssueCount, setPanelIssueCount] = useState(4);
+    // ── Multi-group panel survey state ────────────────────────────────────────
+    // commissionedGroups: Set of group keys that have been commissioned this session
+    const [commissionedGroups, setCommissionedGroups] = useState(new Set());
+    // Panel data fetched from server alongside issues
+    const [panelGroupConfig, setPanelGroupConfig] = useState({});   // { investors: { label, fee_usd, color, ... }, ... }
+    const [panelRecommendations, setPanelRecommendations] = useState({}); // { issue_id: { investors: 'q1', ... }, ... }
 
     // R1 intelligence modulation
     const [blindspotActive, setBlindspotActive] = useState(false);
@@ -307,7 +343,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     // Time horizon filter (Gap 3)
     const [horizonFilter, setHorizonFilter] = useState('all'); // 'all' | 'short' | 'medium' | 'long'
 
-    // 4-tab stakeholder group (Gap 2)
+    // 4-tab stakeholder group tab selector (for commission modal preview)
     const [activePanelGroup, setActivePanelGroup] = useState('investors');
 
     // Initial state: empty until fetched
@@ -333,6 +369,9 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     const data = await res.json();
                     setIssues(data.issues || []);
                     setConsultantFee(data.consultant_fee_usd || 1500000);
+                    // ── Load panel group config + recommendations from server ──
+                    if (data.panel_group_config) setPanelGroupConfig(data.panel_group_config);
+                    if (data.panel_recommendations) setPanelRecommendations(data.panel_recommendations);
                     setContainers(prev => {
                         const allIds = (data.issues || []).map(i => i.id);
                         const q1Ids = initialQ1.filter(id => allIds.includes(id));
@@ -467,41 +506,25 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
         return 4;
     };
 
-    const handleHireConsultant = () => {
-        setConsultantUsed(true);
-        setShowConsultantConfirm(false);
-        setShowCheatSheet(true);
-
-        // Save to history before auto-solving
-        setHistory(prev => [...prev, JSON.parse(JSON.stringify(containers))]);
-
-        // Auto-solve 5 issues
-        setContainers(prev => {
-            const newContainers = { ...prev };
-            let currentBank = [...newContainers.bank];
-            let solvedCount = 0;
-
-            for (let i = currentBank.length - 1; i >= 0 && solvedCount < 5; i--) {
-                const issueId = currentBank[i];
-                const issue = getIssue(issueId);
-                if (issue) {
-                    const targetQuad = `q${getCorrectQuadrant(issue)}`;
-                    newContainers[targetQuad] = [...newContainers[targetQuad], issueId];
-                    currentBank.splice(i, 1);
-                    solvedCount++;
-                }
-            }
-            newContainers.bank = currentBank;
-            return newContainers;
+    // ── Commission a specific panel group (idempotent per group) ──
+    const handleCommissionGroup = (groupKey) => {
+        if (commissionedGroups.has(groupKey)) return; // already commissioned
+        setCommissionedGroups(prev => {
+            const next = new Set(prev);
+            next.add(groupKey);
+            return next;
         });
+        // Show cheat sheet on first commission
+        if (commissionedGroups.size === 0) setShowCheatSheet(true);
     };
 
     const handleSubmit = async (forceOverride = false) => {
         if (!onSubmit) return;
         setIsSubmitting(true);
         const result = await onSubmit({
-            consultant_used: consultantUsed,
-            panel_issue_count: panelIssueCount,
+            consultant_used: commissionedGroups.size > 0,
+            panel_groups_commissioned: Array.from(commissionedGroups),
+            total_panel_fee: totalPanelFee,
             matrix_submission: {
                 quadrant_1_top_right: containers.q1,
                 quadrant_2_top_left: containers.q2,
@@ -521,6 +544,16 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
         }
     };
 
+    // ── Panel fee calculations ──────────────────────────────────────────────
+    // Sum flat fees for every commissioned group
+    const totalPanelFee = Array.from(commissionedGroups).reduce((sum, gKey) => {
+        const cfg = panelGroupConfig[gKey];
+        return sum + (cfg ? cfg.fee_usd : 750_000);
+    }, 0);
+
+    // Net CSF after deducting panel fees (live preview during matrix session)
+    const netCsf = Math.max(0, csfPool - totalPanelFee);
+
     const placedCount = containers.q1.length + containers.q2.length + containers.q3.length + containers.q4.length;
     const MIN_PLACED = 6;
     const hasEnoughPlaced = placedCount >= MIN_PLACED;
@@ -530,12 +563,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
         const finalCost = issue ? issue.mitigation_cost_usd : 0;
         return sum + finalCost;
     }, 0);
-    const isOverBudget = totalQ1Cost > csfPool;
-
-    // Compute stakeholder panel fee for display
-    const panelFee = panelIssueCount <= 4
-        ? panelIssueCount * 250_000
-        : (4 * 250_000) + ((panelIssueCount - 4) * 500_000);
+    const isOverBudget = totalQ1Cost > netCsf;
 
     // Helper to render chip list for a container
     const renderChips = (containerKey) => {
@@ -549,7 +577,16 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
             const cost = globalState?.materiality_dictionary_override?.issues?.find(i => i.id === id)?.mitigation_cost_usd ?? issue.mitigation_cost_usd;
             const isBlindspot = blindspotActive && !!issue.electronics_sensitive;
             const isBoosted = stakeholderBoostedIds.includes(id);
-            return <IssueChip key={id} issue={{ ...issue, mitigation_cost_usd: cost }} isDragging={activeId === id} isBlindspot={isBlindspot} isStakeholderBoosted={isBoosted} />;
+            return <IssueChip
+                key={id}
+                issue={{ ...issue, mitigation_cost_usd: cost }}
+                isDragging={activeId === id}
+                isBlindspot={isBlindspot}
+                isStakeholderBoosted={isBoosted}
+                commissionedGroups={commissionedGroups}
+                panelRecommendations={panelRecommendations}
+                panelGroupConfig={panelGroupConfig}
+            />;
         });
     };
 
@@ -582,17 +619,26 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                         🔄 Reset
                     </button>
 
-                    {/* Stakeholder Panel Survey */}
-                    {!consultantUsed && consultantAllowed && (
+                    {/* Panel fee live deduction display */}
+                    {totalPanelFee > 0 && (
+                        <div className={styles.panelFeeBar}>
+                            <span className={styles.panelFeeLabel}>Panel Fees</span>
+                            <span className={styles.panelFeeAmount}>−${(totalPanelFee / 1_000_000).toFixed(2)}M</span>
+                            <span className={styles.netCsfAmount}>Net CSF: ${(netCsf / 1_000_000).toFixed(1)}M</span>
+                        </div>
+                    )}
+
+                    {/* Commission Stakeholder Panel Survey button */}
+                    {commissionedGroups.size < 4 && consultantAllowed && (
                         <button
                             className={styles.consultantBtn}
                             onClick={() => setShowConsultantConfirm(true)}
-                            data-tooltip="Engage an independent stakeholder panel to pre-rate issues (ESRS 1 §1.47-1.50)"
+                            data-tooltip="Engage independent stakeholder panels to get per-issue quadrant recommendations (ESRS 1 §1.47-1.50)"
                         >
-                            👥 Commission Stakeholder Panel Survey
+                            👥 Commission Stakeholder Panel ({commissionedGroups.size}/4 groups)
                         </button>
                     )}
-                    {!consultantUsed && !consultantAllowed && (
+                    {commissionedGroups.size === 0 && !consultantAllowed && (
                         <button
                             className={styles.advisorPromptBtn}
                             onClick={() => { if (onOpenAdvisor) { onOpenAdvisor(); } }}
@@ -600,8 +646,13 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             🧠 Need Help? Ask the AI Advisor
                         </button>
                     )}
-                    {consultantUsed && (
-                        <span className={styles.consultantBadge}>👥 Panel Survey Active ({panelIssueCount} issues rated)</span>
+                    {commissionedGroups.size === 4 && (
+                        <span className={styles.consultantBadge}>👥 All 4 Panels Commissioned</span>
+                    )}
+                    {commissionedGroups.size > 0 && commissionedGroups.size < 4 && (
+                        <span className={styles.consultantBadge} style={{ background: 'rgba(99,102,241,0.1)', borderColor: 'rgba(99,102,241,0.3)', color: '#818cf8' }}>
+                            👥 {commissionedGroups.size} Panel{commissionedGroups.size > 1 ? 's' : ''} Active
+                        </span>
                     )}
                     {blindspotActive && (
                         <span className={styles.blindspotWarning} title="R1 Surface Scan left gaps — some issue descriptions are degraded">
@@ -637,7 +688,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                             color: isOverBudget ? '#ef4444' : totalQ1Cost > 0 ? '#f59e0b' : '#4ade80',
                             transition: 'color 0.3s ease',
                         }}>
-                            ${(totalQ1Cost / 1_000_000).toFixed(1)}M / ${(csfPool / 1_000_000).toFixed(1)}M
+                            ${(totalQ1Cost / 1_000_000).toFixed(1)}M / ${(netCsf / 1_000_000).toFixed(1)}M
                         </span>
                     </div>
                     <button
@@ -667,8 +718,27 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     <div className={styles.leftPane}>
                         <div className={styles.bankHeader}>The Issue Bank ({containers.bank.length} remaining)</div>
 
-                        {/* Fix 5: Category Legend */}
-                        <div className={styles.legend}>
+                {/* Committed Groups bar — shown below Issue Bank header when groups commissioned */}
+                    {commissionedGroups.size > 0 && (
+                        <div className={styles.commissionedGroupsBar}>
+                            <span style={{ fontSize: '0.6rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: '0.15rem', flexShrink: 0 }}>Panels:</span>
+                            {Array.from(commissionedGroups).map(gKey => {
+                                const cfg = panelGroupConfig[gKey];
+                                if (!cfg) return null;
+                                return (
+                                    <span key={gKey} className={styles.commissionedGroupsBadge}
+                                        style={{ background: `${cfg.color}18`, color: cfg.color, border: `1px solid ${cfg.color}33` }}
+                                        title={`${cfg.label} — ${cfg.esrs_ref || ''} — Fee: $${((cfg.fee_usd || 750000) / 1_000_000).toFixed(2)}M`}
+                                    >
+                                        {cfg.label} ✓
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* Category Legend */}
+                    <div className={styles.legend}>
                             <span className={styles.legendItem}>
                                 <span className={styles.catIcon} style={{ background: 'rgba(16, 185, 129, 0.2)', color: '#10b981', border: '1px solid rgba(16, 185, 129, 0.5)', width: 18, height: 18, fontSize: '0.6rem' }}>E</span>
                                 Ecological
@@ -814,76 +884,95 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
 
             {/* ── Modals ── */}
 
-            {/* Stakeholder Panel Survey Confirmation — 4-group ESRS §1.47-1.50 */}
+            {/* Stakeholder Panel Survey — Per-Group Commission Modal (ESRS §1.47-1.50) */}
             {showConsultantConfirm && (
                 <div className={styles.modalOverlay}>
-                    <div className={styles.modalContent}>
-                        <h3>👥 Commission Stakeholder Panel Survey</h3>
-                        <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
-                            Engage independent stakeholder groups to pre-rate issues. Modelling ESRS 1 §1.47–1.50 stakeholder engagement requirements.
+                    <div className={styles.modalContent} style={{ maxWidth: 520, textAlign: 'left' }}>
+                        <h3 style={{ textAlign: 'center' }}>👥 Commission Stakeholder Panel Survey</h3>
+                        <p style={{ fontSize: '0.82rem', color: '#94a3b8', marginBottom: '0.75rem', textAlign: 'center' }}>
+                            Each ESRS §1.47 stakeholder group can be commissioned once. Their ratings appear as
+                            badges on every issue chip. Fees are deducted from your CSF on final submission.
                         </p>
 
-                        {/* 4-group tab selector — ESRS §1.47-1.50 */}
+                        {/* Group selector tabs */}
                         <div style={{ display: 'flex', gap: '0.3rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
-                            {[
-                                { key: 'investors', label: '💰 Investors', desc: 'Prioritise Q3 financial risks and transition risks. May underweight community impacts.', color: '#6366f1' },
-                                { key: 'workers', label: '👷 Own Workforce', desc: 'Surface S1 labour, safety, and fair wage issues. Strong on internal impacts.', color: '#3b82f6' },
-                                { key: 'ngos', label: '🌍 NGOs / Communities', desc: 'Elevate Q2 environmental and community impacts (E4, S2, S3). May overweight long-term.', color: '#10b981' },
-                                { key: 'experts', label: '🎓 Subject Matter Experts', desc: 'Provide technical accuracy on ESRS mapping and threshold calibration.', color: '#f59e0b' },
-                            ].map(g => (
-                                <button key={g.key} onClick={() => setActivePanelGroup(g.key)}
+                            {Object.entries(
+                                Object.keys(panelGroupConfig).length > 0
+                                    ? panelGroupConfig
+                                    : {
+                                        investors: { label: '💰 Investors', color: '#6366f1' },
+                                        workers:   { label: '👷 Own Workforce', color: '#3b82f6' },
+                                        ngos:      { label: '🌍 NGOs / Communities', color: '#10b981' },
+                                        experts:   { label: '🎓 Subject Matter Experts', color: '#f59e0b' },
+                                    }
+                            ).map(([gKey, gCfg]) => (
+                                <button key={gKey} onClick={() => setActivePanelGroup(gKey)}
                                     style={{
                                         padding: '0.3rem 0.7rem', borderRadius: '6px', cursor: 'pointer',
-                                        border: `1px solid ${activePanelGroup === g.key ? g.color : 'rgba(255,255,255,0.1)'}`,
-                                        background: activePanelGroup === g.key ? `${g.color}22` : 'rgba(255,255,255,0.03)',
-                                        color: activePanelGroup === g.key ? g.color : '#94a3b8',
-                                        fontSize: '0.72rem', fontWeight: 700, transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
-                                    }}>{g.label}</button>
+                                        border: `1px solid ${activePanelGroup === gKey ? gCfg.color : 'rgba(255,255,255,0.1)'}`,
+                                        background: activePanelGroup === gKey ? `${gCfg.color}22` : 'rgba(255,255,255,0.03)',
+                                        color: activePanelGroup === gKey ? gCfg.color : commissionedGroups.has(gKey) ? '#4ade80' : '#94a3b8',
+                                        fontSize: '0.72rem', fontWeight: 700,
+                                        transition: 'background 0.15s, color 0.15s, border-color 0.15s',
+                                        position: 'relative',
+                                    }}>
+                                    {gCfg.label} {commissionedGroups.has(gKey) ? '✓' : ''}
+                                </button>
                             ))}
                         </div>
-                        {/* Group description */}
+
+                        {/* Active group details */}
                         {(() => {
-                            const groups = {
-                                investors: { desc: 'Investors prioritise Q3 financial risks and transition risks (ESRS E1, G1). They may underweight community and social impacts relative to NGOs.', ref: 'ESRS §1.47(a)', color: '#6366f1' },
-                                workers:   { desc: 'Own workforce focuses on S1 issues: fair wages, health & safety, working conditions. Strong signal for internal impacts.', ref: 'ESRS §1.47(b)', color: '#3b82f6' },
-                                ngos:      { desc: 'NGOs and affected communities elevate Q2 environmental harms (E3, E4, S2, S3). ESRS §1.50: their views may conflict with investor priorities — this tension is pedagogically important.', ref: 'ESRS §1.47(c)', color: '#10b981' },
-                                experts:   { desc: 'Subject matter experts (academics, assurance providers) calibrate ESRS topic mapping and materiality thresholds. They validate whether issues are correctly classified under E1–E5 and S1–S4.', ref: 'ESRS §1.47(d)', color: '#f59e0b' },
+                            const cfg = panelGroupConfig[activePanelGroup] || {
+                                label: activePanelGroup,
+                                description: '',
+                                esrs_ref: '',
+                                fee_usd: 750_000,
+                                color: '#6366f1',
                             };
-                            const g = groups[activePanelGroup];
+                            const isCommissioned = commissionedGroups.has(activePanelGroup);
                             return (
-                                <div style={{ padding: '0.55rem 0.75rem', background: `${g.color}10`, borderRadius: '7px', borderLeft: `2px solid ${g.color}`, marginBottom: '0.75rem' }}>
-                                    <div style={{ fontSize: '0.68rem', fontWeight: 700, color: g.color, marginBottom: '0.2rem' }}>{g.ref}</div>
-                                    <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.5 }}>{g.desc}</div>
-                                </div>
+                                <>
+                                    <div style={{ padding: '0.6rem 0.8rem', background: `${cfg.color}10`, borderRadius: '8px', borderLeft: `3px solid ${cfg.color}`, marginBottom: '0.75rem' }}>
+                                        <div style={{ fontSize: '0.68rem', fontWeight: 700, color: cfg.color, marginBottom: '0.25rem' }}>{cfg.esrs_ref || 'ESRS §1.47'}</div>
+                                        <div style={{ fontSize: '0.78rem', color: '#cbd5e1', lineHeight: 1.55 }}>{cfg.description || 'Engage this stakeholder group to receive per-issue quadrant recommendations.'}</div>
+                                        <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#94a3b8' }}>
+                                            Fee: <strong style={{ color: cfg.color }}>${((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M</strong> (flat rate — all issues rated)
+                                        </div>
+                                    </div>
+
+                                    {/* Commission button for this group */}
+                                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}>
+                                        {isCommissioned ? (
+                                            <span style={{ padding: '0.45rem 1.2rem', borderRadius: '6px', background: 'rgba(74,222,128,0.1)', color: '#4ade80', border: '1px solid rgba(74,222,128,0.3)', fontWeight: 700, fontSize: '0.82rem' }}>
+                                                ✓ {cfg.label} Commissioned
+                                            </span>
+                                        ) : (
+                                            <button
+                                                className={styles.submitBtn}
+                                                onClick={() => handleCommissionGroup(activePanelGroup)}
+                                            >
+                                                Commission {cfg.label} — ${((cfg.fee_usd || 750_000) / 1_000_000).toFixed(2)}M
+                                            </button>
+                                        )}
+                                    </div>
+                                </>
                             );
                         })()}
 
-                        <div style={{ margin: '0.5rem 0', padding: '0.75rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.4rem' }}>
-                                Issues to pre-rate: <strong style={{ color: '#f1f5f9' }}>{panelIssueCount}</strong>
-                                {panelIssueCount > 4 && <span style={{ color: '#f59e0b', marginLeft: '0.5rem' }}>★ Extended panel (doubled rate)</span>}
-                            </label>
-                            <input type="range" min={1} max={8} value={panelIssueCount}
-                                onChange={e => setPanelIssueCount(+e.target.value)}
-                                style={{ width: '100%', accentColor: '#6366f1' }}
-                            />
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b' }}>
-                                <span>1 issue — $250K</span><span>4 issues — $1M</span><span>8 issues — $3M</span>
+                        {/* Accumulated fee summary */}
+                        {totalPanelFee > 0 && (
+                            <div style={{ padding: '0.5rem 0.75rem', background: 'rgba(245,158,11,0.06)', borderRadius: '6px', border: '1px solid rgba(245,158,11,0.15)', marginBottom: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{commissionedGroups.size} group{commissionedGroups.size !== 1 ? 's' : ''} commissioned</span>
+                                <span style={{ fontWeight: 700, color: '#f59e0b', fontSize: '0.82rem' }}>Total: −${(totalPanelFee / 1_000_000).toFixed(2)}M from CSF</span>
                             </div>
-                        </div>
-                        <p style={{ fontWeight: 700, color: '#f1f5f9', textAlign: 'center', fontSize: '1rem' }}>
-                            Cost: <span style={{ color: '#6366f1' }}>${(panelFee / 1_000_000).toFixed(2)}M</span>
-                        </p>
-                        <p className={styles.modalSubtext}>
-                            The panel will auto-classify {Math.min(panelIssueCount, 5)} issues on the matrix.
-                            Issues rated by stakeholders aligned with your R1 Mendelow mapping are marked ★.
-                        </p>
-                        <p style={{ fontSize: '0.72rem', color: '#64748b', fontStyle: 'italic', textAlign: 'center', marginTop: '0.25rem' }}>
-                            ESRS §1.50: Commission all 4 groups to surface conflicting views and strengthen your materiality assessment.
+                        )}
+
+                        <p style={{ fontSize: '0.7rem', color: '#475569', textAlign: 'center', margin: '0 0 0.5rem' }}>
+                            ESRS §1.50: Commissioning multiple groups surfaces conflicting stakeholder perspectives — a key learning outcome.
                         </p>
                         <div className={styles.modalActions}>
-                            <button onClick={handleHireConsultant} className={styles.submitBtn}>Commission Panel</button>
-                            <button onClick={() => setShowConsultantConfirm(false)} className={styles.cancelBtn}>Cancel</button>
+                            <button onClick={() => setShowConsultantConfirm(false)} className={styles.cancelBtn}>Close</button>
                         </div>
                     </div>
                 </div>
@@ -927,7 +1016,17 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                                 <h3>✅ Materiality Matrix Approved</h3>
                                 <div 
                                     className={styles.budgetBox}
-                                    title={submitStatus.debrief ? `Calculated as: Total Materiality Budget ($15,000,000) × ${submitStatus.debrief.full_accuracy_pct}% Accuracy\nMinus Consultant Fees ($${(consultantFee || 0).toLocaleString()})\n${submitStatus.debrief.clawback_applied > 0 ? `Minus Governance Penalty / Clawback ($${submitStatus.debrief.clawback_applied.toLocaleString()})\n` : ''}= $${submitStatus.amount?.toLocaleString()} Final Unlocked Budget` : `Allocated Budget: $${submitStatus.amount?.toLocaleString()}`}
+                                    title={submitStatus.debrief ? [
+                                        `Calculated as:`,
+                                        `Total Materiality Budget ($15,000,000) × ${submitStatus.debrief.full_accuracy_pct}% Accuracy`,
+                                        submitStatus.debrief.panel_fee_paid > 0
+                                            ? `Minus Panel Survey Fees ($${(submitStatus.debrief.panel_fee_paid || 0).toLocaleString()}) — ${(submitStatus.debrief.panel_groups_commissioned || []).join(', ')}`
+                                            : null,
+                                        submitStatus.debrief.clawback_applied > 0
+                                            ? `Minus Governance Penalty / Clawback ($${submitStatus.debrief.clawback_applied.toLocaleString()})`
+                                            : null,
+                                        `= $${submitStatus.amount?.toLocaleString()} Final Unlocked Budget`,
+                                    ].filter(Boolean).join('\n') : `Allocated Budget: $${submitStatus.amount?.toLocaleString()}`}
                                 >
                                     + ${submitStatus.amount?.toLocaleString()} Unlocked
                                 </div>

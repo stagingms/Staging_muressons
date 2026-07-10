@@ -5304,3 +5304,178 @@ async def get_player_annotations(session_id: str):
 
     return {"annotations": visible}
 
+
+# ═════════════════════════════════════════════════════════════════
+#  WOW-5E: FRONT PAGE — LLM-ENHANCED NEWSPAPER GENERATION
+# ═════════════════════════════════════════════════════════════════
+
+# Deterministic fallback templates (same as FrontPageReveal.js)
+_FP_TEMPLATES = {
+    "titan": {
+        "headline": "MURESSONS CROWNED SUSTAINABILITY LEADER OF THE DECADE",
+        "subhead": "Regenerative strategy compounds into a {tv}M valuation as the board's five-year bet pays off",
+        "quote": "A textbook case that decarbonisation and value creation are the same story.",
+    },
+    "safe": {
+        "headline": "MURESSONS DELIVERS STEADY, DE-RISKED RETURNS",
+        "subhead": "A pragmatic five years leaves the group well-capitalised at {tv}M with room to push further",
+        "quote": "Solid, defensible, and unspectacular — exactly what nervous boards asked for.",
+    },
+    "fragile": {
+        "headline": "QUESTIONS MOUNT OVER MURESSONS' RESILIENCE",
+        "subhead": "A {tv}M valuation masks a fragile {mr}× multiple as deferred costs come due",
+        "quote": "The bill for short-termism arrives late, larger, and with fewer options.",
+    },
+    "relic": {
+        "headline": "MURESSONS FACES STRANDED-ASSET RECKONING",
+        "subhead": "Five years of extraction leave a {mr}× multiple and a valuation under pressure at {tv}M",
+        "quote": "A cautionary tale of value destroyed one deferred decision at a time.",
+    },
+}
+
+
+def _fp_band(mr: float) -> str:
+    if mr >= 1.8:
+        return "titan"
+    if mr >= 1.2:
+        return "safe"
+    if mr >= 0.8:
+        return "fragile"
+    return "relic"
+
+
+@router.get(
+    "/{session_id}/front-page",
+    summary="WOW-5E: Generate newspaper front page copy (LLM-enhanced with deterministic fallback)",
+)
+async def get_front_page(session_id: str):
+    """
+    Returns headline, subhead, and quote for the Year-5 front page.
+
+    If LLM_API_KEY is set → calls the LLM for creative, game-state-aware copy.
+    If LLM_API_KEY is unset, call times out, or response is malformed →
+    falls back to deterministic per-archetype templates (always works).
+    """
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+
+    gs = latest["global_state"]
+    flags = gs.get("active_event_flags", {})
+    mr = float(flags.get("regenerative_multiple", 0) or 0)
+    tv_raw = float(flags.get("terminal_value", 0) or 0)
+    tv = f"${tv_raw / 1_000_000:.1f}"
+    mr_str = f"{mr:.2f}"
+    band = _fp_band(mr)
+
+    # Deterministic fallback
+    tpl = _FP_TEMPLATES.get(band, _FP_TEMPLATES["fragile"])
+    fallback = {
+        "headline": tpl["headline"],
+        "subhead": tpl["subhead"].format(tv=tv, mr=mr_str),
+        "quote": tpl["quote"],
+        "source": "deterministic",
+        "band": band,
+        "mr": mr_str,
+        "terminal_value": tv,
+    }
+
+    # ── Try LLM enhancement ──
+    try:
+        from config import LLM_API_KEY, LLM_PROVIDER, LLM_MODEL
+    except ImportError:
+        return fallback
+
+    if not LLM_API_KEY:
+        return fallback
+
+    # Build context for LLM
+    archetype = flags.get("shadow_board_archetype", band)
+    share_price = flags.get("price_per_share", "—")
+    rep = gs.get("group_reputation", 50)
+    notable_flags_list = [
+        k for k in flags
+        if k not in ("terminal_value", "regenerative_multiple", "price_per_share",
+                      "shadow_board_completed", "shadow_board_archetype", "shadow_board_rejection",
+                      "sdg_impact_score")
+        and flags[k] is True
+    ]
+
+    prompt = (
+        f"You are a senior financial journalist at The Muressons Times.\n"
+        f"Write a Year-5 front page for a company with these results:\n"
+        f"- Regenerative Multiple (M_R): {mr_str}× (band: {band})\n"
+        f"- Terminal Value: {tv}\n"
+        f"- Share Price: ${share_price}\n"
+        f"- Reputation: {rep}/100\n"
+        f"- Archetype: {archetype}\n"
+        f"- Notable achievements: {', '.join(notable_flags_list[:8]) if notable_flags_list else 'none'}\n\n"
+        f"Return a JSON object with exactly these keys:\n"
+        f"  headline: a punchy ALL-CAPS newspaper headline (max 12 words)\n"
+        f"  subhead: an italic subheadline (max 25 words)\n"
+        f"  quote: a fictional analyst quote (max 20 words)\n\n"
+        f"Respond ONLY with the JSON object, no markdown fences."
+    )
+
+    try:
+        import httpx
+        import json as _json
+
+        if LLM_PROVIDER == "anthropic":
+            async with httpx.AsyncClient(timeout=30) as client:
+                res = await client.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers={
+                        "x-api-key": LLM_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "content-type": "application/json",
+                    },
+                    json={
+                        "model": LLM_MODEL or "claude-sonnet-4-20250514",
+                        "max_tokens": 300,
+                        "messages": [{"role": "user", "content": prompt}],
+                    },
+                )
+                body = res.json()
+                text = body.get("content", [{}])[0].get("text", "")
+        else:  # openai
+            async with httpx.AsyncClient(timeout=30) as client:
+                res = await client.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {LLM_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "model": LLM_MODEL or "gpt-4o-mini",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "temperature": 0.7,
+                        "response_format": {"type": "json_object"},
+                    },
+                )
+                body = res.json()
+                text = body["choices"][0]["message"]["content"]
+
+        # Parse + validate
+        text = text.strip()
+        if text.startswith("```"):
+            text = text.split("\n", 1)[1].rsplit("```", 1)[0]
+        result = _json.loads(text)
+
+        # Validate required keys
+        if not all(k in result for k in ("headline", "subhead", "quote")):
+            print(f"[WOW-5E] LLM response missing keys, falling back: {result}")
+            return fallback
+
+        return {
+            "headline": str(result["headline"])[:200],
+            "subhead": str(result["subhead"])[:300],
+            "quote": str(result["quote"])[:200],
+            "source": "llm",
+            "band": band,
+            "mr": mr_str,
+            "terminal_value": tv,
+        }
+    except Exception as e:
+        print(f"[WOW-5E] LLM front-page error, using deterministic fallback: {e}")
+        return fallback

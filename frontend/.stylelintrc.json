@@ -1,0 +1,15 @@
+{
+  "//": "C1 guard — keeps NEW CSS on the design tokens in globals.css instead of raw hex/px, so the palette/spacing can't drift again. Rules are 'warning' severity so the existing ~140 modules don't block the build; tighten to 'error' once migrated. Requires: npm i -D stylelint (and optionally stylelint-config-standard). Run: npm run lint:css",
+  "rules": {
+    "color-no-hex": [true, {
+      "severity": "warning",
+      "message": "Use a --color/--kpi/--accent token from globals.css instead of a raw hex value."
+    }],
+    "declaration-property-value-disallowed-list": {
+      "/^(margin|padding|gap|border-radius)$/": ["/[0-9]+px/"],
+      "severity": "warning",
+      "message": "Use a --space-*/--radius token instead of a raw px value."
+    }
+  },
+  "ignoreFiles": ["node_modules/**", ".next/**", "public/**"]
+}

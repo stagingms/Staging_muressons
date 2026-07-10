@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './PlayerRegistry.module.css';
 import { getShortCode } from '../utils/sessionUtils';
 import CohortSummaryTooltip from './CohortSummaryTooltip';
+import { resolveVerticalMeta } from '../lib/verticalCatalog';
 
 const ADJECTIVES = ["blue", "swift", "brave", "quiet", "lucky", "bold", "calm", "proud", "wild", "smart"];
 const NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "hawk", "owl"];
@@ -91,15 +92,16 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
             regPlayers.forEach(rp => {
                 if (rp.player_id && !creds.some(c => c.player_id === rp.player_id)) {
                     // plaintext_password is the temp password shown once at generation time.
-                    // If it's missing (e.g. old record), show a hint rather than a wrong default.
-                    creds.push({ player_id: rp.player_id, password: rp.plaintext_password || '(see facilitator)' });
+                    // All new players have the default password 'Muressons123'; show it so
+                    // facilitators can communicate it without ambiguity.
+                    creds.push({ player_id: rp.player_id, password: rp.plaintext_password || 'Muressons123' });
                 }
             });
             // Also include allowed_player_ids that aren't in registered_players
             allowedIds.forEach(pid => {
                 if (!creds.some(c => c.player_id === pid)) {
-                    // No plaintext_password available for legacy entries
-                    creds.push({ player_id: pid, password: '(see facilitator)' });
+                    // Legacy entry without a plaintext_password — default applies
+                    creds.push({ player_id: pid, password: 'Muressons123' });
                 }
             });
             if (creds.length > 0) {
@@ -495,7 +497,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                     <div key={cred.player_id} style={{
                                                         display: 'flex', gap: '8px', alignItems: 'center',
                                                         background: 'rgba(15,23,42,0.55)',
-                                                        border: cred.password === '(see facilitator)' ? '1px solid rgba(239,68,68,0.3)' : '1px solid rgba(148,163,184,0.15)',
+                                                        border: '1px solid rgba(148,163,184,0.15)',
                                                         borderRadius: '8px', padding: '6px 10px',
                                                     }}>
                                                         <span style={{
@@ -510,14 +512,27 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                         </span>
                                                         <span style={{
                                                             fontFamily: 'monospace', fontSize: '0.82rem', fontWeight: 700,
-                                                            color: cred.password === '(see facilitator)' ? '#f87171' : '#fcd34d',
-                                                            background: cred.password === '(see facilitator)' ? 'rgba(239,68,68,0.08)' : 'rgba(245,158,11,0.12)',
+                                                            color: '#fcd34d',
+                                                            background: 'rgba(245,158,11,0.12)',
                                                             padding: '2px 8px', borderRadius: '4px',
-                                                            border: cred.password === '(see facilitator)' ? '1px solid rgba(239,68,68,0.25)' : '1px solid rgba(245,158,11,0.25)',
+                                                            border: '1px solid rgba(245,158,11,0.25)',
                                                             whiteSpace: 'nowrap',
                                                         }}>
                                                             🔑 {cred.password}
                                                         </span>
+                                                        {cred.password === 'Muressons123' && (
+                                                            <span style={{
+                                                                fontSize: '0.62rem', fontWeight: 700,
+                                                                color: '#fb923c',
+                                                                background: 'rgba(251,146,60,0.1)',
+                                                                border: '1px solid rgba(251,146,60,0.25)',
+                                                                borderRadius: '4px', padding: '1px 5px',
+                                                                letterSpacing: '0.04em',
+                                                            }}
+                                                            title="Player has not yet changed their default password">
+                                                                DEFAULT
+                                                            </span>
+                                                        )}
                                                         <button
                                                             style={{
                                                                 background: 'rgba(148,163,184,0.1)',
@@ -640,7 +655,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                             if (bu) {
                                                                 return (
                                                                     <span className={`${styles.buBadge} ${styles['bu_' + bu.toLowerCase()]}`}>
-                                                                        {bu.replace(/_/g, ' ')}
+                                                                        {resolveVerticalMeta(bu).icon} {resolveVerticalMeta(bu).label}
                                                                     </span>
                                                                 );
                                                             }

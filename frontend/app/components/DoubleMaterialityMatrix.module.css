@@ -1060,7 +1060,7 @@
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :global([data-theme="light"]) .overlay {
     --csrd-bg: #f0f2f7;
-    --csrd-text: #1e293b;
+    --csrd-text: var(--bg-elevated);
     --csrd-heading: #0f172a;
     --csrd-muted: #475569;
     --csrd-axis: #475569;
@@ -1074,7 +1074,7 @@
     --csrd-chip-border: #e2e8f0;
     --csrd-chip-hover: #f8fafc;
     --csrd-modal-bg: #ffffff;
-    --csrd-cancel-bg: #f1f5f9;
+    --csrd-cancel-bg: var(--text-primary);
     --csrd-cancel-hover: #e2e8f0;
 }
 
@@ -1093,7 +1093,7 @@
 }
 
 :global([data-theme="light"]) .submitBtn {
-    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    background: linear-gradient(135deg, #2563eb, var(--accent-blue));
     color: #fff;
     box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
 }
@@ -1224,3 +1224,114 @@
     max-width: 560px !important;
 }
 
+/* ── Panel Group Badges (shown on issue chips in the Issue Bank) ──────────── */
+/* Renders as a flex row below the chip's main badge row                      */
+.panelBadgeRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    margin-top: 4px;
+    width: 100%;
+}
+
+.panelGroupBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    cursor: help;
+    flex-shrink: 0;
+    transition: opacity 0.15s;
+}
+
+.panelGroupBadge:hover {
+    opacity: 0.85;
+}
+
+/* ── Commissioned groups bar (shown in left pane below Issue Bank header) ── */
+.commissionedGroupsBar {
+    display: flex;
+    gap: 0.3rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(0, 229, 195, 0.04);
+    border-bottom: 1px solid rgba(0, 229, 195, 0.06);
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.commissionedGroupsBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.63rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+}
+
+/* ── Live panel fee deduction bar in header ──────────────────────────────── */
+.panelFeeBar {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 0.75rem;
+    min-width: 150px;
+}
+
+.panelFeeLabel {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #f59e0b;
+    font-weight: 700;
+}
+
+.panelFeeAmount {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #f59e0b;
+    transition: color 0.3s ease;
+}
+
+.netCsfAmount {
+    font-size: 0.7rem;
+    color: #94a3b8;
+    margin-top: 1px;
+}
+
+/* ── Commission group button (inside modal — per-group) ─────────────────── */
+.commissionGroupBtn {
+    background: transparent;
+    border: 1px solid rgba(0, 229, 195, 0.2);
+    color: #e2e8f0;
+    padding: 0.45rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.78rem;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+    font-family: var(--font-sans);
+}
+
+.commissionGroupBtn:hover:not(:disabled) {
+    background: rgba(0, 229, 195, 0.07);
+    border-color: rgba(0, 229, 195, 0.35);
+}
+
+.commissionGroupBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.commissionGroupBtn.commissioned {
+    background: rgba(74, 222, 128, 0.08);
+    border-color: rgba(74, 222, 128, 0.3);
+    color: #4ade80;
+    cursor: default;
+}

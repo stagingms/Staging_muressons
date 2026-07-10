@@ -81,7 +81,9 @@ class MatrixSubmission(BaseModel):
 
 class MaterialitySubmissionRequest(BaseModel):
     consultant_used: bool = False
-    panel_issue_count: int = 4             # 1-8; tiered stakeholder panel pricing
+    panel_issue_count: int = 4             # 1-8; legacy tiered stakeholder panel pricing
+    panel_groups_commissioned: list[str] = []  # NEW: ["investors", "ngos", ...] — multi-group model
+    total_panel_fee: int = 0               # NEW: total fee summed by frontend, validated server-side
     matrix_submission: MatrixSubmission
     force_override_cfo: bool = False
     bu_id: Optional[str] = None  # BU-specific dictionary for Strategic Pillars mode

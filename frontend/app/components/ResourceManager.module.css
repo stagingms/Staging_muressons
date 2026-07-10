@@ -180,7 +180,7 @@
 
 .addForm h4 {
     margin: 0 0 1.2rem;
-    color: #1e293b;
+    color: var(--bg-elevated);
     font-size: 1.05rem;
     font-weight: 700;
     border-bottom: 1px solid #e2e8f0;
@@ -392,7 +392,7 @@
 }
 
 .dropBtn {
-    background: linear-gradient(135deg, #ef4444, #f97316);
+    background: linear-gradient(135deg, var(--kpi-danger), #f97316);
     color: #fff;
     border: none;
     padding: 0.3rem 0.6rem;
@@ -445,7 +445,7 @@
     width: 28px;
     height: 28px;
     border-radius: 8px;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     color: #fff;
     font-size: 0.75rem;
     font-weight: 800;
@@ -586,7 +586,7 @@
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, #7c3aed, #3b82f6, #06b6d4);
+    background: linear-gradient(90deg, #7c3aed, var(--accent-blue), var(--accent-cyan));
 }
 
 .nbCard:hover {

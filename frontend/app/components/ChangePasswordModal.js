@@ -125,7 +125,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                     }}>
                         <span>⚠️</span>
                         <span>
-                            Your current password is a <strong>default password</strong>. You must set a personal password before continuing.
+                            Your current password is the <strong>default password</strong> (<code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.06)', padding: '1px 5px', borderRadius: '3px' }}>Muressons123</code>). You must set a personal password before continuing.
                         </span>
                     </div>
                 )}
@@ -175,7 +175,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                                <label style={labelStyle}>Current Password {isForced && <span style={{ color: '#94a3b8', fontWeight: 400 }}>(the password provided by your facilitator)</span>}</label>
+                                <label style={labelStyle}>Current Password {isForced && <span style={{ color: '#94a3b8', fontWeight: 400 }}>(default: <strong style={{ color: '#f59e0b', fontFamily: 'monospace' }}>Muressons123</strong>)</span>}</label>
                                 <input
                                     type="password"
                                     value={oldPassword}

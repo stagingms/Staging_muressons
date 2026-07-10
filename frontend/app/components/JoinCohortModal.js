@@ -159,7 +159,7 @@ export default function JoinCohortModal({ sim }) {
                         marginTop: '1rem', fontSize: '0.68rem', color: '#475569',
                         textAlign: 'center', lineHeight: 1.5, letterSpacing: '0.02em'
                     }}>
-                        Your Executive Identifier (e.g. MUR-001) and <strong style={{ color: '#00e5c3' }}>Clearance Cipher</strong> are provided by your facilitator — you will be asked to set a new password immediately after your first login.
+                        Your Executive Identifier (e.g. MUR-001) is provided by your facilitator. The default <strong style={{ color: '#00e5c3' }}>Clearance Cipher</strong> is <strong style={{ fontFamily: 'monospace', color: '#f5b942', letterSpacing: '0.05em' }}>Muressons123</strong> — you will be prompted to set a personal password on your first login.
                     </p>
                 </div>
 

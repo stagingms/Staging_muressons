@@ -189,7 +189,7 @@
   gap: 12px;
   padding: 14px 16px;
   border-radius: 12px;
-  background: var(--sc-gradient, linear-gradient(135deg, #1e293b, #334155));
+  background: var(--sc-gradient, linear-gradient(135deg, var(--bg-elevated), #334155));
   position: relative;
   overflow: hidden;
 }

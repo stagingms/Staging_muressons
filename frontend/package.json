@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:webpack": "next dev --webpack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "lint:css": "stylelint \"app/**/*.css\"",
     "test": "jest --verbose"
   },
   "dependencies": {

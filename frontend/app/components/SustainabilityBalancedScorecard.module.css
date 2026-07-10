@@ -138,11 +138,11 @@
 }
 
 .mrPositive {
-    background: linear-gradient(135deg, #10b981, #059669);
+    background: linear-gradient(135deg, var(--kpi-good), #059669);
 }
 
 .mrNegative {
-    background: linear-gradient(135deg, #ef4444, #dc2626);
+    background: linear-gradient(135deg, var(--kpi-danger), #dc2626);
 }
 
 .mrLegend {
@@ -598,7 +598,7 @@
 
 .peerToggleActive .peerToggleSwitch::after {
     transform: translateX(18px);
-    background: #f59e0b;
+    background: var(--accent-gold);
     box-shadow: 0 0 6px rgba(245, 158, 11, 0.5);
 }
 
@@ -610,7 +610,7 @@
 }
 
 .peerToggleActive .peerToggleText {
-    color: #f59e0b;
+    color: var(--accent-gold);
 }
 
 .peerToggleBadge {
@@ -619,7 +619,7 @@
     padding: 0.15rem 0.45rem;
     border-radius: 6px;
     background: rgba(245, 158, 11, 0.12);
-    color: #f59e0b;
+    color: var(--accent-gold);
     border: 1px solid rgba(245, 158, 11, 0.25);
     text-transform: uppercase;
     letter-spacing: 0.5px;

@@ -450,7 +450,7 @@
 .destructionIcon {
   font-size: 1.1rem;
   flex-shrink: 0;
-  color: #ef4444;
+  color: var(--kpi-danger);
 }
 
 /* ── Black Swan Log ─────────────────────────────────────────────────────── */

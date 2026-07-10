@@ -1,0 +1,239 @@
+/* ═══════════════════════════════════════════════════════════════
+   ConsequenceReplay.module.css — WOW-1
+   Animated causal chain flowing top-to-bottom after round commit.
+   CSS keyframes only. Respects prefers-reduced-motion via component.
+   ═══════════════════════════════════════════════════════════════ */
+
+.container {
+  margin-top: var(--space-md, 12px);
+  margin-bottom: var(--space-md, 12px);
+  padding: var(--space-md, 14px) var(--space-md, 16px);
+  border-radius: var(--radius-md, 10px);
+  background: linear-gradient(135deg,
+    rgba(99, 102, 241, 0.04),
+    rgba(139, 92, 246, 0.03));
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  position: relative;
+}
+
+/* ── Header ── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--space-sm, 12px);
+}
+
+.headerIcon {
+  font-size: 1.1rem;
+}
+
+.headerTitle {
+  font-size: var(--fs-sm, 0.78rem);
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-blue, #818cf8);
+}
+
+/* ── Chain container ── */
+.chain {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0;
+}
+
+/* ── Connector (arrow between nodes) ── */
+.connector {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 24px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.connectorVisible {
+  opacity: 1;
+}
+
+.connectorLine {
+  width: 2px;
+  flex: 1;
+  background: linear-gradient(180deg,
+    rgba(99, 102, 241, 0.4),
+    rgba(99, 102, 241, 0.2));
+}
+
+.connectorArrow {
+  font-size: 0.65rem;
+  color: rgba(99, 102, 241, 0.5);
+  line-height: 1;
+}
+
+/* ── Node (each step in the causal chain) ── */
+.node {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm, 6px);
+  border: 1px solid transparent;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.nodeHidden {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+.nodeVisible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Node type variants */
+.nodeDecision {
+  background: rgba(59, 130, 246, 0.08);
+  border-color: rgba(59, 130, 246, 0.2);
+}
+
+.nodeMechanism {
+  background: rgba(148, 163, 184, 0.06);
+  border-color: rgba(148, 163, 184, 0.12);
+}
+
+.nodeImpact {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(245, 158, 11, 0.18);
+}
+
+.nodeFuture {
+  background: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.18);
+}
+
+/* Future nodes get a subtle glow when visible */
+.nodeFuture.nodeVisible {
+  animation: cr-glow 1.5s ease 0.3s;
+}
+
+@keyframes cr-glow {
+  0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.3); }
+  50% { box-shadow: 0 0 12px 2px rgba(139, 92, 246, 0.15); }
+  100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+}
+
+.nodeIcon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.nodeLabel {
+  font-size: var(--fs-sm, 0.78rem);
+  font-weight: 600;
+  color: var(--text-primary, #f1f5f9);
+  line-height: 1.4;
+}
+
+/* ── KPI Deltas ── */
+.deltas {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: var(--space-sm, 10px);
+  padding-top: var(--space-sm, 10px);
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  animation: cr-fadeIn 0.4s ease;
+}
+
+@keyframes cr-fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.delta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: var(--fs-xs, 0.72rem);
+  font-weight: 700;
+}
+
+.deltaPositive {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.deltaNegative {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+}
+
+.deltaLabel {
+  color: var(--text-muted, #94a3b8);
+}
+
+.deltaValue {
+  font-family: var(--font-mono, monospace);
+}
+
+.deltaPositive .deltaValue {
+  color: var(--kpi-good, #10b981);
+}
+
+.deltaNegative .deltaValue {
+  color: #f87171;
+}
+
+/* ── Controls ── */
+.controls {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-sm, 8px);
+}
+
+.skipBtn,
+.dismissBtn {
+  padding: 4px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.2));
+  background: transparent;
+  color: var(--text-muted, #8899a6);
+  font-size: var(--fs-xs, 0.72rem);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.skipBtn:hover,
+.dismissBtn:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-primary, #f1f5f9);
+}
+
+.dismissBtn {
+  border-color: rgba(99, 102, 241, 0.3);
+  color: var(--accent-blue, #818cf8);
+}
+
+.dismissBtn:hover {
+  background: rgba(99, 102, 241, 0.1);
+}
+
+/* ── Responsive ── */
+@media (max-width: 480px) {
+  .container {
+    padding: 10px 12px;
+  }
+  .node {
+    padding: 6px 10px;
+  }
+  .nodeLabel {
+    font-size: 0.72rem;
+  }
+}

@@ -320,6 +320,12 @@ export default function useSimulation() {
             if (typeof window !== 'undefined') {
                 localStorage.setItem('muressons_session_id', playerSessionId);
                 localStorage.setItem('muressons_playerId', playerId);
+                // SEC/HIGH-001: store the signed ws ticket for the push channel.
+                if (loginData.ws_ticket) {
+                    localStorage.setItem('muressons_ws_ticket', loginData.ws_ticket);
+                } else {
+                    localStorage.removeItem('muressons_ws_ticket');
+                }
             }
             // Flag if first-login password change is required
             if (loginData.must_change_password) {

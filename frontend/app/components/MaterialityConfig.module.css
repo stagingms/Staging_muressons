@@ -98,7 +98,7 @@
 }
 
 .btnPrimary {
-    background: linear-gradient(135deg, #3b82f6, #2563eb);
+    background: linear-gradient(135deg, var(--accent-blue), #2563eb);
     color: white;
     box-shadow: 0 2px 8px rgba(59,130,246,0.25);
 }
@@ -321,7 +321,7 @@
     padding: 0.7rem 1.8rem;
     border: none;
     border-radius: 10px;
-    background: linear-gradient(135deg, #3b82f6, #6366f1);
+    background: linear-gradient(135deg, var(--accent-blue), #6366f1);
     color: #fff;
     font-size: 0.85rem;
     font-weight: 700;

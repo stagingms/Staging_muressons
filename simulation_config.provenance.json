@@ -1,0 +1,96 @@
+{
+  "_comment": "Machine-readable provenance sidecar for simulation_config.json. The engine does NOT load this file; it exists so parameter rationale can be surfaced in docs/UI and kept in sync. See docs/Parameter_Provenance.md for the full narrative.",
+  "_version": 1,
+  "parameters": {
+    "economic_parameters.carbon_price_base": {
+      "value": 50,
+      "unit": "USD/tCO2e",
+      "rationale": "Conservative early-2020s compliance-market starting price (EU ETS traded broadly 50-100 EUR).",
+      "reference": "EU ETS price history"
+    },
+    "economic_parameters.carbon_price_growth_rate": {
+      "value": 0.05,
+      "unit": "per 6-month period",
+      "rationale": "Reflects modelled upward carbon-price path as caps tighten; rewards early decarbonisation over the 5-year horizon.",
+      "reference": "Carbon-pricing trajectory literature"
+    },
+    "economic_parameters.circular_economy_efficiency_bonus": {
+      "value": 0.15,
+      "unit": "fraction",
+      "rationale": "Order-of-magnitude OPEX/material-efficiency gain from circular strategies.",
+      "reference": "Ellen MacArthur Foundation / ReSOLVE case evidence"
+    },
+    "financial_parameters.shadow_carbon_price": {
+      "value": 250.0,
+      "unit": "USD/tCO2e",
+      "rationale": "Internal carbon price for capital decisions, set above market to make long-horizon decarbonisation visible; leading corporates apply high internal prices.",
+      "reference": "CDP internal carbon price disclosures"
+    },
+    "financial_parameters.corporate_tax_rate": {
+      "value": 0.25,
+      "unit": "fraction",
+      "rationale": "Blended statutory corporate tax rate across major economies.",
+      "reference": "OECD corporate tax database"
+    },
+    "financial_parameters.default_loan_rate": {
+      "value": 0.12,
+      "unit": "fraction",
+      "rationale": "Cost of unsecured/distressed corporate borrowing.",
+      "reference": "High-yield / distressed credit spreads"
+    },
+    "financial_parameters.emergency_rate_spread": {
+      "value": 0.02,
+      "unit": "fraction",
+      "rationale": "Premium charged when a firm draws crisis credit.",
+      "reference": "Distressed-lending premia"
+    },
+    "financial_parameters.wacc_lender_threshold": {
+      "value": 0.08,
+      "unit": "fraction",
+      "rationale": "Cost-of-capital level above which lenders price in ESG-driven risk; ties Natural Capital Debt to real credit behaviour.",
+      "reference": "Corporate credit pricing"
+    },
+    "terminal_valuation.exit_multiple": {
+      "value": "dynamic (Gordon Growth, ~2% long-run growth), 12x fallback",
+      "unit": "EV/EBITDA",
+      "rationale": "Derived from WACC + long-run nominal growth via Gordon Growth Model, clamped to floor/ceiling; links valuation to cost of capital. 12x is representative mid-cycle EV/EBITDA for diversified industrials.",
+      "reference": "Gordon Growth Model; sector EV/EBITDA comps"
+    },
+    "climate_parameters.loss_damage_levy_stressed": {
+      "value": 1000000,
+      "unit": "USD",
+      "rationale": "Climate loss-and-damage liability under stressed conditions.",
+      "reference": "Loss & Damage policy discussions"
+    },
+    "climate_parameters.loss_damage_levy_tipped": {
+      "value": 4000000,
+      "unit": "USD",
+      "rationale": "Step-up liability once a climate tipping point is crossed; encodes non-linearity of climate risk.",
+      "reference": "Climate tipping-point literature"
+    },
+    "esg_refinancing.greenium_bps": {
+      "value": 75,
+      "unit": "basis points",
+      "rationale": "Greenium for sustainability leaders on green bonds / sustainability-linked loans.",
+      "reference": "Bloomberg green-bond issuance data 2022-2024"
+    },
+    "eu_taxonomy.green_discount_pct": {
+      "value": 60,
+      "unit": "percent",
+      "rationale": "Green financing discount for taxonomy-aligned (low carbon-intensity) revenue.",
+      "reference": "EU Taxonomy-aligned financing spreads"
+    },
+    "eu_taxonomy.brown_penalty_pct": {
+      "value": 20,
+      "unit": "percent",
+      "rationale": "Brown financing penalty for high carbon-intensity revenue below the taxonomy threshold.",
+      "reference": "Brown-financing spread evidence"
+    },
+    "mr.synergy_bonus": {
+      "value": 0.15,
+      "unit": "M_R points",
+      "rationale": "Reduced from 0.30 to avoid double-counting: synergy already lowers OPEX and raises EBITDA.",
+      "reference": "terminal_valuation.py header"
+    }
+  }
+}

@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import styles from './ExecutiveMailbox.module.css';
+import { sanitizeHtml } from '@/app/utils/sanitize';
 
 /**
  * ExecutiveMailbox — Fixed right-hand accordion panel.
@@ -334,7 +335,7 @@ export default function ExecutiveMailbox({
                         {expandedMessage.html ? (
                             <div
                                 className={`${styles.modalBody} ${styles.htmlArtifact}`}
-                                dangerouslySetInnerHTML={{ __html: expandedMessage.body }}
+                                dangerouslySetInnerHTML={{ __html: sanitizeHtml(expandedMessage.body) }}
                             />
                         ) : (
                             <div className={styles.modalBody}>{expandedMessage.body}</div>

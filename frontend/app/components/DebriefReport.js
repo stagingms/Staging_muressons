@@ -308,7 +308,7 @@ export default function DebriefReport({ sessionId }) {
 
                 {/* ──── Tab: Critical Analysis ──── */}
                 {activeTab === 'analysis' && (
-                    <AnalysisSection analysis={analysis} trendHistory={trendHistory} regulatoryInstruments={regulatoryInstruments} />
+                    <AnalysisSection analysis={analysis} trendHistory={trendHistory} regulatoryInstruments={regulatoryInstruments} rounds={rounds} />
                 )}
 
                 {/* ──── Tab: DNA Map ──── */}
@@ -584,7 +584,17 @@ function TrendsSection({ trendHistory }) {
 // ═══════════════════════════════════════════════════════
 //  CRITICAL ANALYSIS SECTION
 // ═══════════════════════════════════════════════════════
-function AnalysisSection({ analysis, trendHistory, regulatoryInstruments = [] }) {
+// Fixed, defensible one-liners for how each M_R component is scored. Colocated
+// with the debrief so facilitators can explain the methodology on the spot and
+// the copy can never drift from the engine's actual weighting.
+const METHODOLOGY_NOTES = [
+    ['Synergy → +0.15 M_R (not +0.30)', 'Cross-BU synergy already lowers OPEX, which raises EBITDA. Adding the full multiple on top would count the same benefit twice, so synergy contributes a deliberately reduced +0.15 to the Regenerative Multiple.'],
+    ['Deterministic dice', 'Every team in a cohort is seeded identically, so stochastic events (climate, black-swan, NPC shocks) roll the same for everyone. Leaderboard gaps reflect strategy, not luck.'],
+    ['Shadow carbon at $250/t', 'Terminal valuation prices carbon at an internal shadow price well above today’s market to reward decarbonisation that pays off over the 5-year horizon.'],
+    ['M_R is bounded', 'The Regenerative Multiple is clamped to a floor and cap so no single bonus or penalty can produce an economically meaningless valuation.'],
+];
+
+function AnalysisSection({ analysis, trendHistory, regulatoryInstruments = [], rounds = [] }) {
     if (!analysis || analysis.length === 0) {
         return (
             <div className={styles.empty}>
@@ -684,6 +694,44 @@ function AnalysisSection({ analysis, trendHistory, regulatoryInstruments = [] })
                     </table>
                 </div>
             )}
+
+            {/* Deferred-Cost Trap — only when the R1 audit was skipped (blindspot set) */}
+            {rounds.some((r) => (r.new_flags || []).includes('electronics_blindspot')) && (
+                <div style={{
+                    marginTop: '1.5rem', padding: '1rem 1.15rem', borderRadius: '10px',
+                    borderLeft: '4px solid #d97706', background: 'rgba(217,119,6,0.08)',
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 600, marginBottom: '0.35rem' }}>
+                        <span>🪤</span><span>The Deferred-Cost Trap</span>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.86rem', lineHeight: 1.5, color: 'var(--text-secondary, #475569)' }}>
+                        Skipping the Round&nbsp;1 Electronics audit felt free — but it set the blindspot flag
+                        that <strong>doubled your Round&nbsp;4 crisis severity</strong>. Sustainability spend
+                        deferred is not sustainability spend avoided; the bill arrives later, larger, and with
+                        less room to manoeuvre.
+                    </p>
+                </div>
+            )}
+
+            {/* Methodology notes — always available so the scoring is defensible */}
+            <details style={{ marginTop: '1.5rem' }}>
+                <summary style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
+                    📐 How these scores are calculated (methodology notes)
+                </summary>
+                <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+                    {METHODOLOGY_NOTES.map(([title, body]) => (
+                        <div key={title} style={{
+                            padding: '0.6rem 0.8rem', borderRadius: '8px',
+                            background: 'var(--bg-elevated, rgba(148,163,184,0.08))',
+                            border: '1px solid var(--border-subtle, rgba(148,163,184,0.25))',
+                        }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.82rem', marginBottom: '0.2rem' }}>{title}</div>
+                            <div style={{ fontSize: '0.8rem', lineHeight: 1.45, color: 'var(--text-secondary, #64748b)' }}>{body}</div>
+                        </div>
+                    ))}
+                </div>
+            </details>
         </div>
     );
 }
+// tier1: methodology notes + deferred-cost trap added

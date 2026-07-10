@@ -15,7 +15,12 @@ CONFIG_FILE = CONFIG_DIR / "materiality_config.json"
 BU_REGISTRY_FILE = CONFIG_DIR / "bu_registry.json"
 
 # ── Dynamic BU registry ──────────────────────────────────────────
-# These are the default BU IDs; god-mode can add more via the registry.
+# All 9 default BU IDs — protected from deletion via unregister_bu().
+# The 4 Muressons core BUs are also tagged is_industry_vertical=True so that
+# the Materiality Matrix UI places them in the Industry Verticals row rather
+# than the legacy tab strip.  The simulation engine (bu_profiles.py) is
+# unaffected — DEFAULT_SLOTS / BU_PROFILES there remain the source of truth
+# for active gameplay BUs.
 _DEFAULT_BU_IDS = [
     "pharma", "electronics", "consumer_goods", "software",
     # ── Industry Vertical Blueprints ──────────────────────────────────────────
@@ -24,27 +29,35 @@ _DEFAULT_BU_IDS = [
 ]
 
 _DEFAULT_BU_META = [
-    {"id": "pharma",              "label": "Pharma",              "icon": "\U0001f48a"},
-    {"id": "electronics",         "label": "Electronics",         "icon": "\u26a1"},
-    {"id": "consumer_goods",      "label": "Consumer Goods",      "icon": "\U0001f6d2"},
-    {"id": "software",            "label": "Software",            "icon": "\U0001f4bb"},
-    # ── Industry Vertical Blueprints ──────────────────────────────────────────
+    # ── Muressons Core BUs — now classified as Industry Verticals in the UI ──
+    # is_industry_vertical=True moves them from the BU tab strip into the
+    # dedicated Industry Verticals row, enabling Apply Blueprint workflows.
+    # The simulation engine uses bu_profiles.DEFAULT_SLOTS independently.
+    {"id": "pharma",         "label": "Pharma",         "icon": "\U0001f48a", "is_industry_vertical": True},
+    {"id": "electronics",    "label": "Electronics",    "icon": "\u26a1",     "is_industry_vertical": True},
+    {"id": "consumer_goods", "label": "Consumer Goods", "icon": "\U0001f6d2", "is_industry_vertical": True},
+    {"id": "software",       "label": "Software",       "icon": "\U0001f4bb", "is_industry_vertical": True},
+    # ── Additional Industry Vertical Blueprints ───────────────────────────────
     # These power the god-mode "Industry Vertical" selector in the admin dashboard.
     # Each can be loaded into any session via the Materiality Override endpoint.
-    {"id": "oil_gas",             "label": "Oil & Gas",           "icon": "\U0001f6e2",  "is_industry_vertical": True},
-    {"id": "banking_financial_services",  "label": "Banking & Financial Services",  "icon": "\U0001f3e6",  "is_industry_vertical": True},
-    {"id": "retail_fmcg",         "label": "Retail / FMCG",       "icon": "\U0001f6cd",  "is_industry_vertical": True},
-    {"id": "agriculture",         "label": "Agriculture",         "icon": "\U0001f33e",  "is_industry_vertical": True},
-    {"id": "technology",          "label": "Technology",          "icon": "\U0001f9e0",  "is_industry_vertical": True},
+    {"id": "oil_gas",                    "label": "Oil & Gas",                   "icon": "\U0001f6e2", "is_industry_vertical": True},
+    {"id": "banking_financial_services", "label": "Banking & Financial Services", "icon": "\U0001f3e6", "is_industry_vertical": True},
+    {"id": "retail_fmcg",               "label": "Retail / FMCG",               "icon": "\U0001f6cd", "is_industry_vertical": True},
+    {"id": "agriculture",               "label": "Agriculture",                 "icon": "\U0001f33e", "is_industry_vertical": True},
+    {"id": "technology",                "label": "Technology",                  "icon": "\U0001f9e0", "is_industry_vertical": True},
 ]
 
 
 def _load_bu_registry() -> list[dict]:
-    """Load the BU registry from disk, merging any missing defaults.
-    
-    This ensures that industry verticals (or any new defaults added after the
-    registry file was first created) are always present in the running system.
-    If missing entries are found, the file is re-persisted automatically.
+    """Load the BU registry from disk, merging any missing defaults and
+    forward-migrating the ``is_industry_vertical`` flag where needed.
+
+    Migration rules (applied on every startup):
+    - Entries not yet in the file are appended from ``_DEFAULT_BU_META``.
+    - Existing entries whose ``is_industry_vertical`` value differs from the
+      canonical ``_DEFAULT_BU_META`` definition are updated in-place so that
+      the flag is always authoritative from code (not a stale JSON value).
+    - If any change is detected the file is atomically re-persisted.
     """
     registry = None
     try:
@@ -57,12 +70,35 @@ def _load_bu_registry() -> list[dict]:
     if registry is None:
         return [dict(m) for m in _DEFAULT_BU_META]
 
-    # Merge any missing defaults into the loaded registry
+    # Build a lookup of canonical flags keyed by BU id
+    _canonical_flags: dict[str, bool] = {
+        m["id"]: m.get("is_industry_vertical", False)
+        for m in _DEFAULT_BU_META
+    }
+
+    changed = False
+
+    # 1. Merge any missing defaults
     existing_ids = {b["id"] for b in registry}
     missing = [dict(m) for m in _DEFAULT_BU_META if m["id"] not in existing_ids]
     if missing:
         registry.extend(missing)
-        # Re-persist so future loads include the new entries
+        changed = True
+
+    # 2. Forward-migrate is_industry_vertical flag for existing entries
+    for entry in registry:
+        canonical_flag = _canonical_flags.get(entry["id"])
+        if canonical_flag is not None:
+            current_flag = entry.get("is_industry_vertical", False)
+            if current_flag != canonical_flag:
+                if canonical_flag:
+                    entry["is_industry_vertical"] = True
+                else:
+                    entry.pop("is_industry_vertical", None)
+                changed = True
+
+    if changed:
+        # Re-persist so future loads reflect the updated state
         try:
             CONFIG_DIR.mkdir(parents=True, exist_ok=True)
             tmp = BU_REGISTRY_FILE.with_suffix(".tmp")
@@ -71,6 +107,7 @@ def _load_bu_registry() -> list[dict]:
             os.replace(tmp, BU_REGISTRY_FILE)
         except Exception:
             pass  # Non-fatal — in-memory registry is already correct
+
     return registry
 
 def _save_bu_registry(registry: list[dict]) -> None:
@@ -110,7 +147,8 @@ def register_bu(bu_id: str, label: str, icon: str = "\U0001f3e2") -> dict:
     return entry
 
 def unregister_bu(bu_id: str) -> bool:
-    """Remove a custom BU from the registry. Cannot remove the 4 defaults."""
+    """Remove a custom BU from the registry. Cannot remove any of the 9 default BUs
+    (includes both the 4 Muressons core BUs and the 5 additional verticals)."""
     global _bu_registry
     if bu_id in _DEFAULT_BU_IDS:
         raise ValueError(f"Cannot remove default BU '{bu_id}'.")

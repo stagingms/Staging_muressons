@@ -1,0 +1,157 @@
+{
+  "timestamp": "2026-06-21T23:32:59.735534",
+  "elapsed_seconds": 1094.770920753479,
+  "total": 20,
+  "passed": 0,
+  "failed": 20,
+  "side_track_issues": [
+    "supply_chain: seed_from_main_state error: SupplyChainTrack.seed_from_main_state() missing 1 required positional argument: 'completed_tracks'",
+    "ethics_sustainability: seed_from_main_state error: EthicsSustainabilityTrack.seed_from_main_state() missing 1 required positional argument: 'completed_tracks'",
+    "stakeholder_management: seed_from_main_state error: StakeholderManagementTrack.seed_from_main_state() missing 1 required positional argument: 'completed_tracks'",
+    "sustainability_reporting: seed_from_main_state error: SustainabilityReportingTrack.seed_from_main_state() missing 1 required positional argument: 'completed_tracks'",
+    "corporate_sdg: seed_from_main_state error: CorporateSDGTrack.seed_from_main_state() missing 1 required positional argument: 'completed_tracks'",
+    "brsr_ngrbc: seed_from_main_state error: BRSRNGRBCTrack.seed_from_main_state() missing 1 required positional argument: 'completed_tracks'"
+  ],
+  "combinations": [
+    {
+      "label": "legacy_abc \u00d7 activist_ultimatum",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "multi_toggles \u00d7 activist_ultimatum",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "advanced_climate \u00d7 activist_ultimatum",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "healthcare \u00d7 activist_ultimatum",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "legacy_abc \u00d7 climate_black_swan",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "multi_toggles \u00d7 climate_black_swan",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "advanced_climate \u00d7 climate_black_swan",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "healthcare \u00d7 climate_black_swan",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "legacy_abc \u00d7 stakeholder_revolt",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "multi_toggles \u00d7 stakeholder_revolt",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "advanced_climate \u00d7 stakeholder_revolt",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "healthcare \u00d7 stakeholder_revolt",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "legacy_abc \u00d7 hostile_takeover",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "multi_toggles \u00d7 hostile_takeover",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "advanced_climate \u00d7 hostile_takeover",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "healthcare \u00d7 hostile_takeover",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "legacy_abc \u00d7 regulatory_shutdown",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "multi_toggles \u00d7 regulatory_shutdown",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "advanced_climate \u00d7 regulatory_shutdown",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    },
+    {
+      "label": "healthcare \u00d7 regulatory_shutdown",
+      "passed": false,
+      "issues": [
+        "Final report failed at R10: 404"
+      ]
+    }
+  ]
+}

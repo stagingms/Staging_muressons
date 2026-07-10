@@ -1,7 +1,21 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Pin the workspace root to THIS folder. There is a stray package-lock.json in
+// the parent (muressons-sim/) as well as this one, which made Next infer the
+// wrong workspace root and caused a Turbopack panic ("Resource path 'app/page.js'
+// need to be on project filesystem 'frontend'"). Pinning the root here makes
+// filesystem resolution deterministic and silences the multi-lockfile warning.
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Phase 1.4: Suppress dev-mode error overlay for cleaner cockpit UX
   devIndicators: false,
+
+  // Deterministic workspace root (see note above).
+  outputFileTracingRoot: __dirname,
+  turbopack: { root: __dirname },
 
   // Proxy API calls to the backend in development
   // In production, configure via environment variable
@@ -33,12 +47,12 @@ const nextConfig = {
     //   fonts.gstatic.com           — actual font files served by Google.
     //   ws: wss:                    — WebSocket connections to the backend.
     const csp = [
-      "default-src 'self'",
+      "default-src 'self' blob:",
       "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
-      "connect-src 'self' ws: wss:",
+      "connect-src 'self' ws: wss: blob:",
       "media-src 'self' blob:",
       "object-src 'none'",
       "frame-ancestors 'none'",

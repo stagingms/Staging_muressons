@@ -209,13 +209,13 @@
 }
 
 .dismissActivist {
-  background: linear-gradient(135deg, #ef4444, #dc2626);
+  background: linear-gradient(135deg, var(--kpi-danger), #dc2626);
   color: #fff;
   box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
 }
 
 .dismissLiquidity {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
+  background: linear-gradient(135deg, var(--accent-gold), #d97706);
   color: #fff;
   box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
 }

@@ -142,8 +142,8 @@
     background: rgba(255, 255, 255, 0.85);
     border-color: rgba(148, 163, 184, 0.25);
   }
-  .timelineTitle { color: #1e293b; }
-  .summaryValue { color: #1e293b; }
+  .timelineTitle { color: var(--bg-elevated); }
+  .summaryValue { color: var(--bg-elevated); }
   .signal_positive { color: #065f46; }
   .signal_warning { color: #92400e; }
 }

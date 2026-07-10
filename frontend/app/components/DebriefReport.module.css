@@ -27,7 +27,7 @@
     margin: 0;
     font-size: 1rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--bg-elevated);
 }
 
 .cohortBadge {
@@ -64,7 +64,7 @@
 }
 
 .tab:hover {
-    color: #1e293b;
+    color: var(--bg-elevated);
     background: rgba(99, 102, 241, 0.04);
 }
 
@@ -119,14 +119,14 @@
     padding: 0.85rem 1rem;
     background: #fff;
     border: none;
-    color: #1e293b;
+    color: var(--bg-elevated);
     font-size: 0.88rem;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 .roundCardHeader:hover {
-    background: #f1f5f9;
+    background: var(--text-primary);
 }
 
 .roundNumber {
@@ -139,7 +139,7 @@
     font-size: 0.85rem;
     font-weight: 800;
     color: #fff;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, var(--accent-purple));
     flex-shrink: 0;
 }
 
@@ -218,7 +218,7 @@
     margin: 0 0 0.35rem 0;
     font-size: 0.92rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--bg-elevated);
 }
 
 .crisisText p {
@@ -255,7 +255,7 @@
 .decisionTitle {
     font-size: 0.92rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--bg-elevated);
 }
 
 .decisionDesc {
@@ -417,7 +417,7 @@
 .sectionHeading {
     font-size: 0.92rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--bg-elevated);
     margin: 0 0 1rem 0;
 }
 
@@ -444,7 +444,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.65rem 0.85rem;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--text-primary);
 }
 
 .trendHeader span {
@@ -455,7 +455,7 @@
     margin: 0;
     font-size: 0.82rem;
     font-weight: 700;
-    color: #1e293b;
+    color: var(--bg-elevated);
 }
 
 .trendChart {
@@ -485,7 +485,7 @@
     gap: 0.5rem;
     margin-bottom: 0.5rem;
     font-size: 0.88rem;
-    color: #1e293b;
+    color: var(--bg-elevated);
 }
 
 .verdictText {
@@ -515,7 +515,7 @@
     gap: 0.5rem;
     margin-bottom: 0.35rem;
     font-size: 0.85rem;
-    color: #1e293b;
+    color: var(--bg-elevated);
 }
 
 .insightIcon {
@@ -565,7 +565,7 @@
     padding: 0.55rem 1rem;
     font-size: 0.82rem;
     color: #475569;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--text-primary);
 }
 
 .summaryTable tr:last-child td {

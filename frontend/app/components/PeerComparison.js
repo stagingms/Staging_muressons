@@ -67,7 +67,10 @@ export default function PeerComparison({ sessionId, isOpen, onClose, roundNumber
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
     try {
-      const ws = new WebSocket(`${WS_BASE}/api/admin/ws/session/${sessionId}`);
+      // SEC/HIGH-001: attach the signed ws ticket; without it the server
+      // rejects and this panel keeps using its REST fetch fallback.
+      const wsTicket = (typeof window !== 'undefined' && localStorage.getItem('muressons_ws_ticket')) || '';
+      const ws = new WebSocket(`${WS_BASE}/api/admin/ws/session/${sessionId}${wsTicket ? `?token=${encodeURIComponent(wsTicket)}` : ''}`);
       wsRef.current = ws;
 
       ws.onopen = () => {

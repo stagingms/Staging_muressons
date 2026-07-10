@@ -24,6 +24,8 @@
 13. [Simulation Config & Tuneable Parameters](#13-simulation-config--tuneable-parameters)
 14. [Industry Verticals (BU Substitutions)](#14-industry-verticals-bu-substitutions)
 15. [Role Hierarchy: God Mode → Facilitator → Player](#15-role-hierarchy-god-mode--facilitator--player)
+16. [Runtime Dependency Map](#16-runtime-dependency-map)
+17. [Codebase Provenance & Refactor Log](#17-codebase-provenance--refactor-log)
 
 ---
 
@@ -921,10 +923,12 @@ Each vertical has its own "blindspot" equivalent set in Round 1 if players choos
 | `backend/round_logic.py` | Session-level tick orchestration |
 | `backend/router.py` | FastAPI routes for all player actions |
 | `backend/admin_router.py` | Facilitator/God Mode admin routes |
-| `backend/database.py` | SQLite session persistence |
+| `backend/database.py` | PostgreSQL + in-memory session persistence |
+| `backend/database_memory.py` | In-memory fallback (zero-dependency offline mode) |
 | `backend/config.py` | Typed config constants from simulation_config.json |
 | `blueprint.md` | Module blueprint & registry for all engine modules |
 | `simulation_config.json` | Tuneable parameters (source of truth) |
+| `DEPENDENCY_MAP.md` | Full static import-chain dependency map (2026-07) |
 
 ---
 
@@ -949,5 +953,161 @@ Understanding what constitutes a "high M_R" path:
 
 ---
 
-*Last updated: 2026-05-28 | Maintained by the Muressons simulation engineering team.*
-*Reference files: `round_configs.py`, `pillar_configs.py`, `ending_pathways.py`, `terminal_valuation.py`, `black_swan_registry.py`, `bu_profiles.py`, `side_tracks/`*
+## 16. Runtime Dependency Map
+
+> Added 2026-07-08. Full static map is in `DEPENDENCY_MAP.md` at the project root.
+
+### Application Entry Point
+
+`backend/main.py` starts the FastAPI server. At startup it:
+1. Detects whether PostgreSQL is reachable — selects `database.py` (PostgreSQL) or `database_memory.py` (in-memory fallback).
+2. Injects the selected db module as `sys.modules["database"]` so all routers share the same backend.
+3. Mounts 5 routers: `simulation_router`, `admin_router`, `teleprompter_router`, `resources_router`, `analytics_router`.
+4. Seeds missing facilitator cohorts on startup.
+
+### Layer 1 — Routers
+
+| Router File | URL Prefix | Responsibility |
+|---|---|---|
+| `router.py` | `/api/*` | All player-facing simulation endpoints (tick, login, decisions, stakeholder map, CEO interview) |
+| `admin_router.py` | `/api/admin/*` | Facilitator + God Mode admin endpoints; WebSocket broadcast manager |
+| `admin_teleprompter.py` | `/api/admin/teleprompter/*` | Live teleprompter and slide presentation endpoints |
+| `admin_resources.py` | `/api/admin/resources/*` | File upload/download, quiz bank management |
+| `admin_analytics.py` | `/api/admin/analytics/*` | Session analytics, real-time score aggregation |
+
+### Layer 2 — Core Infrastructure
+
+| Module | Depends On | Purpose |
+|---|---|---|
+| `config.py` | stdlib, dotenv | All env vars: DATABASE_URL, MASTER_PASSWORD, SIM_ROUNDS, carbon price, etc. |
+| `database.py` | config | PostgreSQL async pool (asyncpg) |
+| `database_memory.py` | config | Thread-safe in-memory dict store; optional SQLite snapshot |
+| `materiality_db.py` | stdlib | JSON-backed materiality issue store (no DB connection required) |
+| `admin_shared.py` | config | Shared in-process mutable state: `_facilitator_registry`, `_god_mode_settings` |
+| `models.py` | pydantic | Pydantic request/response models |
+| `password_hashing.py` | bcrypt | Password hash / verify / upgrade helpers |
+| `auth_jwt.py` | jose, fastapi | JWT token issue, verify, cookie management |
+| `option_shuffle.py` | stdlib | Deterministic option shuffling per player |
+
+### Layer 3 — Simulation Engine
+
+| Module | Key Local Imports | Role |
+|---|---|---|
+| `engine.py` | rng_util, config, stakeholder_sentiment, systemic_risk_engine, sdg_configs | Core tick processor — advances game state each round |
+| `round_logic.py` | round_configs, impact_engine, config, healthcare_configs, npc_stakeholders, pedagogical_engine, round_analytics, dynamic_cases, biodiversity_engine | Pre/post tick; calls `run_new_engines()` |
+| `impact_engine.py` | round_configs | Computes ESG impact deltas per decision |
+| `rng_util.py` | stdlib (hashlib) | Deterministic per-cohort RNG seeding |
+| `round_configs.py` | stdlib | Loads per-round configuration; reads simulation_config.json |
+| `pillar_configs.py` | stdlib | ESG pillar option configuration |
+| `healthcare_configs.py` | stdlib | Healthcare vertical round options |
+
+### Layer 4 — Extended Engine Modules
+
+All 39 modules below are actively imported by the core routers or engine. **None are standalone scripts.**
+
+| Module | Imported By | Description |
+|---|---|---|
+| `autonomous_agents.py` | router | Autonomous NPC agent logic |
+| `balance_sheet.py` | router | IAS 1 balance sheet engine |
+| `biodiversity_engine.py` | round_logic | Biodiversity impact scoring |
+| `black_swan_registry.py` | admin_router | Fat-tail stochastic event registry |
+| `board_governance.py` | router | Board governance decision layer |
+| `branching_engine.py` | router | Narrative branching logic |
+| `brsr_controller.py` | admin_router | BRSR/NGRBC track controller |
+| `bu_profiles.py` | admin_router | Business unit profile definitions |
+| `ceo_diary.py` | router | CEO diary narrative system |
+| `ceo_interview.py` | router | CEO interview dialogue engine |
+| `consequence_dna_api.py` | router | Consequence chain API |
+| `dynamic_cases.py` | router, round_logic | Dynamic case injection |
+| `elevenlabs_tts.py` | router | ElevenLabs TTS voice integration |
+| `email_service.py` | admin_router | Email dispatch (SMTP) |
+| `ending_pathways.py` | router | Game ending pathway logic |
+| `journey_improvements.py` | admin_teleprompter | Player journey improvement suggestions |
+| `meadows_leverage.py` | router | Meadows leverage point analysis |
+| `npc_stakeholders.py` | round_logic | NPC stakeholder behaviour |
+| `org_politics.py` | router | Organisational politics layer |
+| `pedagogical_engine.py` | round_logic | Pedagogical scaffolding logic |
+| `real_world_parallels.py` | admin_teleprompter | Real-world case parallel data |
+| `regional_reporting.py` | admin_router | Regional reporting aggregation |
+| `regulatory_sandbox.py` | router | Regulatory sandbox simulation (CSRD/ESRS gate) |
+| `round_analytics.py` | round_logic | Per-round analytics computation |
+| `round_recap_engine.py` | admin_teleprompter | Round recap generation for facilitators |
+| `sdg_configs.py` | engine, router | SDG configuration and linkage data |
+| `sdg_linkage_engine.py` | router | SDG linkage scoring engine |
+| `shadow_board_audit.py` | router | Shadow board audit layer |
+| `stakeholder_db.py` | admin_router | Stakeholder persistence helpers |
+| `stakeholder_sentiment.py` | engine | Stakeholder sentiment scoring |
+| `supply_chain_network.py` | router | Supply chain network model |
+| `systemic_risk_engine.py` | engine | Systemic risk calculation |
+| `tcfd_scenarios.py` | router | TCFD climate scenario data |
+| `teachable_moments.py` | admin_analytics | Teachable moments identification |
+| `terminal_valuation.py` | consequence_dna_api, ending_pathways | Terminal valuation model (M_R, M_SDG, archetypes) |
+| `vertical_stakeholders.py` | admin_router | Industry vertical stakeholder sets |
+| `config_excel.py` | admin_router | Excel-based session config reader |
+| `materiality_config_excel.py` | admin_router | Materiality config Excel reader |
+| `stakeholder_config_excel.py` | admin_router | Stakeholder config Excel reader |
+
+### Layer 5 — Sub-Packages
+
+**`backend/side_tracks/`** — Plugin system for all 6 side tracks. Each sub-directory contains `__init__.py`, `configs.py`, and `track.py`. The registry in `side_tracks/__init__.py` auto-discovers tracks on import.
+
+**`backend/verticals/`** — Industry vertical profiles. `verticals/__init__.py` re-exports all four vertical data sets (Oil & Gas, Banking/FS, Retail/FMCG, Agriculture). `vertical_stakeholders.py` references these for BU substitution.
+
+### Dependency Rules for New Development
+
+- **New feature module → per-request**: import in `router.py` or `admin_router.py`.
+- **New feature module → per-tick**: import in `round_logic.py` or `engine.py`.
+- **Admin/facilitator only**: import in one of the `admin_*.py` modules.
+- **One-shot script** (data migration, doc generator): place in `scripts/` or `temp_archive/` — do NOT import from any runtime module.
+- **Never import `router.py` or `admin_router.py` from an engine module** — this creates a circular dependency.
+- **Database access pattern**: always `import database as db` (resolved by main.py injection). Never import `database_memory` directly in engine modules.
+
+---
+
+## 17. Codebase Provenance & Refactor Log
+
+### 2026-07-08: Refactor-by-Isolation
+
+A full static dependency trace was performed from `backend/main.py`. **139 files** were identified as non-runtime (one-shot scripts, versioned document duplicates, ad-hoc test scripts, output artifacts) and moved to `/temp_archive/` in the project root. The running application was not affected.
+
+**Files protected (never moved):** All 46 core runtime Python modules, `backend/tests/` (29-file organized test suite), `backend/side_tracks/`, `backend/verticals/`, `frontend/` (Next.js app), all Docker/env/infrastructure files, `sessions.json`, `backend/market_dynamics.py`.
+
+**Safety documents created:**
+- `SAFETY_MANIFEST.txt` — logs every moved file, its original path, archive destination, and rationale.
+- `revert.py` — run `python revert.py` to restore all 139 files from `/temp_archive/` to their original paths.
+- `DEPENDENCY_MAP.md` — full layer-by-layer dependency reference for ongoing development.
+
+**Archive breakdown:**
+
+| Category | Description | Files |
+|---|---|---|
+| A | Root-level one-shot document generators | 38 |
+| B | Root-level ad-hoc test scripts | 8 |
+| C | Root-level output artifacts (.txt, .json, .html) | 5 |
+| D | Backend one-shot patch/audit/verify scripts | 32 |
+| F | Superseded versioned .docx duplicates (v2–v9/v10) | 35 |
+| G | docs/ generators + duplicate .docx | 14 |
+| H | scripts/ one-shot utilities | 7 |
+| **Total** | | **139** |
+
+**Latest document versions retained at project root:**
+- Facilitator Manual: `Muressons_Facilitator_Manual_v10.docx`
+- Student Manual: `Muressons_Student_Manual_v9.docx`
+- Simulation Briefings: `Muressons_Simulation_Briefings ver 11.docx` + `ver 11_with_CEO_Debrief.docx`
+- Technical Glossary: `Muressons_Technical_Glossary_with_CAROIC.docx`
+
+### Infrastructure & Architecture History
+
+| Date | Change |
+|---|---|
+| 2026-05 | Initial production deployment; PostgreSQL + in-memory fallback (SEC-2) |
+| 2026-05 | JWT authentication hardening (SEC-6); CORS whitelist (AUDIT-011) |
+| 2026-05 | Security headers middleware (HIGH-010); generic error handler (LOW-009) |
+| 2026-05 | Admin router split into sub-routers: teleprompter, resources, analytics (ARCH-002) |
+| 2026-05 | 111 automated tests across 29 test files in `backend/tests/` |
+| 2026-07-08 | Refactor-by-isolation: 139 non-runtime files archived; DEPENDENCY_MAP.md written |
+
+---
+
+*Last updated: 2026-07-08 | Maintained by the Muressons simulation engineering team.*
+*Reference files: `round_configs.py`, `pillar_configs.py`, `ending_pathways.py`, `terminal_valuation.py`, `black_swan_registry.py`, `bu_profiles.py`, `side_tracks/`, `DEPENDENCY_MAP.md`*

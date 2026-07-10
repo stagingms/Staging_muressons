@@ -6,7 +6,7 @@
 .card { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 1.5rem; margin-bottom: 1rem; }
 .card h3 { margin: 0 0 0.5rem; font-size: 1rem; font-weight: 700; }
 .card p { margin: 0 0 1rem; font-size: 0.82rem; color: var(--text-secondary); }
-.exportBtn { padding: 0.7rem 2rem; border: none; border-radius: 8px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 16px rgba(99,102,241,0.3); }
+.exportBtn { padding: 0.7rem 2rem; border: none; border-radius: 8px; background: linear-gradient(135deg, #6366f1, var(--accent-purple)); color: #fff; font-weight: 700; font-size: 0.9rem; cursor: pointer; box-shadow: 0 4px 16px rgba(99,102,241,0.3); }
 .exportBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 .result { margin-top: 0.8rem; font-size: 0.85rem; font-weight: 600; }
 .downloadRow { display: flex; gap: 0.8rem; }
