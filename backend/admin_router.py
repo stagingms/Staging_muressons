@@ -8910,7 +8910,7 @@ async def list_industry_verticals():
     "/industry-verticals/{vertical_id}/apply/{session_id}",
     summary="Apply an industry vertical blueprint to a live session"
 )
-async def apply_industry_vertical(vertical_id: str, session_id: str, _guard: None = Depends(require_facilitator)):
+async def apply_industry_vertical(vertical_id: str, session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
     """Injects the selected industry vertical's materiality config into the session's
     global_state as 'materiality_dictionary_override'. This causes Round 2 to use
     the vertical's issues instead of the default global dictionary.
@@ -8918,6 +8918,12 @@ async def apply_industry_vertical(vertical_id: str, session_id: str, _guard: Non
     Also stamps 'industry_vertical_applied' flag in active_event_flags so the
     teleprompter can surface industry-specific teaching notes.
     Propagates to all child player sessions."""
+    # SAFETY GATE: a facilitator may apply a vertical ONLY to a cohort they
+    # own — never to another facilitator's session. (The write below is
+    # already session-scoped: it sets materiality_dictionary_override on the
+    # target session and NEVER touches the global dictionary.)
+    await _assert_session_ownership(request, session_id)
+
     # Validate vertical exists
     all_bu = mat_db.get_bu_registry()
     vertical = next((b for b in all_bu if b["id"] == vertical_id and b.get("is_industry_vertical")), None)

@@ -6,7 +6,7 @@ import styles from './MaterialityConfig.module.css';
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 // ── Excel Import/Export Sub-component ─────────────────────────
-function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess }) {
+function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess, isFacilitator = false }) {
     const [uploading, setUploading] = useState(false);
     const [dragOver, setDragOver] = useState(false);
     const [result, setResult] = useState(null);  // { status, diff, error }
@@ -59,6 +59,10 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess }) {
         }
         if (file.size > 5 * 1024 * 1024) {
             setResult({ error: 'File too large. Maximum 5 MB.' });
+            return;
+        }
+        if (isFacilitator) {
+            setResult({ error: 'Sector libraries are managed in God Mode. Your edits on this screen apply only to the selected cohort.' });
             return;
         }
         if (!confirm(`Upload "${file.name}" and REPLACE the ${scopeLabel} materiality dictionary?`)) return;
@@ -170,7 +174,7 @@ function ExcelImportExport({ selectedDict, dictOptions, onUploadSuccess }) {
                             Drag & drop an .xlsx file here, or click to browse
                         </p>
                         <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: 'var(--text-muted, #94a3b8)' }}>
-                            Max 5 MB · Must contain an "Issues" sheet
+                            Max 5 MB · Must contain an &ldquo;Issues&rdquo; sheet
                         </p>
                     </>
                 )}
@@ -538,16 +542,12 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
         };
 
         try {
-            // Re-use current config and just append the link
+            // SAFETY GATE: saveUpdatedConfig routes facilitator edits to the
+            // session-scoped override (fork); only God Mode reaches the
+            // global dictionary. Direct global PUTs are gone from this file.
             const updatedConfig = { ...config, interdependencies: [...config.interdependencies, linkToSubmit] };
-            const res = await fetch(`${API}/api/admin/materiality-config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setConfig(data);
+            const ok = await saveUpdatedConfig(updatedConfig);
+            if (ok) {
                 setNewLink({ source_issue_id: '', target_issue_id: '', severity: 3, description: '' });
             }
         } catch (err) {
@@ -558,15 +558,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
     const handleDeleteLink = async (linkId) => {
         try {
             const updatedConfig = { ...config, interdependencies: config.interdependencies.filter(l => l.id !== linkId) };
-            const res = await fetch(`${API}/api/admin/materiality-config`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedConfig)
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setConfig(data);
-            }
+            await saveUpdatedConfig(updatedConfig); // cohort fork for facilitators
         } catch (err) {
             console.error(err);
         }
@@ -650,14 +642,8 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
             const updatedConfig = { ...config, issues: newIssues, interdependencies: [] };
 
             try {
-                const res = await fetch(`${API}/api/admin/materiality-config`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedConfig)
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setConfig(data);
+                const ok = await saveUpdatedConfig(updatedConfig); // cohort fork for facilitators
+                if (ok) {
                     alert(`Successfully imported and replaced dictionary with ${newIssues.length} issues!`);
                 } else {
                     alert("Failed to save imported issues via API.");
@@ -732,14 +718,8 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
             const updatedConfig = { ...config, interdependencies: newLinks };
 
             try {
-                const res = await fetch(`${API}/api/admin/materiality-config`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(updatedConfig)
-                });
-                if (res.ok) {
-                    const data = await res.json();
-                    setConfig(data);
+                const ok = await saveUpdatedConfig(updatedConfig); // cohort fork for facilitators
+                if (ok) {
                     alert(`Successfully imported and replaced ${newLinks.length} interdependencies!`);
                 } else {
                     alert("Failed to save imported links via API.");
@@ -1006,6 +986,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
             {/* Excel Import/Export Section */}
             {!isFacilitator && (
                 <ExcelImportExport
+                    isFacilitator={isFacilitator}
                     selectedDict={selectedDict}
                     dictOptions={dictOptions}
                     onUploadSuccess={(data) => { fetchConfig(); }}
@@ -1028,7 +1009,7 @@ export default function MaterialityConfig({ sessionId, isFacilitator }) {
                         Save Fee
                     </button>
                     <small style={{ color: 'var(--text-muted)' }}>
-                        This fee is deducted from the Corporate Treasury when the player clicks "Hire Consultant" in Round 2.
+                        This fee is deducted from the Corporate Treasury when the player clicks &ldquo;Hire Consultant&rdquo; in Round 2.
                     </small>
                 </div>
             </div>
