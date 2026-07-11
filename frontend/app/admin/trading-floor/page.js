@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { RIVAL, rivalBenchmarkEV } from '../../components/rivalIntel';
+import { useConfirm } from '../../components/ConfirmModal';
 
 /**
  * Trading-Floor Finale (Feature 1) — a full-screen projector view for the room.
@@ -90,6 +91,7 @@ export default function TradingFloorPage() {
   // (The confirm + explicit cohort target arrive in Phase S3 / F-3a.)
   const [bellError, setBellError] = useState('');
   const [bellBusy, setBellBusy] = useState(false);
+  const [confirmAction, confirmModal] = useConfirm();
 
   const ringBell = useCallback(() => {
     const cohortId = teams.find((t) => t.parent_cohort_id)?.parent_cohort_id || 'cohort';
@@ -125,6 +127,24 @@ export default function TradingFloorPage() {
       ))
       .finally(() => setBellBusy(false));
   }, [teams]);
+
+  // F-3a (v3): tier-2 confirm in front of the unchanged POST. The one fact a
+  // facilitator must see before this click is the honest blast radius: the
+  // server broadcasts market_close to ALL connected players, in every cohort
+  // — not just the teams on this board (verified in admin_router.py /
+  // player page.js: the client does not filter by cohort_id). There is no
+  // un-ring on player screens; Cancel sends nothing.
+  const onRingBell = useCallback(async () => {
+    const ok = await confirmAction({
+      title: '🔔 Ring the Closing Bell',
+      message: 'This is the finale. The board on this screen freezes and reveals the final ranking with medals and confetti.',
+      impact: `Every connected player — in ALL cohorts on this platform, not only the ${teams.length} team${teams.length === 1 ? '' : 's'} on this board — immediately gets the "Market Closed" overlay. Reopening this board later does NOT retract it.`,
+      confirmLabel: 'Ring the bell',
+      danger: true,
+    });
+    if (!ok) return;
+    ringBell();
+  }, [confirmAction, ringBell, teams.length]);
 
   const maxTv = Math.max(1, ...teams.map((t) => t.terminal_value || 0));
   // W-B (W2c): Nordhaven NPC benchmark — presentation-only estimate from the
@@ -245,8 +265,8 @@ export default function TradingFloorPage() {
             )}
             {!closed ? (
               <button style={{ ...S.bellBtn, opacity: bellBusy ? 0.6 : 1, cursor: bellBusy ? 'wait' : 'pointer' }}
-                onClick={ringBell} disabled={bellBusy}>
-                {bellBusy ? '⏳ Ringing…' : bellError ? '🔔 Retry the Closing Bell' : '🔔 Ring the Closing Bell'}
+                onClick={onRingBell} disabled={bellBusy}>
+                {bellBusy ? '⏳ Ringing…' : bellError ? '🔔 Retry the Closing Bell…' : '🔔 Ring the Closing Bell…'}
               </button>
             ) : (
               <div>
@@ -266,6 +286,9 @@ export default function TradingFloorPage() {
           </div>
         </>
       )}
+
+      {/* F-3a (v3): tier-2 confirm modal */}
+      {confirmModal}
 
       <style>{`
         @keyframes mur-ticker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
