@@ -2880,4 +2880,39 @@
   50% { opacity: 1; }
 }
 
+/* ── B6: Accessibility — prefers-reduced-motion ────────────────
+   Disables all decorative animations for users who have opted
+   for reduced motion in their OS/browser settings.
+   ──────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .moodBarFill,
+  .resourceCard,
+  .decisionTile,
+  .headerYear,
+  .headerModule,
+  .feedItem,
+  .commitBtn,
+  .decisionTileActive,
+  .ewSkeleton,
+  .ewSkeletonBar,
+  .ewSkeletonBarNarrow,
+  .ceremonyCard,
+  .ceremonyBadge,
+  .pulseRing,
+  .cerLabel,
+  .recentDot {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* ── B6: Accessibility — keyboard focus ring ───────────────────
+   Visible outline when decision tiles receive keyboard focus.
+   Only shows on keyboard navigation (not mouse clicks).
+   ──────────────────────────────────────────────────────────── */
+.decisionTile:focus-visible {
+  outline: 2px solid var(--accent-blue, #3b82f6);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+}
 

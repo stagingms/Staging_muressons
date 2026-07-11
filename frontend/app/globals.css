@@ -385,7 +385,63 @@ body.theme-transitioning::before {
   to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* â”€â”€ Mobile Responsive (Improvement #4.6) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* ── D2: Projector / Laptop Responsive (1280×720 + 1024px) ────
+   Ensures cockpit reflows cleanly on projector resolutions and
+   small-screen laptops. Decision tiles wrap, KPI rows compact,
+   sidebars collapse width. Uses existing clamp() type scale +
+   --space-* tokens so proportions stay correct.
+   ─────────────────────────────────────────────────────────── */
+@media (max-width: 1280px) {
+  :root {
+    --space-lg: 18px;
+    --space-xl: 24px;
+  }
+
+  /* Compact sidebars */
+  .cockpit .leftSidebar,
+  .cockpit .rightSidebar {
+    min-width: 200px !important;
+    max-width: 240px !important;
+  }
+
+  /* Decision tiles wrap into 2-column grid */
+  .decisionTiles {
+    flex-wrap: wrap !important;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --space-lg: 14px;
+    --space-xl: 20px;
+  }
+
+  /* Sidebars collapse further */
+  .cockpit .leftSidebar,
+  .cockpit .rightSidebar {
+    min-width: 180px !important;
+    max-width: 220px !important;
+  }
+
+  .cockpit .centerConsole {
+    min-width: 0 !important;
+  }
+}
+
+@media (max-height: 720px) {
+  /* Projector 720p: reduce vertical padding */
+  :root {
+    --space-md: 12px;
+    --space-lg: 14px;
+  }
+
+  .cockpit .header {
+    padding: 4px 12px !important;
+    min-height: 0 !important;
+  }
+}
+
+/* ── Mobile Responsive (Improvement #4.6) ────────────────────── */
 @media (max-width: 768px) {
   /* Make cockpit columns stack vertically on mobile */
   .cockpit .mainContent {

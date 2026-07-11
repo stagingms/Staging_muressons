@@ -122,6 +122,43 @@ CAUSAL_TEMPLATES = {
 }
 
 
+# ═══════════════════════════════════════════════════════════════
+#  B3: EVENT SOURCE CLASSIFICATION
+#  Tags each recap event as decision/drift/stochastic so the
+#  frontend can group "Because of your decision" vs "Background".
+# ═══════════════════════════════════════════════════════════════
+
+# Events directly caused by the player's crisis decision
+_DECISION_ENGINES = {"contagion", "cascade", "synergy", "treasury", "strike"}
+
+# Passive effects driven by accumulated state, not a single-round choice
+_DRIFT_ENGINES = {"burnout", "brain_drain", "ncd_interest"}
+
+
+def _classify_source(event: dict) -> str:
+    """Classify an engine event into decision / drift / stochastic."""
+    if event.get("source_type") == "stochastic":
+        return "stochastic"
+    engine_id = event.get("engine_id", "")
+    if engine_id in _DECISION_ENGINES:
+        return "decision"
+    if engine_id in _DRIFT_ENGINES:
+        return "drift"
+    # Default: if it has a flag_triggered, it's decision-linked
+    if event.get("flag_triggered"):
+        return "decision"
+    return "drift"
+
+
+def _source_label(source_type: str) -> str:
+    """Human-readable label for the source type."""
+    return {
+        "decision": "Because of your decision",
+        "drift": "Background movement",
+        "stochastic": "Market fluctuation",
+    }.get(source_type, "Engine event")
+
+
 def generate_round_recap(
     round_number: int,
     choice_selected: str,
@@ -172,8 +209,9 @@ def generate_round_recap(
             "engine_id": engine_id,
             "narrative": narrative,
             "impact_magnitude": round(scored_events[0][0] if scored_events else 0, 2),
-            "source_type": event.get("source_type", "strategic"),
+            "source_type": _classify_source(event),
             "source_icon": event.get("source_icon", "🎯"),
+            "source_label": _source_label(_classify_source(event)),
         })
 
     # Overall summary

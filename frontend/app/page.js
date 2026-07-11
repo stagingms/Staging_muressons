@@ -437,6 +437,17 @@ export default function CockpitPage() {
     return () => clearTimeout(t);
   }, [confirmLogout]);
 
+  // D3: Memory-DB warning — check /health to determine if backend is using volatile storage
+  const [isMemoryDb, setIsMemoryDb] = useState(false);
+  const [memoryDbDismissed, setMemoryDbDismissed] = useState(false);
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || '';
+    fetch(`${API}/health`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.database === 'memory') setIsMemoryDb(true); })
+      .catch(() => {});
+  }, []);
+
   // Decision paradigm state
   const [decisionParadigm, setDecisionParadigm] = useState('legacy_abc');
   const [pillarSelections, setPillarSelections] = useState({});
@@ -1214,6 +1225,30 @@ export default function CockpitPage() {
         >
           {confirmLogout ? '⚠️ Confirm Logout?' : '🚪 Logout'}
         </button>
+      )}
+
+      {/* D3: Memory-DB warning banner — dismissible, only when backend uses volatile storage */}
+      {isMemoryDb && !memoryDbDismissed && (
+        <div style={{
+          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+          zIndex: 18000, display: 'flex', alignItems: 'center', gap: 10,
+          padding: '8px 18px', borderRadius: 10,
+          background: 'rgba(217,119,6,0.92)', backdropFilter: 'blur(8px)',
+          color: '#fff', fontSize: '0.78rem', fontWeight: 600,
+          fontFamily: "'DM Sans', system-ui, sans-serif",
+          boxShadow: '0 4px 20px rgba(0,0,0,0.35)',
+          border: '1px solid rgba(251,191,36,0.4)',
+        }}>
+          <span>⚠️ Demo mode — progress is not saved across a server restart.</span>
+          <button
+            onClick={() => setMemoryDbDismissed(true)}
+            style={{
+              background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6,
+              color: '#fff', padding: '3px 10px', cursor: 'pointer',
+              fontSize: '0.7rem', fontWeight: 700, fontFamily: 'inherit',
+            }}
+          >Dismiss</button>
+        </div>
       )}
 
       {/* CB-01 / MP-05: Error banners for join-required and session-expired */}

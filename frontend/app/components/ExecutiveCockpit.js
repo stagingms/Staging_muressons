@@ -403,6 +403,10 @@ export default function ExecutiveCockpit({
   }, [roundNumber]);
   const journeyBlocksAdvance = (r6Pending && !r6Done) || (r7Pending && !r7Done) || (r8Pending && !r8Done);
 
+  // B2: Per-round reflection box — stored locally per round, surfaced in debrief
+  const reflectionsRef = useRef({});
+  const [reflectionText, setReflectionText] = useState('');
+
   // ── Peer Performance: auto-fetch when commitResults arrive ──
   const [peerLeaderboard, setPeerLeaderboard] = useState([]);
   const [peerLoading, setPeerLoading] = useState(false);
@@ -1302,7 +1306,7 @@ export default function ExecutiveCockpit({
           {leftPanelTab === 'kpis' && (
           <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ background: 'var(--ck-surface-0, #0b0f1a)', borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', paddingTop: 10, paddingBottom: 10 }}>
-          <div className={styles.resourcesPanel}>
+          <div className={styles.resourcesPanel} aria-live="polite" aria-label="Key Performance Indicators">
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>💰 Treasury</div>
               <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
@@ -4148,14 +4152,52 @@ export default function ExecutiveCockpit({
                 }
 
                 return (
-                  <motion.button
-                    className={styles.advanceBtnLarge}
-                    onClick={onAdvance}
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                  >
-                    ⏩ Advance to Round {commitResults.newRoundNumber}
-                  </motion.button>
+                  <>
+                    {/* B2: Reflection box — optional, never blocks advance */}
+                    <div style={{
+                      padding: '10px 12px', borderRadius: 10, marginBottom: 8,
+                      background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.18)',
+                    }}>
+                      <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#a5b4fc', marginBottom: 6, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        💭 Quick Reflection (optional)
+                      </div>
+                      <textarea
+                        value={reflectionText}
+                        onChange={(e) => setReflectionText(e.target.value)}
+                        placeholder="What did you predict vs. what actually happened — and why?"
+                        rows={2}
+                        style={{
+                          width: '100%', resize: 'vertical', fontSize: '0.78rem', lineHeight: 1.5,
+                          padding: '8px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.15)',
+                          background: 'rgba(15,23,42,0.4)', color: 'var(--text-primary, #f1f5f9)',
+                          fontFamily: 'inherit', outline: 'none',
+                        }}
+                        onFocus={(e) => e.target.style.borderColor = 'rgba(99,102,241,0.5)'}
+                        onBlur={(e) => {
+                          e.target.style.borderColor = 'rgba(148,163,184,0.15)';
+                          // Persist to ref on blur
+                          if (reflectionText.trim()) {
+                            reflectionsRef.current[roundNumber] = reflectionText.trim();
+                          }
+                        }}
+                      />
+                    </div>
+                    <motion.button
+                      className={styles.advanceBtnLarge}
+                      onClick={() => {
+                        // Save reflection before advancing
+                        if (reflectionText.trim()) {
+                          reflectionsRef.current[roundNumber] = reflectionText.trim();
+                        }
+                        setReflectionText('');
+                        onAdvance();
+                      }}
+                      whileHover={{ scale: 1.03 }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      ⏩ Advance to Round {commitResults.newRoundNumber}
+                    </motion.button>
+                  </>
                 );
               })()}
               {/* Balance Sheet full modal — triggered from results card */}

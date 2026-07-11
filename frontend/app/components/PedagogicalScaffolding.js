@@ -272,6 +272,22 @@ export function RoundRecap({ recapData }) {
 
     const { three_word_anchor, causal_chains = [], summary_sentence, round, choice_selected } = recapData;
 
+    // B3: Group chains by source type for attributable recap
+    const decisionChains = causal_chains.filter(c => c.source_type === 'decision');
+    const backgroundChains = causal_chains.filter(c => c.source_type !== 'decision');
+    const hasGrouping = causal_chains.some(c => c.source_label);
+    const [bgExpanded, setBgExpanded] = useState(false);
+
+    const renderChain = (chain, i) => (
+        <div key={`${chain.engine_id || 'chain'}-${i}`} className={`${styles.rrChain} ${styles[`rr_${chain.source_type}`]}`}>
+            <span className={styles.rrChainIcon}>{chain.source_icon}</span>
+            <div className={styles.rrChainContent}>
+                <span className={styles.rrChainEngine}>{chain.engine_id}</span>
+                <p className={styles.rrChainNarrative}>{chain.narrative}</p>
+            </div>
+        </div>
+    );
+
     return (
         <div className={styles.roundRecap}>
             <div className={styles.rrHeader}>
@@ -285,17 +301,44 @@ export function RoundRecap({ recapData }) {
                     <span className={styles.rrAnchorText}>{three_word_anchor}</span>
                 </div>
             )}
-            <div className={styles.rrChains}>
-                {causal_chains.map((chain, i) => (
-                    <div key={`${chain.engine_id || 'chain'}-${i}`} className={`${styles.rrChain} ${styles[`rr_${chain.source_type}`]}`}>
-                        <span className={styles.rrChainIcon}>{chain.source_icon}</span>
-                        <div className={styles.rrChainContent}>
-                            <span className={styles.rrChainEngine}>{chain.engine_id}</span>
-                            <p className={styles.rrChainNarrative}>{chain.narrative}</p>
-                        </div>
+
+            {/* B3: Attributable grouping — decision vs background */}
+            {hasGrouping && decisionChains.length > 0 ? (
+                <>
+                    <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--kpi-good, #10b981)', margin: '8px 0 4px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                        🎯 Because of your decision
                     </div>
-                ))}
-            </div>
+                    <div className={styles.rrChains}>
+                        {decisionChains.map(renderChain)}
+                    </div>
+                    {backgroundChains.length > 0 && (
+                        <>
+                            <button
+                                onClick={() => setBgExpanded(!bgExpanded)}
+                                style={{
+                                    background: 'none', border: 'none', cursor: 'pointer',
+                                    fontSize: '0.7rem', fontWeight: 600, color: 'var(--text-muted, #64748b)',
+                                    margin: '6px 0 2px', padding: 0, letterSpacing: '0.04em',
+                                    textTransform: 'uppercase', fontFamily: 'inherit',
+                                }}
+                            >
+                                {bgExpanded ? '▼' : '▶'} Background movements ({backgroundChains.length})
+                            </button>
+                            {bgExpanded && (
+                                <div className={styles.rrChains}>
+                                    {backgroundChains.map(renderChain)}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </>
+            ) : (
+                /* Fallback: flat display (backward compatible) */
+                <div className={styles.rrChains}>
+                    {causal_chains.map(renderChain)}
+                </div>
+            )}
+
             {summary_sentence && (
                 <div className={styles.rrSummary}>
                     <p>{summary_sentence}</p>
