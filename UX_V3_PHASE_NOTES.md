@@ -464,3 +464,58 @@ client-side array push, not a fetch) · jest 63/63 ✅ · player smoke identical
 ### Rollback
 One commit — revert restores the prose-behind-intercept render, the feed
 injection, and the rail button.
+
+---
+
+## Phase V-C (player dashboard v2) — one primary per column + docked stepper
+
+Files: `ExecutiveCockpit.js`, `RoundChecklist.js`. Scope: V-1 + V-6.
+
+- **Exclusive center column (V-1), stage-aware:** the deep-dive stack
+  (options + matrix simultaneously, each behind its own click-intercept) is
+  now sequential like the flow itself:
+  - Pre-decision: full options section (V-B's locked chips pre-gate);
+    the allocation matrix is a 🔒 one-liner naming its unlock ("unlocks
+    after your strategic decision") that still explains on click. The old
+    invisible click-intercept over a fully-rendered matrix is gone.
+  - Post-decision: options fold to a ✓ one-line summary (choice, title,
+    cost) with a "Change" button; the matrix renders full and becomes the
+    single primary work surface. Choosing again re-folds automatically;
+    round change resets. Pillar mode (multi-select worksheet) is exempt
+    from the fold by design. `tour-strategic-target` / `tour-capital-target`
+    ids preserved in every branch (onboarding tour keeps its anchors).
+  - Selection/allocation handlers, gating flags, and commit flow untouched.
+- **Single-open rail (V-1):** while a rail tab panel (Mailbox / Decisions /
+  Engines / Climate) is expanded, the Market Reality Feed folds to a
+  one-line header (click restores it by collapsing the panel). **Active
+  alerts override the fold** — escalation keeps its rights; an alert always
+  renders the full feed surface.
+- **Docked stepper (V-6):** `RoundChecklist` no longer `position:fixed`es
+  itself out of its mount (which is why it floated over the Option A card)
+  and is no longer dismissible — the ✕ and the collapsed-pill state are
+  gone, replaced by a compact N/M counter. Its mount moved from the top of
+  the center console to a sticky footer at the bottom of the scroll area:
+  always visible, never overlapping (the old 80px anti-overlap spacer is
+  retired with the float).
+
+### Gates (in-sandbox, 2026-07-11)
+JSX parse ✅ both files · endpoint contract unchanged ✅ · jest 63/63 ✅ ·
+player smoke identical (201 / engines OK / R2 429) ✅.
+
+### Two-browser checklist (your machine — walk all five stages)
+- R1 pre-decision, deep dive: options full, matrix = 🔒 one-liner (click
+  explains). Choose Option B → options fold to "✓ B — … · Change", matrix
+  expands; Change → full options return; choose C → re-folds. Allocate and
+  commit — payload identical to before.
+- Onboarding tour (fresh session): the strategic and capital tour steps
+  still anchor correctly in both pre- and post-decision states.
+- Rail: open Mailbox → feed folds to its one-liner; collapse → feed returns.
+  Trigger a crisis alert (god-mode) with Mailbox open → the full feed/alert
+  surface renders despite the open tab.
+- Stepper: bottom of the center column, sticky while scrolling, nothing
+  renders under it illegibly, no ✕; on 1366×768 it doesn't wrap over content.
+- Esc / 1–4 BU switching unchanged; glance mode unchanged.
+
+### Rollback
+One commit — revert restores the stacked center, the always-on feed, and the
+floating dismissible checklist.

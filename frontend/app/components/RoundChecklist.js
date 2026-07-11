@@ -1,9 +1,14 @@
 'use client';
-import { useState } from 'react';
 
 /**
  * RoundChecklist — Persistent progress bar showing round completion steps.
  * Improvement #1.1: Progress Tracker
+ *
+ * V-C (player v2, V-6): docked, not floating. The old version was
+ * position:fixed (escaping its in-flow mount point and overlapping option
+ * cards) and dismissible via ✕ — a flow indicator should never cover the
+ * work or disappear. It now renders in normal flow where it is mounted
+ * (bottom of the center console), always visible, never overlapping.
  */
 export default function RoundChecklist({
   roundNumber,
@@ -14,8 +19,6 @@ export default function RoundChecklist({
   hasAllocated,
   hasCommitted,
 }) {
-  const [collapsed, setCollapsed] = useState(false);
-
   const steps = [];
 
   steps.push({ id: 'briefing', label: 'Read Briefing', done: hasReadBriefing !== false, icon: '📖' });
@@ -32,50 +35,15 @@ export default function RoundChecklist({
   steps.push({ id: 'commit', label: 'Commit Turn', done: hasCommitted, icon: '✅' });
 
   const completed = steps.filter(s => s.done).length;
-  const total = steps.length;
-  const pct = Math.round((completed / total) * 100);
-
-  if (collapsed) {
-    return (
-      <div
-        onClick={() => setCollapsed(false)}
-        style={{
-          background: 'rgba(255,255,255,0.97)',
-          borderRadius: 20, padding: '6px 18px', zIndex: 8000,
-          fontSize: '0.78rem', fontWeight: 700, color: '#475569',
-          cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          border: '1px solid #e2e8f0', fontFamily: 'Inter, sans-serif',
-          display: 'flex', alignItems: 'center', gap: 6,
-        }}
-      >
-        <div style={{
-          width: 18, height: 18, borderRadius: '50%',
-          background: pct === 100 ? '#16a34a' : `conic-gradient(#6366f1 ${pct * 3.6}deg, #e2e8f0 0deg)`,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>
-          <div style={{
-            width: 12, height: 12, borderRadius: '50%', background: '#fff',
-            fontSize: '0.5rem', fontWeight: 800, display: 'flex',
-            alignItems: 'center', justifyContent: 'center', color: '#6366f1',
-          }}>{completed}</div>
-        </div>
-        {completed}/{total}
-      </div>
-    );
-  }
 
   return (
     <>
       <style>{`
         .checklist-wrapper {
-          position: fixed;
-          bottom: 30px;
-          left: 50%;
-          transform: translateX(-50%);
+          /* V-C (V-6): in-flow, docked by the mount point — no fixed, no z-war */
           background: rgba(255,255,255,0.98);
           border-radius: 14px;
           padding: 10px 16px;
-          z-index: 8000;
           box-shadow: 0 4px 20px rgba(0,0,0,0.12);
           border: 1px solid #e2e8f0;
           font-family: Inter, sans-serif;
@@ -85,7 +53,8 @@ export default function RoundChecklist({
           align-items: center;
           gap: 8px;
           width: max-content;
-          max-width: 90vw;
+          max-width: 100%;
+          margin: 0 auto;
           white-space: nowrap;
         }
         .checklist-item {
@@ -109,7 +78,7 @@ export default function RoundChecklist({
           .checklist-arrow { font-size: 0.6rem; }
         }
         @media (max-width: 800px) {
-          .checklist-wrapper { transform: translateX(-50%) scale(0.85); transform-origin: bottom center; }
+          .checklist-wrapper { transform: scale(0.85); transform-origin: bottom center; }
         }
       `}</style>
       <div className="checklist-wrapper">
@@ -128,14 +97,10 @@ export default function RoundChecklist({
             )}
           </div>
         ))}
-        <button
-          onClick={() => setCollapsed(true)}
-          style={{
-            background: 'none', border: 'none', cursor: 'pointer',
-            fontSize: '0.65rem', color: '#94a3b8', marginLeft: 4,
-            padding: '2px 4px', flexShrink: 0,
-          }}
-        >✕</button>
+        {/* V-C (V-6): ✕ removed — a flow indicator is not dismissible. */}
+        <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginLeft: 4, fontWeight: 700 }}>
+          {completed}/{steps.length}
+        </span>
       </div>
     </>
   );

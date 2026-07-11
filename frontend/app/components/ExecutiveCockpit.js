@@ -305,6 +305,13 @@ export default function ExecutiveCockpit({
   const [viewMode, setViewMode] = useState('glance'); // 'glance' | 'deep-dive'
   const [investigatedBU, setInvestigatedBU] = useState(null); // bu.id
   const isDeepDive = viewMode === 'deep-dive' && investigatedBU;
+  // V-C (player v2, V-1): after the strategic decision is made, the full
+  // options section folds to a one-line summary ("change" re-expands) so the
+  // allocation matrix becomes the single primary work surface. Legacy A/B/C
+  // only — pillar mode is a multi-select worksheet, not a one-shot choice.
+  const [optionsReopen, setOptionsReopen] = useState(false);
+  // Re-fold when a (new) choice is made after "Change".
+  useEffect(() => { setOptionsReopen(false); }, [decisionChoice]);
 
   const BU_ICONS = { pharma: '💊', electronics: '🔌', consumer_goods: '🛒', software: '💻', hospitals: '🏥', clinics: '🩺', specialised_care: '🧬', telehealth: '📱', agriculture: '🌾', fisheries: '🐟', forestry: '🌲', water: '💧', retail_banking: '🏦', investment_banking: '📊', insurance: '🛡️', fintech: '📱' };
 
@@ -629,7 +636,7 @@ export default function ExecutiveCockpit({
   // ── Focus Mode: Advanced Metrics Drawer ──
   // Auto-collapsed for rounds 1-4, auto-expanded for rounds 5+
   const [advancedMetricsOpen, setAdvancedMetricsOpen] = useState(roundNumber >= 5);
-  useEffect(() => { setAdvancedMetricsOpen(roundNumber >= 5); exitDeepDive(); }, [roundNumber]);
+  useEffect(() => { setAdvancedMetricsOpen(roundNumber >= 5); exitDeepDive(); setOptionsReopen(false); }, [roundNumber]);
 
   // ── Metacognitive Friction: Pre-Commit Prediction ──
   const [showPredictionModal, setShowPredictionModal] = useState(false);
@@ -1657,12 +1664,10 @@ export default function ExecutiveCockpit({
         {/* ── CENTER: Briefing + Decisions ─── */}
         <main className={styles.centerConsole}>
           
-          {/* Round Checklist natively rendered rather than floating */}
-          {roundChecklist && (
-            <div style={{ padding: '4px 16px', flexShrink: 0, marginTop: '8px' }}>
-              {roundChecklist}
-            </div>
-          )}
+          {/* V-C (V-6): the Round Checklist mount moved to the BOTTOM of the
+              center console (docked below the scroll area) — see the end of
+              <main>. The component no longer position:fixes itself out of
+              its mount, so where it mounts is where it lives. */}
 
           {/* ═══ DECISION CANVAS (Phase D) ═══
               The stage flow (gate → strategy → allocation → commit → results)
@@ -2531,13 +2536,17 @@ export default function ExecutiveCockpit({
             </div>
           )}
 
-          {/* Resource Allocation Matrix — Deep Dive only */}
-          {isDeepDive && (
-          <div className={`${styles.decisionArea} ${styles.deepDiveEnter}`} style={{ flex: 'none', overflow: 'visible', borderBottom: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0', paddingBottom: 8, position: 'relative' }}>
-            <div id="tour-capital-target">
-            {/* Click-intercept: requires Strategic Decision to be made */}
-            {!canAccessAllocation && (
+          {/* Resource Allocation Matrix — Deep Dive only.
+              V-C (player v2, V-1): one primary work surface at a time. Until
+              the strategic decision is made, the full matrix (pool gauge +
+              four slider tiles) is a locked one-liner, not a disabled
+              spectacle behind a click-intercept — same locked-truth pattern
+              as V-B's options. The moment `canAccessAllocation` flips, the
+              matrix renders exactly as before. */}
+          {isDeepDive && !canAccessAllocation && (
+            <div className={`${styles.decisionArea} ${styles.deepDiveEnter}`} style={{ flex: 'none', marginTop: 8 }}>
               <div
+                id="tour-capital-target"
                 onClick={() => {
                   if (!hasReadBriefing) {
                     showStageWarning('Read the Briefing first before proceeding.');
@@ -2548,11 +2557,25 @@ export default function ExecutiveCockpit({
                   }
                 }}
                 style={{
-                  position: 'absolute', inset: 0, zIndex: 5,
-                  cursor: 'not-allowed', borderRadius: 8,
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '10px 12px', borderRadius: 8, cursor: 'not-allowed',
+                  border: '1px dashed rgba(148,163,184,0.3)', background: 'rgba(148,163,184,0.04)',
+                  fontSize: '0.75rem', color: '#94a3b8',
                 }}
-              />
-            )}
+              >
+                <span aria-hidden="true">🔒</span>
+                <span style={{ flex: 1, fontWeight: 600 }}>
+                  Capital Allocation — {fmtCurrency(csfPool)} CSF pool
+                </span>
+                <span style={{ fontSize: '0.7rem' }}>
+                  {!hasDecision && canAccessStrategy ? 'unlocks after your strategic decision' : 'unlocks with the flow above'}
+                </span>
+              </div>
+            </div>
+          )}
+          {isDeepDive && canAccessAllocation && (
+          <div className={`${styles.decisionArea} ${styles.deepDiveEnter}`} style={{ flex: 'none', overflow: 'visible', borderBottom: isDark ? '1px solid rgba(0,229,195,0.06)' : '1px solid #e2e8f0', paddingBottom: 8, position: 'relative' }}>
+            <div id="tour-capital-target">
             <InvestmentMatrix
               csfPool={csfPool}
               globalState={globalState}
@@ -2560,7 +2583,7 @@ export default function ExecutiveCockpit({
               allocations={allocations}
               historyData={historyData}
               decisionParadigm={decisionParadigm}
-              onAllocationsChange={canAccessAllocation ? onAllocationsChange : () => {}}
+              onAllocationsChange={onAllocationsChange}
             />
             </div>
           </div>
@@ -2607,7 +2630,39 @@ export default function ExecutiveCockpit({
               </div>
             </div>
           )}
-          {isDeepDive && (
+          {/* V-C (V-1): decision made → the options section folds to one line;
+              the matrix below becomes the primary surface. "Change" restores
+              the full section (selection handlers untouched). */}
+          {isDeepDive && canAccessStrategy && decisionChoice && !isPillarMode && !optionsReopen && (
+            <div className={`${styles.decisionArea} ${styles.deepDiveEnter}`} style={{ flex: 'none', marginTop: '16px' }}>
+              <div id="tour-strategic-target" style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '10px 12px', borderRadius: 8,
+                border: '1px solid rgba(94,234,212,0.25)', background: 'rgba(94,234,212,0.05)',
+                fontSize: '0.76rem',
+              }}>
+                <span style={{ color: '#4ade80' }}>✓</span>
+                <span style={{ flex: 1, fontWeight: 700, color: isDark ? '#e2e8f0' : '#1e293b' }}>
+                  Strategic Decision: {decisionChoice.replace('option_', '').toUpperCase()}
+                  {options?.[decisionChoice]?.title ? ` — ${options[decisionChoice].title}` : ''}
+                </span>
+                {(options?.[decisionChoice]?.impacts?.treasury || 0) !== 0 && (
+                  <span style={{ fontFamily: 'var(--font-numeral, monospace)', fontSize: '0.72rem', color: '#94a3b8' }}>
+                    {fmtCurrency(options[decisionChoice].impacts.treasury)}
+                  </span>
+                )}
+                <button
+                  onClick={() => setOptionsReopen(true)}
+                  style={{
+                    padding: '4px 10px', borderRadius: 6, cursor: 'pointer', fontSize: '0.68rem',
+                    fontWeight: 700, border: '1px solid rgba(148,163,184,0.3)', background: 'transparent',
+                    color: isDark ? '#94a3b8' : '#475569',
+                  }}
+                >Change</button>
+              </div>
+            </div>
+          )}
+          {isDeepDive && !(canAccessStrategy && decisionChoice && !isPillarMode && !optionsReopen) && (
           <div className={`${styles.decisionArea} ${styles.deepDiveEnter}`} style={{ flex: 'none', overflow: 'visible', position: 'relative', marginTop: '16px' }}>
             <div id="tour-strategic-target">
             {/* Click-intercept: requires Briefing read + Second Stage (R1/R2) done */}
@@ -3029,8 +3084,18 @@ export default function ExecutiveCockpit({
             </>
           )}
 
-          {/* Spacer to prevent Fixed RoundChecklist from overlapping bottom content */}
-          <div style={{ height: '80px', flexShrink: 0 }} />
+          {/* V-C (V-6): docked flow indicator — always visible at the foot of
+              the center console, never overlapping content (the old 80px
+              anti-overlap spacer is retired with the float). */}
+          {roundChecklist && (
+            <div style={{
+              position: 'sticky', bottom: 0, zIndex: 20,
+              padding: '6px 16px 10px', flexShrink: 0, marginTop: 'auto',
+              background: 'linear-gradient(to top, var(--bg-primary, #0a0f1e) 65%, transparent)',
+            }}>
+              {roundChecklist}
+            </div>
+          )}
         </main>
 
         {/* ── RIGHT SIDEBAR ─── */}
@@ -3211,6 +3276,29 @@ export default function ExecutiveCockpit({
           </div>
 
           {/* Market Reality Feed — with Consequence Traceability */}
+          {/* V-C (player v2, V-1): single-open rail — while a tab panel
+              (Mailbox / Decisions / Engines / Climate) is expanded, the feed
+              folds to a one-line header so the rail shows ONE primary at a
+              time. Active alerts still surface regardless (escalation keeps
+              its rights). */}
+          {railExpanded && !activeAlert ? (
+            <div style={{ flex: '0 0 auto', padding: '4px 10px' }}>
+              <button
+                onClick={() => setRailExpanded(false)}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                  border: '1px solid #1e293b', background: 'transparent',
+                  color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textAlign: 'left',
+                }}
+                title="Collapse the open panel to bring the feed back"
+              >
+                <span>📡</span>
+                <span style={{ flex: 1 }}>Market Reality Feed ({marketEvents.length})</span>
+                <span>▸</span>
+              </button>
+            </div>
+          ) : (
           <div className={styles.rightMarket}>
             <MarketRealityFeed
               items={marketEvents}
@@ -3222,6 +3310,7 @@ export default function ExecutiveCockpit({
               onDismissAlert={dismissActiveAlert}
             />
           </div>
+          )}
 
           {/* V-A (player v2, V-3): the retrospect (What Happened This Round +
               Road Not Taken) moved to the RESULTS STAGE, where the learning
