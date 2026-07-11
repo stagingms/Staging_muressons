@@ -68,7 +68,18 @@ const AccordionItem = ({ id, title, summary, children, isOpen, onToggle }) => {
 export default function CreateCohortModal({ isOpen, onClose, onCreated, currentFacilitatorId, currentFacilitatorRole = 'facilitator', editSession = null }) {
     const isSuperAdmin = currentFacilitatorRole === 'super_admin' || currentFacilitatorRole === 'admin';
     const isLeadFacilitator = currentFacilitatorRole === 'lead_facilitator';
-    const isBaseFacilitator = currentFacilitatorRole === 'facilitator' || (!isSuperAdmin && !isLeadFacilitator);
+    // F-6 (v3): project_admin is a PROVISIONING role, not a base facilitator.
+    // The old catch-all sent it down the most-restricted branch (locked to
+    // self, no facilitator assignment) — the opposite of its job — while the
+    // registry entry point hardcoded "super_admin" for the same person.
+    // Server ground truth (admin_router.py): the modal's sub-config chain and
+    // GET /facilitators are require_facilitator (project_admin passes); only
+    // the System Engine Modules section PATCHes require_super_admin — that
+    // stays behind isSuperAdmin.
+    const isProjectAdmin = currentFacilitatorRole === 'project_admin';
+    const isBaseFacilitator = currentFacilitatorRole === 'facilitator' || (!isSuperAdmin && !isLeadFacilitator && !isProjectAdmin);
+    // Who may assign the cohort to another facilitator (provisioning power):
+    const canAssignFacilitator = isSuperAdmin || isProjectAdmin;
     const isEditMode = !!editSession; // true = editing existing cohort, false = creating new
 
     const [cohortName, setCohortName] = useState('');
@@ -315,7 +326,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             })
             .catch(() => {});
 
-        if (currentFacilitatorId) {
+        if (currentFacilitatorId && currentFacilitatorId !== 'project_admin') {
+            // F-6 (v3): never default the assignment onto the project_admin
+            // virtual account — it isn't an assignable facilitator. (When the
+            // registry passes a real target facilitator id, prefill as before.)
             setFacilitatorId(currentFacilitatorId);
         }
     }, [isOpen, currentFacilitatorId]);
@@ -877,7 +891,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                                     <div className={styles.formGroup}>
                                         <label>Assigned Facilitator</label>
-                                        {!isSuperAdmin ? (
+                                        {!canAssignFacilitator ? (
                                             <input
                                                 type="text"
                                                 value={currentFacilitatorId}

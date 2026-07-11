@@ -2618,7 +2618,12 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 <CreateCohortModal
                     isOpen={true}
                     currentFacilitatorId={cohortFacilitatorId}
-                    currentFacilitatorRole="super_admin"
+                    // F-6 (v3): the operator's REAL role, not a hardcoded
+                    // "super_admin" — the same person must get the same modal
+                    // from Dashboard Home and from this registry entry point.
+                    // Fallback preserves legacy god-mode behavior when no
+                    // auth context is resolvable.
+                    currentFacilitatorRole={operatorRole || 'super_admin'}
                     onClose={() => setShowCohortModal(false)}
                     onCreated={() => {
                         setShowCohortModal(false);
