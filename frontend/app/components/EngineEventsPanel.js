@@ -49,7 +49,16 @@ const EVENT_TOOLTIPS = {
   stakeholder_salience: 'Stakeholder power, legitimacy, and urgency have shifted based on your decisions (Mitchell/Agle/Wood framework).',
 };
 
-export default function EngineEventsPanel({ globalState, roundEvents }) {
+// V-A (player v2): `sections` controls which accordion groups render so the
+// retrospect (What Happened This Round + Road Not Taken) can live in the
+// results stage while the rail keeps the rest. 'all' preserves the original
+// behaviour for any untouched caller.
+//   'all'        → everything (default, pre-V-A behaviour)
+//   'retrospect' → What Happened This Round + Road Not Taken only
+//   'rest'       → everything else (CEO Diary)
+export default function EngineEventsPanel({ globalState, roundEvents, sections = 'all' }) {
+  const showRetrospect = sections === 'all' || sections === 'retrospect';
+  const showRest = sections === 'all' || sections === 'rest';
   const flags = globalState?.active_event_flags || {};
   const events = [];
 
@@ -528,7 +537,11 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
     market: { icon: '🌍', label: 'MARKET & ESG', color: '#6366f1' },
   };
 
-  if (events.length === 0 && !diary && !regret) return null;
+  // V-A: null out when the VISIBLE sections have no content (original check,
+  // scoped per `sections` so an empty wrapper never renders).
+  const retrospectHasContent = events.length > 0 || !!regret;
+  const restHasContent = !!diary;
+  if ((!showRetrospect || !retrospectHasContent) && (!showRest || !restHasContent)) return null;
 
   const moodStyles = {
     confident: { bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.2)', label: '#10b981', emoji: '😤' },
@@ -584,7 +597,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontFamily: "'DM Sans', 'Segoe UI', sans-serif" }}>
       {/* ═══ What Happened This Round ═══ */}
-      {events.length > 0 && (
+      {showRetrospect && events.length > 0 && (
         <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #1e293b' }}>
           <AccordionHeader
             icon="🔍" title="What Happened This Round"
@@ -654,7 +667,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
       )}
 
       {/* ═══ Road Not Taken ═══ */}
-      {hasRegret && (() => {
+      {showRetrospect && hasRegret && (() => {
         const optionLabels = { option_a: 'Option A', option_b: 'Option B', option_c: 'Option C' };
         const fmtDelta = (v) => {
           if (!v && v !== 0) return '—';
@@ -726,7 +739,7 @@ export default function EngineEventsPanel({ globalState, roundEvents }) {
       })()}
 
       {/* ═══ CEO Diary ═══ */}
-      {diary && (() => {
+      {showRest && diary && (() => {
         const ms = moodStyles[diary.mood] || moodStyles.contemplative;
         return (
           <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #1e293b' }}>

@@ -478,7 +478,8 @@ export default function ExecutiveCockpit({
   const greenFund = globalState?.green_transition_fund || 0;
   const costOfCapital = globalState?.cost_of_capital || 0.05;
   const tippingPointActive = globalState?.tipping_point_active || false;
-  const pendingProjects = globalState?.pending_capex_projects || [];
+  // V-A+ : pendingProjects derivation removed with the Active Infrastructure
+  // Projects panel (owner request) — the data stays in the /dashboard payload.
 
   // W-A (W5): atmosphere tier — extends the existing health-based mood classes
   // with a subtle full-viewport backdrop. CSS-only, pointer-events none,
@@ -621,7 +622,9 @@ export default function ExecutiveCockpit({
 
   // Strategic Breakdown Hover State
   const [hoveredOpt, setHoveredOpt] = useState(null);
-  const [infraOpen, setInfraOpen] = useState(true);
+  // V-A (player v2): rail recap link state — the retrospect accordions render
+  // in the results stage by default and here only on demand.
+  const [railRecapOpen, setRailRecapOpen] = useState(false);
 
   // ── Focus Mode: Advanced Metrics Drawer ──
   // Auto-collapsed for rounds 1-4, auto-expanded for rounds 5+
@@ -2222,6 +2225,17 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
+            {/* V-A (player v2, V-3): the retrospect lands where the learning
+                does — same component, same data, moved from the ambient rail.
+                Rendered against the just-committed state. */}
+            <div style={{ marginBottom: 16 }}>
+              <EngineEventsPanel
+                globalState={commitResults.globalState || globalState}
+                roundEvents={commitResults.events}
+                sections="retrospect"
+              />
+            </div>
+
             {/* ── EBITDA Decomposition Waterfall (Gap 1: visual strategy storytelling) ── */}
             <EBITDAWaterfall
               businessUnits={commitResults.businessUnits || businessUnits}
@@ -2885,66 +2899,12 @@ export default function ExecutiveCockpit({
               fmtCurrency={fmtCurrency}
             />
 
-            {/* Active Infrastructure Projects — Collapsible */}
-            {pendingProjects.length > 0 && (
-              <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid #e2e8f0', marginTop: 10 }}>
-                <button
-                  onClick={() => setInfraOpen(v => !v)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 10,
-                    padding: '10px 14px', border: 'none',
-                    borderRadius: infraOpen ? '8px 8px 0 0' : 8,
-                    background: infraOpen ? '#f8fafc' : '#f1f5f9',
-                    borderLeft: '3px solid #38bdf8',
-                    cursor: 'pointer', transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
-                    fontFamily: "'DM Sans', 'Segoe UI', sans-serif",
-                  }}
-                >
-                  <span style={{ fontSize: '1rem', flexShrink: 0 }}>🏗️</span>
-                  <span style={{
-                    flex: 1, textAlign: 'left', fontSize: '0.78rem', fontWeight: 700,
-                    color: '#1e293b', letterSpacing: '0.03em',
-                  }}>
-                    Active Infrastructure Projects
-                  </span>
-                  <span style={{
-                    padding: '3px 8px', borderRadius: 6, fontSize: '0.6rem', fontWeight: 700,
-                    background: '#38bdf820', color: '#0284c7',
-                    border: '1px solid #38bdf840', whiteSpace: 'nowrap',
-                  }}>
-                    {pendingProjects.length} active
-                  </span>
-                  <span style={{
-                    fontSize: '0.65rem', color: '#94a3b8',
-                    transition: 'transform 0.2s', transform: infraOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-                  }}>▾</span>
-                </button>
-                {infraOpen && (
-                  <div style={{
-                    padding: '10px 14px', background: '#ffffff',
-                    borderTop: '1px solid #e2e8f0',
-                  }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                      {pendingProjects.map((proj, i) => (
-                        <div key={i} style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          background: '#f8fafc', padding: '8px 10px', borderRadius: 6,
-                          border: '1px solid #e2e8f0',
-                        }}>
-                          <span style={{ fontSize: '0.75rem', color: '#1e293b', fontWeight: 500 }}>{proj.description || 'Strategic Project'}</span>
-                          <span style={{
-                            fontSize: '0.65rem', color: '#475569', background: '#e2e8f0',
-                            padding: '3px 8px', borderRadius: 4, fontWeight: 600, whiteSpace: 'nowrap',
-                          }}>
-                            ⏳ {proj.rounds_remaining} Turn{proj.rounds_remaining > 1 ? 's' : ''} Left
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
+            {/* V-A+ (owner request, 2026-07-11): the "Active Infrastructure
+                Projects" panel was removed from the player screen — the
+                working-capital/synergy timers are engine internals, not a
+                player decision surface (and its light palette fought the
+                theme). Display-only removal: `pending_capex_projects` stays
+                in the payload untouched; restore = git revert this commit. */}
 
             </div>
           </div>
@@ -3214,12 +3174,39 @@ export default function ExecutiveCockpit({
             />
           </div>
 
-          {/* What Happened / Road Not Taken / CEO Diary — Collapsible Accordions */}
+          {/* V-A (player v2, V-3): the retrospect (What Happened This Round +
+              Road Not Taken) moved to the RESULTS STAGE, where the learning
+              lands — mid-decision it was regret-bait outranking the current
+              choice. The rail keeps a one-line recap link that reveals it on
+              demand (reading room, not ambient). CEO Diary stays here. */}
           <div className={styles.sectionDivider} />
           <div style={{
             flex: '1 1 auto', overflowY: 'auto', padding: '8px 10px',
           }}>
-            <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} />
+            {(roundNumber > 1 || !!commitResults) && (
+              <div style={{ marginBottom: 6 }}>
+                <button
+                  onClick={() => setRailRecapOpen(v => !v)}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                    border: '1px solid #1e293b', background: 'transparent',
+                    color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textAlign: 'left',
+                  }}
+                  aria-expanded={railRecapOpen}
+                >
+                  <span>🔍</span>
+                  <span style={{ flex: 1 }}>Round recap — what happened & the road not taken</span>
+                  <span style={{ transition: 'transform 0.2s', transform: railRecapOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                </button>
+                {railRecapOpen && (
+                  <div style={{ marginTop: 6 }}>
+                    <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} sections="retrospect" />
+                  </div>
+                )}
+              </div>
+            )}
+            <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} sections="rest" />
             {/* SI-2+: Autonomous Stakeholder Agents Panel */}
             {(() => {
               const evs = events || commitResults?.events || {};

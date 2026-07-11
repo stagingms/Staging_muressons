@@ -373,3 +373,47 @@ Three independent commits — revert selectively. Backend reverts are safe:
 both endpoints are additive reads/parse-only (no state writes), and the
 create endpoint's refactor is covered by the preview/create-agreement test.
 Frontend degrades gracefully in every mixed-version direction by design.
+
+---
+
+## Phase V-A (player dashboard v2) — retrospect to the recap + owner-requested removal
+
+First player-facing phase; scope from
+`REVIEW_Muressons_PlayerDashboard_v2_Simplification.md` (V-3) plus one direct
+owner request. Files: `EngineEventsPanel.js`, `ExecutiveCockpit.js`.
+
+- **V-3 move:** `EngineEventsPanel` gained a `sections` prop
+  ('all' = pre-V-A behaviour for any untouched caller · 'retrospect' =
+  What Happened This Round + Road Not Taken · 'rest' = CEO Diary). The
+  RESULTS stage of the Decision Canvas now renders the retrospect (after the
+  Key Events summary, against the just-committed state) — the counterfactual
+  lands where the learning does. The rail renders `sections="rest"` plus a
+  one-line "Round recap ▸" link that reveals the retrospect on demand
+  (collapsed by default; shown from R2 / post-commit). Same component, same
+  data, zero fetch changes.
+- **V-A+ (owner request, screenshot 2026-07-11):** the "Active Infrastructure
+  Projects" panel (working-capital DSO / synergy timers with "1 Turn Left")
+  removed from the player screen entirely, including its dead `infraOpen`
+  state and `pendingProjects` derivation. Display-only:
+  `pending_capex_projects` remains in the /dashboard payload untouched.
+  Restore = revert this commit.
+
+### Gates (in-sandbox, 2026-07-11)
+1. JSX parse ✅ both files. 2. Endpoint contract ✅ unchanged vs the S5
+snapshot (no fetch/WS call site touched). 3. Frontend jest ✅ 63/63.
+4. Player smoke ✅ identical (R1 commit 201, engines OK, R2 429).
+
+### Two-browser checklist (your machine)
+- Play R1 → commit → results stage shows result cards → ConsequenceReplay →
+  Key Events → **What Happened + Road Not Taken** (open by default) →
+  waterfall. Advance to R2: the rail shows the collapsed "Round recap" link;
+  opening it reveals both accordions with R1 data; CEO Diary unchanged in
+  the rail.
+- The Active Infrastructure Projects panel no longer appears anywhere
+  (previously center column, after CAROIC/history, when projects pending).
+- Focus-mode auto-advance, commit payloads, and round transitions unchanged
+  (stage machine untouched).
+
+### Rollback
+One commit — `git revert` restores both the ambient rail accordions and the
+infrastructure panel.
