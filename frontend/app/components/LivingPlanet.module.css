@@ -82,7 +82,7 @@
 .metricLabel {
   font-size: 0.5rem;
   font-weight: 700;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted, var(--neutral));
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }

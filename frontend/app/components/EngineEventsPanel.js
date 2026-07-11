@@ -66,65 +66,65 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   if (flags.inflation_active || globalState?.inflation_index > 1.0) {
     const rate = ((globalState?.inflation_index - 1) * 100).toFixed(1);
     const displayRate = rate !== "NaN" && rate > 0 ? rate : "2.5";
-    events.push({ icon: '📈', color: '#f59e0b', text: `Inflation increased OPEX by ${displayRate}%.`, tooltip: EVENT_TOOLTIPS.inflation });
+    events.push({ icon: '📈', color: 'var(--caution)', text: `Inflation increased OPEX by ${displayRate}%.`, tooltip: EVENT_TOOLTIPS.inflation });
   }
 
   // 2. Tech Lock-in
   if (flags.tech_lock_in_active) {
-    events.push({ icon: '🔒', color: '#ef4444', text: 'Technology Lock-In active — synergy penalty on non-dominant BUs.', tooltip: EVENT_TOOLTIPS.tech_lock_in });
+    events.push({ icon: '🔒', color: 'var(--danger)', text: 'Technology Lock-In active — synergy penalty on non-dominant BUs.', tooltip: EVENT_TOOLTIPS.tech_lock_in });
   }
 
   // 3. Greenwashing
   if (flags.greenwashing_penalty_active) {
-    events.push({ icon: '🎭', color: '#ef4444', text: 'Greenwashing detected! Severe reputation penalty applied.', tooltip: EVENT_TOOLTIPS.greenwashing });
+    events.push({ icon: '🎭', color: 'var(--danger)', text: 'Greenwashing detected! Severe reputation penalty applied.', tooltip: EVENT_TOOLTIPS.greenwashing });
   }
 
   // 4. COGS Penalty
   if (flags.cogs_penalty_ratio > 1) {
-    events.push({ icon: '⚙️', color: '#f59e0b', text: `Supply chain drag increased COGS by ${((flags.cogs_penalty_ratio - 1) * 100).toFixed(1)}%.`, tooltip: EVENT_TOOLTIPS.cogs_penalty });
+    events.push({ icon: '⚙️', color: 'var(--caution)', text: `Supply chain drag increased COGS by ${((flags.cogs_penalty_ratio - 1) * 100).toFixed(1)}%.`, tooltip: EVENT_TOOLTIPS.cogs_penalty });
   }
 
   // 5. Revenue Cannibalization
   if (flags.cannibalization_active) {
-    events.push({ icon: '🔄', color: '#f59e0b', text: 'Product cannibalization reduced revenue efficiency.', tooltip: EVENT_TOOLTIPS.cannibalization });
+    events.push({ icon: '🔄', color: 'var(--caution)', text: 'Product cannibalization reduced revenue efficiency.', tooltip: EVENT_TOOLTIPS.cannibalization });
   }
 
   // 6. Dividend Ratchet
   if (flags.dividend_ratchet_triggered || roundEvents?.dividend_ratchet_triggered) {
-    events.push({ icon: '📉', color: '#ef4444', text: 'Dividend ratchet triggered — board confidence has dropped.', tooltip: EVENT_TOOLTIPS.dividend_ratchet });
+    events.push({ icon: '📉', color: 'var(--danger)', text: 'Dividend ratchet triggered — board confidence has dropped.', tooltip: EVENT_TOOLTIPS.dividend_ratchet });
   }
 
   // 7. Stakeholder Fatigue
   if (flags.stakeholder_fatigue_applied || roundEvents?.stakeholder_fatigue_applied) {
-    events.push({ icon: '😓', color: '#f59e0b', text: 'Stakeholder fatigue — recovering reputation is now more expensive.', tooltip: EVENT_TOOLTIPS.stakeholder_fatigue });
+    events.push({ icon: '😓', color: 'var(--caution)', text: 'Stakeholder fatigue — recovering reputation is now more expensive.', tooltip: EVENT_TOOLTIPS.stakeholder_fatigue });
   }
 
   // 8. Brain Drain / Talent Flight
   if (flags.talent_flight_triggered || roundEvents?.talent_penalty_applied) {
     const penalty = roundEvents?.talent_penalty_applied;
-    events.push({ icon: '🧠', color: '#ef4444', text: `Talent brain-drain risk${penalty ? ` — OPEX surcharge applied` : ' detected'}.`, tooltip: EVENT_TOOLTIPS.brain_drain });
+    events.push({ icon: '🧠', color: 'var(--danger)', text: `Talent brain-drain risk${penalty ? ` — OPEX surcharge applied` : ' detected'}.`, tooltip: EVENT_TOOLTIPS.brain_drain });
   }
 
   // 9. Technical Debt
   const techDebtKeys = Object.keys(roundEvents || {}).filter(k => k.startsWith('technical_debt_penalty_'));
   if (techDebtKeys.length > 0) {
     const buNames = techDebtKeys.map(k => k.replace('technical_debt_penalty_', '')).join(', ');
-    events.push({ icon: '🏗️', color: '#f59e0b', text: `Technical debt penalty applied to: ${buNames}.`, tooltip: EVENT_TOOLTIPS.technical_debt });
+    events.push({ icon: '🏗️', color: 'var(--caution)', text: `Technical debt penalty applied to: ${buNames}.`, tooltip: EVENT_TOOLTIPS.technical_debt });
   }
 
   // 10. Supply Chain Contagion
   if (roundEvents?.contagion_spike_triggered || flags.supply_chain_contagion) {
-    events.push({ icon: '🦠', color: '#ef4444', text: 'Contagion spreading — crisis damage amplified across all BUs.', tooltip: EVENT_TOOLTIPS.supply_chain_contagion });
+    events.push({ icon: '🦠', color: 'var(--danger)', text: 'Contagion spreading — crisis damage amplified across all BUs.', tooltip: EVENT_TOOLTIPS.supply_chain_contagion });
   }
 
   // 11. Fog of War
   if (flags.fog_of_war_active) {
-    events.push({ icon: '🌫️', color: '#6366f1', text: 'Fog of War active — competitor data hidden from view.', tooltip: EVENT_TOOLTIPS.fog_of_war });
+    events.push({ icon: '🌫️', color: 'var(--accent)', text: 'Fog of War active — competitor data hidden from view.', tooltip: EVENT_TOOLTIPS.fog_of_war });
   }
 
   // 12. NPC Competitor Growth
   if (roundEvents?.competitor_warning || flags.competitor_warning) {
-    events.push({ icon: '🏢', color: '#6366f1', text: 'NPC competitor is growing at 3%/round — monitor your market position.', tooltip: EVENT_TOOLTIPS.npc_competitor });
+    events.push({ icon: '🏢', color: 'var(--accent)', text: 'NPC competitor is growing at 3%/round — monitor your market position.', tooltip: EVENT_TOOLTIPS.npc_competitor });
   }
 
   // 13. NCD Interest
@@ -133,24 +133,24 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const highDebtBUs = Object.entries(rates).filter(([, r]) => r > 0.06);
     if (highDebtBUs.length > 0) {
       const names = highDebtBUs.map(([name]) => name).join(', ');
-      events.push({ icon: '🌿', color: '#f59e0b', text: `High NCD interest accruing on: ${names}.`, tooltip: EVENT_TOOLTIPS.ncd_interest });
+      events.push({ icon: '🌿', color: 'var(--caution)', text: `High NCD interest accruing on: ${names}.`, tooltip: EVENT_TOOLTIPS.ncd_interest });
     }
   }
 
   // 14. Insolvency
   if (roundEvents?.insolvency_active) {
-    events.push({ icon: '🚨', color: '#ef4444', text: roundEvents.insolvency_message || 'CREDIT DOWNGRADE — austerity measures active.', tooltip: EVENT_TOOLTIPS.insolvency });
+    events.push({ icon: '🚨', color: 'var(--danger)', text: roundEvents.insolvency_message || 'CREDIT DOWNGRADE — austerity measures active.', tooltip: EVENT_TOOLTIPS.insolvency });
   }
 
   // 15. Insolvency CapEx Cap
   if (roundEvents?.capex_cap_multiplier && roundEvents.capex_cap_multiplier < 1.0) {
-    events.push({ icon: '🔻', color: '#ef4444', text: `CapEx capped at ${Math.round(roundEvents.capex_cap_multiplier * 100)}% due to insolvency.`, tooltip: EVENT_TOOLTIPS.insolvency_capex_cap });
+    events.push({ icon: '🔻', color: 'var(--danger)', text: `CapEx capped at ${Math.round(roundEvents.capex_cap_multiplier * 100)}% due to insolvency.`, tooltip: EVENT_TOOLTIPS.insolvency_capex_cap });
   }
 
   // 16. Staff Burnout (Healthcare)
   const burnoutKeys = Object.keys(roundEvents || {}).filter(k => k.startsWith('utilization_overload_fatigue_'));
   if (burnoutKeys.length > 0) {
-    events.push({ icon: '🩺', color: '#f59e0b', text: 'Staff burnout increasing due to bed utilization overload.', tooltip: EVENT_TOOLTIPS.burnout });
+    events.push({ icon: '🩺', color: 'var(--caution)', text: 'Staff burnout increasing due to bed utilization overload.', tooltip: EVENT_TOOLTIPS.burnout });
   }
 
   // 17. Strike Warning
@@ -158,7 +158,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const highRisk = Object.entries(roundEvents.strike_probabilities).filter(([, p]) => p > 0.3);
     if (highRisk.length > 0) {
       const names = highRisk.map(([name]) => name).join(', ');
-      events.push({ icon: '✊', color: '#ef4444', text: `Elevated strike risk in: ${names}.`, tooltip: EVENT_TOOLTIPS.strike_warning });
+      events.push({ icon: '✊', color: 'var(--danger)', text: `Elevated strike risk in: ${names}.`, tooltip: EVENT_TOOLTIPS.strike_warning });
     }
   }
 
@@ -170,7 +170,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
 
   // 19. Implementation Lag
   if (flags.implementation_lag || roundEvents?.resilience_project_started || roundEvents?.ncd_project_started) {
-    events.push({ icon: '⏳', color: '#6366f1', text: 'Infrastructure project underway — benefits pending maturation.', tooltip: EVENT_TOOLTIPS.implementation_lag });
+    events.push({ icon: '⏳', color: 'var(--accent)', text: 'Infrastructure project underway — benefits pending maturation.', tooltip: EVENT_TOOLTIPS.implementation_lag });
   }
 
   // 20. Early Decarboniser Bonus
@@ -181,20 +181,20 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // 21. Negative Treasury Interest
   if (roundEvents?.negative_treasury_interest_applied) {
     const interest = (roundEvents.negative_treasury_interest_applied / 1_000_000).toFixed(2);
-    events.push({ icon: '🏦', color: '#ef4444', text: `Debt service: $${interest}M interest charged on negative treasury.`, tooltip: 'Negative treasury balance incurs interest at the cost of capital rate.' });
+    events.push({ icon: '🏦', color: 'var(--danger)', text: `Debt service: $${interest}M interest charged on negative treasury.`, tooltip: 'Negative treasury balance incurs interest at the cost of capital rate.' });
   }
 
   // 22. Climate Event
   if (roundEvents?.climate_event_struck) {
     const damage = ((roundEvents.actual_damage || 0) / 1_000_000).toFixed(1);
-    events.push({ icon: '🌪️', color: '#ef4444', text: `Cyclone struck! Actual damage: $${damage}M (mitigated by resilience).`, tooltip: 'Physical climate event caused infrastructure damage, reduced by your resilience factor.' });
+    events.push({ icon: '🌪️', color: 'var(--danger)', text: `Cyclone struck! Actual damage: $${damage}M (mitigated by resilience).`, tooltip: 'Physical climate event caused infrastructure damage, reduced by your resilience factor.' });
   } else if (roundEvents?.climate_event_struck === false) {
     events.push({ icon: '🌤️', color: '#10b981', text: 'The cyclone changed course — no damage this round.', tooltip: 'The stochastic climate event did not trigger this time.' });
   }
 
   // 23. Strike Result
   if (roundEvents?.strike_triggered === true) {
-    events.push({ icon: '🚫', color: '#ef4444', text: roundEvents.strike_message || 'Worker strike triggered — revenue lost.', tooltip: 'Worker strike caused by low social license and factory closure decisions.' });
+    events.push({ icon: '🚫', color: 'var(--danger)', text: roundEvents.strike_message || 'Worker strike triggered — revenue lost.', tooltip: 'Worker strike caused by low social license and factory closure decisions.' });
   } else if (roundEvents?.strike_triggered === false && roundEvents?.strike_message) {
     events.push({ icon: '🤝', color: '#10b981', text: roundEvents.strike_message, tooltip: 'Strike was narrowly averted.' });
   }
@@ -216,17 +216,17 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   // 26. Stranded Asset Penalty
   if (roundEvents?.stranded_asset_penalty_applied) {
     const buNames = (roundEvents.stranded_asset_bu_ids || []).join(', ');
-    events.push({ icon: '🏚️', color: '#ef4444', text: `Stranded asset penalty — Cost of Capital +1.5% [BUs: ${buNames || 'high-carbon units'}].`, tooltip: EVENT_TOOLTIPS.stranded_asset });
+    events.push({ icon: '🏚️', color: 'var(--danger)', text: `Stranded asset penalty — Cost of Capital +1.5% [BUs: ${buNames || 'high-carbon units'}].`, tooltip: EVENT_TOOLTIPS.stranded_asset });
   }
 
   // 27. Inflation Drift (Hostile)
   if (roundEvents?.inflation_drift_hostile) {
-    events.push({ icon: '🔥', color: '#f59e0b', text: roundEvents.inflation_drift_message || 'Hostile regulation driving inflation above baseline.', tooltip: EVENT_TOOLTIPS.inflation_drift });
+    events.push({ icon: '🔥', color: 'var(--caution)', text: roundEvents.inflation_drift_message || 'Hostile regulation driving inflation above baseline.', tooltip: EVENT_TOOLTIPS.inflation_drift });
   }
 
   // 28. Tipping Point Activation
   if (roundEvents?.tipping_point_reached) {
-    events.push({ icon: '🌡️', color: '#ef4444', text: 'CLIMATE TIPPING POINT — Irreversible environmental threshold breached. NCD costs doubled.', tooltip: EVENT_TOOLTIPS.climate_tipping });
+    events.push({ icon: '🌡️', color: 'var(--danger)', text: 'CLIMATE TIPPING POINT — Irreversible environmental threshold breached. NCD costs doubled.', tooltip: EVENT_TOOLTIPS.climate_tipping });
   }
 
   // 29. Managed Retreat
@@ -248,7 +248,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const icon = regimeIcons[macro.regime] || '🏦';
     const modPct = macro.modifier_pct;
     events.push({
-      icon, color: macro.regime === 'tightening' || macro.regime === 'crisis' ? '#ef4444' : macro.regime === 'neutral' ? '#6366f1' : '#10b981',
+      icon, color: macro.regime === 'tightening' || macro.regime === 'crisis' ? 'var(--danger)' : macro.regime === 'neutral' ? 'var(--accent)' : '#10b981',
       text: `${macro.label || `${macro.regime} monetary policy`}${modPct ? ` (CoC ${modPct > 0 ? '+' : ''}${modPct}%)` : ''}`,
       tooltip: EVENT_TOOLTIPS.macro_rate,
     });
@@ -260,7 +260,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const dir = fx.fx_direction === 'strengthening' ? '💪' : '📉';
     const pct = Math.abs(fx.fx_index * 100).toFixed(1);
     events.push({
-      icon: dir, color: fx.fx_direction === 'strengthening' ? '#10b981' : '#f59e0b',
+      icon: dir, color: fx.fx_direction === 'strengthening' ? '#10b981' : 'var(--caution)',
       text: `FX ${fx.fx_direction}: ${pct}% currency shift affecting multinational revenue.`,
       tooltip: EVENT_TOOLTIPS.fx_risk,
     });
@@ -272,7 +272,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     if (dso.total_deferred > 0) {
       const deferred = (dso.total_deferred / 1_000_000).toFixed(1);
       events.push({
-        icon: '⏰', color: '#6366f1',
+        icon: '⏰', color: 'var(--accent)',
         text: `Working capital timing: $${deferred}M revenue deferred (DSO drag across BUs).`,
         tooltip: EVENT_TOOLTIPS.dso_working_capital,
       });
@@ -283,7 +283,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   if (roundEvents?.scope3_data_completeness != null || flags.scope3_data_completeness != null) {
     const completeness = roundEvents?.scope3_data_completeness ?? flags.scope3_data_completeness;
     const icon = completeness >= 70 ? '📊' : completeness >= 50 ? '📋' : '🔍';
-    const color = completeness >= 70 ? '#10b981' : completeness >= 50 ? '#f59e0b' : '#ef4444';
+    const color = completeness >= 70 ? '#10b981' : completeness >= 50 ? 'var(--caution)' : 'var(--danger)';
     events.push({
       icon, color,
       text: `Scope 3 data completeness: ${completeness}% — ${completeness >= 70 ? 'deep audit provides reliable supply chain emissions data' : completeness >= 50 ? 'partial visibility into supply chain emissions' : 'limited Scope 3 data — high reporting uncertainty'}.`,
@@ -295,7 +295,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   if (roundEvents?.social_media_velocity) {
     const smv = roundEvents.social_media_velocity;
     events.push({
-      icon: '📱', color: '#ef4444',
+      icon: '📱', color: 'var(--danger)',
       text: smv.message || `Social media velocity amplifier active (${smv.multiplier?.toFixed(1) || ''}×) — reputation penalty: ${smv.reputation_penalty?.toFixed(1) || '?'} pts.`,
       tooltip: EVENT_TOOLTIPS.social_media_velocity,
     });
@@ -306,7 +306,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const nbs = roundEvents.nbs_uncertainty;
     events.push({
       icon: nbs.succeeded ? '🌴' : '🌿',
-      color: nbs.succeeded ? '#10b981' : '#ef4444',
+      color: nbs.succeeded ? '#10b981' : 'var(--danger)',
       text: nbs.message || (nbs.succeeded
         ? 'Mangrove restoration SUCCEEDED — nature-based resilience buffer established.'
         : 'Mangrove restoration FAILED — ecological conditions prevented establishment. Resilience reduced.'),
@@ -319,13 +319,13 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const euAi = roundEvents.eu_ai_act_compliance;
     const cost = ((euAi.cost || 0) / 1_000_000).toFixed(1);
     events.push({
-      icon: '🤖', color: '#ef4444',
+      icon: '🤖', color: 'var(--danger)',
       text: euAi.message || `EU AI Act compliance: $${cost}M audit and governance costs incurred for AI deployment.`,
       tooltip: EVENT_TOOLTIPS.eu_ai_act,
     });
   } else if (roundEvents?.eu_ai_act_pending) {
     events.push({
-      icon: '⚠️', color: '#f59e0b',
+      icon: '⚠️', color: 'var(--caution)',
       text: roundEvents.eu_ai_act_pending.message || 'EU AI Act: Your AI deployment is classified as high-risk. Compliance costs will apply from Round 7.',
       tooltip: EVENT_TOOLTIPS.eu_ai_act,
     });
@@ -336,7 +336,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const ra = roundEvents.retraining_assessment;
     events.push({
       icon: ra.succeeded ? '🎓' : '👷',
-      color: ra.succeeded ? '#10b981' : '#ef4444',
+      color: ra.succeeded ? '#10b981' : 'var(--danger)',
       text: roundEvents.retraining_message || (ra.succeeded
         ? `Workforce retraining program SUCCEEDED (${ra.success_rate}% completion rate) — just transition benefits fully realised.`
         : `Workforce retraining program FAILED — 30% of transition benefits clawed back (social licence: ${ra.social_license_factor}).`),
@@ -358,7 +358,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   if (roundEvents?.board_pressure_event) {
     const bp = roundEvents.board_pressure_event;
     events.push({
-      icon: '🏛️', color: '#f59e0b',
+      icon: '🏛️', color: 'var(--caution)',
       text: bp.message || 'Board of Directors is exerting strategic pressure this period.',
       tooltip: EVENT_TOOLTIPS.board_pressure,
     });
@@ -371,7 +371,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     if (definitive.length > 0) {
       const names = definitive.map(([name]) => name.replace(/_/g, ' ')).join(', ');
       events.push({
-        icon: '⚡', color: '#ef4444',
+        icon: '⚡', color: 'var(--danger)',
         text: `DEFINITIVE stakeholders (high power + legitimacy + urgency): ${names}. Immediate engagement required.`,
         tooltip: EVENT_TOOLTIPS.stakeholder_salience,
       });
@@ -388,13 +388,13 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const ndEbitda = bs.net_debt_to_ebitda;
     if (cStatus === 'amber') {
       events.push({
-        icon: '📊', color: '#f59e0b',
+        icon: '📊', color: 'var(--caution)',
         text: `Debt covenant WATCH LIST — Net Debt/EBITDA at ${ndEbitda?.toFixed(2) || '?'}× (threshold: 3.5×). ${typeof warning === 'string' ? warning : 'Review leverage before committing further.'}`,
         tooltip: 'Your Net Debt / EBITDA ratio is approaching the lender covenant ceiling. If breached, your cost of capital will increase and the revolving credit facility may be restricted.',
       });
     } else if (cStatus === 'red') {
       events.push({
-        icon: '🔴', color: '#ef4444',
+        icon: '🔴', color: 'var(--danger)',
         text: `Debt covenant BREACH — 30-day cure period. Net Debt/EBITDA at ${ndEbitda?.toFixed(2) || '?'}× (limit: 4.5×). Interest surcharge applied.`,
         tooltip: 'Your debt covenants are breached. Lenders have activated a 30-day cure period with a +2% interest surcharge. Reduce leverage by selling assets, cutting dividends, or paying down debt.',
       });
@@ -414,7 +414,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const trigger = roundEvents.balance_sheet.goodwill_impairment.trigger || 'reputation';
     const triggerLabel = trigger === 'ebitda_margin' ? 'Low EBITDA margin' : trigger === 'survival' ? 'Survival mode' : 'Low reputation';
     events.push({
-      icon: '📉', color: '#ef4444',
+      icon: '📉', color: 'var(--danger)',
       text: `Goodwill impairment: $${impairment}M written off. Trigger: ${triggerLabel}. IAS 36 annual test failed.`,
       tooltip: 'IAS 36 requires annual goodwill impairment testing. Impairment is triggered when group reputation drops below 40 or EBITDA margin falls below 10%. The write-off is smoothly calculated — not a hard cliff — reducing goodwill proportionally.',
     });
@@ -426,7 +426,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const exposurePct = ((bs.stranded_asset_exposure / (bs.total_assets || 1)) * 100).toFixed(1);
     if (parseFloat(exposurePct) > 5) {
       events.push({
-        icon: '🏚️', color: '#f59e0b',
+        icon: '🏚️', color: 'var(--caution)',
         text: `Stranded asset exposure: ${exposurePct}% of total assets at climate transition risk.`,
         tooltip: 'Based on Carbon Tracker methodology, assets with high carbon intensity face write-down risk as the economy transitions. Reduce carbon intensity to lower exposure.',
       });
@@ -438,7 +438,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const surcharge = (roundEvents.covenant_surcharge / 1_000_000).toFixed(2);
     const rate = ((roundEvents.covenant_surcharge_rate || 0) * 100).toFixed(0);
     events.push({
-      icon: '🏦', color: '#ef4444',
+      icon: '🏦', color: 'var(--danger)',
       text: `Covenant penalty: $${surcharge}M interest surcharge (+${rate}% annualised on net debt).`,
       tooltip: 'When debt covenants are breached, lenders impose a penalty interest rate surcharge. This directly reduces your treasury. Reduce leverage to avoid ongoing penalties.',
     });
@@ -457,7 +457,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const isStressed = waccDiag.adjusted_wacc > 0.08;
     events.push({
       icon: isStressed ? '📊' : '📈',
-      color: isStressed ? '#ef4444' : waccDiag.adjusted_wacc > 0.06 ? '#f59e0b' : '#10b981',
+      color: isStressed ? 'var(--danger)' : waccDiag.adjusted_wacc > 0.06 ? 'var(--caution)' : '#10b981',
       text: `ESG-Adjusted WACC: ${adjusted}% (base ${base}% + carbon ${carbonPrem}% + governance ${govPrem}% − SLO discount ${sloDiscount}%).${isStressed ? ' ⚠️ WACC above 8% — lender covenant triggers tightening.' : ''}`,
       tooltip: 'Your cost of capital is dynamically adjusted based on ESG performance (El Ghoul et al., 2011). High carbon intensity and governance risk increase WACC; strong social license reduces it. When WACC exceeds 8%, lenders automatically tighten covenant triggers.',
     });
@@ -470,7 +470,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
     const ebScore = ebPenalty.employer_brand_score?.toFixed(0) || '?';
     const multPct = ((ebPenalty.multiplier || 0) * 100).toFixed(1);
     events.push({
-      icon: '👥', color: '#ef4444',
+      icon: '👥', color: 'var(--danger)',
       text: ebPenalty.narrative || `Talent crisis — employer brand at ${ebScore}/100. Recruitment cost surcharge of $${totalPenalty}M (+${multPct}% OPEX across all ${ebPenalty.affected_bus || '?'} BUs).`,
       tooltip: 'When your employer brand score drops below 40 (driven by reputation, burnout, and workforce readiness), ALL business units face escalating recruitment and retention costs. This models the real-world "talent flight spiral" where poor conditions compound into organisation-wide OPEX inflation.',
     });
@@ -508,7 +508,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
       const isPositive = signal.category === 'positive';
       events.push({
         icon: isPositive ? '🔮' : '⚡',
-        color: isPositive ? '#10b981' : '#f59e0b',
+        color: isPositive ? '#10b981' : 'var(--caution)',
         text: signal.message || `${signal.signal_id}: ${signal.category} signal detected.`,
         tooltip: 'Foreshadowing signals indicate that a decision you made in an earlier round will have consequences in a later round. Positive signals indicate protective measures; warning signals suggest emerging vulnerabilities.',
       });
@@ -523,7 +523,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
 
   // ── Category grouping ──
   const categorizeEvent = (evt) => {
-    if (['#ef4444'].includes(evt.color) || evt.text?.toLowerCase().includes('risk') || evt.text?.toLowerCase().includes('penalty') || evt.text?.toLowerCase().includes('strike') || evt.text?.toLowerCase().includes('breach') || evt.text?.toLowerCase().includes('tipping')) return 'risks';
+    if (['var(--danger)'].includes(evt.color) || evt.text?.toLowerCase().includes('risk') || evt.text?.toLowerCase().includes('penalty') || evt.text?.toLowerCase().includes('strike') || evt.text?.toLowerCase().includes('breach') || evt.text?.toLowerCase().includes('tipping')) return 'risks';
     if (evt.text?.toLowerCase().includes('revenue') || evt.text?.toLowerCase().includes('$') || evt.text?.toLowerCase().includes('ebitda') || evt.text?.toLowerCase().includes('wacc') || evt.text?.toLowerCase().includes('treasury') || evt.text?.toLowerCase().includes('cost') || evt.text?.toLowerCase().includes('fee') || evt.text?.toLowerCase().includes('interest') || evt.text?.toLowerCase().includes('covenant')) return 'financial';
     return 'market';
   };
@@ -532,9 +532,9 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   events.forEach(evt => grouped[categorizeEvent(evt)].push(evt));
 
   const categoryMeta = {
-    risks: { icon: '⚠️', label: 'RISKS', color: '#ef4444' },
-    financial: { icon: '📈', label: 'FINANCIAL IMPACTS', color: '#f59e0b' },
-    market: { icon: '🌍', label: 'MARKET & ESG', color: '#6366f1' },
+    risks: { icon: '⚠️', label: 'RISKS', color: 'var(--danger)' },
+    financial: { icon: '📈', label: 'FINANCIAL IMPACTS', color: 'var(--caution)' },
+    market: { icon: '🌍', label: 'MARKET & ESG', color: 'var(--accent)' },
   };
 
   // V-A: null out when the VISIBLE sections have no content (original check,
@@ -546,9 +546,9 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
   const moodStyles = {
     confident: { bg: 'rgba(16,185,129,0.06)', border: 'rgba(16,185,129,0.2)', label: '#10b981', emoji: '😤' },
     contemplative: { bg: 'rgba(99,102,241,0.06)', border: 'rgba(99,102,241,0.2)', label: '#818cf8', emoji: '🤔' },
-    anxious: { bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)', label: '#f59e0b', emoji: '😰' },
-    distressed: { bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.2)', label: '#ef4444', emoji: '😨' },
-    desperate: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)', label: '#f87171', emoji: '😱' },
+    anxious: { bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)', label: 'var(--caution)', emoji: '😰' },
+    distressed: { bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.2)', label: 'var(--danger)', emoji: '😨' },
+    desperate: { bg: 'rgba(239,68,68,0.08)', border: 'rgba(239,68,68,0.3)', label: 'var(--danger-text)', emoji: '😱' },
   };
 
   const [eventsOpen, setEventsOpen] = React.useState(true);
@@ -602,7 +602,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
           <AccordionHeader
             icon="🔍" title="What Happened This Round"
             badge={`${events.length} event${events.length !== 1 ? 's' : ''}`}
-            accentColor="#f59e0b"
+            accentColor="var(--caution)"
             isOpen={eventsOpen} onClick={() => setEventsOpen(v => !v)}
           />
           {eventsOpen && (
@@ -615,7 +615,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                 padding: '6px 10px', marginBottom: 8, borderRadius: 6,
                 background: 'rgba(94,234,212,0.06)', border: '1px solid rgba(94,234,212,0.1)',
-                fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600,
+                fontSize: '0.68rem', color: 'var(--neutral)', fontWeight: 600,
               }}>
                 <span>{events.length} events</span>
                 <span>{grouped.risks.length} risks</span>
@@ -649,7 +649,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                               <div style={{
                                 marginTop: 4, padding: '6px 8px', borderRadius: 4,
                                 background: 'rgba(94,234,212,0.04)', border: '1px solid rgba(94,234,212,0.1)',
-                                fontSize: '0.65rem', color: '#94a3b8', lineHeight: 1.6, fontStyle: 'italic',
+                                fontSize: '0.65rem', color: 'var(--neutral)', lineHeight: 1.6, fontStyle: 'italic',
                               }}>
                                 💡 {evt.tooltip}
                               </div>
@@ -690,7 +690,7 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                 padding: '10px 14px', background: 'linear-gradient(135deg, rgba(167,139,250,0.04), #0c1322)',
                 borderTop: '1px solid #1e293b',
               }}>
-                <div style={{ fontSize: '0.76rem', color: '#94a3b8', marginBottom: 8 }}>
+                <div style={{ fontSize: '0.76rem', color: 'var(--neutral)', marginBottom: 8 }}>
                   <span style={{
                     background: 'linear-gradient(90deg, #c4b5fd, #818cf8, #c4b5fd)',
                     backgroundSize: '200% auto',
@@ -717,14 +717,14 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
                         }}>
                           {optionLabels[opt] || opt}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: tBetter ? '#4ade80' : '#f87171', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                        <div style={{ fontSize: '0.7rem', color: tBetter ? 'var(--positive-text)' : 'var(--danger-text)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
                           💰 {fmtDelta(data.treasury_delta)}
                         </div>
-                        <div style={{ fontSize: '0.7rem', color: rBetter ? '#4ade80' : '#f87171', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                        <div style={{ fontSize: '0.7rem', color: rBetter ? 'var(--positive-text)' : 'var(--danger-text)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
                           ⭐ {data.reputation_delta >= 0 ? '+' : ''}{data.reputation_delta?.toFixed(1) || '0'} rep
                         </div>
                         {data.ebitda_delta != null && (
-                          <div style={{ fontSize: '0.65rem', color: '#94a3b8', marginTop: 2 }}>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--neutral)', marginTop: 2 }}>
                             📊 EBITDA: {fmtDelta(data.ebitda_delta)}
                           </div>
                         )}

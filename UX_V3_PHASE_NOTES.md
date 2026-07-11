@@ -519,3 +519,51 @@ player smoke identical (201 / engines OK / R2 429) ✅.
 ### Rollback
 One commit — revert restores the stacked center, the always-on feed, and the
 floating dismissible checklist.
+
+---
+
+## Phase V-D (player dashboard v2) — token adoption + concentration + governance
+
+Scope: V-5 + V-7 + the slotting rule. Files: `MarketIntelCards.js`,
+`MarketTicker.js`, `EngineEventsPanel.js`, `ConsequenceReplay.module.css`,
+`LivingPlanet.module.css`, `DecisionPressureTimer.module.css`,
+`ExecutiveCockpit.js` (one effect), `CLAUDE.md`.
+
+- **V-5 token pass (zero visual change by construction):** 73 exact-value
+  hex→token replacements across the six post-redesign surfaces
+  (`#ef4444→var(--danger)`, `#4ade80→var(--positive-text)`,
+  `#f59e0b→var(--caution)`, `#6366f1→var(--accent)`, brand/info families,
+  etc.). Values are identical today; the point is that the accreted surfaces
+  now repaint with the token file instead of being stranded on literals.
+  **Deliberately descoped:** `AnnualReport.js` (39 hexes across canvas+SVG —
+  var() is unsafe in canvas fillStyle and SVG presentation attributes) and
+  the SVG-bearing JS of LivingPlanet/PressureTimer; and NO hue retirements
+  (e.g. Road-Not-Taken purple → accent) — per the tokens.css Phase-B note,
+  hue decisions happen on a real screen, not in a blind regex. Both descopes
+  are one-line changes later because of this pass.
+- **V-7 concentration:** the `data-allocation-open` dim flag (consumed by
+  MarketTicker via MutationObserver) now also sets during BU drill-down
+  (`isDeepDive`) — the ticker dims while inspecting, same as during
+  allocation/commit.
+- **Governance:** the slotting rule (one slot per surface, tokens mandatory,
+  retrospect-to-results, locked-summary pattern) is now in `CLAUDE.md`
+  alongside the tooltip-truth and catalog-tripwire conventions — the
+  accretion-prevention rule the v2 review §5 called the actual fix.
+
+### Gates (in-sandbox, 2026-07-11)
+JSX parse ✅ all touched JS · CSS files rename-refreshed ✅ · endpoint
+contract unchanged ✅ · jest 63/63 ✅ · player smoke identical
+(201 / engines OK / R2 429) ✅. Guard-grep confirmed no `fill="var(`/
+`stroke="var(` was introduced (no SVG-attribute damage).
+
+### Two-browser checklist (your machine)
+- Visual spot-diff of the six surfaces vs pre-V-D screenshots — they should
+  be pixel-identical (indirection only). If anything shifted hue, a literal
+  was not at its token's exact value: flag it.
+- Enter a BU drill-down → the bottom ticker dims; exit → restores. Focus
+  allocation/commit dimming unchanged.
+- `prefers-reduced-motion` still collapses animations (tokens.css Phase E).
+
+### Rollback
+One commit — revert restores literals, the narrower dim condition, and
+removes the CLAUDE.md sections.

@@ -708,11 +708,13 @@ export default function ExecutiveCockpit({
   // can dim itself. Attribute-based to avoid new prop drilling through
   // page.js; removed on unmount.
   useEffect(() => {
-    const dim = isFocusActive && (focusStep === 'allocation' || focusStep === 'commit');
+    // V-D (player v2, V-7): the BU drill-down is a concentration state too —
+    // the ticker dims while inspecting, same as during allocation/commit.
+    const dim = (isFocusActive && (focusStep === 'allocation' || focusStep === 'commit')) || isDeepDive;
     if (dim) document.documentElement.setAttribute('data-allocation-open', '1');
     else document.documentElement.removeAttribute('data-allocation-open');
     return () => document.documentElement.removeAttribute('data-allocation-open');
-  }, [isFocusActive, focusStep]);
+  }, [isFocusActive, focusStep, isDeepDive]);
 
 
   // Legacy A/B/C tile click

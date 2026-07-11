@@ -126,7 +126,7 @@ export default function MarketTicker({ roundNumber = 1, globalState, history, bu
   const border = '1px solid rgba(255, 255, 255, 0.08)';
   const fadeL = 'linear-gradient(90deg, #000000, transparent)';
   const fadeR = 'linear-gradient(270deg, #000000, transparent)';
-  const symColor = '#94a3b8';
+  const symColor = 'var(--neutral)';
   const priceColor = '#e2e8f0';
   const dotColor = 'rgba(148, 163, 184, 0.3)';
 

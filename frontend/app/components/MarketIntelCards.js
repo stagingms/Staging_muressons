@@ -52,7 +52,7 @@ export default function MarketIntel({ history, roundNumber }) {
           </div>
           <strong style={{ fontSize: '0.68rem', color: '#0f172a' }}>{release.title}</strong>
           <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#334155', lineHeight: 1.5 }}>{release.body}</p>
-          <div style={{ fontSize: '0.58rem', color: '#94a3b8', marginTop: 4 }}>
+          <div style={{ fontSize: '0.58rem', color: 'var(--neutral)', marginTop: 4 }}>
             Wire report · Round {release.round} results · derived from market data
           </div>
         </div>
@@ -82,12 +82,12 @@ export default function MarketIntel({ history, roundNumber }) {
                 fontFamily: 'var(--font-numeral, monospace)', letterSpacing: '0.04em',
               }}>{letter.grade}</span>
               {letter.prevGrade && letter.prevGrade !== letter.grade && (
-                <span style={{ fontSize: '0.62rem', color: '#94a3b8' }}>from {letter.prevGrade}</span>
+                <span style={{ fontSize: '0.62rem', color: 'var(--neutral)' }}>from {letter.prevGrade}</span>
               )}
-              <span style={{ fontSize: '0.6rem', color: '#94a3b8' }}>ESG composite {letter.score}/100</span>
+              <span style={{ fontSize: '0.6rem', color: 'var(--neutral)' }}>ESG composite {letter.score}/100</span>
             </div>
             <p style={{ margin: '3px 0 0', fontSize: '0.65rem', color: '#334155', lineHeight: 1.5 }}>{letter.rationale}</p>
-            <div style={{ fontSize: '0.58rem', color: '#94a3b8', marginTop: 4 }}>
+            <div style={{ fontSize: '0.58rem', color: 'var(--neutral)', marginTop: 4 }}>
               Semi-annual review · after Round {letter.round} · methodology: reputation 45% · carbon 25% · natural capital 15% · capital access 15%
             </div>
           </div>
