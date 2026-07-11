@@ -24,11 +24,11 @@ APP_VERSION: str = "1.0.0"
 DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
 # God-Mode Master Password — allows login to ANY facilitator or player account.
-# Default: "sim2026@iim@" (god-mode access for workshop administration).
+# Default: "sim2026@iim" (god-mode access for workshop administration).
 # Override via MASTER_PASSWORD env var (e.g. in backend/.env) if needed.
 # Set MASTER_PASSWORD="" in the env to disable the bypass entirely.
 _mp = os.getenv("MASTER_PASSWORD", "").strip().strip('"').strip("'")
-MASTER_PASSWORD: str = _mp if _mp else "sim2026@iim@"
+MASTER_PASSWORD: str = _mp if _mp else "sim2026@iim"
 
 # ElevenLabs Voice AI — used for CEO Interview post-game feature
 ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
