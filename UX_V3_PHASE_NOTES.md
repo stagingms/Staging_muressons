@@ -567,3 +567,60 @@ contract unchanged ✅ · jest 63/63 ✅ · player smoke identical
 ### Rollback
 One commit — revert restores literals, the narrower dim condition, and
 removes the CLAUDE.md sections.
+
+---
+
+## Q-1 (comprehensive review) — CI release gate + latent-dep fix
+
+Files: `.github/workflows/ci.yml`, `backend/requirements.txt`,
+`backend/requirements-dev.txt`.
+
+- **CI workflow** (GitHub Actions — remote is
+  github.com/mastersustainability/muressons): three jobs on every push + PR,
+  concurrency-cancel on superseded runs:
+  - `backend-tests` — Python 3.12, `pip install -r requirements-dev.txt`,
+    `pytest tests/` from `backend/` (so `db/` resolves at
+    `__file__.parent.parent`), `USE_MEMORY_DB=true`.
+  - `frontend-tests` — Node 20, `npm ci`, `npm test` (jest).
+  - `frontend-build` — Node 20, `npm ci`, `npm run build` (next).
+  Red blocks merge **once branch protection requires these checks** — that is
+  a GitHub Settings → Branches action the user must do (a workflow file can't
+  self-require).
+- **Latent prod-dep fix (found while pinning CI deps):** `openpyxl` is
+  imported at runtime by the Excel bulk-upload + S5 preview endpoints but was
+  absent from `requirements.txt` AND the Dockerfile — so those endpoints
+  would `ModuleNotFoundError` in production (the import is lazy/in-function,
+  so it never failed at boot). Added `openpyxl==3.1.5` to `requirements.txt`;
+  `requirements-dev.txt` layers `pytest` on top for CI. Standing up CI is
+  exactly what surfaced this.
+
+### Gate evidence (in-sandbox, 2026-07-11)
+- **Clean-venv backend proof:** fresh venv with ONLY `requirements-dev.txt`,
+  faithful repo layout (backend/ + repo-root db/) → **1,018 passed**. This is
+  the exact environment the `backend-tests` job builds; without the openpyxl
+  line it failed collection on `test_bulk_upload_preview.py`.
+- **YAML valid** (`yaml.safe_load`). `frontend/package-lock.json` present so
+  `npm ci` works.
+- **jest / next build not dry-run in-sandbox:** jest passed 63/63 four times
+  earlier this session (the V-A–V-D gates); a late-session FUSE mount quirk
+  makes jest's resolver intermittently miss the committed 1-line
+  `jest.setup.js` (node `fs.existsSync` confirms it's present) — a sandbox
+  artifact, not a repo defect, and absent on real CI runners. `next build`
+  exceeds the sandbox's 45s cap (same caveat the earlier phase notes carry);
+  both run normally on GitHub-hosted runners.
+
+### Follow-ups for the user (not code)
+1. **Branch protection:** Settings → Branches → require `backend-tests`,
+   `frontend-tests`, `frontend-build` before merge to `main`.
+2. **Rotate the leaked token:** the git remote URL embeds a
+   `ghp_…` personal access token (visible in `.git/config`) — rotate it and
+   switch the remote to SSH or a credential helper. Unrelated to CI but
+   found alongside it.
+3. **Dockerfile parity:** prod installs `requirements.txt` (now incl.
+   openpyxl ✓). No Dockerfile change needed; the bulk-upload endpoints will
+   work in prod once this ships.
+
+### Rollback
+Revert the commit — removes the workflow, the requirements-dev file, and the
+openpyxl pin. (Keep the openpyxl line even if reverting CI — it's a genuine
+prod-dependency fix.)

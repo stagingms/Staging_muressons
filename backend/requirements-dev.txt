@@ -1,0 +1,4 @@
+# Test-only dependencies (not needed at runtime).
+# CI installs requirements.txt + this file before running pytest.
+-r requirements.txt
+pytest==8.3.4
