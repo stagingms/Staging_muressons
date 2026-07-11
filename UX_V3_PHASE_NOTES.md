@@ -14,7 +14,10 @@ sites, shockwave/bell/rehearsal payload capture).
 | `d12ffb2` | S3-B | F-3a ring-bell tier-2 confirm (all-cohorts truth) |
 | `8c9f799` | S3-C | F-6 unified CreateCohortModal role resolution + project_admin branch |
 | `f9f7ae5` | S3 | Phase notes + gate evidence |
-| *(this)* | S4 | F-2 rehearsal mode surfaced — the one new request variant, live-proven a no-op |
+| `071ef56` | S4 | F-2 rehearsal mode surfaced — the one new request variant, live-proven a no-op |
+| `b49cd13` | S5-1 | F-7 create-cohort button truth (frontend-only) |
+| `a3bfa83` | S5-2 | G-3 proper — shockwave catalog endpoint (+2 tests) |
+| `beda7b0` | S5-3 | F-4 proper — bulk-upload preview endpoint (+3 tests) |
 
 ---
 
@@ -294,3 +297,79 @@ proven below instead of smuggled.
 
 `git revert` the S4 commit removes the button and preview; rehearsal writes no
 state, so no residue is possible by construction (and by the proof above).
+
+---
+
+## Phase S5 — the sign-off-gated backend items (additive only, feature-detected)
+
+- **S5-1 / F-7** — turned out FRONTEND-ONLY: the login and `/auth/refresh`
+  responses have always carried the `permissions` boolean map; the login
+  handler's destructure dropped it. Fix: cache it (C-2 safe — booleans, no
+  PII) and gate "Create New Cohort" on `permissions.can_create_cohorts`,
+  falling back to the old role heuristic when the flag is absent (older
+  cached auth, project_admin virtual account). **Visible behavior change
+  that is the point of the fix:** a lead whose flag was toggled off (e.g.
+  FAC-001 in the current registry has `can_create_cohorts: false`) now loses
+  the button instead of hitting a server rejection after filling the form.
+- **S5-2 / G-3 proper** — `GET /api/admin/shockwave/events` serves
+  `_SHOCKWAVE_EVENTS` (require_facilitator). The console prefers the engine's
+  catalog and keeps frontend emoji labels by id; on ANY failure it falls back
+  to the local `shockwaveCatalog`, which remains guarded by the S3 drift-
+  tripwire jest test. +2 pytest (route exists & gated — a 404 would mean the
+  path got shadowed by a dynamic /{cohort_id} route; payload matches engine).
+- **S5-3 / F-4 proper** — parse-only
+  `POST /api/admin/facilitators/bulk-upload/preview` (require_registry_admin).
+  Deliberately a DISTINCT route, not a `dry_run` flag: FastAPI ignores unknown
+  params, so a flag on the create endpoint would make an old backend silently
+  CREATE accounts on a "preview" request. Parsing was extracted verbatim into
+  `_parse_bulk_upload_sheet`, shared by preview and create so the two can
+  never disagree. The Excel staged panel now shows a real preview table
+  (row numbers, names, per-row skips, "Create N accounts now"); a 404/405
+  falls back to S2's blind-confirm flow. +3 pytest (gated route; preview
+  parses and creates NOTHING — registry length asserted; preview/create
+  agree row-for-row on the same file, with post-test registry cleanup+persist).
+
+## S5 gate evidence (run in-sandbox, 2026-07-11)
+
+1. **Backend pytest** ✅ **981 passed** = 976 baseline + 5 new (2 catalog,
+   3 preview). No existing test changed.
+2. **Live endpoint checks** ✅ catalog GET 200 with all 4 event ids (route
+   not shadowed); login response carries `permissions`
+   (`can_create_cohorts: false` for FAC-001 — the F-7 case, live); preview
+   returns 403 for a lead facilitator (registry-admin gate holds).
+3. **Frontend jest** ✅ 63/63 (tripwire still green against the edited
+   backend source).
+4. **Endpoint contract** ✅ exactly the two declared additions (catalog GET,
+   preview POST); committed snapshot updated with the declaration header.
+5. **Old-frontend compatibility** ✅ by construction: one response field
+   already existed, two endpoints are new paths no old frontend calls.
+   **New-frontend-vs-old-backend** ✅ by feature-detect: missing catalog →
+   local copy; preview 404/405 → blind-confirm flow; missing permissions →
+   role fallback.
+6. **Player smoke** ✅ identical to S0 (201 / engines OK / R2 429).
+   **Repo hygiene** ✅ the user's `db/facilitator_registry.json` untouched
+   (all live tests ran against the /tmp sandbox copy; the pytest cleanup
+   persists the cleaned registry).
+
+## S5 on-machine checklist
+
+- Sign in as a lead with `can_create_cohorts` OFF → no Create button on
+  Dashboard Home (after one fresh login to refresh the cached auth); toggle
+  it ON in the Registry → button returns on next login/refresh.
+- Shockwave console with the new backend → crisis cards show engine numbers
+  (change one in `_SHOCKWAVE_EVENTS` on a dev copy: card updates, jest
+  tripwire fails until the local catalog is synced — both layers work).
+- Registry (both surfaces): drop an .xlsx → real preview table appears,
+  "Create N accounts now"; drop a sheet with a nameless row → that row is
+  listed as skipped BEFORE anything is created; against an older backend
+  (or with the preview route blocked) → the S2 blind-confirm copy appears
+  instead.
+- `must_change_password`/one-time-password flows for bulk-created accounts
+  unchanged.
+
+## Rollback
+
+Three independent commits — revert selectively. Backend reverts are safe:
+both endpoints are additive reads/parse-only (no state writes), and the
+create endpoint's refactor is covered by the preview/create-agreement test.
+Frontend degrades gracefully in every mixed-version direction by design.

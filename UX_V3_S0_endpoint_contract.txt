@@ -1,7 +1,9 @@
-# UX v3 — S0 endpoint-contract snapshot (static extraction)
-# Tree: ec908f9 · 2026-07-11T04:09Z
-# Format: <file> :: <call-site line, whitespace-normalized>. Sorted, deduplicated.
-# Oracle rule: any phase diff of this file must list its deltas in the phase notes.
+# UX v3 — endpoint-contract snapshot (S5 state)
+# Tree: beda7b0 · 2026-07-11T10:03Z
+# Baseline S0 + exactly two S5-declared additions:
+#   + admin/shockwave/page.js :: GET /api/admin/shockwave/events (G-3 proper)
+#   + components/FacilitatorManager.js :: POST /api/admin/facilitators/bulk-upload/preview (F-4 proper)
+# (S4's rehearsal:true body field shares the detonate call-site line — declared in the phase notes.)
 
 admin/facilitator/page.js :: await fetch(`${API}/api/admin/auth/logout`, {
 admin/facilitator/page.js :: await fetch(endpoint, { method 'DELETE', credentials 'include' });
@@ -31,6 +33,7 @@ admin/god-mode/page.js :: const res = await fetch(`${API}/api/admin/master-passw
 admin/god-mode/page.js :: const res = await fetch(`${apiBase}/api/admin/reset-all`, { method 'DELETE', credentials 'include' });
 admin/god-mode/page.js :: orphans.map(s => fetch(`${apiBase}/api/admin/sessions/${s.session_id}?hard=true`, { method 'DELETE', credentials 'include' }))
 admin/shockwave/page.js :: fetch('/api/admin/leaderboard', { credentials 'include' })
+admin/shockwave/page.js :: fetch('/api/admin/shockwave/events', { credentials 'include' })
 admin/shockwave/page.js :: fetch(`/api/admin/${encodeURIComponent(cohort)}/shockwave`, {
 admin/trading-floor/page.js :: fetch('/api/admin/leaderboard', { credentials 'include' })
 admin/trading-floor/page.js :: fetch(`/api/admin/${encodeURIComponent(cohortId)}/finale/ring-bell`, { method 'POST', credentials 'include' })
@@ -116,6 +119,7 @@ components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/fa
 components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/facilitators/${facId}/reset-password`, {
 components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/facilitators/${facId}/role`, {
 components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/facilitators/${facId}`, {
+components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/facilitators/bulk-upload/preview`, {
 components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/facilitators/bulk-upload`, {
 components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/facilitators/bulk`, {
 components/FacilitatorManager.js :: const res = await fetch(`${API}/api/admin/facilitators`);
