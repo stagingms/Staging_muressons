@@ -1,0 +1,103 @@
+/* ═══════════════════════════════════════════════════════════════
+   LivingPlanet.module.css — WOW-7
+   Ambient ESG health visualization with orbital rings.
+   ═══════════════════════════════════════════════════════════════ */
+
+.container {
+  margin: var(--space-sm, 8px) 0;
+  padding: var(--space-md, 14px);
+  border-radius: var(--radius-lg, 12px);
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.03), rgba(59, 130, 246, 0.02));
+  border: 1px solid rgba(148, 163, 184, 0.08);
+}
+.compact { padding: var(--space-sm, 8px); }
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-sm, 8px);
+}
+.headerIcon { font-size: 1rem; }
+.headerTitle {
+  font-size: var(--fs-xs, 0.7rem);
+  font-weight: 800;
+  color: var(--text-primary, #f1f5f9);
+  flex: 1;
+}
+.compositeScore {
+  font-size: var(--fs-xs, 0.72rem);
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Orb ── */
+.orbWrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--space-sm, 8px);
+}
+.orbSvg {
+  overflow: visible;
+}
+
+.ring {
+  transition: stroke-dashoffset 1.2s ease;
+  animation: lp-ringIn 1s ease forwards;
+  animation-delay: var(--ring-delay, 0s);
+}
+@keyframes lp-ringIn {
+  from { opacity: 0; }
+  to { opacity: 0.65; }
+}
+
+.centralOrb {
+  animation: lp-pulse 4s ease-in-out infinite;
+}
+@keyframes lp-pulse {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.25; }
+}
+
+/* ── Metric grid ── */
+.metricGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+}
+.compact .metricGrid {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.metricCard {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.1);
+}
+.metricIcon { font-size: 0.8rem; }
+.metricLabel {
+  font-size: 0.5rem;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.metricValue {
+  font-size: 0.7rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .ring { animation: none; opacity: 0.65; transition: none; }
+  .centralOrb { animation: none; opacity: 0.2; }
+  /* Show flat cards only, hide SVG */
+  .orbWrapper { display: none; }
+  .metricGrid { grid-template-columns: repeat(4, 1fr); }
+  .metricCard { padding: 8px; }
+}

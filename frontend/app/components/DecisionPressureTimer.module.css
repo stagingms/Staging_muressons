@@ -1,0 +1,77 @@
+/* ═══════════════════════════════════════════════════════════════
+   DecisionPressureTimer.module.css — WOW-11
+   Competitive timer with urgency states and progress ring.
+   ═══════════════════════════════════════════════════════════════ */
+
+.container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  transition: all 0.3s ease;
+}
+
+.urgency_green { border-color: rgba(16, 185, 129, 0.2); }
+.urgency_amber { border-color: rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.05); }
+.urgency_red   { border-color: rgba(239, 68, 68, 0.35); background: rgba(239, 68, 68, 0.06); }
+
+/* ── Ring ── */
+.ring { flex-shrink: 0; }
+.progressArc { transition: stroke-dashoffset 1s linear; }
+
+/* ── Time ── */
+.timeDisplay {
+  font-size: 0.78rem;
+  font-weight: 900;
+  font-family: var(--font-mono, monospace);
+  min-width: 32px;
+}
+
+/* ── Commit Badge ── */
+.commitBadge {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+}
+.commitCount {
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: #818cf8;
+  font-family: var(--font-mono, monospace);
+}
+.commitSep {
+  font-size: 0.55rem;
+  color: #475569;
+}
+.commitTotal {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #64748b;
+  font-family: var(--font-mono, monospace);
+}
+.commitLabel {
+  font-size: 0.6rem;
+  margin-left: 2px;
+}
+
+/* ── Warning Pulse ── */
+.warningPulse {
+  animation: dpt-pulse 1s ease infinite;
+  font-size: 0.8rem;
+}
+@keyframes dpt-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .warningPulse { animation: none; }
+  .progressArc { transition: none; }
+}

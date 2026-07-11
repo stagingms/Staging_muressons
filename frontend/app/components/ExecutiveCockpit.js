@@ -44,6 +44,9 @@ import ConsequencePreview from './ConsequencePreview';
 import { playDeepDiveEnter, playDeepDiveExit, playCommitSuccess, playTippingWarning, playTurnKey } from './CockpitSounds';
 import StakeholderAgentPanel from './StakeholderAgentPanel';
 import EBITDAWaterfall from './EBITDAWaterfall';
+import LivingPlanet from './LivingPlanet';
+import DecisionPressureTimer from './DecisionPressureTimer';
+import ConsequenceReplay from './ConsequenceReplay';
 import PlayerAnnotations from './PlayerAnnotations';
 import WhatIfSandbox from './WhatIfSandbox';
 import ShadowBoardAudit from './ShadowBoardAudit';
@@ -1205,6 +1208,13 @@ export default function ExecutiveCockpit({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
+            {/* WOW-11: Enhanced timer with competitive commit counter */}
+            <DecisionPressureTimer
+              sessionId={sim?.sessionId}
+              roundNumber={roundNumber}
+              isCommitted={!!commitResults}
+              globalState={globalState}
+            />
             <span style={{
               padding: '2px 10px', borderRadius: 12,
               background: decisionParadigm === 'advanced_climate' ? 'rgba(16,185,129,0.18)' : 'rgba(99,102,241,0.12)',
@@ -1434,6 +1444,8 @@ export default function ExecutiveCockpit({
           {/* ── TAB: Metrics (Advanced Metrics — previously collapsible drawer) ── */}
           {leftPanelTab === 'metrics' && (
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
+            {/* WOW-7: Living Planet ESG State Globe */}
+            <LivingPlanet globalState={globalState} businessUnits={businessUnits} compact />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {/* #3: BU Health Leaderboard — Deep Dive only */}
               {isDeepDive && businessUnits?.length > 0 && (
@@ -2172,6 +2184,14 @@ export default function ExecutiveCockpit({
                 );
               })()}
             </div>
+
+            {/* WOW-1: Consequence Replay — animated causal chain after commit */}
+            <ConsequenceReplay
+              commitResults={commitResults}
+              sessionId={sim?.sessionId}
+              roundNumber={roundNumber}
+              globalState={globalState}
+            />
 
             {/* Events summary */}
             {commitResults.events && Object.keys(commitResults.events).length > 0 && (
