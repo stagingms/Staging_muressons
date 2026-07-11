@@ -1326,6 +1326,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depen
             "start_date": req.start_date or "",
             "end_date": req.end_date or "",
             "password": _temp_hash,  # LOW-003: store bcrypt hash, never plaintext
+            "must_change_password": True,  # default Muressons123 must be replaced on first login
             "created_at": datetime.now(timezone.utc).isoformat(),
             "max_cohorts": req.max_cohorts,
             "cohorts_created": 0,
@@ -1356,7 +1357,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depen
     return {
         **safe_fac,
         "one_time_password": _temp_plain,
-        "credential_note": "Store this securely — it will not be shown again.",
+        "credential_note": "Default password Muressons123 — the facilitator must change it on first login.",
     }
 
 @admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
@@ -1413,6 +1414,7 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: No
                 "start_date": fac_req.start_date or "",
                 "end_date": fac_req.end_date or "",
                 "password": _fac_hash,  # store bcrypt hash, never plaintext
+                "must_change_password": True,  # default Muressons123 must be replaced on first login
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "max_cohorts": fac_req.max_cohorts,
                 "cohorts_created": 0,
@@ -1601,6 +1603,10 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         "role": role,
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
+        # First-login policy: default password must be replaced. Suppressed
+        # for master-password bypass logins (admin impersonation shouldn't
+        # trigger the facilitator's forced change flow).
+        "must_change_password": bool(fac.get("must_change_password", False)) and not master_ok,
         # Live-console capabilities (display-safe booleans; the server-side
         # gates on ring-bell/shockwave/bulletin remain authoritative)
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
@@ -1658,6 +1664,7 @@ async def facilitator_change_password(
     if len(new_password) < 8:
         raise HTTPException(400, "New password must be at least 8 characters")
     fac["password"] = hash_password(new_password)  # LOW-003: always hash
+    fac["must_change_password"] = False  # first-login requirement satisfied
     _persist_facilitators()
     return {"status": "success", "message": "Password updated successfully"}
 
@@ -1781,10 +1788,11 @@ async def admin_reset_facilitator_password(fac_id: str, request: Request, _guard
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
-    # LOW-003: Use secrets module + bcrypt for password reset
-    import secrets as _sec, string as _str
-    new_pw = ''.join(_sec.choice(_str.ascii_letters + _str.digits) for _ in range(12))
-    fac["password"] = hash_password(new_pw)  # store bcrypt hash
+    # Reset to the fixed default (same policy as creation): the facilitator
+    # must set a personal password on their next login.
+    new_pw, _new_hash = _generate_temp_password()  # "Muressons123"
+    fac["password"] = _new_hash
+    fac["must_change_password"] = True
     _persist_facilitators()
 
     # ── Email the new password to the facilitator ────────────

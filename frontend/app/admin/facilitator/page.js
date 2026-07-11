@@ -95,9 +95,9 @@ function FacilitatorLoginGate({ onLogin }) {
                 // Sensitive profile fields (email, contact, programme) must not
                 // be persisted to localStorage — XSS can read everything there.
                 // The JWT cookie (HttpOnly) holds the real session credential.
-                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled } = data;
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password } = data;
                 localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled }
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password }
                 ));
                 onLogin(data);
             } else {
@@ -1192,6 +1192,28 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                 />
             )}
 
+            {/* ── Forced first-login password change ──
+                Facilitators are created with the default password
+                (Muressons123); the login response sets must_change_password
+                and this modal cannot be dismissed until a personal password
+                is set. Master-bypass logins never see it (server suppresses
+                the flag). */}
+            {authData?.must_change_password && !showChangePw && (
+                <FacilitatorChangePasswordModal
+                    facilitatorId={authData.facilitator_id}
+                    forced
+                    onClose={() => {}}
+                    onSuccess={() => {
+                        setAuthData(prev => { const u = { ...prev }; delete u.must_change_password; return u; });
+                        try {
+                            const cached = JSON.parse(localStorage.getItem('facilitator_auth') || '{}');
+                            delete cached.must_change_password;
+                            localStorage.setItem('facilitator_auth', JSON.stringify(cached));
+                        } catch {}
+                    }}
+                />
+            )}
+
             {/* ── Onboarding Wizard (first-time only) ── */}
             <OnboardingWizard mode="facilitator" userId={authData.facilitator_id} onStepChange={(tab) => setActiveTab(tab)} />
 
@@ -1866,7 +1888,7 @@ function InterviewControlPanel({ sessions = [] }) {
  *  CHANGE PASSWORD MODAL
  * ═════════════════════════════════════════════════════════════════ */
 
-function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
+function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false, onSuccess = null }) {
     const [oldPw, setOldPw] = useState('');
     const [newPw, setNewPw] = useState('');
     const [confirmPw, setConfirmPw] = useState('');
@@ -1896,6 +1918,7 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
                 throw new Error(data.detail || 'Failed to change password.');
             }
             setSuccess(true);
+            if (onSuccess) setTimeout(onSuccess, 1400); // let the confirmation register, then release the gate
         } catch (err) {
             setError(err.message);
         } finally {
@@ -1942,10 +1965,17 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
             }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                     <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
-                        🔑 Change Password
+                        {forced ? '🔐 Set Your Password' : '🔑 Change Password'}
                     </h2>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)' }}>×</button>
+                    {!forced && (
+                        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)' }}>×</button>
+                    )}
                 </div>
+                {forced && !success && (
+                    <p style={{ margin: '-0.75rem 0 1rem', fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.5 }}>
+                        You signed in with the default password. Choose a personal password to continue — your current password is the one you just used.
+                    </p>
+                )}
 
                 {success ? (
                     <div style={{ textAlign: 'center' }}>
@@ -1954,7 +1984,7 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
                         <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>
                             Your password has been changed successfully.
                         </p>
-                        <button onClick={onClose} style={{
+                        <button onClick={forced ? (onSuccess || onClose) : onClose} style={{
                             marginTop: '1rem', background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', color: '#fff',
                             border: 'none', padding: '0.6rem 1.5rem', borderRadius: '8px', fontWeight: 600, cursor: 'pointer',
                         }}>Done</button>
@@ -1980,11 +2010,13 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose }) {
                             <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter new password" required style={inputStyle} />
                         </div>
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
-                            <button type="button" onClick={onClose} style={{
-                                background: 'transparent', border: '1px solid var(--border-subtle, #cbd5e1)',
-                                color: 'var(--text-secondary, #475569)', padding: '0.5rem 1rem', borderRadius: '6px',
-                                fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
-                            }}>Cancel</button>
+                            {!forced && (
+                                <button type="button" onClick={onClose} style={{
+                                    background: 'transparent', border: '1px solid var(--border-subtle, #cbd5e1)',
+                                    color: 'var(--text-secondary, #475569)', padding: '0.5rem 1rem', borderRadius: '6px',
+                                    fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
+                                }}>Cancel</button>
+                            )}
                             <button type="submit" disabled={loading} style={{
                                 background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', color: '#fff', border: 'none',
                                 padding: '0.5rem 1.25rem', borderRadius: '6px', fontSize: '0.85rem',
