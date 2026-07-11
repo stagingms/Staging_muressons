@@ -47,3 +47,8 @@ db/*.json
 !db/seed_round1.json
 sessions.json
 
+
+# Live runtime state (written by the app; do not track)
+sessions.json
+db/admin_audit.jsonl
+backend/db/muressons_state.db
