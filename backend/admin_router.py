@@ -305,6 +305,7 @@ def _generate_temp_password() -> tuple[str, str]:
 import database as db
 import materiality_db as mat_db
 from config import MASTER_PASSWORD, PROJECT_ADMIN_PASSWORD, SIM_ROUNDS, SIM_INITIAL_BUDGET
+from master_credentials import verify_master_password, set_master_password, master_override_active
 from password_hashing import hash_password, verify_password, maybe_upgrade_password
 from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 
@@ -846,7 +847,7 @@ async def update_facilitator_role(
         raise HTTPException(400, "God Mode Facilitator ID and password are required for role changes.")
 
     # Check against master password first (covers the virtual god_mode account)
-    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(caller_password, MASTER_PASSWORD)
+    master_ok = verify_master_password(caller_password)
     # M-5: Audit log when master password bypass is used
     if master_ok:
         print(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
@@ -1688,7 +1689,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         None,
     )
     # FIX AUDIT-005: Master password from env var, empty = disabled
-    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(password, MASTER_PASSWORD)
+    master_ok = verify_master_password(password)
     # Project-admin virtual account (registry + cohort creation only)
     project_ok = bool(PROJECT_ADMIN_PASSWORD) and hmac.compare_digest(password, PROJECT_ADMIN_PASSWORD)
 
@@ -1813,7 +1814,7 @@ async def facilitator_change_password(
         # determine whether a facilitator_id exists via error differentiation.
         raise HTTPException(403, "Current password is incorrect")
     # FIX AUDIT-005: Use configurable master password
-    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(old_password, MASTER_PASSWORD)
+    master_ok = verify_master_password(old_password)
     if not verify_password(old_password, fac.get("password", "")) and not master_ok:
         raise HTTPException(403, "Current password is incorrect")
     # M-5: Audit log when master password bypass is used
@@ -1938,6 +1939,38 @@ async def admin_revoke_facilitator_sessions(
         "facilitator_id": fac_id,
         "token_version": new_version,
         "message": "All outstanding sessions for this account have been invalidated.",
+    }
+
+
+@admin_router.post("/master-password", summary="Change the master password (God Mode)")
+async def change_master_password(request: Request, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
+    """Runtime master-password change from God Mode.
+
+    Requires the CURRENT master password as confirmation (a hijacked admin
+    session alone cannot rotate the break-glass credential). The new value
+    is stored as a bcrypt hash in backend/db/master_password.json
+    (gitignored), takes effect IMMEDIATELY for every master-bypass surface
+    (god_mode login, facilitator bypass, password-change bypass, role
+    verification, player master unlock) and survives restarts — the
+    override supersedes the MASTER_PASSWORD env/.env value.
+    """
+    _check_rate_limit(request, "master_pw_change")
+    current = (body.get("current_password") or "").strip()
+    new = (body.get("new_password") or "").strip()
+    if not verify_master_password(current):
+        raise HTTPException(403, "Current master password is incorrect")
+    if len(new) < 8:
+        raise HTTPException(400, "New master password must be at least 8 characters")
+    from auth_jwt import get_facilitator_from_request
+    actor = get_facilitator_from_request(request) or "god_mode"
+    set_master_password(new, changed_by=actor)
+    _audit("master_password_changed", actor=actor,
+           details={"override_active": True},
+           source_ip=(request.client.host if request.client else "unknown"))
+    print(f"[SECURITY] Master password rotated by {actor}")
+    return {
+        "status": "success",
+        "note": "Effective immediately on all master-bypass logins and persists across restarts (override supersedes .env).",
     }
 
 

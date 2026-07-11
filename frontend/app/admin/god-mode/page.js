@@ -280,6 +280,127 @@ function GodModeLoginGate({ onLogin }) {
  *  CHANGE PASSWORD MODAL
  * ═════════════════════════════════════════════════════════════════ */
 
+/* ═════════════════════════════════════════════════════════════════
+ *  MASTER PASSWORD MODAL — rotates the break-glass credential
+ * ═════════════════════════════════════════════════════════════════ */
+
+function MasterPasswordModal({ onClose }) {
+    const [currentPw, setCurrentPw] = useState('');
+    const [newPw, setNewPw] = useState('');
+    const [confirmPw, setConfirmPw] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setError('');
+        if (newPw.length < 8) { setError('New master password must be at least 8 characters.'); return; }
+        if (newPw !== confirmPw) { setError('Passwords do not match.'); return; }
+        setLoading(true);
+        try {
+            const res = await fetch(`${API}/api/admin/master-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ current_password: currentPw, new_password: newPw }),
+            });
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}));
+                throw new Error(typeof data.detail === 'string' ? data.detail : 'Failed to change the master password.');
+            }
+            setSuccess(true);
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const inputStyle = {
+        width: '100%', padding: '0.7rem 1rem', borderRadius: 'var(--radius-md, 6px)',
+        border: '1px solid var(--border-subtle, #cbd5e1)', background: 'var(--bg-body, #f1f5f9)',
+        color: 'var(--text-primary, #1e293b)', fontSize: '0.9rem', outline: 'none', boxSizing: 'border-box',
+    };
+    const labelStyle = {
+        display: 'block', fontSize: '0.72rem', fontWeight: 700, textTransform: 'uppercase',
+        letterSpacing: '0.1em', color: 'var(--text-muted, #64748b)', marginBottom: '0.4rem',
+    };
+
+    return (
+        <div style={{
+            position: 'fixed', inset: 0, zIndex: 20000,
+            background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+            <div style={{
+                background: 'var(--bg-card, #fff)', border: '1px solid rgba(239,68,68,0.35)',
+                borderRadius: 'var(--radius-lg, 12px)', padding: '2rem', maxWidth: '420px', width: '90%',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-primary, #1e293b)' }}>
+                        🗝️ Change Master Password
+                    </h2>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: '1.3rem', cursor: 'pointer', color: 'var(--text-muted, #94a3b8)' }}>×</button>
+                </div>
+                <p style={{ margin: '0 0 1.25rem', fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.55 }}>
+                    The break-glass credential: it signs in <strong>god_mode</strong> and bypass-logs into any
+                    facilitator account. Changes take effect immediately, survive restarts, and supersede
+                    the <code>.env</code> value.
+                </p>
+
+                {success ? (
+                    <div style={{ textAlign: 'center' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '0.5rem' }}>✅</div>
+                        <h3 style={{ color: 'var(--text-primary, #1e293b)', margin: '0 0 0.5rem' }}>Master Password Rotated</h3>
+                        <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>
+                            The new master password is live on every master-bypass surface. Store it securely — it is not shown again.
+                        </p>
+                        <button onClick={onClose} style={{
+                            marginTop: '1rem', background: 'linear-gradient(135deg, #ef4444, #f59e0b)', color: '#fff',
+                            border: 'none', padding: '0.6rem 1.5rem', borderRadius: '8px', fontWeight: 600, cursor: 'pointer',
+                        }}>Done</button>
+                    </div>
+                ) : (
+                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {error && (
+                            <div style={{
+                                background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
+                                color: '#ef4444', padding: '0.6rem', borderRadius: '6px', fontSize: '0.85rem',
+                            }}>{error}</div>
+                        )}
+                        <div>
+                            <label style={labelStyle}>Current Master Password</label>
+                            <PasswordInput value={currentPw} onChange={e => setCurrentPw(e.target.value)} placeholder="Confirm the current master password" required style={inputStyle} />
+                        </div>
+                        <div>
+                            <label style={labelStyle}>New Master Password</label>
+                            <PasswordInput value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" required style={inputStyle} />
+                        </div>
+                        <div>
+                            <label style={labelStyle}>Confirm New Master Password</label>
+                            <PasswordInput value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter new master password" required style={inputStyle} />
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
+                            <button type="button" onClick={onClose} style={{
+                                background: 'transparent', border: '1px solid var(--border-subtle, #cbd5e1)',
+                                color: 'var(--text-secondary, #475569)', padding: '0.5rem 1rem', borderRadius: '6px',
+                                fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
+                            }}>Cancel</button>
+                            <button type="submit" disabled={loading} style={{
+                                background: 'linear-gradient(135deg, #ef4444, #f59e0b)', color: '#fff', border: 'none',
+                                padding: '0.5rem 1.25rem', borderRadius: '6px', fontSize: '0.85rem',
+                                fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,
+                            }}>{loading ? '⏳ Rotating…' : 'Rotate Master Password'}</button>
+                        </div>
+                    </form>
+                )}
+            </div>
+        </div>
+    );
+}
+
 function GodModeChangePasswordModal({ facilitatorId, onClose }) {
     const [oldPw, setOldPw] = useState('');
     const [newPw, setNewPw] = useState('');
@@ -600,6 +721,7 @@ function SystemContextBar({ status, lastSuccess, failedAttempts }) {
 function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
     const [activeTab, setActiveTab] = useState('system_overview');
     const [showChangePw, setShowChangePw] = useState(false);
+    const [showMasterPw, setShowMasterPw] = useState(false);
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [openCategories, setOpenCategories] = useState({
         command_center: true,
@@ -850,6 +972,11 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 />
             )}
 
+            {/* ── Master Password Modal (break-glass credential) ── */}
+            {showMasterPw && (
+                <MasterPasswordModal onClose={() => setShowMasterPw(false)} />
+            )}
+
             {/* ── Change Password Modal ── */}
             {showChangePw && (
                 <GodModeChangePasswordModal
@@ -908,6 +1035,23 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                                     title="Change password"
                                 >
                                     🔑
+                                </button>
+                                <button
+                                    onClick={() => setShowMasterPw(true)}
+                                    style={{
+                                        background: 'none',
+                                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                                        color: '#ef4444',
+                                        fontSize: '0.65rem',
+                                        fontWeight: 700,
+                                        padding: '3px 8px',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
+                                    }}
+                                    title="Change the MASTER password (break-glass credential for god_mode and all master-bypass logins)"
+                                >
+                                    🗝️
                                 </button>
                                 <button
                                     onClick={onLogout}

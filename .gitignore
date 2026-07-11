@@ -52,3 +52,6 @@ sessions.json
 sessions.json
 db/admin_audit.jsonl
 backend/db/muressons_state.db
+
+# Master-password override (bcrypt hash, set from God Mode)
+backend/db/master_password.json

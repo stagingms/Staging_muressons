@@ -18,6 +18,7 @@ from round_logic import pre_tick, post_tick, run_new_engines
 from round_configs import get_round_config, get_round_crisis
 from pillar_configs import get_pillar_config, aggregate_pillar_decisions, translate_pillars_to_legacy_choice
 from config import MASTER_PASSWORD
+from master_credentials import verify_master_password
 from admin_router import set_session_interventions, SessionInterventionsRequest, auto_inject_scheduled_interventions, require_facilitator, _check_rate_limit
 from password_hashing import verify_password as _verify_pw, hash_password as _hash_pw, maybe_upgrade_password as _maybe_upgrade_pw
 from admin_resources import check_hidden_resource_triggers
@@ -306,7 +307,7 @@ async def player_login(request: Request, req: PlayerLoginRequest):
 
     # LOW-003: Use bcrypt-aware verify (falls back to plaintext for legacy records)
     stored_pw = player_record.get("password", "")
-    master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(req.password, MASTER_PASSWORD)
+    master_ok = verify_master_password(req.password)
     # SEC: An empty stored password must never *bypass* a real one. If this
     # record's password is blank (e.g. the `allowed_player_ids` fallback path),
     # cross-check the authoritative registry so a placeholder can't skip a
@@ -404,7 +405,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
         if player_record and player_record.get("password"):
             # LOW-003: bcrypt-aware comparison
-            master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(req.password, MASTER_PASSWORD)
+            master_ok = verify_master_password(req.password)
             if not master_ok and not _verify_pw(req.password, player_record["password"]):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Incorrect password.")
     except ImportError:
