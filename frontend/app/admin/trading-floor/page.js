@@ -59,16 +59,18 @@ export default function TradingFloorPage() {
     });
   };
 
+  // F-9 (v3): distinguish "signed out" (fix: sign in, reload) from "backend
+  // down" (fix: check the server). error is false | 'auth' | 'net'.
   const load = useCallback(() => {
     fetch('/api/admin/leaderboard', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unauth'))))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'auth' : 'http'))))
       .then((d) => {
         const rows = (d.leaderboard || []).filter((x) => x.player_name || x.parent_cohort_id);
         rows.sort((a, b) => (b.terminal_value || 0) - (a.terminal_value || 0));
         setTeams(rows);
         setError(false);
       })
-      .catch(() => setError(true));
+      .catch((e) => setError(e && e.message === 'auth' ? 'auth' : 'net'));
   }, []);
 
   // Poll the live leaderboard while enabled and not yet closed.
@@ -128,7 +130,9 @@ export default function TradingFloorPage() {
           <div style={S.brand}>MURESSONS GLOBAL EXCHANGE</div>
           <div style={S.sub}>{closed ? 'MARKET CLOSED · YEAR 5 FINAL RANKING' : 'LIVE · ENTERPRISE VALUE'}</div>
         </div>
-        <label style={S.switchWrap} title="Facilitator on/off">
+        {/* F-9 (v3): scope truth — the switch governs this tab's projection only. */}
+        <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
+          <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
           <span style={{ fontSize: '0.8rem', color: '#8899a6', fontWeight: 700 }}>{enabled ? 'ON' : 'OFF'}</span>
           <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good, #10b981)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
             <span style={{ ...S.knob, transform: enabled ? 'translateX(24px)' : 'translateX(0)' }} />
@@ -143,8 +147,12 @@ export default function TradingFloorPage() {
         </div>
       ) : error ? (
         <div style={S.center}>
-          <div style={{ fontSize: '2rem' }}>🔌</div>
-          <div style={{ color: '#8899a6', marginTop: 8 }}>Waiting for the backend / facilitator sign-in…</div>
+          <div style={{ fontSize: '2rem' }}>{error === 'auth' ? '🔒' : '🔌'}</div>
+          <div style={{ color: '#8899a6', marginTop: 8 }}>
+            {error === 'auth'
+              ? 'Signed out — sign in on the Facilitator Dashboard in another tab, then reload this one.'
+              : 'Backend unreachable — retrying every 5 seconds…'}
+          </div>
         </div>
       ) : teams.length === 0 ? (
         <div style={S.center}><div style={{ color: '#8899a6' }}>No active teams yet.</div></div>

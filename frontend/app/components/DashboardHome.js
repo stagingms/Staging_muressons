@@ -13,7 +13,14 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 const TREASURY_FLOOR = 10_000_000;
 const REPUTATION_FLOOR = 40;
 
-export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCohort, selectedSession = null }) {
+// F-5 (v3): the home screen is role-polymorphic. `canAccessTab` is the SAME
+// predicate the sidebar/quick-bar/router use (v1 F9) — quick actions and
+// alert-card navigation must never invite a click that lands on the 🔒
+// "not available" panel. `role` lets the project_admin variant suppress
+// facilitation artifacts (alerts, briefing card) that role can't act on.
+export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCohort, selectedSession = null, canAccessTab = () => true, role = 'facilitator' }) {
+    const isProjectAdmin = role === 'project_admin';
+    const canLeaderboard = canAccessTab('leaderboard');
     const stats = useMemo(() => {
         const cohorts = leaderboard.filter(s => !s.player_id);
         const players = leaderboard.filter(s => !!s.player_id);
@@ -127,19 +134,21 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
 
 
             {/* ── Alert Panels ── */}
-            {stats.alertCount > 0 && (
+            {/* F-5 (v3): hidden for project_admin — KPI triage is a facilitation
+                task their role has no tools for (leaderboard, overrides). */}
+            {!isProjectAdmin && stats.alertCount > 0 && (
                 <div className={styles.alertSection}>
                     <h3 className={styles.alertTitle}>⚠️ Attention Required — {stats.alertCount} team{stats.alertCount > 1 ? 's' : ''}</h3>
                     <div className={styles.alertGrid}>
                         {stats.lagging.length > 0 && (
                             <div
                                 className={styles.alertCard}
-                                role="button"
-                                tabIndex={0}
-                                style={{ cursor: 'pointer' }}
+                                role={canLeaderboard ? 'button' : undefined}
+                                tabIndex={canLeaderboard ? 0 : undefined}
+                                style={{ cursor: canLeaderboard ? 'pointer' : 'default' }}
                                 title={stats.lagging.map(a => a.session.cohort_name || a.session.session_id).join(', ')}
-                                onClick={() => onNavigate?.('leaderboard')}
-                                onKeyDown={e => e.key === 'Enter' && onNavigate?.('leaderboard')}
+                                onClick={() => canLeaderboard && onNavigate?.('leaderboard')}
+                                onKeyDown={e => e.key === 'Enter' && canLeaderboard && onNavigate?.('leaderboard')}
                             >
                                 <div className={styles.alertCardIcon}>🐢</div>
                                 <div>
@@ -151,12 +160,12 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
                         {stats.lowTreasury.length > 0 && (
                             <div
                                 className={styles.alertCard}
-                                role="button"
-                                tabIndex={0}
-                                style={{ cursor: 'pointer' }}
+                                role={canLeaderboard ? 'button' : undefined}
+                                tabIndex={canLeaderboard ? 0 : undefined}
+                                style={{ cursor: canLeaderboard ? 'pointer' : 'default' }}
                                 title={stats.lowTreasury.map(a => a.session.cohort_name || a.session.session_id).join(', ')}
-                                onClick={() => onNavigate?.('leaderboard')}
-                                onKeyDown={e => e.key === 'Enter' && onNavigate?.('leaderboard')}
+                                onClick={() => canLeaderboard && onNavigate?.('leaderboard')}
+                                onKeyDown={e => e.key === 'Enter' && canLeaderboard && onNavigate?.('leaderboard')}
                             >
                                 <div className={styles.alertCardIcon}>💸</div>
                                 <div>
@@ -168,12 +177,12 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
                         {stats.lowRep.length > 0 && (
                             <div
                                 className={styles.alertCard}
-                                role="button"
-                                tabIndex={0}
-                                style={{ cursor: 'pointer' }}
+                                role={canLeaderboard ? 'button' : undefined}
+                                tabIndex={canLeaderboard ? 0 : undefined}
+                                style={{ cursor: canLeaderboard ? 'pointer' : 'default' }}
                                 title={stats.lowRep.map(a => a.session.cohort_name || a.session.session_id).join(', ')}
-                                onClick={() => onNavigate?.('leaderboard')}
-                                onKeyDown={e => e.key === 'Enter' && onNavigate?.('leaderboard')}
+                                onClick={() => canLeaderboard && onNavigate?.('leaderboard')}
+                                onKeyDown={e => e.key === 'Enter' && canLeaderboard && onNavigate?.('leaderboard')}
                             >
                                 <div className={styles.alertCardIcon}>📉</div>
                                 <div>
@@ -195,26 +204,45 @@ export default function DashboardHome({ leaderboard = [], onNavigate, onCreateCo
                             🚀 Create New Cohort
                         </button>
                     )}
-                    <button className={styles.actionBtn} onClick={() => onNavigate?.('leaderboard')}>
-                        📋 View Leaderboard
-                    </button>
-                    <button className={styles.actionBtn} onClick={() => onNavigate?.('registry')}>
-                        👥 Player Registry
-                    </button>
+                    {/* F-5 (v3): project_admin's second real action gets home-screen
+                        weight; other roles reach the registry via the sidebar. */}
+                    {isProjectAdmin && canAccessTab('facilitator_registry') && (
+                        <button className={styles.actionBtn} onClick={() => onNavigate?.('facilitator_registry')}>
+                            👥 Facilitator Registry
+                        </button>
+                    )}
+                    {/* F-5 (v3): every navigation action is gated by the same
+                        canAccessTab the router enforces — no dead doors. */}
+                    {canLeaderboard && (
+                        <button className={styles.actionBtn} onClick={() => onNavigate?.('leaderboard')}>
+                            📋 View Leaderboard
+                        </button>
+                    )}
+                    {canAccessTab('registry') && (
+                        <button className={styles.actionBtn} onClick={() => onNavigate?.('registry')}>
+                            👥 Player Registry
+                        </button>
+                    )}
                     {/* F9: was 'audit_trail' — a tab id that no longer exists in the
                         facilitator sidebar (merged into Decision History). Navigating
                         there broke the breadcrumb and nav highlight. */}
-                    <button className={styles.actionBtn} onClick={() => onNavigate?.('decision_replay')}>
-                        🕰️ Decision History
-                    </button>
-                    <button className={styles.actionBtn} onClick={() => onNavigate?.('reports')}>
-                        📊 Export Reports
-                    </button>
+                    {canAccessTab('decision_replay') && (
+                        <button className={styles.actionBtn} onClick={() => onNavigate?.('decision_replay')}>
+                            🕰️ Decision History
+                        </button>
+                    )}
+                    {canAccessTab('reports') && (
+                        <button className={styles.actionBtn} onClick={() => onNavigate?.('reports')}>
+                            📊 Export Reports
+                        </button>
+                    )}
                 </div>
             </div>
 
             {/* ── Round Briefing Card ── */}
-            {briefingScript && briefingScript[String(currentRound)] && (() => {
+            {/* F-5 (v3): a project_admin never delivers a round briefing —
+                the directive card is facilitation prep, not provisioning. */}
+            {!isProjectAdmin && briefingScript && briefingScript[String(currentRound)] && (() => {
                 const script = briefingScript[String(currentRound)];
                 return (
                     <div className={styles.briefingCard}>

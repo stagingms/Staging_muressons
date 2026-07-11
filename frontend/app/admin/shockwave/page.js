@@ -25,8 +25,11 @@ export default function ShockwaveControlPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // F-9 (v3): name the remedy — "signed out" and "backend down" are
+    // different problems. (Target selection is deliberately untouched here;
+    // the auto-select removal + blast-radius confirm are Phase S3 / F-1.)
     fetch('/api/admin/leaderboard', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'auth' : 'http'))))
       .then((d) => {
         const map = new Map();
         (d.leaderboard || []).forEach((x) => {
@@ -37,7 +40,9 @@ export default function ShockwaveControlPage() {
         setCohorts(list);
         if (list[0]) setCohort(list[0].id);
       })
-      .catch(() => setError('Could not load cohorts — is the backend running and are you signed in?'));
+      .catch((e) => setError(e && e.message === 'auth'
+        ? 'Signed out — sign in on the Facilitator Dashboard in another tab, then reload this console.'
+        : 'Backend unreachable — cohorts could not be loaded. Check the server, then reload.'));
   }, []);
 
   const detonate = useCallback(() => {

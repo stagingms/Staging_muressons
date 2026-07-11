@@ -67,11 +67,13 @@ export default function WarMapPage() {
     });
   };
 
+  // F-9 (v3): "signed out" and "backend down" have opposite remedies mid-class
+  // — never conflate them. error is false | 'auth' | 'net'.
   const load = useCallback(() => {
     fetch('/api/admin/leaderboard', { credentials: 'include' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('unauth'))))
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'auth' : 'http'))))
       .then((d) => { setModel(buildMapModel(d.leaderboard || [])); setError(false); })
-      .catch(() => setError(true));
+      .catch((e) => setError(e && e.message === 'auth' ? 'auth' : 'net'));
   }, []);
 
   useEffect(() => {
@@ -92,9 +94,18 @@ export default function WarMapPage() {
       <div style={S.header}>
         <div>
           <div style={S.brand}>MURESSONS GLOBAL SITUATION MAP</div>
-          <div style={S.sub}>LIVE · ROUND {model.maxRound} · {model.nodes.length} OPERATING UNIT{model.nodes.length === 1 ? '' : 'S'} ON THE BOARD</div>
+          {/* F-9 (v3): a range, not the global max — "ROUND 6" while your room
+              is on R3 is the F3 defect class on a projector. */}
+          <div style={S.sub}>LIVE · {(() => {
+            const rounds = model.nodes.map((n) => n.round || 1);
+            const lo = rounds.length ? Math.min(...rounds) : model.maxRound;
+            return lo === model.maxRound ? `ROUND ${model.maxRound}` : `ROUNDS ${lo}–${model.maxRound} IN PLAY`;
+          })()} · {model.nodes.length} OPERATING UNIT{model.nodes.length === 1 ? '' : 'S'} ON THE BOARD</div>
         </div>
-        <label style={S.switchWrap} title="Facilitator on/off">
+        {/* F-9 (v3): this switch only stops THIS tab's polling/projection —
+            say so, or a podium facilitator flips it believing it acts globally. */}
+        <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
+          <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
           <span style={{ fontSize: '0.8rem', color: '#8899a6', fontWeight: 700 }}>{enabled ? 'ON' : 'OFF'}</span>
           <span style={{ ...S.switch, background: enabled ? 'var(--kpi-good, #10b981)' : 'rgba(148,163,184,0.3)' }} onClick={toggle}>
             <span style={{ ...S.knob, transform: enabled ? 'translateX(24px)' : 'translateX(0)' }} />
@@ -109,8 +120,12 @@ export default function WarMapPage() {
         </div>
       ) : error ? (
         <div style={S.center}>
-          <div style={{ fontSize: '2rem' }}>🔌</div>
-          <div style={{ color: '#8899a6', marginTop: 8 }}>Waiting for the backend / facilitator sign-in…</div>
+          <div style={{ fontSize: '2rem' }}>{error === 'auth' ? '🔒' : '🔌'}</div>
+          <div style={{ color: '#8899a6', marginTop: 8 }}>
+            {error === 'auth'
+              ? 'Signed out — sign in on the Facilitator Dashboard in another tab, then reload this one.'
+              : 'Backend unreachable — retrying every 5 seconds…'}
+          </div>
         </div>
       ) : (
         <>

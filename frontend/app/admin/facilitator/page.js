@@ -53,8 +53,10 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'unde
 
 // Phase R1 (V2-8): single source for the shortcut sheet — if a binding in the
 // keydown handler changes, change it HERE too (same file, one constant).
-const FACILITATOR_SHORTCUTS = [
-    ['Ctrl+1…4', 'Toggle sidebar group open/closed'],
+// F-8 (v3): the Ctrl+1…N row is generated at render time from the role's
+// actual FILTERED_SIDEBAR group count (the Administration group made the
+// hardcoded "4" wrong for super_admin and project_admin).
+const FACILITATOR_STATIC_SHORTCUTS = [
     ['Ctrl+Shift+B', 'Open Bulk Messaging (broadcast)'],
     ['?', 'Show / hide this sheet'],
     ['Esc', 'Close dialogs'],
@@ -484,6 +486,10 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     //    Ctrl+Shift+B — same binding semantics as God Mode
     //  · '?' opens a discoverable shortcut sheet
     const [showShortcuts, setShowShortcuts] = useState(false);
+    // F-8 (v3): Ctrl+1…N addresses the groups the sidebar actually renders for
+    // this role (updated each render below, after FILTERED_SIDEBAR is derived)
+    // instead of a hardcoded 4-entry list that predates the Administration group.
+    const sidebarGroupIdsRef = useRef([]);
     useEffect(() => {
         const handler = (e) => {
             const tag = e.target?.tagName;
@@ -495,11 +501,11 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             }
             if (e.key === 'Escape') setShowShortcuts(false);
             if (e.ctrlKey || e.metaKey) {
-                const categoryKeys = ['command', 'classroom', 'analytics', 'config'];
-                if (e.key >= '1' && e.key <= '4') {
-                    e.preventDefault();
+                const categoryKeys = sidebarGroupIdsRef.current;
+                if (e.key >= '1' && e.key <= '9') {
                     const idx = parseInt(e.key) - 1;
                     if (categoryKeys[idx]) {
+                        e.preventDefault();
                         setOpenCategories(prev => ({ ...prev, [categoryKeys[idx]]: !prev[categoryKeys[idx]] }));
                     }
                 }
@@ -753,6 +759,10 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
     const visibleTabIds = new Set(FILTERED_SIDEBAR.flatMap(g => g.items.map(i => i.id)));
     const canAccessTab = (tabId) => visibleTabIds.has(tabId);
 
+    // F-8 (v3): keep the shortcut handler's group list in sync with what the
+    // sidebar renders (ref write on every render — the handler reads it live).
+    sidebarGroupIdsRef.current = FILTERED_SIDEBAR.map(g => g.id);
+
     const getTabMeta = (tabId) => _getTabMeta(FILTERED_SIDEBAR, tabId);
 
     const renderActiveComponent = () => {
@@ -843,7 +853,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                                 ) : null}
                             </div>
                         )}
-                        <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} selectedSession={selectedSession} onCreateCohort={authData.role === 'facilitator' ? null : () => setCreateCohortOpen(true)} />
+                        <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} selectedSession={selectedSession} onCreateCohort={authData.role === 'facilitator' ? null : () => setCreateCohortOpen(true)} canAccessTab={canAccessTab} role={authData.role || 'facilitator'} />
                         <CreateCohortModal
                             isOpen={createCohortOpen}
                             onClose={() => setCreateCohortOpen(false)}
@@ -1182,11 +1192,15 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             {/* Phase 5 (F4): shared tiered confirmation modal */}
             {confirmModal}
 
-            {/* Phase 6 (F12): shortcut sheet ('?') */}
+            {/* Phase 6 (F12): shortcut sheet ('?') — F-8 (v3): the Ctrl+1…N row
+                reflects this role's actual group count. */}
             {showShortcuts && (
                 <ShortcutSheet
                     onClose={() => setShowShortcuts(false)}
-                    shortcuts={FACILITATOR_SHORTCUTS}
+                    shortcuts={[
+                        [FILTERED_SIDEBAR.length > 1 ? `Ctrl+1…${FILTERED_SIDEBAR.length}` : 'Ctrl+1', 'Toggle sidebar group open/closed'],
+                        ...FACILITATOR_STATIC_SHORTCUTS,
+                    ]}
                 />
             )}
 
@@ -1536,9 +1550,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                     }}
                 >↩️ Undo</button>
 
-                {/* Keyboard shortcut hints */}
+                {/* Keyboard shortcut hints — F-8 (v3): count matches this role's groups */}
                 <span className="fac-bar-hint" style={{ fontSize: '0.68rem', color: 'var(--text-muted)', opacity: 0.5, whiteSpace: 'nowrap' }}>
-                    Ctrl+1–4: toggle groups · Ctrl+Shift+B: broadcast · ?: shortcuts
+                    Ctrl+1–{FILTERED_SIDEBAR.length}: toggle groups · Ctrl+Shift+B: broadcast · ?: shortcuts
                 </span>
             </div>
 

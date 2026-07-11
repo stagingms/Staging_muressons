@@ -171,6 +171,11 @@ const ROLE_HIERARCHY = {
     admin: 3,          // legacy alias — matches backend admin_shared.py
     lead_facilitator: 2,
     facilitator: 1,
+    // F-5 (v3): mirrors admin_shared.py:ROLE_HIERARCHY ("project_admin": 1).
+    // The role's tabs come from its FIXED allowed_tabs set; the level only
+    // matters so a future requiredRole-tagged tab granted to project_admin
+    // doesn't silently vanish (level-0 fallthrough).
+    project_admin: 1,
 };
 
 /**

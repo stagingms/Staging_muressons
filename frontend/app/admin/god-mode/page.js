@@ -17,7 +17,6 @@ import GodModeAuditLog from '../../components/GodModeAuditLog';
 import UniversalBroadcast from '../../components/UniversalBroadcast';
 import SystemExport from '../../components/SystemExport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
-import GlossaryManager from '../../components/GlossaryManager';
 import TechnicalGlossary from '../../components/TechnicalGlossary';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 import ArchetypeEditor from '../../components/ArchetypeEditor';
@@ -291,6 +290,12 @@ function MasterPasswordModal({ onClose }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
+    // G-5 (v3): caps-lock detection local to this modal (PasswordInput is
+    // shared with player-facing surfaces and stays untouched).
+    const [capsOn, setCapsOn] = useState(false);
+    const trackCaps = (e) => {
+        if (typeof e.getModifierState === 'function') setCapsOn(e.getModifierState('CapsLock'));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -347,7 +352,9 @@ function MasterPasswordModal({ onClose }) {
                 <p style={{ margin: '0 0 1.25rem', fontSize: '0.75rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.55 }}>
                     The break-glass credential: it signs in <strong>god_mode</strong> and bypass-logs into any
                     facilitator account. Changes take effect immediately, survive restarts, and supersede
-                    the <code>.env</code> value.
+                    the <code>.env</code> value. Rotating it does <strong>not</strong> sign anyone out —
+                    dashboards already signed in stay signed in; the new password applies to future
+                    master-bypass logins only.
                 </p>
 
                 {success ? (
@@ -356,6 +363,7 @@ function MasterPasswordModal({ onClose }) {
                         <h3 style={{ color: 'var(--text-primary, #1e293b)', margin: '0 0 0.5rem' }}>Master Password Rotated</h3>
                         <p style={{ color: 'var(--text-muted, #64748b)', fontSize: '0.85rem' }}>
                             The new master password is live on every master-bypass surface. Store it securely — it is not shown again.
+                            Existing signed-in dashboards are unaffected; only future master-bypass logins use the new value.
                         </p>
                         <button onClick={onClose} style={{
                             marginTop: '1rem', background: 'linear-gradient(135deg, #ef4444, #f59e0b)', color: '#fff',
@@ -363,7 +371,14 @@ function MasterPasswordModal({ onClose }) {
                         }}>Done</button>
                     </div>
                 ) : (
-                    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <form onSubmit={handleSubmit} onKeyDown={trackCaps} onKeyUp={trackCaps}
+                        style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        {capsOn && (
+                            <div style={{
+                                background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                                color: '#f59e0b', padding: '0.45rem 0.6rem', borderRadius: '6px', fontSize: '0.78rem',
+                            }}>⇪ Caps Lock is on</div>
+                        )}
                         {error && (
                             <div style={{
                                 background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)',
@@ -913,8 +928,10 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 
             case 'resources':
                 return <ResourceManager />;
-            case 'glossary_editor':
-                return <GlossaryManager />;
+            // G-4 (v3): dead case 'glossary_editor' removed — no sidebar item has
+            // that id (same class as v1 G7's 'cohort_orchestration'). Glossary
+            // editing stays reachable: ResourceManager renders GlossaryManager
+            // in its own "📖 Glossary" tab.
             case 'doc_reference':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -1106,10 +1123,66 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                         </div>
                     ))}
 
-                    {/* Trading Floor + Shockwave Console moved to the FACILITATOR
-                        screen (per-facilitator capability flags set in the
-                        Facilitator Registry; server-enforced). Super admins see
-                        them there too — their flags default to enabled. */}
+                    {/* G-2 (v3): Live Consoles restored to the God Mode chrome.
+                        The facilitator screen keeps its capability-gated copies;
+                        god_mode always passes the server-side console gates
+                        (_require_console_capability), so no flag checks here.
+                        Navigation must never require memorized URLs for
+                        capabilities the role holds. */}
+                    <div style={{ margin: '14px 8px 4px', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>
+                        Live Consoles
+                    </div>
+                    <a
+                        href="/admin/trading-floor"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.navItem}
+                        data-tooltip="Project the live market board + closing bell on the room screen"
+                        data-tooltip-pos="right"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 8px 0',
+                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
+                            color: 'var(--accent-gold, #f59e0b)', fontWeight: 700,
+                            border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)',
+                        }}
+                    >
+                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🔔</span>
+                        <span>Trading Floor ↗</span>
+                    </a>
+                    <a
+                        href="/admin/shockwave"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.navItem}
+                        data-tooltip="DESTRUCTIVE — opens the console that detonates a synchronized crisis across every team in a cohort. Nothing fires until you confirm inside the console."
+                        data-tooltip-pos="right"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
+                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
+                            color: '#ef4444', fontWeight: 700,
+                            border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)',
+                        }}
+                    >
+                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🌊</span>
+                        <span>Shockwave Console ↗</span>
+                    </a>
+                    <a
+                        href="/admin/war-map"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.navItem}
+                        data-tooltip="Project the live situation map — teams by region, crisis pulses, R5 cyclone track. Read-only."
+                        data-tooltip-pos="right"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
+                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
+                            color: '#2dd4bf', fontWeight: 700,
+                            border: '1px solid rgba(45,212,191,0.35)', background: 'rgba(45,212,191,0.08)',
+                        }}
+                    >
+                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🗺️</span>
+                        <span>Region War-Map ↗</span>
+                    </a>
                 </nav>
             </aside>
 
