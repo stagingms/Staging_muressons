@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import styles from './FacilitatorManager.module.css';
+import PasswordInput from './PasswordInput';
 import dynamic from 'next/dynamic';
 import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META, resolveVerticalMeta } from '../lib/verticalCatalog';
 
@@ -2356,9 +2357,8 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                     textTransform: 'uppercase', letterSpacing: '0.1em',
                                     color: 'var(--text-muted)', marginBottom: '0.35rem',
                                 }}>Password</label>
-                                <input
+                                <PasswordInput
                                     id="role-verify-pw"
-                                    type="password"
                                     value={roleVerifyPassword}
                                     onChange={e => setRoleVerifyPassword(e.target.value)}
                                     placeholder="Enter God Mode password"

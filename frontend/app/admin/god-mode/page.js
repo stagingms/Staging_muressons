@@ -9,6 +9,7 @@ import MasterInterventions from '../../components/MasterInterventions';
 import ResourceManager from '../../components/ResourceManager';
 
 import FacilitatorManager from '../../components/FacilitatorManager';
+import PasswordInput from '../../components/PasswordInput';
 import CrisisTriggerConfig from '../../components/CrisisTriggerConfig';
 import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
 import GodModeStatus from '../../components/GodModeStatus';
@@ -189,8 +190,7 @@ function GodModeLoginGate({ onLogin }) {
                         }}>
                             Password
                         </label>
-                        <input
-                            type="password"
+                        <PasswordInput
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Enter password"
@@ -366,15 +366,15 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
                         )}
                         <div>
                             <label style={labelStyle}>Current Password</label>
-                            <input type="password" value={oldPw} onChange={e => setOldPw(e.target.value)} placeholder="Enter current password" required style={inputStyle} />
+                            <PasswordInput value={oldPw} onChange={e => setOldPw(e.target.value)} placeholder="Enter current password" required style={inputStyle} />
                         </div>
                         <div>
                             <label style={labelStyle}>New Password</label>
-                            <input type="password" value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" required style={inputStyle} />
+                            <PasswordInput value={newPw} onChange={e => setNewPw(e.target.value)} placeholder="At least 8 characters" required style={inputStyle} />
                         </div>
                         <div>
                             <label style={labelStyle}>Confirm New Password</label>
-                            <input type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter new password" required style={inputStyle} />
+                            <PasswordInput value={confirmPw} onChange={e => setConfirmPw(e.target.value)} placeholder="Re-enter new password" required style={inputStyle} />
                         </div>
                         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '0.5rem' }}>
                             <button type="button" onClick={onClose} style={{

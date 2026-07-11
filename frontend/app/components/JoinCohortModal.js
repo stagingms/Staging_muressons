@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import styles from './JoinCohortModal.module.css';
 import ChangePasswordModal from './ChangePasswordModal';
+import PasswordInput from './PasswordInput';
 
 export default function JoinCohortModal({ sim }) {
     const [joining, setJoining] = useState(false);
@@ -107,8 +108,7 @@ export default function JoinCohortModal({ sim }) {
 
                         <div className={styles.field}>
                             <label className={styles.label}>CLEARANCE CIPHER</label>
-                            <input
-                                type="password"
+                            <PasswordInput
                                 value={password}
                                 onChange={(e) => setPassword(e.target.value)}
                                 placeholder="••••••••"

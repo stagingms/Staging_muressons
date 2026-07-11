@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import PasswordInput from './PasswordInput';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -176,8 +177,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                 <label style={labelStyle}>Current Password {isForced && <span style={{ color: '#94a3b8', fontWeight: 400 }}>(default: <strong style={{ color: '#f59e0b', fontFamily: 'monospace' }}>Muressons123</strong>)</span>}</label>
-                                <input
-                                    type="password"
+                                <PasswordInput
                                     value={oldPassword}
                                     onChange={e => setOldPassword(e.target.value)}
                                     placeholder="Your current password"
@@ -188,8 +188,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                 <label style={labelStyle}>New Password</label>
-                                <input
-                                    type="password"
+                                <PasswordInput
                                     value={newPassword}
                                     onChange={e => setNewPassword(e.target.value)}
                                     placeholder="At least 8 characters"
@@ -200,8 +199,7 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
                                 <label style={labelStyle}>Confirm New Password</label>
-                                <input
-                                    type="password"
+                                <PasswordInput
                                     value={confirmPassword}
                                     onChange={e => setConfirmPassword(e.target.value)}
                                     placeholder="Re-enter new password"
