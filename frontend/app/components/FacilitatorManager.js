@@ -420,7 +420,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
         setDrawerOpen(true);
     };
 
-    const closeDrawer = () => { setDrawerOpen(false); setStep(1); setForm({ ...EMPTY_FORM }); setEditingFacId(null); };
+    const closeDrawer = () => { setDrawerOpen(false); setStep(1); setForm({ ...EMPTY_FORM }); setEditingFacId(null); setPendingExcel(null); setExcelResult(null); };
 
     const updateForm = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
     const updatePermission = (key, value) => setForm(prev => ({
@@ -584,9 +584,18 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     // W-PA: .xlsx files are parsed SERVER-side by /facilitators/bulk-upload
     // (openpyxl) — creation happens immediately with per-row results.
     // CSV/TXT keep the existing client-side parse → preview → submit flow.
+    // F-4 (v3): the same drop zone used to behave two different ways — CSV
+    // previewed, Excel executed. The commit point is now explicit: dropping
+    // an .xlsx stages it behind a pre-flight confirm, and the response is
+    // rendered as a created/skipped checklist (incl. the one-time passwords
+    // the old toast threw away) instead of auto-closing the drawer.
+    const [pendingExcel, setPendingExcel] = useState(null);   // staged File awaiting confirm
+    const [excelResult, setExcelResult] = useState(null);      // { created:[], errors:[], total_created, total_errors }
+
     const handleExcelUpload = async (file) => {
         setBulkUploading(true);
         setBulkErrors([]);
+        setExcelResult(null);
         try {
             const fd = new FormData();
             fd.append('file', file);
@@ -598,10 +607,16 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 setBulkErrors([typeof data.detail === 'string' ? data.detail : `Upload failed (${res.status})`]);
                 return;
             }
-            setBulkErrors((data.errors || []).map(e => `Row ${e.row}: ${e.error}`));
+            setExcelResult({
+                created: data.created || [],
+                errors: data.errors || [],
+                total_created: data.total_created ?? (data.created || []).length,
+                total_errors: data.total_errors ?? (data.errors || []).length,
+            });
             showToast(`✅ ${data.total_created} facilitator(s) created from Excel${data.total_errors ? ` · ${data.total_errors} row(s) skipped` : ''}`);
             await fetchFacilitators();
-            if (!data.total_errors) closeDrawer();
+            // F-4: never auto-close — the result panel (one-time passwords,
+            // per-row skips) must be read/copied before the drawer goes away.
         } catch {
             setBulkErrors(['Network error during Excel upload']);
         } finally {
@@ -611,7 +626,14 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
 
     const handleFileSelect = (file) => {
         if (!file) return;
-        if (/\.xlsx$/i.test(file.name || '')) { handleExcelUpload(file); return; }
+        if (/\.xlsx$/i.test(file.name || '')) {
+            // F-4 (v3): stage + confirm; creation fires only on the explicit button.
+            setPendingExcel(file);
+            setBulkErrors([]);
+            setExcelResult(null);
+            setBulkData([]);
+            return;
+        }
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
@@ -1746,8 +1768,75 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 <p className={styles.dropzoneText}>
                     {isDragOver ? 'Drop your file here' : 'Drag & drop a CSV file here, or click to browse'}
                 </p>
-                <span className={styles.dropzoneHint}>Supports .csv, .txt and Excel (.xlsx) — Excel rows are created immediately with per-row results</span>
+                <span className={styles.dropzoneHint}>Supports .csv, .txt (parse → preview → create) and Excel .xlsx (server-parsed — confirm before accounts are created)</span>
             </div>
+
+            {/* F-4 (v3): Excel pre-flight confirm — the explicit commit point.
+                CSV gets a preview table; .xlsx can't be previewed client-side,
+                so the trade-off is stated and creation waits for this button. */}
+            {pendingExcel && !bulkUploading && !excelResult && (
+                <div style={{
+                    marginTop: '1rem', padding: '1rem 1.25rem', borderRadius: 10,
+                    border: '1px solid rgba(245,158,11,0.4)', background: 'rgba(245,158,11,0.07)',
+                }}>
+                    <div style={{ fontWeight: 700, marginBottom: 6 }}>
+                        📄 {pendingExcel.name} <span style={{ fontWeight: 500, color: 'var(--text-muted, #8899a6)' }}>— Excel file staged, nothing created yet</span>
+                    </div>
+                    <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary, #cbd5e1)' }}>
+                        Excel rows are parsed on the server and facilitator accounts are <strong>created immediately on upload</strong> —
+                        there is no preview step for .xlsx. Each created account gets a one-time password, shown once in the
+                        result list below. To review rows before anything is created, use the CSV path instead.
+                    </p>
+                    <div style={{ display: 'flex', gap: '0.6rem' }}>
+                        <button className={styles.bulkDownloadBtn} style={{ fontWeight: 700 }}
+                            onClick={() => { const f = pendingExcel; setPendingExcel(null); handleExcelUpload(f); }}>
+                            🚀 Upload & create accounts now
+                        </button>
+                        <button className={styles.bulkDownloadBtn}
+                            onClick={() => setPendingExcel(null)}>
+                            Cancel — nothing sent
+                        </button>
+                    </div>
+                </div>
+            )}
+            {bulkUploading && pendingExcel === null && excelResult === null && bulkData.length === 0 && (
+                <div style={{ marginTop: '1rem', fontSize: '0.85rem', color: 'var(--text-muted, #8899a6)' }}>⏳ Uploading Excel — creating accounts…</div>
+            )}
+
+            {/* F-4 (v3): result checklist — created ✓ (with the one-time
+                passwords the old toast discarded) and skipped ✗ with reasons. */}
+            {excelResult && (
+                <div style={{
+                    marginTop: '1rem', padding: '1rem 1.25rem', borderRadius: 10,
+                    border: `1px solid ${excelResult.total_errors ? 'rgba(245,158,11,0.4)' : 'rgba(16,185,129,0.4)'}`,
+                    background: excelResult.total_errors ? 'rgba(245,158,11,0.06)' : 'rgba(16,185,129,0.06)',
+                }}>
+                    <div style={{ fontWeight: 700, marginBottom: 8 }}>
+                        Upload result — {excelResult.total_created} created · {excelResult.total_errors} skipped
+                    </div>
+                    {excelResult.created.length > 0 && (
+                        <div style={{ marginBottom: excelResult.errors.length ? 10 : 0 }}>
+                            {excelResult.created.map((c, i) => (
+                                <div key={i} style={{ fontSize: '0.8rem', padding: '3px 0', fontFamily: 'var(--font-mono, monospace)' }}>
+                                    <span style={{ color: '#10b981' }}>✓</span> {c.name} ({c.facilitator_id})
+                                    {c.one_time_password && <> · one-time password: <strong>{c.one_time_password}</strong></>}
+                                </div>
+                            ))}
+                            <div style={{ fontSize: '0.75rem', color: '#f59e0b', marginTop: 6 }}>
+                                ⚠ Copy or send the one-time passwords now — they are not shown again.
+                            </div>
+                        </div>
+                    )}
+                    {excelResult.errors.map((e2, i) => (
+                        <div key={i} style={{ fontSize: '0.8rem', padding: '3px 0', color: '#fca5a5' }}>
+                            ✗ Row {e2.row}: {e2.error}
+                        </div>
+                    ))}
+                    <div style={{ marginTop: 10 }}>
+                        <button className={styles.bulkDownloadBtn} onClick={() => setExcelResult(null)}>Done</button>
+                    </div>
+                </div>
+            )}
 
             {/* Errors */}
             {bulkErrors.length > 0 && (

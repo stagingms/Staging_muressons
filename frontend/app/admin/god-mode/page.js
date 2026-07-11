@@ -1049,27 +1049,14 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                                         cursor: 'pointer',
                                         transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
                                     }}
-                                    title="Change password"
+                                    title="Change your own password"
                                 >
-                                    🔑
+                                    🔑 Password
                                 </button>
-                                <button
-                                    onClick={() => setShowMasterPw(true)}
-                                    style={{
-                                        background: 'none',
-                                        border: '1px solid rgba(239, 68, 68, 0.35)',
-                                        color: '#ef4444',
-                                        fontSize: '0.65rem',
-                                        fontWeight: 700,
-                                        padding: '3px 8px',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        transition: 'background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s, opacity 0.2s, transform 0.2s',
-                                    }}
-                                    title="Change the MASTER password (break-glass credential for god_mode and all master-bypass logins)"
-                                >
-                                    🗝️
-                                </button>
+                                {/* G-1 (v3): the 🗝️ master-key button no longer sits
+                                    one icon away from the routine password button —
+                                    the break-glass entry moved to the red "Break-Glass"
+                                    item at the foot of the sidebar. */}
                                 <button
                                     onClick={onLogout}
                                     style={{
@@ -1183,6 +1170,28 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                         <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🗺️</span>
                         <span>Region War-Map ↗</span>
                     </a>
+
+                    {/* G-1 (v3): break-glass credential rotation lives here —
+                        physically apart from the routine header password button,
+                        with Danger-Zone-red framing. Opens the same modal. */}
+                    <div style={{ margin: '14px 8px 4px', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>
+                        Break-Glass
+                    </div>
+                    <button
+                        onClick={() => setShowMasterPw(true)}
+                        className={styles.navItem}
+                        data-tooltip="Rotate the MASTER password — the break-glass credential that signs in god_mode and bypass-logs into ANY facilitator account. Requires the current master password."
+                        data-tooltip-pos="right"
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 8px 12px',
+                            padding: '8px 10px', borderRadius: '8px', width: 'calc(100% - 16px)',
+                            color: '#ef4444', fontWeight: 700, cursor: 'pointer', textAlign: 'left',
+                            border: '1px dashed rgba(239,68,68,0.45)', background: 'rgba(239,68,68,0.05)',
+                        }}
+                    >
+                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🗝️</span>
+                        <span>Master Key…</span>
+                    </button>
                 </nav>
             </aside>
 

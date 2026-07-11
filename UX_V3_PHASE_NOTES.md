@@ -8,7 +8,8 @@ sites, shockwave/bell/rehearsal payload capture).
 |---|---|---|
 | `ec908f9` | S0 | v3 review document |
 | `435fa52` | S0 | Baseline evidence + endpoint contract |
-| *(this)* | S1 | Chrome truth & routing hygiene — G-2, G-4, F-5, F-8, F-9, G-5 |
+| `cd26682` | S1 | Chrome truth & routing hygiene — G-2, G-4, F-5, F-8, F-9, G-5 |
+| *(this)* | S2 | Feedback completeness — F-3(b)(c), F-4, G-1 |
 
 ---
 
@@ -80,3 +81,68 @@ confirm changes (S3), ring-bell failure surfacing (S2), rehearsal button (S4).
 
 `git revert` the S1 commit — all items are rendering/navigation; no persisted
 state, storage keys, or endpoint changes. Reverting cannot strand anything.
+
+---
+
+## Phase S2 — what changed (additive UI around existing calls; zero payload changes)
+
+- **F-3(b)** `admin/trading-floor/page.js`: `ringBell` now acts on the POST
+  result. Success → the exact pre-S2 sequence (bell sound, freeze, staggered
+  reveal, confetti). Failure → the board **stays live**, a named red banner
+  explains ("Bell NOT broadcast — players did not see the market close"), the
+  button becomes "Retry the Closing Bell", and a busy state prevents
+  double-fires. The request is byte-identical (same URL/method/no body); the
+  403-profile case gets its own message. The bell sound no longer plays on a
+  failed broadcast.
+- **F-3(c)** same file: closed state gains "↺ Reopen board (this screen only)"
+  — local state only, resumes the 5s poll, resets the reveal so a later
+  re-close animates cleanly. Tooltip states the honest scope: players already
+  received `market_close`; reopening does not retract it.
+- **F-4** `components/FacilitatorManager.js` (shared-register component —
+  dual-surface): dropping an .xlsx now **stages** it behind a pre-flight
+  confirm ("accounts are created immediately on upload — no preview for
+  .xlsx"; Cancel sends nothing). The response renders as a created ✓ /
+  skipped ✗ checklist **including the one-time passwords the old toast
+  discarded** (they were already in the response; the UI threw them away),
+  with a copy-now warning. The drawer no longer auto-closes past the result.
+  CSV/TXT path byte-identical. `closeDrawer` clears the new state.
+- **G-1** `admin/god-mode/page.js`: header keeps one labeled "🔑 Password"
+  button; the 🗝️ master-key entry moved to a red dashed "Break-Glass →
+  Master Key…" item at the foot of the sidebar (below Live Consoles), opening
+  the same modal. Routine and break-glass credentials are no longer twin
+  icons 24px apart.
+
+**Explicitly NOT in S2** (per plan): the ring-bell confirm + explicit cohort
+target (S3/F-3a), shockwave auto-select removal (S3/F-1), rehearsal (S4).
+
+## S2 gate evidence (run in-sandbox, 2026-07-11)
+
+1. **Path whitelist** ✅ 3 files: trading-floor page, FacilitatorManager,
+   god-mode page. No backend, no player files.
+2. **JSX parse** ✅ esbuild clean on all 3.
+3. **Endpoint contract** ✅ byte-identical to S0 (diff exit 0) — no call site
+   added/changed; only handling around existing responses.
+4. **Backend pytest** ✅ 976 passed.
+5. **Player smoke** ✅ identical to S0 (R1 commit 201, engines OK, R2 429).
+
+## S2 two-browser checklist (run on your machine)
+
+- Backend stopped → Ring the Bell → red "Bell NOT broadcast" banner, board
+  still polling once backend returns, button reads Retry, **no bell sound**;
+  player screens show nothing. Backend up → Retry → behavior identical to S0
+  capture (sound, freeze, reveal, confetti; player overlay appears).
+- After a successful close → "Reopen board (this screen only)" resumes the
+  live board; ring again → reveal animates from scratch.
+- Registry (BOTH surfaces — God Mode tab and facilitator portal): drop an
+  .xlsx → staged panel, Cancel → dev-tools shows no request; confirm → one
+  POST identical to before; result panel lists created accounts WITH one-time
+  passwords and skipped rows; drawer stays open until Done. Drop a CSV →
+  flow pixel-identical to S0.
+- God Mode header shows "🔑 Password" only; sidebar foot shows red dashed
+  "Master Key…" that opens the master modal.
+
+## Rollback
+
+`git revert` the S2 commit. All additive UI; the only behavioral deltas are
+facilitator-side (board stays live on failed broadcast; Excel waits for a
+confirm) and revert restores the old behavior exactly.

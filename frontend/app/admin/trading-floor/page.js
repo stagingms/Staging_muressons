@@ -82,24 +82,48 @@ export default function TradingFloorPage() {
     return () => clearInterval(pollRef.current);
   }, [enabled, closed, load]);
 
+  // F-3b (v3): the POST result decides what the projector claims. The old
+  // handler closed the board and played the bell even when the broadcast
+  // 500'd — "MARKET CLOSED" after a failed broadcast is the dashboard lying
+  // at the most public moment a session has. Failure now keeps the board
+  // LIVE and names the problem; the request itself is byte-identical.
+  // (The confirm + explicit cohort target arrive in Phase S3 / F-3a.)
+  const [bellError, setBellError] = useState('');
+  const [bellBusy, setBellBusy] = useState(false);
+
   const ringBell = useCallback(() => {
     const cohortId = teams.find((t) => t.parent_cohort_id)?.parent_cohort_id || 'cohort';
+    setBellBusy(true);
+    setBellError('');
     fetch(`/api/admin/${encodeURIComponent(cohortId)}/finale/ring-bell`, { method: 'POST', credentials: 'include' })
-      .catch(() => { /* still close the local view even if broadcast fails */ });
-    bell();
-    setClosed(true);
-    // WOW-2E: Staggered reveal — animate from last place to first
-    const sorted = [...teams];
-    sorted.sort((a, b) => (b.terminal_value || 0) - (a.terminal_value || 0));
-    const reversed = [...sorted].reverse(); // last place first
-    reversed.forEach((t, i) => {
-      setTimeout(() => {
-        setRevealedRows(prev => new Set([...prev, t.session_id || i]));
-        if (i === reversed.length - 1) {
-          setTimeout(() => setRevealComplete(true), 600);
+      .then((r) => {
+        if (!r.ok) {
+          throw new Error(r.status === 403
+            ? 'Trading Floor is disabled for your facilitator profile.'
+            : `the server answered ${r.status}`);
         }
-      }, 200 * (i + 1));
-    });
+        // Success — exactly the pre-S2 sequence: bell, freeze, staggered reveal.
+        bell();
+        setRevealedRows(new Set());
+        setRevealComplete(false);
+        setClosed(true);
+        // WOW-2E: Staggered reveal — animate from last place to first
+        const sorted = [...teams];
+        sorted.sort((a, b) => (b.terminal_value || 0) - (a.terminal_value || 0));
+        const reversed = [...sorted].reverse(); // last place first
+        reversed.forEach((t, i) => {
+          setTimeout(() => {
+            setRevealedRows(prev => new Set([...prev, t.session_id || i]));
+            if (i === reversed.length - 1) {
+              setTimeout(() => setRevealComplete(true), 600);
+            }
+          }, 200 * (i + 1));
+        });
+      })
+      .catch((e) => setBellError(
+        `Bell NOT broadcast — players did not see the market close (${e && e.message ? e.message : 'network error'}). The board is still live.`
+      ))
+      .finally(() => setBellBusy(false));
   }, [teams]);
 
   const maxTv = Math.max(1, ...teams.map((t) => t.terminal_value || 0));
@@ -214,10 +238,30 @@ export default function TradingFloorPage() {
 
           {/* Bell */}
           <div style={{ textAlign: 'center', marginTop: 24 }}>
+            {/* F-3b (v3): failure is loud, named, and retryable — the board
+                only claims MARKET CLOSED when the broadcast succeeded. */}
+            {bellError && (
+              <div role="alert" style={S.bellError}>🔕 {bellError}</div>
+            )}
             {!closed ? (
-              <button style={S.bellBtn} onClick={ringBell}>🔔 Ring the Closing Bell</button>
+              <button style={{ ...S.bellBtn, opacity: bellBusy ? 0.6 : 1, cursor: bellBusy ? 'wait' : 'pointer' }}
+                onClick={ringBell} disabled={bellBusy}>
+                {bellBusy ? '⏳ Ringing…' : bellError ? '🔔 Retry the Closing Bell' : '🔔 Ring the Closing Bell'}
+              </button>
             ) : (
-              <div style={S.closedBanner}>🔔 MARKET CLOSED — the numbers are final.</div>
+              <div>
+                <div style={S.closedBanner}>🔔 MARKET CLOSED — the numbers are final.</div>
+                {/* F-3c (v3): recovery used to be undiscoverable (only the ON/OFF
+                    switch reset `closed`). Honest scope: players already received
+                    market_close — reopening only resumes THIS projector. */}
+                <div style={{ marginTop: 12 }}>
+                  <button
+                    style={S.reopenBtn}
+                    onClick={() => { setClosed(false); setRevealedRows(new Set()); setRevealComplete(false); setBellError(''); }}
+                    title="Local only: resumes the live board on this screen. Player screens already saw the market-close overlay — reopening does not retract it."
+                  >↺ Reopen board (this screen only)</button>
+                </div>
+              </div>
             )}
           </div>
         </>
@@ -278,5 +322,7 @@ const S = {
   value: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 800, textAlign: 'right', color: 'var(--kpi-good, #10b981)' },
   bellBtn: { padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, var(--accent-gold, #f59e0b), #d97706)', color: '#1a1005', boxShadow: '0 6px 24px rgba(245,158,11,0.4)' },
   closedBanner: { display: 'inline-block', padding: '14px 32px', fontSize: '1.15rem', fontWeight: 800, borderRadius: 12, background: 'rgba(16,185,129,0.12)', color: 'var(--kpi-good, #10b981)', border: '1px solid var(--kpi-good, #10b981)' },
+  bellError: { display: 'inline-block', maxWidth: 720, padding: '10px 18px', marginBottom: 12, fontSize: '0.95rem', fontWeight: 700, borderRadius: 10, background: 'rgba(239,68,68,0.12)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.45)' },
+  reopenBtn: { padding: '8px 18px', fontSize: '0.85rem', fontWeight: 700, borderRadius: 10, border: '1px solid rgba(148,163,184,0.35)', cursor: 'pointer', background: 'transparent', color: '#cbd5e1' },
   ipoDelta: { fontFamily: 'var(--font-mono, monospace)', fontWeight: 700, fontSize: '0.85rem', whiteSpace: 'nowrap' },
 };
