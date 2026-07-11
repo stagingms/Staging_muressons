@@ -9,7 +9,10 @@ sites, shockwave/bell/rehearsal payload capture).
 | `ec908f9` | S0 | v3 review document |
 | `435fa52` | S0 | Baseline evidence + endpoint contract |
 | `cd26682` | S1 | Chrome truth & routing hygiene — G-2, G-4, F-5, F-8, F-9, G-5 |
-| *(this)* | S2 | Feedback completeness — F-3(b)(c), F-4, G-1 |
+| `924247a` | S2 | Feedback completeness — F-3(b)(c), F-4, G-1 |
+| `189097c` | S3-A | F-1 shockwave targeting + impact-preview confirm; G-3 catalog + tripwire test |
+| `d12ffb2` | S3-B | F-3a ring-bell tier-2 confirm (all-cohorts truth) |
+| `8c9f799` | S3-C | F-6 unified CreateCohortModal role resolution + project_admin branch |
 
 ---
 
@@ -146,3 +149,89 @@ target (S3/F-3a), shockwave auto-select removal (S3/F-1), rehearsal (S4).
 `git revert` the S2 commit. All additive UI; the only behavioral deltas are
 facilitator-side (board stays live on failed broadcast; Excel waits for a
 confirm) and revert restores the old behavior exactly.
+
+---
+
+## Phase S3 — destructive-console targeting (three independent commits)
+
+**Invariant held everywhere: confirm-then-execute sends a request byte-identical
+to S0; Cancel sends nothing. Only the gate in FRONT of each request changed.**
+
+- **S3-A / F-1** `admin/shockwave/page.js` + new `components/shockwaveCatalog.js`
+  + `__tests__/shockwave-catalog.test.js`:
+  - Auto-select REMOVED — the console never chooses a target for you. The
+    dashboard's `fac_selected_session` is offered as a visible, labeled
+    prefill ("Prefilled from your dashboard cohort selection — change it
+    above…"), never a silent default; anything else renders "— Choose a
+    target cohort —" with Detonate disabled.
+  - Cohort options show blast-radius context inline: name — N teams · R{n},
+    computed from the leaderboard payload the page already fetched.
+  - Detonation goes through the platform's tier-2 `useConfirm` impact preview:
+    cohort NAME, team count, current round, per-team hit (derived from the
+    catalog numbers, never hand-written), and an explicit 0-teams warning.
+  - G-3 interim: the event catalog moved to one exported module whose numbers
+    are verified against `backend/admin_router.py::_SHOCKWAVE_EVENTS` by a
+    jest test that parses the backend source — an engine rebalance that
+    forgets the console now fails CI instead of letting the console lie.
+- **S3-B / F-3a** `admin/trading-floor/page.js`: Ring the Bell is now behind a
+  tier-2 confirm whose impact line states the verified truth — the overlay
+  reaches every connected player in ALL cohorts, not just the teams on the
+  board, and reopening does not retract it. Cohort-id derivation and the POST
+  are untouched.
+- **S3-C / F-6** `components/CreateCohortModal.js` + `FacilitatorManager.js`
+  (both dual-surface — test on God Mode AND facilitator portal):
+  - One role resolution: the registry entry point passes the operator's real
+    role (`operatorRole || 'super_admin'` fallback preserves legacy god-mode
+    behavior) instead of hardcoding "super_admin".
+  - Explicit project_admin branch, verified against `admin_router.py` gates:
+    facilitator-assignment dropdown YES (provisioning; endpoints are
+    require_facilitator), full config accordions YES (no longer the
+    base-facilitator lockdown), System Engine Modules NO (its PATCH is
+    require_super_admin server-side — the UI must not promise above the server).
+  - The assignment never defaults to the `project_admin` virtual account.
+
+## S3 gate evidence (run in-sandbox, 2026-07-11)
+
+1. **Path whitelist** ✅ 6 files across the 3 commits — all admin-side; no
+   backend, no player files.
+2. **JSX parse** ✅ esbuild clean on every edited/created file, per commit.
+3. **Endpoint contract** ✅ byte-identical to S0 (diff exit 0). No fetch site
+   added, removed, or altered — including the shockwave POST body and the
+   ring-bell POST.
+4. **Frontend jest** ✅ 63 passed / 5 suites, including the new
+   shockwave-catalog drift tripwire (which parses the backend source).
+5. **Backend pytest** ✅ 976 passed.
+6. **Server-behavior re-proof** ✅ re-ran the S0 capture script end-to-end:
+   shockwave 200, teams_hit 1, KPI delta exactly −$6,000,000 / −6; bell 200
+   `bell_rung`; rehearsal still a KPI no-op. The backend contract the new
+   confirms sit in front of is unchanged.
+7. **Player smoke** ✅ identical to S0 (R1 commit 201, engines OK, R2 429).
+
+## S3 two-browser checklist (run on your machine — the critical phase)
+
+- Shockwave console, nothing selected on the dashboard: no cohort pre-picked,
+  Detonate disabled with tooltip. Select cohort A on the facilitator
+  dashboard → open console → amber "prefilled from your dashboard selection"
+  note; change the dropdown → note disappears.
+- Detonate on a THROWAWAY cohort: confirm shows the right name/team count/
+  round and the per-team hit; **Cancel → dev-tools shows zero requests**;
+  confirm → one POST, body identical to S0 (`event_id`, `countdown`), player
+  takeover appears, KPIs move by exactly the previewed amounts.
+- Ring the Bell: confirm states the ALL-cohorts scope; Cancel → no request;
+  confirm → S0-identical behavior (sound, freeze, reveal, player overlay in
+  every cohort — verify with two players in two different cohorts).
+- CreateCohortModal role matrix at BOTH entry points (Dashboard Home button /
+  Registry row action): project_admin sees the same modal both ways —
+  facilitator dropdown present, engine/verticals/modules/interventions
+  accordions present, System Engine Modules section ABSENT; super_admin and
+  base facilitator unchanged vs S0 screenshots; a cohort created by
+  project_admin lands on the chosen facilitator, not on "project_admin".
+- Run a live round on a second cohort while detonating on the throwaway one:
+  the live cohort's players see nothing; round timing unchanged.
+
+## Rollback
+
+Each item is its own commit — revert selectively (`189097c` shockwave,
+`d12ffb2` bell, `8c9f799` modal). Payloads unchanged ⇒ reverting a gate
+cannot leave the backend inconsistent; worst case is the old blind confirm
+reappearing.
