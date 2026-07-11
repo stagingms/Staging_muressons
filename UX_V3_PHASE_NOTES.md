@@ -13,6 +13,8 @@ sites, shockwave/bell/rehearsal payload capture).
 | `189097c` | S3-A | F-1 shockwave targeting + impact-preview confirm; G-3 catalog + tripwire test |
 | `d12ffb2` | S3-B | F-3a ring-bell tier-2 confirm (all-cohorts truth) |
 | `8c9f799` | S3-C | F-6 unified CreateCohortModal role resolution + project_admin branch |
+| `f9f7ae5` | S3 | Phase notes + gate evidence |
+| *(this)* | S4 | F-2 rehearsal mode surfaced — the one new request variant, live-proven a no-op |
 
 ---
 
@@ -235,3 +237,60 @@ Each item is its own commit — revert selectively (`189097c` shockwave,
 `d12ffb2` bell, `8c9f799` modal). Payloads unchanged ⇒ reverting a gate
 cannot leave the backend inconsistent; worst case is the old blind confirm
 reappearing.
+
+---
+
+## Phase S4 — rehearsal mode surfaced (F-2; the ONE new request variant in v3)
+
+`admin/shockwave/page.js` only:
+
+- **"🎭 Rehearse (no student impact)"** sits LEFT of Detonate (rehearse-first
+  by design). Same endpoint, same body plus the server's documented WOW-4E
+  flag `rehearsal: true`. No confirm on rehearsal — it is the safe path and
+  friction there would push people toward the live button.
+- The preview card renders from the POST response (no WS handling needed):
+  REHEARSAL badge, title, narrative, per-team treasury/reputation numbers,
+  countdown, and the attribution note (`shockwave_rehearsal` in the audit
+  trail). 403-profile shows the same named error as detonation.
+- Detonate/rehearse clear each other's result cards; busy state prevents
+  double-fires.
+
+**Declared contract delta (the phase's entire point):** the static
+endpoint-contract diff is empty — the rehearsal fetch's call-site line is
+textually identical to the detonate one; the real delta is the `rehearsal:true`
+body field, which the static extraction cannot see. It is declared here and
+proven below instead of smuggled.
+
+## S4 gate evidence (run in-sandbox, 2026-07-11)
+
+1. **Path whitelist** ✅ 1 file (`admin/shockwave/page.js`).
+2. **JSX parse** ✅ clean.
+3. **Endpoint contract** ✅ no new call site (delta = body field, declared above).
+4. **Live no-op proof** ✅ (the phase's acceptance test, run end-to-end):
+   - Rehearsal POST → 200, `status:"rehearsal"`, "students NOT affected".
+   - Throwaway player's KPIs **byte-identical** before/after
+     (treasury 6,500,000 / reputation 44.0 both sides).
+   - Audit trail contains the `shockwave_rehearsal` entry (id, timestamp,
+     cohort_id, event_id) — rehearsals are attributable.
+   - Real detonation fired AFTER a rehearsal is unaffected: cyber_attack
+     landed exactly −$4,000,000 / −7 (catalog values), `teams_hit: 1`.
+5. **Frontend jest** ✅ 63/63 (catalog tripwire included).
+6. **Backend pytest** ✅ 976 passed. **Player smoke** ✅ identical to S0
+   (201 / engines OK / R2 429).
+
+## S4 two-browser checklist (run on your machine)
+
+- With a player connected to a throwaway cohort: Rehearse → preview card on
+  YOUR screen; the player screen shows **nothing**, no re-render, no flicker
+  (this is the single most important check in the phase).
+- Rehearse then Detonate the same crisis → detonation behaves exactly as the
+  S3 checklist (confirm → takeover → KPI delta equals the preview numbers).
+- Profile with `shockwave_enabled` off → Rehearse shows the same "disabled
+  for your facilitator profile" error as Detonate.
+- God Mode → Activity & Complexity / audit: the rehearsal appears as
+  `shockwave_rehearsal` with the cohort and event id.
+
+## Rollback
+
+`git revert` the S4 commit removes the button and preview; rehearsal writes no
+state, so no residue is possible by construction (and by the proof above).

@@ -28,6 +28,14 @@ export default function ShockwaveControlPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
   const [confirmAction, confirmModal] = useConfirm();
+  // S4 / F-2 (v3): rehearsal mode — the server-side safety feature (WOW-4E)
+  // that was fully dark: no frontend ever sent the documented `rehearsal:true`
+  // flag. Same endpoint, one extra body field; the server guarantees NO game
+  // state changes and NO student broadcast (proven in the S0 baseline capture:
+  // player KPIs byte-identical before/after; audit-logged as
+  // `shockwave_rehearsal`). This is the ONLY new request variant in v3.
+  const [rehearsal, setRehearsal] = useState(null); // response of a rehearsal run
+  const [rehearsing, setRehearsing] = useState(false);
 
   useEffect(() => {
     // F-9 (v3): name the remedy — "signed out" and "backend down" are
@@ -62,9 +70,27 @@ export default function ShockwaveControlPage() {
         : 'Backend unreachable — cohorts could not be loaded. Check the server, then reload.'));
   }, []);
 
+  const rehearse = useCallback(() => {
+    if (!cohort || rehearsing) return;
+    setError(''); setResult(null); setRehearsal(null); setRehearsing(true);
+    fetch(`/api/admin/${encodeURIComponent(cohort)}/shockwave`, {
+      method: 'POST', credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: eventId, countdown: Number(countdown) || 60, rehearsal: true }),
+    })
+      .then(async (r) => {
+        if (r.status === 403) throw new Error('Shockwave is disabled for your facilitator profile.');
+        if (!r.ok) throw new Error('Rehearsal failed.');
+        return r.json();
+      })
+      .then((d) => setRehearsal(d))
+      .catch((e) => setError(e.message))
+      .finally(() => setRehearsing(false));
+  }, [cohort, eventId, countdown, rehearsing]);
+
   const detonate = useCallback(() => {
     if (!cohort) return;
-    setError(''); setResult(null);
+    setError(''); setResult(null); setRehearsal(null);
     fetch(`/api/admin/${encodeURIComponent(cohort)}/shockwave`, {
       method: 'POST', credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -145,13 +171,48 @@ export default function ShockwaveControlPage() {
       <input type="number" min="15" max="600" value={countdown}
         onChange={(e) => setCountdown(e.target.value)} style={{ ...S.input, width: 120 }} />
 
-      <div style={{ marginTop: 24 }}>
+      <div style={{ marginTop: 24, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* S4 / F-2: rehearse-first is deliberately the left/first action —
+            see the crisis exactly as configured, with zero student impact. */}
+        <button style={{ ...S.rehearse, opacity: cohort && !rehearsing ? 1 : 0.45, cursor: cohort && !rehearsing ? 'pointer' : 'not-allowed' }}
+          onClick={rehearse} disabled={!cohort || rehearsing}
+          title={cohort ? 'Preview this crisis on YOUR screen only — no game-state change, no student broadcast. Logged as shockwave_rehearsal.' : 'Choose a target cohort first'}>
+          {rehearsing ? '⏳ Rehearsing…' : '🎭 Rehearse (no student impact)'}
+        </button>
         <button style={{ ...S.detonate, opacity: cohort ? 1 : 0.45, cursor: cohort ? 'pointer' : 'not-allowed' }}
           onClick={onDetonate} disabled={!cohort}
           title={cohort ? undefined : 'Choose a target cohort first'}>
           🚨 Detonate Shockwave…
         </button>
       </div>
+
+      {/* S4 / F-2: rehearsal preview — rendered from the POST response, which
+          the server built without touching any game state. */}
+      {rehearsal && (
+        <div style={S.rehearsalCard} role="status">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <span style={S.rehearsalBadge}>🎭 REHEARSAL — students NOT affected</span>
+            <button onClick={() => setRehearsal(null)} aria-label="Dismiss rehearsal preview"
+              style={{ marginLeft: 'auto', background: 'transparent', border: 'none', cursor: 'pointer', color: '#8899a6', fontSize: '0.95rem', fontWeight: 700 }}>✕</button>
+          </div>
+          <div style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: 4 }}>
+            {rehearsal.event?.title}
+          </div>
+          <div style={{ fontSize: '0.9rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: 10 }}>
+            {rehearsal.event?.narrative}
+          </div>
+          <div style={{ display: 'flex', gap: 18, fontFamily: 'var(--font-mono, monospace)', fontSize: '0.85rem', marginBottom: 10 }}>
+            <span style={{ color: '#f87171' }}>💰 {fmtHit({ financial_impact: rehearsal.event?.financial_impact ?? 0, reputation_impact: rehearsal.event?.reputation_impact ?? 0 }).split(' · ')[0]} treasury / team</span>
+            <span style={{ color: '#f87171' }}>📉 {rehearsal.event?.reputation_impact} reputation / team</span>
+            <span style={{ color: '#8899a6' }}>⏱ {Number(countdown) || 60}s response countdown</span>
+          </div>
+          <div style={{ fontSize: '0.75rem', color: '#8899a6', lineHeight: 1.5 }}>
+            This is what the detonation applies to every team — nothing was changed and no player saw
+            anything ({rehearsal.message || 'rehearsal only'}). The run is attributable: it appears in
+            the audit trail as <code>shockwave_rehearsal</code>.
+          </div>
+        </div>
+      )}
 
       {confirmModal}
     </div>
@@ -168,6 +229,9 @@ const S = {
   card: { textAlign: 'left', padding: '12px 14px', borderRadius: 10, cursor: 'pointer', background: 'var(--bg-card, #161e2e)', border: '1px solid var(--border-subtle, rgba(148,163,184,0.2))', color: 'inherit' },
   cardActive: { border: '2px solid #ef4444', background: 'rgba(239,68,68,0.08)' },
   detonate: { padding: '14px 28px', fontSize: '1.05rem', fontWeight: 800, borderRadius: 12, border: 'none', cursor: 'pointer', background: 'linear-gradient(135deg, #ef4444, #b91c1c)', color: '#fff', boxShadow: '0 6px 24px rgba(239,68,68,0.4)' },
+  rehearse: { padding: '14px 22px', fontSize: '0.95rem', fontWeight: 700, borderRadius: 12, cursor: 'pointer', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.45)' },
+  rehearsalCard: { marginTop: 20, padding: '16px 18px', borderRadius: 12, background: 'linear-gradient(135deg, rgba(30,20,8,0.9), rgba(24,16,10,0.95))', border: '1px dashed rgba(245,158,11,0.5)' },
+  rehearsalBadge: { fontSize: '0.7rem', fontWeight: 900, letterSpacing: '0.1em', color: '#f59e0b', background: 'rgba(245,158,11,0.12)', border: '1px solid rgba(245,158,11,0.4)', borderRadius: 6, padding: '4px 8px' },
   cancel: { padding: '14px 20px', fontSize: '0.95rem', fontWeight: 700, borderRadius: 12, border: '1px solid var(--border-subtle, rgba(148,163,184,0.3))', cursor: 'pointer', background: 'transparent', color: 'inherit' },
   error: { padding: '10px 14px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.4)', color: '#fca5a5', marginBottom: 16, fontSize: '0.9rem' },
   prefillNote: { marginTop: 8, fontSize: '0.78rem', color: '#f59e0b', background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 8, padding: '8px 10px' },
