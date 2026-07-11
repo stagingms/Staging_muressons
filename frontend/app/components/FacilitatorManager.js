@@ -580,8 +580,37 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     };
 
     // ── Bulk CSV Upload ─────────────────────────────────────
+    // W-PA: .xlsx files are parsed SERVER-side by /facilitators/bulk-upload
+    // (openpyxl) — creation happens immediately with per-row results.
+    // CSV/TXT keep the existing client-side parse → preview → submit flow.
+    const handleExcelUpload = async (file) => {
+        setBulkUploading(true);
+        setBulkErrors([]);
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await fetch(`${API}/api/admin/facilitators/bulk-upload`, {
+                method: 'POST', credentials: 'include', body: fd,
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                setBulkErrors([typeof data.detail === 'string' ? data.detail : `Upload failed (${res.status})`]);
+                return;
+            }
+            setBulkErrors((data.errors || []).map(e => `Row ${e.row}: ${e.error}`));
+            showToast(`✅ ${data.total_created} facilitator(s) created from Excel${data.total_errors ? ` · ${data.total_errors} row(s) skipped` : ''}`);
+            await fetchFacilitators();
+            if (!data.total_errors) closeDrawer();
+        } catch {
+            setBulkErrors(['Network error during Excel upload']);
+        } finally {
+            setBulkUploading(false);
+        }
+    };
+
     const handleFileSelect = (file) => {
         if (!file) return;
+        if (/\.xlsx$/i.test(file.name || '')) { handleExcelUpload(file); return; }
         const reader = new FileReader();
         reader.onload = (e) => {
             try {
@@ -1690,6 +1719,11 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 }}>
                     ⬇️ Download Template CSV
                 </button>
+                <button className={styles.bulkDownloadBtn} style={{ marginLeft: 8 }} onClick={() => {
+                    window.open(`${API}/api/admin/facilitators/bulk-upload/template`, '_blank');
+                }}>
+                    ⬇️ Download Template Excel
+                </button>
             </div>
 
             {/* Dropzone */}
@@ -1703,7 +1737,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 <input
                     ref={fileInputRef}
                     type="file"
-                    accept=".csv,.txt"
+                    accept=".csv,.txt,.xlsx"
                     style={{ display: 'none' }}
                     onChange={e => handleFileSelect(e.target.files[0])}
                 />
@@ -1711,7 +1745,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 <p className={styles.dropzoneText}>
                     {isDragOver ? 'Drop your file here' : 'Drag & drop a CSV file here, or click to browse'}
                 </p>
-                <span className={styles.dropzoneHint}>Supports .csv and .txt formats</span>
+                <span className={styles.dropzoneHint}>Supports .csv, .txt and Excel (.xlsx) — Excel rows are created immediately with per-row results</span>
             </div>
 
             {/* Errors */}

@@ -24,6 +24,7 @@ import RoundTimeline from '../../components/RoundTimeline';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 import StudentBonuses from '../../components/StudentBonuses';
 import CreateCohortModal from '../../components/CreateCohortModal';
+import FacilitatorManager from '../../components/FacilitatorManager';
 import PeerEvaluation from '../../components/PeerEvaluation';
 import BulkMessaging from '../../components/BulkMessaging';
 import UsernamePromptModal from '../../components/UsernamePromptModal';
@@ -855,6 +856,11 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                         />
                     </>
                 );
+            case 'facilitator_registry':
+                // W-PA: registry surface for project_admin (and super_admin)
+                // inside the facilitator portal — same component God Mode uses.
+                return <FacilitatorManager onNavigate={(tab) => setActiveTab(tab)} authContext={authData} />;
+
             case 'timeline': {
                 // F7: keep the per-cohort ceo_interview_* fields the leaderboard
                 // already carries, so the Interview panel renders each cohort's

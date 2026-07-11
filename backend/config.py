@@ -30,6 +30,13 @@ DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 _mp = os.getenv("MASTER_PASSWORD", "").strip().strip('"').strip("'")
 MASTER_PASSWORD: str = _mp if _mp else "sim2026@iim"
 
+# Project-Admin password — logs into the virtual 'project_admin' account.
+# That role can ONLY create facilitators (incl. Excel bulk upload) and
+# cohorts; it can never run or manage a simulation.
+# Override via PROJECT_ADMIN_PASSWORD env var; set "" to keep the default.
+_pap = os.getenv("PROJECT_ADMIN_PASSWORD", "").strip().strip('"').strip("'")
+PROJECT_ADMIN_PASSWORD: str = _pap if _pap else "simadmin2026@"
+
 # ElevenLabs Voice AI — used for CEO Interview post-game feature
 ELEVENLABS_API_KEY: str = os.getenv("ELEVENLABS_API_KEY", "")
 

@@ -91,6 +91,16 @@ export const GOD_MODE_SIDEBAR = [
 
 export const FACILITATOR_SIDEBAR = [
     {
+        // W-PA: shown only when the backend includes 'facilitator_registry'
+        // in allowed_tabs (project_admin fixed set; super_admin '*').
+        category: 'Administration',
+        icon: '🗝️',
+        id: 'administration',
+        items: [
+            { id: 'facilitator_registry', label: 'Facilitator Registry', icon: '👥', tooltip: 'Create facilitator accounts one-by-one, from CSV, or by Excel bulk upload. Registry admins only.' },
+        ]
+    },
+    {
         category: 'Command Center',
         icon: '🎯',
         id: 'command',

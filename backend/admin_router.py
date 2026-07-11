@@ -206,6 +206,10 @@ def get_fac_role(request: Request):
             # god_mode: virtual account resolved entirely from the signed token
             if token_sub == "god_mode" and token_role == "super_admin" and fac_id == "god_mode":
                 return "super_admin"
+            # project_admin: virtual account (not in the registry) — like
+            # god_mode, its role is granted ONLY from the signed token claim.
+            if token_sub == "project_admin" and token_role == "project_admin" and fac_id == "project_admin":
+                return "project_admin"
             if token_sub == fac_id:
                 # H-4: Re-validate against registry so demotions and disablements
                 # take effect immediately, not just after JWT expiry.
@@ -268,6 +272,22 @@ def require_facilitator(role: str = Depends(get_fac_role)):
         raise HTTPException(status_code=401, detail='Facilitator authentication required')
 
 
+def require_registry_admin(role: str = Depends(get_fac_role)):
+    """Super admins and the project_admin registry role — facilitator
+    provisioning endpoints (create / bulk / Excel upload)."""
+    if role not in ("super_admin", "admin", "project_admin"):
+        raise HTTPException(status_code=403, detail='Registry-admin access required')
+
+
+def require_sim_manager(role: str = Depends(get_fac_role)):
+    """Any authenticated facilitator EXCEPT project_admin. Guards the
+    destructive run/manage endpoints project admins must never touch."""
+    if role == 'anonymous':
+        raise HTTPException(status_code=401, detail='Facilitator authentication required')
+    if role == 'project_admin':
+        raise HTTPException(status_code=403, detail='Project admins provision cohorts but cannot manage simulation runs.')
+
+
 def _generate_temp_password() -> tuple[str, str]:
     """Return the fixed default password for newly registered players.
 
@@ -284,7 +304,7 @@ def _generate_temp_password() -> tuple[str, str]:
 
 import database as db
 import materiality_db as mat_db
-from config import MASTER_PASSWORD, SIM_ROUNDS, SIM_INITIAL_BUDGET
+from config import MASTER_PASSWORD, PROJECT_ADMIN_PASSWORD, SIM_ROUNDS, SIM_INITIAL_BUDGET
 from password_hashing import hash_password, verify_password, maybe_upgrade_password
 from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 
@@ -1274,7 +1294,7 @@ async def list_facilitators(request: Request, _guard: None = Depends(require_fac
     from auth_jwt import get_facilitator_from_request
     caller_id = get_facilitator_from_request(request)
     caller_role = get_fac_role(request)
-    is_admin_caller = (caller_role == "super_admin") or (caller_id == "god_mode")
+    is_admin_caller = (caller_role == "super_admin") or (caller_id == "god_mode") or (caller_role == "project_admin")
 
     result = []
     for f in _facilitator_registry:
@@ -1289,7 +1309,7 @@ async def list_facilitators(request: Request, _guard: None = Depends(require_fac
 
 
 @admin_router.post("/facilitators", summary="Create a new facilitator")
-async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depends(require_super_admin)):
+async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depends(require_registry_admin)):
     import re
     # GOD-003: Generate password outside the lock — bcrypt is CPU-intensive
     # and does not touch shared state.
@@ -1360,6 +1380,138 @@ async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depen
         "credential_note": "Default password Muressons123 — the facilitator must change it on first login.",
     }
 
+
+# ── W-PA: Excel bulk upload (project_admin + super_admin) ─────────────────
+_BULK_UPLOAD_COLUMNS = ["name", "email", "contact_number", "programme", "start_date", "end_date", "max_cohorts"]
+
+
+@admin_router.get("/facilitators/bulk-upload/template", summary="Download the Excel template for facilitator bulk upload")
+async def facilitator_bulk_upload_template(_guard: None = Depends(require_registry_admin)):
+    """Generates the .xlsx template in memory: a header row (name is the only
+    required column) plus one example row."""
+    from io import BytesIO
+    from openpyxl import Workbook
+    from fastapi.responses import StreamingResponse
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Facilitators"
+    ws.append(_BULK_UPLOAD_COLUMNS)
+    ws.append(["Dr. A. Example", "a.example@university.edu", "+91 98xxxxxx", "PGP 2026", "2026-08-01", "2026-12-15", 3])
+    buf = BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="facilitator_bulk_upload_template.xlsx"'},
+    )
+
+
+@admin_router.post("/facilitators/bulk-upload", summary="Bulk-create facilitators from an Excel file")
+async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = Depends(require_registry_admin)):
+    """W-PA — parses an .xlsx (header row = column names; only `name` is
+    required) and creates one facilitator per data row with the standard
+    policy: default password Muressons123 + must_change_password=True.
+    Returns per-row results (R3 setup-integrity style): every failed row is
+    reported with its row number and reason; valid rows are still created."""
+    from io import BytesIO
+    from openpyxl import load_workbook
+
+    raw = await file.read()
+    if len(raw) > 2 * 1024 * 1024:
+        raise HTTPException(400, "File too large (max 2 MB)")
+    try:
+        wb = load_workbook(BytesIO(raw), read_only=True, data_only=True)
+    except Exception:
+        raise HTTPException(400, "Not a readable .xlsx file. Download the template and try again.")
+    ws = wb.active
+    rows = list(ws.iter_rows(values_only=True))
+    if not rows:
+        raise HTTPException(400, "The sheet is empty.")
+
+    # Header mapping — case/space tolerant, unknown columns ignored
+    header = [str(c or "").strip().lower().replace(" ", "_") for c in rows[0]]
+    col_idx = {name: header.index(name) for name in _BULK_UPLOAD_COLUMNS if name in header}
+    if "name" not in col_idx:
+        raise HTTPException(400, f"Header row must contain a 'name' column. Found: {[h for h in header if h]}")
+
+    created, errors = [], []
+    import re
+    # One bcrypt hash for the shared default password (bcrypt is ~100ms/call)
+    _plain, _hash = _generate_temp_password()
+
+    async with _fac_registry_lock:
+        max_id = 0
+        for f in _facilitator_registry:
+            match = re.search(r'\d+', f.get("facilitator_id", ""))
+            if match:
+                try:
+                    max_id = max(max_id, int(match.group()))
+                except ValueError:
+                    pass
+        for rownum, row in enumerate(rows[1:], start=2):
+            def cell(key, default=""):
+                i = col_idx.get(key)
+                v = row[i] if i is not None and i < len(row) else None
+                return str(v).strip() if v is not None else default
+            name = cell("name")
+            if not name:
+                if any(str(c or "").strip() for c in row):
+                    errors.append({"row": rownum, "error": "Missing required 'name'"})
+                continue  # fully blank rows are skipped silently
+            try:
+                mc = int(float(cell("max_cohorts", "3") or 3))
+            except (ValueError, TypeError):
+                mc = 3
+            max_id += 1
+            fac = {
+                "facilitator_id": f"FAC-{max_id:03d}",
+                "name": name,
+                "email": cell("email"),
+                "contact_number": cell("contact_number"),
+                "programme": cell("programme"),
+                "start_date": cell("start_date"),
+                "end_date": cell("end_date"),
+                "password": _hash,  # bcrypt of the default; never plaintext
+                "must_change_password": True,  # default Muressons123 must be replaced on first login
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "max_cohorts": mc,
+                "cohorts_created": 0,
+                "decision_paradigm": "legacy_abc",
+                "ending_pathway": "activist_ultimatum",
+                "side_tracks": [],
+                "simulation_mode": "conglomerate",
+                "industry_vertical": "",
+                "bu_substitutions": {},
+                "role": "facilitator",
+                "is_admin": False,
+                "enabled": True,
+                "shockwave_enabled": True,
+                "trading_floor_enabled": True,
+                "situation_room_enabled": True,
+                "permissions": {
+                    "can_undo_rounds": False,
+                    "can_override_decisions": False,
+                    "can_modify_materiality": False,
+                    "can_manage_auto_pause": False,
+                    "can_create_cohorts": False,
+                    "can_enable_side_tracks": False,
+                },
+                "created_by": "bulk_upload",
+                "date_created": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+            }
+            _facilitator_registry.append(fac)
+            created.append({"facilitator_id": fac["facilitator_id"], "name": name, "one_time_password": _plain})
+    _persist_facilitators()
+    _audit("facilitator_bulk_upload", details={"created": len(created), "errors": len(errors), "filename": file.filename})
+    return {
+        "created": created,
+        "errors": errors,
+        "total_created": len(created),
+        "total_errors": len(errors),
+        "credential_note": "All facilitators start with the default password Muressons123 and must change it on first login.",
+    }
+
 @admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
 async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, _guard: None = Depends(require_super_admin)):
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
@@ -1383,7 +1535,7 @@ async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, _guard:
     return fac
 
 @admin_router.post("/facilitators/bulk", summary="Create multiple facilitators in batch")
-async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: None = Depends(require_super_admin)):
+async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: None = Depends(require_registry_admin)):
     import re
     created_facs = []
     credentials: dict[str, str] = {}  # M-3: one-time plaintext passwords, keyed by fac ID
@@ -1537,6 +1689,8 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
     )
     # FIX AUDIT-005: Master password from env var, empty = disabled
     master_ok = bool(MASTER_PASSWORD) and hmac.compare_digest(password, MASTER_PASSWORD)
+    # Project-admin virtual account (registry + cohort creation only)
+    project_ok = bool(PROJECT_ADMIN_PASSWORD) and hmac.compare_digest(password, PROJECT_ADMIN_PASSWORD)
 
     # Enforce god_mode for super admin master access
     if master_ok and fac_id_lower == "god_mode":
@@ -1552,6 +1706,14 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
             "facilitator_id": "facilitator",
             "name": "Master Facilitator",
             "role": "lead_facilitator",
+            "is_admin": False,
+            "enabled": True,
+        }
+    elif project_ok and fac_id_lower == "project_admin":
+        fac = {
+            "facilitator_id": "project_admin",
+            "name": "Project Administrator",
+            "role": "project_admin",
             "is_admin": False,
             "enabled": True,
         }
@@ -2888,7 +3050,7 @@ async def assign_player_to_session(player_id: str, session_id: str, _guard: None
 
 
 @admin_router.delete("/players/{player_id}", summary="Remove a player")
-async def remove_player(player_id: str, _guard: None = Depends(require_facilitator)):
+async def remove_player(player_id: str, _guard: None = Depends(require_sim_manager)):
     global _player_registry
     before = len(_player_registry)
     _player_registry[:] = [p for p in _player_registry if p["player_id"] != player_id]
@@ -4001,6 +4163,8 @@ def _require_console_capability(request: Request, flag: str, label: str) -> None
     explicitly switched off at facilitator setup."""
     from auth_jwt import get_facilitator_from_request
     _fid = get_facilitator_from_request(request)
+    if _fid == "project_admin":
+        raise HTTPException(status_code=403, detail=f"{label} is not available to project admins.")
     if _fid and _fid != "god_mode":
         _fac = next((f for f in _facilitator_registry if f.get("facilitator_id") == _fid and not f.get("deleted_at")), None)
         if _fac is not None and _fac.get(flag, True) is False:

@@ -32,6 +32,10 @@ ROLE_HIERARCHY = {
     "admin": 3,           # M-5: alias for super_admin — prevents undefined hierarchy level
     "lead_facilitator": 2,
     "facilitator": 1,
+    # Registry admin: provisions facilitators + cohorts, NEVER manages runs.
+    # Level 1 on purpose — every lead/super-gated management endpoint stays
+    # closed; the explicit require_sim_manager guard closes the rest.
+    "project_admin": 1,
 }
 
 # Tabs accessible at each role level
@@ -51,6 +55,9 @@ ROLE_ALLOWED_TABS = {
         "undo_round", "materiality", "activity_log",
     ],
     "super_admin": ["*"],  # All tabs
+    # project_admin gets a FIXED set (not cumulative with facilitator tabs):
+    # cohort creation home + the facilitator registry.
+    "project_admin": ["dashboard_home", "facilitator_registry"],
 }
 
 
@@ -89,6 +96,9 @@ def get_allowed_tabs(fac: dict) -> list[str]:
     role = get_role(fac)
     if role == "super_admin":
         return ["*"]
+    if role == "project_admin":
+        # Fixed tab set — deliberately NOT cumulative with facilitator tabs.
+        return list(ROLE_ALLOWED_TABS.get("project_admin", []))
     # Build cumulative tabs: facilitator tabs + lead_facilitator extras if applicable
     tabs = list(ROLE_ALLOWED_TABS.get("facilitator", []))
     if ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("lead_facilitator", 0):
