@@ -417,3 +417,50 @@ snapshot (no fetch/WS call site touched). 3. Frontend jest ✅ 63/63.
 ### Rollback
 One commit — `git revert` restores both the ambient rail accordions and the
 infrastructure panel.
+
+---
+
+## Phase V-B (player dashboard v2) — locked-state truth + single homes
+
+File: `ExecutiveCockpit.js` only. Scope: V-2 + V-4 from the v2 review.
+
+- **V-2 locked options:** pre-gate (`!canAccessStrategy` — briefing unread,
+  R1 map / R2 CSRD incomplete, or R5 audit pending), the deep-dive Strategic
+  Options section renders 🔒 locked summary chips (letter + title + cost)
+  with a hint naming the exact unlock, instead of full option prose behind a
+  click-intercept. The Strategic Breakdown comparison matrix is withheld with
+  it (it is option prose too). The glance-mode minis gain a 🔒 prefix.
+  Post-gate render is byte-identical to before; the canvas strategy stage is
+  untouched; the click-intercept + warning toasts remain.
+- **V-4 single homes:**
+  - The round directive is no longer client-injected as Market-Reality-Feed
+    item 1 (`crisisInfo` push removed) — it lives in the round-narrative card
+    and the header chip. Server-sent mailbox items untouched (data flow).
+  - The rail's "Re-enter Focus Mode" button removed — the left FOCUS MODE
+    pill and the stepper remain (three affordances → two, one per surface).
+  - **Descoped consciously:** the plan's "fold FTSE benchmarks into the
+    Analytics drawer" — on code inspection the FTSE panel (sector ESG
+    benchmarks) and the rail's Nordhaven bar (rival EV race) carry DIFFERENT
+    data, and the FTSE accordion already collapses by default. Not a
+    duplication; moving it would be churn without a finding.
+
+### Gates (in-sandbox, 2026-07-11)
+JSX parse ✅ · endpoint contract unchanged ✅ (the removed feed item was a
+client-side array push, not a fetch) · jest 63/63 ✅ · player smoke identical
+(201 / engines OK / R2 429) ✅.
+
+### Two-browser checklist (your machine)
+- R2 pre-CSRD: options section shows three 🔒 chips + "Complete the CSRD
+  Assessment to unlock"; no comparison matrix; clicking still explains why.
+  Complete the CSRD → full tiles + matrix return exactly as before; select +
+  commit flow unchanged.
+- Market Reality Feed no longer opens with the directive item; the narrative
+  card and header chip still carry it; mailbox unchanged.
+- Right rail has no "Re-enter Focus Mode" button; the left FOCUS MODE pill
+  re-enters the canvas as before.
+- R1 (map gate) and R5 (audit gate) show the same locked treatment with the
+  right unlock hint.
+
+### Rollback
+One commit — revert restores the prose-behind-intercept render, the feed
+injection, and the rail button.

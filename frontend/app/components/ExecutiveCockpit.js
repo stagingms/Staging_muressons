@@ -795,9 +795,10 @@ export default function ExecutiveCockpit({
   // Market events from round_config + engine events
   const marketEvents = useMemo(() => {
     const items = [];
-    if (crisisInfo) {
-      items.push({ type: 'info', text: `📋 ${crisisInfo.title || `Round ${roundNumber} Crisis`}: ${crisisInfo.description || ''}` });
-    }
+    // V-B (player v2, V-4): the round directive is no longer injected as feed
+    // item 1 — it already renders in the round-narrative card and the header
+    // chip (and arrives as mail when the server sends it). One fact, one
+    // home; the feed keeps real market events.
     
     // Dynamic Engine Events
     const flags = globalState?.active_event_flags || {};
@@ -2594,7 +2595,8 @@ export default function ExecutiveCockpit({
                       }}
                     >
                       <span className={styles.optionMiniLabel}>
-                        {isSelected ? '✓ ' : ''}{optId.replace('option_', '').toUpperCase()}: {opt.title || opt.name || optId}
+                        {/* V-B: honest lock state on the glance minis too */}
+                        {!canAccessStrategy ? '🔒 ' : isSelected ? '✓ ' : ''}{optId.replace('option_', '').toUpperCase()}: {opt.title || opt.name || optId}
                       </span>
                       <span className={styles.optionMiniCost} style={cost < 0 ? { color: '#ef4444' } : cost > 0 ? { color: '#4ade80' } : {}}>
                         {cost !== 0 ? fmtCurrency(cost) : '—'}
@@ -2683,7 +2685,51 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
-            {isPillarMode ? (
+            {/* V-B (player v2, V-2): locked-state truth. Pre-gate, the full
+                option prose used to render behind a click-intercept — 400
+                words a player cannot act on, and some believed they'd
+                "chosen" by reading. Locked summaries name the unlock instead;
+                the full cards return unchanged the moment the gate opens
+                (and always render in the canvas strategy stage). */}
+            {!canAccessStrategy ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {(() => {
+                  const unlockHint = !hasReadBriefing
+                    ? 'Read the Briefing to unlock'
+                    : (hasSecondStage && !secondStageDone)
+                      ? (roundNumber === 1 ? 'Complete the Stakeholder Map to unlock' : 'Complete the CSRD Assessment to unlock')
+                      : 'Complete the Shadow Board Audit to unlock';
+                  const rows = isPillarMode
+                    ? Object.entries(pillarConfig?.areas || {}).map(([k, a]) => ({ key: k, label: `${AREA_ICONS[k] || '📌'} ${a.label}`, cost: null }))
+                    : ['option_a', 'option_b', 'option_c'].filter(id => options[id]).map(id => ({
+                        key: id,
+                        label: `${id.replace('option_', '').toUpperCase()}: ${options[id].title || options[id].name || id}`,
+                        cost: options[id].impacts?.treasury || 0,
+                      }));
+                  return (
+                    <>
+                      {rows.map(r => (
+                        <div key={r.key} style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '9px 12px', borderRadius: 8,
+                          border: '1px dashed rgba(148,163,184,0.3)', background: 'rgba(148,163,184,0.04)',
+                          fontSize: '0.75rem', color: '#94a3b8',
+                        }}>
+                          <span aria-hidden="true">🔒</span>
+                          <span style={{ flex: 1, fontWeight: 600 }}>{r.label}</span>
+                          {r.cost != null && r.cost !== 0 && (
+                            <span style={{ fontFamily: 'var(--font-numeral, monospace)', fontSize: '0.7rem' }}>{fmtCurrency(r.cost)}</span>
+                          )}
+                        </div>
+                      ))}
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', padding: '2px 2px 0' }}>
+                        🔒 {unlockHint} — full details and the comparison matrix appear here once it&apos;s done.
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : isPillarMode ? (
               /* ── Multi-Toggles: 4 pillar tiles ── */
               <div className={styles.pillarTiles}>
                 {pillarConfig?.areas && Object.entries(pillarConfig.areas).map(([areaKey, area]) => {
@@ -2736,7 +2782,9 @@ export default function ExecutiveCockpit({
               </div>
             )}
 
-            {/* Strategic Breakdown Panel */}
+            {/* Strategic Breakdown Panel — V-B: withheld with the options
+                pre-gate (its comparison matrix is option prose too). */}
+            {canAccessStrategy && (
             <div className={styles.breakdownPanel}>
               <div className={styles.breakdownLabels}>
                 <span className={styles.breakdownIcon}>🔍</span>
@@ -2830,6 +2878,7 @@ export default function ExecutiveCockpit({
                 )}
               </div>
             </div>
+            )}
 
             {/* Phase 3.3: Consequence DNA — causal chains from past decisions (R4+) */}
             <ConsequenceDNA
@@ -3239,29 +3288,10 @@ export default function ExecutiveCockpit({
             roundNumber={roundNumber}
             workforceReady={globalState?.workforce_readiness}
           />
-          {/* ── Focus Mode Re-enter (inline, above commit) ── */}
-          {focusDismissed && !commitResults && hasReadBriefing && !sim?.gameOver && (
-            <div style={{
-              flex: '0 0 auto', padding: '6px 14px',
-              borderTop: '1px solid #1e293b',
-            }}>
-              <button
-                onClick={handleFocusReenter}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  padding: '7px 12px', background: 'rgba(0, 229, 195, 0.06)',
-                  border: '1px solid rgba(0, 229, 195, 0.2)', borderRadius: 8,
-                  color: '#00e5c3', fontSize: '0.68rem', fontWeight: 700,
-                  fontFamily: "'DM Sans', sans-serif", cursor: 'pointer',
-                  transition: 'background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease, transform 0.2s ease', letterSpacing: '0.03em',
-                }}
-                onMouseOver={e => { e.currentTarget.style.background = 'rgba(0, 229, 195, 0.12)'; e.currentTarget.style.borderColor = 'rgba(0, 229, 195, 0.4)'; }}
-                onMouseOut={e => { e.currentTarget.style.background = 'rgba(0, 229, 195, 0.06)'; e.currentTarget.style.borderColor = 'rgba(0, 229, 195, 0.2)'; }}
-              >
-                🎯 Re-enter Focus Mode
-              </button>
-            </div>
-          )}
+          {/* V-B (player v2, V-4): the rail's "Re-enter Focus Mode" button
+              removed — three re-entry affordances (this, the left FOCUS MODE
+              pill, the stepper) answered the same intent. The left pill and
+              the stepper remain; handleFocusReenter is unchanged. */}
 
           {/* ── Commit Footer (compact) ── */}
           <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '8px 12px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 6 }}>
