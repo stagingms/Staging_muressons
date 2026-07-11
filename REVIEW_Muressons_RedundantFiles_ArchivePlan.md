@@ -100,10 +100,9 @@ orphan and comes straight back.
    `0766c93` archived per review decision); README documents how to run
    them from the archive.
 3. **Doc generators** — ✅ relocated to `scripts/docgen/` (AR4b, `f7a593d`).
-4. **docs/ duplicate pass (AR4a)** — list produced: the ONLY remaining
-   versioned duplicate is `docs/Muressons_Student_Manual_v9.docx` (v10
-   exists). Held pending explicit confirmation; everything else in docs/
-   is a single current version.
+4. **docs/ duplicate pass (AR4a)** — ✅ `Muressons_Student_Manual_v9.docx`
+   archived to `archive/docs_superseded/` (`e3db6e0`). docs/ now holds a
+   single current version of every document.
 
 ### AR3 orphan verification (second pass, on request)
 
@@ -135,4 +134,5 @@ unreachable code.
   an AR1-class candidate; verify before touching.
 
 **Estimated total: ~71 files + docs-duplicates pass, across 4 commits, with
-zero functional change — proven by the same gates 
+zero functional change — proven by the same gates every code phase used.**
+                            
