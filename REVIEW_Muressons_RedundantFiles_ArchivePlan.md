@@ -135,4 +135,3 @@ unreachable code.
 
 **Estimated total: ~71 files + docs-duplicates pass, across 4 commits, with
 zero functional change — proven by the same gates every code phase used.**
-                            
