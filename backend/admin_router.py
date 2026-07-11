@@ -1408,17 +1408,18 @@ async def facilitator_bulk_upload_template(_guard: None = Depends(require_regist
     )
 
 
-@admin_router.post("/facilitators/bulk-upload", summary="Bulk-create facilitators from an Excel file")
-async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = Depends(require_registry_admin)):
-    """W-PA — parses an .xlsx (header row = column names; only `name` is
-    required) and creates one facilitator per data row with the standard
-    policy: default password Muressons123 + must_change_password=True.
-    Returns per-row results (R3 setup-integrity style): every failed row is
-    reported with its row number and reason; valid rows are still created."""
+def _parse_bulk_upload_sheet(raw: bytes):
+    """F-4 proper (v3/S5): the parsing half of the Excel bulk upload, shared by
+    the CREATE endpoint below and the parse-only PREVIEW endpoint — extracted
+    verbatim so the two can never disagree about what a file contains.
+
+    Returns (valid_rows, errors): valid_rows carry every column the create
+    path consumes plus the sheet row number; errors are {row, error}. Raises
+    the same HTTPExceptions the create path always raised for unreadable
+    files / missing headers."""
     from io import BytesIO
     from openpyxl import load_workbook
 
-    raw = await file.read()
     if len(raw) > 2 * 1024 * 1024:
         raise HTTPException(400, "File too large (max 2 MB)")
     try:
@@ -1436,8 +1437,66 @@ async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = D
     if "name" not in col_idx:
         raise HTTPException(400, f"Header row must contain a 'name' column. Found: {[h for h in header if h]}")
 
-    created, errors = [], []
+    valid_rows, errors = [], []
+    for rownum, row in enumerate(rows[1:], start=2):
+        def cell(key, default=""):
+            i = col_idx.get(key)
+            v = row[i] if i is not None and i < len(row) else None
+            return str(v).strip() if v is not None else default
+        name = cell("name")
+        if not name:
+            if any(str(c or "").strip() for c in row):
+                errors.append({"row": rownum, "error": "Missing required 'name'"})
+            continue  # fully blank rows are skipped silently
+        try:
+            mc = int(float(cell("max_cohorts", "3") or 3))
+        except (ValueError, TypeError):
+            mc = 3
+        valid_rows.append({
+            "row": rownum,
+            "name": name,
+            "email": cell("email"),
+            "contact_number": cell("contact_number"),
+            "programme": cell("programme"),
+            "start_date": cell("start_date"),
+            "end_date": cell("end_date"),
+            "max_cohorts": mc,
+        })
+    return valid_rows, errors
+
+
+@admin_router.post("/facilitators/bulk-upload/preview", summary="Parse an Excel bulk-upload WITHOUT creating anything")
+async def facilitator_bulk_upload_preview(file: UploadFile = File(...), _guard: None = Depends(require_registry_admin)):
+    """F-4 proper (v3/S5): parse-only preview so the Excel path gets the same
+    review step the CSV path always had. Creates NOTHING — a deliberately
+    distinct route (not a dry_run flag on the create endpoint) so an older
+    backend answers 404/405 and the frontend falls back safely instead of
+    accidentally creating accounts."""
+    raw = await file.read()
+    valid_rows, errors = _parse_bulk_upload_sheet(raw)
+    return {
+        "dry_run": True,
+        "rows": valid_rows,
+        "errors": errors,
+        "total_valid": len(valid_rows),
+        "total_errors": len(errors),
+        "note": "Nothing was created. POST the same file to /facilitators/bulk-upload to create these accounts.",
+    }
+
+
+@admin_router.post("/facilitators/bulk-upload", summary="Bulk-create facilitators from an Excel file")
+async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = Depends(require_registry_admin)):
+    """W-PA — parses an .xlsx (header row = column names; only `name` is
+    required) and creates one facilitator per data row with the standard
+    policy: default password Muressons123 + must_change_password=True.
+    Returns per-row results (R3 setup-integrity style): every failed row is
+    reported with its row number and reason; valid rows are still created."""
     import re
+
+    raw = await file.read()
+    valid_rows, errors = _parse_bulk_upload_sheet(raw)
+
+    created = []
     # One bcrypt hash for the shared default password (bcrypt is ~100ms/call)
     _plain, _hash = _generate_temp_password()
 
@@ -1450,20 +1509,11 @@ async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = D
                     max_id = max(max_id, int(match.group()))
                 except ValueError:
                     pass
-        for rownum, row in enumerate(rows[1:], start=2):
+        for parsed in valid_rows:
+            name = parsed["name"]
+            mc = parsed["max_cohorts"]
             def cell(key, default=""):
-                i = col_idx.get(key)
-                v = row[i] if i is not None and i < len(row) else None
-                return str(v).strip() if v is not None else default
-            name = cell("name")
-            if not name:
-                if any(str(c or "").strip() for c in row):
-                    errors.append({"row": rownum, "error": "Missing required 'name'"})
-                continue  # fully blank rows are skipped silently
-            try:
-                mc = int(float(cell("max_cohorts", "3") or 3))
-            except (ValueError, TypeError):
-                mc = 3
+                return parsed.get(key, default) or default
             max_id += 1
             fac = {
                 "facilitator_id": f"FAC-{max_id:03d}",

@@ -420,7 +420,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
         setDrawerOpen(true);
     };
 
-    const closeDrawer = () => { setDrawerOpen(false); setStep(1); setForm({ ...EMPTY_FORM }); setEditingFacId(null); setPendingExcel(null); setExcelResult(null); };
+    const closeDrawer = () => { setDrawerOpen(false); setStep(1); setForm({ ...EMPTY_FORM }); setEditingFacId(null); setPendingExcel(null); setExcelResult(null); setExcelPreview(null); };
 
     const updateForm = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
     const updatePermission = (key, value) => setForm(prev => ({
@@ -591,6 +591,27 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     // the old toast threw away) instead of auto-closing the drawer.
     const [pendingExcel, setPendingExcel] = useState(null);   // staged File awaiting confirm
     const [excelResult, setExcelResult] = useState(null);      // { created:[], errors:[], total_created, total_errors }
+    // F-4 proper (v3/S5): parse-only server preview for the staged .xlsx.
+    // null=idle · 'loading' · 'unsupported' (older backend: preview route 404s,
+    // fall back to the blind-confirm flow) · {rows, errors} = real preview.
+    const [excelPreview, setExcelPreview] = useState(null);
+
+    const fetchExcelPreview = async (file) => {
+        setExcelPreview('loading');
+        try {
+            const fd = new FormData();
+            fd.append('file', file);
+            const res = await fetch(`${API}/api/admin/facilitators/bulk-upload/preview`, {
+                method: 'POST', credentials: 'include', body: fd,
+            });
+            if (res.status === 404 || res.status === 405) { setExcelPreview('unsupported'); return; }
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok || data.dry_run !== true) { setExcelPreview('unsupported'); return; }
+            setExcelPreview({ rows: data.rows || [], errors: data.errors || [] });
+        } catch {
+            setExcelPreview('unsupported');
+        }
+    };
 
     const handleExcelUpload = async (file) => {
         setBulkUploading(true);
@@ -628,10 +649,12 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
         if (!file) return;
         if (/\.xlsx$/i.test(file.name || '')) {
             // F-4 (v3): stage + confirm; creation fires only on the explicit button.
+            // S5: also request a parse-only server preview (feature-detected).
             setPendingExcel(file);
             setBulkErrors([]);
             setExcelResult(null);
             setBulkData([]);
+            fetchExcelPreview(file);
             return;
         }
         const reader = new FileReader();
@@ -1782,18 +1805,64 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     <div style={{ fontWeight: 700, marginBottom: 6 }}>
                         📄 {pendingExcel.name} <span style={{ fontWeight: 500, color: 'var(--text-muted, #8899a6)' }}>— Excel file staged, nothing created yet</span>
                     </div>
-                    <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary, #cbd5e1)' }}>
-                        Excel rows are parsed on the server and facilitator accounts are <strong>created immediately on upload</strong> —
-                        there is no preview step for .xlsx. Each created account gets a one-time password, shown once in the
-                        result list below. To review rows before anything is created, use the CSV path instead.
-                    </p>
+
+                    {/* F-4 proper (v3/S5): real server-side preview when the backend
+                        supports it; otherwise the honest blind-confirm fallback. */}
+                    {excelPreview === 'loading' && (
+                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', color: 'var(--text-muted, #8899a6)' }}>
+                            ⏳ Asking the server to parse the sheet (preview only — creates nothing)…
+                        </p>
+                    )}
+                    {excelPreview === 'unsupported' && (
+                        <p style={{ margin: '0 0 0.75rem', fontSize: '0.82rem', lineHeight: 1.5, color: 'var(--text-secondary, #cbd5e1)' }}>
+                            Excel rows are parsed on the server and facilitator accounts are <strong>created immediately on upload</strong> —
+                            this backend has no preview endpoint for .xlsx. Each created account gets a one-time password, shown once in the
+                            result list below. To review rows before anything is created, use the CSV path instead.
+                        </p>
+                    )}
+                    {excelPreview && typeof excelPreview === 'object' && (
+                        <div style={{ margin: '0 0 0.75rem' }}>
+                            <div style={{ fontSize: '0.82rem', fontWeight: 700, marginBottom: 6 }}>
+                                Server preview — {excelPreview.rows.length} account{excelPreview.rows.length === 1 ? '' : 's'} will be created
+                                {excelPreview.errors.length > 0 && <> · {excelPreview.errors.length} row{excelPreview.errors.length === 1 ? '' : 's'} will be skipped</>}
+                                <span style={{ fontWeight: 500, color: 'var(--text-muted, #8899a6)' }}> (nothing created yet)</span>
+                            </div>
+                            <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid rgba(148,163,184,0.2)', borderRadius: 8 }}>
+                                <table className={styles.table} style={{ fontSize: '0.78rem' }}>
+                                    <thead>
+                                        <tr><th>Row</th><th>Name</th><th>Email</th><th>Programme</th><th>Max cohorts</th></tr>
+                                    </thead>
+                                    <tbody>
+                                        {excelPreview.rows.map((r, i) => (
+                                            <tr key={i}>
+                                                <td style={{ fontFamily: 'var(--font-mono, monospace)', color: 'var(--text-muted)' }}>{r.row}</td>
+                                                <td className={styles.facName}>{r.name}</td>
+                                                <td>{r.email || '—'}</td>
+                                                <td>{r.programme || '—'}</td>
+                                                <td>{r.max_cohorts}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                            {excelPreview.errors.map((e2, i) => (
+                                <div key={i} style={{ fontSize: '0.78rem', color: '#fca5a5', marginTop: 4 }}>✗ Row {e2.row}: {e2.error}</div>
+                            ))}
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)', marginTop: 6 }}>
+                                Each created account gets a one-time password, shown once in the result list after upload.
+                            </div>
+                        </div>
+                    )}
+
                     <div style={{ display: 'flex', gap: '0.6rem' }}>
-                        <button className={styles.bulkDownloadBtn} style={{ fontWeight: 700 }}
-                            onClick={() => { const f = pendingExcel; setPendingExcel(null); handleExcelUpload(f); }}>
-                            🚀 Upload & create accounts now
+                        <button className={styles.bulkDownloadBtn} style={{ fontWeight: 700, opacity: (excelPreview === 'loading' || (typeof excelPreview === 'object' && excelPreview && excelPreview.rows.length === 0)) ? 0.5 : 1 }}
+                            disabled={excelPreview === 'loading' || (typeof excelPreview === 'object' && excelPreview && excelPreview.rows.length === 0)}
+                            title={typeof excelPreview === 'object' && excelPreview && excelPreview.rows.length === 0 ? 'No valid rows — fix the sheet and re-drop it' : undefined}
+                            onClick={() => { const f = pendingExcel; setPendingExcel(null); setExcelPreview(null); handleExcelUpload(f); }}>
+                            🚀 {excelPreview && typeof excelPreview === 'object' ? `Create ${excelPreview.rows.length} account${excelPreview.rows.length === 1 ? '' : 's'} now` : 'Upload & create accounts now'}
                         </button>
                         <button className={styles.bulkDownloadBtn}
-                            onClick={() => setPendingExcel(null)}>
+                            onClick={() => { setPendingExcel(null); setExcelPreview(null); }}>
                             Cancel — nothing sent
                         </button>
                     </div>
