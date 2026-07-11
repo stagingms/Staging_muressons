@@ -36,6 +36,30 @@ export default function ShockwaveControlPage() {
   // `shockwave_rehearsal`). This is the ONLY new request variant in v3.
   const [rehearsal, setRehearsal] = useState(null); // response of a rehearsal run
   const [rehearsing, setRehearsing] = useState(false);
+  // G-3 proper (v3/S5): prefer the ENGINE's catalog over the local copy.
+  // Feature-detected — on any failure (older backend, network) the local
+  // shockwaveCatalog stays in force, itself guarded by the drift-tripwire
+  // jest test. Frontend emoji labels are kept by id; unknown ids fall back
+  // to the server title.
+  const [events, setEvents] = useState(SHOCKWAVE_EVENTS);
+  useEffect(() => {
+    fetch('/api/admin/shockwave/events', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d || !Array.isArray(d.events) || d.events.length === 0) return;
+        setEvents(d.events.map((ev) => ({
+          id: ev.id,
+          label: SHOCKWAVE_EVENTS.find((x) => x.id === ev.id)?.label || ev.title || ev.id,
+          financial_impact: Number(ev.financial_impact) || 0,
+          reputation_impact: Number(ev.reputation_impact) || 0,
+        })));
+      })
+      .catch(() => { /* keep the local catalog */ });
+  }, []);
+  // Keep the selected crisis valid if the server catalog differs.
+  useEffect(() => {
+    if (events.length && !events.some((e) => e.id === eventId)) setEventId(events[0].id);
+  }, [events, eventId]);
 
   useEffect(() => {
     // F-9 (v3): name the remedy — "signed out" and "backend down" are
@@ -110,7 +134,7 @@ export default function ShockwaveControlPage() {
   // detonate() sends is byte-identical to pre-v3; Cancel sends nothing.
   const onDetonate = useCallback(async () => {
     const c = cohorts.find((x) => x.id === cohort);
-    const ev = SHOCKWAVE_EVENTS.find((e) => e.id === eventId);
+    const ev = events.find((e) => e.id === eventId);
     if (!c || !ev) return;
     const ok = await confirmAction({
       title: `🚨 Detonate ${ev.label}`,
@@ -123,7 +147,7 @@ export default function ShockwaveControlPage() {
     });
     if (!ok) return;
     detonate();
-  }, [cohorts, cohort, eventId, countdown, confirmAction, detonate]);
+  }, [cohorts, cohort, events, eventId, countdown, confirmAction, detonate]);
 
   return (
     <div style={S.page}>
@@ -158,7 +182,7 @@ export default function ShockwaveControlPage() {
 
       <label style={S.lbl}>Crisis</label>
       <div style={S.grid}>
-        {SHOCKWAVE_EVENTS.map((ev) => (
+        {events.map((ev) => (
           <button key={ev.id} onClick={() => setEventId(ev.id)}
             style={{ ...S.card, ...(eventId === ev.id ? S.cardActive : {}) }}>
             <div style={{ fontWeight: 700 }}>{ev.label}</div>

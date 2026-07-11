@@ -4204,6 +4204,15 @@ def _require_console_capability(request: Request, flag: str, label: str) -> None
             raise HTTPException(status_code=403, detail=f"{label} is disabled for your facilitator profile.")
 
 
+@admin_router.get("/shockwave/events", summary="Shockwave crisis catalog (single source of truth)")
+async def get_shockwave_events(_guard: None = Depends(require_facilitator)):
+    """G-3 (v3/S5): serve the crisis catalog so the Shockwave console renders
+    the ENGINE's numbers instead of a hand-copied frontend duplicate. Additive
+    and read-only; the console feature-detects this endpoint and falls back to
+    its local copy (guarded by the drift-tripwire jest test) when absent."""
+    return {"events": [{"id": k, **v} for k, v in _SHOCKWAVE_EVENTS.items()]}
+
+
 @admin_router.post("/{cohort_id}/shockwave", summary="Feature 6: detonate a synchronized black-swan across a cohort")
 async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body(default={}), _guard: None = Depends(require_facilitator)):
     """Applies an identical black-swan impact (treasury + reputation) to every
