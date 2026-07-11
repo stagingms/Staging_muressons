@@ -36,7 +36,7 @@ app writes at runtime. Anything referenced by the safety/ops documents
 
 ## 3. ARCHIVE CANDIDATES — by phase
 
-### Phase AR1 — zero-risk leftovers (30 files, no references anywhere)
+### Phase AR1 — zero-risk leftovers (33 files, no references anywhere) ✅ executed (`0b5d894`)
 - Root: `test.bat`, `test_sub.docx`, `clean_frontend_sdg.js` (one-shot codemod, already applied)
 - `scratch/` (4): `fix_lock.py`, `generate_syllabus_docx.py`, `test_ceo_interview.py`, `test_lifespan.py`
 - `reports/` (23): traversal reports + facilitator evidence from the May test campaign — historical evidence, not consumed by anything
@@ -135,4 +135,4 @@ unreachable code.
   an AR1-class candidate; verify before touching.
 
 **Estimated total: ~71 files + docs-duplicates pass, across 4 commits, with
-zero functional change — proven by the same gates every code phase used.**
+zero functional change — proven by the same gates 
