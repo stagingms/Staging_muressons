@@ -1765,8 +1765,6 @@ export default function ExecutiveCockpit({
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
                         detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
-                        onOptionHover={setHoveredOpt}
-                        onOptionLeave={() => setHoveredOpt(null)}
                       />
                     </div>
                   );
@@ -2806,8 +2804,6 @@ export default function ExecutiveCockpit({
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
                         detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
-                        onOptionHover={setHoveredOpt}
-                        onOptionLeave={() => setHoveredOpt(null)}
                       />
                     </div>
                   );
@@ -2934,7 +2930,10 @@ export default function ExecutiveCockpit({
                   </div>
                 ) : (
                   <p className={styles.breakdownPlaceholder}>
-                    Hover over an active Strategic Pillar dropdown to view its detailed implications.
+                    {/* Truth fix: each pillar dropdown shows its option's cost,
+                        description, and impacts in its OWN hover tooltip — this
+                        panel does not duplicate that. */}
+                    Open a Strategic Pillar dropdown and hover an option — its cost, description, and impacts appear beside it.
                   </p>
                 )}
               </div>

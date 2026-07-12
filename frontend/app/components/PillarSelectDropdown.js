@@ -38,13 +38,6 @@ export default function PillarSelectDropdown({
   fmtCurrency,
   detailedDescs = {},
   impactLabels = DEFAULT_IMPACT_LABELS,
-  // BUGFIX (single-SBU / pillar mode): the dropdown showed detail only in its
-  // OWN inline tooltip and never told the parent, so the separate
-  // "STRATEGIC BREAKDOWN" panel's "hover over a dropdown" instruction could
-  // never be fulfilled. These optional callbacks bubble the hovered option up
-  // so the panel fills too. Purely additive — omitting them keeps old behaviour.
-  onOptionHover,
-  onOptionLeave,
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [hoveredOpt, setHoveredOpt] = useState(null);
@@ -102,13 +95,7 @@ export default function PillarSelectDropdown({
     setHoveredOpt(optKey);
     hoveredRef.current = el;
     checkTooltipSide(el);
-    // Bubble to the parent's Strategic Breakdown panel (title + resolved desc).
-    const opt = options[optKey];
-    if (opt) onOptionHover?.({
-      title: opt.title || optKey,
-      desc: detailedDescs[optKey] || opt.description || '',
-    });
-  }, [checkTooltipSide, options, detailedDescs, onOptionHover]);
+  }, [checkTooltipSide]);
 
   const selectedOption = value ? options[value] : null;
   const displayText = selectedOption
@@ -153,7 +140,7 @@ export default function PillarSelectDropdown({
                   className={`${styles.option} ${isSelected ? styles.optionSelected : ''}`}
                   onClick={() => handleSelect(optKey)}
                   onMouseEnter={(e) => handleOptionHover(optKey, e.currentTarget)}
-                  onMouseLeave={() => { setHoveredOpt(null); onOptionLeave?.(); }}
+                  onMouseLeave={() => setHoveredOpt(null)}
                   role="option"
                   aria-selected={isSelected}
                 >
