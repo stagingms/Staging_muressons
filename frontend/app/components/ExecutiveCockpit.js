@@ -1765,6 +1765,8 @@ export default function ExecutiveCockpit({
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
                         detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
+                        onOptionHover={setHoveredOpt}
+                        onOptionLeave={() => setHoveredOpt(null)}
                       />
                     </div>
                   );
@@ -2804,6 +2806,8 @@ export default function ExecutiveCockpit({
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
                         detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
+                        onOptionHover={setHoveredOpt}
+                        onOptionLeave={() => setHoveredOpt(null)}
                       />
                     </div>
                   );

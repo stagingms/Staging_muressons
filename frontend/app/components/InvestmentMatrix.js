@@ -311,15 +311,18 @@ export default function InvestmentMatrix({
                 )}
             </div>
 
-            {/* Sort toggle */}
-            <div className={styles.sortBar}>
-                <span className={styles.sortLabel}>Sort:</span>
-                {SORT_OPTIONS.map(opt => (
-                    <button key={opt.key}
-                        className={`${styles.sortBtn} ${sortBy === opt.key ? styles.sortBtnActive : ''}`}
-                        onClick={() => setSortBy(opt.key)}>{opt.label}</button>
-                ))}
-            </div>
+            {/* Sort toggle — hidden in the single-BU (single-SBU) simulation:
+                there is nothing to sort with one unit. */}
+            {(businessUnits?.length || 0) > 1 && (
+                <div className={styles.sortBar}>
+                    <span className={styles.sortLabel}>Sort:</span>
+                    {SORT_OPTIONS.map(opt => (
+                        <button key={opt.key}
+                            className={`${styles.sortBtn} ${sortBy === opt.key ? styles.sortBtnActive : ''}`}
+                            onClick={() => setSortBy(opt.key)}>{opt.label}</button>
+                    ))}
+                </div>
+            )}
 
             {/* BU Sliders */}
             <div className={`${styles.sliders} ${sortedUnits.length === 1 ? styles.slidersSingle : ''}`}>
