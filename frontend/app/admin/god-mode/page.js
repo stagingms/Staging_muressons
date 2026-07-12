@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import styles from '../page.module.css';
+import { isAdminRole } from '../../utils/roleRouting';
 
 import MaterialityConfig from '../../components/MaterialityConfig';
 import MasterInterventions from '../../components/MasterInterventions';
@@ -58,6 +60,10 @@ const GOD_SHORTCUTS = [
  *  LOGIN GATE — Same facilitator-based auth as Workshop Facilitator
  * ═════════════════════════════════════════════════════════════════ */
 
+// Phase L: SUPERSEDED — the god-mode page no longer renders its own login gate
+// (unauth is redirected to the single /admin sign-in). Kept temporarily to keep
+// the diff surgical; safe to delete in a follow-up cleanup.
+// eslint-disable-next-line no-unused-vars
 function GodModeLoginGate({ onLogin }) {
     const [facId, setFacId] = useState('');
     const [password, setPassword] = useState('');
@@ -537,6 +543,7 @@ function GodModeChangePasswordModal({ facilitatorId, onClose }) {
  * ═════════════════════════════════════════════════════════════════ */
 
 export default function GodModePage() {
+    const router = useRouter();
     const [authData, setAuthData] = useState(null);
     const [checked, setChecked] = useState(false);
     const [sessionExpired, setSessionExpired] = useState(false);
@@ -548,6 +555,19 @@ export default function GodModePage() {
         } catch { /* ignore */ }
         setChecked(true);
     }, []);
+
+    // Phase L: this console has ONE neutral entry point (/admin). Direct
+    // navigation here no longer shows a "God Mode Access" login (which named a
+    // privileged portal to any visitor). Unauthenticated → the single sign-in;
+    // authenticated-but-not-admin (e.g. a facilitator's stale bookmark) → their
+    // own dashboard, never stranded on a god-mode error. The server guards were
+    // already rejecting their god-mode API calls; this is graceful UX on top.
+    const isAdmin = authData ? isAdminRole(authData.role, authData.is_admin) : false;
+    useEffect(() => {
+        if (!checked) return;
+        if (!authData) { router.replace(sessionExpired ? '/admin?expired=1' : '/admin'); return; }
+        if (!isAdmin) router.replace('/admin/facilitator');
+    }, [checked, authData, isAdmin, sessionExpired, router]);
 
     const handleLogout = async () => {
         // C-2: Call the server-side logout endpoint so the HttpOnly JWT cookie
@@ -576,28 +596,9 @@ export default function GodModePage() {
     };
 
     if (!checked) return null;
-
-    if (!authData) {
-        return (
-            <>
-                {sessionExpired && (
-                    <div style={{
-                        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 99999,
-                        background: 'linear-gradient(90deg, #f59e0b, #ef4444)',
-                        color: '#fff', padding: '0.75rem 1.5rem',
-                        display: 'flex', alignItems: 'center', gap: '0.75rem',
-                        fontSize: '0.85rem', fontWeight: 600,
-                    }}>
-                        <span>⏱️</span>
-                        <span>Your session has expired. Please sign in again to continue.</span>
-                    </div>
-                )}
-                <div style={{ paddingTop: sessionExpired ? '3rem' : 0 }}>
-                    <GodModeLoginGate onLogin={(data) => { setAuthData(data); setSessionExpired(false); }} />
-                </div>
-            </>
-        );
-    }
+    // Phase L: while redirecting (unauth → /admin, or non-admin → their own
+    // dashboard) render nothing — /admin is the only login surface.
+    if (!authData || !isAdmin) return null;
 
     return <GodModeDashboard authData={authData} onLogout={handleLogout} onSessionExpired={handleSessionExpired} />;
 }

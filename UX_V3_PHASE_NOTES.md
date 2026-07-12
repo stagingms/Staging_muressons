@@ -624,3 +624,55 @@ Files: `.github/workflows/ci.yml`, `backend/requirements.txt`,
 Revert the commit — removes the workflow, the requirements-dev file, and the
 openpyxl pin. (Keep the openpyxl line even if reverting CI — it's a genuine
 prod-dependency fix.)
+
+---
+
+## Phase L (role-aware login) — no privileged portal is advertised pre-auth
+
+Files: `utils/roleRouting.js` (new), `components/AdminLogin.js` (new),
+`admin/page.js` (rewritten), `admin/god-mode/page.js`,
+`__tests__/role-routing.test.js` (new). **Zero backend change; server RBAC
+untouched** (ROLE_HIERARCHY, require_* guards, player realm all as-is).
+
+- **Root cause:** `/admin` was a static, unauthenticated "System Access Portal"
+  advertising a "God Mode — Super Admin" card and forcing self-selection of a
+  portal *before* login. You can't hide a role from a facilitator on a page
+  that shows every role's door pre-auth.
+- **L1** `utils/roleRouting.js`: `isAdminRole` / `roleHome` / `roleStorageKey`
+  / `roleAuthSubset` — the single source of truth for "which dashboard does a
+  signed-in identity own," mirroring backend `is_admin_role` (god_mode +
+  super_admin/admin → god mode; everyone else → facilitator portal).
+  `AdminLogin.js`: one neutral sign-in form (ID + password, PasswordInput,
+  caps-lock), never names a role/portal; hands the server response to a caller.
+- **L2** `admin/page.js`: the two-card gateway is gone. `/admin` is now the
+  unified sign-in — on success it persists the display-safe subset under the
+  destination's storage key and routes via `roleHome(data)`. A facilitator sees
+  a login form, never "God Mode." A super_admin logs in with the same form and
+  is routed to god mode automatically. project_admin lands on its provisioning
+  view. Routing is UX only; the JWT cookie + guards remain the real boundary.
+- **L3** `admin/god-mode/page.js`: direct navigation no longer renders a
+  "God Mode Access" login. Unauthenticated → redirected to `/admin` (single
+  surface; `?expired=1` preserves the session-expired message). Authenticated
+  non-admin (a facilitator's stale bookmark) → bounced to `/admin/facilitator`
+  instead of the old post-login error. The self-contained `GodModeLoginGate` is
+  now superseded (marked dead with an eslint-disable; safe follow-up deletion).
+- **Not touched:** the facilitator page keeps its own legitimate facilitator
+  login (it never advertised god_mode/project_admin); requirement is met without
+  editing that 2k-line file.
+
+### Gates (in-sandbox, 2026-07-11)
+JSX parse ✅ all four touched/new files · jest **85 passed / 7 suites**
+(incl. the new role-routing test: every identity routes to its own dashboard;
+a plain facilitator/project_admin is *never* routed to god mode) · no backend
+change (no pytest impact).
+
+### Role matrix (on-machine)
+Log in at `/admin` as each of base facilitator · lead · super_admin ·
+project_admin · god_mode (master pw) → each lands on the correct dashboard;
+"God Mode"/"project admin" appear nowhere pre-auth. Deep-link
+`/admin/god-mode` as a logged-in facilitator → bounced to their dashboard; as
+an unauth visitor → the neutral `/admin` sign-in. `next build` on CI (eslint:
+the dead gate is disable-commented so no unused-var error).
+
+### Rollback
+Revert the commit — restores the two-card gateway and the per-page gates.
