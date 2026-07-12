@@ -74,6 +74,46 @@ def _refuse_memory_db_in_prod() -> None:
     sys.exit(1)
 
 
+def _assert_secure_cookies_in_prod() -> None:
+    """SEC-2: In production (DEBUG=false) the session cookie MUST carry Secure.
+
+    The Secure flag is now resolved by auth_jwt.cookie_secure_enabled()
+    (COOKIE_SECURE env, falling back to `not DEBUG`), decoupled from DEBUG so a
+    stray DEBUG=true no longer silently downgrades auth cookies to plaintext.
+    This guard closes the remaining hole: a prod deployment that explicitly set
+    COOKIE_SECURE=false (or left DEBUG=true) would still ship insecure cookies.
+    We refuse to boot unless the operator has knowingly opted out for an
+    HTTP-only LAN workshop via ALLOW_INSECURE_COOKIES=true.
+    """
+    if DEBUG:
+        return  # local development - plaintext HTTP is expected
+    try:
+        from auth_jwt import cookie_secure_enabled
+    except Exception:
+        return  # auth module unavailable -> nothing to assert
+    if cookie_secure_enabled():
+        return
+    allow_insecure = os.getenv("ALLOW_INSECURE_COOKIES", "").lower() in ("true", "1", "yes")
+    if allow_insecure:
+        print(
+            "\n"
+            "SEC-2 WARNING - Auth cookies are NOT Secure in PROD. "
+            "Session tokens can be sent over plaintext HTTP and sniffed. "
+            "Override active: ALLOW_INSECURE_COOKIES=true. "
+            "Use only for an intentional HTTP-only LAN workshop."
+        )
+        return
+    print(
+        "\n"
+        "SEC-2 FATAL - Insecure auth cookies in production. "
+        "DEBUG=false but the session cookie Secure flag is OFF. "
+        "Serve over HTTPS and set COOKIE_SECURE=true (or unset COOKIE_SECURE "
+        "and DEBUG so it defaults to Secure). Or, for an intentional HTTP-only "
+        "LAN workshop, set ALLOW_INSECURE_COOKIES=true (cookies are sniffable)."
+    )
+    sys.exit(1)
+
+
 def _is_postgres_available() -> bool:
     try:
         import asyncpg  # noqa: F401
@@ -98,6 +138,10 @@ if not DEBUG and not os.getenv("JWT_SECRET", ""):
         "╚══════════════════════════════════════════════════════════╝"
     )
     sys.exit(1)
+
+# SEC-2: production fail-fast - auth cookies must be Secure (HTTPS-only) unless
+# the operator explicitly opts out for an HTTP-only LAN workshop.
+_assert_secure_cookies_in_prod()
 
 # SEC-4: warn loudly if the MASTER_PASSWORD break-glass bypass is armed in prod.
 if not DEBUG and os.getenv("MASTER_PASSWORD", ""):
@@ -271,8 +315,16 @@ app.include_router(analytics_router)     # ARCH-002: Extracted sub-router
 
 @app.get("/health", tags=["System"])
 async def health_check():
+    # BUGFIX: the old detection `"database_memory" in str(type(db))` was DEAD —
+    # `db` is a module, so `str(type(db))` is "<class 'module'>" and never
+    # matches. It reported "memory" ONLY when USE_MEMORY_DB was forced, and
+    # crucially MISreported "postgresql" during a silent Postgres-unavailable
+    # fallback (main.py imports database_memory but _use_memory stays False) —
+    # hiding the exact data-loss risk the player "demo mode" banner exists to
+    # warn about. Use the authoritative module-name check, same as lifespan().
+    _memory = _use_memory or getattr(db, "__name__", "") == "database_memory"
     return {
         "status": "ok",
         "version": APP_VERSION,
-        "database": "memory" if _use_memory or "database_memory" in str(type(db)) else "postgresql",
+        "database": "memory" if _memory else "postgresql",
     }

@@ -376,6 +376,10 @@ export default function CockpitPage() {
 
   const csfPool = useMemo(
     () => {
+      // MNT-3: keep in sync with backend config.py CSF_POOL_TREASURY_FRACTION
+      // (0.20) and CSF_POOL_FLOOR (5_000_000). The server recomputes
+      // investment_ratio from this same pool (router.py COR-1), so these two
+      // literals must not drift from the backend constants.
       const treasury = globalState?.corporate_treasury ?? SEED_GLOBAL.corporate_treasury;
       const pool = treasury * 0.20;
       // Emergency floor: ₹5M ensures teams can make meaningful ESG investments
@@ -1227,10 +1231,14 @@ export default function CockpitPage() {
         </button>
       )}
 
-      {/* D3: Memory-DB warning banner — dismissible, only when backend uses volatile storage */}
+      {/* D3: Memory-DB warning banner — dismissible, only when backend uses volatile storage.
+          V-C follow-up: moved from bottom-center (it collided with the docked
+          RoundChecklist stepper) to the top notice lane used by the
+          auto-advance / broadcast banners. A persistent session-status flag
+          belongs at the top with other status, not in the bottom flow lane. */}
       {isMemoryDb && !memoryDbDismissed && (
         <div style={{
-          position: 'fixed', bottom: 16, left: '50%', transform: 'translateX(-50%)',
+          position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)',
           zIndex: 18000, display: 'flex', alignItems: 'center', gap: 10,
           padding: '8px 18px', borderRadius: 10,
           background: 'rgba(217,119,6,0.92)', backdropFilter: 'blur(8px)',
