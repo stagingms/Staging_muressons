@@ -3836,14 +3836,32 @@ def _apply_force_strike(
 async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
     """Returns all sessions with their latest state for the leaderboard."""
     sessions = await db.fetch_all_sessions()
-    
+
     if facilitator_id:
         sessions = [
-            s for s in sessions 
+            s for s in sessions
             if s.get("facilitator_id") == facilitator_id
         ]
-        
-    return {"sessions": sessions}
+
+    # Enrich each cohort with its EFFECTIVE climate settings (global default +
+    # any per-cohort override) so UI surfaces like the Cohort Summary hover can
+    # display the climate branch, carbon fee, hostility and Scope-3 without a
+    # second round-trip. Operates on shallow COPIES so the shared in-memory
+    # session store is never mutated; additive (setdefault) so an explicit
+    # per-session value is never clobbered.
+    enriched = []
+    for _s in sessions:
+        _e = dict(_s)
+        try:
+            _eff = get_effective_settings(_e.get("session_id"))
+            _e.setdefault("climate_paradigm", resolve_climate_paradigm(_eff))
+            for _k in ("global_carbon_fee", "market_hostility_index", "scope_3_threshold"):
+                _e.setdefault(_k, _eff.get(_k))
+        except Exception:
+            pass
+        enriched.append(_e)
+
+    return {"sessions": enriched}
 
 
 

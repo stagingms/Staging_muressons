@@ -54,6 +54,29 @@ const MODE_LABELS = {
     single_bu: '🏗️ Single Business Unit',
 };
 
+// Climate branch (C6: canonical climate_paradigm; falls back to legacy
+// simulation_mode which historically doubled as the climate value).
+const CLIMATE_LABELS = {
+    standard:         'Standard',
+    advanced_climate: '⚡ Advanced Climate',
+};
+
+const DIFFICULTY_LABELS = {
+    easy:     '🟢 Easy',
+    standard: '🟡 Standard',
+    advanced: '🟠 Advanced',
+    hard:     '🔴 Hard',
+    extreme:  '🌪️ Extreme',
+};
+
+/** Format a fractional rate (0.12 → "12%") or pass through a percent-ish value. */
+function fmtRate(v) {
+    if (v == null || v === '') return null;
+    const n = Number(v);
+    if (Number.isNaN(n)) return String(v);
+    return n <= 1 ? `${(n * 100).toFixed(n * 100 % 1 ? 1 : 0)}%` : `${n}%`;
+}
+
 /* ── Helpers ─────────────────────────────────────────────────────── */
 function fmtDate(d) {
     if (!d) return '—';
@@ -164,7 +187,7 @@ export default function CohortSummaryTooltip({ session, anchorRect, visible }) {
         if (!visible || !anchorRect || !cardRef.current) return;
 
         const CARD_W = 580;
-        const CARD_H = 420; // approximate
+        const CARD_H = 520; // approximate (grows with the full parameter set)
         const GAP = 10;
         const PAD = 12; // viewport padding
         const vw = window.innerWidth;
@@ -214,6 +237,27 @@ export default function CohortSummaryTooltip({ session, anchorRect, visible }) {
         africa: 'Africa',
     };
     const region        = REGION_LABELS[rawRegion] || rawRegion;
+
+    // Extra core-config params
+    const shortCode      = s.short_code || s.join_code || s.sim_code || '—';
+    const difficulty     = DIFFICULTY_LABELS[s.difficulty_tier] || (s.difficulty_tier ? s.difficulty_tier.replace(/_/g, ' ') : '—');
+    const loanRate       = fmtRate(s.loan_interest_rate ?? s.loan_interest_rate_start) || '—';
+    const scenarioPreset = s.scenario_preset ? String(s.scenario_preset).replace(/_/g, ' ') : null;
+
+    // Climate engine params (C6/C2: climate_paradigm + numeric inputs). These
+    // may arrive on the session directly or via its effective settings; render
+    // whichever are present. `climate` sub-object supports the new
+    // /effective-settings/summary shape.
+    const climate       = s.climate || s.effective_settings || {};
+    const climateRaw    = s.climate_paradigm ?? climate.climate_paradigm;
+    const climateBranch = CLIMATE_LABELS[climateRaw] || (climateRaw ? String(climateRaw).replace(/_/g, ' ') : '—');
+    const carbonFeeVal  = s.global_carbon_fee ?? climate.global_carbon_fee;
+    const carbonFee     = carbonFeeVal != null ? `$${carbonFeeVal}/t` : null;
+    const hostilityVal  = s.market_hostility_index ?? climate.market_hostility_index;
+    const hostility     = hostilityVal != null ? `${hostilityVal}/10` : null;
+    const scope3Val     = s.scope_3_threshold ?? climate.scope_3_threshold;
+    const scope3        = scope3Val != null ? `${scope3Val} kg CO₂e/u` : null;
+    const isAdvanced    = climateRaw === 'advanced_climate';
 
     // Optional modules
     const engines    = s.engine_toggles || s.enabled_engines || {};
@@ -306,19 +350,27 @@ export default function CohortSummaryTooltip({ session, anchorRect, visible }) {
                 {/* CORE CONFIGURATION */}
                 <Panel icon="📋" title="Core Configuration" accentColor="#818cf8">
                     <Row label="Cohort"      value={cohortName} />
+                    <Row label="Code"        value={shortCode} accent="#94a3b8" />
                     <Row label="Facilitator" value={facilitator} />
                     <Row label="Level"       value={expLevel} accent="#a78bfa" />
+                    {difficulty !== '—' && <Row label="Difficulty" value={difficulty} accent="#f59e0b" />}
+                    {scenarioPreset     && <Row label="Preset"     value={scenarioPreset} />}
                     <Row label="Dates"       value={`${startDate} → ${endDate}`} />
-                    {region !== '—'     && <Row label="Region"      value={region}     accent="#34d399" />}
+                    <Row label="Region"      value={region}     accent="#34d399" />
                     <Row label="Currency"    value={currency} accent="#22c55e" />
+                    {loanRate !== '—'   && <Row label="Loan Rate" value={loanRate} accent="#fbbf24" />}
                 </Panel>
 
                 {/* SIMULATION ENGINE */}
                 <Panel icon="⚙️" title="Simulation Engine" accentColor="#3b82f6">
                     <Row label="Paradigm" value={paradigm}      accent="#60a5fa" />
+                    <Row label="Climate"  value={climateBranch} accent={isAdvanced ? '#f97316' : '#60a5fa'} />
                     <Row label="Ending"   value={endingPathway} accent="#f59e0b" />
                     <Row label="Mode"     value={simMode}       accent="#818cf8" />
-                    {buSelected !== '—' && <Row label="BU Selected" value={buSelected} accent="#60a5fa" />}
+                    <Row label="BU"       value={buSelected}    accent="#60a5fa" />
+                    {carbonFee && <Row label="Carbon Fee" value={carbonFee} accent="#f97316" />}
+                    {hostility && <Row label="Hostility"  value={hostility} accent="#f97316" />}
+                    {scope3    && <Row label="Scope-3"    value={scope3}    accent="#f97316" />}
                 </Panel>
 
                 {/* OPTIONAL MODULES */}
