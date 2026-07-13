@@ -26,10 +26,46 @@
   transition: stroke 0.5s ease, stroke-dashoffset 0.8s ease, stroke-width 0.3s ease;
 }
 
+/* ── SA-C: per-stage figure motion (the person emotes; the gauge stays put) ── */
+.fig {
+  transform-box: view-box;
+  transform-origin: 22px 22px;
+}
+
+@keyframes savBreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.03); } }
+@keyframes savSway    { 0%, 100% { transform: rotate(-1.3deg); } 50% { transform: rotate(1.3deg); } }
+@keyframes savShiver  { 0%, 100% { transform: translateX(-0.45px); } 50% { transform: translateX(0.45px); } }
+@keyframes savTremor  { 0% { transform: translate(-0.9px,0); } 25% { transform: translate(0.9px,-0.4px); } 50% { transform: translate(-0.4px,0.5px); } 75% { transform: translate(0.9px,0); } 100% { transform: translate(-0.9px,0); } }
+@keyframes savShake   { 0% { transform: translate(-1.4px,0) rotate(-0.8deg); } 50% { transform: translate(1.4px,0) rotate(0.8deg); } 100% { transform: translate(-1.4px,0) rotate(-0.8deg); } }
+
+.wrap[data-stage="dormant"]   .fig { animation: savBreathe 4s ease-in-out infinite; }
+.wrap[data-stage="watching"]  .fig { animation: savSway 3.4s ease-in-out infinite; }
+.wrap[data-stage="agitated"]  .fig { animation: savShiver 0.28s steps(2) infinite; }
+.wrap[data-stage="hostile"]   .fig { animation: savTremor 0.16s infinite; }
+.wrap[data-stage="triggered"] .fig { animation: savShake 0.09s infinite; }
+
 .tol {
   font-family: var(--font-mono, 'JetBrains Mono', monospace);
   font-size: 10px;
   font-weight: 700;
   color: #cbd5e1;
   letter-spacing: 0.02em;
-  font-variant-numeric: tabular-n
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes savRingPulse {
+  0%, 100% { stroke-width: 2.6; opacity: 1; }
+  50%      { stroke-width: 4.4; opacity: 0.85; }
+}
+
+.pulse .ring {
+  animation: savRingPulse 0.7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse .ring,
+  .fig,
+  .wrap[data-stage] .fig {
+    animation: none !important;
+  }
+}
