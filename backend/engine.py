@@ -49,7 +49,7 @@ from config import (
     OVERRUN_CAPEX_THRESHOLD, OVERRUN_DEFAULT_PROBABILITY, OVERRUN_DEFAULT_SEVERITY,
     TECH_DEBT_ROUNDS_THRESHOLD, TECH_DEBT_PENALTY_RATE,
     LOCKIN_ROUNDS_THRESHOLD, LOCKIN_PENALTY_RATE,
-    STRIKE_SOCIAL_LICENSE_WEIGHT, CANNIBALIZATION_BASE_RATE, CANNIBALIZATION_AGGRESSOR_MULT,
+    STRIKE_SOCIAL_LICENSE_WEIGHT, COALITION_STRIKE_GAIN, CANNIBALIZATION_BASE_RATE, CANNIBALIZATION_AGGRESSOR_MULT,
     DIVIDEND_CUT_REP_PENALTY, DIVIDEND_CUT_THRESHOLD,
     TALENT_NEGLECT_THRESHOLD, TALENT_NEGLECT_PENALTY_RATE,
     STAKEHOLDER_FATIGUE_FACTOR, SUPPLY_CHAIN_OVERLAP_COEFF, COMPETITOR_GROWTH_RATE,
@@ -628,12 +628,17 @@ def calc_talent_braindrain(
 def calc_strike_probability(
     base_risk: float,
     social_license: float,
+    coalition_multiplier: float = 1.0,
 ) -> float:
     """
-    P_Strike = Base_Risk + ((1 - (Social_License / 100)) * 0.4)
+    P_Strike = Base_Risk + ((1 - (Social_License / 100)) * 0.4 * coalition_multiplier)
     Result is clamped to [0.0, 1.0].
+
+    `coalition_multiplier` (SPEC F3) defaults to 1.0 (no coalition) so every
+    existing caller is unchanged; a coalition passes (1 + coalition_pressure·k)
+    to make hostile social license bite harder.
     """
-    p = base_risk + ((1.0 - (social_license / 100.0)) * STRIKE_SOCIAL_LICENSE_WEIGHT)
+    p = base_risk + ((1.0 - (social_license / 100.0)) * STRIKE_SOCIAL_LICENSE_WEIGHT * coalition_multiplier)
     return max(0.0, min(1.0, round(p, 4)))
 
 
@@ -1654,11 +1659,16 @@ def calc_forecast(
     # Max strike probability across BUs
     max_strike_prob = 0.0
     max_strike_bu = ""
+    # SPEC F3: a coalition formed last round raises this round's strike risk. The
+    # scalar is carried on the persistent npc_stakeholders sub-dict; default 0
+    # (and multiplier 1.0) means no behaviour change when coalitions are off.
+    _coalition_pressure = current_global.get("npc_stakeholders", {}).get("coalition_pressure", 0.0) or 0.0
+    _coalition_mult = 1.0 + _coalition_pressure * COALITION_STRIKE_GAIN
     for bu in current_bus:
         gov_risk = bu.get("governance_risk_score", 0)
         slo = bu.get("social_license_score", 50)
         base_risk = gov_risk / 100.0
-        p = round(base_risk + (1 - slo / 100.0) * STRIKE_SOCIAL_LICENSE_WEIGHT, 4)
+        p = calc_strike_probability(base_risk, slo, coalition_multiplier=_coalition_mult)
         if p > max_strike_prob:
             max_strike_prob = p
             max_strike_bu = bu["bu_id"]
@@ -3860,10 +3870,27 @@ def _run_reporting_layer(ctx: TickContext) -> None:
 
 # ── Final State Assembly ─────────────────────────────────────────
 
+# ── Stateful engine sub-dicts that must survive the process_tick boundary ─────
+# _assemble_global_state rebuilds global_state from an explicit whitelist, which
+# historically DROPPED these engine sub-dicts — so run_new_engines re-initialised
+# them every round (they were effectively memoryless). Carry them forward
+# explicitly. See SPEC §1.7.
+#
+# INTENTIONALLY only `npc_stakeholders` for now: this is the F1 (stakeholder
+# memory) prerequisite. Adding the other engine states (board_governance,
+# org_politics, supply_chain, autonomous_agents) also changes THEIR cross-round
+# behaviour and must land in separate, individually golden-diffed commits.
+ENGINE_STATE_KEYS: tuple[str, ...] = ("npc_stakeholders",)
+
+
 def _assemble_global_state(ctx: TickContext, initial_treasury: float) -> dict[str, Any]:
     """
     Build the immutable next-round global state dict from the fully-evolved
     TickContext.  This is a pure data-assembly step — no calculations here.
+
+    Engine sub-states listed in ENGINE_STATE_KEYS are carried forward from
+    current_global so stateful engines (e.g. NPC stakeholders) are not
+    re-initialised every round (SPEC §1.7).
     """
     events = ctx.events
     return {
@@ -3902,6 +3929,9 @@ def _assemble_global_state(ctx: TickContext, initial_treasury: float) -> dict[st
         "_prev_global_states":        (ctx.current_global.get("_prev_global_states", []) + [ctx.current_global])[-3:],
         # Preserve systemic tipping state across rounds
         "systemic_tipping_state":     events.pop("_systemic_tipping_state_internal", {}),
+        # SPEC §1.7 — carry forward stateful engine sub-dicts (NPC stakeholders)
+        # so they persist across the tick boundary instead of resetting each round.
+        **{k: ctx.current_global[k] for k in ENGINE_STATE_KEYS if k in ctx.current_global},
     }
 
 

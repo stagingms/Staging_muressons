@@ -631,6 +631,18 @@ DEFAULT_PEDAGOGICAL_TOGGLES = {
     # Not a game mechanic: result goes to extra_events only, never
     # feeds back into engine state or terminal value calculation.
     "collaboration_gap_enabled": True,      # On by default; toggle off for speed
+    # ── Stakeholder / SLO Realism Upgrade (SPEC v1) ──
+    # Phase 0 "land dark" toggles for the stakeholder ↔ SLO realism work.
+    # All default OFF: no gameplay code references them yet, so enabling
+    # them here is a no-op until the corresponding phase ships its engine.
+    # Per-cohort enablement flows through `pedagogical_overrides`
+    # (get_pedagogical_toggles merges any key already present in defaults).
+    "stakeholder_memory_enabled": False,       # F1 / Phase 1 — trust as a stock
+    "stakeholder_slo_feedback_enabled": False, # F2 / Phase 2 — continuous action→SLO
+    "stakeholder_engagement_enabled": False,   # F5 / Phase 3 — promises / dialogic verb
+    "stakeholder_coalitions_enabled": False,   # F3 / Phase 4 — salience contagion
+    "stakeholder_uncertainty_enabled": False,  # F4 / Phase 5 — seeded thresholds + patience
+    "stakeholder_intel_ui_enabled": False,     # F6 / Phase 6 — intent-forward UI
 }
 
 

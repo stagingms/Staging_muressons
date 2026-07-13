@@ -580,6 +580,87 @@ def evaluate_npc_cascades(
 
 
 # ═══════════════════════════════════════════════════════════════
+#  6b. COALITIONS & SALIENCE CONTAGION (SPEC F3)
+# ═══════════════════════════════════════════════════════════════
+
+# Trigger names in STAKEHOLDER_REACTION_GATES look like "journalist_hostile" or
+# "activist_investor_hostile" — an NPC id followed by a state. Map back to the id.
+_KNOWN_NPC_IDS = ("activist_investor", "regulator", "community_leader", "journalist")
+
+
+def _trigger_target(trigger: str) -> str | None:
+    for nid in _KNOWN_NPC_IDS:
+        if isinstance(trigger, str) and trigger.startswith(nid):
+            return nid
+    return None
+
+
+def _salience_score(profile: dict) -> float:
+    """Mean of the Mitchell salience attributes (power, urgency, legitimacy), 0–1."""
+    s = profile.get("salience", {}) or {}
+    return (float(s.get("power", 0.5)) + float(s.get("urgency", 0.5)) + float(s.get("legitimacy", 0.5))) / 3.0
+
+
+def _tier_index(npc_state: dict) -> int | None:
+    action = npc_state.get("escalation_level")
+    for i, level in enumerate(npc_state.get("profile", {}).get("escalation_levels", [])):
+        if level.get("action") == action:
+            return i
+    return None
+
+
+def evaluate_coalition_and_contagion(
+    npc_master_state: dict,
+    cascades: list[dict] | None = None,
+    tier_min: int = 2,
+    contagion_nudge: float = 5.0,
+) -> dict:
+    """
+    SPEC F3. Two deterministic effects, evaluated once per round:
+
+    1. Coalition: when ≥2 stakeholders sit at a hostile tier (index ≥ `tier_min`
+       — protest/hostile/investigation and worse), a coalition forms. Its
+       `coalition_pressure` (0–1) grows with the number of members beyond the
+       first and their mean Mitchell salience. This is the single coalition event
+       for the round (there is one scalar), and the caller uses it to amplify the
+       F2 SLO feedback and next round's strike risk.
+
+    2. Contagion (hop cap 1): each cascade that fired this round nudges the
+       satisfaction/trust of the NPCs named in its `cascading_triggers` — one wave
+       only; the nudges are NOT re-propagated, so a chain can never run away.
+
+    Mutates npc satisfaction/trust for the contagion nudges; returns a summary.
+    """
+    npcs = npc_master_state.get("npcs", {})
+
+    members = [nid for nid, st in npcs.items()
+               if (_tier_index(st) or -1) >= tier_min]
+    coalition_pressure = 0.0
+    if len(members) >= 2:
+        mean_sal = sum(_salience_score(npcs[m].get("profile", {})) for m in members) / len(members)
+        coalition_pressure = round(min(1.0, mean_sal * (len(members) - 1)), 4)
+
+    # Hop-cap-1 contagion: apply one wave of nudges from the cascades that fired.
+    nudges: dict[str, float] = {}
+    for c in (cascades or []):
+        source = c.get("npc_id")
+        for trig in c.get("effects", {}).get("cascading_triggers", []) or []:
+            target = _trigger_target(trig)
+            if target and target in npcs and target != source:
+                st = npcs[target]
+                st["satisfaction"] = max(0.0, round(float(st.get("satisfaction", 50)) - contagion_nudge, 2))
+                if isinstance(st.get("trust"), (int, float)):
+                    st["trust"] = max(0.0, round(float(st["trust"]) - contagion_nudge, 2))
+                nudges[target] = round(nudges.get(target, 0.0) - contagion_nudge, 2)
+
+    return {
+        "coalition_pressure": coalition_pressure,
+        "members": members,
+        "contagion_nudges": nudges,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════
 #  7. FORESHADOWING SIGNALS
 # ═══════════════════════════════════════════════════════════════
 

@@ -12,12 +12,176 @@ Architecture:
   Hybrid module. Contains deterministic personality/behaviour models
   AND prompt templates for LLM-enhanced dialogue generation.
   Falls back to deterministic responses if LLM is unavailable.
+
+Memory model / reconciliation decision (SPEC F1 §1.4, §7):
+  Two "how does X feel about us" surfaces exist in the codebase — this module's
+  named NPCs and `stakeholder_sentiment.py`'s portfolio `attitude_score` list.
+  AUTHORITY: the per-NPC `trust` stock defined here (integrated from the existing
+  `satisfaction` signal) is authoritative for escalation, cascades, strikes and
+  (later) promises; `attitude_score` stays authoritative for the portfolio
+  heat-map / salience-weighted overview. The two are *bridged*: when memory is on,
+  a named NPC's `satisfaction` is blended toward its matching sentiment cohort's
+  `attitude_score` (see `_matched_attitude` / `NPC_SENTIMENT_BRIDGE_WEIGHT`) so the
+  two surfaces cannot drift (§1.4). Everything trust- and bridge-related is gated
+  on the `stakeholder_memory_enabled` toggle, which defaults OFF; with it off this
+  module behaves exactly as before.
 """
 
 from __future__ import annotations
 from typing import Any
 import random
 import math
+import hashlib
+
+
+# Flags that constitute a trust betrayal in a given round. Broken *promises*
+# (F5) will be added here once the promise ledger ships; for now a betrayal is a
+# deliberate opacity/greenwashing choice made this round. Kept small and explicit.
+_BETRAYAL_FLAGS: frozenset[str] = frozenset({
+    "deny_and_deflect",
+    "greenwash_risk",
+    "greenwash_detected",
+    "materiality_ignored",
+})
+
+
+def detect_betrayal(events: dict | None) -> bool:
+    """True if any trust-breaking flag was set this round (SPEC F1 §1.2)."""
+    if not events:
+        return False
+    active = {k for k, v in events.items() if v is True}
+    active |= {str(x) for x in (events.get("flags_set") or [])}
+    return bool(active & _BETRAYAL_FLAGS)
+
+
+def update_trust(
+    npc_state: dict,
+    satisfaction: float,
+    betrayal_event: bool,
+    round_number: int,
+    *,
+    gain_rate: float,
+    loss_rate: float,
+    scar_immediate: float,
+    scar_duration: int,
+    scar_ceiling: float,
+) -> float:
+    """
+    Integrate the per-round `satisfaction` pressure into a persistent `trust`
+    stock (0–100) with asymmetric dynamics (SPEC F1 §1.2):
+
+        gap   = satisfaction - trust_prev
+        rate  = gain_rate if gap >= 0 else loss_rate   # rises slow, falls fast
+        trust = trust_prev + rate * gap
+
+    A betrayal this round subtracts `scar_immediate` and caps recovery at
+    `scar_ceiling` for `scar_duration` rounds. Mutates and returns
+    `npc_state["trust"]`. Deterministic (no RNG).
+
+    Requires the carry-forward fix (SPEC §1.7) so the stock persists across
+    rounds; without it this would re-seed every tick and never integrate.
+    """
+    # First observation: seed the stock at current mood, not a flat 50, so it
+    # doesn't start misleading (§1.5). State persists (§1.7) so this runs once.
+    if not npc_state.get("trust_initialised"):
+        npc_state["trust"] = round(float(satisfaction), 2)
+        npc_state["trust_initialised"] = True
+        npc_state.setdefault("scar_until", 0)
+        return npc_state["trust"]
+
+    trust_prev = float(npc_state.get("trust", satisfaction))
+    gap = satisfaction - trust_prev
+    rate = gain_rate if gap >= 0 else loss_rate
+    trust_raw = trust_prev + rate * gap
+
+    scar_until = int(npc_state.get("scar_until", 0))
+    if betrayal_event:
+        trust_raw -= scar_immediate
+        scar_until = round_number + scar_duration
+        npc_state["scar_until"] = scar_until
+
+    ceiling = scar_ceiling if round_number <= scar_until else 100.0
+    npc_state["trust"] = round(max(0.0, min(ceiling, trust_raw)), 2)
+    return npc_state["trust"]
+
+
+def _trust_constants() -> dict:
+    """Lazily pull trust tunables from config (config-Excel backed)."""
+    from config import (
+        TRUST_GAIN_RATE, TRUST_LOSS_RATE,
+        TRUST_SCAR_IMMEDIATE, TRUST_SCAR_DURATION, TRUST_SCAR_CEILING,
+    )
+    return {
+        "gain_rate": TRUST_GAIN_RATE,
+        "loss_rate": TRUST_LOSS_RATE,
+        "scar_immediate": TRUST_SCAR_IMMEDIATE,
+        "scar_duration": TRUST_SCAR_DURATION,
+        "scar_ceiling": TRUST_SCAR_CEILING,
+    }
+
+
+# ── SPEC F1 §1.4: named-NPC ↔ portfolio-sentiment bridge ──────────
+# Maps each named NPC to the id-substrings of the `stakeholder_sentiment` cohort
+# that represents the same constituency, so the named NPC's `satisfaction` can be
+# blended toward that cohort's `attitude_score` and the two surfaces stay aligned.
+_NPC_SENTIMENT_MATCH: dict[str, tuple[str, ...]] = {
+    "activist_investor": ("investor", "analyst", "shareholder"),
+    "regulator":         ("regulator", "government"),
+    "community_leader":  ("community", "farmer", "worker", "population", "ngo"),
+    "journalist":        ("journalist", "media", "press"),
+}
+
+
+def _matched_attitude(npc_id: str, gs: dict) -> float | None:
+    """
+    Mean `attitude_score` of the portfolio sentiment stakeholders matching this
+    named NPC (SPEC F1 §1.4). Returns None when no sentiment list is present or
+    nothing matches, so the caller leaves satisfaction untouched (bridge no-op).
+    """
+    patterns = _NPC_SENTIMENT_MATCH.get(npc_id)
+    if not patterns:
+        return None
+    scores = []
+    for s in (gs.get("sentiment_stakeholders") or []):
+        sid = str(s.get("id", "")).lower()
+        if any(p in sid for p in patterns):
+            v = s.get("attitude_score")
+            if isinstance(v, (int, float)):
+                scores.append(float(v))
+    return (sum(scores) / len(scores)) if scores else None
+
+
+def _bridge_weight() -> float:
+    """Lazily pull the sentiment-bridge weight from config (config-Excel backed)."""
+    from config import NPC_SENTIMENT_BRIDGE_WEIGHT
+    return NPC_SENTIMENT_BRIDGE_WEIGHT
+
+
+# ── SPEC F4: seeded threshold uncertainty + patience ─────────────
+def _seeded_unit(seed: Any, *tags: Any) -> float:
+    """Deterministic [0,1) from a cohort seed + tags via SHA-256 (GAME-4 style)."""
+    key = "|".join(str(t) for t in (seed, *tags))
+    return int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:8], 16) / 0xFFFFFFFF
+
+
+def _draw_threshold_offsets(npc_id: str, seed: Any, jitter: float, n: int = 4) -> list[float]:
+    """
+    Per-NPC escalation-threshold offsets in [−jitter, +jitter], drawn ONCE from
+    the cohort seed (SPEC F4 §4.2). Same seed → identical offsets for every team
+    (fair); no team is told them (tense). Never mutates the shared NPC_PROFILES.
+    """
+    return [round((_seeded_unit(seed, "thr", npc_id, i) * 2.0 - 1.0) * jitter, 2) for i in range(n)]
+
+
+def _seeded_fine(seed: Any, npc_id: str, round_number: int, lo: float, hi: float) -> float:
+    """Deterministic per-cohort fine amount — replaces the bare-random draws
+    in the stakeholder path so all teams face the same number (GAME-4, §4.3)."""
+    return round(lo + _seeded_unit(seed, "fine", npc_id, round_number) * (hi - lo), 2)
+
+
+def _uncertainty_consts() -> dict:
+    from config import THRESHOLD_JITTER, PATIENCE_LIMIT
+    return {"jitter": THRESHOLD_JITTER, "patience_limit": PATIENCE_LIMIT}
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -249,8 +413,17 @@ def calc_npc_satisfaction(
     npc_state: dict,
     gs: dict,
     bus: list[dict],
+    bridge_weight: float = 0.0,
 ) -> tuple[float, dict]:
-    """Calculate NPC satisfaction based on game state."""
+    """
+    Calculate NPC satisfaction based on game state.
+
+    When `bridge_weight > 0` (set only when memory is enabled), the metric-based
+    result is blended toward the matching portfolio sentiment cohort's
+    `attitude_score` so the named-NPC and portfolio surfaces stay aligned
+    (SPEC F1 §1.4). `bridge_weight == 0` (the default) reproduces legacy behaviour
+    exactly, so every other call site and the memory-off path are unchanged.
+    """
     profile = npc_state["profile"]
     drivers = profile.get("satisfaction_drivers", [])
 
@@ -287,7 +460,19 @@ def calc_npc_satisfaction(
     # Base satisfaction + calculated delta
     final = max(0, min(100, round(50 + satisfaction, 2)))
 
-    return final, {"satisfaction": final, "drivers": details}
+    # SPEC F1 §1.4 bridge: pull satisfaction toward the matching portfolio
+    # sentiment cohort so the two "how they feel about us" surfaces agree by
+    # construction. No-op when bridge_weight == 0 or no sentiment list is present.
+    bridge_applied = None
+    if bridge_weight > 0.0:
+        matched = _matched_attitude(npc_id, gs)
+        if matched is not None:
+            final = max(0.0, min(100.0, round(
+                (1.0 - bridge_weight) * final + bridge_weight * matched, 2
+            )))
+            bridge_applied = round(matched, 2)
+
+    return final, {"satisfaction": final, "drivers": details, "sentiment_bridge": bridge_applied}
 
 
 def determine_npc_action(
@@ -296,19 +481,59 @@ def determine_npc_action(
     satisfaction: float,
     gs: dict,
     round_number: int,
+    gate_value: float | None = None,
+    threshold_offsets: list[float] | None = None,
+    patience_limit: int | None = None,
+    seed: Any = None,
 ) -> dict:
-    """Determine what action the NPC takes this round."""
+    """
+    Determine what action the NPC takes this round.
+
+    Escalation tiers are selected on `gate_value` when provided (the `trust`
+    stock, once F1/memory is enabled) and otherwise on raw `satisfaction`
+    (legacy behaviour). `satisfaction` is always retained in state and output for
+    the facilitator/debrief view (SPEC F1 §1.3).
+
+    SPEC F4 (only when the caller passes them):
+      • `threshold_offsets` jitter each tier's threshold (seeded per cohort), so
+        the exact tipping points are uncertain.
+      • `patience_limit` runs a patience clock: an NPC held at a wary tier (index
+        ≥ 1) for that many rounds escalates one tier regardless of the metric.
+    With both None (the default) tier selection is byte-for-byte the legacy path.
+    """
     profile = npc_state["profile"]
     escalation_levels = profile.get("escalation_levels", [])
 
-    # Find current escalation level
+    # Value the escalation tiers gate on: trust when supplied, else satisfaction.
+    tier_metric = gate_value if gate_value is not None else satisfaction
+
+    # Find current escalation level (thresholds optionally jittered — F4).
     action = "neutral"
     label = "No Action"
-    for level in escalation_levels:
-        if satisfaction >= level["threshold"]:
-            action = level["action"]
-            label = level["label"]
+    tier_idx = None
+    for i, level in enumerate(escalation_levels):
+        thr = level["threshold"]
+        if threshold_offsets and i < len(threshold_offsets):
+            thr = max(0.0, min(100.0, thr + threshold_offsets[i]))
+        if tier_metric >= thr:
+            action, label, tier_idx = level["action"], level["label"], i
             break
+
+    # Patience clock (F4): sitting at a wary tier too long forces escalation.
+    if patience_limit is not None and tier_idx is not None and escalation_levels:
+        if tier_idx == npc_state.get("last_tier"):
+            npc_state["rounds_at_tier"] = npc_state.get("rounds_at_tier", 0) + 1
+        else:
+            npc_state["rounds_at_tier"] = 1
+        if (tier_idx >= 1 and npc_state["rounds_at_tier"] >= patience_limit
+                and tier_idx < len(escalation_levels) - 1):
+            tier_idx += 1
+            forced = escalation_levels[tier_idx]
+            action, label = forced["action"], forced["label"]
+            npc_state["rounds_at_tier"] = 1        # reset so it doesn't force every round
+        if tier_idx == 0:
+            npc_state["rounds_at_tier"] = 0        # cooperation resets patience generously
+        npc_state["last_tier"] = tier_idx
 
     # Generate dialogue
     templates = profile.get("dialogue_templates", {})
@@ -331,7 +556,11 @@ def determine_npc_action(
     if "{demand}" in message:
         message = message.replace("{demand}", "enhanced climate risk disclosure")
     if "{fine}" in message:
-        fine = round(random.uniform(5, 25), 1)
+        # Seeded per cohort when a stochastic seed is present (GAME-4, §4.3);
+        # falls back to the legacy random draw only for un-seeded ad-hoc sessions.
+        _seed = gs.get("active_event_flags", {}).get("stochastic_seed")
+        fine = (_seeded_fine(_seed, npc_id, round_number, 5, 25)
+                if _seed not in (None, "") else round(random.uniform(5, 25), 1))
         message = message.replace("{fine}", str(fine))
     if "{negative_culture}" in message:
         message = message.replace("{negative_culture}", "short-termism and opacity")
@@ -352,6 +581,7 @@ def determine_npc_action(
         "title": profile["title"],
         "icon": profile["icon"],
         "satisfaction": round(satisfaction, 1),
+        "trust": round(float(npc_state.get("trust", satisfaction)), 1),
         "action": action,
         "label": label,
         "message": message,
@@ -364,16 +594,58 @@ def process_npc_tick(
     bus: list[dict],
     events: dict,
     round_number: int,
+    memory_enabled: bool = False,
+    uncertainty_enabled: bool = False,
 ) -> tuple[dict, dict]:
     """
     Process all NPC stakeholders for this round.
     Returns (updated_state, diagnostics).
+
+    When `memory_enabled` (the `stakeholder_memory_enabled` toggle, default off),
+    each NPC's persistent `trust` stock is integrated from its satisfaction and
+    used to gate escalation; otherwise behaviour is unchanged (SPEC F1).
+    When `uncertainty_enabled` (SPEC F4, default off), escalation thresholds are
+    jittered per cohort and a patience clock can force escalation. Both toggles
+    default off so every other call site stays legacy.
     """
     diagnostics: dict[str, Any] = {"npc_actions": []}
 
+    # Betrayal is a round-level event (a deliberate opacity/greenwash choice) —
+    # evaluate once and apply to every relationship's trust.
+    betrayal = detect_betrayal(events) if memory_enabled else False
+    trust_consts = _trust_constants() if memory_enabled else None
+    # Bridge only pulls satisfaction toward portfolio sentiment when memory is on;
+    # 0.0 otherwise keeps the legacy metric-only path (SPEC F1 §1.4).
+    bridge_weight = _bridge_weight() if memory_enabled else 0.0
+    # F4 uncertainty: seeded threshold jitter + patience clock (default off).
+    _uncert = _uncertainty_consts() if uncertainty_enabled else None
+    _seed = gs.get("active_event_flags", {}).get("stochastic_seed")
+
     for npc_id, npc_state in npc_master_state["npcs"].items():
-        satisfaction, sat_diag = calc_npc_satisfaction(npc_id, npc_state, gs, bus)
-        action_result = determine_npc_action(npc_id, npc_state, satisfaction, gs, round_number)
+        satisfaction, sat_diag = calc_npc_satisfaction(
+            npc_id, npc_state, gs, bus, bridge_weight=bridge_weight
+        )
+
+        gate_value = None
+        if memory_enabled:
+            gate_value = update_trust(
+                npc_state, satisfaction, betrayal, round_number, **trust_consts
+            )
+
+        _offsets = _patience = None
+        if uncertainty_enabled:
+            if "threshold_offsets" not in npc_state:
+                npc_state["threshold_offsets"] = _draw_threshold_offsets(
+                    npc_id, _seed, _uncert["jitter"]
+                )
+            _offsets = npc_state["threshold_offsets"]
+            _patience = _uncert["patience_limit"]
+
+        action_result = determine_npc_action(
+            npc_id, npc_state, satisfaction, gs, round_number,
+            gate_value=gate_value, threshold_offsets=_offsets,
+            patience_limit=_patience, seed=_seed,
+        )
 
         diagnostics["npc_actions"].append(action_result)
 
@@ -386,9 +658,10 @@ def process_npc_tick(
             )
             diagnostics[f"npc_{npc_id}_rep_impact"] = rep_hit
 
-            # Financial penalty from regulator
+            # Financial penalty from regulator (seeded per cohort — GAME-4, §4.3).
             if npc_id == "regulator" and action_result["action"] == "enforcement":
-                fine = round(random.uniform(5_000_000, 25_000_000), 2)
+                fine = (_seeded_fine(_seed, npc_id, round_number, 5_000_000, 25_000_000)
+                        if _seed not in (None, "") else round(random.uniform(5_000_000, 25_000_000), 2))
                 gs["corporate_treasury"] = round(gs["corporate_treasury"] - fine, 2)
                 diagnostics["regulatory_fine"] = fine
 
@@ -401,6 +674,178 @@ def process_npc_tick(
     npc_master_state["total_interactions"] += len(diagnostics["npc_actions"])
 
     return npc_master_state, diagnostics
+
+
+# ═══════════════════════════════════════════════════════════════
+#  F2 — CONTINUOUS STAKEHOLDER → SLO FEEDBACK (SPEC §2)
+# ═══════════════════════════════════════════════════════════════
+
+# Per-round SLO pressure by escalation TIER INDEX (0 = most cooperative tier,
+# 3 = most hostile). Indexed by position in each NPC's `escalation_levels` so it
+# is robust to NPC-specific action names (activist "hostile" vs journalist
+# "hostile" sit at different severities). A cooperative stakeholder actively
+# rebuilds license (+); a hostile one erodes it (−). Weaker than a cascade delta.
+PRESSURE_BY_TIER: tuple[float, ...] = (1.0, 0.0, -2.0, -3.5)
+
+
+def _tier_index(npc_state: dict) -> int | None:
+    """Position of the NPC's current escalation tier within its ordered levels."""
+    action = npc_state.get("escalation_level")
+    for i, level in enumerate(npc_state.get("profile", {}).get("escalation_levels", [])):
+        if level.get("action") == action:
+            return i
+    return None
+
+
+def _attached_bus(npc_id: str, bus_states: list[dict]) -> list[dict]:
+    """
+    BUs a stakeholder's pressure lands on. The community leader hits water/agri
+    BUs (its constituency); regulator/investor/journalist act on the whole group.
+    Falls back to all BUs so a stakeholder is never a no-op by accident.
+    """
+    if npc_id == "community_leader":
+        water = [b for b in bus_states if b.get("water_dependency", 0) >= 40]
+        return water or bus_states
+    return bus_states
+
+
+def apply_stakeholder_slo_feedback(
+    npc_master_state: dict,
+    bus_states: list[dict],
+    round_number: int,
+    cascaded_npc_ids: set[str] | None = None,
+    coupling: float = 1.0,
+) -> dict:
+    """
+    Continuous per-round SLO pressure from each stakeholder's escalation tier
+    (SPEC F2 §2.2). This provides the *slope* of the reinforcing loop; cascades
+    provide the *cliffs*.
+
+    Correctness guards (SPEC §2.3):
+      • Double-count: an NPC that triggers a cascade this round is SKIPPED here —
+        its `social_license_delta` supersedes the continuous term, so no
+        escalation is charged twice. Caller passes `cascaded_npc_ids`.
+      • Bounds only: clamps to [0, 100]; does NOT apply the ≤50 social-tipping cap,
+        which runs later in post_tick and must not be duplicated.
+      • Idempotency: keyed on `round_number` via a marker in npc_master_state so a
+        retried/re-entrant commit cannot apply the feedback twice.
+
+    Returns {bu_id: {npc_id: delta}} for UI/debrief; mutates bus SLO in place.
+    """
+    if npc_master_state.get("slo_feedback_applied_round") == round_number:
+        return {}
+    cascaded = cascaded_npc_ids or set()
+
+    deltas: dict[str, dict[str, float]] = {}
+    for npc_id, npc_state in npc_master_state.get("npcs", {}).items():
+        if npc_id in cascaded:
+            continue  # cascade supersedes continuous feedback this round
+        tier_idx = _tier_index(npc_state)
+        if tier_idx is None:
+            continue
+        pressure = PRESSURE_BY_TIER[tier_idx] * coupling
+        if pressure == 0.0:
+            continue
+        for bu in _attached_bus(npc_id, bus_states):
+            prev = bu.get("social_license_score", 50)
+            new = max(0.0, min(100.0, round(prev + pressure, 2)))
+            applied = round(new - prev, 2)
+            if applied:
+                bu["social_license_score"] = new
+                deltas.setdefault(bu["bu_id"], {})[npc_id] = applied
+
+    npc_master_state["slo_feedback_applied_round"] = round_number
+    return deltas
+
+
+# ═══════════════════════════════════════════════════════════════
+#  F6 — INTENT-FORWARD INTEL (SPEC §6): demand · leverage · trend
+# ═══════════════════════════════════════════════════════════════
+
+# Plain-language demand phrasing, keyed by the driver metric. THIS is the single
+# source of truth (§6.4): the backend emits the sentence so the front-end never
+# re-implements it and the two cannot drift. Every satisfaction-driver metric in
+# NPC_PROFILES must appear here — the drift tripwire test enforces that.
+_DEMAND_PHRASE: dict[str, str] = {
+    "social_license_score":        "wants stronger community license and local trust",
+    "carbon_intensity":            "wants faster decarbonisation",
+    "governance_risk":             "wants tighter governance and disclosure",
+    "group_reputation":            "wants the reputation risk addressed",
+    "water_stress_index":          "wants water stewardship in the basin",
+    "tnfd_disclosure_level":       "wants nature-related (TNFD) disclosure",
+    "esg_linked_compensation_pct": "wants ESG-linked executive pay",
+    "just_transition_fund":        "wants a funded just-transition commitment",
+    "transparency":                "wants greater transparency",
+}
+
+
+def _leverage_label(salience: dict) -> dict:
+    """Turn a Mitchell salience profile into words (no raw numbers on the card)."""
+    p = float(salience.get("power", 0.5))
+    u = float(salience.get("urgency", 0.5))
+    l = float(salience.get("legitimacy", 0.5))
+
+    def word(v: float) -> str:
+        return "high" if v >= 0.66 else ("moderate" if v >= 0.4 else "low")
+
+    attrs = {"power": p, "urgency": u, "legitimacy": l}
+    hi = max(attrs, key=attrs.get)
+    lo = min(attrs, key=attrs.get)
+    if attrs[hi] - attrs[lo] < 0.15:
+        label = f"{word(p)} power, urgency and legitimacy"
+    else:
+        label = f"{word(attrs[hi])} {hi}, {word(attrs[lo])} {lo}"
+    return {"power": word(p), "urgency": word(u), "legitimacy": word(l), "label": label}
+
+
+def build_stakeholder_intel(npc_master_state: dict, gs: dict, bus: list[dict]) -> list[dict]:
+    """
+    SPEC F6. For each named NPC emit a *readable* intel card — what they want
+    (top unmet driver), how much leverage they hold (salience in words), and which
+    way the relationship is trending — so players read the person, not a number.
+    The raw satisfaction/trust scores are tucked into a `facilitator` sub-dict for
+    the debrief view only. Pure/read-only: never mutates state.
+    """
+    cards: list[dict] = []
+    for npc_id, st in npc_master_state.get("npcs", {}).items():
+        profile = st.get("profile", {})
+        _, diag = calc_npc_satisfaction(npc_id, st, gs, bus)
+        drivers = diag.get("drivers", [])
+
+        worst = min(drivers, key=lambda d: d["contribution"]) if drivers else None
+        if worst and worst["contribution"] < 0:
+            demand = _DEMAND_PHRASE.get(
+                worst["metric"], f"wants improvement on {worst['metric'].replace('_', ' ')}"
+            )
+        else:
+            demand = "broadly satisfied for now"
+
+        inter = st.get("interactions", [])
+        if len(inter) >= 2:
+            delta = inter[-1].get("satisfaction", 50) - inter[-2].get("satisfaction", 50)
+            trend = "improving" if delta > 1 else ("declining" if delta < -1 else "steady")
+            arrow = "up" if delta > 1 else ("down" if delta < -1 else "flat")
+        else:
+            trend, arrow = "new", "flat"
+
+        _trust = st.get("trust")
+        cards.append({
+            "npc_id": npc_id,
+            "name": profile.get("name", npc_id),
+            "title": profile.get("title", ""),
+            "icon": profile.get("icon", ""),
+            "escalation_level": st.get("escalation_level", "neutral"),
+            "demand": demand,
+            "leverage": _leverage_label(profile.get("salience", {})),
+            "trend": trend,
+            "trend_direction": arrow,
+            # numeric scores are intentionally NOT on the player card (§6.2)
+            "facilitator": {
+                "satisfaction": round(float(diag.get("satisfaction", 50)), 1),
+                "trust": round(float(_trust), 1) if isinstance(_trust, (int, float)) else None,
+            },
+        })
+    return cards
 
 
 # ═══════════════════════════════════════════════════════════════

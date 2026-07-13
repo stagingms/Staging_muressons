@@ -666,22 +666,89 @@ def run_new_engines(
                 global_state["npc_stakeholders"] = create_initial_npc_state()
 
             npc = global_state["npc_stakeholders"]
+            _memory_on = _toggles.get("stakeholder_memory_enabled", False)
             npc, npc_diag = process_npc_tick(
-                npc, global_state, bu_states, events, round_number
+                npc, global_state, bu_states, events, round_number,
+                memory_enabled=_memory_on,
+                uncertainty_enabled=_toggles.get("stakeholder_uncertainty_enabled", False),
             )
             global_state["npc_stakeholders"] = npc
             extra["npc_stakeholders"] = npc_diag
+
+            # ── PHASE-6 (F6): intent-forward intel for the stakeholder rail ──
+            # Read-only: emit demand/leverage/trend cards (numbers kept in the
+            # facilitator sub-dict). Diagnostics-only, so it never touches engine
+            # state. Gated on `stakeholder_intel_ui_enabled` (default off).
+            if _toggles.get("stakeholder_intel_ui_enabled", False):
+                try:
+                    from npc_stakeholders import build_stakeholder_intel
+                    extra["stakeholder_intel"] = build_stakeholder_intel(npc, global_state, bu_states)
+                except Exception as exc:
+                    print(f"[WARN] Stakeholder intel (F6) failed: {exc}")
 
             # ── PHASE-1: NPC Cascading Reactions (evaluate_npc_cascades) ──
             # After NPC satisfaction is computed, check if any NPCs cross
             # cascade thresholds (divestment, enforcement, injunction, resignation)
             try:
                 from systemic_risk_engine import evaluate_npc_cascades
+                # Cascades gate on trust when memory is on, so discrete reactions
+                # inherit relationship memory and stop flickering round-to-round;
+                # otherwise on raw satisfaction (legacy). SPEC F1 §1.2.
                 npc_sats = {}
                 for nid, ndata in npc.get("npcs", {}).items():
-                    npc_sats[nid] = ndata.get("satisfaction", 50)
+                    npc_sats[nid] = (
+                        ndata.get("trust", ndata.get("satisfaction", 50))
+                        if _memory_on else ndata.get("satisfaction", 50)
+                    )
                 active_cascades = events.get("active_npc_cascades", [])
                 cascades = evaluate_npc_cascades(npc_sats, round_number, active_cascades)
+
+                # ── PHASE-4 (F3): coalitions & salience contagion ──────
+                # Detect a coalition from the round's hostile tiers and apply
+                # one hop of cascade→target contagion. The resulting pressure
+                # amplifies F2 below and (persisted) next round's strike risk.
+                _coalition_pressure = 0.0
+                if _toggles.get("stakeholder_coalitions_enabled", False):
+                    try:
+                        from systemic_risk_engine import evaluate_coalition_and_contagion
+                        from config import COALITION_TIER_MIN, CONTAGION_SAT_NUDGE
+                        _coal = evaluate_coalition_and_contagion(
+                            npc, cascades,
+                            tier_min=COALITION_TIER_MIN,
+                            contagion_nudge=CONTAGION_SAT_NUDGE,
+                        )
+                        _coalition_pressure = _coal.get("coalition_pressure", 0.0)
+                        npc["coalition_pressure"] = _coalition_pressure  # persist for next-round strike
+                        if _coalition_pressure > 0 or _coal.get("contagion_nudges"):
+                            extra["stakeholder_coalition"] = _coal
+                    except Exception as exc:
+                        print(f"[WARN] Stakeholder coalition (F3) failed: {exc}")
+
+                # ── PHASE-2 (F2): continuous tier→SLO feedback ──────────
+                # Runs on the round's escalation tiers, AFTER cascade detection
+                # so cascaded NPCs can be suppressed (their discrete
+                # social_license_delta supersedes the continuous term — no
+                # double count), and BEFORE cascade effects are applied. The
+                # later social-tipping cap still clamps SLO. SPEC F2 §2.3.
+                if _toggles.get("stakeholder_slo_feedback_enabled", False):
+                    try:
+                        from npc_stakeholders import apply_stakeholder_slo_feedback
+                        from config import STAKEHOLDER_SLO_COUPLING, COALITION_F2_GAIN
+                        _cascaded_ids = {c.get("npc_id") for c in cascades}
+                        # A coalition makes the continuous feedback bite harder
+                        # (F3). _coalition_pressure is 0 when coalitions are off,
+                        # so this reduces to the plain coupling. SPEC F3 §3.2.
+                        _coupling = STAKEHOLDER_SLO_COUPLING * (1.0 + _coalition_pressure * COALITION_F2_GAIN)
+                        _slo_fb = apply_stakeholder_slo_feedback(
+                            npc, bu_states, round_number,
+                            cascaded_npc_ids=_cascaded_ids,
+                            coupling=_coupling,
+                        )
+                        if _slo_fb:
+                            extra["npc_slo_feedback"] = _slo_fb
+                    except Exception as exc:
+                        print(f"[WARN] Stakeholder SLO feedback (F2) failed: {exc}")
+
                 if cascades:
                     extra["npc_cascade_events"] = cascades
                     extra["active_npc_cascades"] = cascades
@@ -731,6 +798,26 @@ def run_new_engines(
         except Exception as exc:
             print(f"[WARN] NPC stakeholders engine failed: {exc}")
 
+    # ── PHASE-3 (F5): Stakeholder engagement actions & promise ledger ──
+    # Runs after the NPC tick (trust is set) and reads the persistent
+    # npc_stakeholders sub-dict. Resolve promises maturing THIS round first (so a
+    # promise is judged on the round it comes due), then apply the player's new
+    # engagement action. Gated on `stakeholder_engagement_enabled` (default off).
+    if _toggles.get("stakeholder_engagement_enabled", False):
+        try:
+            from stakeholder_engagement import apply_engagement_action, resolve_promises
+            npc = global_state.get("npc_stakeholders")
+            if npc:
+                _res = resolve_promises(npc, global_state, bu_states, round_number)
+                if _res:
+                    extra["promise_resolutions"] = _res
+                _action = events.get("engagement_action") or global_state.get("engagement_action")
+                if _action:
+                    _ar = apply_engagement_action(npc, global_state, _action, round_number)
+                    extra["engagement_action_result"] = _ar
+        except Exception as exc:
+            print(f"[WARN] Stakeholder engagement (F5) failed: {exc}")
+
     # ── SI-2+: Autonomous Stakeholder Agents ──────────────────
     if _toggles.get("npc_stakeholders_enabled", True):
         try:
@@ -744,7 +831,12 @@ def run_new_engines(
 
             aa = global_state["autonomous_agents"]
             aa, aa_diag = process_agent_tick(
-                aa, global_state, bu_states, events, round_number
+                aa, global_state, bu_states, events, round_number,
+                memory_enabled=_toggles.get("stakeholder_memory_enabled", False),
+                slo_feedback_enabled=_toggles.get("stakeholder_slo_feedback_enabled", False),
+                engagement_enabled=_toggles.get("stakeholder_engagement_enabled", False),
+                coalitions_enabled=_toggles.get("stakeholder_coalitions_enabled", False),
+                uncertainty_enabled=_toggles.get("stakeholder_uncertainty_enabled", False),
             )
             global_state["autonomous_agents"] = aa
             extra["autonomous_agents"] = aa_diag

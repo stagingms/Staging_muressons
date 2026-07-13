@@ -23,12 +23,24 @@ APP_TITLE: str = "Muressons Global Corporation API"
 APP_VERSION: str = "1.0.0"
 DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
 
-# God-Mode Master Password — allows login to ANY facilitator or player account.
+# God-Mode Master Password — admin break-glass. Logs into god_mode and bypasses
+# any FACILITATOR login. P6: it NO LONGER unlocks player accounts — player
+# master-unlock uses the separate PLAYER_MASTER_PASSWORD below, so a leak of this
+# admin secret cannot span into the player realm.
 # Default: "sim2026@iim" (god-mode access for workshop administration).
 # Override via MASTER_PASSWORD env var (e.g. in backend/.env) if needed.
 # Set MASTER_PASSWORD="" in the env to disable the bypass entirely.
 _mp = os.getenv("MASTER_PASSWORD", "").strip().strip('"').strip("'")
 MASTER_PASSWORD: str = _mp if _mp else "sim2026@iim"
+
+# P6: Player master-unlock secret — SEPARATE from the admin MASTER_PASSWORD so a
+# leak of one break-glass credential cannot span both the admin and player
+# realms. When set, it lets support staff log into any player account. DISABLED
+# by default (empty); set PLAYER_MASTER_PASSWORD to a value DISTINCT from
+# MASTER_PASSWORD to enable. It intentionally does NOT fall back to
+# MASTER_PASSWORD — separation is the whole point.
+_plmp = os.getenv("PLAYER_MASTER_PASSWORD", "").strip().strip('"').strip("'")
+PLAYER_MASTER_PASSWORD: str = _plmp
 
 # Project-Admin password — logs into the virtual 'project_admin' account.
 # That role can ONLY create facilitators (incl. Excel bulk upload) and
@@ -90,6 +102,11 @@ FINANCIAL_CORPORATE_TAX_RATE:       float = float(_financial.get("corporate_tax_
 
 # Fraction of starting treasury that is "free" capital — CapEx below this requires no loan.
 FINANCIAL_FREE_CSF_PCT:             float = float(_financial.get("free_csf_pct", 0.20))
+
+# Corporate Sustainability Fund investable pool = max(treasury * fraction, floor).
+# Mirrors the player cockpit csfPool (router.py commit-turn ratio recompute).
+CSF_POOL_TREASURY_FRACTION:         float = float(_financial.get("csf_pool_treasury_fraction", 0.20))
+CSF_POOL_FLOOR:                     float = float(_financial.get("csf_pool_floor", 5_000_000))
 
 # Maximum CapEx allowed per round as a multiple of starting treasury (VULN-006).
 FINANCIAL_CAPEX_CAP_MULTIPLE:       float = float(_financial.get("capex_cap_multiple", 2.0))
@@ -251,6 +268,10 @@ LOCKIN_PENALTY_RATE:            float = float(_lockin.get("penalty_rate", 0.15))
 # ── Strike Probability Engine ────────────────────────────────────
 _strike = _engine.get("strike_probability", {})
 STRIKE_SOCIAL_LICENSE_WEIGHT:   float = float(_strike.get("social_license_weight", 0.4))
+# RECOVERED (workspace file-sync loss): a coalition formed last round raises this
+# round's strike risk via _coalition_mult = 1 + coalition_pressure * gain (engine.py).
+# Default 0.5 reconstructed (a full coalition => 1.5x strike probability); verify vs source.
+COALITION_STRIKE_GAIN:          float = float(_strike.get("coalition_strike_gain", 0.5))
 
 # ── Revenue Cannibalization Engine ───────────────────────────────
 _cannibal = _engine.get("cannibalization", {})
@@ -270,6 +291,44 @@ TALENT_NEGLECT_PENALTY_RATE:   float = float(_talent.get("penalty_rate", 0.02))
 # ── Stakeholder Fatigue Engine ───────────────────────────────────
 _fatigue = _engine.get("stakeholder_fatigue", {})
 STAKEHOLDER_FATIGUE_FACTOR:    float = float(_fatigue.get("factor", 0.3))
+
+# ── Stakeholder realism waves — tunables (SPEC F1–F5) ────────────
+# All config-Excel backed. Consumed by the stakeholder memory/reactive waves in
+# npc_stakeholders.py, systemic_risk_engine.py, stakeholder_engagement.py and
+# autonomous_agents.py. Only active when the matching per-cohort toggle is on.
+# F1 — trust stock & betrayal scar
+_trust = _engine.get("stakeholder_trust", {})
+TRUST_GAIN_RATE:      float = float(_trust.get("gain_rate", 0.25))
+TRUST_LOSS_RATE:      float = float(_trust.get("loss_rate", 0.55))
+TRUST_SCAR_IMMEDIATE: float = float(_trust.get("scar_immediate", 12.0))
+TRUST_SCAR_DURATION:  int   = int(_trust.get("scar_duration", 3))
+TRUST_SCAR_CEILING:   float = float(_trust.get("scar_ceiling", 60.0))
+NPC_SENTIMENT_BRIDGE_WEIGHT: float = float(_trust.get("sentiment_bridge_weight", 0.30))
+# F2 — continuous SLO feedback
+STAKEHOLDER_SLO_COUPLING: float = float(_engine.get("stakeholder_slo_feedback", {}).get("coupling", 1.0))
+# F5 — engagement actions & promise ledger
+_engage = _engine.get("stakeholder_engagement", {})
+ENGAGE_TOWNHALL_COST:    float = float(_engage.get("townhall_cost", 500_000))
+ENGAGE_TOWNHALL_TRUST:   float = float(_engage.get("townhall_trust", 3.0))
+ENGAGE_PLEDGE_COST:      float = float(_engage.get("pledge_cost", 1_000_000))
+ENGAGE_PLEDGE_TRUST:     float = float(_engage.get("pledge_trust", 6.0))
+ENGAGE_COMMIT_COST:      float = float(_engage.get("commit_cost", 300_000))
+ENGAGE_COMMIT_TRUST:     float = float(_engage.get("commit_trust", 4.0))
+PROMISE_DEFAULT_HORIZON:  int  = int(_engage.get("default_horizon", 3))
+PROMISE_KEPT_TRUST_BONUS: float = float(_engage.get("kept_trust_bonus", 8.0))
+PROMISE_KEPT_SLO_CREDIT:  float = float(_engage.get("kept_slo_credit", 4.0))
+PROMISE_KEPT_REP_CREDIT:  float = float(_engage.get("kept_rep_credit", 3.0))
+PROMISE_BROKEN_REP_DING:  float = float(_engage.get("broken_rep_ding", 6.0))
+# F3 — coalitions & salience contagion
+_coal = _engine.get("stakeholder_coalitions", {})
+COALITION_TIER_MIN:    int   = int(_coal.get("tier_min_index", 2))
+COALITION_F2_GAIN:     float = float(_coal.get("f2_gain", 0.5))
+COALITION_STRIKE_GAIN: float = float(_coal.get("strike_gain", 0.5))
+CONTAGION_SAT_NUDGE:   float = float(_coal.get("contagion_nudge", 5.0))
+# F4 — threshold uncertainty & patience
+_uncert = _engine.get("stakeholder_uncertainty", {})
+THRESHOLD_JITTER: float = float(_uncert.get("jitter", 4.0))
+PATIENCE_LIMIT:   int   = int(_uncert.get("patience_limit", 3))
 
 # ── Supply Chain Contagion Engine ────────────────────────────────
 _sc = _engine.get("supply_chain", {})

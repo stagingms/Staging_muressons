@@ -48,6 +48,14 @@ const ENGINE_MODULE_TOGGLES = [
     { key: 'decision_timer_enabled', label: 'Decision Timer', icon: '⏱️', tooltip: 'Cognitive pressure timer forcing decisions within a time limit. Simulates boardroom urgency.', default: false },
     { key: 'market_dynamics_enabled', label: 'Market Dynamics', icon: '📈', tooltip: 'Cross-player market: shared carbon credit pool, competitive talent hiring, scarcity pricing. Multiplayer only.', default: false },
     { key: 'regulatory_sandbox_enabled', label: 'Reg Sandbox', icon: '⚖️', tooltip: 'Expert-tier: students design carbon taxes, ETS, disclosure mandates with configurable parameters.', default: false },
+    // Stakeholder realism waves (SPEC F1–F6) — default OFF; enable per cohort.
+    // Recommended order: Memory → SLO Feedback → Promises, then the rest.
+    { key: 'stakeholder_memory_enabled', label: 'Stakeholder Memory', icon: '🧠', tooltip: 'F1 — NPCs accumulate a trust stock (rises slowly, falls fast) with betrayal scars; trust gates escalation and cascades. Enable this first — the other waves build on it.', default: false },
+    { key: 'stakeholder_slo_feedback_enabled', label: 'SLO Feedback', icon: '🔁', tooltip: 'F2 — each stakeholder\'s escalation tier continuously nudges the Social Licence of the BUs it is attached to, closing the reinforcing loop.', default: false },
+    { key: 'stakeholder_engagement_enabled', label: 'Promises', icon: '🤝', tooltip: 'F5 — per-round engagement actions (town hall / public pledge / private commitment) with a promise ledger; kept promises pay off, broken ones scar trust.', default: false },
+    { key: 'stakeholder_coalitions_enabled', label: 'Coalitions', icon: '🪧', tooltip: 'F3 — two or more hostile stakeholders form a coalition that amplifies SLO feedback and strike risk; fired cascades nudge their named targets (one hop).', default: false },
+    { key: 'stakeholder_uncertainty_enabled', label: 'Uncertain Thresholds', icon: '🎲', tooltip: 'F4 — escalation thresholds jittered per cohort (seeded, so fair across teams) plus a patience clock that forces escalation over time.', default: false },
+    { key: 'stakeholder_intel_ui_enabled', label: 'Intel Rail', icon: '🔎', tooltip: 'F6 — surfaces demand / leverage / trend cards per stakeholder; raw satisfaction and trust numbers stay in the facilitator view.', default: false },
 ];
 
 const AccordionItem = ({ id, title, summary, children, isOpen, onToggle }) => {

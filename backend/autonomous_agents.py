@@ -479,12 +479,31 @@ def process_agent_tick(
     bus: list[dict],
     events: dict,
     round_number: int,
+    memory_enabled: bool = False,
+    slo_feedback_enabled: bool = False,
+    engagement_enabled: bool = False,
+    coalitions_enabled: bool = False,
+    uncertainty_enabled: bool = False,
 ) -> tuple[dict, dict]:
     """
     Process all autonomous stakeholder agents for this round.
     Returns (updated_state, diagnostics).
+
+    Optional flags (SPEC F1–F5) layer the stakeholder-realism waves onto all five
+    agents: betrayal scars (F1), continuous per-stage SLO feedback (F2), the
+    promise ledger (F5), coalition amplification (F3), and seeded threshold
+    jitter + patience-forced escalation (F4). Each defaults False, so with the
+    toggles off the base engine behaves exactly as before.
     """
     metrics = _compute_agent_metrics(gs, bus)
+    _betrayal = detect_betrayal(events) if memory_enabled else False
+    _scar_c = _scar_consts() if memory_enabled else None
+    # F4 uncertainty: seeded per-cohort threshold jitter + patience clock.
+    _seed = gs.get("active_event_flags", {}).get("stochastic_seed")
+    _jitter = _patience = None
+    if uncertainty_enabled:
+        from config import THRESHOLD_JITTER, PATIENCE_LIMIT
+        _jitter, _patience = THRESHOLD_JITTER, PATIENCE_LIMIT
     diagnostics: dict[str, Any] = {
         "agent_actions": [], "cascades_fired": [], "interference_active": [],
     }
@@ -573,6 +592,10 @@ def process_agent_tick(
             agent_state["tolerance"] = max(0, agent_state["tolerance"] - 5)
             agent_state["cascade_received"] = False
 
+        # SPEC F1 — a betrayal cuts tolerance and caps recovery for a few rounds.
+        if memory_enabled:
+            apply_agent_betrayal_scar(agent_state, _betrayal, round_number, **_scar_c)
+
         # Determine trend
         if len(agent_state["grievance_memory"]) >= 2:
             recent_sev = agent_state["grievance_memory"][-1].get("severity", 0)
@@ -588,11 +611,25 @@ def process_agent_tick(
         else:
             agent_state["trend"] = "stable"
 
-        # Determine stage
-        new_stage = _get_stage(
-            agent_state["tolerance"],
-            profile["escalation_thresholds"]
-        )
+        # Determine stage (thresholds optionally jittered per cohort — F4)
+        _thr = profile["escalation_thresholds"]
+        if uncertainty_enabled:
+            if "threshold_offsets" not in agent_state:
+                agent_state["threshold_offsets"] = _draw_agent_offsets(agent_id, _seed, _jitter)
+            _thr = _jittered_thresholds(_thr, agent_state["threshold_offsets"])
+        new_stage = _get_stage(agent_state["tolerance"], _thr)
+        # F4 patience clock: held at a wary stage too long → force escalation.
+        if uncertainty_enabled and _patience and new_stage in ("watching", "agitated", "hostile"):
+            if new_stage == agent_state.get("_last_stage"):
+                agent_state["rounds_at_stage"] = agent_state.get("rounds_at_stage", 0) + 1
+            else:
+                agent_state["rounds_at_stage"] = 1
+            if agent_state["rounds_at_stage"] >= _patience:
+                agent_state["tolerance"] = max(0.0, round(
+                    agent_state["tolerance"] - profile["patience_decay_rate"], 1))
+                new_stage = _get_stage(agent_state["tolerance"], _thr)
+                agent_state["rounds_at_stage"] = 1
+        agent_state["_last_stage"] = new_stage
         old_stage = agent_state["escalation_stage"]
         agent_state["escalation_stage"] = new_stage
 
@@ -716,6 +753,49 @@ def process_agent_tick(
             "severity": "critical",
         })
 
+    # ── SPEC F5 — promises: resolve any that mature this round, then apply the
+    # player's engagement action toward one agent (if it targets an agent). ──
+    if engagement_enabled:
+        try:
+            _res = resolve_agent_promises(agent_master_state, gs, bus, round_number)
+            if _res:
+                diagnostics["promise_resolutions"] = _res
+            _act = events.get("engagement_action")
+            _tgt = (_act or {}).get("npc_id") or (_act or {}).get("agent_id")
+            if _act and _tgt in agent_master_state.get("agents", {}):
+                diagnostics["engagement_action_result"] = apply_agent_engagement(
+                    agent_master_state, gs, _act, round_number)
+        except Exception as exc:
+            print(f"[WARN] Agent engagement (F5) failed: {exc}")
+
+    # ── SPEC F3 — coalitions: ≥2 hostile agents combine; the pressure amplifies
+    # the continuous feedback below and embolden's the members (extra decay). ──
+    _coalition_pressure = 0.0
+    if coalitions_enabled:
+        try:
+            from config import CONTAGION_SAT_NUDGE
+            _coalition_pressure, _members = evaluate_agent_coalition(agent_master_state)
+            agent_master_state["coalition_pressure"] = _coalition_pressure
+            if _coalition_pressure > 0:
+                diagnostics["coalition"] = {"pressure": _coalition_pressure, "members": _members}
+                for m in _members:
+                    st = agent_master_state["agents"][m]
+                    st["tolerance"] = max(0.0, round(st["tolerance"] - CONTAGION_SAT_NUDGE * _coalition_pressure, 1))
+        except Exception as exc:
+            print(f"[WARN] Agent coalition (F3) failed: {exc}")
+
+    # ── SPEC F2 — continuous per-stage SLO feedback from the five agents,
+    # amplified by any coalition (F3). ──
+    if slo_feedback_enabled:
+        try:
+            from config import STAKEHOLDER_SLO_COUPLING, COALITION_F2_GAIN
+            _coupling = STAKEHOLDER_SLO_COUPLING * (1.0 + _coalition_pressure * COALITION_F2_GAIN)
+            _fb = apply_agent_slo_feedback(agent_master_state, bus, round_number, _coupling)
+            if _fb:
+                diagnostics["agent_slo_feedback"] = _fb
+        except Exception as exc:
+            print(f"[WARN] Agent SLO feedback (F2) failed: {exc}")
+
     agent_master_state["events_this_round"] = diagnostics["agent_actions"]
     return agent_master_state, diagnostics
 
@@ -725,6 +805,7 @@ def get_agent_summary(agent_master_state: dict) -> list[dict]:
     summary = []
     for agent_id, agent_state in agent_master_state.get("agents", {}).items():
         profile = AGENT_PROFILES.get(agent_id, {})
+        d, l = _agent_demand_leverage(agent_id, agent_state)  # F6 intent (read-only, additive)
         summary.append({
             "agent_id": agent_id,
             "name": profile.get("name", agent_id),
@@ -739,5 +820,214 @@ def get_agent_summary(agent_master_state: dict) -> list[dict]:
             "patience_counter": agent_state.get("patience_counter", 0),
             "triggered_round": agent_state.get("triggered_round"),
             "thresholds": profile.get("escalation_thresholds", {}),
+            "demand": d,            # SPEC F6 — plain-language "what they want"
+            "leverage": l,          # SPEC F6 — how much they can hurt you
         })
+    return summary
+
+
+# ═══════════════════════════════════════════════════════════════
+#  STAKEHOLDER-REALISM WAVES ON THE LIVE 5-AGENT ENGINE (SPEC F1/F2/F5/F6)
+#  Every function below is a no-op unless its toggle is passed in, so the
+#  base engine behaviour is unchanged when the waves are off.
+# ═══════════════════════════════════════════════════════════════
+
+_BETRAYAL_FLAGS = frozenset({
+    "deny_and_deflect", "greenwash_risk", "greenwash_detected", "materiality_ignored",
+})
+
+# Per escalation stage, a small per-round SLO nudge to the BUs an agent watches
+# (F2). Cooperative stages rebuild licence; hostile ones erode it. Weaker than a
+# trigger event (which is the discrete cliff).
+_STAGE_SLO_PRESSURE = {
+    "dormant": 1.0, "watching": 0.0, "agitated": -2.0, "hostile": -3.5, "triggered": 0.0,
+}
+
+# What each agent primarily wants, keyed by the monitored metric (F6 single
+# source of truth so the front-end never re-implements the phrasing).
+_METRIC_DEMAND = {
+    "governance_risk_avg": "wants tighter governance and disclosure",
+    "group_reputation": "wants the reputation risk addressed",
+    "carbon_intensity_avg": "wants faster decarbonisation",
+    "avg_burnout": "wants workloads and wellbeing fixed",
+    "workforce_readiness": "wants investment in people and skills",
+    "treasury_velocity": "wants a credible path back to cash generation",
+    "avg_slo": "wants the community licence restored",
+    "water_stress": "wants water stewardship in the basin",
+}
+
+# Leverage label per agent — how hard they can hit you (design-authored).
+_AGENT_LEVERAGE = {
+    "the_regulator": "very high power and legitimacy — can fine and compel disclosure",
+    "the_gen_z_employee": "high urgency — can strike and go viral",
+    "the_institutional_investor": "very high power — can divest and move the share price",
+    "the_community_activist": "high legitimacy, lower power — can protest and litigate",
+    "the_journalist": "the amplifier — turns every other grievance into a headline",
+}
+
+
+def detect_betrayal(events: dict | None) -> bool:
+    if not events:
+        return False
+    active = {k for k, v in events.items() if v is True}
+    active |= {str(x) for x in (events.get("flags_set") or [])}
+    return bool(active & _BETRAYAL_FLAGS)
+
+
+def _scar_consts() -> dict:
+    from config import TRUST_SCAR_IMMEDIATE, TRUST_SCAR_DURATION, TRUST_SCAR_CEILING
+    return {"scar_immediate": TRUST_SCAR_IMMEDIATE, "scar_duration": TRUST_SCAR_DURATION,
+            "scar_ceiling": TRUST_SCAR_CEILING}
+
+
+def _agent_bus(agent_id: str, bus: list[dict]) -> list[dict]:
+    """BUs an agent's continuous SLO pressure lands on."""
+    if agent_id == "the_community_activist":
+        water = [b for b in bus if b.get("water_dependency", 0) >= 40]
+        return water or bus
+    return bus
+
+
+def _agent_demand_leverage(agent_id: str, agent_state: dict) -> tuple[str, str]:
+    """F6 — the agent's top current demand (worst recent violation) and leverage."""
+    demand = "broadly satisfied for now"
+    mem = agent_state.get("grievance_memory") or []
+    if mem:
+        vio = mem[-1].get("violations") or []
+        if vio:
+            worst = max(vio, key=lambda v: v.get("severity", 0))
+            demand = _METRIC_DEMAND.get(worst.get("metric", ""),
+                                        f"wants {worst.get('metric','the issue').replace('_',' ')} addressed")
+    return demand, _AGENT_LEVERAGE.get(agent_id, "moderate influence")
+
+
+def apply_agent_slo_feedback(agent_master_state: dict, bus: list[dict], round_number: int,
+                             coupling: float = 1.0) -> dict:
+    """F2 — continuous per-stage SLO pressure from each non-triggered agent.
+    Idempotent within a round; clamps [0,100] (tipping cap runs later)."""
+    if agent_master_state.get("slo_feedback_round") == round_number:
+        return {}
+    deltas: dict[str, dict[str, float]] = {}
+    for agent_id, st in agent_master_state.get("agents", {}).items():
+        if st.get("triggered_round") is not None:
+            continue  # their trigger event already moved SLO
+        pressure = _STAGE_SLO_PRESSURE.get(st.get("escalation_stage", "dormant"), 0.0) * coupling
+        if pressure == 0.0:
+            continue
+        for b in _agent_bus(agent_id, bus):
+            prev = b.get("social_license_score", 50)
+            new = max(0.0, min(100.0, round(prev + pressure, 2)))
+            if new != prev:
+                b["social_license_score"] = new
+                deltas.setdefault(b["bu_id"], {})[agent_id] = round(new - prev, 2)
+    agent_master_state["slo_feedback_round"] = round_number
+    return deltas
+
+
+def apply_agent_betrayal_scar(agent_state: dict, betrayal: bool, round_number: int,
+                              scar_immediate: float, scar_duration: int, scar_ceiling: float) -> None:
+    """F1 — a betrayal cuts tolerance now and caps its recovery for a few rounds."""
+    if betrayal:
+        agent_state["tolerance"] = max(0.0, round(agent_state.get("tolerance", 50) - scar_immediate, 1))
+        agent_state["scar_until"] = round_number + scar_duration
+    if round_number <= int(agent_state.get("scar_until", 0)):
+        agent_state["tolerance"] = min(agent_state["tolerance"], scar_ceiling)
+
+
+def apply_agent_engagement(agent_master_state: dict, gs: dict, action: dict, round_number: int) -> dict:
+    """F5 — a town hall / pledge / commitment toward one agent: cost + tolerance
+    bump now, and (for pledge/commitment) a promise registered on the ledger."""
+    from stakeholder_engagement import ENGAGEMENT_CATALOG, _engagement_consts
+    a_type = (action or {}).get("type"); agent_id = (action or {}).get("npc_id") or (action or {}).get("agent_id")
+    spec = ENGAGEMENT_CATALOG.get(a_type); agents = agent_master_state.get("agents", {})
+    if spec is None or agent_id not in agents:
+        return {"error": "invalid_engagement", "type": a_type, "agent_id": agent_id}
+    c = _engagement_consts(); st = agents[agent_id]
+    gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) - c["cost"][a_type], 2)
+    st["tolerance"] = min(AGENT_PROFILES[agent_id]["initial_tolerance"],
+                          round(st.get("tolerance", 50) + c["trust"][a_type], 1))
+    res = {"type": a_type, "agent_id": agent_id, "cost": c["cost"][a_type], "tolerance_now": st["tolerance"]}
+    if spec["creates_promise"]:
+        promise = {"id": f"{agent_id}:{a_type}:R{round_number}", "agent_id": agent_id,
+                   "metric": action.get("metric", "avg_slo"), "target": float(action.get("target", 60)),
+                   "due_round": round_number + max(1, int(action.get("horizon", c["default_horizon"]))),
+                   "state": "open"}
+        agent_master_state.setdefault("promises", []).append(promise); res["promise"] = promise
+    return res
+
+
+def resolve_agent_promises(agent_master_state: dict, gs: dict, bus: list[dict], round_number: int) -> list[dict]:
+    """F5 — judge due promises: kept pays tolerance/SLO/reputation, broken scars."""
+    from stakeholder_engagement import _engagement_consts
+    c = _engagement_consts(); ledger = agent_master_state.setdefault("promises", [])
+    agents = agent_master_state.get("agents", {}); out = []
+    metrics = _compute_agent_metrics(gs, bus)
+    for p in ledger:
+        if p.get("state") != "open" or int(p.get("due_round", 0)) > round_number:
+            continue
+        st = agents.get(p["agent_id"])
+        if st is None:
+            p["state"] = "void"; continue
+        val = metrics.get(p["metric"], gs.get(p["metric"]))
+        kept = isinstance(val, (int, float)) and val >= float(p["target"])
+        cap = AGENT_PROFILES[p["agent_id"]]["initial_tolerance"]
+        if kept:
+            st["tolerance"] = min(cap, round(st.get("tolerance", 50) + c["kept_trust_bonus"], 1))
+            for b in _agent_bus(p["agent_id"], bus):
+                b["social_license_score"] = max(0.0, min(100.0, round(b.get("social_license_score", 50) + c["kept_slo_credit"], 2)))
+            gs["group_reputation"] = max(0, min(100, round(gs.get("group_reputation", 50) + c["kept_rep_credit"], 2)))
+            p["state"] = "kept"
+        else:
+            st["tolerance"] = max(0.0, round(st.get("tolerance", 50) - c["scar_immediate"], 1))
+            st["scar_until"] = round_number + c["scar_duration"]
+            gs["group_reputation"] = max(0, round(gs.get("group_reputation", 50) - c["broken_rep_ding"], 2))
+            p["state"] = "broken"
+        p["resolved_round"] = round_number
+        out.append({"id": p["id"], "agent_id": p["agent_id"], "state": p["state"], "metric": p["metric"], "target": p["target"]})
+    return out
+
+
+# ── SPEC F3 — coalitions & F4 — seeded threshold jitter ──────────
+
+# Per-agent clout: how hard they can hit you (design-authored, 0–1). Used to
+# scale coalition pressure — a coalition of the regulator + investor bites harder
+# than one of the vendors would.
+_AGENT_CLOUT = {
+    "the_regulator": 0.95,
+    "the_institutional_investor": 0.90,
+    "the_gen_z_employee": 0.70,
+    "the_community_activist": 0.60,
+    "the_journalist": 0.50,
+}
+_HOSTILE_STAGES = ("agitated", "hostile", "triggered")
+
+
+def evaluate_agent_coalition(agent_master_state: dict) -> tuple[float, list[str]]:
+    """F3 — two or more agents at a hostile stage form a coalition whose pressure
+    grows with the number of members beyond the first and their mean clout."""
+    members = [aid for aid, st in agent_master_state.get("agents", {}).items()
+               if st.get("escalation_stage") in _HOSTILE_STAGES and st.get("triggered_round") is None]
+    if len(members) < 2:
+        return 0.0, members
+    mean_clout = sum(_AGENT_CLOUT.get(m, 0.5) for m in members) / len(members)
+    return round(min(1.0, mean_clout * (len(members) - 1)), 4), members
+
+
+def _seeded_unit(seed, *tags) -> float:
+    import hashlib
+    key = "|".join(str(t) for t in (seed, *tags))
+    return int(hashlib.sha256(key.encode("utf-8")).hexdigest()[:8], 16) / 0xFFFFFFFF
+
+
+def _draw_agent_offsets(agent_id: str, seed, jitter: float) -> dict:
+    """F4 — per-agent escalation-threshold offsets in [−jitter, +jitter], drawn
+    once from the cohort seed (identical for every team, unknown to all)."""
+    return {stage: round((_seeded_unit(seed, "athr", agent_id, stage) * 2.0 - 1.0) * jitter, 1)
+            for stage in ("watching", "agitated", "hostile", "triggered")}
+
+
+def _jittered_thresholds(base: dict, offsets: dict) -> dict:
+    if not offsets:
+        return base
+    return {k: max(0.0, min(100.0, v + offsets.get(k, 0.0))) for k, v in base.items()}
     return summary

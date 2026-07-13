@@ -129,6 +129,11 @@ class GlobalStateOut(BaseModel):
     tipping_point_active: Optional[bool] = False
     pending_capex_projects: Optional[list[dict]] = []
     bonus_score: Optional[int] = 0
+    # MP-01: multiplayer cohort commit indicator (cockpit "X/Y teams committed").
+    # Populated only for cohort sub-sessions; solo sessions leave these None so
+    # the client badge (gated on cohort_team_count > 0) stays hidden.
+    team_commits_this_round: Optional[int] = None
+    cohort_team_count: Optional[int] = None
     stakeholder_map_completed: Optional[bool] = False
     learning_bonuses_awarded: Optional[dict] = {}
     saved_allocations: Optional[dict] = {}
@@ -210,9 +215,12 @@ class StartSessionResponse(BaseModel):
 
 class BUDecision(BaseModel):
     bu_id: str
-    # TECH-2: investment_ratio is now RECOMPUTED server-side as
-    # capex_allocated / BU_revenue (clamped). Any value sent here is advisory
-    # only and is overwritten in commit_turn before the engine sees it.
+    # TECH-2 / COR-1: investment_ratio is RECOMPUTED server-side in
+    # commit_turn as clamp(capex_allocated / csf_pool, 0, 1), where
+    # csf_pool = max(corporate_treasury * 0.20, 5_000_000) -- the same
+    # Corporate Sustainability Fund pool the player cockpit uses. Any value
+    # sent here is advisory only and is overwritten before the engine sees
+    # it, so the ESG reward cannot be decoupled from actual capex.
     investment_ratio: float = Field(0.0, ge=0.0, le=1.0)  # FIX VULN-002: was 1.5
     capex_allocated: float = Field(0.0, ge=0.0)  # Router enforces min $1
     choice_selected: str = ""
@@ -245,6 +253,12 @@ class CommitTurnRequest(BaseModel):
     expected_round: Optional[int] = None
     # Emergency credit line: +$1M at prevailing rate + 2%
     emergency_credit_used: bool = False
+    # SPEC F5 — optional dialogic engagement action for this round, e.g.
+    # {"type":"public_pledge","npc_id":"community_leader",
+    #  "metric":"social_license_score","target":65,"horizon":3}.
+    # Default None → fully backwards compatible; only acted on when the
+    # `stakeholder_engagement_enabled` toggle is on.
+    engagement_action: Optional[dict[str, Any]] = None
 
 
 class CommitTurnResponse(BaseModel):
