@@ -313,18 +313,27 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
     final_treasury      = 0,
     total_ncd           = 0,
     archetype           = 'SAFE_HAVEN',
+    profile_title       = null,
+    profile_description = null,
     triggered_black_swans = [],
   } = payload || {};
 
   const theme = ARCHETYPE_MATRIX[archetype] || FALLBACK_THEME;
+  // AR-D: prefer the backend's real name/description (pathway-renamed or custom
+  // archetypes) over the generic theme label; keep the theme for visuals.
+  const displayLabel      = profile_title || theme.label;
+  const displayDescriptor = profile_description || theme.descriptor;
 
   // ── Derived math ────────────────────────────────────────────────────────
   const traditionalValue   = final_treasury;                          // What the balance sheet shows
   const mrAdjustedValue    = final_treasury * final_mr;              // After Regenerative Multiple
   const adjustedFinalValue = mrAdjustedValue - total_ncd;            // After deducting NCD
 
-  // Is the company destroyed by NCD?
+  // Is the company destroyed, and by which side of the balance sheet?
   const isValueDestroyed  = adjustedFinalValue <= 0;
+  // AR-D: negative M_R-adjusted treasury means losses/insolvency drove it — NCD
+  // is not the story; only when treasury is still positive does NCD "strand" it.
+  const insolventBeforeNcd = mrAdjustedValue <= 0;
   const finalValueColor   = isValueDestroyed
     ? '#ef4444'
     : adjustedFinalValue > traditionalValue
@@ -450,10 +459,10 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                   ⬡ ARCHETYPE CLASSIFICATION
                 </div>
                 <h1 className={styles.archetypeName} style={{ color: theme.accentPrimary, textShadow: `0 0 40px ${theme.glowColor}` }}>
-                  {theme.label.toUpperCase()}
+                  {displayLabel.toUpperCase()}
                 </h1>
                 <p className={styles.archetypeTagline}>{theme.tagline}</p>
-                <p className={styles.archetypeDescriptor}>{theme.descriptor}</p>
+                <p className={styles.archetypeDescriptor}>{displayDescriptor}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -613,7 +622,11 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                     transition={{ duration: 0.4, delay: 0.2 }}
                   >
                     <span className={styles.destructionIcon}>⚠</span>
-                    <span>Your Natural Capital Debt exceeded the M_R-adjusted treasury. Enterprise value is <strong>negative</strong>. This is what asset stranding looks like from the inside.</span>
+                    {insolventBeforeNcd ? (
+                      <span>Your balance sheet finished in the red — the M_R-adjusted treasury is <strong>negative</strong> before Natural Capital Debt is even counted. This is insolvency, not just a carbon liability.</span>
+                    ) : (
+                      <span>Your Natural Capital Debt exceeded the M_R-adjusted treasury. Enterprise value is <strong>negative</strong> — this is what asset stranding looks like from the inside.</span>
+                    )}
                   </motion.div>
                 )}
               </motion.div>

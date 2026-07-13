@@ -1065,6 +1065,10 @@ export default function CockpitPage() {
                                  (acc, bu) => acc + (bu.natural_capital_debt ?? 0), 0
                                ),
         archetype:             sim.finalReport?.archetype ?? 'SAFE_HAVEN',
+        // AR-D: pass the real (pathway/custom) name + description so the reveal
+        // shows the actual archetype, not just the generic theme label.
+        profile_title:         sim.finalReport?.profile_title ?? null,
+        profile_description:   sim.finalReport?.profile_description ?? null,
         triggered_black_swans: sim.globalState?.active_event_flags
                                  ?.triggered_black_swans ?? [],
       };

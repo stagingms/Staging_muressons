@@ -2732,6 +2732,7 @@ def _post_r10_grand_finale(
     gs["active_event_flags"]["profile"]                = profile
     gs["active_event_flags"]["profile_title"]          = profile_title
     gs["active_event_flags"]["archetype"]              = archetype_key
+    gs["active_event_flags"]["profile_description"]    = profile_desc  # AR-D
     # STRAT-010: Equity bridge fields for leaderboard / frontend
     gs["active_event_flags"]["equity_value"]           = equity_value
     gs["active_event_flags"]["price_per_share"]        = price_per_share
