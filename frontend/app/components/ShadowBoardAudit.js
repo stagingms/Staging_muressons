@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './ShadowBoardAudit.module.css';
-import BoardroomDebate from './BoardroomDebate';
 
 /**
  * ShadowBoardAudit — Round 5 Reflective Middleware
@@ -348,16 +347,10 @@ export default function ShadowBoardAudit({ sessionId, onComplete, globalState })
           </div>
         )}
 
-        {/* WOW-9: Enhanced Boardroom Debate — animated director cards */}
-        <BoardroomDebate
-          personas={personas}
-          selectedTarget={confirmTarget}
-          onSelect={handleRejectClick}
-          rejectedId={result?.rejection_target || null}
-          globalState={globalState}
-        />
-
-        {/* Personas (original cards — kept as detailed reference) */}
+        {/* Director cards — the sole boardroom set. (The duplicate animated
+            "Enhanced Boardroom Debate" render was removed to avoid showing the
+            same three advisors twice; these cards drive the full reject flow:
+            select → confirm → submit, self-contained in this component.) */}
         <div className={styles.personasSection}>
           <div className={styles.sectionLabel}>
             Three Conflicting Arguments — Read All Before Rejecting
