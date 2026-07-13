@@ -26,44 +26,22 @@ analytics_router = APIRouter(prefix="/api/admin", tags=["Admin - Analytics"])
 
 
 def _get_fac_role(request: Request):
-    """Resolve facilitator role from signed JWT cookie (preferred) or
-    X-Facilitator-Id header (backward-compat for non-god_mode accounts).
-
-    SECURITY-CRIT-002: The former shortcut that unconditionally granted
-    super_admin to any request with header value "god_mode" has been removed.
-    god_mode privilege is now only granted when a valid signed JWT cookie
-    carries sub=god_mode and role=super_admin.
-    """
-    from auth_jwt import get_facilitator_from_request, decode_facilitator_token, COOKIE_NAME
-    fac_id = get_facilitator_from_request(request)
-    if not fac_id:
-        return 'anonymous'
-
-    # JWT cookie: validate the signed token and honour the role it carries.
-    # This is the only path through which god_mode obtains super_admin.
-    cookie_token = request.cookies.get(COOKIE_NAME)
-    if cookie_token:
-        try:
-            payload = decode_facilitator_token(cookie_token)
-            token_sub = payload.get("sub")
-            token_role = payload.get("role")
-            if token_sub == fac_id and token_role in ("super_admin", "admin", "facilitator"):
-                return token_role
-        except Exception:
-            pass
-
-    # Registry lookup — covers header-based backward-compat for facilitators
-    # that are not using cookie-based auth yet.
-    fac = next(
-        (f for f in _facilitator_registry
-         if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
-        None,
-    )
-    return get_role(fac) if fac else 'anonymous'
+    """C6: delegate to the SINGLE canonical resolver in admin_router so the
+    god_mode (level 4) and project_admin virtual accounts, token-version
+    revocation, and immediate registry re-validation all behave identically
+    here. This module previously carried a stale copy whose token-role
+    allow-list ("super_admin","admin","facilitator") silently dropped god_mode
+    once it became a distinct tier — de-duplicated to prevent that class of
+    drift entirely."""
+    from admin_router import get_fac_role as _canonical_get_fac_role
+    return _canonical_get_fac_role(request)
 
 
 def _require_super_admin(role: str = Depends(_get_fac_role)):
-    if role != 'super_admin':
+    # C6: level-based so god_mode (4) and the admin alias are admitted, not just
+    # the literal 'super_admin' string.
+    from admin_shared import is_admin_role
+    if not is_admin_role(role):
         raise HTTPException(status_code=403, detail='Super Admin required')
 
 def _require_facilitator(role: str = Depends(_get_fac_role)):
@@ -712,4 +690,3 @@ async def get_teachable_moments_endpoint(
     a bonus, triggers a penalty). Players are unaffected."""
     from teachable_moments import compute_cohort_teachable_moments
     return await compute_cohort_teachable_moments(session_id)
-

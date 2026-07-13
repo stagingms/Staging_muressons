@@ -323,8 +323,16 @@ async def health_check():
     # hiding the exact data-loss risk the player "demo mode" banner exists to
     # warn about. Use the authoritative module-name check, same as lifespan().
     _memory = _use_memory or getattr(db, "__name__", "") == "database_memory"
+    # demo_mode is TRUE only when ephemeral storage was chosen deliberately —
+    # USE_MEMORY_DB explicitly set, or the documented prod opt-in. An incidental
+    # dev fallback (Postgres just unreachable) is memory-backed but NOT "demo
+    # mode", so the player banner stays off. This is safe: production can never
+    # silently run on memory (see _refuse_memory_db_in_prod — it hard-fails at
+    # boot unless ALLOW_MEMORY_DB_IN_PROD is set, which re-flags demo_mode).
+    _demo_mode = _use_memory or _allow_memory_in_prod
     return {
         "status": "ok",
         "version": APP_VERSION,
         "database": "memory" if _memory else "postgresql",
+        "demo_mode": _demo_mode,
     }

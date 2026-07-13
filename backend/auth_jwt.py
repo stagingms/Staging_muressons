@@ -116,6 +116,30 @@ def decode_facilitator_token(token: str) -> dict:
         )
 
 
+def cookie_secure_enabled() -> bool:
+    """SEC-2: Resolve the session-cookie ``Secure`` flag independently of DEBUG.
+
+    Precedence:
+      1. Explicit ``COOKIE_SECURE`` env var — ``true/1/yes`` → True,
+         ``false/0/no`` → False.
+      2. Unset → fall back to the historical behaviour: Secure everywhere
+         except local development (``DEBUG=true``).
+
+    Rationale: previously the Secure flag was ``not DEBUG``. That coupled a
+    verbose-logging switch to a transport-security control, so leaving
+    ``DEBUG=true`` on a deployed box silently sent auth cookies over plaintext
+    HTTP. Decoupling forces an operator to opt OUT of Secure explicitly
+    (``COOKIE_SECURE=false``, e.g. for an HTTP-only LAN workshop) instead of
+    getting the insecure behaviour as a side effect of DEBUG.
+    """
+    raw = os.getenv("COOKIE_SECURE", "").strip().lower()
+    if raw in ("true", "1", "yes"):
+        return True
+    if raw in ("false", "0", "no"):
+        return False
+    return os.getenv("DEBUG", "false").lower() != "true"
+
+
 def set_session_cookie(response: Response, token: str, facilitator_id: str = "") -> None:
     """Attach the JWT as an HttpOnly, Secure, SameSite=Strict cookie.
 
@@ -136,14 +160,19 @@ def set_session_cookie(response: Response, token: str, facilitator_id: str = "")
 
     SEC-1: the cookie max_age now matches JWT_EXPIRY_HOURS for ALL accounts,
     including god_mode (no more 100-year cookie).
+
+    SEC-2: the Secure flag is resolved via cookie_secure_enabled() (COOKIE_SECURE
+    env, falling back to `not DEBUG`) rather than being tied directly to DEBUG.
+    A stray DEBUG=true in a deployed environment therefore no longer silently
+    downgrades the auth cookie to plaintext HTTP.
     """
-    is_prod = not os.getenv("DEBUG", "false").lower() == "true"
+    is_secure = cookie_secure_enabled()
     cookie_max_age = JWT_EXPIRY_HOURS * 3600
     response.set_cookie(
         key=COOKIE_NAME,
         value=token,
         httponly=True,
-        secure=is_prod,       # HTTPS-only in production
+        secure=is_secure,     # HTTPS-only unless explicitly relaxed (SEC-2)
         samesite="strict",
         max_age=cookie_max_age,
         path="/api",
@@ -205,7 +234,6 @@ def get_facilitator_from_request(request: Request) -> Optional[str]:
 
 
 
-
 def create_player_ws_ticket(session_id: str, player_id: str = "", ttl_hours=None) -> str:
     if not _jwt_available():
         return ""
@@ -224,5 +252,3 @@ def verify_player_ws_ticket(token: str, session_id: str) -> bool:
     except Exception:
         return False
     return payload.get("typ") == "ws" and payload.get("sid") == session_id
-
-

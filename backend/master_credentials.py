@@ -16,7 +16,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
-from config import MASTER_PASSWORD
+from config import MASTER_PASSWORD, PLAYER_MASTER_PASSWORD
 from password_hashing import hash_password, verify_password
 
 _OVERRIDE_FILE = Path(__file__).parent / "db" / "master_password.json"
@@ -45,6 +45,17 @@ def verify_master_password(candidate: str) -> bool:
         except Exception:
             return False
     return bool(MASTER_PASSWORD) and hmac.compare_digest(candidate, MASTER_PASSWORD)
+
+
+def verify_player_master_password(candidate: str) -> bool:
+    """P6: player master-unlock. Uses PLAYER_MASTER_PASSWORD — a secret SEPARATE
+    from the admin break-glass MASTER_PASSWORD — so a leak of one credential
+    cannot span both realms. Disabled (returns False) unless
+    PLAYER_MASTER_PASSWORD is explicitly configured; it does NOT fall back to
+    MASTER_PASSWORD."""
+    if not candidate or not PLAYER_MASTER_PASSWORD:
+        return False
+    return hmac.compare_digest(candidate, PLAYER_MASTER_PASSWORD)
 
 
 def set_master_password(new_plain: str, changed_by: str = "god_mode") -> None:
