@@ -1953,7 +1953,14 @@ export default function ExecutiveCockpit({
           </div>
         )}
 
-        {/* ── COMMIT STEP ── */}
+        {/* ── COMMIT STEP (SUPERSEDED, 2026-07-13) ──
+            The dedicated canvas commit stage duplicated the always-present
+            cockpit commit footer (both call onCommit()). The stage machine no
+            longer routes to 'commit' (useRoundStage), so this block never
+            renders — the player commits from the footer, which validates,
+            opens the same prediction prompt, and allows review/edit. Left in
+            place (unreachable) for a clean revert; safe to delete in a
+            follow-up. */}
         {focusStep === 'commit' && !commitResults && (() => {
           const predictionEnabled = pedToggles.prediction_gates_enabled;
           const hasPrediction = focusPredictionText.trim().length > 0;

@@ -40,10 +40,17 @@ export default function useRoundStage({
   // Compute focus steps for this round — gates are mandatory in ALL modes
   const isSelfLearning = selfLearningMode === true;
   const hasGate = roundNumber === 1 || roundNumber === 2;
+  // Owner request (2026-07-13): the separate 'commit' canvas stage was a
+  // DUPLICATE of the always-present cockpit commit footer — two buttons for one
+  // onCommit() action. The footer is the preferred surface (it validates,
+  // opens the prediction prompt, and lets you scroll back to review/edit), so
+  // the flow now ends its decision stages at 'allocation'; the player commits
+  // from the footer and auto-advances to 'results'. The engine commit, the
+  // prediction prompt, and results are all unchanged.
   const focusSteps = useMemo(() => {
     const s = [];
     if (hasGate) s.push('gate');
-    s.push('strategy', 'allocation', 'commit');
+    s.push('strategy', 'allocation');
     return s;
   }, [hasGate]);
 
@@ -51,10 +58,11 @@ export default function useRoundStage({
   const getFirstIncompleteStep = useCallback(() => {
     if (hasGate && !roundPrerequisiteMet) return 'gate';
     if (!hasDecision) return 'strategy';
-    if (Object.keys(allocations).length === 0) return 'allocation';
-    if (!commitResults) return 'commit';
+    // Stay on 'allocation' until the turn is committed (via the cockpit footer);
+    // once commitResults lands, advance to results.
+    if (!commitResults) return 'allocation';
     return 'results';
-  }, [hasGate, roundPrerequisiteMet, hasDecision, allocations, commitResults]);
+  }, [hasGate, roundPrerequisiteMet, hasDecision, commitResults]);
 
   // Auto-trigger focus mode when briefing is dismissed (entering the cockpit)
   // Suppressed while the onboarding tour is active to prevent z-index conflicts
@@ -75,9 +83,10 @@ export default function useRoundStage({
     }
   }, [focusStep, roundPrerequisiteMet]);
 
-  // Auto-advance: commit done → results
+  // Auto-advance: turn committed (from the cockpit footer, while on the
+  // allocation stage — or the legacy 'commit' stage) → results.
   useEffect(() => {
-    if (focusStep === 'commit' && commitResults) {
+    if (commitResults && (focusStep === 'allocation' || focusStep === 'commit')) {
       setFocusStep('results');
     }
   }, [focusStep, commitResults]);
