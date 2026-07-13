@@ -19,7 +19,7 @@
 }
 
 .sil {
-  fill: #94a3b8;
+  fill: var(--neutral, #94a3b8);
 }
 
 .ring {
@@ -45,7 +45,7 @@
 .wrap[data-stage="triggered"] .fig { animation: savShake 0.09s infinite; }
 
 .tol {
-  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-family: var(--font-numeral, 'JetBrains Mono', monospace);
   font-size: 10px;
   font-weight: 700;
   color: #cbd5e1;

@@ -65,6 +65,7 @@ function AgentCard({ agent, action, isExpanded, onToggle }) {
             tolerance={action?.tolerance ?? agent?.tolerance ?? 50}
             maxTolerance={agent?.max_tolerance || 100}
             thresholds={agent?.thresholds || {}}
+            label={`${action?.name || agent?.name || 'Stakeholder'}, ${stageMeta.label.toLowerCase()}, tolerance ${Math.round(action?.tolerance ?? agent?.tolerance ?? 50)} of ${agent?.max_tolerance || 100}`}
           />
           <div className={styles.agentInfo}>
             <div className={styles.agentName}>

@@ -31,6 +31,7 @@ export default function StakeholderAvatar({
   maxTolerance = 100,
   thresholds = {},
   size = 42,
+  label = '',
 }) {
   const uid = useId().replace(/:/g, '');
   const pulse = stage === 'hostile' || stage === 'triggered';
@@ -55,7 +56,7 @@ export default function StakeholderAvatar({
     <span
       className={`${styles.wrap} ${pulse ? styles.pulse : ''}`}
       data-stage={stage}
-      aria-hidden="true"
+      {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}
     >
       <svg viewBox="0 0 44 44" width={size} height={size} className={styles.svg}>
         <defs>
