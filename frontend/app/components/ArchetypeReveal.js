@@ -97,6 +97,27 @@ const ARCHETYPE_MATRIX = {
     particleColor:   '#f59e0b',
     heroGradient:    'radial-gradient(ellipse 70% 50% at 50% 30%, rgba(245,158,11,0.15) 0%, transparent 70%)',
   },
+  HOLLOW_IDEALIST: {
+    label:       'Hollow Idealist',
+    tagline:     'A regenerative story the balance sheet couldn\'t fund.',
+    descriptor:  'Your ESG credentials were real — the numbers underneath them weren\'t. Enterprise value turned negative. A compelling narrative doesn\'t refinance an insolvent balance sheet.',
+    icon:        '🕯️',
+    grade:       'D',
+    gradeLabel:  'Insolvent',
+    accentPrimary:   '#a855f7',   // purple-500
+    accentSecondary: '#6b21a8',   // purple-800
+    accentMuted:     '#3b0764',
+    gradientStart:   '#160726',
+    gradientMid:     '#1e0a33',
+    gradientEnd:     '#0f0a1a',
+    glowColor:       'rgba(168,85,247,0.32)',
+    borderColor:     'rgba(168,85,247,0.5)',
+    chipBg:          'rgba(168,85,247,0.12)',
+    chipBorder:      'rgba(168,85,247,0.3)',
+    scanlineColor:   'rgba(168,85,247,0.04)',
+    particleColor:   '#a855f7',
+    heroGradient:    'radial-gradient(ellipse 70% 50% at 50% 30%, rgba(168,85,247,0.16) 0%, transparent 70%)',
+  },
   STRANDED_RELIC: {
     label:       'Stranded Relic',
     tagline:     'The market repriced you before you could react.',

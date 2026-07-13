@@ -38,14 +38,24 @@ _ARCHETYPE_REVEAL_KEY = {
     "derisked_safe_haven": "SAFE_HAVEN",
     "fragile_giant": "FRAGILE_GIANT",
     "stranded_relic": "STRANDED_RELIC",
+    "hollow_idealist": "HOLLOW_IDEALIST",
 }
 
 
 def solvency_gated_profile(profile: str, dmav: float) -> str:
     """Value-destroyed companies (Double-Materiality Adjusted Value <= 0) cannot
     wear a flattering archetype, regardless of M_R. DMAV = final_treasury x M_R
-    - NCD — the same figure the reveal screen shows the player."""
-    if profile in _FLATTERING_PROFILES and dmav <= 0:
+    - NCD — the same figure the reveal screen shows the player.
+
+    AR-B: split the failure by ESG tier. A strong-ESG company that still went
+    bankrupt (titan / safe-haven tier) becomes the 'hollow_idealist' — a real
+    regenerative story on an insolvent balance sheet; a mediocre-ESG failure
+    (fragile-giant tier) becomes the 'stranded_relic'."""
+    if dmav > 0:
+        return profile
+    if profile in ("regenerative_titan", "derisked_safe_haven"):
+        return "hollow_idealist"
+    if profile == "fragile_giant":
         return "stranded_relic"
     return profile
 
@@ -2543,13 +2553,22 @@ def _post_r10_grand_finale(
         _gated = solvency_gated_profile(profile, _dmav)
         if _gated != profile:
             profile = _gated
-            profile_title = "The Stranded Relic"
-            profile_desc = (
-                "Value destroyed — Natural Capital Debt and losses outran the "
-                "M_R-adjusted balance sheet."
-            )
-            profile_icon = ""
-            profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
+            if profile == "hollow_idealist":
+                profile_title = "The Hollow Idealist"
+                profile_desc = (
+                    "A regenerative story the balance sheet couldn't fund — "
+                    "enterprise value turned negative."
+                )
+                profile_icon = ""
+                profile_gradient = "linear-gradient(135deg, #a855f7, #7e22ce)"
+            else:
+                profile_title = "The Stranded Relic"
+                profile_desc = (
+                    "Value destroyed — Natural Capital Debt and losses outran "
+                    "the M_R-adjusted balance sheet."
+                )
+                profile_icon = ""
+                profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
 
     # Healthcare archetype override: use industry-specific names
     if is_healthcare and not custom_archetypes:
