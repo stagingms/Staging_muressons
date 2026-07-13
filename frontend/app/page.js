@@ -441,14 +441,22 @@ export default function CockpitPage() {
     return () => clearTimeout(t);
   }, [confirmLogout]);
 
-  // D3: Memory-DB warning — check /health to determine if backend is using volatile storage
+  // D3: "Demo mode" warning — show ONLY when ephemeral storage was chosen
+  // deliberately (backend /health `demo_mode`: USE_MEMORY_DB set, or the prod
+  // opt-in). An incidental dev fallback to memory is NOT demo mode and must not
+  // nag. (Older backends without `demo_mode` fall back to the storage-type
+  // signal so a genuine forced-demo still warns.)
   const [isMemoryDb, setIsMemoryDb] = useState(false);
   const [memoryDbDismissed, setMemoryDbDismissed] = useState(false);
   useEffect(() => {
     const API = process.env.NEXT_PUBLIC_API_URL || '';
     fetch(`${API}/health`)
       .then(r => r.ok ? r.json() : null)
-      .then(d => { if (d?.database === 'memory') setIsMemoryDb(true); })
+      .then(d => {
+        if (!d) return;
+        const demo = d.demo_mode !== undefined ? d.demo_mode === true : d.database === 'memory';
+        setIsMemoryDb(demo);
+      })
       .catch(() => {});
   }, []);
 

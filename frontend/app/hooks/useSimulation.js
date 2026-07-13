@@ -8,6 +8,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
  */
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
+// SEC-3: attach the player's own id so the backend can bind each game
+// request to its session owner. Header-less requests still work; this only
+// scopes a player to their OWN session and never blocks facilitators.
+function playerIdHeader() {
+    try {
+        const pid = typeof window !== 'undefined'
+            ? window.localStorage.getItem('muressons_playerId')
+            : null;
+        return pid ? { 'X-Player-Id': pid } : {};
+    } catch (e) {
+        return {};
+    }
+}
+
 /**
  * useSimulation — Full lifecycle hook for the Muressons simulation.
  *
@@ -205,7 +219,8 @@ export default function useSimulation() {
             setError(null);
             try {
                 const res = await fetch(
-                    `${API_BASE}/api/simulations/${id}/dashboard`
+                    `${API_BASE}/api/simulations/${id}/dashboard`,
+                    { headers: { ...playerIdHeader() } }
                 );
                 if (!res.ok)
                     throw new Error(`Dashboard fetch failed: ${res.status}`);
@@ -406,7 +421,7 @@ export default function useSimulation() {
                     `${API_BASE}/api/simulations/${sessionId}/commit-turn`,
                     {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
                         body: JSON.stringify(payload),
                     }
                 );
@@ -499,7 +514,7 @@ export default function useSimulation() {
                     `${API_BASE}/api/simulations/${sessionId}/save-decisions`,
                     {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
                         body: JSON.stringify(payload),
                     }
                 );
@@ -583,7 +598,8 @@ export default function useSimulation() {
         const poll = async () => {
             try {
                 const res = await fetch(
-                    `${API_BASE}/api/simulations/${sessionId}/dashboard`
+                    `${API_BASE}/api/simulations/${sessionId}/dashboard`,
+                    { headers: { ...playerIdHeader() } }
                 );
                 if (!res.ok || cancelled) return;
                 const data = await res.json();

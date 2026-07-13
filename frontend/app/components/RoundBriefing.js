@@ -1,12 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styles from './RoundBriefing.module.css';
 import { sanitizeHtml } from '@/app/utils/sanitize';
 import { STANDARD_BRIEFINGS }   from '@/app/briefings/data/standard';
 import { HEALTHCARE_BRIEFINGS } from '@/app/briefings/data/healthcare';
 import { SDG_BRIEFINGS }        from '@/app/briefings/data/sdg';
 import { deriveSimContext, resolveBriefing } from '@/app/briefings/resolver';
+import { stripPedagogy } from '@/app/briefings/stripPedagogy';
 
 
 /**
@@ -191,6 +192,16 @@ export default function RoundBriefing({
 
   const [recapOpen, setRecapOpen] = useState(false);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  // Player briefing academic framing: OFF by default; facilitator can re-enable.
+  const [showTheory, setShowTheory] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`)
+      .then(r => (r.ok ? r.json() : {}))
+      .then(d => { if (alive) setShowTheory(!!(d && d.briefing_theory_enabled)); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
   // Collect relevant butterfly hints
   const butterflyHints = (activeFlags || [])
@@ -367,7 +378,7 @@ export default function RoundBriefing({
           {/* Narrative */}
           <div className={styles.narrative}>
             {b.narrative.map((para, i) => (
-              <p key={i} dangerouslySetInnerHTML={{ __html: sanitizeHtml(para) }} />
+              <p key={i} dangerouslySetInnerHTML={{ __html: sanitizeHtml(showTheory ? para : stripPedagogy(para)) }} />
             ))}
           </div>
 
@@ -484,8 +495,8 @@ export default function RoundBriefing({
 
             {/* Right Column */}
             <div>
-              {/* Theory Card */}
-              {theory && (
+              {/* Theory Card — player-hidden unless briefing_theory_enabled */}
+              {showTheory && theory && (
                 <div className={styles.theoryCard}>
                   <div className={styles.theoryHeader}>
                     <span>📚</span> Academic Framework
