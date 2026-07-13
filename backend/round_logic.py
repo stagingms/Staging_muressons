@@ -20,6 +20,51 @@ import impact_engine as _ie
 from config import SIM_ROUNDS, ECONOMIC_CIRCULAR_ECONOMY_BONUS
 
 
+# ═══════════════════════════════════════════════════════════════
+#  AR-A: Terminal archetype — solvency gate + reveal-key mapping
+# ═══════════════════════════════════════════════════════════════
+# The R10 archetype was classified on M_R alone. M_R is a *multiplier* — a high
+# multiple applied to a negative base is still failure — so an insolvent company
+# could be crowned "De-risked Safe-Haven." These two pure helpers (a) block
+# flattering labels for value-destroyed companies, and (b) map the lowercase
+# profile to the UPPERCASE key the capstone reveal themes off (that key was never
+# populated, so the reveal fell back to SAFE_HAVEN for every player). They only
+# READ existing numbers; M_R, the valuation math and scoring are unchanged.
+
+_FLATTERING_PROFILES = ("regenerative_titan", "derisked_safe_haven", "fragile_giant")
+
+_ARCHETYPE_REVEAL_KEY = {
+    "regenerative_titan": "REGENERATIVE_TITAN",
+    "derisked_safe_haven": "SAFE_HAVEN",
+    "fragile_giant": "FRAGILE_GIANT",
+    "stranded_relic": "STRANDED_RELIC",
+}
+
+
+def solvency_gated_profile(profile: str, dmav: float) -> str:
+    """Value-destroyed companies (Double-Materiality Adjusted Value <= 0) cannot
+    wear a flattering archetype, regardless of M_R. DMAV = final_treasury x M_R
+    - NCD — the same figure the reveal screen shows the player."""
+    if profile in _FLATTERING_PROFILES and dmav <= 0:
+        return "stranded_relic"
+    return profile
+
+
+def terminal_archetype_key(profile: str, mr: float) -> str:
+    """Map the lowercase terminal profile to the UPPERCASE ARCHETYPE_MATRIX key
+    the reveal screen requires. Custom/unknown profiles theme by M_R tier."""
+    key = _ARCHETYPE_REVEAL_KEY.get(profile)
+    if key:
+        return key
+    if mr >= 1.8:
+        return "REGENERATIVE_TITAN"
+    if mr >= 1.2:
+        return "SAFE_HAVEN"
+    if mr >= 0.8:
+        return "FRAGILE_GIANT"
+    return "STRANDED_RELIC"
+
+
 # I2: Import scope-weighted CI applicator from engine (no circular risk — engine does not import round_logic)
 try:
     from engine import apply_ci_delta_to_bus as _apply_ci_delta_to_bus
@@ -2489,6 +2534,23 @@ def _post_r10_grand_finale(
             profile_icon = ""
             profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
 
+        # AR-A: solvency gate. The ladder above chose on M_R alone; if the
+        # company ended value-destroyed (DMAV = final_treasury x M_R - NCD <= 0,
+        # the same figure the reveal shows), it cannot keep a flattering label.
+        _dmav = gs.get("corporate_treasury", 0.0) * mr - sum(
+            b.get("natural_capital_debt", 0) for b in bus
+        )
+        _gated = solvency_gated_profile(profile, _dmav)
+        if _gated != profile:
+            profile = _gated
+            profile_title = "The Stranded Relic"
+            profile_desc = (
+                "Value destroyed — Natural Capital Debt and losses outran the "
+                "M_R-adjusted balance sheet."
+            )
+            profile_icon = ""
+            profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
+
     # Healthcare archetype override: use industry-specific names
     if is_healthcare and not custom_archetypes:
         hc_archetypes = special.get("healthcare_archetypes", {})
@@ -2508,6 +2570,12 @@ def _post_r10_grand_finale(
             profile_title = pw_arch.get("title", profile_title)
             profile_icon = pw_arch.get("icon", profile_icon)
             profile_gradient = pw_arch.get("gradient", profile_gradient)
+
+    # AR-A: resolve the UPPERCASE reveal key the capstone screen themes off.
+    # gs['archetype'] was never populated, so the reveal fell back to SAFE_HAVEN
+    # for every player regardless of outcome — wire the real archetype through.
+    archetype_key = terminal_archetype_key(profile, mr)
+    extra["archetype"] = archetype_key
 
     # Populate Extra & Global State
     extra["terminal_ebitda"] = terminal_ebitda
@@ -2620,6 +2688,7 @@ def _post_r10_grand_finale(
     gs["active_event_flags"]["terminal_ebitda"]        = terminal_ebitda
     gs["active_event_flags"]["profile"]                = profile
     gs["active_event_flags"]["profile_title"]          = profile_title
+    gs["active_event_flags"]["archetype"]              = archetype_key
     # STRAT-010: Equity bridge fields for leaderboard / frontend
     gs["active_event_flags"]["equity_value"]           = equity_value
     gs["active_event_flags"]["price_per_share"]        = price_per_share
