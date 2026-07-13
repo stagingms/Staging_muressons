@@ -81,11 +81,11 @@ export default function useRoundStage({
     }
   }, [focusStep, roundPrerequisiteMet]);
 
-  // Auto-advance: turn committed from the cockpit footer while still on the
-  // allocation stage → results. (After the allocation button dismisses to the
-  // full cockpit, the player usually commits from there and results render in
-  // the dashboard; this covers the case where the footer is used with the
-  // guided overlay still open.)
+  // Auto-advance: turn committed while on the allocation stage → results.
+  // The allocation stage's 'Review & Commit' button opens the confirm flow
+  // (prediction → 'Review Your Decisions' modal) with the guided overlay still
+  // open, so on commit we advance the overlay straight to its results view.
+  // (Also covers committing from the cockpit footer with the overlay open.)
   useEffect(() => {
     if (commitResults && focusStep === 'allocation') {
       setFocusStep('results');

@@ -1856,7 +1856,16 @@ export default function ExecutiveCockpit({
             <button
               className={focusStyles.actionButton}
               disabled={Object.keys(allocations).length === 0}
-              onClick={handleFocusDismiss}
+              onClick={() => {
+                // Go straight to the confirm flow — same trigger as the cockpit
+                // footer — instead of dismissing to the dashboard first. The
+                // 'Review Your Decisions' modal already provides review +
+                // Go-Back-&-Edit, so the dashboard detour was a redundant step.
+                if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
+                const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
+                if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
+                setShowPredictionModal(true);
+              }}
             >
               {Object.keys(allocations).length > 0 ? 'Review & Commit →' : 'Allocate capital to at least one BU'}
             </button>
