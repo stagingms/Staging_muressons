@@ -447,15 +447,21 @@ export default function CockpitPage() {
   // nag. (Older backends without `demo_mode` fall back to the storage-type
   // signal so a genuine forced-demo still warns.)
   const [isMemoryDb, setIsMemoryDb] = useState(false);
-  const [memoryDbDismissed, setMemoryDbDismissed] = useState(false);
+  // BUGFIX: dismissal must PERSIST. It was component state that reset on every
+  // reload/navigation, so clicking Dismiss never stuck — the banner reappeared
+  // every time. Seed from localStorage so one dismiss is permanent per browser.
+  const [memoryDbDismissed, setMemoryDbDismissed] = useState(true); // hidden until we confirm demo mode
   useEffect(() => {
+    let dismissed = false;
+    try { dismissed = localStorage.getItem('mur_demo_banner_dismissed') === '1'; } catch { /* ignore */ }
+    if (dismissed) return; // stays dismissed forever
     const API = process.env.NEXT_PUBLIC_API_URL || '';
     fetch(`${API}/health`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
         if (!d) return;
         const demo = d.demo_mode !== undefined ? d.demo_mode === true : d.database === 'memory';
-        setIsMemoryDb(demo);
+        if (demo) { setIsMemoryDb(true); setMemoryDbDismissed(false); }
       })
       .catch(() => {});
   }, []);
@@ -1257,7 +1263,10 @@ export default function CockpitPage() {
         }}>
           <span>⚠️ Demo mode — progress is not saved across a server restart.</span>
           <button
-            onClick={() => setMemoryDbDismissed(true)}
+            onClick={() => {
+              try { localStorage.setItem('mur_demo_banner_dismissed', '1'); } catch { /* ignore */ }
+              setMemoryDbDismissed(true);
+            }}
             style={{
               background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: 6,
               color: '#fff', padding: '3px 10px', cursor: 'pointer',
