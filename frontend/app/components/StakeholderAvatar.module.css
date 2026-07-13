@@ -1,9 +1,12 @@
-/* StakeholderAvatar — SA-A. Fixed profile silhouette + state-coloured ring. */
+/* StakeholderAvatar — SA-A/SA-B. Profile silhouette + state-ring tolerance gauge. */
 
 .wrap {
   display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
   flex-shrink: 0;
-  line-height: 0;
+  line-height: 1;
 }
 
 .svg {
@@ -20,20 +23,13 @@
 }
 
 .ring {
-  transition: stroke 0.5s ease, stroke-width 0.3s ease;
+  transition: stroke 0.5s ease, stroke-dashoffset 0.8s ease, stroke-width 0.3s ease;
 }
 
-@keyframes savRingPulse {
-  0%, 100% { stroke-width: 2.4; opacity: 1; }
-  50%      { stroke-width: 4.2; opacity: 0.85; }
-}
-
-.pulse .ring {
-  animation: savRingPulse 0.7s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pulse .ring {
-    animation: none;
-  }
-}
+.tol {
+  font-family: var(--font-mono, 'JetBrains Mono', monospace);
+  font-size: 10px;
+  font-weight: 700;
+  color: #cbd5e1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-n

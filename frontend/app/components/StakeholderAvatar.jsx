@@ -4,42 +4,63 @@ import { useId } from 'react';
 import styles from './StakeholderAvatar.module.css';
 
 /* ═════════════════════════════════════════════════════════════════
- *  STAKEHOLDER AVATAR — SA-A (Autonomous Stakeholders redesign)
+ *  STAKEHOLDER AVATAR — SA-A + SA-B (Autonomous Stakeholders redesign)
  *
- *  Slot: Rail tab (asynchronous context). Replaces the 22px header
- *  emoji avatar in StakeholderAgentPanel's AgentCard with a fixed
- *  neutral profile silhouette wrapped in a STATE-COLOURED ring:
+ *  Slot: Rail tab (asynchronous context). Replaces BOTH the old 22px
+ *  emoji avatar and the flat ToleranceBar with one figure:
  *
- *    ring colour  = escalation stage (STAGE_META colour, passed in as
+ *    silhouette   = identity (a vector stand-in for a real headshot —
+ *                   swap <g class=sil> for <image href=/avatars/…>).
+ *    ring colour  = escalation stage (STAGE_META colour, passed as
  *                   `color` — STAGE_META stays the single source).
- *    ring pulse   = on hostile / triggered (honours reduced-motion).
+ *    ring sweep   = tolerance / maxTolerance  (SA-B: was the bar fill).
+ *    ring ticks   = escalation thresholds     (SA-B: were the bar zones).
+ *    number       = numeric tolerance         (SA-B: was the bar label).
+ *    pulse        = on hostile / triggered (honours reduced-motion).
  *
- *  Pure presentation. No data, no logic, no new requests. The tolerance
- *  number + zones still render in the existing ToleranceBar below; SA-B
- *  will fold the tolerance *sweep* into this ring and retire that bar.
- *
- *  The silhouette is a vector stand-in for a real per-agent headshot —
- *  swap the <g class="sil"> shapes for an <image href="/avatars/…"/>
- *  clipped to the same circle and nothing else changes.
+ *  Pure presentation. No data, no logic, no new requests — it renders the
+ *  exact same tolerance / thresholds the bar did, from the same fields.
  * ═════════════════════════════════════════════════════════════════ */
-export default function StakeholderAvatar({ color = '#64748b', stage = 'dormant', size = 38 }) {
+const R = 18.6;
+const CIRC = 2 * Math.PI * R;
+
+export default function StakeholderAvatar({
+  color = '#64748b',
+  stage = 'dormant',
+  tolerance = null,
+  maxTolerance = 100,
+  thresholds = {},
+  size = 42,
+}) {
   const uid = useId().replace(/:/g, '');
   const pulse = stage === 'hostile' || stage === 'triggered';
+  const hasGauge = tolerance != null && maxTolerance > 0;
+  const pct = hasGauge ? Math.max(0, Math.min(1, tolerance / maxTolerance)) : 1;
+  const dashoffset = CIRC * (1 - pct);
+
+  const ticks = hasGauge
+    ? Object.values(thresholds).map((v) => {
+        const a = (v / maxTolerance) * 2 * Math.PI - Math.PI / 2;
+        return {
+          k: v,
+          x1: 22 + (R - 2.4) * Math.cos(a),
+          y1: 22 + (R - 2.4) * Math.sin(a),
+          x2: 22 + (R + 2.4) * Math.cos(a),
+          y2: 22 + (R + 2.4) * Math.sin(a),
+        };
+      })
+    : [];
 
   return (
-    <span
-      className={`${styles.wrap} ${pulse ? styles.pulse : ''}`}
-      style={{ width: size, height: size }}
-      aria-hidden="true"
-    >
+    <span className={`${styles.wrap} ${pulse ? styles.pulse : ''}`} aria-hidden="true">
       <svg viewBox="0 0 44 44" width={size} height={size} className={styles.svg}>
         <defs>
           <clipPath id={`sav-${uid}`}>
-            <circle cx="22" cy="22" r="18.5" />
+            <circle cx="22" cy="22" r="16.5" />
           </clipPath>
         </defs>
 
-        <circle cx="22" cy="22" r="18.5" className={styles.disc} />
+        <circle cx="22" cy="22" r="16.5" className={styles.disc} />
 
         <g clipPath={`url(#sav-${uid})`} className={styles.sil}>
           <path d="M5.4 40 C6 31 14.4 28 22 28 C29.6 28 38 31 38.6 40 L38.6 43 L5.4 43 Z" />
@@ -50,18 +71,34 @@ export default function StakeholderAvatar({ color = '#64748b', stage = 'dormant'
           <ellipse cx="29.4" cy="20.4" rx="1.3" ry="1.8" />
         </g>
 
-        <circle cx="22" cy="22" r="20.4" fill="none" stroke="rgba(255,255,255,0.09)" strokeWidth="2.4" />
+        <circle cx="22" cy="22" r={R} fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="2.6" />
         <circle
           cx="22"
           cy="22"
-          r="20.4"
+          r={R}
           fill="none"
           stroke={color}
-          strokeWidth="2.4"
+          strokeWidth="2.6"
           strokeLinecap="round"
+          strokeDasharray={CIRC}
+          strokeDashoffset={dashoffset}
+          transform="rotate(-90 22 22)"
           className={styles.ring}
         />
+        {ticks.map((t) => (
+          <line
+            key={t.k}
+            x1={t.x1}
+            y1={t.y1}
+            x2={t.x2}
+            y2={t.y2}
+            stroke="rgba(226,232,240,0.5)"
+            strokeWidth="1.1"
+            strokeLinecap="round"
+          />
+        ))}
       </svg>
+      {hasGauge && <span className={styles.tol}>{Math.round(tolerance)}</span>}
     </span>
   );
 }

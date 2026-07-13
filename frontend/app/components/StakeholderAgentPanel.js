@@ -38,45 +38,6 @@ const TREND_ICONS = {
   'n/a':         { icon: '—',  label: 'N/A',       color: '#475569' },
 };
 
-function ToleranceBar({ tolerance, maxTolerance, thresholds, color, stage }) {
-  const pct = Math.max(0, Math.min(100, (tolerance / maxTolerance) * 100));
-  const stageMeta = STAGE_META[stage] || STAGE_META.dormant;
-
-  // Zone markers for escalation thresholds
-  const zones = Object.entries(thresholds).map(([name, val]) => ({
-    name,
-    pct: (val / maxTolerance) * 100,
-  }));
-
-  return (
-    <div className={styles.toleranceBarWrap}>
-      <div className={styles.toleranceTrack}>
-        {/* Zone markers */}
-        {zones.map((z) => (
-          <div
-            key={z.name}
-            className={styles.zoneMarker}
-            style={{ left: `${z.pct}%` }}
-            title={`${z.name}: ${z.pct.toFixed(0)}%`}
-          />
-        ))}
-        {/* Fill */}
-        <motion.div
-          className={styles.toleranceFill}
-          style={{ background: stageMeta.color }}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.8, ease: 'easeOut' }}
-        />
-        {/* Tolerance label */}
-        <div className={styles.toleranceLabel}>
-          {tolerance.toFixed(0)}
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function AgentCard({ agent, action, isExpanded, onToggle }) {
   const stageMeta = STAGE_META[action?.stage || agent?.stage || 'dormant'];
   const trendMeta = TREND_ICONS[action?.trend || agent?.trend || 'stable'];
@@ -95,12 +56,15 @@ function AgentCard({ agent, action, isExpanded, onToggle }) {
       {/* Header row */}
       <div className={styles.agentHeader} onClick={onToggle}>
         <div className={styles.agentIdentity}>
-          {/* SA-A: profile silhouette + state-coloured ring replaces the emoji.
-              Colour comes from STAGE_META (single source); tolerance still shows
-              in the ToleranceBar below (SA-B folds it into this ring). */}
+          {/* SA-A/SA-B: profile silhouette + state ring replaces the emoji AND
+              the flat ToleranceBar. Colour = stage (STAGE_META, single source);
+              ring sweep = tolerance/max; ticks = thresholds; number = tolerance. */}
           <StakeholderAvatar
             color={stageMeta.color}
             stage={action?.stage || agent?.stage || 'dormant'}
+            tolerance={action?.tolerance ?? agent?.tolerance ?? 50}
+            maxTolerance={agent?.max_tolerance || 100}
+            thresholds={agent?.thresholds || {}}
           />
           <div className={styles.agentInfo}>
             <div className={styles.agentName}>
@@ -131,14 +95,8 @@ function AgentCard({ agent, action, isExpanded, onToggle }) {
         </div>
       </div>
 
-      {/* Tolerance bar */}
-      <ToleranceBar
-        tolerance={action?.tolerance ?? agent?.tolerance ?? 50}
-        maxTolerance={agent?.max_tolerance || 100}
-        thresholds={agent?.thresholds || {}}
-        color={action?.color || agent?.color || '#888'}
-        stage={action?.stage || agent?.stage || 'dormant'}
-      />
+      {/* SA-B: tolerance now lives in the avatar ring above (sweep + ticks +
+          number); the standalone ToleranceBar was retired. */}
 
       {/* Expanded details */}
       <AnimatePresence>
