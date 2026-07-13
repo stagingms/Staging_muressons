@@ -885,66 +885,11 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                         </div>
                     ))}
 
-                    {/* G-2 (v3): Live Consoles restored to the God Mode chrome.
-                        The facilitator screen keeps its capability-gated copies;
-                        god_mode always passes the server-side console gates
-                        (_require_console_capability), so no flag checks here.
-                        Navigation must never require memorized URLs for
-                        capabilities the role holds. */}
-                    <div style={{ margin: '14px 8px 4px', fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.12em', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase' }}>
-                        Live Consoles
-                    </div>
-                    <a
-                        href="/admin/trading-floor"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.navItem}
-                        data-tooltip="Project the live market board + closing bell on the room screen"
-                        data-tooltip-pos="right"
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', margin: '4px 8px 0',
-                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
-                            color: 'var(--accent-gold, #f59e0b)', fontWeight: 700,
-                            border: '1px solid rgba(245,158,11,0.35)', background: 'rgba(245,158,11,0.08)',
-                        }}
-                    >
-                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🔔</span>
-                        <span>Trading Floor ↗</span>
-                    </a>
-                    <a
-                        href="/admin/shockwave"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.navItem}
-                        data-tooltip="DESTRUCTIVE — opens the console that detonates a synchronized crisis across every team in a cohort. Nothing fires until you confirm inside the console."
-                        data-tooltip-pos="right"
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
-                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
-                            color: '#ef4444', fontWeight: 700,
-                            border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.08)',
-                        }}
-                    >
-                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🌊</span>
-                        <span>Shockwave Console ↗</span>
-                    </a>
-                    <a
-                        href="/admin/war-map"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.navItem}
-                        data-tooltip="Project the live situation map — teams by region, crisis pulses, R5 cyclone track. Read-only."
-                        data-tooltip-pos="right"
-                        style={{
-                            display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
-                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
-                            color: '#2dd4bf', fontWeight: 700,
-                            border: '1px solid rgba(45,212,191,0.35)', background: 'rgba(45,212,191,0.08)',
-                        }}
-                    >
-                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🗺️</span>
-                        <span>Region War-Map ↗</span>
-                    </a>
+                    {/* Owner request (2026-07-12): the "Live Consoles" links
+                        (Trading Floor / Shockwave / Region War-Map) were removed
+                        from the God Mode sidebar. The consoles still exist at
+                        their own routes and remain reachable from the Facilitator
+                        screen; god_mode still passes their server-side gates. */}
 
                     {/* G-1 (v3): break-glass credential rotation lives here —
                         physically apart from the routine header password button,
