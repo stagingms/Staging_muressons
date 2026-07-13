@@ -41,7 +41,7 @@ import StrategicRadar from './StrategicRadar';
 import RiskRadar from './RiskRadar';
 import ConsequenceTimeline from './ConsequenceTimeline';
 import ConsequencePreview from './ConsequencePreview';
-import { playDeepDiveEnter, playDeepDiveExit, playCommitSuccess, playTippingWarning, playTurnKey } from './CockpitSounds';
+import { playDeepDiveEnter, playDeepDiveExit, playCommitSuccess, playTippingWarning } from './CockpitSounds';
 import StakeholderAgentPanel from './StakeholderAgentPanel';
 import EBITDAWaterfall from './EBITDAWaterfall';
 import LivingPlanet from './LivingPlanet';
@@ -151,94 +151,6 @@ const BASE_YEAR = new Date().getFullYear();
 const getRoundLabel = (round) => roundToQuarter(round, BASE_YEAR).label;
 
 
-
-/**
- * W-A (W5): Hold-to-commit "turn-key" button.
- * The single most-repeated action in the game gets a moment of ceremony:
- * press and hold 600ms — a progress sheen fills the button, a mechanical
- * key-click plays, then onActivate fires (exactly once; the commit payload
- * and handler chain are untouched).
- *
- * Flow-safety by construction:
- * - `immediate` = plain click (used while the prediction nudge may appear,
- *   so the nudge remains a zero-friction tap, same as before).
- * - Keyboard activation (Enter/Space → click with e.detail === 0) commits
- *   directly — no hold gesture required for a11y.
- * - Releasing early resets; onActivate can never double-fire (firedRef).
- */
-function HoldToCommitButton({ immediate, onActivate, label, className }) {
-  const HOLD_MS = 600;
-  const [pct, setPct] = useState(0);
-  const rafRef = useRef(null);
-  const startRef = useRef(0);
-  const firedRef = useRef(false);
-
-  const stopHold = () => {
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = null;
-    setPct(0);
-  };
-
-  const tick = (now) => {
-    const p = Math.min(1, (now - startRef.current) / HOLD_MS);
-    setPct(p);
-    if (p >= 1) {
-      if (!firedRef.current) {
-        firedRef.current = true;
-        try { playTurnKey(); } catch (e) {}
-        onActivate();
-      }
-      stopHold();
-    } else {
-      rafRef.current = requestAnimationFrame(tick);
-    }
-  };
-
-  const onDown = (e) => {
-    if (immediate) return;
-    e.preventDefault();
-    firedRef.current = false;
-    startRef.current = performance.now();
-    rafRef.current = requestAnimationFrame(tick);
-  };
-  const onUp = () => { if (!immediate) stopHold(); };
-  const onClick = (e) => {
-    if (immediate) { onActivate(); return; }
-    // Keyboard activation fires click with detail === 0 — commit directly.
-    if (e.detail === 0 && !firedRef.current) {
-      try { playTurnKey(); } catch (err) {}
-      onActivate();
-    }
-  };
-
-  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
-
-  return (
-    <button
-      className={className}
-      onPointerDown={onDown}
-      onPointerUp={onUp}
-      onPointerLeave={onUp}
-      onPointerCancel={onUp}
-      onClick={onClick}
-      title={immediate ? undefined : 'Press and hold to commit'}
-      style={{ width: '100%', position: 'relative', overflow: 'hidden', touchAction: 'none' }}
-    >
-      {!immediate && (
-        <span aria-hidden="true" style={{
-          position: 'absolute', top: 0, left: 0, bottom: 0,
-          width: `${pct * 100}%`,
-          background: 'rgba(255,255,255,0.22)',
-          transition: pct === 0 ? 'width 0.15s ease' : 'none',
-          pointerEvents: 'none',
-        }} />
-      )}
-      <span style={{ position: 'relative' }}>
-        {(!immediate && pct > 0) ? '🗝️ Turning key…' : label}
-      </span>
-    </button>
-  );
-}
 
 export default function ExecutiveCockpit({
   sim,
@@ -686,8 +598,6 @@ export default function ExecutiveCockpit({
     focusStep, setFocusStep,
     focusDismissed, setFocusDismissed,
     prefersDashboardRef,
-    focusPredictionText, setFocusPredictionText,
-    skipPredictionConfirm, setSkipPredictionConfirm,
     hasGate, focusSteps, getFirstIncompleteStep,
     isFocusActive, isReturningPlayer,
     handleFocusDismiss, handleQuickResume, handleFocusReenter, handleFocusAdvance,
@@ -710,7 +620,7 @@ export default function ExecutiveCockpit({
   useEffect(() => {
     // V-D (player v2, V-7): the BU drill-down is a concentration state too —
     // the ticker dims while inspecting, same as during allocation/commit.
-    const dim = (isFocusActive && (focusStep === 'allocation' || focusStep === 'commit')) || isDeepDive;
+    const dim = (isFocusActive && focusStep === 'allocation') || isDeepDive;
     if (dim) document.documentElement.setAttribute('data-allocation-open', '1');
     else document.documentElement.removeAttribute('data-allocation-open');
     return () => document.documentElement.removeAttribute('data-allocation-open');
@@ -1946,162 +1856,12 @@ export default function ExecutiveCockpit({
             <button
               className={focusStyles.actionButton}
               disabled={Object.keys(allocations).length === 0}
-              onClick={() => handleFocusAdvance('commit')}
+              onClick={handleFocusDismiss}
             >
-              {Object.keys(allocations).length > 0 ? 'Confirm Allocation & Continue →' : 'Allocate capital to at least one BU'}
+              {Object.keys(allocations).length > 0 ? 'Review & Commit →' : 'Allocate capital to at least one BU'}
             </button>
           </div>
         )}
-
-        {/* ── COMMIT STEP (SUPERSEDED, 2026-07-13) ──
-            The dedicated canvas commit stage duplicated the always-present
-            cockpit commit footer (both call onCommit()). The stage machine no
-            longer routes to 'commit' (useRoundStage), so this block never
-            renders — the player commits from the footer, which validates,
-            opens the same prediction prompt, and allows review/edit. Left in
-            place (unreachable) for a clean revert; safe to delete in a
-            follow-up. */}
-        {focusStep === 'commit' && !commitResults && (() => {
-          const predictionEnabled = pedToggles.prediction_gates_enabled;
-          const hasPrediction = focusPredictionText.trim().length > 0;
-
-          const doCommit = () => {
-            if (hasPrediction) {
-              const key = `prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`;
-              try { sessionStorage.setItem(key, focusPredictionText); } catch {}
-            }
-            setFocusPredictionText('');
-            setSkipPredictionConfirm(false);
-            onCommit?.();
-          };
-
-          const handleCommitClick = () => {
-            if (predictionEnabled && !hasPrediction && !skipPredictionConfirm) {
-              setSkipPredictionConfirm(true);
-              return;
-            }
-            doCommit();
-          };
-
-          return (
-          <div>
-            {/* Prediction Section — only when enabled */}
-            {predictionEnabled && (
-              <div className={focusStyles.predictionArea}>
-                <div className={focusStyles.sectionTitle}><span>🔮</span> Predict Before You Commit</div>
-                <p style={{ fontSize: '0.78rem', color: '#94a3b8', lineHeight: 1.6, marginBottom: 12 }}>
-                  Pausing to predict outcomes strengthens strategic intuition. What do you expect will happen?
-                </p>
-                <div className={focusStyles.predictionPrompt}>
-                  💰 What will happen to your <strong style={{ color: '#e2e8f0' }}>Treasury</strong> and <strong style={{ color: '#e2e8f0' }}>Reputation</strong>?
-                </div>
-                <textarea
-                  className={focusStyles.predictionInput}
-                  placeholder="e.g., Treasury will drop by ~$3M due to ESG compliance costs, but reputation should rise..."
-                  value={focusPredictionText}
-                  onChange={(e) => { setFocusPredictionText(e.target.value); setSkipPredictionConfirm(false); }}
-                  rows={3}
-                />
-              </div>
-            )}
-
-            {/* Full Recap */}
-            <div className={focusStyles.commitRecap}>
-              <div className={focusStyles.commitRecapTitle}>📋 Decision Summary</div>
-              <div className={focusStyles.commitRecapRow}>
-                <span>Strategy</span>
-                <span className={focusStyles.commitRecapValue} style={{ position: 'relative' }}>
-                  {isPillarMode
-                    ? `${Object.keys(pillarSelections || {}).length} pillars selected`
-                    : (() => {
-                        const opt = options[decisionChoice];
-                        const label = decisionChoice?.replace('option_', 'Option ').toUpperCase();
-                        if (!opt) return label;
-                        return (
-                          <span className="strategy-tip-trigger" style={{ cursor: 'help', borderBottom: '1px dashed rgba(255,255,255,0.3)', position: 'relative' }}>
-                            {label} — {opt.title}
-                            <span className="strategy-tip-box" style={{
-                              position: 'absolute', top: 'calc(100% + 8px)', left: 0,
-                              width: '280px', maxWidth: '70vw',
-                              padding: '12px 16px', borderRadius: '12px',
-                              background: 'linear-gradient(135deg, rgba(15,23,42,0.98), rgba(30,41,59,0.98))',
-                              border: '1px solid rgba(99,102,241,0.25)',
-                              boxShadow: '0 16px 40px rgba(0,0,0,0.55), 0 0 0 1px rgba(99,102,241,0.08)',
-                              backdropFilter: 'blur(16px)',
-                              fontSize: '0.73rem', lineHeight: 1.6, color: '#cbd5e1',
-                              fontWeight: 400, textTransform: 'none', letterSpacing: 'normal',
-                              pointerEvents: 'none', opacity: 0,
-                              transform: 'translateY(-4px)',
-                              transition: 'opacity 0.2s ease, transform 0.2s ease',
-                              zIndex: 100,
-                            }}>
-                              <div style={{ fontWeight: 700, color: '#a5b4fc', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-                                {opt.title}
-                              </div>
-                              {opt.description}
-                            </span>
-                          </span>
-                        );
-                      })()}
-                </span>
-              </div>
-              <div className={focusStyles.commitRecapRow}>
-                <span>Capital Deployed</span>
-                <span className={focusStyles.commitRecapValue}>
-                  {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0))}
-                </span>
-              </div>
-              {projectedCost !== 0 && (
-                <div className={focusStyles.commitRecapRow}>
-                  <span>Projected Impact</span>
-                  <span className={focusStyles.commitRecapValue} style={{ color: projectedCost > 0 ? '#f87171' : '#4ade80' }}>
-                    {fmtCurrency(projectedCost)}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-
-            {/* Skip prediction nudge */}
-            {skipPredictionConfirm && (
-              <div style={{
-                padding: '10px 14px', marginBottom: 10, borderRadius: 8,
-                background: isDark ? 'rgba(245,158,11,0.1)' : '#fef3c7',
-                border: `1px solid ${isDark ? 'rgba(245,158,11,0.3)' : '#fbbf24'}`,
-                fontSize: '0.78rem', color: isDark ? '#fbbf24' : '#92400e',
-                display: 'flex', alignItems: 'center', gap: 8,
-              }}>
-                <span>⚠️</span>
-                <span style={{ flex: 1 }}>Predictions improve your learning outcomes. Are you sure you want to skip?</span>
-                <button
-                  onClick={() => setSkipPredictionConfirm(false)}
-                  style={{
-                    padding: '4px 10px', fontSize: '0.7rem', fontWeight: 700,
-                    background: 'transparent', border: `1px solid ${isDark ? '#fbbf24' : '#d97706'}`,
-                    borderRadius: 6, color: isDark ? '#fbbf24' : '#92400e', cursor: 'pointer',
-                  }}
-                >Go Back</button>
-              </div>
-            )}
-
-            {/* W5: hold-to-commit turn-key. `immediate` keeps the prediction
-                nudge a plain tap (unchanged behaviour); once the click would
-                actually commit, a 600ms hold is required. handleCommitClick
-                and the payload chain are byte-identical. */}
-            <HoldToCommitButton
-              className={focusStyles.primaryAction}
-              onActivate={handleCommitClick}
-              immediate={predictionEnabled && !hasPrediction && !skipPredictionConfirm}
-              label={skipPredictionConfirm
-                ? '⏩ Hold to Skip Prediction & Commit'
-                : (predictionEnabled && !hasPrediction)
-                  ? '✓ Commit & Proceed'
-                  : '🗝️ Hold to Commit & Proceed'}
-            />
-          </div>
-          );
-        })()}
 
         {/* ── RESULTS STEP ── */}
         {focusStep === 'results' && commitResults && (

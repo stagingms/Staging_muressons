@@ -27,15 +27,13 @@ export default function useRoundStage({
 }) {
   // ── Focus Mode: Stepped Decision Overlays ──
   // Optional with escape hatch — auto-opens but student can dismiss at any time
-  const [focusStep, setFocusStep] = useState(null); // null | 'gate' | 'strategy' | 'allocation' | 'commit' | 'results'
+  const [focusStep, setFocusStep] = useState(null); // null | 'gate' | 'strategy' | 'allocation' | 'results'
   const [focusDismissed, setFocusDismissed] = useState(false);
   // D1: once an experienced player (round >= 3) opts out of the stepped focus
   // overlay, remember it so it doesn't re-interrupt every subsequent round.
   // Mandatory R1/R2 gates and first-time behaviour are untouched (the pref is
   // only ever set from round 3 onward, and gates only exist in R1/R2).
   const prefersDashboardRef = useRef(false);
-  const [focusPredictionText, setFocusPredictionText] = useState('');
-  const [skipPredictionConfirm, setSkipPredictionConfirm] = useState(false);
 
   // Compute focus steps for this round — gates are mandatory in ALL modes
   const isSelfLearning = selfLearningMode === true;
@@ -83,10 +81,13 @@ export default function useRoundStage({
     }
   }, [focusStep, roundPrerequisiteMet]);
 
-  // Auto-advance: turn committed (from the cockpit footer, while on the
-  // allocation stage — or the legacy 'commit' stage) → results.
+  // Auto-advance: turn committed from the cockpit footer while still on the
+  // allocation stage → results. (After the allocation button dismisses to the
+  // full cockpit, the player usually commits from there and results render in
+  // the dashboard; this covers the case where the footer is used with the
+  // guided overlay still open.)
   useEffect(() => {
-    if (commitResults && (focusStep === 'allocation' || focusStep === 'commit')) {
+    if (commitResults && focusStep === 'allocation') {
       setFocusStep('results');
     }
   }, [focusStep, commitResults]);
@@ -96,7 +97,6 @@ export default function useRoundStage({
   useEffect(() => {
     setFocusStep(null);
     setFocusDismissed(prefersDashboardRef.current);
-    setFocusPredictionText('');
   }, [roundNumber]);
 
   const isFocusActive = focusStep !== null && !focusDismissed && !tourActive;
@@ -138,8 +138,6 @@ export default function useRoundStage({
     focusStep, setFocusStep,
     focusDismissed, setFocusDismissed,
     prefersDashboardRef,
-    focusPredictionText, setFocusPredictionText,
-    skipPredictionConfirm, setSkipPredictionConfirm,
     isSelfLearning,
     hasGate, focusSteps, getFirstIncompleteStep,
     isFocusActive, isReturningPlayer,
