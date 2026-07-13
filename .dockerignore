@@ -45,6 +45,11 @@ test_*.py
 test_*.js
 *.bat
 
+# Dead / archived code & generated artifacts (MNT-2: not needed at runtime)
+archive/
+scratch/
+reports/
+
 # Misc
 flowchart.html
 skills-lock.json

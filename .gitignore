@@ -49,6 +49,10 @@ sessions.json
 
 
 # Live runtime state (written by the app; do not track)
+# RES-1: in-memory snapshot rolling backup + quarantined corrupt files
+db/*.bak
+db/*.tmp
+db/*.corrupt-*
 sessions.json
 db/admin_audit.jsonl
 backend/db/muressons_state.db
