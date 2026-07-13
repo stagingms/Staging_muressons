@@ -120,6 +120,39 @@
     animation: flashLow 1.5s ease-in-out infinite;
 }
 
+/* ── CA-B: budget tension ─────────────────────────────────── */
+/* REMAINING as the hero number. */
+.statBlockHero .statLabel { color: var(--text-primary); }
+.remainingHero {
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+}
+.statValue.over {
+    color: var(--danger-text, #f87171);
+    animation: flashLow 1.2s ease-in-out infinite;
+}
+
+/* Pool-spent bar — one-glance budget tension. */
+.poolSpentTrack {
+    height: 6px;
+    margin-top: 0.6rem;
+    border-radius: 100px;
+    background: rgba(148, 163, 184, 0.16);
+    overflow: hidden;
+}
+.poolSpentFill {
+    height: 100%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--brand, #0d9488), var(--brand-bright, #00e5c3));
+    transition: width 0.3s ease, background 0.3s ease;
+}
+.poolSpentWarn {
+    background: linear-gradient(90deg, var(--caution, #f59e0b), var(--caution-text, #fbbf24));
+}
+.poolSpentOver {
+    background: linear-gradient(90deg, var(--danger, #ef4444), var(--danger-text, #f87171));
+}
+
 @keyframes flashLow {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }

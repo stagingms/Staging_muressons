@@ -255,13 +255,27 @@ export default function InvestmentMatrix({
                                 <AnimatedNumber value={totalAllocated} prefix={sym} suffix="M" />
                             </span>
                         </div>
-                        <div className={styles.statBlock}>
+                        {/* CA-B: REMAINING is the constraint the whole stage is
+                            about — make it the hero, colour it as it drains and
+                            turns negative (over-allocated). Pool math unchanged. */}
+                        <div className={`${styles.statBlock} ${styles.statBlockHero}`}>
                             <span className={styles.statLabel}>Remaining</span>
-                            <span className={`${styles.statValue} ${remaining < csfPool * 0.1 ? styles.low : ''}`}>
+                            <span className={`${styles.statValue} ${styles.remainingHero} ${remaining < 0 ? styles.over : remaining < csfPool * 0.1 ? styles.low : ''}`}>
                                 <AnimatedNumber value={remaining} prefix={sym} suffix="M" />
                             </span>
                         </div>
                     </div>
+                </div>
+
+                {/* CA-B: pool-spent bar — the budget tension in one glance.
+                    Fill = allocated/pool; colour shifts calm→amber→red and shows
+                    an explicit over-allocation state (same thresholds as the
+                    slider fill). Presentation only — reads pctUsed/remaining. */}
+                <div className={styles.poolSpentTrack} aria-hidden="true">
+                    <div
+                        className={`${styles.poolSpentFill} ${pctUsed > 100 ? styles.poolSpentOver : pctUsed > 80 ? styles.poolSpentWarn : ''}`}
+                        style={{ width: `${Math.min(100, pctUsed)}%` }}
+                    />
                 </div>
 
                 {/* Warning for Over-allocation or Negative Treasury (Loan Required) */}
