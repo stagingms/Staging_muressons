@@ -791,34 +791,43 @@ def _get_session_paradigm(session_id: str) -> str:
 #  DEFAULT ARCHETYPES
 # ═════════════════════════════════════════════════════════════════
 
+# AR-C: `requires_solvent` is the second classification axis. When True, the
+# archetype is only awarded to a company that ended solvent (Double-Materiality
+# Adjusted Value > 0); an insolvent company is downgraded to the failure band.
+# The three flattering profiles require solvency; the failure/turnaround ones
+# do not. Custom archetypes carry the same field (default False).
 DEFAULT_ARCHETYPES = [
     {
         "key": "regenerative_titan", "title": "The Regenerative Titan",
         "description": "A truly regenerative enterprise.", "mr_threshold": 1.8,
         "icon": "", "gradient": "linear-gradient(135deg, #10b981, #059669)",
-        "is_default": True,
+        "is_default": True, "requires_solvent": True,
     },
     {
         "key": "derisked_safe_haven", "title": "The De-risked Safe-Haven",
         "description": "A resilient corporation that avoided the worst tail risks.",
         "mr_threshold": 1.2, "icon": "",
         "gradient": "linear-gradient(135deg, #3b82f6, #1d4ed8)", "is_default": True,
+        "requires_solvent": True,
     },
     {
         "key": "fragile_giant", "title": "The Fragile Giant",
         "description": "Big but brittle.", "mr_threshold": 0.8, "icon": "",
         "gradient": "linear-gradient(135deg, #f59e0b, #d97706)", "is_default": True,
+        "requires_solvent": True,
     },
     {
         "key": "stranded_relic", "title": "The Stranded Relic",
         "description": "A cautionary tale.", "mr_threshold": 0.0, "icon": "",
         "gradient": "linear-gradient(135deg, #ef4444, #b91c1c)", "is_default": True,
+        "requires_solvent": False,
     },
     {
         "key": "turnaround_manager", "title": "The Turnaround Manager",
         "description": "Rescued from the brink through crisis management.",
         "mr_threshold": 0.0, "icon": "",
         "gradient": "linear-gradient(135deg, #8b5cf6, #6d28d9)", "is_default": True,
+        "requires_solvent": False,
     },
 ]
 

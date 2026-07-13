@@ -6,7 +6,11 @@ UPPERCASE ARCHETYPE_MATRIX key (which was previously never set, so every player
 fell back to SAFE_HAVEN).
 """
 
-from round_logic import solvency_gated_profile, terminal_archetype_key
+from round_logic import (
+    solvency_gated_profile,
+    terminal_archetype_key,
+    match_custom_archetype,
+)
 
 
 def test_negative_dmav_blocks_every_flattering_label():
@@ -66,3 +70,39 @@ def test_reveal_key_falls_back_by_mr_tier_for_custom_profiles():
     assert terminal_archetype_key("some_custom_key", 1.25) == "SAFE_HAVEN"
     assert terminal_archetype_key("some_custom_key", 0.9) == "FRAGILE_GIANT"
     assert terminal_archetype_key("some_custom_key", 0.5) == "STRANDED_RELIC"
+
+
+# ── AR-C: custom-archetype matcher with the solvency axis ──────────────────
+_CUSTOMS = [
+    {"key": "titan", "mr_threshold": 1.8, "requires_solvent": True},
+    {"key": "haven", "mr_threshold": 1.2, "requires_solvent": True},
+    {"key": "relic", "mr_threshold": 0.0, "requires_solvent": False},
+]
+
+
+def test_custom_matcher_awards_top_tier_when_solvent():
+    assert match_custom_archetype(_CUSTOMS, 1.9, solvent=True)["key"] == "titan"
+    assert match_custom_archetype(_CUSTOMS, 1.3, solvent=True)["key"] == "haven"
+
+
+def test_custom_matcher_insolvent_skips_solvency_gated_and_falls_to_failure():
+    # High M_R but insolvent cannot win the solvency-gated titan.
+    assert match_custom_archetype(_CUSTOMS, 1.9, solvent=False)["key"] == "relic"
+
+
+def test_custom_matcher_non_gated_is_unaffected_by_solvency():
+    customs = [{"key": "leader", "mr_threshold": 1.0, "requires_solvent": False}]
+    assert match_custom_archetype(customs, 1.5, solvent=False)["key"] == "leader"
+    assert match_custom_archetype(customs, 1.5, solvent=True)["key"] == "leader"
+
+
+def test_custom_matcher_empty_returns_none():
+    assert match_custom_archetype([], 1.0, solvent=True) is None
+
+
+def test_custom_matcher_all_gated_insolvent_falls_to_lowest_tier():
+    gated_only = [
+        {"key": "titan", "mr_threshold": 1.8, "requires_solvent": True},
+        {"key": "haven", "mr_threshold": 1.2, "requires_solvent": True},
+    ]
+    assert match_custom_archetype(gated_only, 1.9, solvent=False)["key"] == "haven"

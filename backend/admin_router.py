@@ -1303,6 +1303,8 @@ async def add_archetype(body: dict = Body(...), _guard: None = Depends(require_s
         "icon": body.get("icon", ""),
         "gradient": body.get("gradient", "linear-gradient(135deg, #6366f1, #8b5cf6)"),
         "is_default": False,
+        # AR-C: second axis — only award this archetype to a solvent company.
+        "requires_solvent": bool(body.get("requires_solvent", False)),
     }
     customs = _god_mode_settings.setdefault("custom_archetypes", [])
     # Replace if key already exists
@@ -1332,6 +1334,8 @@ async def update_archetype(key: str, body: dict = Body(...), _guard: None = Depe
     for field in ("title", "description", "mr_threshold", "icon", "gradient"):
         if field in body:
             customs[idx][field] = body[field]
+    if "requires_solvent" in body:  # AR-C: second axis
+        customs[idx]["requires_solvent"] = bool(body["requires_solvent"])
     customs[idx]["is_default"] = False
     print(f"[god-mode] Archetype updated: {key}")
     return {"status": "ok", "archetype": customs[idx]}

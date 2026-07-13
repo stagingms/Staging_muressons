@@ -19,6 +19,7 @@ const GRADIENT_PRESETS = [
 const EMPTY_FORM = {
   key: '', title: '', description: '', mr_threshold: '', icon: '',
   gradient: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+  requires_solvent: false,
 };
 
 function PreviewCard({ archetype }) {
@@ -113,6 +114,7 @@ export default function ArchetypeEditor() {
       description: a.description || '',
       icon: a.icon || '',
       gradient: a.gradient || 'linear-gradient(135deg, #6366f1, #4f46e5)',
+      requires_solvent: !!a.requires_solvent,
     });
   };
 
@@ -250,6 +252,15 @@ export default function ArchetypeEditor() {
             </div>
           </div>
           <div style={{ marginBottom: '0.75rem' }}>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+              <input type="checkbox" checked={!!form.requires_solvent}
+                onChange={e => setForm(f => ({ ...f, requires_solvent: e.target.checked }))} />
+              Requires solvency — only award if the company ended value-positive
+              (Double-Materiality Adjusted Value &gt; 0). Insolvent runs are
+              downgraded to the failure band regardless of M_R.
+            </label>
+          </div>
+          <div style={{ marginBottom: '0.75rem' }}>
             <label style={{ fontSize: '0.65rem', fontWeight: 700, color: '#6b7280', display: 'block', marginBottom: 3 }}>DESCRIPTION</label>
             <textarea style={{ ...inputSm, height: 56, resize: 'vertical' }} placeholder="Describe this archetype for the player…"
               value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
@@ -361,6 +372,13 @@ export default function ArchetypeEditor() {
                             background: 'rgba(16,185,129,0.1)', color: '#065f46', borderRadius: 5,
                             padding: '0.15rem 0.5rem', fontSize: '0.68rem', fontWeight: 600,
                           }}>Custom</span>
+                        )}
+                        {a.requires_solvent && (
+                          <div style={{
+                            marginTop: 4, background: 'rgba(59,130,246,0.1)', color: '#1d4ed8',
+                            borderRadius: 5, padding: '0.1rem 0.4rem', fontSize: '0.6rem',
+                            fontWeight: 700, letterSpacing: '0.03em',
+                          }} title="Only awarded to a solvent company (DMAV > 0)">◇ solvent-gated</div>
                         )}
                       </td>
                       <td style={{ ...tblCell, textAlign: 'center' }}>

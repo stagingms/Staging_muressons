@@ -75,6 +75,28 @@ def terminal_archetype_key(profile: str, mr: float) -> str:
     return "STRANDED_RELIC"
 
 
+def match_custom_archetype(customs: list, mr: float, solvent: bool):
+    """AR-C: pick a god-mode custom archetype by M_R, honouring the per-archetype
+    'requires_solvent' axis (the second, facilitator-configurable dimension). A
+    solvency-gated archetype is only awarded to a solvent company; otherwise fall
+    back to a non-gated (designated failure) archetype, else the lowest tier."""
+    if not customs:
+        return None
+    ordered = sorted(customs, key=lambda a: a.get("mr_threshold", 0), reverse=True)
+    matched = next(
+        (a for a in ordered
+         if mr >= a.get("mr_threshold", 0)
+         and (solvent or not a.get("requires_solvent", False))),
+        None,
+    )
+    if matched is None:
+        matched = next(
+            (a for a in reversed(ordered) if not a.get("requires_solvent", False)),
+            ordered[-1],
+        )
+    return matched
+
+
 # I2: Import scope-weighted CI applicator from engine (no circular risk — engine does not import round_logic)
 try:
     from engine import apply_ci_delta_to_bus as _apply_ci_delta_to_bus
@@ -2507,11 +2529,16 @@ def _post_r10_grand_finale(
     profile_icon = None
     profile_gradient = None
 
+    # AR-A/C: Double-Materiality Adjusted Value = final_treasury x M_R - NCD —
+    # the same figure the reveal shows. Drives the solvency axis for both the
+    # default gate and custom (facilitator-configured) archetypes.
+    _dmav = gs.get("corporate_treasury", 0.0) * mr - sum(
+        b.get("natural_capital_debt", 0) for b in bus
+    )
+    _solvent = _dmav > 0
+
     if custom_archetypes:
-        sorted_customs = sorted(custom_archetypes, key=lambda a: a.get("mr_threshold", 0), reverse=True)
-        matched = next((a for a in sorted_customs if mr >= a.get("mr_threshold", 0)), None)
-        if not matched:
-            matched = sorted_customs[-1]
+        matched = match_custom_archetype(custom_archetypes, mr, _solvent)
         profile = matched["key"]
         profile_title = matched["title"]
         profile_desc = matched.get("description", "")
@@ -2545,11 +2572,8 @@ def _post_r10_grand_finale(
             profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
 
         # AR-A: solvency gate. The ladder above chose on M_R alone; if the
-        # company ended value-destroyed (DMAV = final_treasury x M_R - NCD <= 0,
-        # the same figure the reveal shows), it cannot keep a flattering label.
-        _dmav = gs.get("corporate_treasury", 0.0) * mr - sum(
-            b.get("natural_capital_debt", 0) for b in bus
-        )
+        # company ended value-destroyed (DMAV <= 0, the figure the reveal shows,
+        # computed above), it cannot keep a flattering label.
         _gated = solvency_gated_profile(profile, _dmav)
         if _gated != profile:
             profile = _gated
