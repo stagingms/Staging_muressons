@@ -323,8 +323,5 @@ async def health_check():
     # hiding the exact data-loss risk the player "demo mode" banner exists to
     # warn about. Use the authoritative module-name check, same as lifespan().
     _memory = _use_memory or getattr(db, "__name__", "") == "database_memory"
-    return {
-        "status": "ok",
-        "version": APP_VERSION,
-        "database": "memory" if _memory else "postgresql",
-    }
+    # demo_mode is TRUE only when ephemeral storage was chosen deliberately —
+    # USE_MEMORY_DB explicitly set, or the documented prod
