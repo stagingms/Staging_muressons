@@ -614,8 +614,9 @@ export default function SimulationSwitchboard() {
                             🛤️ Side Track Simulations — Global Master Control
                         </span>
                         <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4 }}>
-                            Toggle which side-track simulations are available platform-wide.
-                            Lead facilitators may assign any registered track to their cohorts regardless of this setting.
+                            Default track pool for <strong>base facilitators</strong>.
+                            Lead facilitators and above may assign any registered track to their cohorts
+                            regardless of this pool (their bypass is audited).
                         </div>
                     </div>
                     {trackMsg && (
@@ -704,9 +705,172 @@ export default function SimulationSwitchboard() {
                 </div>
             </div>
         )}
+        {/* ══════════ COHORT SETTINGS MATRIX (I1/C3/I7) ══════════ */}
+        <CohortSettingsMatrix />
         {/* ══════════ SIMULATION CONFIG UPLOAD & HOT-RELOAD ══════════ */}
         <SimConfigUploader />
         </>
+    );
+}
+
+
+/* ─── Cohort Effective-Settings Matrix (I1 + C3 + I7) ─────────────
+   Slot: a card WITHIN the Sim Switchboard tab (Expand-drawer style deep
+   detail summoned inside the existing surface) — NOT a new always-visible
+   panel, per the V-D single-slot rule. Read-only: it surfaces which live
+   cohorts diverge from the global default (closing the C3 governance blind
+   spot) and where each cohort's single-BU scope is decided (I7). Data comes
+   from GET /api/admin/effective-settings/summary. Uses tokens.css semantic
+   colors only — no raw hex for danger/success/caution. */
+export function CohortSettingsMatrix() {
+    const [rows, setRows] = useState([]);
+    const [globals, setGlobals] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [onlyDiverged, setOnlyDiverged] = useState(false);
+
+    const load = useCallback(() => {
+        setLoading(true);
+        fetch(`${API}/api/admin/effective-settings/summary`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+            .then(d => { setRows(d.cohorts || []); setGlobals(d.global || null); setError(''); })
+            .catch(e => setError(e.message))
+            .finally(() => setLoading(false));
+    }, []);
+
+    useEffect(() => { load(); }, [load]);
+
+    const shown = onlyDiverged ? rows.filter(r => r.overrides_active) : rows;
+    const divergedCount = rows.filter(r => r.overrides_active).length;
+
+    const scopeBadge = (src) => {
+        const map = {
+            cohort_record: { label: 'cohort', color: 'var(--accent-blue)' },
+            switchboard_global: { label: 'global', color: 'var(--accent-gold)' },
+            none: { label: '4-BU', color: 'var(--text-muted)' },
+        };
+        const s = map[src] || map.none;
+        return (
+            <span style={{
+                fontSize: '0.6rem', padding: '1px 6px', borderRadius: 8,
+                border: `1px solid ${s.color}`, color: s.color, letterSpacing: '0.04em',
+            }}>{s.label}</span>
+        );
+    };
+
+    return (
+        <div style={{
+            marginTop: '1.5rem', background: 'var(--bg-card)',
+            border: '1px solid rgba(255,255,255,0.04)', borderRadius: 'var(--radius-md)',
+            padding: '1.25rem 1.5rem',
+        }}>
+            {/* Header */}
+            <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                marginBottom: '0.9rem', borderBottom: '1px solid rgba(255,255,255,0.04)',
+                paddingBottom: '0.6rem', gap: '1rem', flexWrap: 'wrap',
+            }}>
+                <div>
+                    <span style={{ color: 'var(--text-primary)', fontSize: '0.8rem', fontWeight: 700 }}>
+                        🗂️ Cohort Settings — Effective vs. Global
+                    </span>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
+                        Which live cohorts run non-default climate parameters, and where each cohort&apos;s
+                        BU scope is decided. Read-only — set overrides per cohort via cohort settings.
+                    </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', flexShrink: 0 }}>
+                    <label style={{ fontSize: '0.68rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer' }}>
+                        <input type="checkbox" checked={onlyDiverged} onChange={e => setOnlyDiverged(e.target.checked)} />
+                        Only diverged ({divergedCount})
+                    </label>
+                    <button onClick={load} disabled={loading} style={{
+                        padding: '0.35rem 0.8rem', borderRadius: 'var(--radius-sm)',
+                        border: '1px solid var(--border-subtle)', background: 'transparent',
+                        color: 'var(--text-secondary)', fontSize: '0.7rem', fontWeight: 600,
+                        cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.5 : 1,
+                    }}>{loading ? '⟳ …' : '⟳ Refresh'}</button>
+                </div>
+            </div>
+
+            {/* Global reference row */}
+            {globals && (
+                <div style={{
+                    fontSize: '0.66rem', fontFamily: 'var(--font-mono)', color: 'var(--text-muted)',
+                    marginBottom: '0.6rem', opacity: 0.75,
+                }}>
+                    GLOBAL DEFAULT — branch: {globals.climate_paradigm} · carbon: ${globals.global_carbon_fee}/t ·
+                    hostility: {globals.market_hostility_index}/10 · scope3: {globals.scope_3_threshold}
+                </div>
+            )}
+
+            {error && (
+                <div style={{
+                    padding: '0.6rem 0.9rem', borderRadius: 'var(--radius-sm)',
+                    background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
+                    color: 'var(--gauge-red)', fontSize: '0.75rem',
+                }}>⚠ {error}</div>
+            )}
+
+            {!error && !loading && shown.length === 0 && (
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    {rows.length === 0 ? 'No cohorts found.' : 'No cohorts diverge from the global default.'}
+                </div>
+            )}
+
+            {shown.length > 0 && (
+                <div style={{ overflowX: 'auto', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 'var(--radius-sm)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.7rem' }}>
+                        <thead>
+                            <tr style={{ background: 'var(--bg-elevated)' }}>
+                                {['Cohort', 'Branch', 'Carbon $/t', 'Hostility', 'Scope-3', 'BU scope', 'State'].map(h => (
+                                    <th key={h} style={{
+                                        padding: '0.4rem 0.7rem', textAlign: 'left', color: 'var(--text-muted)',
+                                        fontWeight: 700, fontSize: '0.62rem', letterSpacing: '0.05em',
+                                        textTransform: 'uppercase', fontFamily: 'var(--font-mono)',
+                                    }}>{h}</th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {shown.map(r => {
+                                const c = r.climate || {};
+                                const ov = new Set(r.overridden_keys || []);
+                                const cell = (key, val) => (
+                                    <td style={{
+                                        padding: '0.35rem 0.7rem', fontFamily: 'var(--font-mono)',
+                                        color: ov.has(key) ? 'var(--accent-gold)' : 'var(--text-secondary)',
+                                        fontWeight: ov.has(key) ? 700 : 400,
+                                    }}>{val}{ov.has(key) ? ' *' : ''}</td>
+                                );
+                                return (
+                                    <tr key={r.session_id} style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <td style={{ padding: '0.35rem 0.7rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                                            {r.cohort_name || r.session_id}
+                                        </td>
+                                        {cell('climate_paradigm', c.climate_paradigm)}
+                                        {cell('global_carbon_fee', c.global_carbon_fee)}
+                                        {cell('market_hostility_index', c.market_hostility_index)}
+                                        {cell('scope_3_threshold', c.scope_3_threshold)}
+                                        <td style={{ padding: '0.35rem 0.7rem' }}>{scopeBadge(r.bu_scope_source)}</td>
+                                        <td style={{ padding: '0.35rem 0.7rem' }}>
+                                            {r.overrides_active
+                                                ? <span style={{ color: 'var(--accent-gold)', fontSize: '0.64rem', fontWeight: 700 }}>◉ OVERRIDE</span>
+                                                : <span style={{ color: 'var(--text-muted)', fontSize: '0.64rem' }}>◌ global</span>}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+            {shown.length > 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.64rem', color: 'var(--text-muted)', opacity: 0.6 }}>
+                    <span style={{ color: 'var(--accent-gold)' }}>*</span> = value overridden for this cohort (differs from global default).
+                </div>
+            )}
+        </div>
     );
 }
 

@@ -203,9 +203,14 @@ def get_fac_role(request: Request):
             # every account, god_mode included — this is the kill-switch.
             if token_sub and int(payload.get("ver", 0)) != get_token_version(token_sub):
                 return 'anonymous'
-            # god_mode: virtual account resolved entirely from the signed token
-            if token_sub == "god_mode" and token_role == "super_admin" and fac_id == "god_mode":
-                return "super_admin"
+            # god_mode: virtual account resolved entirely from the signed token.
+            # C6: god_mode is now its own distinct top tier (level 4), not an
+            # alias of super_admin. We no longer constrain token_role here (older
+            # cookies carry role="super_admin", newer ones "god_mode") — a
+            # signature-verified token whose sub AND fac_id are both "god_mode"
+            # is sufficient to grant the god_mode role.
+            if token_sub == "god_mode" and fac_id == "god_mode":
+                return "god_mode"
             # project_admin: virtual account (not in the registry) — like
             # god_mode, its role is granted ONLY from the signed token claim.
             if token_sub == "project_admin" and token_role == "project_admin" and fac_id == "project_admin":
@@ -246,8 +251,8 @@ async def _assert_session_ownership(request: Request, session_id: str) -> None:
          if f['facilitator_id'] == fac_id and not f.get('deleted_at')),
         None,
     )
-    if fac is None or get_role(fac) == "super_admin":
-        return  # super_admin can touch any session
+    if fac is None or is_admin_role(get_role(fac)):
+        return  # super_admin / god_mode can touch any session
     session_info = await db.get_session_info(session_id)
     if session_info and not owns_session(fac, session_info):
         raise HTTPException(
@@ -273,15 +278,29 @@ def require_facilitator(role: str = Depends(get_fac_role)):
 
 
 def require_registry_admin(role: str = Depends(get_fac_role)):
-    """Super admins and the project_admin registry role — facilitator
-    provisioning endpoints (create / bulk / Excel upload)."""
-    if role not in ("super_admin", "admin", "project_admin"):
+    """Super admins (incl. god_mode) and the project_admin registry role —
+    facilitator provisioning endpoints (create / bulk / Excel upload).
+    C6: uses is_admin_role so the distinct god_mode tier is admitted, not just
+    the literal 'super_admin' string."""
+    if not (is_admin_role(role) or role == "project_admin"):
         raise HTTPException(status_code=403, detail='Registry-admin access required')
 
 
 def require_sim_manager(role: str = Depends(get_fac_role)):
-    """Any authenticated facilitator EXCEPT project_admin. Guards the
-    destructive run/manage endpoints project admins must never touch."""
+    """Any authenticated facilitator (base / lead / super / god_mode) EXCEPT
+    project_admin.
+
+    C3: this is the authoritative guard for the *live-run-management* surface —
+    round pacing/unlock, player registration & credentials, live interventions
+    (inject message, shockwave, broadcast, finale/situation-room consoles),
+    grading, notes and annotations. project_admin's charter is 'provisions
+    facilitators + cohorts, NEVER manages runs' (admin_shared.py:ROLE_HIERARCHY
+    note), so every run-operation endpoint must gate on THIS dependency, not the
+    permissive require_facilitator (which admits project_admin). Cohort
+    provisioning/config endpoints (bu-composition, side-tracks, cohort pacing
+    defaults, pedagogical settings, ending-pathway, CEO-interview) deliberately
+    stay on require_facilitator because project_admin performs them while
+    provisioning a cohort."""
     if role == 'anonymous':
         raise HTTPException(status_code=401, detail='Facilitator authentication required')
     if role == 'project_admin':
@@ -316,6 +335,8 @@ from admin_shared import (
     _god_mode_settings,
     # GOD-012: Per-cohort settings layer
     cohort_settings, COHORT_OVERRIDABLE_KEYS, get_effective_settings,
+    resolve_climate_paradigm, seed_effective_flags,
+    project_effective, visible_keys_for_role, bu_scope_source,
     _facilitator_registry, _persist_facilitators, _load_facilitator_registry,
     _FAC_REGISTRY_PATH, _DEFAULT_FACILITATOR,
     _player_registry,
@@ -329,6 +350,8 @@ from admin_shared import (
     # 3-tier role model
     ROLE_HIERARCHY, ROLE_ALLOWED_TABS,
     get_role, has_role_level, get_allowed_tabs, can_access_tab, owns_session,
+    # C6/C1: god_mode-aware admin check + role-assignment allow-lists
+    is_admin_role, _ASSIGNABLE_ROLES, assignable_roles_for,
     # SEC-1: token-version revocation kill-switch
     get_token_version, bump_token_version,
     # Shared marketplace (used by cascade delete cleanup)
@@ -412,6 +435,9 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
     s = get_effective_settings(session_id)
     return {
         "simulation_mode": s.get("simulation_mode", "standard"),
+        # C6: canonical climate branch, normalised so clients never read the
+        # ambiguous simulation_mode for the Timeline-Branch toggle.
+        "climate_paradigm": resolve_climate_paradigm(s),
         "front_page_enabled": s.get("front_page_enabled", True),  # Feature 5 toggle (player-readable)
         "consequence_replay_enabled": s.get("consequence_replay_enabled", True),  # WOW-1: post-commit causal chain animation
         "global_carbon_fee": s.get("global_carbon_fee", 40),
@@ -457,6 +483,10 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         "round_recap_enabled": s.get("round_recap_enabled", False),
         "real_world_cards_enabled": s.get("real_world_cards_enabled", False),
         "real_world_cards_teleprompter": s.get("real_world_cards_teleprompter", True),
+        # Player briefing academic framing (theory card + narrative citations). Default OFF for
+        # players; facilitators may re-enable per deployment. Pedagogy is always kept in the
+        # facilitator teleprompter regardless of this flag.
+        "briefing_theory_enabled": s.get("briefing_theory_enabled", False),
         "debrief_protocol_enabled": s.get("debrief_protocol_enabled", False),
         "self_learning_mode": s.get("self_learning_mode", False),
         "flag_diagram_enabled": s.get("flag_diagram_enabled", True),
@@ -490,6 +520,10 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
     }
 
 class GlobalSettingsPatch(BaseModel):
+    # C6: canonical climate-branch key. `simulation_mode` is still accepted for
+    # backward compatibility (legacy Switchboard payloads); patch_global_settings
+    # dual-writes the two so old and new readers stay consistent.
+    climate_paradigm: str | None = None
     simulation_mode: str | None = None
     global_carbon_fee: float | None = None
     market_hostility_index: float | None = None
@@ -529,6 +563,7 @@ class GlobalSettingsPatch(BaseModel):
     peer_comparison_enabled: bool | None = None
     strategy_memo_enabled: bool | None = None
     what_if_builder_enabled: bool | None = None
+    briefing_theory_enabled: bool | None = None  # player briefing academic framing (default off)
     custom_crisis_enabled: bool | None = None
     round_recap_enabled: bool | None = None
     real_world_cards_enabled: bool | None = None
@@ -568,12 +603,44 @@ class GlobalSettingsPatch(BaseModel):
     foreshadowing_signals_enabled: bool | None = None
     # Single-BU mode override (empty string = all BUs)
     assigned_bu: str | None = None
+    # I5 (Workstream E): free-text justification. REQUIRED when the caller is the
+    # god_mode break-glass identity; ignored (optional) for named super_admins.
+    reason: str | None = None
+
+
+def _require_god_mode_reason(request: Request, reason: str | None) -> str:
+    """I5: high-impact config writes performed under the god_mode break-glass
+    identity must carry a reason, so the audit trail records WHY the platform
+    default was changed (god_mode is virtual and not a named human). Returns the
+    resolved caller role. No-op for non-god_mode callers."""
+    role = get_fac_role(request)
+    if role == "god_mode" and not (reason and str(reason).strip()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="god_mode configuration changes require a non-empty 'reason' for the audit trail.",
+        )
+    return role
+
 
 @admin_router.patch("/global-settings", summary="Update global simulation settings (Sim Switchboard)")
-async def patch_global_settings(body: GlobalSettingsPatch, _guard: None = Depends(require_super_admin)):
-    """Sim Switchboard endpoint — updates simulation_mode and climate parameters."""
+async def patch_global_settings(body: GlobalSettingsPatch, request: Request, _guard: None = Depends(require_super_admin)):
+    """Sim Switchboard endpoint — updates the climate branch and parameters."""
+    # I5: god_mode writes require a reason for the audit trail.
+    _caller_role = _require_god_mode_reason(request, body.reason)
     # FIX AUDIT-017: Use Pydantic to validate input types
     update_data = body.model_dump(exclude_unset=True)
+    # `reason` is audit metadata, not a persisted setting — strip before write.
+    _reason = update_data.pop("reason", None)
+    # C6: dual-write the climate branch. Legacy clients send simulation_mode
+    # in {standard, advanced_climate}; new clients send climate_paradigm. Keep
+    # both in sync so every reader (old and new) resolves the same branch.
+    from admin_shared import _CLIMATE_PARADIGM_VALUES
+    _cp = update_data.get("climate_paradigm")
+    _sm = update_data.get("simulation_mode")
+    if _cp in _CLIMATE_PARADIGM_VALUES:
+        update_data["simulation_mode"] = _cp
+    elif _sm in _CLIMATE_PARADIGM_VALUES:
+        update_data["climate_paradigm"] = _sm
     for key, value in update_data.items():
         _god_mode_settings[key] = value
     
@@ -581,13 +648,134 @@ async def patch_global_settings(body: GlobalSettingsPatch, _guard: None = Depend
     logging.info(f"[god-mode] Global settings updated: {_god_mode_settings}")
     
     # Event Bus: Broadcast settings change to all connected admin dashboards
-    _audit("global_settings_updated", details=update_data)
+    # I5: record the caller role and (god_mode) reason on the audit entry.
+    _audit("global_settings_updated", details={**update_data, "_caller_role": _caller_role, "_reason": _reason})
     await manager.broadcast_admin({
         "type": "settings_changed",
         "changed_keys": list(update_data.keys()),
         "settings": {k: _god_mode_settings.get(k) for k in update_data},
     })
     return {"status": "ok", "settings": _god_mode_settings}
+
+
+# ── Apply-to-existing fan-out (Workstream D / C1 / C4) ───────────────────────
+# Pushing a global default out to already-running cohorts is DELIBERATELY an
+# explicit, audited action — never a silent side effect of PATCH /global-settings
+# (existing cohorts keep their provisioned values by default; precedence is
+# cohort_override > cohort_record > global_default). This writes the chosen
+# global values into each target cohort's override layer via the same store the
+# GOD-012 cohort-settings endpoints use.
+class ApplyToExistingRequest(BaseModel):
+    session_ids: list[str]
+    keys: list[str]  # which global keys to fan out (must be cohort-overridable)
+
+
+@admin_router.post(
+    "/global-settings/apply-to-existing",
+    summary="Fan a global setting out to selected existing cohorts (Workstream D)",
+)
+async def apply_global_to_existing(
+    body: ApplyToExistingRequest,
+    _guard: None = Depends(require_super_admin),
+):
+    if not body.session_ids:
+        raise HTTPException(400, "session_ids must be a non-empty list")
+    invalid_keys = [k for k in body.keys if k not in COHORT_OVERRIDABLE_KEYS]
+    if invalid_keys:
+        raise HTTPException(
+            400,
+            f"Keys not cohort-overridable: {sorted(invalid_keys)}. "
+            f"Only {sorted(COHORT_OVERRIDABLE_KEYS)} may be fanned out.",
+        )
+    values = {k: _god_mode_settings.get(k) for k in body.keys if k in _god_mode_settings}
+    applied: dict[str, dict] = {}
+    for sid in body.session_ids:
+        cohort_settings.setdefault(sid, {})
+        cohort_settings[sid].update(values)
+        applied[sid] = dict(values)
+        _audit("global_applied_to_cohort", details={"session_id": sid, "keys": list(values.keys())})
+        await manager.push_to_session(sid, {
+            "type": "cohort_settings_changed",
+            "session_id": sid,
+            "changed_keys": list(values.keys()),
+            "settings": cohort_settings[sid],
+        })
+    return {"status": "ok", "applied_values": values, "cohorts": applied}
+
+
+# ── I3 (Workstream B): Unified role-scoped effective-settings read ───────────
+@admin_router.get(
+    "/effective-settings",
+    summary="Role-scoped effective settings with provenance (unified read)",
+)
+async def get_effective_settings_projection(
+    request: Request,
+    session_id: str | None = _Query(default=None),
+    caller_role: str = Depends(get_fac_role),
+):
+    """Return the effective settings for a cohort, filtered to the keys the
+    caller's role may see, each annotated with provenance (global vs override).
+    Deny-by-default: non-admins receive only their allow-listed keys. Non-admins
+    requesting a specific cohort must own it."""
+    if caller_role == "anonymous":
+        raise HTTPException(401, "Facilitator authentication required")
+    # Ownership scope for non-admins requesting a specific cohort.
+    if session_id and not is_admin_role(caller_role):
+        from auth_jwt import get_facilitator_from_request
+        caller_id = get_facilitator_from_request(request)
+        caller_fac = next((f for f in _facilitator_registry if f.get("facilitator_id") == caller_id), None)
+        session_rec = None
+        try:
+            session_rec = next((s for s in (await db.fetch_all_sessions() or []) if s.get("session_id") == session_id), None)
+        except Exception:
+            session_rec = None
+        if session_rec and caller_fac and not owns_session(caller_fac, session_rec):
+            raise HTTPException(403, "You can only read effective settings for sessions you own.")
+    return project_effective(session_id, caller_role)
+
+
+@admin_router.get(
+    "/effective-settings/summary",
+    summary="Per-cohort effective climate settings across owned cohorts (Workstream B)",
+)
+async def get_effective_settings_summary(
+    request: Request,
+    caller_role: str = Depends(get_fac_role),
+):
+    """Batch view powering the Switchboard 'which cohorts diverge from global'
+    panel: one row per cohort the caller may see, with its effective climate
+    values, whether it overrides the global, and its BU-scope source."""
+    if caller_role == "anonymous":
+        raise HTTPException(401, "Facilitator authentication required")
+    is_admin = is_admin_role(caller_role)
+    caller_fac = None
+    if not is_admin:
+        from auth_jwt import get_facilitator_from_request
+        caller_id = get_facilitator_from_request(request)
+        caller_fac = next((f for f in _facilitator_registry if f.get("facilitator_id") == caller_id), None)
+    try:
+        sessions = await db.fetch_all_sessions() or []
+    except Exception:
+        sessions = []
+    rows = []
+    _climate = ("climate_paradigm", "global_carbon_fee", "market_hostility_index", "scope_3_threshold")
+    for s in sessions:
+        sid = s.get("session_id")
+        if not sid:
+            continue
+        if not is_admin and (not caller_fac or not owns_session(caller_fac, s)):
+            continue
+        eff = get_effective_settings(sid)
+        override = cohort_settings.get(sid, {})
+        rows.append({
+            "session_id": sid,
+            "cohort_name": s.get("cohort_name", ""),
+            "climate": {k: eff.get(k) for k in _climate},
+            "overrides_active": bool(override),
+            "overridden_keys": [k for k in _climate if k in override],
+            "bu_scope_source": bu_scope_source(sid),
+        })
+    return {"cohorts": rows, "global": {k: _god_mode_settings.get(k) for k in _climate}}
 
 
 # ── Per-Cohort Settings (GOD-012) ────────────────────────────────────────────
@@ -665,6 +853,7 @@ async def patch_cohort_settings(
     # lead_facilitators may only touch freeze keys and specific simulation parameters for sessions they own
     _LEAD_FAC_KEYS = frozenset({
         "system_frozen", "freeze_message", "freeze_started_at",
+        "climate_paradigm",  # C6: canonical climate branch (per-cohort, lead-overridable)
         "simulation_mode", "global_carbon_fee", "market_hostility_index", "scope_3_threshold"
     })
     if caller_role == "lead_facilitator":
@@ -766,6 +955,7 @@ async def get_scaffolding_status():
         ("real_world_cards_enabled", "🌍 Case Cards", False, "Surface real-world ESG case study cards matched to the current decision context"),
         ("strategy_memo_enabled", "📝 Memo", False, "Prompt students to write a strategy memo justifying their decision before committing"),
         ("debrief_protocol_enabled", "🎭 Debrief", False, "Enable structured post-round debrief protocols with guided reflection prompts"),
+        ("briefing_theory_enabled", "📚 Briefing Theory", False, "Show academic framing on PLAYER round briefings (theory card + narrative citations). OFF by default; facilitator teleprompter keeps the pedagogy either way"),
         ("self_learning_mode", "🎓 Self-Learn", False, "Solo/self-paced mode — unlocks all rounds and disables facilitator gating"),
         ("r6_revelation_enabled", "🚨 R6 Twist", True, "Round 6 narrative twist — reveals hidden supply chain consequences from earlier decisions"),
         ("r7_budget_allocation_enabled", "♻️ R7 Budget", True, "Round 7 sustainability budget allocation challenge with constrained capital"),
@@ -778,6 +968,13 @@ async def get_scaffolding_status():
         ("supply_chain_network_enabled", "🔗 Supply Chain", True, "Model supply chain network effects — disruptions cascade through tier-1/2/3 suppliers"),
         ("npc_stakeholders_enabled", "👥 NPC Agents", True, "Activate NPC stakeholder agents (media, regulators, NGOs) that react to decisions"),
         ("org_politics_enabled", "🤝 Org Politics", True, "Internal politics engine — executive alignment, departmental friction, power dynamics"),
+        # Stakeholder realism waves (SPEC F1–F6) — per-cohort, default OFF
+        ("stakeholder_memory_enabled", "🧠 Stakeholder Memory", False, "F1 — NPCs accumulate a trust stock (rises slowly, falls fast) with betrayal scars; trust gates escalation and cascades"),
+        ("stakeholder_slo_feedback_enabled", "🔁 SLO Feedback", False, "F2 — each stakeholder's escalation tier continuously nudges the SLO of the BUs it's attached to (closes the loop)"),
+        ("stakeholder_engagement_enabled", "🤝 Promises", False, "F5 — per-round engagement actions (town hall / pledge / commitment) with a promise ledger; kept promises pay off, broken ones scar"),
+        ("stakeholder_coalitions_enabled", "🪧 Coalitions", False, "F3 — ≥2 hostile stakeholders form a coalition that amplifies SLO feedback and strike risk; fired cascades nudge their named targets"),
+        ("stakeholder_uncertainty_enabled", "🎲 Uncertain Thresholds", False, "F4 — escalation thresholds jittered per cohort (seeded/fair) plus a patience clock that forces escalation over time"),
+        ("stakeholder_intel_ui_enabled", "🔎 Intel Rail", False, "F6 — surfaces demand / leverage / trend cards per stakeholder (numbers kept to the facilitator view)"),
         ("branching_enabled", "🔀 Branching", True, "Enable narrative branching paths based on cumulative decision patterns"),
         ("dynamic_cases_enabled", "📰 Case Studies", True, "Dynamically inject industry case studies relevant to current round themes"),
         ("tcfd_scenarios_enabled", "🌡️ TCFD", True, "Run TCFD climate scenario analysis — physical and transition risk modelling"),
@@ -820,7 +1017,7 @@ async def get_facilitator_role_info(fac_id: str, _guard: None = Depends(require_
         "role": role,
         "allowed_tabs": get_allowed_tabs(fac),
         "permissions": fac.get("permissions", {}),
-        "is_admin": role == "super_admin",
+        "is_admin": is_admin_role(role),
     }
 
 
@@ -863,21 +1060,27 @@ async def update_facilitator_role(
         )
         if not caller_fac:
             raise HTTPException(403, "Invalid God Mode credentials.")
-        # Caller must be a super_admin in the registry
-        if get_role(caller_fac) != "super_admin":
+        # Caller must have super-admin authority (super_admin/admin/god_mode)
+        if not is_admin_role(get_role(caller_fac)):
             raise HTTPException(403, "Only Super Administrators can change roles.")
         if not verify_password(caller_password, caller_fac.get("password", "")):
             raise HTTPException(403, "Invalid God Mode credentials.")
 
     # ── Apply role change ───────────────────────────────────
     new_role = body.get("role", "").strip()
+    # C6/C1: block escalation to the virtual god_mode tier and enforce that the
+    # caller may only grant roles within its own scope (assignable_roles_for).
+    _caller_role = get_fac_role(request)
+    _grantable = assignable_roles_for(_caller_role)
     if new_role not in ROLE_HIERARCHY:
-        raise HTTPException(400, f"Invalid role '{new_role}'. Must be one of: {list(ROLE_HIERARCHY.keys())}")
+        raise HTTPException(400, f"Invalid role '{new_role}'. Must be one of: {sorted(_ASSIGNABLE_ROLES)}")
+    if new_role not in _grantable:
+        raise HTTPException(403, f"Your role ('{_caller_role}') may not assign the role '{new_role}'. Allowed: {sorted(_grantable)}.")
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
     fac["role"] = new_role
-    fac["is_admin"] = new_role == "super_admin"  # backward compat
+    fac["is_admin"] = is_admin_role(new_role)  # backward compat (god_mode-aware)
     _persist_facilitators()
     from auth_jwt import get_facilitator_from_request
     caller = get_facilitator_from_request(request) or caller_fac_id
@@ -1310,8 +1513,20 @@ async def list_facilitators(request: Request, _guard: None = Depends(require_fac
 
 
 @admin_router.post("/facilitators", summary="Create a new facilitator")
-async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depends(require_registry_admin)):
+async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _guard: None = Depends(require_registry_admin)):
     import re
+    # C1/P1: enforce caller-scoped role grants BEFORE doing any work. Blocks a
+    # project_admin (which passes require_registry_admin) from minting a
+    # super_admin, and blocks anyone from assigning the virtual god_mode tier.
+    _requested_role = req.role or "facilitator"
+    _caller_role = get_fac_role(request)
+    _grantable = assignable_roles_for(_caller_role)
+    if _requested_role not in _grantable:
+        raise HTTPException(
+            403,
+            f"Your role ('{_caller_role}') may not create a facilitator with role "
+            f"'{_requested_role}'. Allowed: {sorted(_grantable)}.",
+        )
     # GOD-003: Generate password outside the lock — bcrypt is CPU-intensive
     # and does not touch shared state.
     _temp_plain, _temp_hash = _generate_temp_password()
@@ -1358,7 +1573,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, _guard: None = Depen
             "industry_vertical": req.industry_vertical or "",
             "bu_substitutions": req.bu_substitutions or {},
             "role": role,
-            "is_admin": role == "super_admin",
+            "is_admin": is_admin_role(role),
             "enabled": True,
             "shockwave_enabled": req.shockwave_enabled if req.shockwave_enabled is not None else True,  # Feature 6
             "trading_floor_enabled": req.trading_floor_enabled if req.trading_floor_enabled is not None else True,  # Feature 1
@@ -1564,12 +1779,24 @@ async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = D
     }
 
 @admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
-async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, _guard: None = Depends(require_super_admin)):
+async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, request: Request, _guard: None = Depends(require_super_admin)):
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
-    
+
     update_data = req.model_dump(exclude_unset=True)
+    # C6/C1: a role change through the generic update must obey the same
+    # assignable + caller-scope rules as the dedicated role endpoint — otherwise
+    # this is a backdoor to assign god_mode / escalate.
+    if update_data.get("role") is not None:
+        _new_role = str(update_data["role"]).strip()
+        _caller_role = get_fac_role(request)
+        _grantable = assignable_roles_for(_caller_role)
+        if _new_role not in ROLE_HIERARCHY:
+            raise HTTPException(400, f"Invalid role '{_new_role}'. Must be one of: {sorted(_ASSIGNABLE_ROLES)}.")
+        if _new_role not in _grantable:
+            raise HTTPException(403, f"Your role ('{_caller_role}') may not assign the role '{_new_role}'. Allowed: {sorted(_grantable)}.")
+        update_data["role"] = _new_role
     for key, value in update_data.items():
         if key == "permissions" and isinstance(value, dict):
             # merge permissions instead of replacing to preserve unspecified ones
@@ -1580,8 +1807,8 @@ async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, _guard:
             fac[key] = value
             
     if "role" in update_data:
-        fac["is_admin"] = update_data["role"] == "super_admin"
-            
+        fac["is_admin"] = is_admin_role(update_data["role"])
+
     _persist_facilitators()
     return fac
 
@@ -1748,7 +1975,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         fac = {
             "facilitator_id": "god_mode",
             "name": "God Mode Administrator",
-            "role": "super_admin",
+            "role": "god_mode",   # C6: distinct level-4 tier, not super_admin
             "is_admin": True,
             "enabled": True,
         }
@@ -1812,7 +2039,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         "facilitator_id": fac["facilitator_id"],
         "name": fac["name"],
         "username": fac.get("username", ""),
-        "is_admin": role == "super_admin",  # backward compat
+        "is_admin": is_admin_role(role),  # backward compat
         "role": role,
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
@@ -1851,7 +2078,7 @@ async def facilitator_change_password(
             None,
         )
         _caller_role = get_role(_caller_fac) if _caller_fac else 'anonymous'
-        if _caller_role != "super_admin" and _caller_id != fac_id:
+        if not is_admin_role(_caller_role) and _caller_id != fac_id:
             raise HTTPException(403, "You can only change your own password")
     # MED-003: Removed contradictory < 3 check — only the >= 8 guard below applies
     fac = next(
@@ -1902,12 +2129,9 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
 
     # god_mode is a virtual account — not in the registry, role comes from JWT
     if fac_id == "god_mode":
-        cookie_token = request.cookies.get(COOKIE_NAME, "")
-        try:
-            payload = decode_facilitator_token(cookie_token)
-            role = payload.get("role", "super_admin")
-        except Exception:
-            role = "super_admin"
+        # C6: god_mode is its own tier — always re-issue with the god_mode role
+        # regardless of what an older cookie carried.
+        role = "god_mode"
         try:
             token = create_facilitator_token(
                 "god_mode", role, token_version=get_token_version("god_mode"),
@@ -1923,6 +2147,32 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
             "role": role,
             "is_admin": True,
             "allowed_tabs": ["*"],
+            "permissions": {},
+        }
+
+    # project_admin is a virtual account — like god_mode it is NOT in the
+    # registry, so the registry lookup below would 401 it and its session could
+    # never be refreshed (it would have to re-login on JWT expiry). Its role is
+    # granted only from the signed token (see get_fac_role), so re-issue here.
+    if fac_id == "project_admin":
+        _pa_fac = {"role": "project_admin"}
+        _pa_tabs = get_allowed_tabs(_pa_fac)
+        try:
+            token = create_facilitator_token(
+                "project_admin", "project_admin",
+                token_version=get_token_version("project_admin"),
+            )
+            set_session_cookie(response, token, facilitator_id="project_admin")
+        except Exception:
+            pass
+        return {
+            "status": "refreshed",
+            "expires_in_hours": 8,
+            "facilitator_id": "project_admin",
+            "name": "Project Administrator",
+            "role": "project_admin",
+            "is_admin": False,
+            "allowed_tabs": _pa_tabs,
             "permissions": {},
         }
 
@@ -1945,7 +2195,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "name": fac.get("name", ""),
         "username": fac.get("username", ""),
         "role": role,
-        "is_admin": role == "super_admin",
+        "is_admin": is_admin_role(role),
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
@@ -2104,7 +2354,7 @@ async def toggle_facilitator_enabled(fac_id: str, body: dict = Body(...), _guard
 
 
 @admin_router.post("/sessions/{session_id}/practice-mode", summary="Enable practice mode for a cohort")
-async def enable_practice_mode(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+async def enable_practice_mode(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
     await _assert_session_ownership(request, session_id)
     sess = await db.get_session_info(session_id)
     if not sess:
@@ -2119,7 +2369,7 @@ async def enable_practice_mode(session_id: str, request: Request, _guard: None =
 
 
 @admin_router.delete("/sessions/{session_id}/practice-mode", summary="Disable practice mode for a cohort")
-async def disable_practice_mode(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+async def disable_practice_mode(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
     await _assert_session_ownership(request, session_id)
     _practice_mode.pop(session_id, None)
     return {"status": "disabled", "session_id": session_id, "practice_mode": False}
@@ -2472,6 +2722,14 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
         events = tick_result["events"]
         events.update(pre_result.get("pre_events", {}))
 
+        # C2: re-seed effective climate inputs (global + per-cohort override)
+        # into the round flags before the engine reads them (admin advance path).
+        try:
+            new_global.setdefault("active_event_flags", {})
+            seed_effective_flags(player_session_id, new_global["active_event_flags"])
+        except Exception:
+            pass
+
         # Post-tick
         post_events = post_tick(
             round_number=current_round,
@@ -2624,7 +2882,7 @@ async def get_pacing(session_id: str):
 
 
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
-async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request, _guard: None = Depends(require_facilitator)):
+async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request, _guard: None = Depends(require_sim_manager)):
     await _assert_session_ownership(request, session_id)
     pacing = _get_pacing(session_id)
 
@@ -2722,7 +2980,7 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
 
 
 @admin_router.post("/sessions/{session_id}/pacing/unlock", summary="Manually unlock next round")
-async def unlock_next_round(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+async def unlock_next_round(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
     await _assert_session_ownership(request, session_id)
     pacing = _get_pacing(session_id)
     pacing["unlocked_round"] = pacing["unlocked_round"] + 1
@@ -2841,7 +3099,7 @@ class DecadePlanRequest(BaseModel):
     decade_forward_plan: str
 
 @admin_router.post("/{session_id}/decade-plan", summary="Save boardroom choice and decade forward plan")
-async def save_decade_plan(session_id: str, req: DecadePlanRequest, _guard: None = Depends(require_facilitator)):
+async def save_decade_plan(session_id: str, req: DecadePlanRequest, _guard: None = Depends(require_sim_manager)):
     ok = await db.save_decade_plan(session_id, req.boardroom_choice, req.decade_forward_plan)
     if not ok:
         from fastapi import HTTPException
@@ -2958,7 +3216,7 @@ async def override_materiality_dictionary(
     session_id: str,
     req: MaterialityDictionaryOverrideRequest,
     request: Request,
-    _guard: None = Depends(require_lead_facilitator),
+    _guard: None = Depends(require_super_admin),  # Materiality Matrix editing is super-admin only
 ):
     """
     Saves a complete sandboxed copy of the materiality dictionary for this session.
@@ -2985,7 +3243,7 @@ async def override_materiality_dictionary(
 async def revert_materiality_dictionary(
     session_id: str,
     request: Request,
-    _guard: None = Depends(require_lead_facilitator),
+    _guard: None = Depends(require_super_admin),  # Materiality Matrix editing is super-admin only
 ):
     """
     Removes the sandbox dictionary, reverting the cohort to God Mode defaults.
@@ -3006,7 +3264,7 @@ async def revert_materiality_dictionary(
 
 
 @admin_router.post("/players/register", summary="Register a new player")
-async def register_player(req: PlayerRegisterRequest, _guard: None = Depends(require_facilitator)):
+async def register_player(req: PlayerRegisterRequest, _guard: None = Depends(require_sim_manager)):
     global _next_player_id
     player = {
         "player_id": f"P{_next_player_id:03d}",
@@ -3029,7 +3287,7 @@ _ADJECTIVES = ["blue", "swift", "brave", "quiet", "lucky", "bold", "calm", "prou
 _NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "hawk", "owl"]
 
 @admin_router.post("/players/induct", summary="Induct a player directly into a session")
-async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_facilitator)):
+async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_sim_manager)):
     global _next_player_id
 
     # Enforce the 10-player-per-cohort cap
@@ -3118,7 +3376,7 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
 
 
 @admin_router.post("/players/{player_id}/assign", summary="Assign a player to a session")
-async def assign_player_to_session(player_id: str, session_id: str, _guard: None = Depends(require_facilitator)):
+async def assign_player_to_session(player_id: str, session_id: str, _guard: None = Depends(require_sim_manager)):
     player = next((p for p in _player_registry if p["player_id"] == player_id), None)
     if not player:
         raise HTTPException(404, f"Player {player_id} not found")
@@ -3317,7 +3575,7 @@ async def clear_orphan_players(_guard: None = Depends(require_super_admin)):
 
 
 @admin_router.put("/players/set-password", summary="Set or update a player's password")
-async def set_player_password(body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def set_player_password(body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """Fallback for setting a player password when it's generated client-side."""
     player_id = body.get("player_id")
     password = body.get("password")
@@ -3344,7 +3602,7 @@ async def set_player_password(body: dict = Body(...), _guard: None = Depends(req
 
 
 @admin_router.post("/players/{player_id}/reset-password", summary="Reset a player's password to a new random temp password")
-async def reset_player_password(player_id: str, _guard: None = Depends(require_facilitator)):
+async def reset_player_password(player_id: str, _guard: None = Depends(require_sim_manager)):
     """
     Generates a new random temp password for a player and returns the plaintext to the facilitator.
     Sets must_change_password=True so the player is required to change it on first login.
@@ -3594,7 +3852,7 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
     "/{session_id}/generate-player",
     summary="Generate a new allowed player ID and password",
 )
-async def generate_player_id(session_id: str, _guard: None = Depends(require_facilitator)):
+async def generate_player_id(session_id: str, _guard: None = Depends(require_sim_manager)):
     # Enforce the 10-player-per-cohort cap at ID generation time
     sess_check = await db.get_session_info(session_id)
     if not sess_check:
@@ -4264,7 +4522,7 @@ async def get_shockwave_events(_guard: None = Depends(require_facilitator)):
 
 
 @admin_router.post("/{cohort_id}/shockwave", summary="Feature 6: detonate a synchronized black-swan across a cohort")
-async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body(default={}), _guard: None = Depends(require_facilitator)):
+async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body(default={}), _guard: None = Depends(require_sim_manager)):
     """Applies an identical black-swan impact (treasury + reputation) to every
     team in the cohort and broadcasts a dramatic full-screen 'shockwave' alert.
     Reuses the same impact model as inject_custom_event; deterministic by
@@ -4348,7 +4606,7 @@ async def get_custom_black_swan_log():
     summary="Inject a message into a player's Executive Mailbox",
     status_code=status.HTTP_200_OK,
 )
-async def inject_message(session_id: str, body: MessageInjectRequest, request: Request, _guard: None = Depends(require_facilitator)):
+async def inject_message(session_id: str, body: MessageInjectRequest, request: Request, _guard: None = Depends(require_sim_manager)):
     """
     Pushes a facilitator message directly into a session's mailbox.
     Can use a preset_id or custom title/body.
@@ -5547,7 +5805,7 @@ async def get_player_sessions(session_id: str):
     "/impersonate/{player_session_id}",
     summary="Get impersonation link for a player session",
 )
-async def impersonate_player(player_session_id: str, _guard: None = Depends(require_facilitator)):
+async def impersonate_player(player_session_id: str, _guard: None = Depends(require_sim_manager)):
     """
     Returns the session ID and URL path for the facilitator
     to open a player's console in a new browser tab.
@@ -5863,7 +6121,7 @@ def _sanitise_upload_name(filename: str | None) -> str:
     "/interventions/upload-media",
     summary="Upload media (audio/video) for an intervention",
 )
-async def upload_intervention_media(file: UploadFile = File(...), _guard: None = Depends(require_facilitator)):
+async def upload_intervention_media(file: UploadFile = File(...), _guard: None = Depends(require_sim_manager)):
     """Upload an audio or video file for attachment to an override or swipe file.
     CRIT-005: Path traversal fix — filename is sanitized; MIME type and size are validated."""
     # ── MIME type allowlist ──────────────────────────────────────
@@ -5963,7 +6221,9 @@ _CONFIG_MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
     tags=["Admin — Simulation Config"],
 )
 async def upload_simulation_config(
+    request: Request,
     file: UploadFile = File(...),
+    reason: str | None = None,
     _guard: None = Depends(require_super_admin),
 ):
     """Upload a simulation_config.xlsx file, convert to JSON, and hot-reload
@@ -5972,7 +6232,9 @@ async def upload_simulation_config(
     Security: require_super_admin + MIME validation + size limit.
     Concurrency: rejects with 409 if a simulation tick is in progress.
     Rollback: backs up JSON before write; restores on any failure.
+    I5: god_mode callers must supply a 'reason' (query param) for the audit trail.
     """
+    _require_god_mode_reason(request, reason)
     from pathlib import Path
 
     # ── MIME validation ─────────────────────────────────────────
@@ -6423,7 +6685,7 @@ async def add_note(
     session_id: str,
     req: FacilitatorNoteRequest,
     request: Request,
-    _guard: None = Depends(require_facilitator),
+    _guard: None = Depends(require_sim_manager),
 ):
     from auth_jwt import get_facilitator_from_request
     global _next_note_id
@@ -6457,7 +6719,7 @@ async def delete_note(
     session_id: str,
     note_id: str,
     request: Request,
-    _guard: None = Depends(require_facilitator),
+    _guard: None = Depends(require_sim_manager),
 ):
     # GOD-009: Only the note's author or a super_admin may delete a note.
     # This prevents one of 30 facilitators from silently erasing a colleague's
@@ -6472,7 +6734,7 @@ async def delete_note(
         raise HTTPException(404, f"Note {note_id} not found")
 
     note_author = target.get("author", "")
-    if caller_role != "super_admin" and note_author and note_author != caller:
+    if not is_admin_role(caller_role) and note_author and note_author != caller:
         raise HTTPException(
             403,
             f"Only the note's author ({note_author}) or a super_admin may delete this note.",
@@ -6521,7 +6783,7 @@ async def list_bonuses(session_id: str):
     "/{session_id}/bonuses",
     summary="Award a bonus to a player",
 )
-async def award_bonus(session_id: str, req: StudentBonusRequest, _guard: None = Depends(require_facilitator)):
+async def award_bonus(session_id: str, req: StudentBonusRequest, _guard: None = Depends(require_sim_manager)):
     global _next_bonus_id
     badge_info = BADGE_PRESETS.get(req.badge) if req.badge else None
     bonus = {
@@ -6549,7 +6811,7 @@ async def award_bonus(session_id: str, req: StudentBonusRequest, _guard: None = 
     "/{session_id}/bonuses/{bonus_id}",
     summary="Revoke a bonus",
 )
-async def revoke_bonus(session_id: str, bonus_id: str, _guard: None = Depends(require_facilitator)):
+async def revoke_bonus(session_id: str, bonus_id: str, _guard: None = Depends(require_sim_manager)):
     bonuses = _student_bonuses.get(session_id, [])
     before = len(bonuses)
     _student_bonuses[session_id] = [b for b in bonuses if b["bonus_id"] != bonus_id]
@@ -6635,7 +6897,7 @@ async def submit_peer_evaluation(session_id: str, req: PeerEvaluationRequest):
     "/{session_id}/peer-evaluations/{eval_id}",
     summary="Delete a peer evaluation",
 )
-async def delete_peer_evaluation(session_id: str, eval_id: str, _guard: None = Depends(require_facilitator)):
+async def delete_peer_evaluation(session_id: str, eval_id: str, _guard: None = Depends(require_sim_manager)):
     evals = _peer_evaluations.get(session_id, [])
     before = len(evals)
     _peer_evaluations[session_id] = [e for e in evals if e["eval_id"] != eval_id]
@@ -6664,7 +6926,7 @@ class BroadcastRequest(BaseModel):
     "/broadcast",
     summary="Broadcast a message to all or selected sessions",
 )
-async def broadcast_message(req: BroadcastRequest, request: Request, _guard: None = Depends(require_facilitator)):
+async def broadcast_message(req: BroadcastRequest, request: Request, _guard: None = Depends(require_sim_manager)):
     global _next_broadcast_id
 
     broadcast = {
@@ -7104,6 +7366,17 @@ async def get_system_status(_guard: None = Depends(require_facilitator)):
         import os
         mem_mb = round(os.popen('tasklist /fi "pid eq %d" /fo csv /nh' % os.getpid()).read().count('K') * 0.001, 1) if os.name == 'nt' else 0
 
+    # FIX: total_cohorts/total_players were counted from db._sessions, which only
+    # exists in the in-memory backend — under Postgres it fell back to {} and the
+    # God Mode overview always showed 0 cohorts / 0 players. count_sessions() is
+    # mode-agnostic, so the counts are now correct in both backends.
+    try:
+        _sc = await db.count_sessions()
+        total_cohorts = _sc.get("cohorts", total_cohorts)
+        total_players = _sc.get("players", total_players)
+    except Exception as _e:
+        logging.warning(f"[god] count_sessions failed, using in-loop counts: {_e}")
+
     return {
         "total_facilitators": len(_facilitator_registry),
         "total_cohorts": total_cohorts,
@@ -7175,7 +7448,7 @@ async def universal_broadcast(body: dict = Body(...), _guard: None = Depends(req
 
 
 @admin_router.post("/{cohort_id}/finale/ring-bell", summary="Trading-Floor Finale: broadcast market close to the room")
-async def finale_ring_bell(cohort_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+async def finale_ring_bell(cohort_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
     """Feature 1 — Trading-Floor Finale. Broadcasts a 'market_close' signal so
     every player screen shows the close overlay and the projector view freezes
     and reveals the final ranking. Presentation-only: touches no game state.
@@ -7194,7 +7467,7 @@ async def finale_ring_bell(cohort_id: str, request: Request, _guard: None = Depe
 
 
 @admin_router.post("/{cohort_id}/situation-room/bulletin", summary="Situation Room: synthesize a market-news voice bulletin")
-async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
     """W-D (W4) — Situation-Room bulletin. Assembles a ~15-second market-news
     script from the cohort's REAL state (biggest EBITDA mover, live crisis
     flags, the Nordhaven NPC print) and synthesizes it through the same
@@ -7379,7 +7652,7 @@ async def import_system(body: dict = Body(...), _guard: None = Depends(require_s
             # Never import password hashes — all imported accounts must reset
             "password": "",
             "role": raw_role if raw_role in ROLE_HIERARCHY else "facilitator",
-            "is_admin": raw_role == "super_admin",
+            "is_admin": is_admin_role(raw_role),
             "enabled": bool(fac.get("enabled", True)),
             "max_cohorts": max(0, min(int(fac.get("max_cohorts", 5)), 9999)),
             "cohorts_created": max(0, int(fac.get("cohorts_created", 0))),
@@ -7742,12 +8015,17 @@ async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(..
         session["difficulty_tier"] = body["difficulty_tier"]
     
     # Store pedagogical toggle overrides on the session
-    pedagogical_keys = {
-        "prediction_gates_enabled", "confidence_calibration_enabled",
-        "round_recap_enabled", "real_world_cards_enabled",
-        "strategy_memo_enabled", "debrief_protocol_enabled",
-        "self_learning_mode",
-    }
+    # Any recognised pedagogical toggle may be overridden per cohort. We derive
+    # the allow-list from DEFAULT_PEDAGOGICAL_TOGGLES rather than hand-maintaining
+    # a copy: that fixes a latent drift where engine-module toggles the cohort
+    # modal sends (biodiversity, board governance, NPC agents, supply chain, …)
+    # were silently dropped because they weren't in the old hard-coded set — so a
+    # facilitator could never actually turn them OFF. This also keeps the
+    # stakeholder-realism waves (F1–F6) and any future toggle in sync
+    # automatically. get_pedagogical_toggles already ignores unknown keys, so
+    # anything else in the body is harmlessly skipped.
+    from pedagogical_engine import DEFAULT_PEDAGOGICAL_TOGGLES
+    pedagogical_keys = set(DEFAULT_PEDAGOGICAL_TOGGLES)
     cohort_pedagogy = session.get("pedagogical_overrides", {})
     for key in pedagogical_keys:
         if key in body:
@@ -8380,7 +8658,7 @@ async def get_annotations(session_id: str):
 
 
 @admin_router.post("/annotations/{session_id}", summary="Add an annotation")
-async def add_annotation(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def add_annotation(session_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     if session_id not in _annotations:
         _annotations[session_id] = []
     annotation = {
@@ -8397,14 +8675,14 @@ async def add_annotation(session_id: str, body: dict = Body(...), _guard: None =
 
 
 @admin_router.delete("/annotations/{session_id}/{annotation_id}", summary="Delete an annotation")
-async def delete_annotation(session_id: str, annotation_id: str, _guard: None = Depends(require_facilitator)):
+async def delete_annotation(session_id: str, annotation_id: str, _guard: None = Depends(require_sim_manager)):
     if session_id in _annotations:
         _annotations[session_id] = [a for a in _annotations[session_id] if a["id"] != annotation_id]
     return {"deleted": annotation_id}
 
 
 @admin_router.put("/annotations/{session_id}/visibility", summary="Toggle student visibility of annotations")
-async def set_annotations_visibility(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def set_annotations_visibility(session_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """Enable or disable student visibility of facilitator annotations for a cohort."""
     import database_memory as db_mem
     sess = db_mem._sessions.get(session_id)
@@ -8632,7 +8910,7 @@ async def get_cohort_pulse(cohort_id: str):
 
 
 @admin_router.post("/cohort-pulse/{cohort_id}/visibility", summary="Set player-visibility of the CohortPulse heatmap")
-async def set_cohort_pulse_visibility(cohort_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def set_cohort_pulse_visibility(cohort_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """
     Persists whether the CohortPulse KPI heatmap is visible to players.
     Called by the CohortPulse.js toggle switch.
@@ -8684,10 +8962,19 @@ async def get_side_track_catalog(caller_role: str = Depends(get_fac_role)):
     }
 
 
-@admin_router.put("/side-tracks/global", summary="Enable/disable side tracks globally (God Mode)")
-async def update_global_side_tracks(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
-    """God Mode master control: set which side tracks are available platform-wide.
-    Facilitators can only assign tracks from this enabled pool."""
+@admin_router.put("/side-tracks/global", summary="Set the default side-track pool for base facilitators (God Mode)")
+async def update_global_side_tracks(request: Request, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
+    """God Mode master control: set the DEFAULT side-track pool.
+
+    C5/I6 (Workstream E) — one authoritative statement of the rule, mirrored in
+    assign_cohort_side_tracks: this pool gates BASE facilitators only. Lead
+    facilitators and above may assign any registered track regardless of this
+    pool (their bypass is audited in assign_cohort_side_tracks). So this control
+    is the default pool for base facilitators, not a hard platform-wide gate.
+
+    I5: god_mode callers must supply a 'reason' for the audit trail.
+    """
+    _caller_role = _require_god_mode_reason(request, body.get("reason"))
     available = body.get("available_tracks", [])
     if not isinstance(available, list):
         raise HTTPException(400, "'available_tracks' must be a list of track IDs")
@@ -8700,6 +8987,9 @@ async def update_global_side_tracks(body: dict = Body(...), _guard: None = Depen
         raise HTTPException(400, f"Unknown track IDs: {sorted(invalid)}. Registered: {sorted(registered)}")
 
     _god_mode_settings["side_tracks_available"] = available
+    _audit("side_tracks_global_updated", details={
+        "available_tracks": available, "_caller_role": _caller_role, "_reason": body.get("reason"),
+    })
     return {"status": "ok", "available_tracks": available}
 
 
@@ -8769,6 +9059,19 @@ async def assign_cohort_side_tracks(
     # Privileged roles (super_admin, lead_facilitator, god_mode) bypass
     # per-facilitator track restrictions — they may assign any registered track.
     is_privileged = ROLE_HIERARCHY.get(caller_role, 0) >= ROLE_HIERARCHY.get("lead_facilitator", 2)
+
+    # C5/I6 (Workstream E): make the deliberate pool bypass OBSERVABLE. When a
+    # privileged caller assigns tracks outside the global default pool, record it
+    # so "what is enabled" stays auditable across roles (the pool gates base
+    # facilitators only; leads+ legitimately bypass it).
+    _pool = set(_god_mode_settings.get("side_tracks_available", []))
+    _off_pool = set(tracks) - _pool
+    if is_privileged and _off_pool:
+        _audit("sidetrack_pool_bypassed", details={
+            "session_id": session_id,
+            "off_pool_tracks": sorted(_off_pool),
+            "caller_role": caller_role,
+        })
 
     # Validate against facilitator permissions (skipped for privileged roles)
     if not is_privileged:
@@ -8906,7 +9209,7 @@ async def get_flag_dependencies(session_id: str | None = None):
 # ═════════════════════════════════════════════════════════════════
 
 @admin_router.post("/what-if/{session_id}", summary="What-If M_R replay with flag overrides")
-async def what_if_replay(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
+async def what_if_replay(session_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """STRAT-003: Replay R10 terminal valuation with modified flags."""
     from terminal_valuation import what_if_terminal
     latest = await db.fetch_latest_state(session_id)

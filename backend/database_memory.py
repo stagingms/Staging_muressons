@@ -21,6 +21,8 @@ from config import SIM_INITIAL_BUDGET, SIM_ROUNDS
 # ── Persistence Config ──────────────────────────────────────────
 
 _SNAPSHOT_PATH = pathlib.Path(__file__).resolve().parent.parent / "db" / "memory_snapshot.json"
+# RES-1: rolling one-generation backup of the last-known-good snapshot.
+_BACKUP_PATH = _SNAPSHOT_PATH.with_suffix(".bak")
 _save_lock = threading.Lock()
 _async_write_lock = asyncio.Lock()
 
@@ -108,7 +110,17 @@ def _persist():
             tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
             with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump(snapshot, f, default=_datetime_serializer, ensure_ascii=False)
-            
+
+            # RES-1: rotate the current last-known-good snapshot into a rolling
+            # backup BEFORE overwriting it, so a future unreadable primary can be
+            # recovered from _BACKUP_PATH instead of silently losing all state.
+            try:
+                if _SNAPSHOT_PATH.exists():
+                    import shutil
+                    shutil.copy2(_SNAPSHOT_PATH, _BACKUP_PATH)
+            except Exception as _bak_err:
+                print(f"[persistence] Backup rotation skipped: {_bak_err}")
+
             import time
             for _ in range(5):
                 try:
@@ -120,57 +132,125 @@ def _persist():
             print(f"[persistence] Failed to save snapshot: {e}")
 
 
-def _load_from_disk():
-    """Restore in-memory stores from the JSON snapshot on disk."""
+def _apply_snapshot(snapshot: dict) -> int:
+    """Populate the in-memory stores from a parsed snapshot dict.
+
+    Builds everything into locals first and commits to the module globals only
+    at the end, so a malformed snapshot can never leave a half-applied state.
+    Returns the number of top-level cohorts restored."""
+    sessions = snapshot.get("sessions", {})
+    global_states = snapshot.get("global_states", {})
+    decision_log = snapshot.get("decision_log", [])
+    raw_bu = snapshot.get("bu_states", {})
+    bu_states = {}
+    for sid, rounds in raw_bu.items():
+        bu_states[sid] = {int(rn): bus for rn, bus in rounds.items()}
+
     global _sessions, _global_states, _bu_states, _decision_log
-    if not _SNAPSHOT_PATH.exists():
-        return
+    _sessions = sessions
+    _global_states = global_states
+    _decision_log = decision_log
+    _bu_states.clear()
+    _bu_states.update(bu_states)
 
+    # Restore cohort_marketplaces (best-effort -- never fail the whole restore).
     try:
-        with open(_SNAPSHOT_PATH, "r", encoding="utf-8") as f:
-            raw = f.read()
-
-        snapshot = json.loads(raw, object_hook=_datetime_deserializer)
-
-        _sessions = snapshot.get("sessions", {})
-        _global_states = snapshot.get("global_states", {})
-        _decision_log = snapshot.get("decision_log", [])
-
-        # Convert _bu_states keys back from str to int
-        raw_bu = snapshot.get("bu_states", {})
-        _bu_states.clear()
-        for sid, rounds in raw_bu.items():
-            _bu_states[sid] = {int(rn): bus for rn, bus in rounds.items()}
-
-        # Restore cohort_marketplaces
-        try:
-            import admin_shared
-            admin_shared._cohort_marketplaces.clear()
-            admin_shared._cohort_marketplaces.update(snapshot.get("cohort_marketplaces", {}))
-            admin_shared._shared_marketplace = admin_shared._cohort_marketplaces.setdefault("default", {
-                "carbon_credit_pool": {
-                    "total_available": 500,
-                    "price_per_credit": 50_000,
-                    "purchased": {},
-                    "price_history": [50_000],
-                },
-                "green_talent_pool": {
-                    "total_available": 100,
-                    "cost_per_hire": 200_000,
-                    "hired": {},
-                    "cost_history": [200_000],
-                },
-            })
-        except Exception as e:
-            print(f"[persistence] Failed to restore marketplace: {e}")
-
-        _cleanup_expired_records()
-
-        session_count = len([s for s in _sessions.values() if not s.get("parent_cohort_id")])
-        print(f"[persistence] Restored {session_count} cohort(s) from snapshot.")
+        import admin_shared
+        admin_shared._cohort_marketplaces.clear()
+        admin_shared._cohort_marketplaces.update(snapshot.get("cohort_marketplaces", {}))
+        admin_shared._shared_marketplace = admin_shared._cohort_marketplaces.setdefault("default", {
+            "carbon_credit_pool": {
+                "total_available": 500,
+                "price_per_credit": 50_000,
+                "purchased": {},
+                "price_history": [50_000],
+            },
+            "green_talent_pool": {
+                "total_available": 100,
+                "cost_per_hire": 200_000,
+                "hired": {},
+                "cost_history": [200_000],
+            },
+        })
     except Exception as e:
-        print(f"[persistence] Failed to load snapshot: {e}")
+        print(f"[persistence] Failed to restore marketplace: {e}")
 
+    _cleanup_expired_records()
+    return len([s for s in _sessions.values() if not s.get("parent_cohort_id")])
+
+
+def _read_snapshot(path) -> dict:
+    with open(path, "r", encoding="utf-8") as f:
+        return json.loads(f.read(), object_hook=_datetime_deserializer)
+
+
+def _quarantine_corrupt(path):
+    """Move an unreadable snapshot aside so it is preserved for inspection and
+    never re-loaded. Returns the quarantine path, or None on failure."""
+    try:
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        dest = path.with_name(f"{path.stem}.corrupt-{ts}{path.suffix}")
+        path.rename(dest)
+        return dest
+    except Exception as e:
+        print(f"[persistence] Could not quarantine corrupt snapshot: {e}")
+        return None
+
+
+def _load_from_disk():
+    """Restore the in-memory stores from disk.
+
+    RES-1: a corrupt/unreadable primary snapshot must NEVER cause a silent empty
+    boot. On failure we log loudly, quarantine the bad file, and try the rolling
+    backup (_BACKUP_PATH) before -- as a last resort -- starting empty with an
+    unmissable notice."""
+    main = _SNAPSHOT_PATH
+    bak = _BACKUP_PATH
+    quarantined = None
+
+    if main.exists():
+        try:
+            n = _apply_snapshot(_read_snapshot(main))
+            print(f"[persistence] Restored {n} cohort(s) from snapshot.")
+            return
+        except Exception as e:
+            print(
+                "\n============================================================\n"
+                "  RES-1 -- PRIMARY SNAPSHOT UNREADABLE.\n"
+                "  Saved session state could not be loaded; attempting recovery\n"
+                "  from the rolling backup before starting empty.\n"
+                "============================================================\n"
+                f"[persistence] Load error: {e}"
+            )
+            quarantined = _quarantine_corrupt(main)
+    elif not bak.exists():
+        return  # No snapshot at all -- normal first run / fresh start.
+
+    if bak.exists():
+        try:
+            n = _apply_snapshot(_read_snapshot(bak))
+            msg = f"[persistence] RECOVERED {n} cohort(s) from the BACKUP snapshot after the primary was unusable"
+            if quarantined:
+                msg += f" (corrupt primary quarantined at {quarantined.name})"
+            print(msg + ".")
+            return
+        except Exception as e2:
+            print(f"[persistence] Backup snapshot ALSO unreadable: {e2}")
+
+    # Last resort: start empty, but NEVER silently.
+    global _sessions, _global_states, _decision_log
+    _sessions = {}
+    _global_states = {}
+    _decision_log = []
+    _bu_states.clear()
+    print(
+        "\n============================================================\n"
+        "  RES-1 -- STARTING WITH EMPTY STATE.\n"
+        "  No usable snapshot or backup was found. Any prior data has\n"
+        "  been PRESERVED (not overwritten).\n"
+        "============================================================"
+        + (f"\n[persistence] Corrupt snapshot preserved at: {quarantined}" if quarantined else "")
+    )
 
 from datetime import timedelta
 def _cleanup_expired_records():
@@ -467,6 +547,15 @@ async def create_session(
         "global_emissions_intensity": gs.get("global_emissions_intensity", 0.0),
     }
 
+    # C2: seed effective climate inputs (global defaults + any per-cohort
+    # override) into active_event_flags so the engine — which reads these keys
+    # off the session — sees the resolved values from round 1.
+    try:
+        from admin_shared import seed_effective_flags
+        seed_effective_flags(session_id, global_state["active_event_flags"])
+    except Exception:
+        pass
+
     if decision_paradigm == "brsr_ngrbc":
         from brsr_controller import init_brsr_state
         init_brsr_state(global_state["active_event_flags"], bus, {})
@@ -608,6 +697,9 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "synergy_multiplier": float(grs["synergy_multiplier"]),
             "cost_of_capital": float(grs["cost_of_capital"]),
             "active_event_flags": grs.get("active_event_flags") or {},
+            # MP-01: surface the multiplayer commit counts (see update_latest_global_state).
+            "team_commits_this_round": grs.get("team_commits_this_round"),
+            "cohort_team_count": grs.get("cohort_team_count"),
             "bonus_score": grs.get("bonus_score", 0),
             "historical_ebitda": float(grs.get("historical_ebitda", 0)),
             "tco2e_emissions": int(grs.get("tco2e_emissions", 0)),
@@ -664,6 +756,17 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             for bu in bus
         ],
     }
+
+
+async def fetch_latest_round(session_id: str) -> Optional[int]:
+    """PER-2: cheap latest-round lookup -- returns only the round number,
+    without assembling the full global + BU state that fetch_latest_state
+    builds. Used for the per-sibling commit-count fan-out."""
+    rounds = _global_states.get(session_id, [])
+    if not rounds:
+        return None
+    rn = rounds[-1].get("round_number")
+    return int(rn) if rn is not None else None
 
 
 async def fetch_round_history(session_id: str) -> list[dict]:
@@ -827,6 +930,22 @@ async def get_decision_log(session_id: str) -> list[dict]:
 
 # ── Admin / God Mode Operations ───────────────────────────────
 
+async def count_sessions() -> dict:
+    """Mode-agnostic live session counts for the God Mode overview.
+    Counts non-deleted cohorts (no player_id) and players (player_id set).
+    Mirrors database.count_sessions so the God Mode status works in BOTH
+    the in-memory and Postgres backends."""
+    cohorts = players = 0
+    for sdata in _sessions.values():
+        if sdata.get("deleted_at"):
+            continue
+        if sdata.get("player_id"):
+            players += 1
+        else:
+            cohorts += 1
+    return {"cohorts": cohorts, "players": players}
+
+
 async def fetch_all_sessions() -> list[dict]:
     """Return only top-level cohort sessions for the admin leaderboard (excludes per-player sub-sessions)."""
     # Back-fill short codes for sessions that predate this feature
@@ -907,6 +1026,12 @@ async def update_latest_global_state(
     latest["synergy_multiplier"] = global_state.get("synergy_multiplier", 1.0)
     latest["cost_of_capital"] = global_state.get("cost_of_capital", 0.05)
     latest["active_event_flags"] = global_state.get("active_event_flags", {})
+    # MP-01: persist the multiplayer commit counts so the cockpit "X/Y teams
+    # committed" badge renders. Postgres carries these via its dynamic
+    # active_event_flags pack/unpack; the memory store uses an explicit
+    # allow-list, so they are listed here or they get silently dropped.
+    latest["team_commits_this_round"] = global_state.get("team_commits_this_round", latest.get("team_commits_this_round", 0))
+    latest["cohort_team_count"] = global_state.get("cohort_team_count", latest.get("cohort_team_count", 0))
     # Persist bonus/learning fields that were previously being dropped
     latest["bonus_score"] = global_state.get("bonus_score", latest.get("bonus_score", 0))
     latest["historical_ebitda"] = global_state.get("historical_ebitda", latest.get("historical_ebitda", 0))

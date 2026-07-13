@@ -150,7 +150,13 @@ export const FACILITATOR_SIDEBAR = [
             { id: 'auto_pause',          label: 'Auto-Pause Triggers',   icon: '⏸️', tooltip: 'Configure automatic pause conditions that halt round progression for facilitator intervention: low treasury thresholds, reputation floor breaches, bankruptcy detection, or custom KPI triggers. Answers: "When should the simulation automatically pause for my attention?"', requiredRole: 'lead_facilitator' },
             { id: 'undo_round',          label: 'Undo Round',             icon: '↩️', tooltip: 'Roll back the last completed round for a selected session, restoring all KPIs to their previous state. Useful for correcting data entry errors or re-running a round after a teaching moment. Requires confirmation. Answers: "How do I reverse a round that went wrong?"', requiredRole: 'lead_facilitator' },
             { id: 'regulatory_sandbox',  label: 'Regulatory Sandbox',     icon: '⚖️', tooltip: 'Dynamically inject regulatory instruments (e.g., Carbon Tax, Due Diligence) into the simulation to test resilience.', requiredRole: 'lead_facilitator' },
-            { id: 'materiality',         label: 'Materiality Matrix',    icon: '🧩', tooltip: 'Mendelow\'s Materiality Matrix — interactive drag-and-drop issue mapping grid. Lead facilitators can customize per-cohort; base facilitators have read-only access to global defaults. Answers: "How do I view/configure the materiality framework?"' },
+            // I2 (Workstream C): read-only view of each owned cohort's effective
+            // climate settings vs the global default, and where its BU scope is
+            // decided. Renders CohortSettingsMatrix (same component as the God Mode
+            // Switchboard card); the backend /effective-settings/summary scopes
+            // rows to sessions this lead owns.
+            { id: 'cohort_settings_view', label: 'Cohort Settings',       icon: '🗂️', tooltip: 'Read-only: your cohorts\' effective climate parameters (branch, carbon fee, hostility, Scope-3) vs the global default, with which values are overridden and where each cohort\'s BU scope is set. Answers: "Which of my cohorts run non-default settings?"', requiredRole: 'lead_facilitator' },
+            { id: 'materiality',         label: 'Materiality Matrix',    icon: '🧩', tooltip: 'Mendelow\'s Materiality Matrix — interactive drag-and-drop issue mapping grid. Super Admin only: editing the materiality matrix is restricted to super administrators; other facilitators do not see this tab. Answers: "How do I configure the materiality framework?"', requiredRole: 'super_admin' },
             { id: 'teaching_journal',    label: 'Teaching Journal',       icon: '📝', tooltip: 'Private workspace combining notes and timestamped annotations. Jot observations, bookmark key moments, and prepare debrief commentary. Persisted across sessions. Answers: "Where can I keep my private teaching notes and bookmarks?"' },
             { id: 'technical_glossary',  label: 'Technical Reference',   icon: '📐', tooltip: 'Comprehensive reference guide explaining simulation terminology, engine mechanics (Contagion, Talent/Burnout, NCD, Governance), KPI calculation formulas, scorecard weighting, and decision paradigm differences. Answers: "How do the simulation engines and calculations actually work?"' },
             { id: 'activity_log',        label: 'Activity Logs & Resets', icon: '📋', tooltip: 'Facilitator activity audit log showing all actions taken (overrides, messages, resets) with timestamps. Includes session management controls for soft/hard deleting cohorts or removing individual players. Answers: "What actions have been taken and how do I clean up sessions?"', requiredRole: 'lead_facilitator' },
@@ -166,16 +172,20 @@ export const FACILITATOR_SIDEBAR = [
 // SYNC-WARNING: This must match ROLE_HIERARCHY in backend/admin_shared.py.
 // If you add or rename a role, update both files. There is currently no
 // automated check — a drift will silently break tab filtering.
+// SYNC-WARNING: mirrors backend admin_shared.py:ROLE_HIERARCHY EXACTLY.
+// Enforced by the drift tripwire tests/test_role_hierarchy_sync.py — if you add
+// or renumber a role here, update admin_shared.py in the SAME commit or the
+// tripwire fails.
 const ROLE_HIERARCHY = {
+    god_mode: 4,       // C6: distinct top tier (virtual break-glass identity)
     super_admin: 3,
-    admin: 3,          // legacy alias — matches backend admin_shared.py
+    admin: 3,          // legacy alias for super_admin
     lead_facilitator: 2,
     facilitator: 1,
-    // F-5 (v3): mirrors admin_shared.py:ROLE_HIERARCHY ("project_admin": 1).
-    // The role's tabs come from its FIXED allowed_tabs set; the level only
-    // matters so a future requiredRole-tagged tab granted to project_admin
-    // doesn't silently vanish (level-0 fallthrough).
-    project_admin: 1,
+    // C4: project_admin is OFF the run ladder (level 0), a DISTINCT role from
+    // facilitator — not a peer. Its tabs come from its FIXED allowed_tabs set;
+    // the level keeps requiredRole-tagged (lead+) tabs hidden from it.
+    project_admin: 0,
 };
 
 /**

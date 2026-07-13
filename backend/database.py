@@ -333,6 +333,14 @@ async def create_session(
                 "competitor_ebitda": baseline_ebitda,
             }
 
+            # C2: seed effective climate inputs (global + per-cohort override)
+            # into active_event_flags so the engine sees resolved values.
+            try:
+                from admin_shared import seed_effective_flags
+                seed_effective_flags(session_id, flags)
+            except Exception:
+                pass
+
             if decision_paradigm == "brsr_ngrbc":
                 from brsr_controller import init_brsr_state
                 init_brsr_state(flags, bus, {})
@@ -575,6 +583,24 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
         }
 
 
+async def fetch_latest_round(session_id: str) -> Optional[int]:
+    """PER-2: cheap latest-round lookup -- one indexed scalar query,
+    avoiding the fetchrow + BU fetch that fetch_latest_state performs.
+    Used for the per-sibling commit-count fan-out."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rn = await conn.fetchval(
+            """
+            SELECT round_number FROM global_round_states
+            WHERE session_id = $1
+            ORDER BY round_number DESC
+            LIMIT 1
+            """,
+            uuid.UUID(session_id),
+        )
+    return int(rn) if rn is not None else None
+
+
 async def fetch_round_history(session_id: str) -> list[dict]:
     """Return all rounds for a session (for the dashboard history)."""
     pool = await get_pool()
@@ -783,6 +809,24 @@ async def insert_next_round(
 
 
 # ── Admin / God Mode Operations ───────────────────────────────
+
+async def count_sessions() -> dict:
+    """Mode-agnostic live session counts (Postgres). player_id / parent_cohort_id
+    live inside the sessions.metadata JSON, so we read that and classify each row."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT metadata FROM sessions")
+    cohorts = players = 0
+    for row in rows:
+        meta = json.loads(row["metadata"]) if row["metadata"] else {}
+        if meta.get("deleted_at"):
+            continue
+        if meta.get("player_id"):
+            players += 1
+        else:
+            cohorts += 1
+    return {"cohorts": cohorts, "players": players}
+
 
 async def fetch_all_sessions() -> list[dict]:
     """Return all sessions with basic metadata for the admin leaderboard."""

@@ -33,6 +33,7 @@ import RoundPacingControl from '../../components/RoundPacingControl';
 import ComplexityEventFeed from '../../components/ComplexityEventFeed';
 import CohortComparison from '../../components/CohortComparison';
 import AutoPauseConfig from '../../components/AutoPauseConfig';
+import { CohortSettingsMatrix } from '../../components/SimulationSwitchboard';
 import DecisionTimeline from '../../components/DecisionTimeline';
 import DNAComparison from '../../components/DNAComparison';
 import FacilitatorTeleprompter from '../../components/FacilitatorTeleprompter';
@@ -350,6 +351,25 @@ export default function FacilitatorPage() {
         setSessionExpired(true);
     };
 
+    // BUGFIX: the forced first-login password-change modal is rendered inside
+    // FacilitatorDashboard, which only receives authData as a prop. Clearing the
+    // must_change_password flag needs this component's setAuthData, so we expose
+    // it as a callback prop instead of referencing setAuthData from the child
+    // (which threw 'setAuthData is not defined').
+    const handleForcedPasswordChanged = () => {
+        setAuthData(prev => {
+            if (!prev) return prev;
+            const updated = { ...prev };
+            delete updated.must_change_password;
+            return updated;
+        });
+        try {
+            const cached = JSON.parse(localStorage.getItem('facilitator_auth') || '{}');
+            delete cached.must_change_password;
+            localStorage.setItem('facilitator_auth', JSON.stringify(cached));
+        } catch { /* ignore */ }
+    };
+
     if (!checked) return null; // Avoid flash
 
     if (!authData) {
@@ -374,11 +394,11 @@ export default function FacilitatorPage() {
         );
     }
 
-    return <FacilitatorDashboard authData={authData} onLogout={handleLogout} onSessionExpired={handleSessionExpired} />;
+    return <FacilitatorDashboard authData={authData} onLogout={handleLogout} onSessionExpired={handleSessionExpired} onForcedPasswordChanged={handleForcedPasswordChanged} />;
 }
 
 
-function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
+function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPasswordChanged }) {
     const [leaderboard, setLeaderboard] = useState([]);
     const [selectedSession, _setSelectedSession] = useState(null);
     const [activityLog, setActivityLog] = useState([]);
@@ -1029,6 +1049,10 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
             // ── Interventions tabs ──
             case 'intervention_config':
                 return requireCohort('Interventions', <InterventionConfig sessionId={selectedSession} />);
+            case 'cohort_settings_view':
+                // I2: read-only effective-settings matrix, scoped by the backend
+                // to cohorts this lead owns. No cohort selection required.
+                return <CohortSettingsMatrix />;
             case 'auto_pause':
                 return requireCohort('Auto-Pause Triggers', <AutoPauseConfig sessionId={selectedSession} />);
             case 'manual_override':
@@ -1237,12 +1261,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired }) {
                     forced
                     onClose={() => {}}
                     onSuccess={() => {
-                        setAuthData(prev => { const u = { ...prev }; delete u.must_change_password; return u; });
-                        try {
-                            const cached = JSON.parse(localStorage.getItem('facilitator_auth') || '{}');
-                            delete cached.must_change_password;
-                            localStorage.setItem('facilitator_auth', JSON.stringify(cached));
-                        } catch {}
+                        // setAuthData lives in the parent FacilitatorPage; the
+                        // forced-flag clear is delegated up via this prop.
+                        if (onForcedPasswordChanged) onForcedPasswordChanged();
                     }}
                 />
             )}

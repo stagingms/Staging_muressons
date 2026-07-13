@@ -28,15 +28,44 @@ _cohort_lock: asyncio.Lock = asyncio.Lock()
 # ═════════════════════════════════════════════════════════════════
 
 ROLE_HIERARCHY = {
+    # C6: god_mode is the virtual break-glass identity — a DISTINCT top tier,
+    # not an alias of super_admin. Level 4 > super_admin(3), so it clears every
+    # level-gated super-admin check automatically while remaining a separate
+    # role string. It is NOT assignable to a registry facilitator (see
+    # _ASSIGNABLE_ROLES) — it is granted only via the signed-token identity.
+    "god_mode": 4,
     "super_admin": 3,
     "admin": 3,           # M-5: alias for super_admin — prevents undefined hierarchy level
     "lead_facilitator": 2,
     "facilitator": 1,
-    # Registry admin: provisions facilitators + cohorts, NEVER manages runs.
-    # Level 1 on purpose — every lead/super-gated management endpoint stays
-    # closed; the explicit require_sim_manager guard closes the rest.
-    "project_admin": 1,
+    # C4: project_admin provisions facilitators + cohorts but NEVER manages runs.
+    # It is a DISTINCT role from facilitator — level 0 places it OFF the run
+    # ladder entirely (strictly below facilitator=1 and lead=2, so it can never
+    # satisfy require_lead_facilitator). Its provisioning powers are gated by
+    # name (require_registry_admin), not by level, and its run exclusion is
+    # enforced by require_sim_manager. Level 0 (not the old 1) removes the
+    # has_role_level(project_admin,'facilitator')==True inversion.
+    "project_admin": 0,
 }
+
+# Roles that may be ASSIGNED to a registry facilitator. Excludes god_mode, the
+# virtual level-4 break-glass identity that is granted only via signed-token
+# identity and must never be creatable/settable through the registry API
+# (that would be an escalation above super_admin). Used by create_facilitator,
+# bulk_create_facilitators and update_facilitator_role.
+_ASSIGNABLE_ROLES = {"super_admin", "admin", "lead_facilitator", "facilitator", "project_admin"}
+
+
+def assignable_roles_for(caller_role: str) -> set[str]:
+    """C1/P1: which roles a caller of ``caller_role`` may grant when creating or
+    updating a facilitator. A caller may never grant a role above its own tier,
+    and project_admin (a provisioning role) may grant only lead_facilitator and
+    facilitator. god_mode is never assignable by anyone."""
+    if caller_role == "project_admin":
+        return {"lead_facilitator", "facilitator"}
+    caller_level = ROLE_HIERARCHY.get(caller_role, 0)
+    # Grant only assignable roles at or below the caller's own level.
+    return {r for r in _ASSIGNABLE_ROLES if ROLE_HIERARCHY.get(r, 0) <= caller_level}
 
 # Tabs accessible at each role level
 ROLE_ALLOWED_TABS = {
@@ -51,8 +80,14 @@ ROLE_ALLOWED_TABS = {
     ],
     "lead_facilitator": [
         # All facilitator tabs plus:
+        # NOTE: "materiality" (the Materiality Matrix editor) is intentionally
+        # NOT here — editing the materiality matrix is super-admin only, so the
+        # tab appears only for super_admin ("*") / god_mode. Lead facilitators no
+        # longer see or edit it.
         "manual_override", "auto_pause",
-        "undo_round", "materiality", "activity_log",
+        "undo_round", "activity_log",
+        # I2 (Workstream C): read-only effective-settings view over owned cohorts.
+        "cohort_settings_view",
     ],
     "super_admin": ["*"],  # All tabs
     # project_admin gets a FIXED set (not cumulative with facilitator tabs):
@@ -91,10 +126,19 @@ def has_role_level(fac: dict, required_role: str) -> bool:
     return ROLE_HIERARCHY.get(fac_role, 0) >= ROLE_HIERARCHY.get(required_role, 0)
 
 
+def is_admin_role(role: str) -> bool:
+    """C6: True for roles carrying super-admin authority or above — super_admin,
+    its alias admin, AND god_mode (level 4). Level-based so god_mode is included
+    automatically. Use this instead of `role == "super_admin"` for the
+    admin/is_admin gate so the now-distinct god_mode tier keeps full super-admin
+    power (all-tabs, session-ownership bypass, is_admin=True)."""
+    return ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("super_admin", 3)
+
+
 def get_allowed_tabs(fac: dict) -> list[str]:
     """Return the list of tab IDs this facilitator is allowed to access."""
     role = get_role(fac)
-    if role == "super_admin":
+    if is_admin_role(role):
         return ["*"]
     if role == "project_admin":
         # Fixed tab set — deliberately NOT cumulative with facilitator tabs.
@@ -118,8 +162,8 @@ def can_access_tab(fac: dict, tab_id: str) -> bool:
 
 def owns_session(fac: dict, session: dict) -> bool:
     """Check if a facilitator owns a session (multi-tenancy enforcement).
-    Super admins can access all sessions."""
-    if get_role(fac) == "super_admin":
+    Super admins (and god_mode) can access all sessions."""
+    if is_admin_role(get_role(fac)):
         return True
     fac_id = fac.get("facilitator_id", "")
     session_fac = session.get("facilitator_id", "")
@@ -159,6 +203,14 @@ _god_mode_settings: dict = {
     "system_frozen": False,
     "freeze_message": "",
     "freeze_started_at": None,
+    # C6 (Switchboard settings-resolution): the climate branch now has its own
+    # canonical key. `climate_paradigm` ∈ {standard, advanced_climate} is the
+    # authoritative Timeline-Branch value written by the Sim Switchboard.
+    # `simulation_mode` is retained for backward compatibility (legacy Switchboard
+    # payloads still send it) but its *meaning* is scope in the cohort/session
+    # layer ({"", single_bu}); readers must use `climate_paradigm` for the climate
+    # branch. get_effective_settings() normalises legacy data on read.
+    "climate_paradigm": "standard",
     "simulation_mode": "standard",
     "industry_vertical": "",   # NEW — default BU vertical for single-bu cohorts
     "region_id": "",           # NEW — geographic region (mandatory, set at cohort formation)
@@ -209,6 +261,7 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "system_frozen",
     "freeze_message",
     "freeze_started_at",
+    "climate_paradigm",   # C6: canonical climate-branch key (per-cohort overridable)
     "simulation_mode",
     "global_carbon_fee",
     "market_hostility_index",
@@ -241,6 +294,30 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
 })
 
 
+# C6: keys that carry the climate branch. `simulation_mode` is only treated as
+# a climate value at the GLOBAL layer (legacy Switchboard payloads); in the
+# cohort/session layer it means scope (single_bu), so it is NEVER read for the
+# branch there.
+_CLIMATE_PARADIGM_VALUES = frozenset({"standard", "advanced_climate"})
+
+
+def resolve_climate_paradigm(settings: dict) -> str:
+    """C6: single source of truth for the climate branch.
+
+    Prefers the canonical `climate_paradigm`; falls back to a legacy
+    `simulation_mode` value ONLY when it holds a climate value
+    ({standard, advanced_climate}) — never when it holds a scope value like
+    'single_bu'. Defaults to 'standard'.
+    """
+    cp = settings.get("climate_paradigm")
+    if cp in _CLIMATE_PARADIGM_VALUES:
+        return cp
+    sm = settings.get("simulation_mode")
+    if sm in _CLIMATE_PARADIGM_VALUES:
+        return sm
+    return "standard"
+
+
 def get_effective_settings(session_id: str | None = None) -> dict:
     """Return the effective settings for a cohort.
 
@@ -248,13 +325,180 @@ def get_effective_settings(session_id: str | None = None) -> dict:
     in cohort_settings[session_id].  Per-cohort values shadow their global
     counterparts; absent keys fall back to the global default.
 
+    C6: the merged view always carries a normalised `climate_paradigm` so
+    readers never have to disambiguate the overloaded `simulation_mode`.
+
     When session_id is None or has no overrides, returns the global dict
     directly (no copy overhead for the 99 % case).
     """
     if not session_id or session_id not in cohort_settings:
+        # Fast path: global default dict already has climate_paradigm set.
         return _god_mode_settings
     # Shallow merge — cohort overrides win over globals
-    return {**_god_mode_settings, **cohort_settings[session_id]}
+    override = cohort_settings[session_id]
+    merged = {**_god_mode_settings, **override}
+    # C6: honour an EXPLICIT climate signal in the cohort override (the canonical
+    # climate_paradigm, or a legacy climate-valued simulation_mode) over the
+    # global default paradigm. Without this, the always-present global default
+    # ("standard") would shadow a legacy per-cohort advanced_climate override.
+    if (override.get("climate_paradigm") in _CLIMATE_PARADIGM_VALUES
+            or override.get("simulation_mode") in _CLIMATE_PARADIGM_VALUES):
+        merged["climate_paradigm"] = resolve_climate_paradigm(override)
+    else:
+        merged["climate_paradigm"] = resolve_climate_paradigm(_god_mode_settings)
+    return merged
+
+
+# C6/C2: keys that are seeded from the resolver into a session's
+# active_event_flags so the engine (which reads active_event_flags) always sees
+# the effective global/override values without any engine-side change.
+_SEEDED_CLIMATE_KEYS = ("global_carbon_fee", "market_hostility_index", "scope_3_threshold")
+
+
+def seed_effective_flags(session_id: str | None, flags: dict) -> dict:
+    """C2: copy the effective climate inputs into a session's active_event_flags.
+
+    The engine reads active_event_flags.get('global_carbon_fee' / ...); this
+    helper guarantees those keys reflect get_effective_settings(session_id)
+    (global defaults + per-cohort overrides). Called at session creation and
+    before each round's post_tick. It seeds *base inputs* only — it never
+    overwrites round-computed outputs (those live under different keys, e.g.
+    peak_internal_carbon_fee, carbon_fee_per_ton).
+
+    Mutates and returns `flags` for convenience. Safe no-op if flags is falsy.
+    """
+    if flags is None:
+        return flags
+    eff = get_effective_settings(session_id)
+    for k in _SEEDED_CLIMATE_KEYS:
+        v = eff.get(k)
+        if v is not None:
+            flags[k] = v
+    # Mirror the canonical climate branch alongside the numeric inputs so any
+    # reader inspecting flags sees a consistent value (decision_paradigm remains
+    # the authoritative per-session branch and is unchanged here).
+    flags["climate_paradigm"] = resolve_climate_paradigm(eff)
+    return flags
+
+
+# C1/C4/I4 (Workstream D — provisioning inheritance): fill omitted provisioning
+# values from the current GLOBAL default (Sim Switchboard) so a super_admin's
+# platform setting seeds NEW cohorts, while explicit provisioning choices always
+# win. Precedence: explicit request > global default > hard-coded fallback.
+# Existing cohorts are never touched by this — it only supplies creation-time
+# defaults for fields the request omitted.
+def inherited_provisioning_defaults(
+    *,
+    decision_paradigm: str | None,
+    simulation_mode: str | None,
+    industry_vertical: str | None,
+) -> tuple[str | None, str | None, str | None]:
+    """Return (decision_paradigm, simulation_mode, industry_vertical) with any
+    omitted (falsy) value inherited from the global default. Truthy inputs are
+    returned unchanged, so callers that pass explicit values see no change."""
+    g = get_effective_settings(None)
+
+    dp = decision_paradigm
+    # Climate branch: only inherit when the global default is advanced_climate
+    # (the 'standard' default maps to no specific decision_paradigm, so the
+    # caller's own fallback — legacy_abc — is preserved).
+    if not dp and resolve_climate_paradigm(g) == "advanced_climate":
+        dp = "advanced_climate"
+
+    sm = simulation_mode
+    iv = industry_vertical
+    # BU scope: a global single-BU deployment is expressed via a non-empty
+    # assigned_bu. Inherit it only when the request specified no scope.
+    if not sm:
+        global_bu = (g.get("assigned_bu") or "").strip()
+        if global_bu:
+            sm = "single_bu"
+            iv = iv or global_bu
+
+    return dp, sm, iv
+
+
+# ═════════════════════════════════════════════════════════════════
+#  I3 (Workstream B) — UNIFIED ROLE-SCOPED SETTINGS READ
+# ═════════════════════════════════════════════════════════════════
+# One projector produces a role-filtered view of the effective settings, with
+# per-key provenance. Deny-by-default: a role sees only the keys in its
+# allow-list (super_admin/god_mode see everything). This replaces the ad-hoc
+# split between /god/settings (all hidden params) and /scaffolding-status
+# (subset) with a single, auditable projection.
+
+_CLIMATE_VIEW_KEYS = frozenset({
+    "climate_paradigm", "global_carbon_fee", "market_hostility_index", "scope_3_threshold",
+})
+_FREEZE_VIEW_KEYS = frozenset({"system_frozen", "freeze_message", "freeze_started_at"})
+_SCAFFOLDING_VIEW_KEYS = frozenset({
+    "board_room_moments_enabled", "foreshadowing_enabled", "foreshadowing_signals_enabled",
+    "systemic_risk_enabled", "black_swan_events_enabled", "npc_cascading_enabled",
+    "ceo_interview_enabled",
+})
+_PROVISIONING_VIEW_KEYS = frozenset({
+    "climate_paradigm", "simulation_mode", "assigned_bu", "industry_vertical",
+    "region_id", "default_ending_pathway",
+})
+
+
+def visible_keys_for_role(role: str) -> frozenset | None:
+    """Return the set of setting keys a role may read, or None for 'all keys'
+    (super_admin / god_mode). Unknown/anonymous roles see nothing."""
+    if is_admin_role(role):
+        return None  # all keys
+    if role == "lead_facilitator":
+        return _CLIMATE_VIEW_KEYS | _FREEZE_VIEW_KEYS | _SCAFFOLDING_VIEW_KEYS
+    if role == "project_admin":
+        return _PROVISIONING_VIEW_KEYS
+    if role == "facilitator":
+        return _SCAFFOLDING_VIEW_KEYS
+    return frozenset()
+
+
+def bu_scope_source(session_id: str | None) -> str:
+    """I7: where a cohort's single-BU scope is decided —
+    'cohort_record' | 'switchboard_global' | 'none'. (Per-player registry scope
+    is resolved at join time and surfaced separately.)"""
+    g = get_effective_settings(None)
+    sess = None
+    if session_id:
+        try:
+            from database_memory import _sessions
+            sess = _sessions.get(session_id)
+        except Exception:
+            sess = None
+    if sess and (sess.get("assigned_bu") or "").strip():
+        return "cohort_record"
+    if (g.get("assigned_bu") or "").strip():
+        return "switchboard_global"
+    return "none"
+
+
+def project_effective(session_id: str | None, role: str) -> dict:
+    """Role-filtered projection of the effective settings, with per-key
+    provenance {value, source, overridden}. `source` is 'cohort_override' when
+    the key is explicitly overridden for this cohort, else 'global'."""
+    eff = get_effective_settings(session_id)
+    override = cohort_settings.get(session_id, {}) if session_id else {}
+    keys = visible_keys_for_role(role)
+    projected: dict[str, dict] = {}
+    for k, v in eff.items():
+        if keys is not None and k not in keys:
+            continue
+        overridden = k in override
+        projected[k] = {
+            "value": v,
+            "source": "cohort_override" if overridden else "global",
+            "overridden": overridden,
+        }
+    return {
+        "session_id": session_id,
+        "role": role,
+        "overrides_active": bool(override),
+        "bu_scope_source": bu_scope_source(session_id),
+        "settings": projected,
+    }
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -742,4 +986,7 @@ def hire_green_talent(session_id: str, quantity: int) -> dict:
         "remaining_in_pool": remaining - quantity,
         "synergy_bonus_per_hire": 0.005,  # Each hire boosts synergy by 0.5%
     }
+
+# C6/C2 settings-resolution unification implemented (see climate_paradigm,
+# resolve_climate_paradigm, seed_effective_flags above).
 
