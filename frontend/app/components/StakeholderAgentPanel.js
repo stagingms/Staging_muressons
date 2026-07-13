@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './StakeholderAgentPanel.module.css';
+import StakeholderAvatar from './StakeholderAvatar';
 
 /* ═════════════════════════════════════════════════════════════════
  *  STAKEHOLDER AGENT PANEL
@@ -94,9 +95,13 @@ function AgentCard({ agent, action, isExpanded, onToggle }) {
       {/* Header row */}
       <div className={styles.agentHeader} onClick={onToggle}>
         <div className={styles.agentIdentity}>
-          <span className={styles.agentAvatar}>
-            {isTriggered ? '💥' : (action?.avatar_emoji || agent?.avatar_emoji || '•')}
-          </span>
+          {/* SA-A: profile silhouette + state-coloured ring replaces the emoji.
+              Colour comes from STAGE_META (single source); tolerance still shows
+              in the ToleranceBar below (SA-B folds it into this ring). */}
+          <StakeholderAvatar
+            color={stageMeta.color}
+            stage={action?.stage || agent?.stage || 'dormant'}
+          />
           <div className={styles.agentInfo}>
             <div className={styles.agentName}>
               {action?.icon || agent?.icon} {action?.name || agent?.name}
