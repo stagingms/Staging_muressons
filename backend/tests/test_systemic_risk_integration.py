@@ -352,12 +352,18 @@ class TestAgentTeleprompterAPI(unittest.TestCase):
         import time
 
         client = TestClient(app)
-        
+
+        # C2: /start now requires facilitator auth. god_mode is registry-independent
+        # (unlimited quota, no on-disk registry mutation).
+        _login = client.post("/api/admin/facilitators/login",
+                             json={"facilitator_id": "god_mode", "password": "sim2026@iim"})
+        assert _login.status_code == 200, _login.text
+
         # 1. Create a session
         resp = client.post("/api/simulations/start", json={
             "cohort_name": f"TestAgentAPI_{int(time.time())}",
             "decision_paradigm": "legacy_abc"
-        })
+        }, cookies=_login.cookies)
         if resp.status_code != 201:
             print("API Error:", resp.text)
         self.assertEqual(resp.status_code, 201)

@@ -58,6 +58,24 @@ async def test_set_player_password_requires_auth():
     assert r.status_code in (401, 403), f"Expected 401/403, got {r.status_code}"
 
 
+# ── C2: POST /simulations/start must require facilitator auth ───────────────
+# Cohort creation was previously ungated and trusted a client-supplied
+# facilitator_id, allowing anonymous cohort creation and quota-burn via
+# facilitator-id spoofing. It must now reject unauthenticated callers.
+
+async def test_start_simulation_requires_auth():
+    r = await _post("/api/simulations/start", json={"cohort_name": "C2-Guard-Test"})
+    assert r.status_code in (401, 403), f"Expected 401/403, got {r.status_code}"
+
+
+async def test_start_simulation_spoofed_facilitator_id_rejected():
+    # An unauthenticated caller supplying a real-looking facilitator_id must not
+    # be able to create a cohort under (and burn the quota of) that facilitator.
+    r = await _post("/api/simulations/start",
+                    json={"cohort_name": "C2-Spoof-Test", "facilitator_id": "FAC-001"})
+    assert r.status_code in (401, 403), f"Expected 401/403, got {r.status_code}"
+
+
 # ── HIGH-002: GET /facilitators must require auth ────────────────────────────
 
 async def test_list_facilitators_requires_auth():
