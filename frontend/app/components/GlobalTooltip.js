@@ -148,7 +148,12 @@ export default function GlobalTooltip() {
         background: bg,
         backdropFilter: 'blur(28px) saturate(1.6)',
         WebkitBackdropFilter: 'blur(28px) saturate(1.6)',
-        border: `1px solid ${borderColor}`,
+        // Use per-side longhands only — mixing the `border` shorthand with a
+        // `borderLeft` longhand makes React warn about conflicting style props
+        // on rerender. Same look: 1px on three sides, 3px accent on the left.
+        borderTop: `1px solid ${borderColor}`,
+        borderRight: `1px solid ${borderColor}`,
+        borderBottom: `1px solid ${borderColor}`,
         borderLeft: `3px solid ${accentColor}`,
         borderRadius: '10px',
         boxShadow: shadow,
