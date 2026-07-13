@@ -59,3 +59,6 @@ backend/db/muressons_state.db
 
 # Master-password override (bcrypt hash, set from God Mode)
 backend/db/master_password.json
+
+# Local archive — not for GitHub
+archive/

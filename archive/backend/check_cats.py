@@ -1,5 +1,0 @@
-src = open('materiality_db.py', encoding='utf-8').read()
-ec = src.count('"category": "economic"')
-gc = src.count('"category": "governance"')
-print("economic remaining:", ec)
-print("governance count:", gc)
