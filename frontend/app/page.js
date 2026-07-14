@@ -476,6 +476,11 @@ export default function CockpitPage() {
 
   // R2 BU selection for Strategic Pillars mode
   const [r2BuSelection, setR2BuSelection] = useState(null); // { selected_bu, bu_label }
+  // Whether the async r2-bu-selection fetch has settled. Until it has, buId is
+  // unknown in pillar/BRSR mode; mounting the materiality matrix early lets buId
+  // flip null→BU under an open exercise, which re-runs the config fetch and
+  // resets every quadrant — the "exercise repeats twice" bug. Gate on this.
+  const [r2BuLoaded, setR2BuLoaded] = useState(false);
   const [csrdDone, setCsrdDone] = useState(false);
 
   // Detect paradigm + assigned_bu from session (poll every 8s for facilitator changes)
@@ -579,11 +584,14 @@ export default function CockpitPage() {
 
   // Fetch R2 BU selection for multi_toggles / brsr_ngrbc
   useEffect(() => {
-    if ((decisionParadigm !== 'multi_toggles' && decisionParadigm !== 'brsr_ngrbc') || roundNumber !== 2 || !sim.sessionId || sim.sessionId === 'demo') return;
+    const willFetch = (decisionParadigm === 'multi_toggles' || decisionParadigm === 'brsr_ngrbc')
+      && roundNumber === 2 && sim.sessionId && sim.sessionId !== 'demo';
+    if (!willFetch) { setR2BuLoaded(true); return; }  // nothing to wait for → never block the matrix mount
+    setR2BuLoaded(false);
     fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/${sim.sessionId}/r2-bu-selection`)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setR2BuSelection(data); })
-      .catch(() => {});
+      .then(data => { if (data) setR2BuSelection(data); setR2BuLoaded(true); })
+      .catch(() => setR2BuLoaded(true));  // settle even on failure — buId falls back to generic config
   }, [decisionParadigm, roundNumber, sim.sessionId]);
 
   // Check for new resources on round change
@@ -1738,6 +1746,19 @@ export default function CockpitPage() {
             boxShadow: '-8px 0 32px rgba(0,0,0,0.4)',
             overflow: 'auto',
           }}>
+            {/* Bugfix: in pillar/BRSR mode buId is only known once the r2 BU
+                selection has resolved. Mounting the matrix before then lets buId
+                flip null→BU under the open exercise, which re-runs the config
+                fetch and wipes every quadrant — the "exercise repeats twice"
+                bug. Hold the mount until buId is settled. */}
+            {isPillarMode && !r2BuLoaded ? (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>Preparing your business unit’s assessment…</div>
+                  <div style={{ marginTop: 6, fontSize: '0.82rem', color: '#94a3b8' }}>Loading the materiality dictionary for your assigned unit.</div>
+                </div>
+              </div>
+            ) : (
             <DoubleMaterialityMatrix
               csfPool={csfPool}
               globalState={sim?.globalState}
@@ -1762,6 +1783,7 @@ export default function CockpitPage() {
                 } catch { return { error: 'Network error submitting matrix.' }; }
               }}
             />
+            )}
           </div>
         </div>
       )}
