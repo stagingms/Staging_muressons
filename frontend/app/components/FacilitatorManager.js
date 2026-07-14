@@ -109,6 +109,13 @@ function parseCSV(text) {
     });
 }
 
+const _csvBool = (v, d = true) => {
+    const s = String(v ?? '').trim().toLowerCase();
+    if (s === '') return d;
+    return ['1', 'true', 'yes', 'y', 'on', 'enabled'].includes(s);
+};
+const _csvList = (v) => String(v ?? '').split(/[;,|]/).map(t => t.trim()).filter(Boolean);
+
 function mapCSVRowToFacilitator(row) {
     return {
         name: row.name || row.facilitator_name || row.full_name || '',
@@ -117,6 +124,14 @@ function mapCSVRowToFacilitator(row) {
         programme: row.programme || row.program || row.course || '',
         max_cohorts: parseInt(row.cohorts || row.max_cohorts || '5', 10) || 5,
         decision_paradigm: row.paradigm || row.decision_paradigm || 'legacy_abc',
+        role: (row.role || 'facilitator').trim().toLowerCase(),
+        ending_pathway: row.ending_pathway || row.pathway || 'activist_ultimatum',
+        simulation_mode: row.simulation_mode || row.mode || 'conglomerate',
+        industry_vertical: row.industry_vertical || row.vertical || '',
+        side_tracks: _csvList(row.side_tracks || row.tracks || row.side_track || ''),
+        shockwave_enabled: _csvBool(row.shockwave_enabled ?? row.shockwave, true),
+        trading_floor_enabled: _csvBool(row.trading_floor_enabled ?? row.trading_floor, true),
+        situation_room_enabled: _csvBool(row.situation_room_enabled ?? row.situation_room, true),
         start_date: row.start_date || row.start || '',
         end_date: row.end_date || row.end || '',
     };
@@ -1748,15 +1763,24 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
 
             {/* Expected format help */}
             <div className={styles.bulkFormatBox}>
-                <h5 className={styles.bulkFormatTitle}>Expected CSV Columns</h5>
+                <h5 className={styles.bulkFormatTitle}>Expected CSV / Excel Columns</h5>
                 <code className={styles.bulkFormatCode}>
-                    name, email, phone, programme, cohorts, paradigm, start_date, end_date
+                    name, email, contact_number, programme, start_date, end_date, max_cohorts, decision_paradigm, role, ending_pathway, simulation_mode, industry_vertical, side_tracks, shockwave_enabled, trading_floor_enabled, situation_room_enabled
                 </code>
                 <p className={styles.bulkFormatHint}>
-                    Only <strong>name</strong> is required. Paradigm values: <code>legacy_abc</code>, <code>multi_toggles</code>, <code>advanced_climate</code>, <code>healthcare</code>, <code>un_sdg</code>
+                    Only <strong>name</strong> is required; every other column is optional and defaults sensibly.
+                    <strong> Paradigm:</strong> <code>legacy_abc</code>, <code>multi_toggles</code>, <code>advanced_climate</code>, <code>healthcare</code>, <code>un_sdg</code>.
+                    <strong> Role:</strong> <code>facilitator</code>, <code>lead_facilitator</code> (a role above your own tier is ignored).
+                    <strong> Ending pathway:</strong> <code>activist_ultimatum</code>, <code>climate_black_swan</code>, <code>stakeholder_revolt</code>, <code>hostile_takeover</code>.
+                    <strong> side_tracks:</strong> semicolon-separated ids. <strong>Flags</strong> (shockwave / trading_floor / situation_room): <code>TRUE</code>/<code>FALSE</code>.
+                    Friendly aliases (<code>phone</code>, <code>cohorts</code>, <code>paradigm</code>) still work.
                 </p>
                 <button className={styles.bulkDownloadBtn} onClick={() => {
-                    const csv = 'name,email,phone,programme,cohorts,paradigm,start_date,end_date\nProf. Smith,smith@uni.edu,+44 7700 900001,MBA 2026,5,legacy_abc,2026-01-15,2026-06-30\nDr. Jones,jones@uni.edu,,Executive Programme,3,healthcare,,';
+                    const csv = [
+                        'name,email,contact_number,programme,start_date,end_date,max_cohorts,decision_paradigm,role,ending_pathway,simulation_mode,industry_vertical,side_tracks,shockwave_enabled,trading_floor_enabled,situation_room_enabled',
+                        'Prof. Smith,smith@uni.edu,+44 7700 900001,MBA 2026,2026-01-15,2026-06-30,5,legacy_abc,facilitator,activist_ultimatum,conglomerate,,,TRUE,TRUE,TRUE',
+                        'Dr. Jones,jones@uni.edu,,Executive Programme,,,3,healthcare,lead_facilitator,stakeholder_revolt,conglomerate,,brsr_ngrbc;supply_chain,TRUE,FALSE,TRUE',
+                    ].join('\n');
                     const blob = new Blob([csv], { type: 'text/csv' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');

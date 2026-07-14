@@ -1602,7 +1602,38 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
 
 
 # ── W-PA: Excel bulk upload (project_admin + super_admin) ─────────────────
-_BULK_UPLOAD_COLUMNS = ["name", "email", "contact_number", "programme", "start_date", "end_date", "max_cohorts"]
+_BULK_UPLOAD_COLUMNS = [
+    "name", "email", "contact_number", "programme", "start_date", "end_date",
+    "max_cohorts", "decision_paradigm", "role", "ending_pathway",
+    "simulation_mode", "industry_vertical", "side_tracks",
+    "shockwave_enabled", "trading_floor_enabled", "situation_room_enabled",
+]
+
+# Friendly header aliases accepted in either upload path (case/space tolerant).
+_BULK_UPLOAD_ALIASES = {
+    "phone": "contact_number", "phone_number": "contact_number", "mobile": "contact_number",
+    "contact": "contact_number", "cohorts": "max_cohorts", "paradigm": "decision_paradigm",
+    "program": "programme", "course": "programme", "pathway": "ending_pathway",
+    "mode": "simulation_mode", "vertical": "industry_vertical", "tracks": "side_tracks",
+    "side_track": "side_tracks", "shockwave": "shockwave_enabled",
+    "trading_floor": "trading_floor_enabled", "situation_room": "situation_room_enabled",
+}
+
+
+def _bulk_bool(v, default=True):
+    """Parse a spreadsheet cell into a bool; blank/None → default."""
+    s = str(v).strip().lower()
+    if s in ("", "none"):
+        return default
+    return s in ("1", "true", "yes", "y", "on", "enabled")
+
+
+def _bulk_list(v):
+    """Parse a delimited cell (';', '|' or ',') into a clean list of strings."""
+    if not v:
+        return []
+    s = str(v).replace("|", ";").replace(",", ";")
+    return [t.strip() for t in s.split(";") if t.strip()]
 
 
 @admin_router.get("/facilitators/bulk-upload/template", summary="Download the Excel template for facilitator bulk upload")
@@ -1616,7 +1647,12 @@ async def facilitator_bulk_upload_template(_guard: None = Depends(require_regist
     ws = wb.active
     ws.title = "Facilitators"
     ws.append(_BULK_UPLOAD_COLUMNS)
-    ws.append(["Dr. A. Example", "a.example@university.edu", "+91 98xxxxxx", "PGP 2026", "2026-08-01", "2026-12-15", 3])
+    ws.append(["Dr. A. Example", "a.example@university.edu", "+91 98xxxxxx", "PGP 2026",
+               "2026-08-01", "2026-12-15", 3, "legacy_abc", "facilitator",
+               "activist_ultimatum", "conglomerate", "", "", "TRUE", "TRUE", "TRUE"])
+    ws.append(["Prof. B. Sample", "b.sample@university.edu", "", "Executive Programme",
+               "", "", 5, "healthcare", "lead_facilitator", "stakeholder_revolt",
+               "conglomerate", "", "brsr_ngrbc;supply_chain", "TRUE", "FALSE", "TRUE"])
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -1650,8 +1686,9 @@ def _parse_bulk_upload_sheet(raw: bytes):
     if not rows:
         raise HTTPException(400, "The sheet is empty.")
 
-    # Header mapping — case/space tolerant, unknown columns ignored
+    # Header mapping — case/space tolerant, friendly aliases resolved, unknowns ignored
     header = [str(c or "").strip().lower().replace(" ", "_") for c in rows[0]]
+    header = [_BULK_UPLOAD_ALIASES.get(h, h) for h in header]
     col_idx = {name: header.index(name) for name in _BULK_UPLOAD_COLUMNS if name in header}
     if "name" not in col_idx:
         raise HTTPException(400, f"Header row must contain a 'name' column. Found: {[h for h in header if h]}")
@@ -1680,6 +1717,15 @@ def _parse_bulk_upload_sheet(raw: bytes):
             "start_date": cell("start_date"),
             "end_date": cell("end_date"),
             "max_cohorts": mc,
+            "decision_paradigm": cell("decision_paradigm", "legacy_abc") or "legacy_abc",
+            "role": (cell("role", "facilitator") or "facilitator").strip().lower(),
+            "ending_pathway": cell("ending_pathway", "activist_ultimatum") or "activist_ultimatum",
+            "simulation_mode": cell("simulation_mode", "conglomerate") or "conglomerate",
+            "industry_vertical": cell("industry_vertical"),
+            "side_tracks": _bulk_list(cell("side_tracks")),
+            "shockwave_enabled": _bulk_bool(cell("shockwave_enabled", "true")),
+            "trading_floor_enabled": _bulk_bool(cell("trading_floor_enabled", "true")),
+            "situation_room_enabled": _bulk_bool(cell("situation_room_enabled", "true")),
         })
     return valid_rows, errors
 
@@ -1704,7 +1750,7 @@ async def facilitator_bulk_upload_preview(file: UploadFile = File(...), _guard: 
 
 
 @admin_router.post("/facilitators/bulk-upload", summary="Bulk-create facilitators from an Excel file")
-async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = Depends(require_registry_admin)):
+async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...), _guard: None = Depends(require_registry_admin)):
     """W-PA — parses an .xlsx (header row = column names; only `name` is
     required) and creates one facilitator per data row with the standard
     policy: default password Muressons123 + must_change_password=True.
@@ -1714,6 +1760,10 @@ async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = D
 
     raw = await file.read()
     valid_rows, errors = _parse_bulk_upload_sheet(raw)
+
+    # C6/C1: a role from a spreadsheet is caller-scoped — a bulk upload must never
+    # be a backdoor to grant a role above the uploader's own tier.
+    _grantable = assignable_roles_for(get_fac_role(request))
 
     created = []
     # One bcrypt hash for the shared default password (bcrypt is ~100ms/call)
@@ -1734,6 +1784,8 @@ async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = D
             def cell(key, default=""):
                 return parsed.get(key, default) or default
             max_id += 1
+            _req_role = parsed.get("role", "facilitator")
+            _role = _req_role if _req_role in _grantable else "facilitator"
             fac = {
                 "facilitator_id": f"FAC-{max_id:03d}",
                 "name": name,
@@ -1747,18 +1799,18 @@ async def facilitator_bulk_upload(file: UploadFile = File(...), _guard: None = D
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "max_cohorts": mc,
                 "cohorts_created": 0,
-                "decision_paradigm": "legacy_abc",
-                "ending_pathway": "activist_ultimatum",
-                "side_tracks": [],
-                "simulation_mode": "conglomerate",
-                "industry_vertical": "",
+                "decision_paradigm": cell("decision_paradigm", "legacy_abc"),
+                "ending_pathway": cell("ending_pathway", "activist_ultimatum"),
+                "side_tracks": parsed.get("side_tracks", []),
+                "simulation_mode": cell("simulation_mode", "conglomerate"),
+                "industry_vertical": cell("industry_vertical"),
                 "bu_substitutions": {},
-                "role": "facilitator",
-                "is_admin": False,
+                "role": _role,
+                "is_admin": is_admin_role(_role),
                 "enabled": True,
-                "shockwave_enabled": True,
-                "trading_floor_enabled": True,
-                "situation_room_enabled": True,
+                "shockwave_enabled": parsed.get("shockwave_enabled", True),
+                "trading_floor_enabled": parsed.get("trading_floor_enabled", True),
+                "situation_room_enabled": parsed.get("situation_room_enabled", True),
                 "permissions": {
                     "can_undo_rounds": False,
                     "can_override_decisions": False,
@@ -1817,10 +1869,13 @@ async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, request
     return fac
 
 @admin_router.post("/facilitators/bulk", summary="Create multiple facilitators in batch")
-async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: None = Depends(require_registry_admin)):
+async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: Request, _guard: None = Depends(require_registry_admin)):
     import re
     created_facs = []
     credentials: dict[str, str] = {}  # M-3: one-time plaintext passwords, keyed by fac ID
+    # C6/C1: a role in the payload is caller-scoped — never a backdoor to grant
+    # a role above the caller's own tier.
+    _grantable = assignable_roles_for(get_fac_role(request))
 
     # GOD-003: Generate all passwords BEFORE acquiring the lock so bcrypt
     # (CPU-intensive, ~100ms/call) does not block other coroutines.
@@ -1839,6 +1894,8 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: No
 
         for fac_req, (_fac_plain, _fac_hash) in zip(req.facilitators, passwords):
             max_id += 1
+            _req_role = (fac_req.role or "facilitator").strip().lower()
+            _role = _req_role if _req_role in _grantable else "facilitator"
             fac = {
                 "facilitator_id": f"FAC-{max_id:03d}",
                 "name": fac_req.name,
@@ -1853,9 +1910,16 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, _guard: No
                 "max_cohorts": fac_req.max_cohorts,
                 "cohorts_created": 0,
                 "decision_paradigm": fac_req.decision_paradigm,
-                "role": "facilitator",
-                "is_admin": False,
+                "ending_pathway": fac_req.ending_pathway or "activist_ultimatum",
+                "side_tracks": fac_req.side_tracks or [],
+                "simulation_mode": fac_req.simulation_mode or "conglomerate",
+                "industry_vertical": fac_req.industry_vertical or "",
+                "role": _role,
+                "is_admin": is_admin_role(_role),
                 "enabled": True,
+                "shockwave_enabled": fac_req.shockwave_enabled,
+                "trading_floor_enabled": fac_req.trading_floor_enabled,
+                "situation_room_enabled": fac_req.situation_room_enabled,
                 "permissions": fac_req.permissions or {
                     "can_undo_rounds": True,
                     "can_override_decisions": True,
