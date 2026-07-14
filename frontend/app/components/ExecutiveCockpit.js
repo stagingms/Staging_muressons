@@ -3133,7 +3133,13 @@ export default function ExecutiveCockpit({
             {/* SI-2+: Autonomous Stakeholder Agents Panel */}
             {(() => {
               const evs = events || commitResults?.events || {};
-              const aaSummary = evs.agent_summary || globalState?.autonomous_agents?.agents && Object.entries(globalState.autonomous_agents.agents).map(([id, s]) => ({ agent_id: id, ...s })) || [];
+              // Prefer the LIVE persisted summary (globalState.agent_summary, now
+              // sent through the dashboard every round with the fully-mapped fields
+              // name/icon/stage/tolerance/max_tolerance) so the escalation ladder
+              // reflects the accumulated state; fall back to the post-commit summary.
+              const aaSummary = (Array.isArray(globalState?.agent_summary) && globalState.agent_summary.length)
+                ? globalState.agent_summary
+                : (evs.agent_summary || []);
               const aaDiag = evs.autonomous_agents || {};
               if (aaSummary.length > 0 || (aaDiag.agent_actions || []).length > 0) {
                 return (

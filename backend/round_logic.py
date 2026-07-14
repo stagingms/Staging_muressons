@@ -917,7 +917,12 @@ def run_new_engines(
             )
             global_state["autonomous_agents"] = aa
             extra["autonomous_agents"] = aa_diag
-            extra["agent_summary"] = get_agent_summary(aa)
+            _agent_summary = get_agent_summary(aa)
+            extra["agent_summary"] = _agent_summary
+            # Persist the frontend-ready summary into global_state so the live
+            # dashboard (GlobalStateOut.agent_summary) shows the accumulated
+            # escalation every round, not just in the post-commit results.
+            global_state["agent_summary"] = _agent_summary
         except Exception as exc:
             print(f"[WARN] Autonomous agents engine failed: {exc}")
 

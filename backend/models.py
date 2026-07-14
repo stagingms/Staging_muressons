@@ -139,6 +139,12 @@ class GlobalStateOut(BaseModel):
     # cockpit reads to release the barrier. None/False = legacy wait-for-all.
     cohort_advance_deadline: Optional[str] = None
     cohort_advance_unblocked: Optional[bool] = False
+    # Autonomous stakeholder agents — the frontend-ready escalation summary
+    # (name, icon, tolerance, stage, thresholds, …) persisted each tick so the
+    # live cockpit panel shows the ACCUMULATED ladder every round. Without this
+    # the strict model dropped it from the dashboard, so the panel only ever saw
+    # the brief post-commit summary and appeared to reset to dormant each round.
+    agent_summary: Optional[list] = None
     stakeholder_map_completed: Optional[bool] = False
     learning_bonuses_awarded: Optional[dict] = {}
     saved_allocations: Optional[dict] = {}
