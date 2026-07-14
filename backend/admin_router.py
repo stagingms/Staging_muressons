@@ -473,6 +473,9 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         # Kept in response for backward compatibility but God Mode no longer owns this value.
         "prediction_gates_enabled": s.get("prediction_gates_enabled", False),
         "board_room_moments_enabled": s.get("board_room_moments_enabled", True),
+        # Results-view Decision Consequence Map (ConsequenceTimeline). Player-readable;
+        # fail-open (default ON) so existing cohorts keep the map unless turned off.
+        "consequence_map_enabled": s.get("consequence_map_enabled", True),
         "mental_model_tracker_enabled": s.get("mental_model_tracker_enabled", True),
         "confidence_calibration_enabled": s.get("confidence_calibration_enabled", False),
         "mid_game_checkpoint_enabled": s.get("mid_game_checkpoint_enabled", True),
@@ -557,6 +560,7 @@ class GlobalSettingsPatch(BaseModel):
     difficulty_tier: str | None = None
     prediction_gates_enabled: bool | None = None
     board_room_moments_enabled: bool | None = None
+    consequence_map_enabled: bool | None = None  # results-view Decision Consequence Map
     mental_model_tracker_enabled: bool | None = None
     confidence_calibration_enabled: bool | None = None
     mid_game_checkpoint_enabled: bool | None = None
@@ -950,7 +954,8 @@ async def get_scaffolding_status():
     scaffolding_keys = [
         ("prediction_gates_enabled", "🔮 Predictions", False, "Require students to predict outcomes before seeing results — builds metacognitive awareness"),
         ("confidence_calibration_enabled", "🎰 Confidence", False, "Students rate confidence in their predictions — reveals overconfidence and Dunning-Kruger gaps"),
-        ("board_room_moments_enabled", "🏢 Board Room", True, "Inject boardroom dialogue scenes with stakeholder pressure before key decisions"),
+        ("board_room_moments_enabled", "🏢 Board Room", True, "Board Room Moment — a guided post-round reflection (Noticing → Making Sense → Working with Meaning) shown after results are reviewed"),
+        ("consequence_map_enabled", "🗺️ Consequence Map", True, "Decision Consequence Map — the results-view timeline linking each round's decisions to their downstream governance / climate / risk / social / supply-chain / strategic effects"),
         ("round_recap_enabled", "📋 Recap", False, "Auto-generate end-of-round summaries highlighting KPI shifts and causal links"),
         ("real_world_cards_enabled", "🌍 Case Cards", False, "Surface real-world ESG case study cards matched to the current decision context"),
         ("strategy_memo_enabled", "📝 Memo", False, "Prompt students to write a strategy memo justifying their decision before committing"),

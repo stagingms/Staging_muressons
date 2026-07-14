@@ -3856,11 +3856,13 @@ export default function ExecutiveCockpit({
                   whatIfResult={null}
                 />
               </div>
-              <ConsequenceTimeline
-                currentRound={roundNumber}
-                activeFlags={commitResults.globalState?.active_event_flags || globalState?.active_event_flags || {}}
-                foreshadowingSignals={commitResults.events?.foreshadowing_signals || foreshadowingSignals}
-              />
+              {pedToggles.consequence_map_enabled !== false && (
+                <ConsequenceTimeline
+                  currentRound={roundNumber}
+                  activeFlags={commitResults.globalState?.active_event_flags || globalState?.active_event_flags || {}}
+                  foreshadowingSignals={commitResults.events?.foreshadowing_signals || foreshadowingSignals}
+                />
+              )}
 
               {/* ── Inline Peer Performance (Results Overlay) ── */}
               {peerLeaderboard.length > 0 && (
