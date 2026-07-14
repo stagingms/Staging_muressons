@@ -813,6 +813,22 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                 }
                 for bu in bus
             ],
+            # Parity with the Postgres backend (database.fetch_round_history):
+            # attach the round's per-BU decisions so downstream consumers
+            # (RoundSnapshot.choice_selected enrichment, consequence-DNA) can
+            # read choice_selected in memory mode too. Sourced from _decision_log.
+            "decisions": [
+                {
+                    "bu_id": dec.get("bu_id"),
+                    "decision_node_id": dec.get("decision_node_id", ""),
+                    "choice_selected": dec.get("choice_selected", ""),
+                    "capex": float(dec.get("capex_allocated", 0) or 0),
+                    "time_to_decision_seconds": dec.get("time_to_decision_seconds", 0),
+                    "team_consensus": dec.get("team_consensus", "majority"),
+                }
+                for dec in _decision_log
+                if dec.get("session_id") == session_id and dec.get("round_number") == rn
+            ],
         })
     return history
 

@@ -2083,7 +2083,7 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                         const JourneyRow = ({ roundNum, h, prevH }) => {
                             const [hovered, setHovered] = React.useState(false);
                             const rd = ROUND_DEEP[roundNum] || {};
-                            const choice = h?.choice_selected || h?.choice || null;
+                            const choice = h?.choice_selected || h?.choice || h?.global_state?.active_event_flags?.[`r${roundNum}_choice`] || null;
                             const choiceLetter = choiceLetters[choice] || '?';
                             const choiceLabel = h?.choice_title || h?.choice_label || (rd.options?.[choice]?.label) || null;
                             const choiceColor = choiceColors[choice] || '#94a3b8';
@@ -2091,8 +2091,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
 
                             let delta = h?.treasury_delta ?? null;
                             if (delta === null) {
-                                const curr = h?.treasury ?? h?.corporate_treasury ?? 0;
-                                const prev = prevH ? (prevH?.treasury ?? prevH?.corporate_treasury ?? curr) : curr;
+                                const curr = h?.treasury ?? h?.corporate_treasury ?? h?.global_state?.corporate_treasury ?? 0;
+                                const prev = prevH ? (prevH?.treasury ?? prevH?.corporate_treasury ?? prevH?.global_state?.corporate_treasury ?? curr) : curr;
                                 delta = curr - prev;
                             }
                             const deltaStr = delta !== 0 ? `${delta >= 0 ? '+' : ''}$${(Math.abs(delta) / 1_000_000).toFixed(1)}M` : null;
@@ -2227,8 +2227,8 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     const totalDelta = history.slice(0, 10).reduce((sum, h, i) => {
                                         let delta = h?.treasury_delta ?? 0;
                                         if (delta === 0) {
-                                            const curr = h?.treasury ?? h?.corporate_treasury ?? 0;
-                                            const prev = i > 0 ? (history[i - 1]?.treasury ?? history[i - 1]?.corporate_treasury ?? curr) : curr;
+                                            const curr = h?.treasury ?? h?.corporate_treasury ?? h?.global_state?.corporate_treasury ?? 0;
+                                            const prev = i > 0 ? (history[i - 1]?.treasury ?? history[i - 1]?.corporate_treasury ?? history[i - 1]?.global_state?.corporate_treasury ?? curr) : curr;
                                             delta = curr - prev;
                                         }
                                         return sum + delta;

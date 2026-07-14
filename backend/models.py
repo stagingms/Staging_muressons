@@ -286,6 +286,11 @@ class RoundSnapshot(BaseModel):
     round_number: int
     global_state: GlobalStateOut
     business_units: list[BUStateOut]
+    # Primary strategic option chosen that round (e.g. "option_a"). "" when no
+    # decision was recorded or for legacy snapshots. Surfaced so player-facing
+    # retrospectives (e.g. the Balanced Scorecard "Full Decision Journey") can
+    # map each round back to its choice; the raw per-BU decisions stay server-side.
+    choice_selected: str = ""
 
 
 class DashboardResponse(BaseModel):
