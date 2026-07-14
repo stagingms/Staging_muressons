@@ -288,7 +288,7 @@ NPC_PROFILES = {
     },
     "community_leader": {
         "name": "Rajesh Patil",
-        "title": "Head Panchayat, Deccan Plateau District Council",
+        "title": "Head Deccan Plateau Council",
         "icon": "🏘️",
         "personality": "passionate",
         "salience": {"power": 0.30, "legitimacy": 0.90, "urgency": 0.75},

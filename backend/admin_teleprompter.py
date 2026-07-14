@@ -225,7 +225,7 @@ _TELEPROMPTER_SCRIPTS = {
         },
         "autonomous_agents_debrief": {
             "likely_stage": "dormant → watching",
-            "facilitator_note": "By R3, agents with low patience (Greta Berg / Gen Z, Jay Buffet / Journalist) may have entered WATCHING if metrics are poor. Check the Autonomous Stakeholders panel.",
+            "facilitator_note": "By R3, agents with low patience (Greta Berg / Gen Z, Beth Colbert / Journalist) may have entered WATCHING if metrics are poor. Check the Autonomous Stakeholders panel.",
             "debrief_if_watching": [
                 "An autonomous stakeholder has started monitoring your performance. Which agent is it, and what metric triggered their attention?",
                 "The Gen Z Employee (Greta Berg) has the fastest decay rate — she notices problems before others. What does this tell us about generational expectations in ESG?",
@@ -300,7 +300,7 @@ _TELEPROMPTER_SCRIPTS = {
             "facilitator_note": "R4 crisis damage often pushes 2-3 agents from WATCHING to AGITATED. Teams who chose Surface Scan in R1 may see the Journalist and Community Activist escalate simultaneously.",
             "debrief_if_agitated": [
                 "Multiple stakeholders are now publicly critical. How does this compound the R4 contagion crisis?",
-                "Jay Buffet (Journalist) has the most cascade targets — if he triggers, he pulls 3 other agents toward action. What real-world dynamic does this model? (Answer: media amplification of corporate crises)",
+                "Beth Colbert (Journalist) has the most cascade targets — if he triggers, he pulls 3 other agents toward action. What real-world dynamic does this model? (Answer: media amplification of corporate crises)",
                 "Compare the Regulator's 'methodical' escalation with the Gen Z Employee's 'passionate' escalation. Which is more dangerous to your terminal value, and why?",
             ],
         },
@@ -444,7 +444,7 @@ _TELEPROMPTER_SCRIPTS = {
         },
         "autonomous_agents_debrief": {
             "likely_stage": "hostile \u2192 FIRST TRIGGER possible",
-            "facilitator_note": "\u26a0\ufe0f R6 is the earliest round a trigger can fire under sustained poor management. The Gen Z Employee (Greta Berg, tolerance decay=10) or Journalist (Jay Buffet, decay=9) are most likely. Check the panel for HOSTILE agents.",
+            "facilitator_note": "\u26a0\ufe0f R6 is the earliest round a trigger can fire under sustained poor management. The Gen Z Employee (Greta Berg, tolerance decay=10) or Journalist (Beth Colbert, decay=9) are most likely. Check the panel for HOSTILE agents.",
             "debrief_if_triggered": [
                 "\u2605 A stakeholder has TRIGGERED. Read the crisis event aloud. Which agent was it? What was the cascading effect on other agents?",
                 "The triggered agent's cascade chain has damaged other agents' tolerance. Can you identify the domino effect in your dashboard?",
@@ -517,16 +517,16 @@ _TELEPROMPTER_SCRIPTS = {
             "facilitator_note": "By R7, poorly-managed teams may have 1-2 triggered agents with active cascade chains. The Journalist's cascade (→ Regulator, Investor, Community) is the most devastating. Well-managed teams should still have agents in dormant/watching.",
             "debrief_multi_trigger": [
                 "How many of your autonomous stakeholders are in hostile or triggered state? What pattern do you see in the metrics that caused this?",
-                "The Institutional Investor (Marcus Chen-Hoffmann) is the most patient agent but the hardest to recover. If he's in HOSTILE, what does that signal about your long-term financial credibility?",
+                "The Institutional Investor (Jay Buffet) is the most patient agent but the hardest to recover. If he's in HOSTILE, what does that signal about your long-term financial credibility?",
                 "Compare your team's agent states with another team. What strategic choices explain the difference?",
             ],
         },
         "sandbox_cascade_multiplier": {
             "box_title": "💥 CASCADE MULTIPLIER — Regulatory Leak to Press (Sandbox)",
-            "when_to_surface": "Surface this IF the Regulatory Sandbox is enabled AND Eleanor Carson's crosswire has fired this round.",
+            "when_to_surface": "Surface this IF the Regulatory Sandbox is enabled AND Carson's crosswire has fired this round.",
             "narrative_setup": (
                 "Commissioner Carson's regulatory probe has leaked to the press. "
-                "Jay Buffet's tolerance has been reduced by 10 points — he is now closer "
+                "Beth Colbert's tolerance has been reduced by 10 points — he is now closer "
                 "to publishing a full exposé. This is the Cascade Multiplier: a reinforcing "
                 "feedback loop where regulation → media attention → further corporate damage."
             ),
@@ -538,12 +538,12 @@ _TELEPROMPTER_SCRIPTS = {
             ),
             "debrief_prompts": [
                 "The Regulator's probe has leaked to the Journalist. In real-world terms, name a company where a regulatory investigation was amplified by media coverage. (Examples: Enron/Arthur Andersen, Volkswagen Dieselgate, Wirecard)",
-                "Jay Buffet's tolerance just dropped by 10. If he triggers, his cascade hits 3 OTHER agents. Can you map the full domino chain on the whiteboard?",
+                "Beth Colbert's tolerance just dropped by 10. If he triggers, his cascade hits 3 OTHER agents. Can you map the full domino chain on the whiteboard?",
                 "★ CRITICAL: If both the Regulator AND the Journalist trigger in the same session, you are on the path to Total Corporate Collapse. What would a real board do at this point?",
             ],
             "facilitator_action": (
                 "Draw the cascade chain on the board: "
-                "🏛️ Carson (Regulator) → 📰 Buffet (Journalist) → [📉 Investor, ✊ Activist, 👩‍💻 Gen Z]. "
+                "🏛️ Carson (Regulator) → 📰 Colbert (Journalist) → [📉 Investor, ✊ Activist, 👩‍💻 Gen Z]. "
                 "Ask: 'How many dominoes are left standing?'"
             ),
         },
@@ -615,9 +615,9 @@ _TELEPROMPTER_SCRIPTS = {
             ],
             "cascade_multiplier_warning": (
                 "⚠️ CASCADE MULTIPLIER CHECK: If the Regulatory Sandbox fired Carson's crosswire in R7, "
-                "Jay Buffet entered R8 with reduced tolerance. Combined with the R8 water crisis "
-                "and the journalist's natural decay, Buffet may now be at HOSTILE or TRIGGERED. "
-                "If Buffet triggers, his cascade chain hits 3 agents simultaneously: the Regulator "
+                "Beth Colbert entered R8 with reduced tolerance. Combined with the R8 water crisis "
+                "and the journalist's natural decay, Colbert may now be at HOSTILE or TRIGGERED. "
+                "If Colbert triggers, his cascade chain hits 3 agents simultaneously: the Regulator "
                 "(reinforcing loop), the Investor (capital flight), and the Community Activist "
                 "(social license collapse). This is the Total Corporate Collapse scenario — "
                 "all 5 agents trigger within 1-2 rounds. Ask: 'Is your company still recoverable, "
@@ -680,7 +680,7 @@ _TELEPROMPTER_SCRIPTS = {
             "facilitator_note": "R9 is where cascade chains complete. Teams with 3+ triggered agents are experiencing the simulation's full 'stakeholder systemic failure' mode. The Regulator's fine (4% revenue) and Investor's divestment (−8% treasury, +200bps cost of capital) are compounding.",
             "debrief_systemic_failure": [
                 "★ CAPSTONE AGENT QUESTION: Trace the cascade chain from your FIRST triggered agent to your LAST. What was the domino sequence?",
-                "The Institutional Investor (Marcus Chen-Hoffmann) has the slowest recovery rate (2/round). If he triggered, can you mathematically recover before R10? What does this teach about institutional trust?",
+                "The Institutional Investor (Jay Buffet) has the slowest recovery rate (2/round). If he triggered, can you mathematically recover before R10? What does this teach about institutional trust?",
                 "Compare: the Gen Z Employee's fast decay/fast recovery with the Investor's slow decay/slow recovery. What different engagement strategies would you use for each in a real company?",
                 "If ALL 5 agents have triggered: your company has experienced total stakeholder system failure. In real-world terms, name a company that experienced something similar. (Examples: Wirecard, Theranos, Lehman Brothers)",
             ],
@@ -781,7 +781,7 @@ _TELEPROMPTER_SCRIPTS = {
             "debrief_final_audit": [
                 "★ AGENT REPORT CARD: How many agents are in each stage? (dormant/watching/agitated/hostile/triggered). What grade would you give your stakeholder management?",
                 "Which agent triggered FIRST in your simulation? What metrics caused it? Could you have prevented the cascade chain?",
-                "The Journalist (Jay Buffet) has the most cascade targets (3). How does media amplification accelerate corporate crises in practice?",
+                "The Journalist (Beth Colbert) has the most cascade targets (3). How does media amplification accelerate corporate crises in practice?",
                 "Compare the Gen Z Employee's fast decay/fast recovery with the Institutional Investor's slow decay/slow recovery. What does this tell you about different stakeholder engagement strategies in your future career?",
                 "If you could replay the simulation with ONLY the goal of keeping all agents in dormant, which 3 decisions would you change?",
                 "★ TRANSFER: Name one real-world stakeholder in your industry who behaves like each of the 5 agents. How would you manage them differently after this experience?",

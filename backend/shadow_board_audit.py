@@ -31,7 +31,7 @@ import copy
 SHADOW_BOARD_PERSONAS = {
     "shareholder": {
         "persona_id": "shareholder",
-        "name": "Marcus Chen-Hoffmann",
+        "name": "Jay Buffet",
         "title": "CIO, Nordic Pension Alliance (€14B AUM)",
         "archetype": "Short-term Shareholder",
         "icon": "🦅",
@@ -59,7 +59,7 @@ SHADOW_BOARD_PERSONAS = {
     "activist": {
         "persona_id": "activist",
         "name": "Megha Patrike",
-        "title": "Head Panchayat, Deccan Plateau District Council",
+        "title": "Head Deccan Plateau Council",
         "archetype": "Environmental Activist",
         "icon": "🌍",
         "avatar_emoji": "🌿",
@@ -86,7 +86,7 @@ SHADOW_BOARD_PERSONAS = {
 
     "auditor": {
         "persona_id": "auditor",
-        "name": "Commissioner Eleanor Carson",
+        "name": "Commissioner Carson",
         "title": "EU DG FISMA — Corporate Sustainability Division",
         "archetype": "Ethical Auditor",
         "icon": "⚖️",
@@ -123,11 +123,11 @@ REJECTION_FLAGS = {
         "flag_name": "shareholder_alienated",
         "description": "Player rejected shareholder logic — liquidity deprioritised.",
         "penalty_type": "investor_decay",
-        "marcus_decay_increase": 0.20,  # +20% to Marcus's patience_decay_rate
+        "marcus_decay_increase": 0.20,  # +20% to Jay's patience_decay_rate
         "r10_cascade": "hostile_takeover",
         "r10_impact": (
             "Increases probability of the Hostile Takeover ending pathway. "
-            "Marcus Chen-Hoffmann's tolerance drops immediately by 10 points "
+            "Jay Buffet's tolerance drops immediately by 10 points "
             "and his patience decay rate accelerates by 20%. "
             "The Nordic Pension Alliance's exit thesis is validated."
         ),
@@ -267,7 +267,7 @@ def process_rejection(
                 agent["tolerance"] = max(0, round(old_tol - penalty, 1))
                 tolerance_applied = True
 
-                # SDG-ORCH: Apply Marcus's accelerated decay rate if shareholder rejected
+                # SDG-ORCH: Apply Jay's accelerated decay rate if shareholder rejected
                 if rejection_target == "shareholder" and flag_info.get("marcus_decay_increase"):
                     increase = flag_info["marcus_decay_increase"]
                     agent["shadow_board_decay_modifier"] = 1.0 + increase  # 1.20 = +20%

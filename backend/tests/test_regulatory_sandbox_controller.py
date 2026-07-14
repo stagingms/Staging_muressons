@@ -335,7 +335,7 @@ class TestAgentCrosswiring(unittest.TestCase):
         self.assertFalse(any(t["agent"] == "the_regulator" for t in triggers))
 
     def test_cascade_multiplier_regulator_to_journalist(self):
-        """When Eleanor Carson fires, Jay Buffet loses 10 tolerance."""
+        """When Carson fires, Beth Colbert loses 10 tolerance."""
         sandbox = _make_sandbox(active=True)
         gs = _make_gs()
         bus = _make_bus()
@@ -363,7 +363,7 @@ class TestAgentCrosswiring(unittest.TestCase):
         self.assertTrue(any("Press Cascade" in t for t in swan_titles))
 
     def test_cascade_multiplier_skips_triggered_journalist(self):
-        """If Jay Buffet already triggered, cascade multiplier does not fire."""
+        """If Beth Colbert already triggered, cascade multiplier does not fire."""
         sandbox = _make_sandbox(active=True)
         gs = _make_gs()
         gs["autonomous_agents"]["agents"]["the_journalist"]["triggered_round"] = 6

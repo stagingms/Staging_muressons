@@ -31,7 +31,7 @@ import random
 
 AGENT_PROFILES = {
     "the_regulator": {
-        "name": "Commissioner Eleanor Carson",
+        "name": "Commissioner Carson",
         "title": "EU DG FISMA — Corporate Sustainability Division",
         "icon": "🏛️",
         "avatar_emoji": "👩‍⚖️",
@@ -126,7 +126,7 @@ AGENT_PROFILES = {
     },
 
     "the_institutional_investor": {
-        "name": "Marcus Chen-Hoffmann",
+        "name": "Jay Buffet",
         "title": "CIO, Nordic Pension Alliance (€14B AUM)",
         "icon": "🦅",
         "avatar_emoji": "📉",
@@ -151,15 +151,15 @@ AGENT_PROFILES = {
         "cascade_tolerance_hit": 10,
         "stage_dialogue": {
             "dormant": "Nordic Pension Alliance reaffirms Muressons position in core ESG portfolio. 'Management is delivering.'",
-            "watching": "'We've placed Muressons on our ESG watchlist,' Chen-Hoffmann informs the board. 'We expect a credible improvement plan within 90 days.'",
-            "agitated": "Nordic Pension Alliance downgrades Muressons to 'underweight'. Chen-Hoffmann's public letter: 'We are deeply concerned about trajectory.'",
+            "watching": "'We've placed Muressons on our ESG watchlist,' Buffet informs the board. 'We expect a credible improvement plan within 90 days.'",
+            "agitated": "Nordic Pension Alliance downgrades Muressons to 'underweight'. Buffet's public letter: 'We are deeply concerned about trajectory.'",
             "hostile": "BREAKING: Nordic Pension Alliance begins systematic position reduction. 'We can no longer justify this allocation to our beneficiaries.'",
             "triggered": None,
         },
         "triggered_event": {
             "title": "📉 INSTITUTIONAL DIVESTMENT FIRE SALE",
             "narrative": (
-                "🦅 Marcus Chen-Hoffmann triggers full divestment protocol. "
+                "🦅 Jay Buffet triggers full divestment protocol. "
                 "'Nordic Pension Alliance is exiting Muressons entirely. "
                 "We have a fiduciary duty that this management team has made impossible to fulfil.' "
                 "€340M in shares dumped. Share price crashes 8%. "
@@ -175,7 +175,7 @@ AGENT_PROFILES = {
 
     "the_community_activist": {
         "name": "Megha Patrike",
-        "title": "Head Panchayat, Deccan Plateau District Council",
+        "title": "Head Deccan Plateau Council",
         "icon": "🏘️",
         "avatar_emoji": "🌍",
         "personality": "persistent",
@@ -222,7 +222,7 @@ AGENT_PROFILES = {
     },
 
     "the_journalist": {
-        "name": "Jay Buffet",
+        "name": "Beth Colbert",
         "title": "Senior Investigative Reporter, Deccan Herald Business",
         "icon": "📰",
         "avatar_emoji": "🔍",
@@ -245,16 +245,16 @@ AGENT_PROFILES = {
         "cascade_targets": ["the_regulator", "the_institutional_investor", "the_community_activist"],
         "cascade_tolerance_hit": 8,
         "stage_dialogue": {
-            "dormant": "Jay Buffet publishes a balanced feature: 'Muressons: A Corporate Turnaround Story.'",
-            "watching": "Buffet begins a series: 'Inside Muressons — Part 1: The Promises.' Sources say he's requesting internal documents.",
-            "agitated": "INVESTIGATION: 'The Green Facade?' by Jay Buffet trends on social media. 12,000 engagements in 24 hours.",
-            "hostile": "Buffet's 3-part exposé 'Muressons Unmasked' is syndicated across 5 national outlets. Reach: 4.5M impressions.",
+            "dormant": "Beth Colbert publishes a balanced feature: 'Muressons: A Corporate Turnaround Story.'",
+            "watching": "Colbert begins a series: 'Inside Muressons — Part 1: The Promises.' Sources say he's requesting internal documents.",
+            "agitated": "INVESTIGATION: 'The Green Facade?' by Beth Colbert trends on social media. 12,000 engagements in 24 hours.",
+            "hostile": "Colbert's 3-part exposé 'Muressons Unmasked' is syndicated across 5 national outlets. Reach: 4.5M impressions.",
             "triggered": None,
         },
         "triggered_event": {
             "title": "📰 VIRAL EXPOSÉ — CORPORATE CREDIBILITY DESTROYED",
             "narrative": (
-                "📰 Jay Buffet's Pulitzer-nominated investigation 'Muressons: "
+                "📰 Beth Colbert's Pulitzer-nominated investigation 'Muressons: "
                 "The Sustainability Mirage' airs as a documentary special. "
                 "Leaked internal documents reveal systematic metric manipulation. "
                 "Share price crashes. Consumer boycott organised. "
@@ -287,10 +287,10 @@ INTERFERENCE_PAIRS = [
         "decay_multiplier": 1.4,           # 40% faster decay when both agitated+
         "min_stage": "agitated",            # activation threshold
         "narrative": (
-            "📡 MEDIA-REGULATOR FEEDBACK LOOP: Jay Buffet's investigative reporting "
+            "📡 MEDIA-REGULATOR FEEDBACK LOOP: Beth Colbert's investigative reporting "
             "has prompted Commissioner Carson to accelerate her inquiry. Carson's "
             "subpoena requests are, in turn, generating fresh headline material for "
-            "Buffet. Both agents' tolerance is decaying {pct}% faster."
+            "Colbert. Both agents' tolerance is decaying {pct}% faster."
         ),
         "theory": "Herman & Chomsky (1988) Manufacturing Consent — media and "
                   "regulatory agendas co-amplify through institutional feedback.",
@@ -313,7 +313,7 @@ INTERFERENCE_PAIRS = [
         "decay_multiplier": 1.3,            # 30% faster decay
         "min_stage": "hostile",             # only at hostile+ (higher bar)
         "narrative": (
-            "📉🏛️ REGULATORY-MARKET VORTEX: Marcus Chen-Hoffmann's divestment "
+            "📉🏛️ REGULATORY-MARKET VORTEX: Jay Buffet's divestment "
             "signals are accelerating Commissioner Carson's enforcement timeline. "
             "Regulatory action is, in turn, validating the Investor's exit thesis. "
             "Both agents' tolerance is decaying {pct}% faster."

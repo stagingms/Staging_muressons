@@ -961,8 +961,8 @@ def crosswire_sandbox_to_agents(
     their trigger thresholds.
 
     Agent mapping:
-      - Eleanor Carson (the_regulator): governance_risk > 55 → 4% revenue fine
-      - Marcus Chen-Hoffmann (the_institutional_investor): EBITDA < 0 → 8% treasury hit
+      - Carson (the_regulator): governance_risk > 55 → 4% revenue fine
+      - Jay Buffet (the_institutional_investor): EBITDA < 0 → 8% treasury hit
       - Megha Patrike (the_community_activist): water stress → cascade
 
     Returns diagnostics of any agent triggers fired.
@@ -977,7 +977,7 @@ def crosswire_sandbox_to_agents(
     if not aa.get("agents"):
         return diag
 
-    # ── Eleanor Carson: Governance Risk breach ───────────────
+    # ── Carson: Governance Risk breach ───────────────
     avg_gov = sum(bu.get("governance_risk_score", 20) for bu in bus) / max(len(bus), 1)
     regulator = aa["agents"].get("the_regulator", {})
     if (
@@ -992,14 +992,14 @@ def crosswire_sandbox_to_agents(
         gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) - fine, 2)
         diag["agent_crosswire_triggers"].append({
             "agent": "the_regulator",
-            "name": "Commissioner Eleanor Carson",
+            "name": "Commissioner Carson",
             "trigger": f"Governance Risk ({avg_gov:.1f}) > 55",
             "action": "4% revenue fine",
             "fine": fine,
             "new_tolerance": regulator["tolerance"],
         })
         events.setdefault("custom_black_swans", []).append({
-            "title": "🏛️ REGULATORY FINE — Eleanor Carson",
+            "title": "🏛️ REGULATORY FINE — Carson",
             "narrative": (
                 f"Commissioner Carson imposes emergency 4% revenue fine "
                 f"(${fine:,.0f}) due to governance risk breach ({avg_gov:.1f}/100). "
@@ -1022,7 +1022,7 @@ def crosswire_sandbox_to_agents(
             journalist["tolerance"] = max(0, old_tol - 10)
             diag["agent_crosswire_triggers"].append({
                 "agent": "the_journalist",
-                "name": "Jay Buffet (Cascade Multiplier)",
+                "name": "Beth Colbert (Cascade Multiplier)",
                 "trigger": "Carson regulatory probe leaked to press",
                 "action": "Tolerance −10 (Regulatory Leak → Media Amplification)",
                 "old_tolerance": old_tol,
@@ -1038,7 +1038,7 @@ def crosswire_sandbox_to_agents(
                 "title": "📰 REGULATORY LEAK — Press Cascade",
                 "narrative": (
                     f"Leaked subpoena documents from Commissioner Carson's investigation "
-                    f"reach Jay Buffet's desk. Buffet begins drafting a 3-part exposé. "
+                    f"reach Beth Colbert's desk. Colbert begins drafting a 3-part exposé. "
                     f"Journalist tolerance drops from {old_tol} → {journalist['tolerance']}. "
                     f"'When the regulator knocks, the press follows.'"
                 ),
@@ -1046,7 +1046,7 @@ def crosswire_sandbox_to_agents(
                 "severity": "warning",
             })
 
-    # ── Marcus Chen-Hoffmann: Negative EBITDA ────────────────
+    # ── Jay Buffet: Negative EBITDA ────────────────
     ebitda = sum(bu.get("revenue_base", 0) - bu.get("opex_base", 0) for bu in bus)
     investor = aa["agents"].get("the_institutional_investor", {})
     if (
@@ -1059,14 +1059,14 @@ def crosswire_sandbox_to_agents(
         gs["corporate_treasury"] = round(gs.get("corporate_treasury", 0) - treasury_hit, 2)
         diag["agent_crosswire_triggers"].append({
             "agent": "the_institutional_investor",
-            "name": "Marcus Chen-Hoffmann",
+            "name": "Jay Buffet",
             "trigger": f"EBITDA negative (${ebitda:,.0f})",
             "action": "Divestment fire sale — 8% treasury hit",
             "treasury_hit": treasury_hit,
             "new_tolerance": investor["tolerance"],
         })
         events.setdefault("custom_black_swans", []).append({
-            "title": "📉 DIVESTMENT FIRE SALE — Marcus Chen-Hoffmann",
+            "title": "📉 DIVESTMENT FIRE SALE — Jay Buffet",
             "narrative": (
                 f"Nordic Pension Alliance triggers full divestment. "
                 f"'EBITDA is negative (${ebitda:,.0f}). We can no longer "

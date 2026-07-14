@@ -1064,7 +1064,7 @@ def run_new_engines(
                     extra["regulatory_sandbox"] = sandbox_diag
 
             # Phase 3: Agent cross-wiring — check if sandbox shocks
-            # push Eleanor Carson or Marcus Chen-Hoffmann past thresholds
+            # push Carson or Jay Buffet past thresholds
             if sandbox.get("sandbox_mode") and _toggles.get("npc_stakeholders_enabled", True):
                 agent_diag = crosswire_sandbox_to_agents(
                     sandbox, global_state, bu_states, events, round_number
