@@ -428,9 +428,13 @@ input[type='range'].terminalSlider::-moz-range-thumb {
     font-size: 0.6rem;
 }
 
-/* Timeline visualiser card */
+/* Timeline visualiser card — hugs the diagram instead of stretching to fill
+   the whole right panel (was flex:1, which produced a huge mostly-empty box). */
 .timelineCard {
-    flex: 1;
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
     border: 1px solid rgba(255, 255, 255, 0.04);
     border-radius: var(--radius-md, 10px);
     background: var(--bg-card, #161e2e);
@@ -450,8 +454,9 @@ input[type='range'].terminalSlider::-moz-range-thumb {
 
 .timelineSvg {
     width: 100%;
-    height: 100%;
-    min-height: 320px;
+    max-width: 1000px;
+    height: auto;
+    display: block;
 }
 
 /* ── Engine log readout (replaces terminal) ─────────────────── */

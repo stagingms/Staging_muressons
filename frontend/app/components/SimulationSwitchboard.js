@@ -31,7 +31,10 @@ const ADV_MODULES = [
 
 /* ─── SVG Timeline ──────────────────────────────────────────── */
 function TimelineSVG({ advanced, carbonFee, hostility, scope3 }) {
-    const W = 680, H = 310;
+    // Standard mode shows only the single horizontal path, so it uses a short
+    // viewBox; advanced mode keeps the taller canvas for the branch drop-down.
+    const W = 680;
+    const H = advanced ? 310 : 168;
     const pad = { x: 48, top: 36, bottom: 28 };
 
     /* Standard path — horizontal, evenly spaced */
