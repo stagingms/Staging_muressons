@@ -61,6 +61,7 @@ export const GOD_MODE_SIDEBAR = [
             { id: 'pillar_config',       label: 'Pillar Configurator',  icon: '🏛️', tooltip: 'Manage strategic pillar areas per industry vertical — add custom decision areas and override standard ones' },
             { id: 'archetype_editor',    label: 'Profile Archetypes',   icon: '🏆', tooltip: 'Define Year 5 outcome profiles based on Regenerative Multiple (M_R) thresholds' },
             { id: 'scorecard_evaluator', label: 'Scorecard Evaluator',  icon: '📊', tooltip: 'Interactive whiteboard for demonstrating the Triple Bottom Line scorecard weighting formula' },
+            { id: 'esg_weights',         label: 'ESG Profile Weights',  icon: '🎚️', tooltip: 'Tune the weight each performance signal carries in the five ESG Leadership Profile dimensions shown to players at game end. Sets the global assessment rubric.' },
             { id: 'regulatory_sandbox',  label: 'Regulatory Sandbox',   icon: '⚖️', tooltip: 'Inject Pigou taxes, Coase bargaining, and Ostrom governance instruments into live sessions to test systemic resilience' },
         ]
     },

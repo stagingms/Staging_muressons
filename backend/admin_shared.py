@@ -88,6 +88,8 @@ ROLE_ALLOWED_TABS = {
         "undo_round", "activity_log",
         # I2 (Workstream C): read-only effective-settings view over owned cohorts.
         "cohort_settings_view",
+        # ESG Leadership Profile rubric editor — lead facilitators & super admins.
+        "esg_weights",
     ],
     "super_admin": ["*"],  # All tabs
     # project_admin gets a FIXED set (not cumulative with facilitator tabs):
