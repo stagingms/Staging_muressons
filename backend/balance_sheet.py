@@ -47,6 +47,7 @@ Fixes applied (see balance_sheet_critique.md for full analysis):
 
 from __future__ import annotations
 from typing import Any
+import copy
 import math
 from config import (
     CONSTRAINT_MIN_LIQUIDITY_RATIO,
@@ -858,6 +859,13 @@ def process_balance_sheet_tick(
         bs["retained_earnings"] = round(bs["net_assets"] - fixed_equity, 2)
 
     # ── History ─────────────────────────────────────────────────────────────
+    # Summary figures (kept flat for backward compatibility) PLUS a deep-copied
+    # full line-item snapshot so a year-by-year Statement of Financial Position
+    # can reproduce every asset / liability / equity line per round — not just
+    # the totals. deepcopy is essential: the nested group dicts are mutated in
+    # place each round, so a shallow reference would make every historical entry
+    # show the final year's values. `full_statement` lets the UI detect snapshots
+    # that predate this change and fall back to the summary rows.
     bs["balance_sheet_history"].append({
         "round":              round_number,
         "total_assets":       bs["total_assets"],
@@ -871,6 +879,19 @@ def process_balance_sheet_tick(
         "retained_earnings":  bs["retained_earnings"],
         "ebitda":             true_ebitda,
         "balance_sheet_balanced": diagnostics["balance_sheet_balanced"],
+        # ── Full line-item snapshot ──
+        "full_statement":     True,
+        "tangible_assets":         copy.deepcopy(bs.get("tangible_assets", {})),
+        "intangible_assets":       copy.deepcopy(bs.get("intangible_assets", {})),
+        "current_assets":          copy.deepcopy(bs.get("current_assets", {})),
+        "non_current_liabilities": copy.deepcopy(bs.get("non_current_liabilities", {})),
+        "current_liabilities":     copy.deepcopy(bs.get("current_liabilities", {})),
+        "esg_capitals":            copy.deepcopy(bs.get("esg_capitals", {})),
+        "share_capital":           bs.get("share_capital", 0),
+        "other_reserves":          bs.get("other_reserves", 0),
+        "net_debt_to_ebitda":      bs.get("net_debt_to_ebitda"),
+        "liquidity_ratio":         bs.get("liquidity_ratio"),
+        "stranded_asset_exposure": bs.get("stranded_asset_exposure"),
     })
 
     return bs, diagnostics

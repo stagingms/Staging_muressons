@@ -1080,6 +1080,165 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                                     {covenantLabels[covenantStatus] || covenantStatus}
                                 </span>
                             </div>
+
+                            {/* ──────── Year-by-Year (full-period) Statement ──────── */}
+                            {(() => {
+                                const history = (balanceSheet.balance_sheet_history || []).filter(Boolean);
+                                if (history.length === 0) return null;
+                                const sumVals = (o) => Object.values(o || {}).reduce((a, b) => a + (Number(b) || 0), 0);
+                                const anyFull = history.some(h => h.full_statement);
+
+                                // Columns are YEARS, not rounds. Two rounds make a year (each round is
+                                // a half-year: H1 = odd round, H2 = even round). A balance sheet is a
+                                // point-in-time position, so each year column shows that year's CLOSING
+                                // position — the latest round in the year (H2 where present, else H1).
+                                const byYear = new Map();
+                                for (const h of history) {
+                                    const yr = Math.max(1, Math.ceil((Number(h.round) || 1) / 2));
+                                    const prev = byYear.get(yr);
+                                    if (!prev || (Number(h.round) || 0) > (Number(prev.round) || 0)) byYear.set(yr, h);
+                                }
+                                const yearCols = [...byYear.entries()]
+                                    .sort((a, b) => a[0] - b[0])
+                                    .map(([year, snap]) => ({
+                                        year,
+                                        round: snap.round,
+                                        half: (Number(snap.round) % 2 === 1) ? 'H1' : 'H2',
+                                        snap,
+                                    }));
+
+                                // Shared row spec — drives both the on-screen table and the CSV export.
+                                const ROWS = [
+                                    { section: 'Non-Current Assets' },
+                                    { label: 'Property, Plant & Equipment', get: s => s.tangible_assets?.property_plant_equipment },
+                                    { label: 'Right-of-Use Assets (IFRS 16)', get: s => s.tangible_assets?.right_of_use_assets },
+                                    { label: 'Inventory', get: s => s.tangible_assets?.inventory },
+                                    { label: 'Total Tangible', total: true, get: s => s.tangible_assets ? sumVals(s.tangible_assets) : null },
+                                    { section: 'Intangible Assets' },
+                                    { label: 'Brand Value', get: s => s.intangible_assets?.brand_value },
+                                    { label: 'Intellectual Property', get: s => s.intangible_assets?.intellectual_property },
+                                    { label: 'Goodwill', get: s => s.intangible_assets?.goodwill },
+                                    { label: 'Total Intangible', total: true, get: s => s.intangible_assets ? sumVals(s.intangible_assets) : null },
+                                    { section: 'Current Assets' },
+                                    { label: 'Cash & Equivalents', get: s => s.current_assets?.cash_and_equivalents },
+                                    { label: 'Trade Receivables', get: s => s.current_assets?.trade_receivables },
+                                    { label: 'Prepayments', get: s => s.current_assets?.prepayments },
+                                    { label: 'Total Current', total: true, get: s => s.current_assets ? sumVals(s.current_assets) : null },
+                                    { label: 'TOTAL ASSETS', grand: true, get: s => s.total_assets },
+                                    { section: 'Non-Current Liabilities' },
+                                    { label: 'Revolving Credit Facility', get: s => s.non_current_liabilities?.revolving_credit_facility },
+                                    { label: 'Green Bonds', get: s => s.non_current_liabilities?.green_bonds_outstanding },
+                                    { label: 'Environmental Provisions', get: s => s.non_current_liabilities?.environmental_provisions },
+                                    { label: 'Decommissioning', get: s => s.non_current_liabilities?.decommissioning_obligations },
+                                    { label: 'Lease Liabilities (IFRS 16)', get: s => s.non_current_liabilities?.lease_liabilities },
+                                    { label: 'Total Non-Current', total: true, get: s => s.non_current_liabilities ? sumVals(s.non_current_liabilities) : null },
+                                    { section: 'Current Liabilities' },
+                                    { label: 'Trade Payables', get: s => s.current_liabilities?.trade_payables },
+                                    { label: 'Tax Provisions', get: s => s.current_liabilities?.tax_provisions },
+                                    { label: 'Accrued Remediation', get: s => s.current_liabilities?.accrued_remediation },
+                                    { label: 'Short-Term Debt', get: s => s.current_liabilities?.short_term_debt },
+                                    { label: 'Total Current', total: true, get: s => s.current_liabilities ? sumVals(s.current_liabilities) : null },
+                                    { label: 'TOTAL LIABILITIES', grand: true, get: s => s.total_liabilities },
+                                    { section: "Shareholders' Equity" },
+                                    { label: 'Share Capital', get: s => s.share_capital },
+                                    { label: 'Retained Earnings', get: s => s.retained_earnings },
+                                    { label: 'Other Reserves', get: s => s.other_reserves },
+                                    { label: 'TOTAL EQUITY', grand: true, get: s => (Number(s.share_capital) || 0) + (Number(s.retained_earnings) || 0) + (Number(s.other_reserves) || 0) },
+                                    { section: 'Key Figures & Ratios' },
+                                    { label: 'Net Assets', get: s => s.net_assets },
+                                    { label: 'EBITDA', get: s => s.ebitda },
+                                    { label: 'Net Income', get: s => s.net_income },
+                                    { label: 'D/E Ratio', kind: 'ratio', get: s => s.d_e_ratio },
+                                    { label: 'ND/EBITDA', kind: 'ratio', get: s => s.net_debt_to_ebitda },
+                                    { label: 'Covenant', kind: 'text', get: s => s.covenant_status },
+                                ];
+
+                                const cellText = (row, s) => {
+                                    const v = row.get(s);
+                                    if (v == null || (typeof v === 'number' && Number.isNaN(v))) return '—';
+                                    if (row.kind === 'ratio') return `${Number(v).toFixed(2)}×`;
+                                    if (row.kind === 'text') return covenantLabels[v] || String(v);
+                                    return fmtK(v);
+                                };
+
+                                const downloadCSV = () => {
+                                    const periods = yearCols.map(c => `Year ${c.year} (year-end, R${c.round})`);
+                                    const esc = (x) => `"${String(x).replace(/"/g, '""')}"`;
+                                    const lines = [];
+                                    lines.push(esc('Muressons — Statement of Financial Position (Year-by-Year, full period)'));
+                                    lines.push(esc('Each year = 2 rounds (each round a half-year); columns show the year-end closing position.'));
+                                    lines.push(['', ...periods].map(esc).join(','));
+                                    for (const row of ROWS) {
+                                        if (row.section) { lines.push(esc(row.section)); continue; }
+                                        const cells = yearCols.map(c => {
+                                            const v = row.get(c.snap);
+                                            if (v == null) return '';
+                                            if (row.kind === 'text') return esc(v);
+                                            return Number(v);
+                                        });
+                                        lines.push([esc(row.label), ...cells].join(','));
+                                    }
+                                    const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url; a.download = 'muressons-financial-position-by-year.csv';
+                                    document.body.appendChild(a); a.click(); a.remove();
+                                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                                };
+
+                                return (
+                                    <div style={{ marginTop: 28 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 6 }}>
+                                            <h2 className={styles.sectionTitle} style={{ margin: 0 }}>🗓️ Year-by-Year Statement — Full Period</h2>
+                                            <button
+                                                onClick={downloadCSV}
+                                                style={{
+                                                    padding: '8px 16px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.78rem',
+                                                    border: '1px solid rgba(56,189,248,0.4)', background: 'rgba(56,189,248,0.12)', color: '#7dd3fc',
+                                                }}
+                                            >⬇️ Download (.csv)</button>
+                                        </div>
+                                        <p style={{ color: '#64748b', fontSize: '0.78rem', marginBottom: '1rem' }}>
+                                            Statement of Financial Position year by year — each year is 2 rounds (each round a half-year); every column shows that year’s year-end closing position.
+                                            {!anyFull && ' (This run predates full line-item history, so only the summary rows are available per year.)'}
+                                        </p>
+                                        <div style={{ overflowX: 'auto', border: '1px solid rgba(148,163,184,0.12)', borderRadius: 10 }}>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.74rem', minWidth: 520 }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ textAlign: 'left', padding: '8px 12px', position: 'sticky', left: 0, background: '#0f172a', color: '#94a3b8', fontWeight: 700, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Line Item</th>
+                                                        {yearCols.map((c, i) => (
+                                                            <th key={i} title={`Year-end position (Round ${c.round}${c.half === 'H1' ? ', H1 — year still in progress' : ''})`} style={{ textAlign: 'right', padding: '8px 12px', color: i === yearCols.length - 1 ? '#7dd3fc' : '#94a3b8', fontWeight: 700, fontSize: '0.7rem', fontFamily: "'JetBrains Mono', monospace" }}>
+                                                                Year {c.year}{i === yearCols.length - 1 ? ' ·terminal' : ''}
+                                                            </th>
+                                                        ))}
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {ROWS.map((row, ri) => row.section ? (
+                                                        <tr key={ri}>
+                                                            <td colSpan={yearCols.length + 1} style={{ padding: '10px 12px 4px', color: '#64748b', fontWeight: 800, fontSize: '0.64rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{row.section}</td>
+                                                        </tr>
+                                                    ) : (
+                                                        <tr key={ri} style={{ borderTop: (row.total || row.grand) ? '1px solid rgba(148,163,184,0.15)' : 'none' }}>
+                                                            <td style={{ padding: '4px 12px', position: 'sticky', left: 0, background: '#0f172a', color: row.grand ? '#38bdf8' : row.total ? '#e2e8f0' : '#94a3b8', fontWeight: (row.total || row.grand) ? 800 : 500, paddingLeft: (row.total || row.grand) ? 12 : 22 }}>{row.label}</td>
+                                                            {yearCols.map((c, ci) => {
+                                                                const raw = row.get(c.snap);
+                                                                const neg = typeof raw === 'number' && raw < 0;
+                                                                return (
+                                                                    <td key={ci} style={{ textAlign: 'right', padding: '4px 12px', fontFamily: "'JetBrains Mono', monospace", fontWeight: (row.total || row.grand) ? 800 : 600, color: neg ? '#f87171' : row.grand ? '#38bdf8' : '#cbd5e1' }}>
+                                                                        {cellText(row, c.snap)}
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </section>
                     );
                 })()}
