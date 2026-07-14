@@ -481,6 +481,12 @@ export default function CockpitPage() {
   // flip null→BU under an open exercise, which re-runs the config fetch and
   // resets every quadrant — the "exercise repeats twice" bug. Gate on this.
   const [r2BuLoaded, setR2BuLoaded] = useState(false);
+  // The round we've already resolved the BU selection for. Once resolved,
+  // r2BuLoaded must stay TRUE — otherwise a transient re-run of the effect below
+  // (e.g. roundNumber flickering during a post-submit dashboard refresh) would
+  // flip it false→true, unmounting and remounting the open matrix and restarting
+  // the whole assessment: the real "double materiality loops twice" cause.
+  const r2LoadedRoundRef = useRef(null);
   const [csrdDone, setCsrdDone] = useState(false);
 
   // Detect paradigm + assigned_bu from session (poll every 8s for facilitator changes)
@@ -587,11 +593,14 @@ export default function CockpitPage() {
     const willFetch = (decisionParadigm === 'multi_toggles' || decisionParadigm === 'brsr_ngrbc')
       && roundNumber === 2 && sim.sessionId && sim.sessionId !== 'demo';
     if (!willFetch) { setR2BuLoaded(true); return; }  // nothing to wait for → never block the matrix mount
+    // Already resolved for this round → keep the matrix mounted; never flip back
+    // to the loading state (which would remount and restart the exercise).
+    if (r2LoadedRoundRef.current === roundNumber) { setR2BuLoaded(true); return; }
     setR2BuLoaded(false);
     fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/${sim.sessionId}/r2-bu-selection`)
       .then(r => r.ok ? r.json() : null)
-      .then(data => { if (data) setR2BuSelection(data); setR2BuLoaded(true); })
-      .catch(() => setR2BuLoaded(true));  // settle even on failure — buId falls back to generic config
+      .then(data => { if (data) setR2BuSelection(data); r2LoadedRoundRef.current = roundNumber; setR2BuLoaded(true); })
+      .catch(() => { r2LoadedRoundRef.current = roundNumber; setR2BuLoaded(true); });
   }, [decisionParadigm, roundNumber, sim.sessionId]);
 
   // Check for new resources on round change
