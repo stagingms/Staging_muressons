@@ -1892,8 +1892,12 @@ export default function ExecutiveCockpit({
               </div>
             </div>
 
-            {/* W-C (W3): year-boundary artifact — optional, never gates advance */}
-            {roundNumber % 2 === 0 && roundNumber < 10 && (
+            {/* W-C (W3): year-boundary artifact — optional, never gates advance.
+                Shows at every year-end (even round), Year 1–5 inclusive. Year 5
+                (R10) also renders the terminal FrontPage/GameOverSummary; this
+                stays an independent, dismissible OverlayHost button and does not
+                gate the advance path. */}
+            {roundNumber % 2 === 0 && (
               <div style={{ textAlign: 'center', marginBottom: 14 }}>
                 <button
                   onClick={() => setShowAnnualReport(true)}
