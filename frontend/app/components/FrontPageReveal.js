@@ -11,12 +11,85 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
  * Props: sessionId, data (the game-over data object), cohortName.
  */
 
-// Bands keyed to the M_R archetype thresholds in terminal_valuation.py.
-function bandFor(mr) {
+// Band selection. A newspaper reports the SHARE PRICE, so the headline must
+// reflect the equity bridge (EV − net debt), not the Regenerative Multiple in
+// isolation. The backend's archetype solvency-gate keys off DMAV (treasury ×
+// M_R − NCD), which can stay positive while net debt has already wiped out
+// equity — that is exactly how a $35.6M "de-risked" splash ended up sitting on
+// top of a −$4.99 share price. Here we trust the equity truth first, then the
+// backend archetype, then fall back to the raw M_R ladder.
+const PROFILE_BAND = {
+  regenerative_titan:  'titan',
+  derisked_safe_haven: 'safe',
+  fragile_giant:       'fragile',
+  hollow_idealist:     'insolvent',
+  stranded_relic:      'relic',
+};
+
+function mrBand(mr) {
   if (mr >= 1.8) return 'titan';
   if (mr >= 1.2) return 'safe';
   if (mr >= 0.8) return 'fragile';
   return 'relic';
+}
+
+function bandFor(mr, d = {}) {
+  const ev    = Number(d.terminal_value) || 0;
+  const price = d.price_per_share;
+  const eq    = d.equity_value;
+  const equityWiped = (price != null && price < 0) || (eq != null && eq <= 0);
+
+  // Start from the backend's real archetype where we have it.
+  let band = PROFILE_BAND[d.profile] || mrBand(mr);
+
+  // Equity-truth overrides — the front page cannot flatter an outcome the
+  // share price contradicts.
+  if (ev <= 0) return 'relic';                       // enterprise value itself gone
+  if (equityWiped && band !== 'relic') return 'insolvent'; // EV positive, owners wiped out
+  return band;
+}
+
+/**
+ * Derive one major achievement and one major misstep from the terminal state,
+ * highest-signal first. Everything is read from the final-report payload the
+ * scorecard already holds — no new data plumbing, nothing invented.
+ */
+function deriveLedger(d = {}) {
+  const mr      = Number(d.regenerative_multiple) || 0;
+  const price   = d.price_per_share;
+  const eq      = d.equity_value;
+  const ev      = Number(d.terminal_value) || 0;
+  const netDebt = d.net_debt;
+  const rep     = Number(d.group_reputation);
+  const jt      = d.just_transition_passed;
+  const bd      = d.mr_breakdown || {};
+  const has     = (k) => Math.abs(Number(bd[k]) || 0) > 0.0001;
+  const equityWiped = (price != null && price < 0) || (eq != null && eq <= 0);
+
+  let achievement = null;
+  if (mr >= 1.8)                      achievement = `A ${mr.toFixed(2)}× Regenerative Multiple — ESG performance compounded straight into enterprise value.`;
+  else if (has('climate_leader'))    achievement = `Decisive decarbonisation earned a climate-leadership premium at valuation.`;
+  else if (has('social_regeneration')) achievement = `A workforce-first strategy earned a social-regeneration premium on the multiple.`;
+  else if (has('resilience_bonus'))  achievement = `Early resilience investments carried the group through the crisis rounds intact.`;
+  else if (has('truth_premium'))     achievement = `Radical transparency earned a "truth premium" with the market.`;
+  else if (jt === true || has('just_transition_bonus') || has('community_champion_bonus'))
+                                     achievement = `Delivered a credible just transition, keeping workforce and community onside.`;
+  else if (price != null && price >= 50) achievement = `Shareholders rewarded with a $${Number(price).toFixed(2)} share price on a well-capitalised balance sheet.`;
+  else if (Number.isFinite(rep) && rep >= 65) achievement = `Group reputation closed strong at ${rep.toFixed(0)}/100.`;
+  else if (mr >= 1.2)                achievement = `Held a de-risked balance sheet with limited residual climate exposure.`;
+
+  let misstep = null;
+  if (ev <= 0)                       misstep = `Natural Capital Debt consumed enterprise value entirely — the group ended value-destroyed.`;
+  else if (equityWiped)              misstep = `Net debt overwhelmed equity: shareholders were effectively wiped out despite a positive enterprise value.`;
+  else if (has('social_collapse'))   misstep = `A collapse in social licence triggered a punitive valuation discount.`;
+  else if (has('instability_discount')) misstep = `Governance and social instability forced a 40% instability discount on the multiple.`;
+  else if (has('stranded_asset_penalty')) misstep = `High-carbon assets stranded, dragging the multiple toward breakeven.`;
+  else if (netDebt != null && ev > 0 && netDebt > ev) misstep = `The group leaned heavily on debt — net debt now exceeds enterprise value.`;
+  else if (Number.isFinite(rep) && rep < 40) misstep = `Reputation ended weak at ${rep.toFixed(0)}/100, capping pricing power.`;
+  else if (mr < 1.2)                misstep = `Deferred green investment left upside on the table — the multiple never reached leadership territory.`;
+  else if (jt === false)            misstep = `The transition left parts of the workforce behind, capping the social multiplier.`;
+
+  return { achievement, misstep };
 }
 
 const TEMPLATES = {
@@ -42,6 +115,18 @@ const TEMPLATES = {
       `Enterprise value of $${t.tvM}M on a ${t.mr}× Regenerative Multiple`,
       `Share price steadies at $${t.price}; balance sheet carries limited climate risk`,
       `Commentators note upside left on the table from deferred green investment`,
+    ],
+  },
+  insolvent: {
+    tone: '#a855f7',
+    headline: (t) => `MURESSONS' SHAREHOLDERS WIPED OUT AS DEBT ENGULFS BALANCE SHEET`,
+    subhead: (t) => `A headline $${t.tvM}M enterprise value flatters a group whose owners are left with nothing once ${t.netDebtM !== '—' ? `$${t.netDebtM}M of net debt` : 'net debt'} is settled`,
+    quote: `"Impressive at the top line, hollow underneath — the equity was gone long before the valuation."`,
+    byline: 'Markets Desk',
+    bullets: (t) => [
+      `Enterprise value of $${t.tvM}M is more than consumed by the group's net debt`,
+      `Share price collapses to $${t.price}${t.eqM !== '—' ? `; equity value of $${t.eqM}M leaves owners underwater` : '; equity holders left underwater'}`,
+      `A ${t.mr}× Regenerative Multiple could not offset a balance sheet loaded with liabilities`,
     ],
   },
   fragile: {
@@ -103,14 +188,19 @@ export default function FrontPageReveal({ sessionId, data = {}, cohortName = '' 
 
   const t = useMemo(() => {
     const mr = Number(data.regenerative_multiple) || 0;
+    const ledger = deriveLedger(data);
     return {
       mr: mr.toFixed(2),
       tvM: ((Number(data.terminal_value) || 0) / 1_000_000).toFixed(1),
       price: data.price_per_share != null ? Number(data.price_per_share).toFixed(2) : '—',
+      eqM: data.equity_value != null ? (Number(data.equity_value) / 1_000_000).toFixed(1) : '—',
+      netDebtM: data.net_debt != null ? (Number(data.net_debt) / 1_000_000).toFixed(1) : '—',
+      achievement: ledger.achievement,
+      misstep: ledger.misstep,
     };
   }, [data]);
 
-  const band = bandFor(Number(data.regenerative_multiple) || 0);
+  const band = bandFor(Number(data.regenerative_multiple) || 0, data);
   const baseTpl = TEMPLATES[band];
 
   // WOW-5E: Merge LLM copy into template (override headline/subhead/quote only)
@@ -127,7 +217,7 @@ export default function FrontPageReveal({ sessionId, data = {}, cohortName = '' 
   }, [baseTpl, llmCopy]);
 
   const download = useCallback(() => {
-    const W = 1200, H = 900;
+    const W = 1200;
     const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const bullets = tpl.bullets(t);
     const wrap = (s, n) => {
@@ -136,6 +226,21 @@ export default function FrontPageReveal({ sessionId, data = {}, cohortName = '' 
       if (cur.trim()) lines.push(cur.trim()); return lines;
     };
     const headLines = wrap(tpl.headline(t), 26);
+
+    // Achievement / misstep ledger, wrapped and stacked below the pull-quote.
+    let ly = 636 + headLines.length * 60;
+    const ledgerSvg = [];
+    const pushLedger = (label, text, color) => {
+      wrap(`${label}  ${text}`, 96).forEach((l) => {
+        ledgerSvg.push(`<text x="60" y="${ly}" font-family="Georgia,serif" font-size="18" fill="${color}">${esc(l)}</text>`);
+        ly += 25;
+      });
+      ly += 8;
+    };
+    if (t.achievement) pushLedger('▲ Major achievement:', t.achievement, '#0a7d3c');
+    if (t.misstep)     pushLedger('▼ Major misstep:', t.misstep, '#b42318');
+    const H = Math.max(900, ly + 40);
+
     const svg = `
 <svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
   <rect width="${W}" height="${H}" fill="#f4f1ea"/>
@@ -152,6 +257,7 @@ export default function FrontPageReveal({ sessionId, data = {}, cohortName = '' 
   <rect x="60" y="${500 + headLines.length * 60}" width="${W - 120}" height="90" fill="#ece7dc" stroke="${esc(tpl.tone)}" stroke-width="2"/>
   <text x="80" y="${540 + headLines.length * 60}" font-family="Georgia,serif" font-size="24" font-style="italic" fill="#333">${esc(tpl.quote)}</text>
   <text x="80" y="${572 + headLines.length * 60}" font-family="Georgia,serif" font-size="16" fill="#777">— Independent market analyst</text>
+  ${ledgerSvg.join('')}
 </svg>`.trim();
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
@@ -189,6 +295,12 @@ export default function FrontPageReveal({ sessionId, data = {}, cohortName = '' 
         <ul style={{ margin: 0, paddingLeft: 20, fontSize: '0.95rem', color: '#222', lineHeight: 1.6 }}>
           {tpl.bullets(t).map((b, i) => <li key={i}>{b}</li>)}
         </ul>
+        {(t.achievement || t.misstep) && (
+          <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px solid #d8d2c4', display: 'flex', flexDirection: 'column', gap: 6, fontSize: '0.92rem', color: '#1a1a1a', lineHeight: 1.5 }}>
+            {t.achievement && <div><strong style={{ color: '#0a7d3c' }}>▲ Major achievement:</strong> {t.achievement}</div>}
+            {t.misstep && <div><strong style={{ color: '#b42318' }}>▼ Major misstep:</strong> {t.misstep}</div>}
+          </div>
+        )}
         <div style={{ marginTop: 14, padding: '12px 16px', background: '#ece7dc', borderLeft: `3px solid ${tpl.tone}`, fontStyle: 'italic', fontSize: '0.95rem', color: '#333' }}>
           {tpl.quote}<div style={{ fontSize: '0.75rem', color: '#777', marginTop: 4 }}>— Independent market analyst</div>
         </div>
