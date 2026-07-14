@@ -134,6 +134,11 @@ class GlobalStateOut(BaseModel):
     # the client badge (gated on cohort_team_count > 0) stays hidden.
     team_commits_this_round: Optional[int] = None
     cohort_team_count: Optional[int] = None
+    # Free-advance auto-release: ISO deadline after which the "waiting for other
+    # teams" barrier releases (stragglers auto-committed), and a live flag the
+    # cockpit reads to release the barrier. None/False = legacy wait-for-all.
+    cohort_advance_deadline: Optional[str] = None
+    cohort_advance_unblocked: Optional[bool] = False
     stakeholder_map_completed: Optional[bool] = False
     learning_bonuses_awarded: Optional[dict] = {}
     saved_allocations: Optional[dict] = {}

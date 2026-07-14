@@ -2701,6 +2701,16 @@ class RoundPacingRequest(BaseModel):
     interval_seconds: int = 300     # WOW-11: 180-1800 (3-30 minutes). Clamped if out of range.
     scheduled_at: str | None = None # ISO datetime for single scheduled unlock
     schedule: list[str | None] = [] # ISO datetimes for each round (index 0 = round 1)
+    # Free-advance auto-release timeout (seconds). 0 = wait indefinitely for all
+    # teams (legacy). >0 = release the "waiting for other teams" barrier and
+    # auto-commit stragglers this many seconds after a round opens for the cohort.
+    free_advance_timeout_seconds: int = 0
+
+    @validator("free_advance_timeout_seconds")
+    def clamp_fa_timeout(cls, v):
+        if not v or v <= 0:
+            return 0
+        return max(30, min(7200, int(v)))  # 30s – 2h
 
     @validator("interval_seconds")
     def clamp_interval(cls, v):
@@ -2951,6 +2961,31 @@ async def get_pacing(session_id: str):
         "interval_seconds": pacing["interval_seconds"],
         "next_unlock_at": pacing.get("next_unlock_at"),
         "schedule": pacing.get("schedule", []),
+        "free_advance_timeout_seconds": pacing.get("free_advance_timeout_seconds", 0),
+    }
+
+
+@admin_router.post("/sessions/{session_id}/force-advance", summary="Force-advance the cohort now")
+async def force_advance_cohort(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
+    """Facilitator 'Force Advance Now': release the free-advance barrier for the
+    whole cohort immediately, regardless of the timer or how many teams have
+    committed. Any team still behind is auto-committed with its saved decisions
+    on the next dashboard poll (within ~1-2s), so the cohort advances together.
+    Sets a one-shot flag on the cohort's pacing; the commit itself runs through
+    the normal engine path in the player router."""
+    await _assert_session_ownership(request, session_id)
+    # Pacing is keyed by the cohort id; resolve it whether called with the cohort
+    # id or one of its team sub-session ids.
+    info = await db.get_session_info(session_id)
+    cohort_id = (info or {}).get("parent_cohort_id") or session_id
+    pacing = _get_pacing(cohort_id)
+    pacing["_fa_force"] = True
+    pacing["_fa_round"] = None
+    pacing["_fa_deadline_at"] = None
+    return {
+        "status": "ok",
+        "cohort": cohort_id,
+        "message": "Barrier releasing — any uncommitted team will be auto-committed from its saved decisions.",
     }
 
 
@@ -2972,6 +3007,11 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
 
     pacing["mode"] = body.mode
     pacing["interval_seconds"] = body.interval_seconds
+    # Free-advance auto-release timeout (applies only in "free" mode). Reset the
+    # live deadline so it re-arms cleanly against the current round.
+    pacing["free_advance_timeout_seconds"] = int(getattr(body, "free_advance_timeout_seconds", 0) or 0)
+    pacing["_fa_round"] = None
+    pacing["_fa_deadline_at"] = None
 
     if body.mode == "free":
         pacing["unlocked_round"] = 999

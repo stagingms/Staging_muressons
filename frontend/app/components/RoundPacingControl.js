@@ -57,6 +57,9 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
     const [sessionId, setSessionId] = useState('');
     const [pacing, setPacing] = useState(null);
     const [mode, setMode] = useState('free');
+    // Free-advance auto-release timeout (minutes in the UI, seconds on the wire).
+    // 0 = wait indefinitely for all teams (legacy behaviour).
+    const [faTimeoutMin, setFaTimeoutMin] = useState(0);
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
     const [statusOk, setStatusOk] = useState(true);
@@ -104,6 +107,7 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
                 const data = await res.json();
                 setPacing(data);
                 setMode(data.mode);
+                setFaTimeoutMin(Math.round((data.free_advance_timeout_seconds || 0) / 60));
                 if (Array.isArray(data.schedule) && data.schedule.length > 0) {
                     // Pad/trim to TOTAL_ROUNDS
                     const arr = [...data.schedule];
@@ -132,6 +136,9 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
             if (mode === 'timed') {
                 body.schedule = schedule;
                 body.interval_seconds = 0;
+            }
+            if (mode === 'free') {
+                body.free_advance_timeout_seconds = Math.max(0, Math.round((Number(faTimeoutMin) || 0) * 60));
             }
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing`, {
                 method: 'POST',
@@ -166,6 +173,22 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
             } else {
                 flash('❌ Unlock failed', false);
             }
+        } catch {
+            flash('❌ Connection error', false);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const forceAdvance = async () => {
+        if (!sessionId) return;
+        if (!window.confirm('Force-advance this cohort now? Any team that hasn’t committed will be auto-committed from its saved decisions.')) return;
+        setLoading(true);
+        try {
+            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/force-advance`, {
+                method: 'POST', credentials: 'include',
+            });
+            flash(res.ok ? '✅ Advancing — stragglers auto-committed' : '❌ Force-advance failed', res.ok);
         } catch {
             flash('❌ Connection error', false);
         } finally {
@@ -265,6 +288,41 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
                     </button>
                 ))}
             </div>
+
+            {/* Free mode: auto-release timeout + manual force-advance */}
+            {mode === 'free' && (
+                <div style={{ marginTop: 12, padding: '12px 14px', borderRadius: 10, background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)' }}>
+                    <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#c7d2fe', marginBottom: 4 }}>Auto-advance when everyone commits — or after a timeout</div>
+                    <div style={{ fontSize: '0.72rem', color: '#94a3b8', marginBottom: 10 }}>
+                        A round advances as soon as all teams commit. Set a per-round time limit so one absent
+                        team can’t stall the cohort — when it lapses, any team that hasn’t committed is
+                        auto-committed from its saved decisions. 0 = wait indefinitely.
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <label style={{ fontSize: '0.72rem', color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 6 }}>
+                            Per-round limit
+                            <input
+                                type="number" min={0} max={120} step={1} value={faTimeoutMin}
+                                onChange={e => setFaTimeoutMin(e.target.value)}
+                                style={{ width: 68, padding: '4px 8px', borderRadius: 6, border: '1px solid rgba(148,163,184,0.3)', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontFamily: "'JetBrains Mono', monospace" }}
+                            />
+                            min
+                        </label>
+                        <span style={{ fontSize: '0.68rem', color: '#64748b' }}>
+                            {Number(faTimeoutMin) > 0 ? `≈ ${Math.round(Number(faTimeoutMin) * 60)}s` : 'off — waits for all teams'}
+                        </span>
+                        <button
+                            onClick={forceAdvance}
+                            disabled={loading || !sessionId}
+                            style={{
+                                marginLeft: 'auto', padding: '6px 14px', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: '0.74rem',
+                                border: '1px solid rgba(245,158,11,0.5)', background: 'rgba(245,158,11,0.14)', color: '#fbbf24',
+                                opacity: (loading || !sessionId) ? 0.5 : 1,
+                            }}
+                        >⏭️ Force Advance Now</button>
+                    </div>
+                </div>
+            )}
 
             {/* Scheduled mode: 10-round grid */}
             {mode === 'timed' && (

@@ -183,6 +183,161 @@ async def _cohort_commit_progress(session_info):
     return committed, len(siblings)
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  FREE-ADVANCE AUTO-RELEASE (facilitator timeout / force-advance)
+#
+#  In "free" pacing the cohort still holds a "waiting for other teams" barrier
+#  until every team commits — one absent team deadlocks everyone. When the
+#  facilitator sets free_advance_timeout_seconds (or presses Force Advance), the
+#  barrier releases after the deadline and any straggler is auto-committed using
+#  its saved decisions, so the whole cohort advances together and stays in sync.
+#  Everything below is a no-op unless a positive timeout / force flag is set, so
+#  solo play and legacy wait-for-all cohorts are completely unaffected.
+# ═══════════════════════════════════════════════════════════════════════════
+
+async def _run_commit_locked(session_id: str, body):
+    """Lock-safe internal commit (no SEC binding) — mirrors the commit_turn HTTP
+    wrapper so auto-commit / force-advance runs through the EXACT same engine
+    path a real player commit does. Returns the response, or None if a real
+    commit is already in flight (we defer to it)."""
+    commit_lock = _get_commit_lock(session_id)
+    if commit_lock.locked():
+        return None
+    await commit_lock.acquire()
+    advisory = None
+    try:
+        advisory = await db.acquire_advisory_lock(session_id)
+        if advisory is None:
+            return None
+        return await _commit_turn_impl(session_id, body, commit_lock)
+    finally:
+        if advisory is not None:
+            await db.release_advisory_lock(advisory, session_id)
+        if commit_lock.locked():
+            commit_lock.release()
+
+
+def _auto_commit_request(global_state: dict, bu_states: list, round_number: int):
+    """Build a CommitTurnRequest from a team's SAVED decisions (a near-no-op
+    roll-forward when nothing was saved). The engine recomputes investment_ratio
+    from capex/csf_pool, so we only need a valid capex (>= $1) per BU."""
+    from models import CommitTurnRequest, BUDecision
+    saved = (global_state or {}).get("saved_allocations") or {}
+    choice = (global_state or {}).get("saved_decision_choice") or "option_b"
+    treasury = (global_state or {}).get("corporate_treasury", 0) or 0
+    csf_pool = max(treasury * 0.20, 5_000_000)
+    decisions = []
+    for bu in (bu_states or []):
+        bu_id = bu.get("bu_id")
+        if not bu_id:
+            continue
+        alloc = saved.get(bu_id, 0) or 0
+        capex = max(1.0, float(alloc))
+        inv = min(capex / csf_pool, 1.0) if csf_pool > 0 else 0.0
+        decisions.append(BUDecision(
+            bu_id=bu_id, investment_ratio=inv, capex_allocated=capex,
+            choice_selected=choice, decision_node_id=f"round_{round_number}_{bu_id}",
+            time_to_decision_seconds=0, team_consensus="majority", pillar_decisions=None,
+        ))
+    return CommitTurnRequest(
+        dividends_paid=0.0, crisis_severity=0.0, imitation_decay_rate=0.05,
+        decisions=decisions, emergency_credit_used=False,
+    )
+
+
+async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int:
+    """Auto-commit every team in the cohort still behind target_round using its
+    saved decisions. Best-effort and idempotent: a team already at/after the
+    target, or one mid-commit, is skipped; a lost race is turned into a harmless
+    409 by the uq_session_round guard. Returns the count advanced."""
+    siblings = _session_players.get(parent_cohort_id, [])
+    advanced = 0
+    for s in siblings:
+        sid = s.get("player_session_id")
+        if not sid:
+            continue
+        try:
+            latest = await db.fetch_latest_round(sid)
+            if latest is None or latest >= target_round:
+                continue
+            state = await db.fetch_latest_state(sid)
+            if not state:
+                continue
+            body = _auto_commit_request(state["global_state"], state["bu_states"], latest)
+            if await _run_commit_locked(sid, body) is not None:
+                advanced += 1
+        except Exception as exc:
+            print(f"[FREE-ADVANCE] auto-commit failed for {sid}: {exc}")
+    return advanced
+
+
+async def _cohort_advance_status(session_info, committed=None, teams=None):
+    """Compute the free-advance barrier state for a cohort sub-session and
+    ENFORCE the deadline (auto-commit stragglers once it lapses or a force flag
+    is set). Returns {deadline_at, unblocked, committed} or None for
+    solo/non-cohort. Safe to call on every dashboard read: it only writes when a
+    positive timeout has actually lapsed (or Force Advance was pressed)."""
+    from datetime import datetime, timezone, timedelta
+    from admin_shared import _get_pacing
+    parent = (session_info or {}).get("parent_cohort_id")
+    if not parent:
+        return None
+    if committed is None or teams is None:
+        committed, teams = await _cohort_commit_progress(session_info)
+    if teams is None:
+        return None
+
+    siblings = _session_players.get(parent, [])
+    rounds = []
+    for s in siblings:
+        sid = s.get("player_session_id")
+        if sid:
+            r = await db.fetch_latest_round(sid)
+            if r is not None:
+                rounds.append(r)
+    if not rounds:
+        return None
+    max_r, min_r = max(rounds), min(rounds)
+    in_sync = (min_r == max_r)
+
+    pacing = _get_pacing(parent)
+    timeout = int(pacing.get("free_advance_timeout_seconds", 0) or 0)
+    forced = bool(pacing.get("_fa_force"))
+    now = datetime.now(timezone.utc)
+    deadline_iso = None
+    unblocked = in_sync
+
+    if pacing.get("mode") == "free" and timeout > 0:
+        # Fixed per-round budget: arm the deadline when a round OPENS for the
+        # cohort (the active round = the slowest team's round, min_r). Arming at
+        # round-open — not at first-commit — means the countdown reflects the
+        # whole round's time budget, so the barrier that appears after the first
+        # commit shows the REMAINING time, not a fresh full clock.
+        if pacing.get("_fa_round") != min_r or not pacing.get("_fa_deadline_at"):
+            pacing["_fa_round"] = min_r
+            pacing["_fa_deadline_at"] = (now + timedelta(seconds=timeout)).isoformat()
+        deadline_iso = pacing["_fa_deadline_at"]
+        # Only the barrier (someone is behind) can be released by the timeout.
+        if not in_sync:
+            try:
+                if now >= datetime.fromisoformat(deadline_iso):
+                    unblocked = True
+            except Exception:
+                unblocked = True
+
+    if forced:
+        unblocked = True
+
+    if unblocked and not in_sync:
+        await _auto_commit_laggards(parent, max_r)
+        pacing["_fa_round"] = None
+        pacing["_fa_deadline_at"] = None
+        pacing["_fa_force"] = False
+        committed, teams = await _cohort_commit_progress(session_info)
+
+    return {"deadline_at": deadline_iso, "unblocked": bool(unblocked), "committed": committed, "teams": teams}
+
+
 @router.get("/public/sessions", summary="List active public sessions")
 async def get_active_sessions():
     """
@@ -1130,6 +1285,19 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
     if _teams is not None:
         latest["global_state"]["team_commits_this_round"] = _committed
         latest["global_state"]["cohort_team_count"] = _teams
+        # Free-advance auto-release: surface the deadline + release flag, and
+        # enforce the timeout (auto-commit stragglers) when it lapses. No-op
+        # unless the facilitator set a positive free_advance_timeout_seconds
+        # (or pressed Force Advance).
+        try:
+            _adv = await _cohort_advance_status(_si, _committed, _teams)
+            if _adv is not None:
+                latest["global_state"]["cohort_advance_deadline"] = _adv.get("deadline_at")
+                latest["global_state"]["cohort_advance_unblocked"] = _adv.get("unblocked", False)
+                if _adv.get("committed") is not None:
+                    latest["global_state"]["team_commits_this_round"] = _adv["committed"]
+        except Exception as _exc:
+            print(f"[FREE-ADVANCE] status/enforce failed: {_exc}")
 
     return DashboardResponse(
         session_id=session_id,

@@ -715,11 +715,25 @@ def _get_pacing(session_id: str) -> dict:
             "_timer_tasks": [],
             "_timer_task": None,
             "set_by": None,  # Track who set the pacing
+            # Free-advance auto-release: in "free" mode the cohort still waits for
+            # every team to commit before advancing. 0 = wait indefinitely (legacy
+            # behaviour). >0 = after this many seconds from when a round opens for
+            # the cohort, release the barrier and auto-commit any team that has not
+            # committed (using its saved decisions). Prevents one absent team from
+            # deadlocking everyone. Transient _fa_* fields track the live deadline.
+            "free_advance_timeout_seconds": 0,
+            "_fa_round": None,        # the cohort round the current deadline applies to
+            "_fa_deadline_at": None,  # ISO datetime the barrier auto-releases
+            "_fa_force": False,       # facilitator "Force Advance Now" one-shot flag
         }
     p = _round_pacing[session_id]
     p.setdefault("schedule", [])
     p.setdefault("_timer_tasks", [])
     p.setdefault("set_by", None)
+    p.setdefault("free_advance_timeout_seconds", 0)
+    p.setdefault("_fa_round", None)
+    p.setdefault("_fa_deadline_at", None)
+    p.setdefault("_fa_force", False)
     return p
 
 

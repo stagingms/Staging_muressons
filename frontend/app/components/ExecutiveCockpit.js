@@ -4004,7 +4004,18 @@ export default function ExecutiveCockpit({
                 const teamCount = globalState?.cohort_team_count || 0;
                 const commitsCount = globalState?.team_commits_this_round || 0;
                 const isMultiTeam = teamCount > 1;
-                const allCommitted = commitsCount >= teamCount;
+                // Free-advance auto-release: the barrier also lifts when the
+                // facilitator's timeout lapses or Force Advance is pressed
+                // (cohort_advance_unblocked), so one absent team can't deadlock
+                // everyone.
+                const unblocked = globalState?.cohort_advance_unblocked === true;
+                const allCommitted = commitsCount >= teamCount || unblocked;
+                const deadlineAt = globalState?.cohort_advance_deadline;
+                let secsLeft = null;
+                if (deadlineAt) {
+                  const ms = new Date(deadlineAt).getTime() - Date.now();
+                  secsLeft = ms > 0 ? Math.ceil(ms / 1000) : 0;
+                }
 
                 if (isMultiTeam && !allCommitted) {
                   return (
@@ -4017,7 +4028,10 @@ export default function ExecutiveCockpit({
                         Waiting for Other Teams
                       </div>
                       <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
-                        {commitsCount}/{teamCount} teams committed — cannot advance yet
+                        {commitsCount}/{teamCount} teams committed
+                        {secsLeft != null
+                          ? ` — auto-advances in ~${secsLeft}s`
+                          : ' — cannot advance yet'}
                       </div>
                     </div>
                   );
