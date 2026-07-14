@@ -62,7 +62,9 @@
 .root {
     display: grid;
     grid-template-columns: 320px 1fr;
-    min-height: 100%;
+    /* Hug content instead of stretching the bordered panels to fill the whole
+       (100vh) god-mode content area, which left a large framed empty region. */
+    align-content: start;
     background: var(--bg-body, #0a0e1a);
     font-family: var(--font-sans, 'DM Sans', -apple-system, sans-serif);
     color: var(--text-primary, #f1f5f9);
