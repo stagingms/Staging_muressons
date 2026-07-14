@@ -1769,18 +1769,31 @@ export default function CockpitPage() {
               onOpenAdvisor={() => setAiAdvisorOpen(true)}
               onClose={() => setIsMatrixOpen(false)}
               onSubmit={async (payload) => {
+                // Submit the matrix. IMPORTANT: once the POST succeeds the server has
+                // already allocated the budget and set csrd_completed, so completion
+                // must be locked in from the POST result ALONE. Previously
+                // setCsrdDone(true) ran only AFTER `await sim.fetchDashboard()`, inside
+                // the same try — so a transient failure of that follow-up refresh threw
+                // to the catch, surfaced a "Network error", and left csrdDone false even
+                // though the submission had succeeded. The player then re-did the whole
+                // assessment: the intermittent "double materiality repeats twice" bug.
+                let res;
                 try {
-                  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/materiality`, {
+                  res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/materiality`, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
                   });
-                  const data = await res.json();
-                  if (!res.ok) return { error: data.detail };
-                  if (sim.fetchDashboard) {
-                    await sim.fetchDashboard();
-                  }
-                  setCsrdDone(true);
-                  return { success: true, allocated_budget: data.allocated_budget };
-                } catch { return { error: 'Network error submitting matrix.' }; }
+                } catch {
+                  return { error: 'Network error submitting matrix. Please try again.' };
+                }
+                let data = {};
+                try { data = await res.json(); } catch { /* tolerate empty / non-JSON body */ }
+                if (!res.ok) return { error: data.detail || 'Submission failed. Please try again.' };
+
+                // Success is now committed server-side — record it before anything that
+                // can fail, so a flaky refresh can never trigger a re-do.
+                setCsrdDone(true);
+                try { if (sim.fetchDashboard) await sim.fetchDashboard(); } catch { /* best-effort KPI refresh */ }
+                return { success: true, allocated_budget: data.allocated_budget };
               }}
             />
             )}
