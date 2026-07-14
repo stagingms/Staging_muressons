@@ -4265,6 +4265,104 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
 
 
 # ─────────────────────────────────────────────────────────────────
+#  WAR-MAP / SITUATION-ROOM AGGREGATE
+#  One cohort-wide "situation" for the projector map: per-BU health,
+#  per-stakeholder worst escalation, the cohort's current round, and a
+#  real events list. Read-only; safe defaults when data is sparse.
+# ─────────────────────────────────────────────────────────────────
+_WARMAP_STAGE_RANK = {"dormant": 0, "watching": 1, "agitated": 2, "hostile": 3, "triggered": 4}
+
+
+@admin_router.get("/war-map", summary="Cohort-aggregate operations & stakeholder map state")
+async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
+    from autonomous_agents import AGENT_PROFILES
+    from collections import Counter
+    sessions = await db.fetch_all_sessions()
+    bu_acc: dict = {}       # bu_id -> running sums
+    agent_acc: dict = {}    # agent_id -> {stages, tol, hostile}
+    rounds: list = []
+    team_n = 0
+
+    for sess in sessions:
+        if facilitator_id and sess.get("facilitator_id") != facilitator_id:
+            continue
+        if not (sess.get("player_id") or sess.get("parent_cohort_id")):
+            continue  # skip cohort templates / solo shells
+        latest = await db.fetch_latest_state(sess["session_id"])
+        if not latest:
+            continue
+        gs = latest["global_state"]
+        bus = latest["bu_states"]
+        if not bus:
+            continue
+        team_n += 1
+        rounds.append(latest.get("round_number") or gs.get("round_number") or 1)
+        for bu in bus:
+            bid = bu.get("bu_id")
+            if not bid:
+                continue
+            a = bu_acc.setdefault(bid, {"slo": 0.0, "ci": 0.0, "burn": 0.0, "rev": 0.0, "n": 0})
+            a["slo"] += float(bu.get("social_license_score", 50) or 50)
+            a["ci"] += float(bu.get("carbon_intensity", 50) or 50)
+            a["burn"] += float(bu.get("staff_burnout_index", 0) or 0)
+            a["rev"] += float(bu.get("revenue_base", 0) or 0)
+            a["n"] += 1
+        agents = (gs.get("autonomous_agents") or {}).get("agents") or {}
+        for aid, st in agents.items():
+            g = agent_acc.setdefault(aid, {"stages": [], "tol": [], "hostile": 0})
+            stage = st.get("escalation_stage", "dormant")
+            g["stages"].append(stage)
+            g["tol"].append(float(st.get("tolerance", 100) or 100))
+            if _WARMAP_STAGE_RANK.get(stage, 0) >= 3:
+                g["hostile"] += 1
+
+    def _bu_health(slo, ci, burn):
+        return max(0, min(100, round(0.5 * slo + 0.25 * (100 - ci) + 0.25 * (100 - burn))))
+
+    business_units = []
+    for bid, a in bu_acc.items():
+        n = max(1, a["n"])
+        slo, ci, burn, rev = a["slo"] / n, a["ci"] / n, a["burn"] / n, a["rev"] / n
+        business_units.append({
+            "bu_id": bid, "slo": round(slo, 1), "carbon_intensity": round(ci, 1),
+            "burnout": round(burn, 1), "revenue": round(rev), "teams": a["n"],
+            "health": _bu_health(slo, ci, burn),
+        })
+
+    stakeholders = []
+    for aid, prof in AGENT_PROFILES.items():
+        g = agent_acc.get(aid)
+        if g and g["stages"]:
+            worst = max(g["stages"], key=lambda s: _WARMAP_STAGE_RANK.get(s, 0))
+            avg_tol = round(sum(g["tol"]) / len(g["tol"]), 1)
+            hostile = g["hostile"]
+        else:
+            worst, avg_tol, hostile = "dormant", float(prof.get("initial_tolerance", 100)), 0
+        stakeholders.append({
+            "agent_id": aid, "name": prof.get("name", aid),
+            "stage": worst, "avg_tolerance": avg_tol, "teams_hostile": hostile,
+        })
+
+    cohort_round = Counter(rounds).most_common(1)[0][0] if rounds else 0
+
+    events = []
+    for s in stakeholders:
+        if _WARMAP_STAGE_RANK.get(s["stage"], 0) >= 2:
+            events.append({"kind": "stakeholder", "name": s["name"], "stage": s["stage"], "teams": s["teams_hostile"]})
+    for b in business_units:
+        if b["health"] < 40:
+            events.append({"kind": "bu", "bu_id": b["bu_id"], "health": b["health"]})
+
+    return {
+        "team_count": team_n,
+        "cohort_round": cohort_round,
+        "business_units": business_units,
+        "stakeholders": stakeholders,
+        "events": events,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
 #  SESSION REPORT ENDPOINT
 #  Full per-session analytics aggregation for the Reports tab.
 #  Includes KPIs, CEO scores, sandbox burden, side-tracks, history.

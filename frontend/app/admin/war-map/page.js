@@ -1,49 +1,46 @@
 'use client';
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { MAP_W, MAP_H, REGIONS, project, buildMapModel } from '../../components/warMapModel';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { MAP_W, MAP_H, buildWarMap } from '../../components/warMapModel';
 
 /**
- * Region War-Map (W-E / W7) — a full-screen projector view giving the
- * simulation its missing geography. BU/cohort nodes plotted by region,
- * pulsing on active crises, black-swan flashes, and a cyclone that tracks
- * across the Bay of Bengal while any team is in Round 5.
+ * Operations & Stakeholder situation map — a full-screen facilitator projector.
  *
- * Console pattern (same as /admin/trading-floor): its own route, a
- * facilitator ON/OFF switch persisted locally, and READ-ONLY data — it
- * polls the existing /api/admin/leaderboard and touches no game state.
- * Zero player-surface change.
+ * Redesigned: instead of scattering teams onto empty continents (region_id is
+ * "" for standard cohorts, so every team piled onto one HQ anchor), it renders
+ * the world the simulation models — Muressons' Business Units at their operating
+ * hubs (sized by revenue, coloured by health), the five reactive stakeholders at
+ * their home regions (coloured by escalation), and the current round's crisis at
+ * the place it strikes. Read-only cohort AGGREGATE from /api/admin/war-map.
  */
 
-// Low-poly continent silhouettes (equirectangular, 1000×520). Stylised war-room
-// cartography, not survey-grade coastlines.
 const CONTINENTS = [
-  // North America
   'M 75,105 L 150,62 L 232,58 L 262,86 L 250,120 L 282,138 L 262,170 L 222,196 L 198,232 L 172,222 L 158,186 L 118,168 L 92,140 Z',
-  // South America
   'M 250,255 L 292,242 L 322,268 L 318,312 L 296,368 L 274,412 L 258,398 L 252,340 L 240,296 Z',
-  // Greenland
   'M 320,42 L 372,32 L 392,58 L 352,74 L 322,64 Z',
-  // Europe
   'M 468,110 L 502,84 L 540,78 L 574,92 L 566,120 L 540,138 L 508,148 L 482,136 Z',
-  // Africa
   'M 462,162 L 516,150 L 566,162 L 596,196 L 604,248 L 578,304 L 550,352 L 528,344 L 506,296 L 478,244 L 460,200 Z',
-  // Asia
   'M 578,88 L 640,58 L 730,52 L 812,68 L 872,96 L 888,132 L 848,158 L 800,150 L 772,184 L 742,220 L 712,196 L 676,172 L 628,150 L 592,128 Z',
-  // India
   'M 700,190 L 736,196 L 742,232 L 718,268 L 700,238 Z',
-  // SE Asia / Indonesia
   'M 776,238 L 806,246 L 830,266 L 806,278 L 780,262 Z M 792,292 L 836,286 L 868,296 L 838,308 L 800,304 Z',
-  // Australia
   'M 812,332 L 862,324 L 896,348 L 884,388 L 840,398 L 810,372 Z',
-  // Japan
   'M 884,120 L 902,108 L 910,132 L 894,146 Z',
 ];
 
-const fmtM = (v) => `$${((Number(v) || 0) / 1_000_000).toFixed(1)}M`;
+// A centred text label with a dark pill behind it, so labels stay readable even
+// when a marker sits near another marker or a continent edge.
+function Label({ x, y, text, size = 10, color = '#cbd5e1', weight = 600 }) {
+  const w = String(text).length * size * 0.56 + 10;
+  return (
+    <g>
+      <rect x={x - w / 2} y={y - size + 1} width={w} height={size + 4} rx="3" fill="rgba(3,7,15,0.78)" />
+      <text x={x} y={y} textAnchor="middle" fontSize={size} fontWeight={weight} fill={color} fontFamily="var(--font-sans, system-ui, sans-serif)">{text}</text>
+    </g>
+  );
+}
 
 export default function WarMapPage() {
   const [enabled, setEnabled] = useState(false);
-  const [model, setModel] = useState({ nodes: [], maxRound: 1, cycloneActive: false, events: [] });
+  const [model, setModel] = useState({ buNodes: [], shNodes: [], crisis: null, events: [], round: 0, teamCount: 0 });
   const [error, setError] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const pollRef = useRef(null);
@@ -67,12 +64,10 @@ export default function WarMapPage() {
     });
   };
 
-  // F-9 (v3): "signed out" and "backend down" have opposite remedies mid-class
-  // — never conflate them. error is false | 'auth' | 'net'.
   const load = useCallback(() => {
-    fetch('/api/admin/leaderboard', { credentials: 'include' })
+    fetch('/api/admin/war-map', { credentials: 'include' })
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(r.status === 401 || r.status === 403 ? 'auth' : 'http'))))
-      .then((d) => { setModel(buildMapModel(d.leaderboard || [])); setError(false); })
+      .then((d) => { setModel(buildWarMap(d)); setError(false); })
       .catch((e) => setError(e && e.message === 'auth' ? 'auth' : 'net'));
   }, []);
 
@@ -84,26 +79,15 @@ export default function WarMapPage() {
     return () => clearInterval(pollRef.current);
   }, [enabled, load]);
 
-  const regionAnchors = useMemo(
-    () => Object.entries(REGIONS).map(([key, r]) => ({ key, label: r.label, ...project(r.lon, r.lat) })),
-    []
-  );
-
   return (
     <div style={S.page}>
       <div style={S.header}>
         <div>
-          <div style={S.brand}>MURESSONS GLOBAL SITUATION MAP</div>
-          {/* F-9 (v3): a range, not the global max — "ROUND 6" while your room
-              is on R3 is the F3 defect class on a projector. */}
-          <div style={S.sub}>LIVE · {(() => {
-            const rounds = model.nodes.map((n) => n.round || 1);
-            const lo = rounds.length ? Math.min(...rounds) : model.maxRound;
-            return lo === model.maxRound ? `ROUND ${model.maxRound}` : `ROUNDS ${lo}–${model.maxRound} IN PLAY`;
-          })()} · {model.nodes.length} OPERATING UNIT{model.nodes.length === 1 ? '' : 'S'} ON THE BOARD</div>
+          <div style={S.brand}>MURESSONS GLOBAL OPERATIONS MAP</div>
+          <div style={S.sub}>
+            {model.round ? `ROUND ${model.round}` : 'LIVE'} · {model.teamCount} TEAM{model.teamCount === 1 ? '' : 'S'} · COHORT AGGREGATE
+          </div>
         </div>
-        {/* F-9 (v3): this switch only stops THIS tab's polling/projection —
-            say so, or a podium facilitator flips it believing it acts globally. */}
         <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
           <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
           <span style={{ fontSize: '0.8rem', color: '#8899a6', fontWeight: 700 }}>{enabled ? 'ON' : 'OFF'}</span>
@@ -116,7 +100,7 @@ export default function WarMapPage() {
       {!enabled ? (
         <div style={S.center}>
           <div style={{ fontSize: '3rem', marginBottom: 10 }}>🗺️</div>
-          <div style={{ fontSize: '1.1rem', color: '#8899a6' }}>War map is off. Flip the switch to project the situation board.</div>
+          <div style={{ fontSize: '1.1rem', color: '#8899a6' }}>Situation map is off. Flip the switch to project the operations board.</div>
         </div>
       ) : error ? (
         <div style={S.center}>
@@ -129,85 +113,76 @@ export default function WarMapPage() {
         </div>
       ) : (
         <>
-          <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={S.map} aria-label="World situation map">
-            {/* Graticule */}
+          <svg viewBox={`0 0 ${MAP_W} ${MAP_H}`} style={S.map} aria-label="Muressons operations and stakeholder situation map">
             {Array.from({ length: 11 }, (_, i) => (
               <line key={`v${i}`} x1={i * 100} y1="0" x2={i * 100} y2={MAP_H} stroke="rgba(45,212,191,0.06)" strokeWidth="1" />
             ))}
             {Array.from({ length: 6 }, (_, i) => (
               <line key={`h${i}`} x1="0" y1={i * 100} x2={MAP_W} y2={i * 100} stroke="rgba(45,212,191,0.06)" strokeWidth="1" />
             ))}
-            {/* Continents */}
             {CONTINENTS.map((d, i) => (
               <path key={i} d={d} fill="rgba(148,163,184,0.09)" stroke="rgba(148,163,184,0.22)" strokeWidth="1" />
             ))}
-            {/* Region anchors */}
-            {regionAnchors.map((r) => (
-              <g key={r.key || 'hq'}>
-                <circle cx={r.x} cy={r.y} r="3" fill="rgba(45,212,191,0.5)" />
-                <text x={r.x} y={r.y - 10} textAnchor="middle" fontSize="10" fill="rgba(45,212,191,0.55)" fontFamily="var(--font-mono, monospace)" letterSpacing="2">{r.label}</text>
-              </g>
-            ))}
-            {/* Cyclone track — R5 theatre across the Bay of Bengal */}
-            {model.cycloneActive && (
+
+            {/* Live crisis — pulses at the place it strikes this round */}
+            {model.crisis && (
               <g>
-                <path id="cyclone-track" d="M 800,285 C 775,255 748,228 716,205" fill="none" stroke="rgba(96,165,250,0.25)" strokeWidth="2" strokeDasharray="5 5" />
-                {!reducedMotion ? (
-                  <text fontSize="20" aria-hidden="true">
-                    🌀
-                    <animateMotion dur="9s" repeatCount="indefinite" rotate="0">
-                      <mpath href="#cyclone-track" />
-                    </animateMotion>
-                  </text>
-                ) : (
-                  <text x="740" y="230" fontSize="20" aria-hidden="true">🌀</text>
-                )}
-                <text x="810" y="300" fontSize="9" fill="rgba(96,165,250,0.7)" fontFamily="var(--font-mono, monospace)">CYCLONE WARNING · R5</text>
+                {!reducedMotion
+                  ? <circle cx={model.crisis.x} cy={model.crisis.y} r="10" fill="none" stroke="#ef4444" strokeWidth="2" className="wm-pulse" />
+                  : <circle cx={model.crisis.x} cy={model.crisis.y} r="26" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 4" />}
+                <circle cx={model.crisis.x} cy={model.crisis.y} r="4" fill="#ef4444" />
+                <Label x={model.crisis.x} y={model.crisis.y + 30} text={`R${model.crisis.round} · ${model.crisis.name}`} size={10} weight={700} color="#fca5a5" />
               </g>
             )}
-            {/* Team nodes */}
-            {model.nodes.map((n) => (
+
+            {/* Business units — size = revenue, colour = health */}
+            {model.buNodes.map((n) => (
               <g key={n.id}>
-                {n.crises.length > 0 && !reducedMotion && (
-                  <circle cx={n.x} cy={n.y} r={n.radius} fill="none" stroke={n.blackSwan ? '#f8fafc' : '#ef4444'} strokeWidth="2" className="wm-pulse" />
+                <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} fillOpacity="0.26" stroke={n.color} strokeWidth="1.5" />
+                <text x={n.x} y={n.y + 3} textAnchor="middle" fontSize="9" fontWeight="800" fill="#e2e8f0" fontFamily="var(--font-mono, monospace)">{n.health}</text>
+                <Label x={n.x} y={n.y + n.r + 13} text={n.label} size={10} weight={600} color="#e2e8f0" />
+                <Label x={n.x} y={n.y + n.r + 25} text={`SLO ${Math.round(n.slo)} · CI ${Math.round(n.ci)}`} size={8} weight={400} color="#94a3b8" />
+              </g>
+            ))}
+
+            {/* Stakeholders — pin colour = escalation state */}
+            {model.shNodes.map((n) => (
+              <g key={n.id}>
+                {n.escalated && !reducedMotion && (
+                  <circle cx={n.x} cy={n.y} r="8" fill="none" stroke={n.color} strokeWidth="1.5" className="wm-pulse-s" />
                 )}
-                {n.crises.length > 0 && reducedMotion && (
-                  <circle cx={n.x} cy={n.y} r={n.radius + 5} fill="none" stroke={n.blackSwan ? '#f8fafc' : '#ef4444'} strokeWidth="1.5" strokeDasharray="3 3" />
-                )}
-                <circle cx={n.x} cy={n.y} r={n.radius} fill={n.color} fillOpacity="0.28" stroke={n.color} strokeWidth="1.5" />
-                <text x={n.x} y={n.y + 3} textAnchor="middle" fontSize="8" fontWeight="700" fill="#e2e8f0" fontFamily="var(--font-mono, monospace)">R{n.round}</text>
-                <text x={n.x} y={n.y + n.radius + 11} textAnchor="middle" fontSize="9" fill="#cbd5e1">{n.name.length > 18 ? `${n.name.slice(0, 17)}…` : n.name}</text>
-                <text x={n.x} y={n.y + n.radius + 21} textAnchor="middle" fontSize="7.5" fill="#64748b" fontFamily="var(--font-mono, monospace)">{fmtM(n.tv)}</text>
+                <path d={`M ${n.x} ${n.y + 12} l 6 -12 l -12 0 z`} fill={n.color} />
+                <circle cx={n.x} cy={n.y} r="5" fill={n.color} stroke="#04060c" strokeWidth="1" />
+                <Label x={n.x} y={n.y + 26} text={n.name} size={9.5} weight={500} color="#f1f5f9" />
+                <Label x={n.x} y={n.y + 37} text={`${n.label}${n.hostile ? ` · ${n.hostile}` : ''}`} size={8} weight={500} color={n.color} />
               </g>
             ))}
           </svg>
 
-          {/* Legend + live crisis ticker */}
           <div style={S.footer}>
             <div style={S.legend}>
               <span style={{ ...S.dot, background: '#2dd4bf' }} /> healthy
               <span style={{ ...S.dot, background: '#f59e0b' }} /> strained
               <span style={{ ...S.dot, background: '#ef4444' }} /> critical
-              <span style={{ ...S.dot, background: 'transparent', border: '1.5px solid #ef4444' }} /> crisis pulse
-              <span style={{ marginLeft: 6 }}>node size = enterprise value</span>
+              <span style={{ marginLeft: 14 }}>● unit (size = revenue, colour = health)</span>
+              <span style={{ marginLeft: 10 }}>▲ stakeholder (colour = escalation)</span>
             </div>
             <div style={S.eventStrip}>
               {model.events.length > 0
                 ? model.events.slice(0, 6).map((e, i) => <span key={i} style={S.eventItem}>⚠ {e}</span>)
-                : <span style={{ color: '#475569' }}>No active crises on the board.</span>}
+                : <span style={{ color: '#475569' }}>All units healthy · no stakeholder escalations.</span>}
             </div>
           </div>
         </>
       )}
 
       <style>{`
-        @keyframes wm-pulse {
-          0% { r: 10; opacity: 0.9; }
-          100% { r: 34; opacity: 0; }
-        }
+        @keyframes wm-pulse { 0% { r: 10; opacity: 0.9; } 100% { r: 40; opacity: 0; } }
         .wm-pulse { animation: wm-pulse 1.8s ease-out infinite; }
+        @keyframes wm-pulse-s { 0% { r: 8; opacity: 0.8; } 100% { r: 20; opacity: 0; } }
+        .wm-pulse-s { animation: wm-pulse-s 1.8s ease-out infinite; }
         @media (prefers-reduced-motion: reduce) {
-          .wm-pulse { animation: none !important; }
+          .wm-pulse, .wm-pulse-s { animation: none !important; }
         }
       `}</style>
     </div>
@@ -225,7 +200,7 @@ const S = {
   center: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '60vh', textAlign: 'center' },
   map: { width: '100%', maxHeight: '72vh', display: 'block', border: '1px solid rgba(45,212,191,0.12)', borderRadius: 12, background: 'rgba(2,6,14,0.5)' },
   footer: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 20, marginTop: 12, flexWrap: 'wrap' },
-  legend: { display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: '#8899a6' },
+  legend: { display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem', color: '#8899a6', flexWrap: 'wrap' },
   dot: { display: 'inline-block', width: 10, height: 10, borderRadius: '50%', marginLeft: 10 },
   eventStrip: { display: 'flex', gap: 18, fontSize: '0.72rem', fontFamily: 'var(--font-mono, monospace)', color: '#fbbf24', overflow: 'hidden', whiteSpace: 'nowrap' },
   eventItem: { whiteSpace: 'nowrap' },
