@@ -22,6 +22,7 @@ import TeamImpersonation from '../../components/TeamImpersonation';
 import ReportsExport from '../../components/ReportsExport';
 import RoundTimeline from '../../components/RoundTimeline';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
+import ESGWeightsEditor from '../../components/ESGWeightsEditor';
 import StudentBonuses from '../../components/StudentBonuses';
 import CreateCohortModal from '../../components/CreateCohortModal';
 import FacilitatorManager from '../../components/FacilitatorManager';
@@ -1079,6 +1080,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                         <BalancedScorecardEvaluator />
                     </div>
                 );
+            case 'esg_weights':
+                return <ESGWeightsEditor />;
             case 'notes':
                 return <FacilitatorNotes sessionId={selectedSession} />;
             case 'cohort_comparison':

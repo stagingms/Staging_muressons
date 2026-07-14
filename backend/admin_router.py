@@ -347,6 +347,7 @@ from admin_shared import (
     check_and_increment_cohort_count,
     _get_session_paradigm,
     DEFAULT_ARCHETYPES,
+    DEFAULT_ESG_WEIGHTS,
     # 3-tier role model
     ROLE_HIERARCHY, ROLE_ALLOWED_TABS,
     get_role, has_role_level, get_allowed_tabs, can_access_tab, owns_session,
@@ -476,6 +477,8 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         # Results-view Decision Consequence Map (ConsequenceTimeline). Player-readable;
         # fail-open (default ON) so existing cohorts keep the map unless turned off.
         "consequence_map_enabled": s.get("consequence_map_enabled", True),
+        # ESG Leadership Profile signal weights (facilitator-tunable rubric).
+        "esg_profile_weights": s.get("esg_profile_weights", DEFAULT_ESG_WEIGHTS),
         "mental_model_tracker_enabled": s.get("mental_model_tracker_enabled", True),
         "confidence_calibration_enabled": s.get("confidence_calibration_enabled", False),
         "mid_game_checkpoint_enabled": s.get("mid_game_checkpoint_enabled", True),
@@ -2987,6 +2990,59 @@ async def force_advance_cohort(session_id: str, request: Request, _guard: None =
         "cohort": cohort_id,
         "message": "Barrier releasing — any uncommitted team will be auto-committed from its saved decisions.",
     }
+
+
+# ── ESG Leadership Profile weights (lead facilitator / super admin) ──────────
+class EsgWeightsRequest(BaseModel):
+    weights: dict
+    reason: str | None = None
+
+
+def _sanitize_esg_weights(incoming: dict) -> dict:
+    """Deep-merge the incoming weights over the canonical defaults, keeping only
+    known dimensions/signals and coercing values to finite numbers. Guarantees a
+    complete, well-formed rubric regardless of what the client sends."""
+    out = {dim: dict(sig) for dim, sig in DEFAULT_ESG_WEIGHTS.items()}
+    if isinstance(incoming, dict):
+        for dim, sigs in incoming.items():
+            if dim not in out or not isinstance(sigs, dict):
+                continue
+            for k, v in sigs.items():
+                if k not in out[dim]:
+                    continue
+                try:
+                    fv = float(v)
+                    if fv == fv and fv not in (float("inf"), float("-inf")):  # not NaN/inf
+                        out[dim][k] = fv
+                except (TypeError, ValueError):
+                    continue
+    return out
+
+
+@admin_router.get("/esg-profile-weights", summary="Get ESG Leadership Profile signal weights")
+async def get_esg_profile_weights():
+    return {"esg_profile_weights": _god_mode_settings.get("esg_profile_weights", DEFAULT_ESG_WEIGHTS),
+            "defaults": DEFAULT_ESG_WEIGHTS}
+
+
+@admin_router.post("/esg-profile-weights", summary="Set ESG Leadership Profile signal weights")
+async def set_esg_profile_weights(body: EsgWeightsRequest, request: Request,
+                                  _guard: None = Depends(require_lead_facilitator)):
+    """Lead facilitators and super admins tune the ESG assessment rubric — the
+    weight each performance signal carries in the five ESG dimensions. Global
+    default rubric; unknown keys are dropped and values coerced to numbers."""
+    caller = get_fac_role(request)
+    clean = _sanitize_esg_weights(body.weights)
+    _god_mode_settings["esg_profile_weights"] = clean
+    _audit("esg_profile_weights_updated", details={"_caller_role": caller, "_reason": body.reason})
+    return {"status": "ok", "esg_profile_weights": clean}
+
+
+@admin_router.post("/esg-profile-weights/reset", summary="Reset ESG Profile weights to defaults")
+async def reset_esg_profile_weights(request: Request, _guard: None = Depends(require_lead_facilitator)):
+    _god_mode_settings["esg_profile_weights"] = {dim: dict(sig) for dim, sig in DEFAULT_ESG_WEIGHTS.items()}
+    _audit("esg_profile_weights_reset", details={"_caller_role": get_fac_role(request)})
+    return {"status": "ok", "esg_profile_weights": DEFAULT_ESG_WEIGHTS}
 
 
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")

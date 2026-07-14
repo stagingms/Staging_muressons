@@ -301,6 +301,62 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
 _CLIMATE_PARADIGM_VALUES = frozenset({"standard", "advanced_climate"})
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  ESG LEADERSHIP PROFILE — signal weights (facilitator-tunable rubric)
+#
+#  The end-of-game ESG radar scores five dimensions from real performance
+#  signals. These are the DEFAULT weights each signal contributes; lead
+#  facilitators / super admins may override them (POST /esg-profile-weights) to
+#  reshape the assessment rubric. The frontend keeps an identical copy of these
+#  defaults, and both deep-merge any override over them so partial configs are
+#  safe. Keep the two in sync when changing.
+# ═══════════════════════════════════════════════════════════════════════════
+DEFAULT_ESG_WEIGHTS: dict = {
+    "climate_resilience": {
+        "resilience_factor": 1.0,     # × climate-resilience factor (0-100)
+        "resilience_bonus": 100,
+        "climate_leader": 70,
+        "adaptation_premium": 70,
+        "carbon_transition": 60,
+    },
+    "governance": {
+        "base": 48,
+        "materiality_governance": 300,
+        "truth_premium": 260,
+        "materiality_aligned": 10,
+        "instability_penalty": 100,   # applied to the (negative) instability discount
+        "reputation_blend": 0.3,      # 0-1 share of reputation vs governance-core
+    },
+    "social_impact": {
+        "social_license_blend": 0.6,  # baseline = 0.6·social-licence + 0.4·reputation
+        "reputation_blend": 0.4,
+        "community_champion": 70,
+        "just_transition": 70,
+        "workforce": 60,
+        "wellbeing": 60,
+        "social_regeneration": 55,
+        "community_trust": 55,
+        "employee_champion": 55,
+        "just_transition_passed": 6,
+        "burnout_penalty": 0.4,       # per point of burnout above 40
+        "social_collapse_penalty": 100,
+    },
+    "environmental": {
+        "decarbonisation": 1.0,       # × (100 − avg carbon intensity)
+        "carbon_transition": 70,
+        "climate_leader": 40,
+        "stranded_asset_penalty": 100,
+    },
+    "innovation": {
+        "base": 30,
+        "rd_multiplier": 2,           # × R&D allocation %
+        "rd_cap": 40,                 # cap on the R&D contribution
+        "synergy": 200,
+        "brsr_pioneer": 30,
+    },
+}
+
+
 def resolve_climate_paradigm(settings: dict) -> str:
     """C6: single source of truth for the climate branch.
 

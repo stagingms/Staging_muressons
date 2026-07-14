@@ -19,50 +19,138 @@
  *   businessUnits — BU state array
  */
 'use client';
-import React, { useMemo, useCallback, useRef, useState } from 'react';
+import React, { useMemo, useCallback, useRef, useState, useEffect } from 'react';
 import styles from './ESGLeadershipProfile.module.css';
 
-/** The 5 strategy pillars for the radar chart */
+/** The 5 ESG dimensions for the radar chart */
 const PILLARS = [
-  {
-    id: 'climate_resilience',
-    label: 'Climate Resilience',
-    icon: '🌡️',
-    flags: ['resilience_investment', 'circular_economy_leader'],
-  },
-  {
-    id: 'governance_transparency',
-    label: 'Governance',
-    icon: '⚖️',
-    flags: ['materiality_governance', 'truth_premium'],
-  },
-  {
-    id: 'social_impact',
-    label: 'Social Impact',
-    icon: '👥',
-    flags: ['social_license_rebuilt', 'community_champion', 'just_transition_fund'],
-  },
-  {
-    id: 'environmental_stewardship',
-    label: 'Environmental',
-    icon: '🌍',
-    flags: ['supply_chain_transparency', 'nature_based_solutions'],
-  },
-  {
-    id: 'innovation',
-    label: 'Innovation',
-    icon: '💡',
-    flags: ['circular_economy_leader', 'science_based_targets'],
-  },
+  { id: 'climate_resilience', label: 'Climate Resilience', icon: '🌡️' },
+  { id: 'governance',         label: 'Governance',         icon: '⚖️' },
+  { id: 'social_impact',      label: 'Social Impact',      icon: '👥' },
+  { id: 'environmental',      label: 'Environmental',      icon: '🌍' },
+  { id: 'innovation',         label: 'Innovation',         icon: '💡' },
 ];
 
-/** Compute pillar scores (0-100) from flags */
-function computePillarScores(flags) {
-  return PILLARS.map(p => {
-    const earned = p.flags.filter(f => !!flags[f]).length;
-    const score = p.flags.length > 0 ? Math.round((earned / p.flags.length) * 100) : 0;
-    return { ...p, score, earned, total: p.flags.length };
-  });
+/**
+ * Default ESG signal weights — MUST stay in sync with backend
+ * admin_shared.DEFAULT_ESG_WEIGHTS. Lead facilitators / super admins can
+ * override these (ESG Profile Weights sub-tab); the profile deep-merges any
+ * override over these defaults so partial configs are always safe.
+ */
+export const DEFAULT_ESG_WEIGHTS = {
+  climate_resilience: {
+    resilience_factor: 1.0, resilience_bonus: 100, climate_leader: 70,
+    adaptation_premium: 70, carbon_transition: 60,
+  },
+  governance: {
+    base: 48, materiality_governance: 300, truth_premium: 260,
+    materiality_aligned: 10, instability_penalty: 100, reputation_blend: 0.3,
+  },
+  social_impact: {
+    social_license_blend: 0.6, reputation_blend: 0.4, community_champion: 70,
+    just_transition: 70, workforce: 60, wellbeing: 60, social_regeneration: 55,
+    community_trust: 55, employee_champion: 55, just_transition_passed: 6,
+    burnout_penalty: 0.4, social_collapse_penalty: 100,
+  },
+  environmental: {
+    decarbonisation: 1.0, carbon_transition: 70, climate_leader: 40,
+    stranded_asset_penalty: 100,
+  },
+  innovation: { base: 30, rd_multiplier: 2, rd_cap: 40, synergy: 200, brsr_pioneer: 30 },
+};
+
+/** Deep-merge a (possibly partial) weights override over the defaults. */
+export function mergeEsgWeights(override) {
+  const out = {};
+  for (const dim of Object.keys(DEFAULT_ESG_WEIGHTS)) {
+    out[dim] = { ...DEFAULT_ESG_WEIGHTS[dim] };
+    const o = override && override[dim];
+    if (o && typeof o === 'object') {
+      for (const k of Object.keys(DEFAULT_ESG_WEIGHTS[dim])) {
+        if (Number.isFinite(Number(o[k]))) out[dim][k] = Number(o[k]);
+      }
+    }
+  }
+  return out;
+}
+
+const _num = (v, d = 0) => (Number.isFinite(Number(v)) ? Number(v) : d);
+const _clamp = (v) => Math.max(0, Math.min(100, v));
+const _avg = (arr) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null);
+
+/**
+ * Compute the 5 ESG dimension scores (0-100) from the player's ACTUAL end-state
+ * performance, not flag trivia. Sources: per-BU social licence, carbon
+ * intensity, staff burnout; group reputation; R&D intensity; the climate-
+ * resilience factor; and the sim's own Regenerative-Multiple breakdown (the
+ * components it actually rewards). The previous version keyed off ~10 boolean
+ * flags — 6 of which the engine never sets and the rest under different names —
+ * so every dimension but one was structurally stuck at 0%.
+ */
+function computePillarScores(data = {}, flags = {}, businessUnits = [], weights = null) {
+  const W = mergeEsgWeights(weights);
+  const bus = Array.isArray(businessUnits) ? businessUnits : [];
+  const bd = data.mr_breakdown || {};
+  const b = (k) => _num(bd[k], 0);           // signed M_R contribution (may be absent)
+
+  const avgSLbu = _avg(bus.map((x) => _num(x.social_license_score, 50)));
+  const avgSocial = data.avg_social_license != null ? _num(data.avg_social_license) : (avgSLbu != null ? avgSLbu : 50);
+  const ciVals = bus.map((x) => _num(x.carbon_intensity, null)).filter((x) => x != null && Number.isFinite(x));
+  const avgCI = ciVals.length ? _avg(ciVals) : (data.avg_carbon_intensity != null ? _num(data.avg_carbon_intensity) : null);
+  const avgBurn = _avg(bus.map((x) => _num(x.staff_burnout_index, 0))) ?? 0;
+  const reputation = _num(data.group_reputation, 50);
+  const crf = data.climate_resilience_factor != null ? _num(data.climate_resilience_factor) * 100 : 50;
+  const rd = _num(data.rd_allocation_pct, 0);
+
+  // 1. Climate Resilience — resilience factor + earned climate/adaptation rewards
+  const wc = W.climate_resilience;
+  const climate = crf * wc.resilience_factor
+    + b('resilience_bonus') * wc.resilience_bonus + b('climate_leader') * wc.climate_leader
+    + b('adaptation_premium') * wc.adaptation_premium + b('carbon_transition') * wc.carbon_transition;
+
+  // 2. Governance — materiality/transparency rewards, alignment, instability
+  //    penalty, lightly anchored to reputation (stakeholder trust).
+  const wg = W.governance;
+  const governance = (1 - wg.reputation_blend) * (wg.base
+      + b('materiality_governance') * wg.materiality_governance + b('truth_premium') * wg.truth_premium
+      + (flags.materiality_aligned ? wg.materiality_aligned : 0)
+      + b('instability_discount') * wg.instability_penalty)   // instability_discount is negative
+    + wg.reputation_blend * reputation;
+
+  // 3. Social Impact — social licence + reputation baseline, workforce/community
+  //    rewards, burnout & social-collapse penalties.
+  const ws = W.social_impact;
+  const social = ws.social_license_blend * avgSocial + ws.reputation_blend * reputation
+    + b('community_champion_bonus') * ws.community_champion + b('just_transition_bonus') * ws.just_transition
+    + b('workforce_bonus') * ws.workforce + b('wellbeing_bonus') * ws.wellbeing
+    + b('social_regeneration') * ws.social_regeneration + b('community_trust') * ws.community_trust
+    + b('employee_champion') * ws.employee_champion
+    + (data.just_transition_passed ? ws.just_transition_passed : 0)
+    - Math.max(0, avgBurn - 40) * ws.burnout_penalty
+    + b('social_collapse') * ws.social_collapse_penalty;      // social_collapse is negative
+
+  // 4. Environmental — decarbonisation (lower carbon intensity is better) +
+  //    earned transition rewards, stranded-asset penalty.
+  const we = W.environmental;
+  const carbonScore = avgCI != null ? _clamp(100 - avgCI) : 55;
+  const environmental = carbonScore * we.decarbonisation
+    + b('carbon_transition') * we.carbon_transition + b('climate_leader') * we.climate_leader
+    + b('stranded_asset_penalty') * we.stranded_asset_penalty;  // stranded_asset_penalty is negative
+
+  // 5. Innovation — R&D intensity + synergy / integration rewards.
+  const wi = W.innovation;
+  const innovation = wi.base
+    + Math.min(wi.rd_cap, rd * wi.rd_multiplier)
+    + b('synergy_bonus') * wi.synergy + b('brsr_pioneer_bonus') * wi.brsr_pioneer;
+
+  const raw = {
+    climate_resilience: climate,
+    governance,
+    social_impact: social,
+    environmental,
+    innovation,
+  };
+  return PILLARS.map((p) => ({ ...p, score: Math.round(_clamp(raw[p.id])) }));
 }
 
 /** SVG radar chart coordinates */
@@ -74,7 +162,11 @@ function polarToCartesian(cx, cy, r, angleDeg) {
 function RadarChart({ scores, size = 200 }) {
   const cx = size / 2;
   const cy = size / 2;
-  const maxR = size / 2 - 30;
+  const maxR = size / 2 - 34;
+  // Horizontal room so the left/right dimension labels (e.g. "⚖️ Governance")
+  // aren't clipped at the SVG edge. The viewBox is widened symmetrically and the
+  // rendered width matches, so the chart stays centred and undistorted.
+  const padX = 48;
   const n = scores.length;
   const angleStep = 360 / n;
 
@@ -89,7 +181,7 @@ function RadarChart({ scores, size = 200 }) {
   const dataPath = dataPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ') + ' Z';
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+    <svg width={size + padX * 2} height={size} viewBox={`${-padX} 0 ${size + padX * 2} ${size}`}>
       {/* Background rings */}
       {rings.map((pct, i) => (
         <polygon
@@ -153,7 +245,21 @@ export default function ESGLeadershipProfile({ data = {}, flags = {}, sessionId,
   const sharePrice = data.price_per_share != null ? Number(data.price_per_share).toFixed(2) : '—';
   const archetype = data.profile_title || data.profile || 'Strategic Leader';
 
-  const pillarScores = useMemo(() => computePillarScores(flags), [flags]);
+  // Load the facilitator-configured ESG signal weights (falls back to defaults).
+  const [esgWeights, setEsgWeights] = useState(null);
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || '';
+    const q = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+    fetch(`${API}/api/admin/global-settings${q}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((s) => { if (s && s.esg_profile_weights) setEsgWeights(s.esg_profile_weights); })
+      .catch(() => {});
+  }, [sessionId]);
+
+  const pillarScores = useMemo(
+    () => computePillarScores(data, flags, businessUnits, esgWeights),
+    [data, flags, businessUnits, esgWeights]
+  );
   const strongest = useMemo(() => {
     const sorted = [...pillarScores].sort((a, b) => b.score - a.score);
     return sorted[0];
