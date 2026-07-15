@@ -1,0 +1,156 @@
+"""
+rate_limit.py — IP rate limiting (audit #17, extracted verbatim from admin_router).
+
+This is a behaviour-preserving extraction: the sliding-window counter, the
+trusted-proxy IP resolution, and the restart-surviving ban persistence were moved
+here unchanged from admin_router.py to shrink that ~10k-line god-file. admin_router
+re-exports `_check_rate_limit` (and the rest) so every existing import — including
+`from admin_router import _check_rate_limit` in router.py — keeps working.
+"""
+
+from __future__ import annotations
+
+import collections
+import json
+import os
+import time
+
+from fastapi import HTTPException, Request
+
+# ── HIGH-009 / SECURITY-HIGH-003: Rate limiter with trusted-proxy allowlist ──
+# Sliding-window counter: at most _RATE_LIMIT_MAX attempts per IP per window.
+_RATE_LIMIT_MAX = 10          # max attempts  (login / brute-force paths)
+_RATE_LIMIT_WINDOW = 60       # seconds
+
+# Admin action paths (already authenticated) use a much higher limit so
+# legitimate super-admin clicks don't trigger the brute-force guard.
+_ADMIN_ACTION_RATE_MAX = 120  # 120 actions per window is plenty for real use
+_ADMIN_ACTION_PREFIXES = frozenset({"fac_reset_pw", "role_change"})
+
+# deque of timestamps per IP key (monotonic — in-process only)
+_rate_buckets: dict[str, collections.deque] = {}
+
+# LOW-002: Persist ban state across server restarts so a restart cannot be used
+# to bypass an active rate-limit ban.  The file stores wall-clock UNIX expiry
+# timestamps keyed by "<prefix>:<ip>" so entries are portable across restarts.
+_RATE_BAN_FILE = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "db", "rate_bans.json"
+)
+# { "login:1.2.3.4": 1735000000.0, ... }  — wall-clock UNIX expiry seconds
+_persistent_bans: dict[str, float] = {}
+
+
+def _load_persistent_bans() -> None:
+    """LOW-002: Restore IP ban state from disk; discard already-expired entries."""
+    global _persistent_bans
+    try:
+        if os.path.exists(_RATE_BAN_FILE):
+            with open(_RATE_BAN_FILE, "r", encoding="utf-8") as _f:
+                raw: dict = json.load(_f)
+            now_wall = time.time()
+            _persistent_bans = {k: v for k, v in raw.items() if isinstance(v, (int, float)) and v > now_wall}
+    except Exception:
+        _persistent_bans = {}
+
+
+def _save_persistent_bans() -> None:
+    """LOW-002: Flush current ban state to disk atomically."""
+    try:
+        os.makedirs(os.path.dirname(_RATE_BAN_FILE), exist_ok=True)
+        _tmp = _RATE_BAN_FILE + ".tmp"
+        with open(_tmp, "w", encoding="utf-8") as _f:
+            json.dump(_persistent_bans, _f)
+        os.replace(_tmp, _RATE_BAN_FILE)
+    except Exception:
+        pass  # Non-fatal — in-memory bans still apply for this process lifetime
+
+
+_load_persistent_bans()
+# Clear any stale admin-action bans that were incorrectly persisted with the
+# tight login limit — they will not be recreated unless the higher admin limit
+# is also exceeded.
+for _ban_key in list(_persistent_bans.keys()):
+    if any(_ban_key.startswith(p + ":") for p in _ADMIN_ACTION_PREFIXES):
+        del _persistent_bans[_ban_key]
+_save_persistent_bans()
+
+# SECURITY-HIGH-003: Only trust X-Forwarded-For / X-Real-IP when the direct
+# TCP connection originates from a known proxy / load-balancer.  Accepting
+# these headers from arbitrary clients allows an attacker to spoof a new IP
+# on every request and bypass the rate limit entirely.
+#
+# Set TRUSTED_PROXY_IPS to a comma-separated list of your proxy CIDRs/IPs.
+# Defaults to localhost only (safe for direct-access deployments).
+# Railway / Render / Fly.io: add the platform's egress IP range here.
+_TRUSTED_PROXY_IPS: frozenset[str] = frozenset(
+    ip.strip()
+    for ip in os.getenv("TRUSTED_PROXY_IPS", "127.0.0.1,::1").split(",")
+    if ip.strip()
+)
+
+
+def _resolve_client_ip(request: Request) -> str:
+    """Return the real client IP, honouring proxy headers only from trusted sources."""
+    direct_ip = request.client.host if request.client else "unknown"
+    if direct_ip in _TRUSTED_PROXY_IPS:
+        # Trust X-Forwarded-For only when the direct connection is a known proxy
+        xff = request.headers.get("X-Forwarded-For", "")
+        if xff:
+            return xff.split(",")[0].strip()
+        xri = request.headers.get("X-Real-IP", "")
+        if xri:
+            return xri.strip()
+    # Untrusted direct connection — use the socket IP, ignore spoofable headers
+    return direct_ip
+
+
+def _check_rate_limit(request: Request, key_prefix: str = "login") -> None:
+    """Raise HTTP 429 if the caller's IP exceeds the login rate limit.
+
+    LOW-002: Bans triggered in this process are written to disk so they survive
+    server restarts.  On each call we first check the persisted ban dict (using
+    wall-clock time), then fall through to the in-memory sliding window.
+    """
+    ip = _resolve_client_ip(request)
+    key = f"{key_prefix}:{ip}"
+
+    # Use a higher limit for authenticated admin actions vs login brute-force
+    effective_max = _ADMIN_ACTION_RATE_MAX if key_prefix in _ADMIN_ACTION_PREFIXES else _RATE_LIMIT_MAX
+
+    # LOW-002: Check persisted ban (wall-clock, survives restart)
+    now_wall = time.time()
+    if key in _persistent_bans:
+        ban_expiry = _persistent_bans[key]
+        if ban_expiry > now_wall:
+            remaining = max(1, int(ban_expiry - now_wall))
+            raise HTTPException(
+                status_code=429,
+                detail=f"Too many attempts. Please wait {remaining} seconds.",
+            )
+        # Ban has expired — remove stale entry
+        del _persistent_bans[key]
+
+    # In-process sliding-window check (monotonic timestamps)
+    now = time.monotonic()
+    if key not in _rate_buckets:
+        _rate_buckets[key] = collections.deque()
+    bucket = _rate_buckets[key]
+    # Evict timestamps outside the sliding window
+    while bucket and bucket[0] < now - _RATE_LIMIT_WINDOW:
+        bucket.popleft()
+    if len(bucket) >= effective_max:
+        # LOW-002: Persist this ban so a restart doesn't reset it
+        _persistent_bans[key] = now_wall + _RATE_LIMIT_WINDOW
+        _save_persistent_bans()
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many login attempts. Please wait {_RATE_LIMIT_WINDOW} seconds.",
+        )
+    bucket.append(now)
+    # L-4 fix: Periodic cleanup of stale bucket keys to prevent unbounded dict growth.
+    # The previous `if not bucket` check was dead code (bucket always non-empty after append).
+    # Now we sweep every ~100 calls to prune empty deques from expired sessions.
+    if len(_rate_buckets) > 50 and hash(key) % 100 == 0:
+        stale_keys = [k for k, v in _rate_buckets.items() if not v]
+        for k in stale_keys:
+            del _rate_buckets[k]
