@@ -53,6 +53,17 @@ export default function useSimulation() {
     const prevRoundRef = useRef(1);
     const [roundChanged, setRoundChanged] = useState(false);
 
+    // audit #11: surface connection health so the UI can show a reconnecting /
+    // staleness banner instead of silently displaying an out-of-date board.
+    // 'ok' after a good fetch; 'stale' after consecutive failures.
+    const [connectionState, setConnectionState] = useState('ok');
+    const [lastSyncAt, setLastSyncAt] = useState(null);
+    const _dashFailuresRef = useRef(0);
+    // audit #12: remember the highest round we already hold so a poll can ask
+    // the server for only newer history (?since_round=) instead of re-sending
+    // the whole game each time.
+    const _highestRoundRef = useRef(1);
+
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const savedUsername = localStorage.getItem('muressons_username');
@@ -212,19 +223,34 @@ export default function useSimulation() {
 
     // ── Fetch dashboard state ─────────────────────────────────
     const fetchDashboard = useCallback(
-        async (sid) => {
+        async (sid, opts = {}) => {
             const id = sid || sessionId;
             if (!id || id === 'demo') return;
             setLoading(true);
             setError(null);
             try {
+                // audit #12: optional payload trim. Pass { since: N } to fetch only
+                // history rounds >= N (the server supports ?since_round=). Default
+                // (no since) returns the full history — unchanged behaviour, so
+                // existing callers are unaffected.
+                const _qs = (opts && opts.since != null)
+                    ? `?since_round=${encodeURIComponent(opts.since)}`
+                    : '';
                 const res = await fetch(
-                    `${API_BASE}/api/simulations/${id}/dashboard`,
+                    `${API_BASE}/api/simulations/${id}/dashboard${_qs}`,
                     { headers: { ...playerIdHeader() } }
                 );
                 if (!res.ok)
                     throw new Error(`Dashboard fetch failed: ${res.status}`);
                 const data = await res.json();
+
+                // audit #11: mark the connection healthy on every good fetch.
+                _dashFailuresRef.current = 0;
+                setConnectionState('ok');
+                setLastSyncAt(Date.now());
+                if (typeof data.current_round === 'number') {
+                    _highestRoundRef.current = Math.max(_highestRoundRef.current, data.current_round);
+                }
 
                 setRoundNumber(data.current_round);
                 setGlobalState(data.global_state);
@@ -255,6 +281,11 @@ export default function useSimulation() {
                 return data;
             } catch (err) {
                 setError(err.message);
+                // audit #11: after a couple of consecutive failures, flag the
+                // board as stale so the UI can show a reconnecting banner instead
+                // of silently presenting out-of-date numbers.
+                _dashFailuresRef.current += 1;
+                if (_dashFailuresRef.current >= 2) setConnectionState('stale');
                 throw err;
             } finally {
                 setLoading(false);
@@ -716,6 +747,9 @@ export default function useSimulation() {
         loading,
         error,
         roundChanged,
+        // audit #11: connection health for the reconnecting/staleness banner.
+        connectionState,
+        lastSyncAt,
         roundLocked,
         setRoundLocked,
         commitResults,

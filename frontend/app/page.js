@@ -6,6 +6,7 @@ import cockpitStyles from './components/ExecutiveCockpit.module.css';
 import dynamic from 'next/dynamic';
 
 import ExecutiveCockpit from './components/ExecutiveCockpit';
+import ConnectionBanner from './components/ConnectionBanner'; // audit #11
 import BoardroomShowdown from './components/BoardroomShowdown';
 import SustainabilityBalancedScorecard from './components/SustainabilityBalancedScorecard';
 import GameOverSummary from './components/GameOverSummary';
@@ -1432,6 +1433,9 @@ export default function CockpitPage() {
       })()}
 
       {/* RoundBriefing is handled by the early-return above — not an overlay */}
+
+      {/* audit #11: reconnecting/staleness banner (renders only when stale) */}
+      <ConnectionBanner state={sim.connectionState} lastSyncAt={sim.lastSyncAt} />
 
       {/* ═══ NEW EXECUTIVE COCKPIT ═══ */}
       <ExecutiveCockpit
