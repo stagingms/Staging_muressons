@@ -48,6 +48,20 @@ except Exception:
 
 import main
 
+# Pin the shared-marketplace object identity. Snapshot-restore paths
+# (database_memory._apply_snapshot via _load_from_disk, used by test_res1_* and
+# test_coordination_state) REASSIGN admin_shared._shared_marketplace and
+# _cohort_marketplaces["default"] to a NEW object — which silently invalidates
+# any module that imported the name by reference (test_new_features). Capture the
+# canonical object now and restore it (with reset pools) before every test so one
+# test's purchases can't leak into another.
+try:
+    import admin_shared as _ash_boot
+    _ORIG_MARKETPLACE = _ash_boot._cohort_marketplaces["default"]
+except Exception:
+    _ORIG_MARKETPLACE = None
+
+
 @pytest.fixture(autouse=True)
 def clear_memory_db():
     """Clear transient global state before every test so nothing cascades."""
@@ -67,5 +81,18 @@ def clear_memory_db():
         import rate_limit as _rl
         _rl._rate_buckets.clear()
         _rl._persistent_bans.clear()
+    except Exception:
+        pass
+    # Restore the canonical shared-marketplace object + reset its pools so a prior
+    # snapshot-restore test can't leave a reassigned/depleted marketplace behind.
+    try:
+        import admin_shared as _ash
+        if _ORIG_MARKETPLACE is not None:
+            _ash._cohort_marketplaces["default"] = _ORIG_MARKETPLACE
+            _ash._shared_marketplace = _ORIG_MARKETPLACE
+            _ORIG_MARKETPLACE["carbon_credit_pool"]["purchased"] = {}
+            _ORIG_MARKETPLACE["carbon_credit_pool"]["price_history"] = [50_000]
+            _ORIG_MARKETPLACE["green_talent_pool"]["hired"] = {}
+            _ORIG_MARKETPLACE["green_talent_pool"]["cost_history"] = [200_000]
     except Exception:
         pass
