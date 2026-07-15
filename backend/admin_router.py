@@ -344,6 +344,9 @@ from admin_shared import (
     _god_mode_audit_log, _crisis_trigger_history, _capped_append,
     _practice_mode, is_practice_mode,
     _round_pacing, _get_pacing, is_round_unlocked, is_pacing_set_by_facilitator,
+    # Fix #5: publish live-run coordination state (pacing/freeze) so it survives
+    # restarts and is shared across workers.
+    mark_pacing_dirty, mark_godmode_dirty,
     check_and_increment_cohort_count,
     _get_session_paradigm,
     DEFAULT_ARCHETYPES,
@@ -650,7 +653,8 @@ async def patch_global_settings(body: GlobalSettingsPatch, request: Request, _gu
         update_data["climate_paradigm"] = _sm
     for key, value in update_data.items():
         _god_mode_settings[key] = value
-    
+    mark_godmode_dirty()  # Fix #5: publish settings change to workers + snapshot
+
     import logging
     logging.info(f"[god-mode] Global settings updated: {_god_mode_settings}")
     
@@ -2903,6 +2907,7 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
         # ── Now unlock next round ────────────────────────────────
         pacing["unlocked_round"] = current_unlocked + 1
         pacing["next_unlock_at"] = None
+        mark_pacing_dirty(session_id)  # Fix #5: share timed unlock across workers
 
         # Broadcast to players
         await manager.push_to_session(session_id, {
@@ -2937,6 +2942,7 @@ async def _multi_round_unlock_task(session_id: str, round_number: int, delay_sec
             return
 
         pacing["unlocked_round"] = round_number
+        mark_pacing_dirty(session_id)  # Fix #5: share scheduled unlock across workers
 
         # Broadcast unlock to players and admin
         await manager.push_to_session(session_id, {
@@ -3122,6 +3128,8 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
                 _scheduled_unlock_task(session_id, body.interval_seconds)
             )
 
+    mark_pacing_dirty(session_id)  # Fix #5: share the new pacing policy across workers + snapshot
+
     # Broadcast mode change to player sessions
     await manager.push_to_session(session_id, {
         "type": "pacing_mode_changed",
@@ -3153,6 +3161,7 @@ async def unlock_next_round(session_id: str, request: Request, _guard: None = De
     await _assert_session_ownership(request, session_id)
     pacing = _get_pacing(session_id)
     pacing["unlocked_round"] = pacing["unlocked_round"] + 1
+    mark_pacing_dirty(session_id)  # Fix #5: share the unlock across workers + snapshot
 
     # Broadcast to players
     await manager.push_to_session(session_id, {
@@ -3520,15 +3529,18 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
             allowed = sess.get("allowed_player_ids", [])
             if generated_id not in allowed:
                 allowed.append(generated_id)
-                sess["allowed_player_ids"] = allowed
             # Also persist in registered_players so login survives server restart
-            if "registered_players" not in sess:
-                sess["registered_players"] = []
-            if not any(rp["player_id"] == generated_id for rp in sess["registered_players"]):
+            registered = sess.get("registered_players") or []
+            if not any(rp["player_id"] == generated_id for rp in registered):
                 display_entry = player.copy()
                 display_entry["plaintext_password"] = generated_password
-                sess["registered_players"].append(display_entry)
-            db._persist()
+                registered.append(display_entry)
+            # Fix #6: single durable write through the db interface (Postgres
+            # metadata + mirror) instead of mutating the memory dict directly.
+            await db.update_session_metadata(req.session_id, {
+                "allowed_player_ids": allowed,
+                "registered_players": registered,
+            })
     except Exception:
         pass  # Non-critical
 
@@ -7342,6 +7354,8 @@ async def update_god_settings(body: dict = Body(...), _guard: None = Depends(req
             old = _god_mode_settings.get(key)
             _god_mode_settings[key] = body[key]
             changed[key] = {"old": old, "new": body[key]}
+    if changed:
+        mark_godmode_dirty()  # Fix #5: publish settings change to workers + snapshot
     _audit("settings_updated", details=changed)
     return _god_mode_settings
 
@@ -7354,6 +7368,7 @@ async def freeze_system(body: dict = Body(...), _guard: None = Depends(require_s
     _god_mode_settings["system_frozen"] = True
     _god_mode_settings["freeze_message"] = msg
     _god_mode_settings["freeze_started_at"] = datetime.now(timezone.utc).isoformat()
+    mark_godmode_dirty()  # Fix #5: freeze must be shared across workers + survive restart
     _audit("system_frozen", details={"message": msg})
     # Broadcast to all connected WS clients
     await manager.broadcast({
@@ -7369,6 +7384,7 @@ async def unfreeze_system(_guard: None = Depends(require_super_admin)):
     _god_mode_settings["system_frozen"] = False
     _god_mode_settings["freeze_message"] = ""
     _god_mode_settings["freeze_started_at"] = None
+    mark_godmode_dirty()  # Fix #5: publish the unfreeze to other workers + snapshot
     _audit("system_unfrozen")
     await manager.broadcast({
         "type": "system_freeze",
@@ -8339,15 +8355,14 @@ async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(..
 async def save_cohort_pacing(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Store pacing mode and max unlocked round per-cohort.
     Once a facilitator sets pacing, God Mode cannot override it."""
-    from database_memory import _sessions as _dm_sessions
-    session = _dm_sessions.get(session_id)
+    session = await db.get_session_info(session_id)
     if not session:
         raise HTTPException(404, "Session not found")
-    
+
     # Track who is setting pacing
     set_by = body.get("facilitator_id", "")
     source = body.get("source", "facilitator")  # "facilitator" or "god_mode"
-    
+
     # Protection: If a facilitator already set pacing, god-mode cannot override
     if source == "god_mode" and is_pacing_set_by_facilitator(session_id):
         raise HTTPException(
@@ -8355,23 +8370,27 @@ async def save_cohort_pacing(session_id: str, body: dict = Body(...), _guard: No
             "Pacing was set by a facilitator and cannot be overridden by God Mode. "
             "Only the owning facilitator can change pacing for this cohort."
         )
-    
+
+    # Fix #6: collect session-field changes and write them durably via the db
+    # interface (Postgres metadata + mirror) in one call.
+    _sess_updates = {}
     if "pacing_mode" in body:
-        session["pacing_mode"] = body["pacing_mode"]  # free_play | manual | scheduled
+        _sess_updates["pacing_mode"] = body["pacing_mode"]  # free_play | manual | scheduled
     if "max_unlocked_round" in body:
-        session["max_unlocked_round"] = int(body["max_unlocked_round"])
+        _sess_updates["max_unlocked_round"] = int(body["max_unlocked_round"])
     if "round_schedules" in body:
-        session["round_schedules"] = body["round_schedules"]
-    
+        _sess_updates["round_schedules"] = body["round_schedules"]
+    if _sess_updates:
+        await db.update_session_metadata(session_id, _sess_updates)
+        session.update(_sess_updates)
+
     # Update pacing ownership tracking in shared state
     pacing = _get_pacing(session_id)
     if source == "facilitator" and body.get("pacing_mode", "free_play") != "free_play":
         pacing["set_by"] = set_by or "unknown_facilitator"
     pacing["mode"] = body.get("pacing_mode", pacing.get("mode", "free"))
-    
-    from database_memory import _persist
-    _persist()
-    
+    mark_pacing_dirty(session_id)  # Fix #5: share pacing policy across workers + snapshot
+
     _audit("cohort_pacing_saved", details={
         "session_id": session_id,
         "pacing_mode": body.get("pacing_mode"),
@@ -8969,13 +8988,12 @@ async def delete_annotation(session_id: str, annotation_id: str, _guard: None = 
 @admin_router.put("/annotations/{session_id}/visibility", summary="Toggle student visibility of annotations")
 async def set_annotations_visibility(session_id: str, body: dict = Body(...), _guard: None = Depends(require_sim_manager)):
     """Enable or disable student visibility of facilitator annotations for a cohort."""
-    import database_memory as db_mem
-    sess = db_mem._sessions.get(session_id)
+    sess = await db.get_session_info(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
     player_visible = bool(body.get("player_visible", False))
-    sess["annotations_player_visible"] = player_visible
-    db_mem._persist()
+    # Fix #6: durable write via the db interface (Postgres metadata + mirror).
+    await db.update_session_metadata(session_id, {"annotations_player_visible": player_visible})
     return {"session_id": session_id, "annotations_player_visible": player_visible, "status": "saved"}
 
 
@@ -9200,13 +9218,12 @@ async def set_cohort_pulse_visibility(cohort_id: str, body: dict = Body(...), _g
     Persists whether the CohortPulse KPI heatmap is visible to players.
     Called by the CohortPulse.js toggle switch.
     """
-    import database_memory as db_mem
-    sess = db_mem._sessions.get(cohort_id)
+    sess = await db.get_session_info(cohort_id)
     if not sess:
         raise HTTPException(status_code=404, detail=f"Cohort '{cohort_id}' not found.")
     player_visible = bool(body.get("player_visible", False))
-    sess["cohort_pulse_player_visible"] = player_visible
-    db_mem._persist()
+    # Fix #6: durable write via the db interface (Postgres metadata + mirror).
+    await db.update_session_metadata(cohort_id, {"cohort_pulse_player_visible": player_visible})
     return {"cohort_id": cohort_id, "player_visible": player_visible, "status": "saved"}
 
 
@@ -9330,9 +9347,7 @@ async def assign_cohort_side_tracks(
       OR that have been explicitly granted to their facilitator account.
 
     Includes timing configuration (unlock_after_round)."""
-    from database_memory import _sessions, _persist
-
-    sess = _sessions.get(session_id)
+    sess = await db.get_session_info(session_id)
     if not sess:
         raise HTTPException(404, "Session not found")
 
@@ -9406,10 +9421,6 @@ async def assign_cohort_side_tracks(
         else:
             timing[tid] = {"unlock_after_round": SIDE_TRACK_MIN_UNLOCK_AFTER}
 
-    # Store on the session
-    sess["active_side_tracks"] = tracks
-    sess["side_track_timing"] = timing  # e.g. {"supply_chain": {"unlock_after_round": 3}}
-
     # Initialize side_track_states for new tracks
     existing_states = sess.get("side_track_states", {})
     for tid in tracks:
@@ -9422,13 +9433,19 @@ async def assign_cohort_side_tracks(
                 "round_history": [],
                 "accumulated_flags": [],
             }
-    sess["side_track_states"] = existing_states
+
+    # Fix #6: store all side-track fields via one durable db write (Postgres
+    # metadata + mirror) instead of mutating the memory dict directly.
+    await db.update_session_metadata(session_id, {
+        "active_side_tracks": tracks,
+        "side_track_timing": timing,  # e.g. {"supply_chain": {"unlock_after_round": 3}}
+        "side_track_states": existing_states,
+    })
 
     # Auto-enable God Mode flag for BRSR when the track is assigned
     if "brsr_ngrbc" in tracks and not _god_mode_settings.get("brsr_ngrbc_enabled"):
         _god_mode_settings["brsr_ngrbc_enabled"] = True
-
-    _persist()
+        mark_godmode_dirty()  # Fix #5: publish/persist the freeze/settings change
 
     return {
         "status": "ok",

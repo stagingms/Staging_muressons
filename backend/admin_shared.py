@@ -811,6 +811,115 @@ def is_pacing_set_by_facilitator(session_id: str) -> bool:
 
 
 # ═════════════════════════════════════════════════════════════════
+#  SHARED COORDINATION STATE (audit Fix #5)
+#
+#  Round pacing and the God-Mode freeze flag must survive a restart AND be
+#  shared across uvicorn workers/replicas (audit §1.1/§1.2). The persistence
+#  itself lives in coordination_store (Postgres) and, for single-process/offline
+#  runs, in database_memory's JSON snapshot. The helpers below (a) expose a
+#  JSON-safe view of the in-process dicts — excluding the per-process asyncio
+#  timer handles, which must NOT be shared — and (b) publish local mutations so
+#  other workers converge. Callers mutate the dict as before, then call
+#  mark_pacing_dirty()/mark_godmode_dirty() to publish.
+# ═════════════════════════════════════════════════════════════════
+
+# Fields on a pacing dict that are per-process and must never be serialised or
+# shipped to another worker (they hold live asyncio.Task handles).
+_PACING_LOCAL_FIELDS = frozenset({"_timer_tasks", "_timer_task"})
+
+
+def pacing_policy_snapshot(session_id: str) -> dict:
+    """JSON-safe subset of a session's pacing policy (no asyncio handles)."""
+    p = _round_pacing.get(session_id)
+    if not p:
+        return {}
+    return {k: v for k, v in p.items()
+            if k not in _PACING_LOCAL_FIELDS and not callable(v)}
+
+
+def all_pacing_policies() -> dict:
+    """{session_id: policy} for every session with pacing set — used by the
+    snapshot writer so pacing survives a restart in memory mode."""
+    return {sid: pacing_policy_snapshot(sid) for sid in list(_round_pacing.keys())}
+
+
+def restore_pacing_policy(session_id: str, policy: dict) -> None:
+    """Merge a shared/persisted pacing policy into the local dict, preserving
+    this process's own timer handles."""
+    if not isinstance(policy, dict):
+        return
+    p = _get_pacing(session_id)  # ensures defaults + local timer fields exist
+    for k, v in policy.items():
+        if k in _PACING_LOCAL_FIELDS:
+            continue
+        p[k] = v
+
+
+def godmode_settings_snapshot() -> dict:
+    """Full God-Mode settings dict (all values are JSON-safe)."""
+    return dict(_god_mode_settings)
+
+
+def restore_godmode_settings(data: dict) -> None:
+    if isinstance(data, dict):
+        _god_mode_settings.update(data)
+
+
+def _in_memory_backend_active() -> bool:
+    """True when the durable store is the in-memory snapshot (not Postgres)."""
+    try:
+        import coordination_store as _cs
+        return not _cs.is_shared()
+    except Exception:
+        return True
+
+
+def _schedule_publish(coro) -> None:
+    """Fire-and-forget an async publish when an event loop is running; a no-op
+    in synchronous contexts (e.g. unit tests) so callers stay sync-safe."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        coro.close()
+        return
+    loop.create_task(coro)
+
+
+def mark_pacing_dirty(session_id: str) -> None:
+    """Publish a session's current pacing policy after a local mutation.
+    • Postgres mode → upsert into coordination_state (shared across workers).
+    • Memory mode   → trigger a snapshot so the policy survives a restart."""
+    if _in_memory_backend_active():
+        try:
+            import database_memory as _dm
+            _dm._persist()
+        except Exception:
+            pass
+        return
+    try:
+        import coordination_store as _cs
+        _schedule_publish(_cs.publish_pacing(session_id, pacing_policy_snapshot(session_id)))
+    except Exception:
+        pass
+
+
+def mark_godmode_dirty() -> None:
+    """Publish God-Mode settings (incl. the freeze flag) after a local mutation."""
+    if _in_memory_backend_active():
+        try:
+            import database_memory as _dm
+            _dm._persist()
+        except Exception:
+            pass
+        return
+    try:
+        import coordination_store as _cs
+        _schedule_publish(_cs.publish_godmode_settings(godmode_settings_snapshot()))
+    except Exception:
+        pass
+
+
+# ═════════════════════════════════════════════════════════════════
 #  COHORT MANAGEMENT
 # ═════════════════════════════════════════════════════════════════
 

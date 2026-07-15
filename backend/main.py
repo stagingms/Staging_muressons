@@ -172,6 +172,19 @@ else:
 # Inject the selected db module into router/admin_router
 sys.modules["database"] = db  # type: ignore
 
+# Fix #5: configure the shared coordination store to match the selected backend.
+# In Postgres mode it externalizes live-run coordination state (round pacing,
+# God-Mode freeze) so it survives restarts AND is shared across workers/replicas
+# (the 500-user target — audit §1.1/§1.2). In memory mode it is a no-op and
+# durability rides database_memory's JSON snapshot.
+try:
+    import coordination_store as _coordination_store
+    _coord_backend = "postgres" if getattr(db, "__name__", "") == "database" else "memory"
+    _coordination_store.configure(_coord_backend, pg_pool_getter=getattr(db, "get_pool", None))
+except Exception as _cs_exc:  # pragma: no cover - defensive
+    print(f"[coordination] configure skipped: {_cs_exc}")
+    _coordination_store = None
+
 from router import router as simulation_router  # noqa: E402
 from admin_router import admin_router  # noqa: E402
 from admin_teleprompter import teleprompter_router  # noqa: E402  ARCH-002
@@ -183,6 +196,17 @@ from admin_analytics import analytics_router  # noqa: E402  ARCH-002
 async def lifespan(app: FastAPI):
     """Manage the database lifecycle."""
     await db.get_pool()
+
+    # Fix #5: prepare the shared coordination store — create its table (PG only),
+    # rehydrate this worker's in-process pacing/freeze caches from the shared
+    # state, and start the background refresher that keeps workers converged.
+    if _coordination_store is not None:
+        try:
+            await _coordination_store.init_schema()
+            await _coordination_store.rehydrate()
+            await _coordination_store.start_background_refresh()
+        except Exception as _cs_start_exc:
+            print(f"[coordination] startup skipped (non-fatal): {_cs_start_exc}")
 
     # REC-1a: Startup banner warning for memory mode
     _is_memory_db = _use_memory or getattr(db, "__name__", "") == "database_memory"
@@ -224,6 +248,11 @@ async def lifespan(app: FastAPI):
         print(f"[startup] Failed to sync/seed missing cohorts: {e}")
 
     yield
+    if _coordination_store is not None:
+        try:
+            await _coordination_store.stop_background_refresh()
+        except Exception:
+            pass
     await db.close_pool()
 
 

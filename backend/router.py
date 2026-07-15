@@ -409,17 +409,25 @@ async def set_username(req: SetUsernameRequest):
         if session_id:
             cohort = await db.get_session_info(session_id)
             if cohort:
-                for p_rec in cohort.get("registered_players", []):
+                reg = cohort.get("registered_players", [])
+                changed = False
+                for p_rec in reg:
                     if p_rec["player_id"] == req.user_id:
                         p_rec["username"] = req.username.strip()
-                database_memory._persist()
-                
-            # Update all active sessions for this player
-            for sid, sess in database_memory._sessions.items():
+                        changed = True
+                # Fix #6: persist the mutated roster through the db interface
+                # (durable under Postgres, not just the memory mirror + snapshot).
+                if changed:
+                    await db.update_session_metadata(session_id, {"registered_players": reg})
+
+            # Update all active sessions owned by this player (discover via the
+            # mirror cache, write durably per session through the db interface).
+            for sid, sess in list(database_memory._sessions.items()):
                 if sess.get("player_id") == req.user_id:
-                    sess["player_name"] = req.username.strip()
-                    sess["cohort_name"] = f"Player ({req.username.strip()})"
-            database_memory._persist()
+                    await db.update_session_metadata(sid, {
+                        "player_name": req.username.strip(),
+                        "cohort_name": f"Player ({req.username.strip()})",
+                    })
     elif req.role == "facilitator":
         fac = next((f for f in _facilitator_registry if f["facilitator_id"] == req.user_id), None)
         if not fac:
@@ -1008,16 +1016,19 @@ async def solo_start_simulation(body: SoloStartRequest):
     session_id = str(result["session_id"])
 
     # ── Tag session as solo + set free-play pacing (all rounds unlocked) ──
-    import database_memory as _dm
-    sess = _dm._sessions.get(session_id)
-    if sess:
-        sess["is_solo"] = True
-        sess["pacing_mode"] = "free_play"
-        sess["player_name"] = body.player_name
-        _dm._persist()
+    # Fix #6: route session mutations through the db interface. Under Postgres
+    # these land in the durable `metadata` JSONB column (and the mirror cache);
+    # the old path wrote only to the database_memory dict + snapshot and was lost
+    # on a Postgres restart. In memory mode the effect is identical.
+    await db.update_session_metadata(session_id, {
+        "is_solo": True,
+        "pacing_mode": "free_play",
+        "player_name": body.player_name,
+    })
+    sess = await db.get_session_info(session_id)
 
     # ── Pre-unlock all rounds for this solo session ──
-    from admin_shared import _round_pacing
+    from admin_shared import _round_pacing, mark_pacing_dirty
     _round_pacing[session_id] = {
         "mode": "free",
         "unlocked_round": 999,
@@ -1028,6 +1039,9 @@ async def solo_start_simulation(body: SoloStartRequest):
         "_timer_task": None,
         "set_by": None,
     }
+    # Fix #5: publish the pacing policy so it survives a restart and is shared
+    # across workers (no-op beyond a local snapshot in memory mode).
+    mark_pacing_dirty(session_id)
 
     # ── Pre-seed round configs so the Strategic Options panel is never empty ──
     # We fetch all 10 rounds and store them on the session for the frontend
@@ -1063,9 +1077,8 @@ async def solo_start_simulation(body: SoloStartRequest):
                     "special_rules": rcfg.get("special_rules", {}),
                     "paradigm": _req_paradigm,
                 }
-        if sess:
-            sess["_solo_round_configs"] = all_round_configs
-            _dm._persist()
+        if all_round_configs:
+            await db.update_session_metadata(session_id, {"_solo_round_configs": all_round_configs})
     except Exception as rc_exc:
         print(f"[WARN] solo-start: failed to pre-seed round configs: {rc_exc}")
 

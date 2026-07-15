@@ -99,12 +99,23 @@ def _persist():
             dl_snap = list(_decision_log)
 
             import admin_shared
+            # Fix #5: pacing policy + God-Mode settings are live-run coordination
+            # state; snapshot them so a restart/redeploy does not drop a cohort's
+            # unlock/freeze state (audit §1.1). Pacing is stored via the JSON-safe
+            # helper that strips per-process asyncio timer handles.
+            try:
+                _round_pacing_snap = admin_shared.all_pacing_policies()
+                _godmode_snap = admin_shared.godmode_settings_snapshot()
+            except Exception:
+                _round_pacing_snap, _godmode_snap = {}, {}
             snapshot = {
                 "sessions": sessions_snap,
                 "global_states": gs_snap,
                 "bu_states": bu_serializable,
                 "decision_log": dl_snap,
                 "cohort_marketplaces": getattr(admin_shared, "_cohort_marketplaces", {}),
+                "round_pacing": _round_pacing_snap,
+                "god_mode_settings": _godmode_snap,
             }
             _SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
@@ -174,6 +185,21 @@ def _apply_snapshot(snapshot: dict) -> int:
         })
     except Exception as e:
         print(f"[persistence] Failed to restore marketplace: {e}")
+
+    # Fix #5: restore live-run coordination state (pacing + God-Mode settings)
+    # so a restart keeps a cohort's unlock/freeze state. Best-effort — never
+    # fail the whole restore over coordination state.
+    try:
+        import admin_shared
+        gm = snapshot.get("god_mode_settings")
+        if isinstance(gm, dict):
+            admin_shared.restore_godmode_settings(gm)
+        pacing_map = snapshot.get("round_pacing")
+        if isinstance(pacing_map, dict):
+            for _sid, _policy in pacing_map.items():
+                admin_shared.restore_pacing_policy(_sid, _policy)
+    except Exception as e:
+        print(f"[persistence] Failed to restore pacing/god-mode state: {e}")
 
     _cleanup_expired_records()
     return len([s for s in _sessions.values() if not s.get("parent_cohort_id")])
