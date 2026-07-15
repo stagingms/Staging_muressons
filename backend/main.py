@@ -190,6 +190,7 @@ from admin_router import admin_router  # noqa: E402
 from admin_teleprompter import teleprompter_router  # noqa: E402  ARCH-002
 from admin_resources import resources_router  # noqa: E402  ARCH-002
 from admin_analytics import analytics_router  # noqa: E402  ARCH-002
+from admin_god_controls import god_router  # noqa: E402  audit #17 (extracted sub-router)
 
 
 @asynccontextmanager
@@ -404,6 +405,7 @@ app.include_router(admin_router)
 app.include_router(teleprompter_router)  # ARCH-002: Extracted sub-router
 app.include_router(resources_router)     # ARCH-002: Extracted sub-router
 app.include_router(analytics_router)     # ARCH-002: Extracted sub-router
+app.include_router(god_router)           # audit #17: Extracted God-Mode controls sub-router
 
 
 @app.get("/health", tags=["System"])

@@ -7133,61 +7133,10 @@ def _audit(action: str, actor: str = "god_mode", details: dict = None, source_ip
         pass  # Never let audit logging failure crash a request
 
 
-@admin_router.get("/god/settings", summary="Get god mode global settings")
-async def get_god_settings(_guard: None = Depends(require_super_admin)):
-    # SECURITY-HIGH-001: Restricted to super_admin — contains hidden simulation
-    # parameters (market_hostility_index, global_carbon_fee, black_swan toggles, etc.)
-    # that must not be visible to facilitators. Facilitators read from
-    # GET /scaffolding-status instead for the subset they need.
-    return _god_mode_settings
-
-
-@admin_router.put("/god/settings", summary="Update god mode global settings")
-async def update_god_settings(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
-    changed = {}
-    for key in ("allow_facilitator_cohort_creation",):
-        if key in body:
-            old = _god_mode_settings.get(key)
-            _god_mode_settings[key] = body[key]
-            changed[key] = {"old": old, "new": body[key]}
-    if changed:
-        mark_godmode_dirty()  # Fix #5: publish settings change to workers + snapshot
-    _audit("settings_updated", details=changed)
-    return _god_mode_settings
-
-
-# ── Emergency Freeze (#7) ───────────────────────────────────────
-
-@admin_router.post("/god/freeze", summary="Freeze all simulations")
-async def freeze_system(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
-    msg = body.get("message", "System maintenance in progress.")
-    _god_mode_settings["system_frozen"] = True
-    _god_mode_settings["freeze_message"] = msg
-    _god_mode_settings["freeze_started_at"] = datetime.now(timezone.utc).isoformat()
-    mark_godmode_dirty()  # Fix #5: freeze must be shared across workers + survive restart
-    _audit("system_frozen", details={"message": msg})
-    # Broadcast to all connected WS clients
-    await manager.broadcast({
-        "type": "system_freeze",
-        "frozen": True,
-        "message": msg,
-    })
-    return {"status": "frozen", "message": msg}
-
-
-@admin_router.post("/god/unfreeze", summary="Unfreeze all simulations")
-async def unfreeze_system(_guard: None = Depends(require_super_admin)):
-    _god_mode_settings["system_frozen"] = False
-    _god_mode_settings["freeze_message"] = ""
-    _god_mode_settings["freeze_started_at"] = None
-    mark_godmode_dirty()  # Fix #5: publish the unfreeze to other workers + snapshot
-    _audit("system_unfrozen")
-    await manager.broadcast({
-        "type": "system_freeze",
-        "frozen": False,
-        "message": "",
-    })
-    return {"status": "unfrozen"}
+# audit #17: GET/PUT /god/settings and POST /god/freeze|/god/unfreeze were
+# extracted VERBATIM to admin_god_controls.py (god_router, mounted in main.py).
+# Paths/prefix are identical, so behaviour is unchanged. _audit and
+# require_super_admin remain here and are imported by that module.
 
 
 # ═════════════════════════════════════════════════════════════════
