@@ -290,12 +290,16 @@ _railway_domain = _os.getenv("RAILWAY_PUBLIC_DOMAIN", "")
 if _railway_domain:
     _cors_origins.append(f"https://{_railway_domain}")
 
+# audit #4: enumerate methods/headers instead of "*". The origin allowlist is the
+# real control, but with allow_credentials=True it is good hygiene to only permit
+# the verbs and request headers the app actually uses, rather than reflecting
+# whatever an allowed origin asks for.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Accept", "X-Player-Id", "Authorization"],
 )
 
 # HIGH-010: HTTP security headers middleware

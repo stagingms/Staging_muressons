@@ -1582,6 +1582,17 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             detail=f"Missing decisions for BU(s): {', '.join(sorted(missing))}.",
         )
 
+    # audit #4: Reject UNKNOWN/foreign BU IDs. The "missing" check above ensures
+    # every real BU is present; this complements it so a decision for a BU that
+    # does not belong to this session cannot slip through to the engine.
+    unknown = set(submitted_bu_ids) - valid_bu_ids
+    if unknown:
+        if commit_lock.locked(): commit_lock.release()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown BU ID(s): {', '.join(sorted(unknown))}.",
+        )
+
     # VULN-008: Validate choice_selected (only for legacy_abc paradigm)
     if paradigm == "legacy_abc":
         for d in decisions_raw:

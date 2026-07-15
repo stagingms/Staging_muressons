@@ -258,7 +258,11 @@ class CommitTurnRequest(BaseModel):
     # logged. Retained only for backward compatibility with older clients.
     crisis_severity: float = Field(0.0, ge=0.0, le=100.0)
     imitation_decay_rate: float = Field(0.05, ge=0.0, le=1.0)
-    decisions: list[BUDecision]
+    # audit #4: bound the list so a crafted request can't submit an arbitrarily
+    # large decisions array to amplify engine CPU/memory. Real cohorts have a
+    # single-digit BU count; 64 is a generous ceiling. Unknown bu_ids are also
+    # rejected server-side in commit_turn.
+    decisions: list[BUDecision] = Field(..., max_length=64)
     force_override_cfo: bool = False
     # ITEM 1: Optimistic locking — client sends expected round
     expected_round: Optional[int] = None

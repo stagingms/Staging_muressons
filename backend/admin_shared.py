@@ -663,26 +663,50 @@ def _load_facilitator_registry() -> list[dict]:
                 return data
     except Exception as e:
         print(f"[persistence] Failed to load facilitator registry: {e}")
-    # LOW-003: Emergency fallback — log credentials via the logging subsystem
-    # (not raw print/stdout) so that log-routing rules can gate who sees this.
-    # The plaintext password is intentionally included because it is the ONLY
-    # recovery path when the registry file is absent; keep this log line out of
-    # publicly-accessible log forwarders in production environments.
-    _shared_logger.warning(
-        "\n"
-        "╔══════════════════════════════════════════════════════╗\n"
-        "║  EMERGENCY — Registry unavailable. Fallback active.  ║\n"
-        "║  SENSITIVE: do not forward to public log collectors. ║\n"
-        "╠══════════════════════════════════════════════════════╣\n"
-        "║  ID       : %s\n"
-        "║  Password : %s\n"
-        "║  Role     : %s\n"
-        "║  ACTION   : Restore db/facilitator_registry.json     ║\n"
-        "╚══════════════════════════════════════════════════════╝",
-        _DEFAULT_FACILITATOR["facilitator_id"],
-        _DEFAULT_FACILITATOR["password"],
-        _DEFAULT_FACILITATOR["role"],
-    )
+    # audit #18: Emergency fallback banner. The plaintext emergency password is
+    # NO LONGER written to the logs in production — Railway (and any log
+    # forwarder) captures stdout/stderr, so a secret there is effectively public.
+    # In prod we log only the recovery INSTRUCTION; recover via the god_mode
+    # MASTER_PASSWORD break-glass or by restoring the registry file. The
+    # plaintext is shown only under DEBUG (local development) for convenience.
+    try:
+        from config import DEBUG as _DEBUG
+    except Exception:
+        _DEBUG = False
+    if _DEBUG:
+        _shared_logger.warning(
+            "\n"
+            "╔══════════════════════════════════════════════════════╗\n"
+            "║  EMERGENCY — Registry unavailable. Fallback active.  ║\n"
+            "║  DEBUG build — credential shown for local recovery.  ║\n"
+            "╠══════════════════════════════════════════════════════╣\n"
+            "║  ID       : %s\n"
+            "║  Password : %s\n"
+            "║  Role     : %s\n"
+            "║  ACTION   : Restore db/facilitator_registry.json     ║\n"
+            "╚══════════════════════════════════════════════════════╝",
+            _DEFAULT_FACILITATOR["facilitator_id"],
+            _DEFAULT_FACILITATOR["password"],
+            _DEFAULT_FACILITATOR["role"],
+        )
+    else:
+        _shared_logger.error(
+            "\n"
+            "╔══════════════════════════════════════════════════════╗\n"
+            "║  EMERGENCY — Facilitator registry unavailable.       ║\n"
+            "║  A fallback emergency account (id below) is active.  ║\n"
+            "║  Its password is NOT logged (secrets must not reach  ║\n"
+            "║  log forwarders). Recover by either:                 ║\n"
+            "║    • signing in with the god_mode MASTER_PASSWORD,   ║\n"
+            "║      or                                              ║\n"
+            "║    • restoring db/facilitator_registry.json.         ║\n"
+            "╠══════════════════════════════════════════════════════╣\n"
+            "║  ID   : %s\n"
+            "║  Role : %s\n"
+            "╚══════════════════════════════════════════════════════╝",
+            _DEFAULT_FACILITATOR["facilitator_id"],
+            _DEFAULT_FACILITATOR["role"],
+        )
     return [{**_DEFAULT_FACILITATOR}]
 
 
