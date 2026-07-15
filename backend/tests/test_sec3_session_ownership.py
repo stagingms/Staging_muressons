@@ -79,6 +79,10 @@ def test_dashboard_no_header_owned_session_rejected():
     """audit #9: an anonymous caller holding only the session UUID (no
     X-Player-Id, no facilitator auth) is now rejected on an OWNED session."""
     pid, sub = _new_player_session()
+    # The shared TestClient's cookie jar still holds the god_mode cookie from
+    # _new_player_session's /start call — clear it so this request is genuinely
+    # anonymous (otherwise the facilitator-observer allowance would apply).
+    client.cookies.clear()
     r = client.get(f"/api/simulations/{sub}/dashboard")
     assert r.status_code == 403
     assert "x-player-id" in r.json().get("detail", "").lower()
