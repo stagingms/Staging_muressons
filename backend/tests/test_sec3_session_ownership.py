@@ -4,11 +4,14 @@ the session (via the X-Player-Id header, consistent with save_decisions and the
 other player routes), so a party holding only the session UUID cannot read or
 advance another team's game.
 
-Behaviour contract (matches MED-003-008):
-  * Correct X-Player-Id  -> allowed (200 / not blocked by the ownership gate).
-  * Wrong X-Player-Id     -> 403 "Player is not the owner of this session."
-  * No X-Player-Id        -> allowed (backward-compatible UUID-as-bearer; also how
-                            facilitator/observer clients hit these routes).
+Behaviour contract (audit #9 tightened SEC-3):
+  * Correct X-Player-Id      -> allowed (200 / not blocked by the ownership gate).
+  * Wrong X-Player-Id         -> 403 "Player is not the owner of this session."
+  * No X-Player-Id, OWNED     -> 403 unless the caller is an authenticated
+                                facilitator/observer (JWT cookie). Anonymous
+                                UUID-only callers can no longer bypass ownership.
+  * No X-Player-Id, facilitator JWT -> allowed (observer console).
+  * Unowned (solo) session    -> allowed with no header (UUID is the bearer).
 """
 
 import asyncio
@@ -72,8 +75,30 @@ def test_dashboard_wrong_owner_forbidden():
     assert OWNERSHIP_DENIED in r.json().get("detail", "").lower()
 
 
-def test_dashboard_no_header_backward_compatible():
+def test_dashboard_no_header_owned_session_rejected():
+    """audit #9: an anonymous caller holding only the session UUID (no
+    X-Player-Id, no facilitator auth) is now rejected on an OWNED session."""
     pid, sub = _new_player_session()
+    r = client.get(f"/api/simulations/{sub}/dashboard")
+    assert r.status_code == 403
+    assert "x-player-id" in r.json().get("detail", "").lower()
+
+
+def test_dashboard_no_header_facilitator_allowed():
+    """A facilitator/observer (JWT cookie, no X-Player-Id) may still read an
+    owned player's dashboard."""
+    pid, sub = _new_player_session()
+    r = client.get(f"/api/simulations/{sub}/dashboard", cookies=_facilitator_cookies())
+    assert r.status_code == 200
+
+
+def test_dashboard_solo_session_no_header_allowed():
+    """An unowned (solo) session has no player_id to bind against, so the
+    high-entropy UUID remains the bearer and no header is required."""
+    sub = client.post(
+        "/api/simulations/solo-start",
+        json={"player_name": "SoloSEC3", "decision_paradigm": "legacy_abc"},
+    ).json()["session_id"]
     r = client.get(f"/api/simulations/{sub}/dashboard")
     assert r.status_code == 200
 

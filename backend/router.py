@@ -135,24 +135,49 @@ def _get_commit_lock(session_id: str) -> _asyncio.Lock:
 
 
 async def _assert_player_owns_session(request: Request, session_id: str) -> None:
-    """MED-003–008: Validate X-Player-Id header against session ownership.
+    """Bind the caller to the session it is acting on (SEC-3 / audit #9).
 
-    The header is OPTIONAL for backward compatibility (clients that send it
-    must be validated; clients that omit it fall back to UUID-as-bearer-token).
-    If provided and the player_id does NOT match the session owner, raise 403.
+    Rules:
+      • Session has NO owner (solo / self-paced, player_id unset) → allowed. The
+        high-entropy session UUID is the bearer; there is no other player to
+        protect against.
+      • X-Player-Id present → must equal the session owner, else 403.
+      • X-Player-Id ABSENT on an OWNED session → allowed ONLY for an
+        authenticated facilitator/observer (valid JWT cookie). An anonymous
+        caller that holds only the session UUID (leaked via URL, screen-share,
+        logs) is now rejected — audit #9 closes the previous
+        "omit the header to bypass ownership" gap. The frontend always attaches
+        X-Player-Id for real players (useSimulation.playerIdHeader), so live
+        cohort play is unaffected.
     """
-    player_id_header = request.headers.get("X-Player-Id", "").strip()
-    if not player_id_header:
-        return  # No header → rely on UUID entropy as bearer token
     sess = await db.get_session_info(session_id)
     if not sess:
-        return  # Session not found check handled by caller
+        return  # Session-not-found is handled by the caller.
     session_owner = sess.get("player_id", "")
-    if session_owner and session_owner != player_id_header:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Player is not the owner of this session.",
-        )
+    if not session_owner:
+        return  # Unowned (solo) session — nothing to bind against.
+
+    player_id_header = request.headers.get("X-Player-Id", "").strip()
+    if player_id_header:
+        if session_owner != player_id_header:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Player is not the owner of this session.",
+            )
+        return  # Correct owner.
+
+    # No X-Player-Id on an owned session: allow only an authenticated facilitator
+    # (observer/console), reject anonymous UUID-only callers.
+    try:
+        from auth_jwt import get_facilitator_from_request
+        if get_facilitator_from_request(request):
+            return
+    except Exception:
+        pass
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Missing X-Player-Id: this session belongs to a registered player.",
+    )
 
 async def _cohort_commit_progress(session_info):
     """MP-01 live badge: "X of Y teams committed the latest round" for a cohort

@@ -326,6 +326,51 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(SecurityHeadersMiddleware)
 
+# audit #16: structured logging + request/session correlation. Every log line
+# emitted while handling a request is tagged with a request_id (echoed back as
+# X-Request-Id) and, for /simulations/{id} routes, the session_id — so a live
+# incident ("team X is stuck") can be traced across the logs. JSON in prod,
+# human-readable in local dev (see logging_config).
+import re as _re
+import time as _time_mod
+from logging_config import (
+    configure_logging as _configure_logging,
+    new_request_id as _new_request_id,
+    set_request_context as _set_request_context,
+    reset_request_context as _reset_request_context,
+)
+
+_configure_logging()
+_access_logger = logging.getLogger("muressons.access")
+_SESSION_ID_RE = _re.compile(r"/simulations/([0-9a-fA-F-]{8,})")
+
+
+class RequestContextMiddleware(BaseHTTPMiddleware):
+    """Outermost middleware: assign/propagate a request id, derive the session
+    id from the path, and emit one structured access-log line per request."""
+
+    async def dispatch(self, request: Request, call_next):
+        req_id = request.headers.get("X-Request-Id", "").strip() or _new_request_id()
+        _match = _SESSION_ID_RE.search(request.url.path)
+        _set_request_context(req_id, _match.group(1) if _match else "")
+        _start = _time_mod.perf_counter()
+        _status = 500
+        try:
+            response: Response = await call_next(request)
+            _status = response.status_code
+            response.headers["X-Request-Id"] = req_id
+            return response
+        finally:
+            _dur_ms = round((_time_mod.perf_counter() - _start) * 1000, 1)
+            _access_logger.info(
+                "%s %s -> %s (%sms)", request.method, request.url.path, _status, _dur_ms
+            )
+            _reset_request_context()
+
+
+# Added last → outermost, so the context is set for all inner handling.
+app.add_middleware(RequestContextMiddleware)
+
 # LOW-009: Generic error handler — never expose internal tracebacks in production
 @app.exception_handler(Exception)
 async def _global_exception_handler(request: Request, exc: Exception):
