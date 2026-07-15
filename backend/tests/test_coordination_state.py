@@ -99,4 +99,22 @@ def test_snapshot_persists_pacing_and_godmode(tmp_path, monkeypatch):
     assert "_timer_task" not in saved["round_pacing"]["COORD_S3"]
     assert saved["god_mode_settings"]["system_frozen"] is True
 
-    # Simulat
+    # Simulate a restart: wipe the live dicts, then apply the snapshot.
+    a._round_pacing.pop("COORD_S3", None)
+    a._god_mode_settings["system_frozen"] = False
+    db._apply_snapshot(saved)
+    assert a._round_pacing["COORD_S3"]["unlocked_round"] == 2
+    assert a._god_mode_settings["system_frozen"] is True
+
+
+def test_update_session_metadata_routes_and_persists():
+    """#6: session field writes go through the db interface and stick."""
+    async def _run():
+        res = await db.create_session(cohort_name="Coord Test Cohort", facilitator_id=None)
+        sid = str(res["session_id"])
+        ok = await db.update_session_metadata(sid, {"is_solo": True, "pacing_mode": "free_play"})
+        assert ok is True
+        info = await db.get_session_info(sid)
+        assert info.get("is_solo") is True
+        assert info.get("pacing_mode") == "free_play"
+    asyncio.run(_run())
