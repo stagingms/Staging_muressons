@@ -15,11 +15,33 @@ cd /app/backend
 export USE_MEMORY_DB="${USE_MEMORY_DB:-false}"
 export BACKEND_URL="http://127.0.0.1:8000"
 
-# Start backend with restart loop — if it crashes, restart it
+# audit #7: decide how many web workers are SAFE to run. scale_preflight clamps
+# to 1 unless the shared Postgres backend is active (memory/offline/DEBUG mode
+# cannot be split across workers — see #5). Set WEB_CONCURRENCY to scale out.
+WORKERS="$(python -m scale_preflight)"
+if ! [ "$WORKERS" -ge 1 ] 2>/dev/null; then
+  echo "  ⚠️ scale_preflight returned '$WORKERS' — defaulting to 1 worker"
+  WORKERS=1
+fi
+echo "  ⚙️  Backend workers: $WORKERS"
+
+# Start backend with restart loop — if the gunicorn master crashes, restart it.
+# gunicorn (uvicorn worker class) manages the individual async workers itself;
+# each worker runs the FastAPI lifespan, so each rehydrates + refreshes the
+# shared coordination store (#5).
 (
   while true; do
-    echo "  🔄 Starting backend..."
-    python -m uvicorn main:app --host 127.0.0.1 --port 8000 2>&1
+    echo "  🔄 Starting backend ($WORKERS worker(s))..."
+    if [ "$WORKERS" -gt 1 ]; then
+      gunicorn main:app \
+        -k uvicorn.workers.UvicornWorker \
+        -w "$WORKERS" \
+        --bind 127.0.0.1:8000 \
+        --timeout 120 --graceful-timeout 30 --keep-alive 5 2>&1
+    else
+      # Single worker: keep the lighter uvicorn path (unchanged behaviour).
+      python -m uvicorn main:app --host 127.0.0.1 --port 8000 2>&1
+    fi
     EXIT_CODE=$?
     echo "  ❌ Backend exited with code $EXIT_CODE — restarting in 3s..."
     sleep 3

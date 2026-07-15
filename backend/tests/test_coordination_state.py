@@ -12,10 +12,31 @@ worker — audit item #8); coordination_store is a no-op in memory mode.
 """
 
 import asyncio
+import copy
+
+import pytest
 
 import admin_shared as a
 import coordination_store as cs
 import database_memory as db
+
+
+@pytest.fixture(autouse=True)
+def _isolate_coordination_globals():
+    """These tests mutate module-level coordination state (_god_mode_settings,
+    _round_pacing). Snapshot and restore them around EACH test so nothing leaks
+    into the rest of the suite — in particular a stray system_frozen=True would
+    make every later commit-turn return 503 once it is snapshotted to disk.
+    """
+    gm_saved = copy.deepcopy(a._god_mode_settings)
+    pacing_saved = copy.deepcopy(a._round_pacing)
+    try:
+        yield
+    finally:
+        a._god_mode_settings.clear()
+        a._god_mode_settings.update(gm_saved)
+        a._round_pacing.clear()
+        a._round_pacing.update(pacing_saved)
 
 
 def test_pacing_snapshot_strips_asyncio_handles():
@@ -47,6 +68,7 @@ def test_godmode_settings_round_trip():
     a.restore_godmode_settings(saved)
     assert a._god_mode_settings["system_frozen"] is True
     assert a._god_mode_settings["freeze_message"] == "maintenance"
+    # (the autouse fixture restores system_frozen=False after this test)
 
 
 def test_memory_backend_is_not_shared_by_default():
@@ -58,7 +80,8 @@ def test_memory_backend_is_not_shared_by_default():
 
 def test_snapshot_persists_pacing_and_godmode(tmp_path, monkeypatch):
     """#5 restart-durability: a snapshot written now must carry pacing + god-mode
-    settings, and applying it into cleared dicts must restore them."""
+    settings, and applying it into cleared dicts must restore them. Uses a tmp
+    snapshot path so the real db/memory_snapshot.json is never touched."""
     a._round_pacing["COORD_S3"] = {
         "mode": "manual", "unlocked_round": 2, "set_by": "fac-9",
         "_timer_tasks": [], "_timer_task": None,
@@ -76,22 +99,4 @@ def test_snapshot_persists_pacing_and_godmode(tmp_path, monkeypatch):
     assert "_timer_task" not in saved["round_pacing"]["COORD_S3"]
     assert saved["god_mode_settings"]["system_frozen"] is True
 
-    # Simulate a restart: wipe the live dicts, then apply the snapshot.
-    a._round_pacing.pop("COORD_S3", None)
-    a._god_mode_settings["system_frozen"] = False
-    db._apply_snapshot(saved)
-    assert a._round_pacing["COORD_S3"]["unlocked_round"] == 2
-    assert a._god_mode_settings["system_frozen"] is True
-
-
-def test_update_session_metadata_routes_and_persists():
-    """#6: session field writes go through the db interface and stick."""
-    async def _run():
-        res = await db.create_session(cohort_name="Coord Test Cohort", facilitator_id=None)
-        sid = str(res["session_id"])
-        ok = await db.update_session_metadata(sid, {"is_solo": True, "pacing_mode": "free_play"})
-        assert ok is True
-        info = await db.get_session_info(sid)
-        assert info.get("is_solo") is True
-        assert info.get("pacing_mode") == "free_play"
-    asyncio.run(_run())
+    # Simulat

@@ -1,5 +1,8 @@
 fastapi==0.115.6
 uvicorn[standard]==0.34.0
+# audit #7: gunicorn process manager for multi-worker scale-out (uvicorn worker
+# class). Worker count is gated by scale_preflight (Postgres-only).
+gunicorn==23.0.0
 asyncpg==0.30.0
 pydantic==2.10.4
 python-dotenv==1.0.1
