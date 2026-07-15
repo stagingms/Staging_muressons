@@ -208,6 +208,16 @@ async def lifespan(app: FastAPI):
         except Exception as _cs_start_exc:
             print(f"[coordination] startup skipped (non-fatal): {_cs_start_exc}")
 
+    # audit #10: start the idle-session reaper — reaps expired solo sessions and
+    # GCs the per-process commit-lock / timestamp / pacing dicts so they don't
+    # grow unbounded over a long-running server.
+    try:
+        import session_reaper as _session_reaper
+        await _session_reaper.start_reaper()
+    except Exception as _reaper_exc:
+        print(f"[reaper] startup skipped (non-fatal): {_reaper_exc}")
+        _session_reaper = None
+
     # REC-1a: Startup banner warning for memory mode
     _is_memory_db = _use_memory or getattr(db, "__name__", "") == "database_memory"
     if _is_memory_db:
@@ -248,6 +258,11 @@ async def lifespan(app: FastAPI):
         print(f"[startup] Failed to sync/seed missing cohorts: {e}")
 
     yield
+    try:
+        import session_reaper as _sr
+        await _sr.stop_reaper()
+    except Exception:
+        pass
     if _coordination_store is not None:
         try:
             await _coordination_store.stop_background_refresh()

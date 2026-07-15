@@ -1073,18 +1073,10 @@ async def solo_start_simulation(body: SoloStartRequest):
     # to retrieve via GET /api/simulations/{session_id}/solo-round-configs
     try:
         all_round_configs = {}
+        # audit #15: single dispatch point instead of an inline if/elif chain.
+        from paradigm_registry import round_config_for
         for rnum in range(1, 11):
-            if _req_paradigm == "un_sdg":
-                from sdg_configs import get_sdg_round_config
-                rcfg = get_sdg_round_config(rnum)
-            elif _req_paradigm == "healthcare":
-                from healthcare_configs import get_healthcare_round_config
-                rcfg = get_healthcare_round_config(rnum)
-            elif _req_paradigm == "multi_toggles":
-                from pillar_configs import get_pillar_config
-                rcfg = get_pillar_config(rnum) or get_round_config(rnum)
-            else:
-                rcfg = get_round_config(rnum)
+            rcfg = round_config_for(_req_paradigm, rnum)
             if rcfg:
                 # Apply option shuffle for solo sessions too
                 _solo_options = rcfg.get("options", {})
