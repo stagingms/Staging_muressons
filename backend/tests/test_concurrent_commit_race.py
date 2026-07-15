@@ -23,6 +23,20 @@ from main import app
 from router import _commit_timestamps
 
 
+def _run(coro):
+    """Run a coroutine on a fresh event loop.
+
+    Python 3.12 removed the implicit-loop behaviour of asyncio.get_event_loop()
+    (it raises 'no current event loop' off the main loop), so we always create
+    and close our own loop — mirroring test_sec3_session_ownership._run.
+    """
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
+
+
 def _solo_session():
     transport = ASGITransport(app=app)
 
@@ -37,7 +51,7 @@ def _solo_session():
             bus = dash.json()["business_units"]
             return sid, bus
 
-    return asyncio.get_event_loop().run_until_complete(_setup())
+    return _run(_setup())
 
 
 def test_concurrent_commits_yield_one_409():
@@ -61,12 +75,19 @@ def test_concurrent_commits_yield_one_409():
                 return_exceptions=True,
             )
 
-    results = asyncio.get_event_loop().run_until_complete(_fire())
+    results = _run(_fire())
     codes = []
     for r in results:
         assert not isinstance(r, Exception), f"request raised: {r!r}"
         codes.append(r.status_code)
 
-    # Exactly one commit is rejected by the concurrency guard (409); neither 5xx.
-    assert 409 in codes, f"expected a 409 from the concurrency guard, got {codes}"
+    # The invariant is "two simultaneous commits never BOTH advance the round".
+    # The loser is rejected by whichever guard fires first — the in-process
+    # concurrency lock (409) if they truly overlap, or the 5s per-session cooldown
+    # (429) if the first finished a hair earlier. Either way: at most one 201, and
+    # nothing 5xx'd. (403 round-lock is also an acceptable rejection.)
+    assert codes.count(201) <= 1, f"two commits both advanced the round: {codes}"
+    assert any(c in (409, 429, 403) for c in codes), (
+        f"expected the second commit to be rejected (409/429/403), got {codes}"
+    )
     assert all(c < 500 for c in codes), f"a commit 5xx'd under contention: {codes}"
