@@ -1,80 +1,94 @@
 /**
- * W-E determinism spot-check — warMapModel.
- * The map is a pure function of the leaderboard payload: same rows ⇒ same
- * nodes (order-independent), crisis detection by flag-name patterns,
- * region fallback to Global HQ, R5 cyclone gating.
+ * warMapModel spot-check — the REDESIGNED operations/stakeholder situation map.
+ *
+ * The war-map was reworked (commit 9f8e08c) from "teams plotted by region" to
+ * "the one world the sim models": Business Units at operating hubs, the five
+ * reactive stakeholders at their home regions, and the round's crisis where it
+ * strikes — all from the /api/admin/war-map cohort AGGREGATE payload. The old
+ * test targeted the removed API (buildMapModel/regionAnchor/crisisFlags/...);
+ * this replaces it with a determinism + behaviour guard on buildWarMap and the
+ * helpers it actually exports.
  */
 import {
-  buildMapModel, regionAnchor, crisisFlags, isBlackSwan,
-  nodeColor, nodeRadius, spreadPosition, MAP_W, MAP_H,
+  buildWarMap, project, buRadius, healthColor,
+  BU_META, STAKEHOLDER_META, ROUND_CRISIS, STAGE_COLOR, STAGE_LABEL,
+  MAP_W, MAP_H,
 } from '../app/components/warMapModel';
 
-const row = (id, over = {}) => ({
-  session_id: id,
-  player_name: `Team ${id}`,
-  parent_cohort_id: 'cohort-1',
-  region_id: 'europe',
-  terminal_value: 100_000_000,
-  group_reputation: 60,
-  round_number: 3,
-  active_flags: [],
+const payload = (over = {}) => ({
+  business_units: [
+    { bu_id: 'pharma', revenue: 100_000_000, health: 70, slo: 60, carbon_intensity: 40, burnout: 20, teams: 3 },
+    { bu_id: 'electronics', revenue: 50_000_000, health: 45, slo: 50, carbon_intensity: 80, burnout: 30, teams: 3 },
+    { bu_id: 'software', revenue: 10_000_000, health: 20, slo: 30, carbon_intensity: 10, burnout: 55, teams: 3 },
+  ],
+  stakeholders: [
+    { agent_id: 'the_regulator', name: 'The Regulator', stage: 'hostile', teams_hostile: 2 },
+    { agent_id: 'the_journalist', name: 'The Journalist', stage: 'watching', teams_hostile: 0 },
+  ],
+  cohort_round: 5,
+  events: [],
+  team_count: 3,
   ...over,
 });
 
-describe('buildMapModel (W7)', () => {
-  test('deterministic and order-independent', () => {
-    const rows = [row('a'), row('b', { region_id: 'asean' }), row('c', { region_id: '' })];
-    const m1 = buildMapModel(rows);
-    const m2 = buildMapModel([...rows].reverse());
-    expect(m1).toEqual(m2);
-    expect(m1).toEqual(buildMapModel(JSON.parse(JSON.stringify(rows))));
+describe('buildWarMap (war-map redesign)', () => {
+  test('is a pure, deterministic function of the payload', () => {
+    const p = payload();
+    const a = buildWarMap(p);
+    const b = buildWarMap(JSON.parse(JSON.stringify(p)));
+    expect(a).toEqual(b);
   });
 
-  test('filters non-team rows, same rule as the Trading Floor board', () => {
-    const m = buildMapModel([row('a'), { session_id: 'ghost' }]);
-    expect(m.nodes).toHaveLength(1);
+  test('filters unknown BU and stakeholder ids', () => {
+    const m = buildWarMap(payload({
+      business_units: [{ bu_id: 'pharma', revenue: 1, health: 50 }, { bu_id: 'atlantis_widgets', revenue: 1, health: 50 }],
+      stakeholders: [{ agent_id: 'the_regulator', stage: 'dormant' }, { agent_id: 'ghost', stage: 'dormant' }],
+    }));
+    expect(m.buNodes.map((n) => n.id)).toEqual(['pharma']);
+    expect(m.shNodes.map((n) => n.id)).toEqual(['the_regulator']);
   });
 
-  test('unknown or empty region falls back to Global HQ', () => {
-    expect(regionAnchor('').label).toBe('GLOBAL HQ');
-    expect(regionAnchor('atlantis').label).toBe('GLOBAL HQ');
-    expect(regionAnchor('south_asia').label).toBe('SOUTH ASIA');
+  test('crisis is gated by the cohort round', () => {
+    expect(buildWarMap(payload({ cohort_round: 5 })).crisis.name).toMatch(/Cyclone/);
+    expect(buildWarMap(payload({ cohort_round: 1 })).crisis).toBeNull(); // no crisis defined for R1
   });
 
   test('all node coordinates stay inside the viewBox', () => {
-    const rows = ['europe', 'africa', 'south_asia', 'asean', ''].flatMap((r, i) =>
-      [0, 1, 2].map((j) => row(`${r}-${j}`, { region_id: r })));
-    for (const n of buildMapModel(rows).nodes) {
+    const m = buildWarMap(payload());
+    for (const n of [...m.buNodes, ...m.shNodes]) {
       expect(n.x).toBeGreaterThan(0); expect(n.x).toBeLessThan(MAP_W);
       expect(n.y).toBeGreaterThan(0); expect(n.y).toBeLessThan(MAP_H);
     }
   });
 
-  test('cyclone appears only while some team is in Round 5', () => {
-    expect(buildMapModel([row('a', { round_number: 4 })]).cycloneActive).toBe(false);
-    expect(buildMapModel([row('a', { round_number: 5 })]).cycloneActive).toBe(true);
+  test('stakeholder stage drives colour and label', () => {
+    const m = buildWarMap(payload());
+    const reg = m.shNodes.find((n) => n.id === 'the_regulator');
+    expect(reg.color).toBe(STAGE_COLOR.hostile);
+    expect(reg.label).toBe(STAGE_LABEL.hostile);
+    expect(reg.escalated).toBe(true);
   });
 
-  test('crisis flags matched by pattern; black swan flagged separately', () => {
-    expect(crisisFlags(['greenwashing_scandal', 'esg_reporting'])).toEqual(['greenwashing_scandal']);
-    expect(isBlackSwan(['black_swan_r6'])).toBe(true);
-    expect(isBlackSwan(['strike_occurred'])).toBe(false);
-    const m = buildMapModel([row('a', { active_flags: ['black_swan_r6'] })]);
-    expect(m.nodes[0].blackSwan).toBe(true);
-    expect(m.events).toHaveLength(1);
-    expect(m.events[0]).toContain('Team a');
+  test('BU health → colour, revenue → radius (monotonic)', () => {
+    expect(healthColor(70)).toBe('#2dd4bf');
+    expect(healthColor(45)).toBe('#f59e0b');
+    expect(healthColor(20)).toBe('#ef4444');
+    expect(buRadius(100, 100)).toBeGreaterThan(buRadius(10, 100));
+    expect(buRadius(50, 100)).toBe(buRadius(50, 100)); // deterministic
   });
 
-  test('node visuals are monotonic: reputation → colour, EV → radius', () => {
-    expect(nodeColor(70)).toBe('#2dd4bf');
-    expect(nodeColor(45)).toBe('#f59e0b');
-    expect(nodeColor(20)).toBe('#ef4444');
-    expect(nodeRadius(100, 100)).toBeGreaterThan(nodeRadius(10, 100));
+  test('events list leads with the round crisis', () => {
+    const m = buildWarMap(payload({ cohort_round: 5, events: [] }));
+    expect(m.events[0]).toContain('Round 5');
+    expect(m.events[0]).toMatch(/Cyclone/);
   });
 
-  test('ring spread is deterministic and centred for singletons', () => {
-    const anchor = { x: 100, y: 100 };
-    expect(spreadPosition(anchor, 0, 1)).toEqual({ x: 100, y: 100 });
-    expect(spreadPosition(anchor, 1, 4)).toEqual(spreadPosition(anchor, 1, 4));
+  test('projection maps lon/lat into the viewBox', () => {
+    const p = project(0, 0); // equator / prime meridian → map centre
+    expect(p.x).toBeCloseTo(MAP_W / 2);
+    expect(p.y).toBeCloseTo(MAP_H / 2);
+    expect(Object.keys(BU_META)).toContain('pharma');
+    expect(Object.keys(STAKEHOLDER_META)).toContain('the_regulator');
+    expect(ROUND_CRISIS[5].name).toMatch(/Cyclone/);
   });
 });
