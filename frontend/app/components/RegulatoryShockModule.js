@@ -111,9 +111,18 @@ export default function RegulatoryShockModule({ sessionId, businessUnits, onComp
     const handleSubmit = useCallback(async () => {
         setSubmitting(true);
         try {
+            // QA-2026-07-16 #2: the backend now binds this route to the session
+            // owner (same SEC-3 contract as /api/simulations). Attach the
+            // player's own id so registered players pass the ownership check;
+            // solo sessions have no owner and pass without it.
+            let playerIdHeader = {};
+            try {
+                const pid = window.localStorage.getItem('muressons_playerId');
+                if (pid) playerIdHeader = { 'X-Player-Id': pid };
+            } catch { /* storage unavailable */ }
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/mod4-crisis-choices`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...playerIdHeader },
                 body: JSON.stringify({ choices: buChoices, effective_fee: fee }),
             });
             if (res.ok) {

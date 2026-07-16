@@ -5,6 +5,14 @@ import pytest
 # and global state pollution across tests.
 os.environ["USE_MEMORY_DB"] = "true"
 
+# QA-2026-07-16 #1: config.py no longer ships committed default break-glass
+# passwords (unset => disabled). The suite's god_mode / project_admin login
+# fixtures still use the historical values, so pin them here as TEST-ONLY
+# credentials before config is imported. These are burned secrets that exist
+# only inside the test process -- never set them in a real deployment.
+os.environ.setdefault("MASTER_PASSWORD", "sim2026@iim")
+os.environ.setdefault("PROJECT_ADMIN_PASSWORD", "simadmin2026@")
+
 # Import main immediately to force sys.modules["database"] patching
 # before any other test file imports router.py or admin_router.py
 import sys

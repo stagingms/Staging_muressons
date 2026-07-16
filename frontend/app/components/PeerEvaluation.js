@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import styles from './PeerEvaluation.module.css';
-
-const API = process.env.NEXT_PUBLIC_API_URL || '';
+// QA-2026-07-16 #2: the POST route is now facilitator-guarded, so every call
+// must carry the HttpOnly JWT cookie — adminFetch is the single authed path
+// (plain fetch drops the cookie in cross-origin deployments).
+import { adminFetch } from '../utils/adminFetch';
 
 export default function PeerEvaluation({ sessionId }) {
     const [evals, setEvals] = useState([]);
@@ -19,7 +21,7 @@ export default function PeerEvaluation({ sessionId }) {
     const fetchEvals = useCallback(async () => {
         if (!sessionId) return;
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/peer-evaluations`);
+            const res = await adminFetch(`/api/admin/${sessionId}/peer-evaluations`);
             if (res.ok) { const data = await res.json(); setEvals(data.evaluations || []); setAverages(data.averages || {}); }
         } catch { /* offline */ }
     }, [sessionId]);
@@ -31,7 +33,7 @@ export default function PeerEvaluation({ sessionId }) {
         if (!evaluator.trim() || !target.trim()) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/peer-evaluations`, {
+            const res = await adminFetch(`/api/admin/${sessionId}/peer-evaluations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ evaluator_name: evaluator.trim(), target_name: target.trim(), contribution, communication, leadership, comment: comment.trim() }),
@@ -44,7 +46,7 @@ export default function PeerEvaluation({ sessionId }) {
     const handleDelete = async (evalId) => {
         if (!confirm('Delete this evaluation?')) return;
         try {
-            const res = await fetch(`${API}/api/admin/${sessionId}/peer-evaluations/${evalId}`, { method: 'DELETE' });
+            const res = await adminFetch(`/api/admin/${sessionId}/peer-evaluations/${evalId}`, { method: 'DELETE' });
             if (res.ok) fetchEvals();
         } catch { /* error */ }
     };

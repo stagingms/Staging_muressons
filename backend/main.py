@@ -154,6 +154,11 @@ if not DEBUG and os.getenv("MASTER_PASSWORD", ""):
         "║  All uses are recorded in db/admin_audit.jsonl.          ║\n"
         "╚══════════════════════════════════════════════════════════╝"
     )
+elif not os.getenv("MASTER_PASSWORD", ""):
+    # QA-2026-07-16 #1: there is no committed default any more. Unset ⇒ the
+    # god_mode break-glass is disabled — the safe production posture. Local
+    # testers who need god_mode set MASTER_PASSWORD in backend/.env.
+    print("[SEC-4] MASTER_PASSWORD not set — god_mode break-glass DISABLED (safe default).")
 
 if _use_memory:
     _refuse_memory_db_in_prod()  # SEC-2: hard-fail in prod unless overridden
@@ -422,12 +427,4 @@ async def health_check():
     # USE_MEMORY_DB explicitly set, or the documented prod opt-in. An incidental
     # dev fallback (Postgres just unreachable) is memory-backed but NOT "demo
     # mode", so the player banner stays off. This is safe: production can never
-    # silently run on memory (see _refuse_memory_db_in_prod — it hard-fails at
-    # boot unless ALLOW_MEMORY_DB_IN_PROD is set, which re-flags demo_mode).
-    _demo_mode = _use_memory or _allow_memory_in_prod
-    return {
-        "status": "ok",
-        "version": APP_VERSION,
-        "database": "memory" if _memory else "postgresql",
-        "demo_mode": _demo_mode,
-    }
+    # silently run o

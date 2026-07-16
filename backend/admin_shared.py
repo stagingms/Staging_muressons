@@ -563,9 +563,11 @@ def project_effective(session_id: str | None, role: str) -> dict:
 #  FACILITATOR REGISTRY (with JSON persistence)
 # ═════════════════════════════════════════════════════════════════
 
-_FAC_REGISTRY_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "db", "facilitator_registry.json"
-)
+# QA-2026-07-16 #3: routed through runtime_paths so a Railway volume
+# (MURESSONS_DATA_DIR) can hold it -- otherwise every redeploy wipes all
+# facilitator accounts created in production. Default is unchanged (<repo>/db).
+from runtime_paths import data_file as _data_file
+_FAC_REGISTRY_PATH = str(_data_file("facilitator_registry.json"))
 
 # ── SEC-1: Token version store (session revocation kill-switch) ──
 # Each facilitator (including the virtual god_mode account) has a monotonic
@@ -573,9 +575,9 @@ _FAC_REGISTRY_PATH = os.path.join(
 # re-checked on every request. Incrementing a facilitator's version instantly
 # invalidates ALL of their outstanding tokens — the missing kill-switch that
 # previously left a leaked god_mode cookie usable indefinitely.
-_TOKEN_VERSION_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "db", "token_versions.json"
-)
+# QA-2026-07-16 #3: durable data dir (see _FAC_REGISTRY_PATH note above) --
+# a wiped token-version store would silently re-validate revoked sessions.
+_TOKEN_VERSION_PATH = str(_data_file("token_versions.json"))
 _token_versions: dict[str, int] = {}
 
 

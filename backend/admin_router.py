@@ -6963,7 +6963,15 @@ async def list_peer_evaluations(session_id: str):
     "/{session_id}/peer-evaluations",
     summary="Submit a peer evaluation",
 )
-async def submit_peer_evaluation(session_id: str, req: PeerEvaluationRequest):
+async def submit_peer_evaluation(
+    session_id: str,
+    req: PeerEvaluationRequest,
+    # QA-2026-07-16 #2: was completely unguarded — anyone holding a session id
+    # could submit evaluations that feed grading. The only frontend caller is
+    # the facilitator dashboard (PeerEvaluation.js in admin/facilitator), so
+    # gate it like its sibling DELETE endpoint below.
+    _guard: None = Depends(require_sim_manager),
+):
     global _next_eval_id
     # Validate scores 1-5
     for field in ["contribution", "communication", "leadership"]:
@@ -7120,11 +7128,10 @@ def _audit(action: str, actor: str = "god_mode", details: dict = None, source_ip
         "details": details or {},
     }
     _capped_append(_god_mode_audit_log, entry)
-    # Persist to a newline-delimited JSON log file (survives server restarts)
-    import pathlib as _pathlib
-    _log_dir = _pathlib.Path(__file__).resolve().parent.parent / "db"
-    _log_dir.mkdir(parents=True, exist_ok=True)
-    _log_file = _log_dir / "admin_audit.jsonl"
+    # Persist to a newline-delimited JSON log file (survives server restarts;
+    # QA-2026-07-16 #3: in the durable data dir so it also survives redeploys).
+    from runtime_paths import data_dir as _data_dir
+    _log_file = _data_dir() / "admin_audit.jsonl"
     try:
         with open(_log_file, "a", encoding="utf-8") as _f:
             import json as _json
@@ -7213,7 +7220,14 @@ class BRSRRoundRequest(BaseModel):
     "/{session_id}/brsr/decide",
     summary="Process a BRSR round decision (Facilitator-controlled)",
 )
-async def process_brsr_decision(session_id: str, req: BRSRRoundRequest):
+async def process_brsr_decision(
+    session_id: str,
+    req: BRSRRoundRequest,
+    # QA-2026-07-16 #2: the docstring says "Facilitator-controlled" but the
+    # route was unguarded — any caller could apply BRSR consequences to a
+    # team's state (and flip god_mode_override). Enforce the stated contract.
+    _guard: None = Depends(require_sim_manager),
+):
     """
     Submit a BRSR track round decision for a session.
     Applies all BRSR consequences to BU states, global_state, and flags.
@@ -9470,7 +9484,7 @@ _MOD4_CHOICE_IMPACTS = {
     "/sessions/{session_id}/mod4-crisis-choices",
     summary="Submit CBAM/ETS crisis responses for Module 4 Regulatory Shock"
 )
-async def submit_mod4_crisis_choices(session_id: str, body: dict = Body(...)):
+async def submit_mod4_crisis_choices(session_id: str, request: Request, body: dict = Body(...)):
     """Processes per-BU CBAM/ETS crisis choices submitted by RegulatoryShockModule.js.
 
     Body:
@@ -9480,6 +9494,17 @@ async def submit_mod4_crisis_choices(session_id: str, body: dict = Body(...)):
     Stamps 'cbam_crisis_choices' into active_event_flags, applies treasury/SLO
     deltas to each matching BU state, and records 'mod4_completed' flag.
     Propagates to all child player sessions."""
+    # QA-2026-07-16 #2: this is a PLAYER-facing route (called from the player
+    # cockpit) that was unguarded — anyone holding another team's session id
+    # could submit crisis choices for them. Bind the caller to the session it
+    # mutates, same contract as every /api/simulations state-changing route:
+    # solo/unowned sessions pass; owned sessions require the matching
+    # X-Player-Id or an authenticated facilitator JWT. (Function-level import:
+    # router.py imports from admin_router at module load, so a top-level
+    # import here would be circular.)
+    from router import _assert_player_owns_session
+    await _assert_player_owns_session(request, session_id)
+
     choices: dict = body.get("choices", {})
     effective_fee: float = float(body.get("effective_fee", 90))
 
@@ -9841,39 +9866,4 @@ async def get_regional_esg_report(
 
 
 # ═════════════════════════════════════════════════════════════════
-#  INDUSTRY BENCHMARK ENDPOINT (Phase 5)
-# ═════════════════════════════════════════════════════════════════
-
-@admin_router.get(
-    "/{session_id}/industry-benchmark",
-    summary="Compare session KPIs against industry sector benchmarks",
-)
-async def get_industry_benchmark(
-    session_id: str,
-    _guard: None = Depends(require_facilitator),
-):
-    """Compare a player/cohort session's KPIs against sector benchmark percentiles."""
-    from industry_benchmarks import compare_to_benchmark, list_benchmarks
-
-    current = await db.fetch_latest_state(session_id)
-    if current is None:
-        raise HTTPException(status_code=404, detail="Session not found.")
-
-    session_meta = current.get("global_state", {}).get("metadata", {})
-    bu_id = (
-        session_meta.get("assigned_bu")
-        or session_meta.get("industry_vertical", "")
-    )
-
-    if not bu_id:
-        return {
-            "error": "No industry vertical set for this session.",
-            "available_verticals": list_benchmarks(),
-        }
-
-    session_state = {
-        "global_state": current.get("global_state", {}),
-        "bu_states": current.get("bu_states", []),
-    }
-
-    return compare_to_benchmark(bu_id, session_state)
+#  INDUSTR

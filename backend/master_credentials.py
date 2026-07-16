@@ -19,7 +19,12 @@ from pathlib import Path
 from config import MASTER_PASSWORD, PLAYER_MASTER_PASSWORD
 from password_hashing import hash_password, verify_password
 
-_OVERRIDE_FILE = Path(__file__).parent / "db" / "master_password.json"
+# QA-2026-07-16 #3: moved into the shared durable data dir (MURESSONS_DATA_DIR,
+# default <repo>/db). NOTE the legacy location was backend/db/ -- NOT repo db/ --
+# so an existing override file is migrated across on first resolve.
+from runtime_paths import data_file as _data_file
+_LEGACY_OVERRIDE = Path(__file__).parent / "db" / "master_password.json"
+_OVERRIDE_FILE = _data_file("master_password.json", legacy=_LEGACY_OVERRIDE)
 
 
 def _load_override_hash() -> str | None:

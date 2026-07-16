@@ -20,7 +20,11 @@ from config import SIM_INITIAL_BUDGET, SIM_ROUNDS
 
 # ── Persistence Config ──────────────────────────────────────────
 
-_SNAPSHOT_PATH = pathlib.Path(__file__).resolve().parent.parent / "db" / "memory_snapshot.json"
+# QA-2026-07-16 #3: snapshot lives in the durable data dir (MURESSONS_DATA_DIR,
+# default <repo>/db -- unchanged locally) so an intentional memory-mode run on a
+# volume survives a redeploy.
+from runtime_paths import data_file as _data_file
+_SNAPSHOT_PATH = _data_file("memory_snapshot.json")
 # RES-1: rolling one-generation backup of the last-known-good snapshot.
 _BACKUP_PATH = _SNAPSHOT_PATH.with_suffix(".bak")
 _save_lock = threading.Lock()

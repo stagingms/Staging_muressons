@@ -33,9 +33,10 @@ _rate_buckets: dict[str, collections.deque] = {}
 # LOW-002: Persist ban state across server restarts so a restart cannot be used
 # to bypass an active rate-limit ban.  The file stores wall-clock UNIX expiry
 # timestamps keyed by "<prefix>:<ip>" so entries are portable across restarts.
-_RATE_BAN_FILE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "db", "rate_bans.json"
-)
+# QA-2026-07-16 #3: routed through the durable data dir (MURESSONS_DATA_DIR)
+# so bans survive a Railway REDEPLOY, not just a same-container restart.
+from runtime_paths import data_file as _data_file
+_RATE_BAN_FILE = str(_data_file("rate_bans.json"))
 # { "login:1.2.3.4": 1735000000.0, ... }  — wall-clock UNIX expiry seconds
 _persistent_bans: dict[str, float] = {}
 
