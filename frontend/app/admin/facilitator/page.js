@@ -1253,8 +1253,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
             )}
 
             {/* ── Forced first-login password change ──
-                Facilitators are created with the default password
-                (Muressons123); the login response sets must_change_password
+                Facilitators are created with a random temporary password
+                (QA #11); the login response sets must_change_password
                 and this modal cannot be dismissed until a personal password
                 is set. Master-bypass logins never see it (server suppresses
                 the flag). */}

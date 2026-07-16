@@ -34,6 +34,24 @@ const eslintConfig = defineConfig([
       "react-hooks/gating": "off",
     },
   },
+  // QA-2026-07-16 #12: nudge KPI number formatting toward the single source of
+  // truth (app/utils/kpiFormats.js) so the same metric renders identically on
+  // the player, facilitator and admin surfaces. Advisory (warn) — existing
+  // inline formatting is migrated opportunistically; new code imports kpiFormats.
+  {
+    files: ["app/components/**/*.{js,jsx}"],
+    ignores: ["app/utils/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "warn",
+        {
+          selector: "CallExpression[callee.property.name='toLocaleString']",
+          message:
+            "Prefer kpiFormats (app/utils/kpiFormats.js) for KPI/currency formatting so metrics stay consistent across dashboards (QA #12).",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

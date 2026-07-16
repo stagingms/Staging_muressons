@@ -190,6 +190,18 @@ except Exception as _cs_exc:  # pragma: no cover - defensive
     print(f"[coordination] configure skipped: {_cs_exc}")
     _coordination_store = None
 
+# QA-2026-07-16 #10: configure cross-worker WebSocket fan-out (no-op in memory /
+# single-worker mode). Wired to the ConnectionManager's local-only delivery sink.
+try:
+    import ws_fanout as _ws_fanout
+    from admin_ws import manager as _ws_manager
+    _ws_backend = "postgres" if getattr(db, "__name__", "") == "database" else "memory"
+    _ws_fanout.configure(_ws_backend, pg_pool_getter=getattr(db, "get_pool", None),
+                         local_deliver=_ws_manager.deliver_local)
+except Exception as _wsf_exc:  # pragma: no cover - defensive
+    print(f"[ws_fanout] configure skipped: {_wsf_exc}")
+    _ws_fanout = None
+
 from router import router as simulation_router  # noqa: E402
 from admin_router import admin_router  # noqa: E402
 from admin_teleprompter import teleprompter_router  # noqa: E402  ARCH-002
@@ -213,6 +225,13 @@ async def lifespan(app: FastAPI):
             await _coordination_store.start_background_refresh()
         except Exception as _cs_start_exc:
             print(f"[coordination] startup skipped (non-fatal): {_cs_start_exc}")
+
+    # QA-2026-07-16 #10: start the cross-worker WS listener (no-op in memory mode).
+    if _ws_fanout is not None:
+        try:
+            await _ws_fanout.start_listener()
+        except Exception as _wsf_start_exc:
+            print(f"[ws_fanout] listener start skipped (non-fatal): {_wsf_start_exc}")
 
     # audit #10: start the idle-session reaper — reaps expired solo sessions and
     # GCs the per-process commit-lock / timestamp / pacing dicts so they don't
@@ -272,6 +291,11 @@ async def lifespan(app: FastAPI):
     if _coordination_store is not None:
         try:
             await _coordination_store.stop_background_refresh()
+        except Exception:
+            pass
+    if _ws_fanout is not None:
+        try:
+            await _ws_fanout.stop_listener()
         except Exception:
             pass
     await db.close_pool()

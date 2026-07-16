@@ -187,15 +187,22 @@ def require_sim_manager(role: str = Depends(get_fac_role)):
 
 
 def _generate_temp_password() -> tuple[str, str]:
-    """Return the fixed default password for newly registered players.
+    """Return a RANDOM per-user temporary password (QA-2026-07-16 #11).
 
-    All players are created with the well-known default password 'Muressons123'.
-    must_change_password=True is always set alongside this, so the player is
-    forced to pick a personal password on first login before accessing the sim.
+    Previously returned a fixed 'Muressons123' shared by every new player AND
+    facilitator — a predictable initial credential exploitable in the window
+    before first login. Now every call yields a fresh 12-char random password;
+    must_change_password=True is still set alongside, so it is only valid until
+    the user sets their own. The plaintext is returned so the facilitator can
+    distribute it once (surfaced per-user in the registry / creation response);
+    only the bcrypt hash is stored.
 
-    Returns (plaintext, hashed) — store the hash, show the plaintext to admin once.
+    Returns (plaintext, hashed).
     """
-    plaintext = "Muressons123"
+    import secrets
+    import string
+    alphabet = string.ascii_letters + string.digits
+    plaintext = "".join(secrets.choice(alphabet) for _ in range(12))
     hashed = hash_password(plaintext)
     return plaintext, hashed
 
@@ -3488,6 +3495,17 @@ async def _cascade_delete_session(session_id: str, hard: bool = False) -> dict:
         for sid in all_ids:
             _purge(sid)
 
+        # QA-2026-07-16 #14: also drop the session's SHARED coordination rows
+        # (pacing + overrides) so they do not accumulate in Postgres forever and
+        # cannot be re-hydrated onto a worker after the session is gone.
+        try:
+            import coordination_store as _cs
+            for sid in all_ids:
+                await _cs.delete_pacing(sid)
+                await _cs.delete_session_override(sid)
+        except Exception:
+            pass
+
     return {"sessions_deleted": sessions_deleted, "players_removed": players_removed}
 
 
@@ -5665,7 +5683,7 @@ async def download_stakeholder_excel(
     "/{session_id}/audit-trail",
     summary="Get the decision audit trail for a cohort",
 )
-async def get_audit_trail(session_id: str):
+async def get_audit_trail(session_id: str, _guard: None = Depends(require_facilitator)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
     """
     Returns all decisions made by players in this cohort,
     including child player sessions. Grouped by round.
@@ -5894,7 +5912,7 @@ async def get_debrief(session_id: str):
     "/{session_id}/player-sessions",
     summary="List all player sub-sessions for a cohort",
 )
-async def get_player_sessions(session_id: str):
+async def get_player_sessions(session_id: str, _guard: None = Depends(require_facilitator)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
     """Returns all child player sessions under a parent cohort."""
     children = await db.get_child_sessions(session_id)
     # Enrich with current round info
@@ -7114,7 +7132,7 @@ async def broadcast_message(req: BroadcastRequest, request: Request, _guard: Non
     "/broadcast/history",
     summary="Get broadcast history",
 )
-async def get_broadcast_history():
+async def get_broadcast_history(_guard: None = Depends(require_facilitator)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
     return {"broadcasts": _broadcast_history}
 
 

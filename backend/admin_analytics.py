@@ -154,7 +154,7 @@ async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @analytics_router.get("/god/analytics", summary="Platform-wide analytics")
-async def get_platform_analytics():
+async def get_platform_analytics(_guard: None = Depends(_require_super_admin)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
     """
     Compute all analytics from _global_states, _bu_states, _decision_log.
     Returns decision heatmap, time-to-decision, cohort trajectories,

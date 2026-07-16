@@ -91,17 +91,17 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
             // Build from registered_players (plaintext_password is set by the server on generate-player)
             regPlayers.forEach(rp => {
                 if (rp.player_id && !creds.some(c => c.player_id === rp.player_id)) {
-                    // plaintext_password is the temp password shown once at generation time.
-                    // All new players have the default password 'Muressons123'; show it so
-                    // facilitators can communicate it without ambiguity.
-                    creds.push({ player_id: rp.player_id, password: rp.plaintext_password || 'Muressons123' });
+                    // QA-2026-07-16 #11: temp passwords are now RANDOM per user (no shared
+                    // default). plaintext_password is shown once at generation; if it is not
+                    // available (e.g. an older entry), the facilitator resets to reveal a new one.
+                    creds.push({ player_id: rp.player_id, password: rp.plaintext_password || '', pending: !!rp.must_change_password });
                 }
             });
             // Also include allowed_player_ids that aren't in registered_players
             allowedIds.forEach(pid => {
                 if (!creds.some(c => c.player_id === pid)) {
-                    // Legacy entry without a plaintext_password — default applies
-                    creds.push({ player_id: pid, password: 'Muressons123' });
+                    // Pre-generated id with no stored plaintext — reset to reveal a new one.
+                    creds.push({ player_id: pid, password: '', pending: true });
                 }
             });
             if (creds.length > 0) {
@@ -518,9 +518,9 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                             border: '1px solid rgba(245,158,11,0.25)',
                                                             whiteSpace: 'nowrap',
                                                         }}>
-                                                            🔑 {cred.password}
+                                                            🔑 {cred.password || '— (reset to reveal)'}
                                                         </span>
-                                                        {cred.password === 'Muressons123' && (
+                                                        {cred.pending && (
                                                             <span style={{
                                                                 fontSize: '0.62rem', fontWeight: 700,
                                                                 color: '#fb923c',
@@ -529,7 +529,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                                 borderRadius: '4px', padding: '1px 5px',
                                                                 letterSpacing: '0.04em',
                                                             }}
-                                                            title="Player has not yet changed their default password">
+                                                            title="Player has not yet set a personal password">
                                                                 DEFAULT
                                                             </span>
                                                         )}

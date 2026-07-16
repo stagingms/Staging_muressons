@@ -317,7 +317,7 @@ export default function CockpitPage() {
         if (!localSession || localSession === sessionParam) {
           sim.fetchDashboard(sessionParam).then(() => {
             sim.fetchRoundConfig && sim.fetchRoundConfig(sim.roundNumber || 1);
-          }).catch(() => {});
+          }).catch((e) => console.warn('[resume] dashboard fetch failed:', e));  // QA #15: surface, don't swallow
         } else {
           // The url references a different session — ignore it silently
           console.warn('[Security] Ignoring ?session= param that does not match stored session.');
@@ -464,7 +464,7 @@ export default function CockpitPage() {
         const demo = d.demo_mode !== undefined ? d.demo_mode === true : d.database === 'memory';
         if (demo) { setIsMemoryDb(true); setMemoryDbDismissed(false); }
       })
-      .catch(() => {});
+      .catch((e) => console.warn('[health] status check failed:', e));  // QA #15
   }, []);
 
   // Decision paradigm state
@@ -498,7 +498,7 @@ export default function CockpitPage() {
       fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/paradigm`)
         .then(r => r.json())
         .then(data => { if (!cancelled) setDecisionParadigm(data.decision_paradigm || 'legacy_abc'); })
-        .catch(() => {});
+        .catch((e) => console.warn('[paradigm-poll] failed:', e));  // QA #15
     };
     // Resolve assigned_bu: check session-info first (per-player), fall back to global-settings (whole deployment)
     const fetchAssignedBu = async () => {
@@ -571,7 +571,7 @@ export default function CockpitPage() {
             setSideTracksOpen(true);
           }
         })
-        .catch(() => {});
+        .catch((e) => console.warn('[side-track-poll] failed:', e));  // QA #15
     };
     checkSideTracks();
     // Re-check after round changes (polling every 15s is sufficient)

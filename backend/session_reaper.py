@@ -57,6 +57,10 @@ def reap_once(today: Optional[date] = None) -> dict:
     """Run one reap pass. Returns a summary dict (also handy for tests)."""
     today = today or date.today()
     summary = {"sessions_reaped": 0, "locks_gc": 0, "timestamps_gc": 0, "players_gc": 0, "pacing_gc": 0}
+    # QA-2026-07-16 #14: session_ids whose pacing was GC'd, so the async loop can
+    # also drop their SHARED coordination rows (Postgres). reap_once itself stays
+    # synchronous (used directly in tests); the shared delete is best-effort.
+    summary["_pacing_deleted_ids"] = []
 
     import database_memory as dm
 
@@ -101,6 +105,7 @@ def reap_once(today: Optional[date] = None) -> dict:
             if k not in live:
                 admin_shared._round_pacing.pop(k, None)
                 summary["pacing_gc"] += 1
+                summary["_pacing_deleted_ids"].append(k)
     except Exception:
         pass
 
@@ -117,7 +122,15 @@ async def _reaper_loop() -> None:  # pragma: no cover - timing loop
         try:
             await asyncio.sleep(REAP_INTERVAL_SECONDS)
             summary = reap_once()
-            if any(summary.values()):
+            # QA-2026-07-16 #14: drop the shared coordination rows for reaped
+            # sessions (no-op in memory mode).
+            try:
+                import coordination_store as _cs
+                for _sid in summary.get("_pacing_deleted_ids", []):
+                    await _cs.delete_pacing(_sid)
+            except Exception:
+                pass
+            if any(v for k, v in summary.items() if k != "_pacing_deleted_ids"):
                 import logging
                 logging.getLogger("muressons.reaper").info(
                     "reap: %s", ", ".join(f"{k}={v}" for k, v in summary.items() if v)

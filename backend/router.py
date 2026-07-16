@@ -5,6 +5,9 @@ Simulation endpoints: start, dashboard, commit-turn, round-config.
 
 from __future__ import annotations
 
+import logging as _logging
+_log = _logging.getLogger("muressons.router")  # QA-2026-07-16 #16: structured, request-correlated
+
 import hmac
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -292,7 +295,7 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
             if await _run_commit_locked(sid, body) is not None:
                 advanced += 1
         except Exception as exc:
-            print(f"[FREE-ADVANCE] auto-commit failed for {sid}: {exc}")
+            _log.warning(f"[FREE-ADVANCE] auto-commit failed for {sid}: {exc}")
     return advanced
 
 
@@ -969,9 +972,9 @@ async def start_simulation(body: StartSessionRequest, request: Request):
                 await db.update_latest_global_state(
                     str(result["session_id"]), gs, result["business_units"]
                 )
-                print(f"[session-start] Ending pathway set to '{_ending_pathway}' for {result['session_id']}")
+                _log.info(f"[session-start] Ending pathway set to '{_ending_pathway}' for {result['session_id']}")
             except Exception as exc:
-                print(f"[WARN] Failed to set ending pathway: {exc}")
+                _log.warning(f"[WARN] Failed to set ending pathway: {exc}")
         
     except ValueError as ve:
         raise HTTPException(
@@ -1113,9 +1116,9 @@ async def solo_start_simulation(body: SoloStartRequest):
         if all_round_configs:
             await db.update_session_metadata(session_id, {"_solo_round_configs": all_round_configs})
     except Exception as rc_exc:
-        print(f"[WARN] solo-start: failed to pre-seed round configs: {rc_exc}")
+        _log.warning(f"[WARN] solo-start: failed to pre-seed round configs: {rc_exc}")
 
-    print(f"[solo-start] Created solo session {session_id} for '{body.player_name}' paradigm={_req_paradigm}")
+    _log.info(f"[solo-start] Created solo session {session_id} for '{body.player_name}' paradigm={_req_paradigm}")
 
     return StartSessionResponse(
         session_id=session_id,
@@ -1361,7 +1364,7 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
                 if _adv.get("committed") is not None:
                     latest["global_state"]["team_commits_this_round"] = _adv["committed"]
         except Exception as _exc:
-            print(f"[FREE-ADVANCE] status/enforce failed: {_exc}")
+            _log.warning(f"[FREE-ADVANCE] status/enforce failed: {_exc}")
 
     return DashboardResponse(
         session_id=session_id,
@@ -1863,7 +1866,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         )
         events.update(new_engine_events)
     except Exception as exc:
-        print(f"[WARN] New engines batch failed: {exc}")
+        _log.warning(f"[WARN] New engines batch failed: {exc}")
 
     # ══ REPORTING-TRUTH RESYNC (math audit, 2026-07) ═══════════════════════
     # process_tick derives historical_ebitda / tco2e_emissions / per-BU
@@ -1922,7 +1925,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             ]
     except Exception as exc:
         # Non-critical — don't block the turn commit
-        print(f"[WARN] Hidden resource trigger check failed: {exc}")
+        _log.warning(f"[WARN] Hidden resource trigger check failed: {exc}")
 
     # Clear saved decisions since turn was committed
     if "saved_allocations" in new_global:
@@ -1969,7 +1972,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             )
             new_global.setdefault("active_event_flags", {})["consequence_dna_snapshot"] = dna_snapshot
         except Exception as exc:
-            print(f"[WARN] Consequence DNA snapshot capture failed: {exc}")
+            _log.warning(f"[WARN] Consequence DNA snapshot capture failed: {exc}")
 
     try:
         if current_round == 10:
@@ -2015,7 +2018,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 for m in auto_injected
             ]
     except Exception as exc:
-        print(f"[WARN] Auto-inject scheduled interventions failed: {exc}")
+        _log.warning(f"[WARN] Auto-inject scheduled interventions failed: {exc}")
 
     # ── MP-01: Update cohort commit count in globalState ─────────────
     try:
@@ -2030,7 +2033,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 new_global["cohort_team_count"] = total_teams
                 await db.update_latest_global_state(session_id, new_global, new_bus)
     except Exception as exc:
-        print(f"[WARN] Cohort commit count update failed: {exc}")
+        _log.warning(f"[WARN] Cohort commit count update failed: {exc}")
 
     # ── PRACTICE MODE: Reset after Round 2 ────────────────────
     # Check if this session or its parent is in practice mode
@@ -2076,7 +2079,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         diary_entry = generate_ceo_diary(current_round, primary_choice, events)
         events["ceo_diary"] = diary_entry
     except Exception as exc:
-        print(f"[WARN] CEO Diary generation failed: {exc}")
+        _log.warning(f"[WARN] CEO Diary generation failed: {exc}")
 
     # ── ENGAGEMENT 7.4: Board Pressure Events (R3, R6, R9) ───
     if current_round in (3, 6, 9):
@@ -2109,7 +2112,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                     "message": "✅ Board satisfied — EBITDA meets or exceeds target.",
                 }
         except Exception as exc:
-            print(f"[WARN] Board pressure calculation failed: {exc}")
+            _log.warning(f"[WARN] Board pressure calculation failed: {exc}")
 
     # ── ENGAGEMENT 7.1: Decision Regret (Shadow Ticks) ────────
     try:
@@ -2153,7 +2156,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                     "note": "What would have happened if you chose differently?",
                 }
     except Exception as exc:
-        print(f"[WARN] Decision Regret analysis failed: {exc}")
+        _log.warning(f"[WARN] Decision Regret analysis failed: {exc}")
 
     # ── ITEM 24: Facilitator commit notification ─────────────
     try:
@@ -2174,7 +2177,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 if len(commit_log) > 100:
                     parent_sess["commit_notifications"] = commit_log[-100:]
     except Exception as exc:
-        print(f"[WARN] Facilitator notification failed: {exc}")
+        _log.warning(f"[WARN] Facilitator notification failed: {exc}")
 
     return CommitTurnResponse(
         session_id=session_id,
@@ -2548,7 +2551,7 @@ async def submit_shadow_board_rejection(
     # Persist updated global state
     await db.update_latest_global_state(session_id, gs, bus)
 
-    print(
+    _log.info(
         f"[shadow-board] Session {session_id}: "
         f"Rejected '{body.rejection_target}' -> "
         f"flag='{result['hidden_flag']['name']}', "
@@ -2586,7 +2589,7 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
                     if parent_state:
                         paradigm = parent_state.get("decision_paradigm")
         except Exception as e:
-            print(f"[WARN] Error fetching session paradigm for round-config: {e}")
+            _log.warning(f"[WARN] Error fetching session paradigm for round-config: {e}")
             pass
 
     # Select the correct config based on paradigm
@@ -2616,7 +2619,7 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
                     cfg["options"] = pw_cfg["options"]
                     cfg["special_rules"] = pw_cfg.get("special_rules", cfg.get("special_rules", {}))
         except Exception as e:
-            print(f"[WARN] Error loading pathway R10 config: {e}")
+            _log.warning(f"[WARN] Error loading pathway R10 config: {e}")
 
     if cfg is None:
         raise HTTPException(
@@ -2652,9 +2655,9 @@ async def get_round_config_endpoint(round_number: int, session_id: str | None = 
                                         f"Requires Synergy Score > {threshold} (current: {_synergy:.0f})"
                                     )
                     except Exception as e:
-                        print(f"[WARN] R10 synergy gate check failed: {e}")
+                        _log.warning(f"[WARN] R10 synergy gate check failed: {e}")
         except Exception as e:
-            print(f"[WARN] Option shuffle failed, serving unshuffled: {e}")
+            _log.warning(f"[WARN] Option shuffle failed, serving unshuffled: {e}")
 
     # Build UI constraints from options for frontend gating
     ui_constraints = {}
@@ -4786,9 +4789,9 @@ async def submit_interview_responses(session_id: str, body: dict):
                 "growth_areas": llm_result.get("growth_areas", []),
             }
             llm_used = True
-            print(f"[ceo-interview] LLM scoring successful via API")
+            _log.info(f"[ceo-interview] LLM scoring successful via API")
     except Exception as e:
-        print(f"[ceo-interview] LLM scoring failed: {e}")
+        _log.warning(f"[ceo-interview] LLM scoring failed: {e}")
 
     if not response_scores:
         # Fallback: noise-based scoring
@@ -4833,7 +4836,7 @@ async def submit_interview_responses(session_id: str, body: dict):
         gs["active_event_flags"] = flags
         await db.update_latest_global_state(session_id, gs, bus)
     except Exception as e:
-        print(f"[ceo-interview] Failed to persist assessment: {e}")
+        _log.warning(f"[ceo-interview] Failed to persist assessment: {e}")
 
     return {
         "session_id": session_id,
@@ -5894,7 +5897,7 @@ async def get_front_page(session_id: str):
 
         # Validate required keys
         if not all(k in result for k in ("headline", "subhead", "quote")):
-            print(f"[WOW-5E] LLM response missing keys, falling back: {result}")
+            _log.warning(f"[WOW-5E] LLM response missing keys, falling back: {result}")
             return fallback
 
         return {
@@ -5907,5 +5910,5 @@ async def get_front_page(session_id: str):
             "terminal_value": tv,
         }
     except Exception as e:
-        print(f"[WOW-5E] LLM front-page error, using deterministic fallback: {e}")
+        _log.warning(f"[WOW-5E] LLM front-page error, using deterministic fallback: {e}")
         return fallback

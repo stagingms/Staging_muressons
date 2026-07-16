@@ -49,11 +49,24 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 from typing import Any, Optional
 
 # Bounded staleness window for cross-worker propagation (seconds).
 REFRESH_SECONDS: float = float(os.getenv("COORDINATION_REFRESH_SECONDS", "3"))
+
+_log = logging.getLogger("muressons.coordination")
+
+# QA-2026-07-16 #14: publish/read failures were swallowed with a bare print, so a
+# Postgres blip silently left pacing/freeze process-local with no operator signal.
+# Count them and log at WARNING so a live incident is visible; expose the counter
+# for a health probe.
+_publish_failures: int = 0
+
+
+def publish_failure_count() -> int:
+    return _publish_failures
 
 # Resolved lazily on first use to avoid import cycles with main.py / database.
 _pg_pool_getter = None          # callable returning an asyncpg pool (PG mode)
@@ -133,7 +146,9 @@ async def put(key: str, value: Any) -> None:
                 key, payload,
             )
     except Exception as exc:  # pragma: no cover - requires live PG
-        print(f"[coordination] put({key}) failed (non-fatal): {exc}")
+        global _publish_failures
+        _publish_failures += 1
+        _log.warning("put(%s) failed (non-fatal, total failures=%d): %s", key, _publish_failures, exc)
 
 
 async def get(key: str) -> Optional[Any]:
@@ -179,6 +194,24 @@ async def get_prefix(prefix: str) -> dict[str, Any]:
         return {}
 
 
+async def delete(key: str) -> None:
+    """QA-2026-07-16 #14: remove a key so rows for dead sessions do not accumulate
+    forever (rehydrate only ever merges, so a key removed centrally would
+    otherwise linger in every worker's cache too). No-op in memory mode."""
+    if not is_shared():
+        return
+    pool = await _pool()
+    if pool is None:
+        return
+    try:
+        async with pool.acquire() as conn:
+            await conn.execute("DELETE FROM coordination_state WHERE key = $1", key)
+    except Exception as exc:  # pragma: no cover - requires live PG
+        global _publish_failures
+        _publish_failures += 1
+        _log.warning("delete(%s) failed (non-fatal): %s", key, exc)
+
+
 # ── Typed helpers (keys namespaced) ─────────────────────────────────────────
 _PACING_PREFIX = "pacing:"
 _GODMODE_KEY = "godmode:settings"
@@ -187,6 +220,15 @@ _OVERRIDE_PREFIX = "session_override:"
 
 async def publish_pacing(session_id: str, policy: dict) -> None:
     await put(_PACING_PREFIX + session_id, policy)
+
+
+async def delete_pacing(session_id: str) -> None:
+    """QA-2026-07-16 #14: drop a dead session's shared pacing row (reaper / hard-delete)."""
+    await delete(_PACING_PREFIX + session_id)
+
+
+async def delete_session_override(session_id: str) -> None:
+    await delete(_OVERRIDE_PREFIX + session_id)
 
 
 async def publish_godmode_settings(settings: dict) -> None:
