@@ -480,7 +480,11 @@ async def player_login(request: Request, req: PlayerLoginRequest):
     Looks up the player's cohort from the registry and joins/re-joins automatically.
     Returns the player's session info so the frontend can resume where they left off.
     """
-    # HIGH-009: Rate-limit player login per IP
+    # HIGH-009 + QA-2026-07-16 #7: rate-limit player login. Key the tight
+    # brute-force cap by player_id so a NATed classroom (many players, one public
+    # IP) is not locked out at "everyone log in now"; keep a generous per-IP
+    # ceiling so a single machine still can't stuff unlimited accounts.
+    _check_rate_limit(request, "player_login", identity=getattr(req, "player_id", None))
     _check_rate_limit(request, "player_login")
 
     from admin_shared import _player_registry
@@ -621,6 +625,18 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     try:
         from admin_shared import _player_registry
         player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
+        # QA-2026-07-16 #4: after a restart (or on another worker) the per-process
+        # _player_registry may be empty, but the bcrypt credential is durable in
+        # the cohort session's registered_players metadata. Fall back to it so the
+        # password check is NEVER silently skipped (fail-closed) — previously a
+        # missing registry entry meant "if player_record and ..." was false and
+        # the player_id alone logged in.
+        if not player_record:
+            _cohort = await db.get_session_info(session_id)
+            for rp in (_cohort or {}).get("registered_players", []):
+                if rp.get("player_id") == req.player_id:
+                    player_record = rp
+                    break
         if player_record and player_record.get("password"):
             # LOW-003: bcrypt-aware comparison
             # P6: player unlock uses the SEPARATE player master secret.

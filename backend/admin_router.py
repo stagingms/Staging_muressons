@@ -1228,6 +1228,7 @@ async def update_archetype(key: str, body: dict = Body(...), _guard: None = Depe
     if "requires_solvent" in body:  # AR-C: second axis
         customs[idx]["requires_solvent"] = bool(body["requires_solvent"])
     customs[idx]["is_default"] = False
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     print(f"[god-mode] Archetype updated: {key}")
     return {"status": "ok", "archetype": customs[idx]}
 
@@ -1239,6 +1240,7 @@ async def delete_archetype(key: str, _guard: None = Depends(require_super_admin)
     _god_mode_settings["custom_archetypes"] = [a for a in customs if a["key"] != key]
     if len(_god_mode_settings["custom_archetypes"]) == before:
         raise HTTPException(404, f"Custom archetype '{key}' not found (defaults cannot be deleted, only overridden)")
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     print(f"[god-mode] Archetype deleted: {key}")
     return {"status": "deleted", "key": key}
 
@@ -2836,6 +2838,7 @@ async def set_esg_profile_weights(body: EsgWeightsRequest, request: Request,
     caller = get_fac_role(request)
     clean = _sanitize_esg_weights(body.weights)
     _god_mode_settings["esg_profile_weights"] = clean
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     _audit("esg_profile_weights_updated", details={"_caller_role": caller, "_reason": body.reason})
     return {"status": "ok", "esg_profile_weights": clean}
 
@@ -2843,6 +2846,7 @@ async def set_esg_profile_weights(body: EsgWeightsRequest, request: Request,
 @admin_router.post("/esg-profile-weights/reset", summary="Reset ESG Profile weights to defaults")
 async def reset_esg_profile_weights(request: Request, _guard: None = Depends(require_lead_facilitator)):
     _god_mode_settings["esg_profile_weights"] = {dim: dict(sig) for dim, sig in DEFAULT_ESG_WEIGHTS.items()}
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     _audit("esg_profile_weights_reset", details={"_caller_role": get_fac_role(request)})
     return {"status": "ok", "esg_profile_weights": DEFAULT_ESG_WEIGHTS}
 
@@ -3612,21 +3616,26 @@ async def reset_player_password(player_id: str, _guard: None = Depends(require_s
     player["password"] = new_hash
     player["must_change_password"] = True
 
-    # Sync to ALL session registered_players entries so it persists and shows in the facilitator panel.
-    # Note: player.session_id may be the child (game) session, not the cohort session,
-    # so we search all sessions for matching registered_players entries.
+    # QA-2026-07-16 #4: write the new hash DURABLY through the db interface for
+    # every session whose registered_players names this player. The old path
+    # mutated throwaway copies from fetch_all_sessions() and called _dm._persist()
+    # — a no-op against Postgres — so a reset worked on one worker and was
+    # rejected on the rest / after a restart.
     try:
-        import database_memory as _dm
         all_sess = await db.fetch_all_sessions()
         for sess in all_sess:
-            for rp in sess.get("registered_players", []):
+            reg = list(sess.get("registered_players", []) or [])
+            touched = False
+            for rp in reg:
                 if rp.get("player_id") == player_id_upper:
                     rp["password"] = new_hash
                     rp["must_change_password"] = True
-                    rp["plaintext_password"] = new_plaintext  # Update for facilitator display
-        _dm._persist()
+                    rp["plaintext_password"] = new_plaintext  # facilitator display
+                    touched = True
+            if touched:
+                await db.update_session_metadata(sess["session_id"], {"registered_players": reg})
     except Exception:
-        pass  # Non-critical — in-memory update is done
+        pass  # Non-critical — the in-memory _player_registry entry is already updated
 
     return {
         "status": "success",
@@ -3880,15 +3889,18 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
     global _player_registry
     _player_registry.append(player_entry.copy())
 
-    # Also persist in the session metadata so it survives page refreshes
+    # QA-2026-07-16 #4: persist the credential DURABLY through the db interface
+    # (Postgres metadata + mirror), not just into the throwaway dict returned by
+    # get_session_info. Previously the bcrypt hash lived only in this process's
+    # _player_registry, so after a restart / on another worker join_session found
+    # no record and the password check was silently skipped.
     sess = await db.get_session_info(session_id)
-    if sess:
-        if "registered_players" not in sess:
-            sess["registered_players"] = []
-        # Include plaintext_password for admin credential display (password field has bcrypt hash)
+    registered = list((sess or {}).get("registered_players", []) or [])
+    if not any(rp.get("player_id") == player_id for rp in registered):
         display_entry = player_entry.copy()
-        display_entry["plaintext_password"] = generated_password
-        sess["registered_players"].append(display_entry)
+        display_entry["plaintext_password"] = generated_password  # for facilitator display
+        registered.append(display_entry)
+    await db.update_session_metadata(session_id, {"registered_players": registered})
 
     # Return plaintext password once for admin to distribute — hash is stored
     return {"status": "success", "player_id": player_id, "password": generated_password}
@@ -7750,6 +7762,8 @@ async def import_system(body: dict = Body(...), _guard: None = Depends(require_s
         if key not in _god_mode_settings:
             _god_mode_settings[key] = val
 
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
+
     _audit("system_import", details={
         "sessions_imported": sessions_imported,
         "facilitators_imported": facilitators_imported,
@@ -7916,6 +7930,7 @@ async def update_engine_tunables(body: dict = Body(...), _guard: None = Depends(
     # Sync to god_mode_settings for backward compat
     _god_mode_settings["overrun_probability"] = _engine_tunables["overrun_probability"]
     _god_mode_settings["overrun_severity"] = _engine_tunables["overrun_severity"]
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     _audit("engine_tunables_updated", details=changed)
     return {"tunables": _engine_tunables, "changed": changed}
 
@@ -8179,6 +8194,7 @@ async def apply_scenario_preset(preset_id: str, _guard: None = Depends(require_s
             changed[key] = {"old": old, "new": val}
     _god_mode_settings["overrun_probability"] = _engine_tunables["overrun_probability"]
     _god_mode_settings["overrun_severity"] = _engine_tunables["overrun_severity"]
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     _audit("scenario_preset_applied", details={"preset": preset_id, "changed_count": len(changed)})
     return {"applied": preset_id, "name": preset["name"], "tunables": _engine_tunables, "changed": changed}
 
@@ -9048,6 +9064,7 @@ async def update_global_side_tracks(request: Request, body: dict = Body(...), _g
         raise HTTPException(400, f"Unknown track IDs: {sorted(invalid)}. Registered: {sorted(registered)}")
 
     _god_mode_settings["side_tracks_available"] = available
+    mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     _audit("side_tracks_global_updated", details={
         "available_tracks": available, "_caller_role": _caller_role, "_reason": body.get("reason"),
     })

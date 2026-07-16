@@ -821,12 +821,57 @@ def _get_pacing(session_id: str) -> dict:
     return p
 
 
+def _effective_unlocked_round(pacing: dict) -> int:
+    """QA-2026-07-16 #6: the unlocked round accounting for elapsed wall-clock,
+    not just the in-process ``unlocked_round`` counter.
+
+    Timed/scheduled pacing bumps ``unlocked_round`` from an asyncio timer whose
+    handle is per-process and is NOT restored on restart (see
+    _PACING_LOCAL_FIELDS). So a countdown that was running when the container
+    redeployed would never fire and the round would stall. The durable fields
+    ``schedule`` / ``next_unlock_at`` DO survive (snapshot + coordination store),
+    so we derive the unlock from them here — a pure, read-only evaluation that
+    makes the gate correct even when the timer never re-armed.
+    """
+    base = int(pacing.get("unlocked_round", 999) or 0)
+    now = datetime.now(timezone.utc)
+
+    def _parse(iso):
+        try:
+            t = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+            return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+        except Exception:
+            return None
+
+    # Multi-round schedule: schedule[i] is the ISO unlock time for round i+1.
+    schedule = pacing.get("schedule") or []
+    if schedule:
+        highest = base
+        for idx, iso in enumerate(schedule):
+            if not iso:
+                continue
+            t = _parse(iso)
+            if t is not None and t <= now:
+                highest = max(highest, idx + 1)
+        return highest
+
+    # Single-shot interval mode: one pending unlock at next_unlock_at.
+    nxt = pacing.get("next_unlock_at")
+    if nxt:
+        t = _parse(nxt)
+        if t is not None and t <= now:
+            return base + 1
+    return base
+
+
 def is_round_unlocked(session_id: str, round_number: int) -> bool:
     """Check if a given round is unlocked for progression."""
     pacing = _get_pacing(session_id)
     if pacing["mode"] == "free":
         return True
-    return round_number <= pacing["unlocked_round"]
+    # QA-2026-07-16 #6: time-aware so a scheduled/timed unlock still opens the
+    # round after a restart even though the in-process timer is gone.
+    return round_number <= _effective_unlocked_round(pacing)
 
 
 def is_pacing_set_by_facilitator(session_id: str) -> bool:

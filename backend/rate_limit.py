@@ -27,6 +27,13 @@ _RATE_LIMIT_WINDOW = 60       # seconds
 _ADMIN_ACTION_RATE_MAX = 120  # 120 actions per window is plenty for real use
 _ADMIN_ACTION_PREFIXES = frozenset({"fac_reset_pw", "role_change"})
 
+# QA-2026-07-16 #7: prefixes that get a GENEROUS per-IP ceiling because a whole
+# classroom of players typically shares ONE public IP (venue/campus NAT). The
+# tight 10/min brute-force cap would lock the room out at "everyone log in now".
+# Per-ACCOUNT brute-force protection is applied separately (identity= below).
+_HIGH_IP_LIMIT_PREFIXES = frozenset({"player_login"})
+_HIGH_IP_LIMIT_MAX = 300      # per IP per window — fits a large NATed cohort
+
 # deque of timestamps per IP key (monotonic — in-process only)
 _rate_buckets: dict[str, collections.deque] = {}
 
@@ -105,18 +112,34 @@ def _resolve_client_ip(request: Request) -> str:
     return direct_ip
 
 
-def _check_rate_limit(request: Request, key_prefix: str = "login") -> None:
-    """Raise HTTP 429 if the caller's IP exceeds the login rate limit.
+def _check_rate_limit(request: Request, key_prefix: str = "login", identity: str = None) -> None:
+    """Raise HTTP 429 if the caller exceeds the rate limit for this prefix.
 
     LOW-002: Bans triggered in this process are written to disk so they survive
     server restarts.  On each call we first check the persisted ban dict (using
     wall-clock time), then fall through to the in-memory sliding window.
+
+    QA-2026-07-16 #7: when ``identity`` is supplied (e.g. a player_id) the bucket
+    is keyed by that identity instead of the source IP, so brute-force protection
+    is scoped to the individual account being targeted rather than shared across
+    every player behind one NAT. Callers typically pair a per-identity check
+    (tight cap) with a per-IP check under a HIGH_IP ceiling.
     """
     ip = _resolve_client_ip(request)
-    key = f"{key_prefix}:{ip}"
+    subject = identity.strip().upper() if identity else ip
+    key = f"{key_prefix}:{subject}"
 
-    # Use a higher limit for authenticated admin actions vs login brute-force
-    effective_max = _ADMIN_ACTION_RATE_MAX if key_prefix in _ADMIN_ACTION_PREFIXES else _RATE_LIMIT_MAX
+    # Resolve the effective cap for this bucket.
+    if identity is not None:
+        # Per-account brute-force guard — tight cap on one player_id.
+        effective_max = _RATE_LIMIT_MAX
+    elif key_prefix in _ADMIN_ACTION_PREFIXES:
+        effective_max = _ADMIN_ACTION_RATE_MAX
+    elif key_prefix in _HIGH_IP_LIMIT_PREFIXES:
+        # Per-IP ceiling generous enough for a whole NATed classroom.
+        effective_max = _HIGH_IP_LIMIT_MAX
+    else:
+        effective_max = _RATE_LIMIT_MAX
 
     # LOW-002: Check persisted ban (wall-clock, survives restart)
     now_wall = time.time()
