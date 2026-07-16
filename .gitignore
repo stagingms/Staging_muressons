@@ -62,3 +62,6 @@ backend/db/master_password.json
 
 # Local archive — not for GitHub
 archive/
+
+# Setup notes with inlined secrets — local only, never commit
+SETUP_STEPS.md
