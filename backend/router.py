@@ -3630,7 +3630,15 @@ async def award_learning_bonus(request: Request, session_id: str, body: Learning
     prev_attempt = prev.get("attempt", 0)
     current_attempt = prev_attempt + 1
 
-    MAX_QUIZ_ATTEMPTS = 2
+    # Quiz policy from the cohort's effective settings (fail-safe to legacy).
+    try:
+        from admin_shared import get_effective_settings as _ges
+        _qeff = _ges(session_id)
+        MAX_QUIZ_ATTEMPTS = int(_qeff.get("quiz_max_attempts", 2) or 2)
+        _quiz_pass = int(_qeff.get("quiz_pass_threshold", 70) or 70)
+        _quiz_graded = bool(_qeff.get("quiz_graded", False))
+    except Exception:
+        MAX_QUIZ_ATTEMPTS, _quiz_pass, _quiz_graded = 2, 70, False
 
     if prev_attempt >= MAX_QUIZ_ATTEMPTS:
         return {
@@ -3641,6 +3649,9 @@ async def award_learning_bonus(request: Request, session_id: str, body: Learning
             "message": f"Maximum {MAX_QUIZ_ATTEMPTS} attempts reached. Your best score: {prev.get('best_score_percent', 0)}% ({prev_points} pts).",
             "attempt": prev_attempt,
             "max_attempts": MAX_QUIZ_ATTEMPTS,
+            "passed": prev.get("best_score_percent", 0) >= _quiz_pass,
+            "pass_threshold": _quiz_pass,
+            "graded": _quiz_graded,
             "show_answers": True,
         }
 
@@ -3681,6 +3692,9 @@ async def award_learning_bonus(request: Request, session_id: str, body: Learning
         "attempt": current_attempt,
         "max_attempts": MAX_QUIZ_ATTEMPTS,
         "attempts_remaining": attempts_remaining,
+        "passed": max(body.score_percent, prev.get("best_score_percent", 0)) >= _quiz_pass,
+        "pass_threshold": _quiz_pass,
+        "graded": _quiz_graded,
         "show_answers": current_attempt >= MAX_QUIZ_ATTEMPTS,
     }
 
