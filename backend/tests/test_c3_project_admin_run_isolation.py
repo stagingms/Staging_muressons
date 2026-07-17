@@ -18,7 +18,7 @@ from main import app
 client = TestClient(app)
 
 _PROJECT_ADMIN = {"facilitator_id": "project_admin", "password": "simadmin2026@"}
-_LEAD = {"facilitator_id": "FAC-001", "password": "Muressons123"}
+_GOD = {"facilitator_id": "god_mode", "password": "sim2026@iim"}
 
 # Live-run-management endpoints that project_admin must never reach.
 # (method, path, json) -- the guard runs before the handler, so a fake id is fine.
@@ -46,6 +46,22 @@ def _cookies(creds):
     return r.cookies
 
 
+def _fresh_facilitator_cookies(role="lead_facilitator"):
+    """Provision a throwaway facilitator via god_mode and log it in.
+
+    The suite must not depend on live registry data (FAC-001's password is
+    operator-owned and changes in real deployments) — QA-2026-07-16 #11 also
+    randomises every one-time password, so self-provisioning is the only
+    deterministic way to obtain a real facilitator session."""
+    gm = _cookies(_GOD)
+    r = client.post("/api/admin/facilitators",
+                    json={"name": "C3 Gate Probe", "role": role}, cookies=gm)
+    assert r.status_code in (200, 201), r.text
+    body = r.json()
+    return _cookies({"facilitator_id": body["facilitator_id"],
+                     "password": body["one_time_password"]})
+
+
 def test_project_admin_blocked_on_run_management():
     pac = _cookies(_PROJECT_ADMIN)
     for method, path, body in _RUN_ENDPOINTS:
@@ -64,7 +80,7 @@ def test_project_admin_allowed_on_provisioning_and_reads():
 
 
 def test_regular_facilitator_not_blocked_by_project_admin_gate():
-    lf = _cookies(_LEAD)
+    lf = _fresh_facilitator_cookies("lead_facilitator")
     r = client.post("/api/admin/sessions/FAKE/pacing",
                     json={"mode": "manual", "interval_seconds": 0}, cookies=lf)
     # May hit later validation (any status), but never the project-admin 403.

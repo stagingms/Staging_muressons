@@ -22,9 +22,25 @@ def test_catalog_route_exists_and_is_gated():
 
 
 def test_catalog_matches_engine_for_authenticated_facilitator():
+    # Self-provision a facilitator via god_mode rather than depending on live
+    # registry data (FAC-001's password is operator-owned and changes in real
+    # deployments; one-time passwords are randomised per QA-2026-07-16 #11).
+    gm = client.post(
+        "/api/admin/facilitators/login",
+        json={"facilitator_id": "god_mode", "password": "sim2026@iim"},
+    )
+    assert gm.status_code == 200, gm.text
+    created = client.post(
+        "/api/admin/facilitators",
+        json={"name": "Shockwave Probe", "role": "facilitator"},
+        cookies=gm.cookies,
+    )
+    assert created.status_code in (200, 201), created.text
+    body = created.json()
     login = client.post(
         "/api/admin/facilitators/login",
-        json={"facilitator_id": "FAC-001", "password": "Muressons123"},
+        json={"facilitator_id": body["facilitator_id"],
+              "password": body["one_time_password"]},
     )
     assert login.status_code == 200, login.text
 

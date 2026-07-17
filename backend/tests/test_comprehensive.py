@@ -635,17 +635,26 @@ class TestR10Valuation:
         assert tv == round(ebitda * exit_mult * mr, 2)
 
     def test_all_profiles_reachable(self):
-        """Each profile archetype should be reachable with the right flags."""
+        """Each profile archetype should be reachable with the right flags.
+
+        AR-B two-axis matrix: solvency is the second axis. Cases with a positive
+        treasury (DMAV > 0) earn the solvent labels; the low-M_R floor is the
+        *solvent* 'Pragmatic Operator'. 'Stranded Relic' / 'Hollow Idealist' are
+        reserved for value destruction (negative treasury → DMAV <= 0)."""
         test_cases = [
-            # (flags, min_sl, expected_profile)
-            ({"synergy_unlock": True, "ethical_ai_overhaul": True}, 95, "derisked_safe_haven"),
-            # MR = 1.0 + 0.2 (no bailout) - 0.4 (low SL) = 0.8 → fragile_giant (≥ 0.8)
-            ({}, 30, "fragile_giant"),
-            # MR = 1.0 + 0 (bailout) - 0.4 (low SL) = 0.6 → stranded_relic (< 0.8)
-            ({"insurance_only": True}, 30, "stranded_relic"),
+            # (flags, min_sl, treasury, expected_profile)
+            ({"synergy_unlock": True, "ethical_ai_overhaul": True}, 95, 50_000_000, "derisked_safe_haven"),
+            # MR = 1.0 + 0.2 (no bailout) - 0.4 (low SL) = 0.8 → fragile_giant (≥ 0.8), solvent
+            ({}, 30, 50_000_000, "fragile_giant"),
+            # MR = 1.0 + 0 (bailout) - 0.4 (low SL) = 0.6 → solvent low-M_R → pragmatic_operator
+            ({"insurance_only": True}, 30, 50_000_000, "pragmatic_operator"),
+            # Same low M_R but INSOLVENT → solvency gate → stranded_relic (honest floor)
+            ({"insurance_only": True}, 30, -50_000_000, "stranded_relic"),
+            # Strong-ESG (safe-haven tier) but INSOLVENT → hollow_idealist
+            ({"synergy_unlock": True, "ethical_ai_overhaul": True}, 95, -50_000_000, "hollow_idealist"),
         ]
-        for flags, sl, expected_profile in test_cases:
-            gs = make_global(round_number=11, treasury=50_000_000, synergy=1.2)
+        for flags, sl, treasury, expected_profile in test_cases:
+            gs = make_global(round_number=11, treasury=treasury, synergy=1.2)
             gs["active_event_flags"] = {}
             bus = make_bus()
             for bu in bus:
@@ -654,7 +663,7 @@ class TestR10Valuation:
 
             extra = post_tick(10, gs, bus, decs, {}, flags)
             assert extra["profile"] == expected_profile, \
-                f"Expected {expected_profile} with flags={flags}, sl={sl}, got {extra['profile']} (MR={extra['regenerative_multiple']})"
+                f"Expected {expected_profile} with flags={flags}, sl={sl}, treasury={treasury}, got {extra['profile']} (MR={extra['regenerative_multiple']})"
 
 
 # ═════════════════════════════════════════════════════════════════
