@@ -49,6 +49,44 @@ REGION_FRAMEWORKS = {
         },
     },
 
+    "china": {
+        "name": "Sustainability Report Guidelines (Self-Regulation) + MOF Basic Standard",
+        "short": "CSDS / Exchange Guidelines",
+        "authority": "CSRC with the Shanghai, Shenzhen & Beijing Stock Exchanges; "
+                     "Ministry of Finance (national Corporate Sustainability Disclosure Standards)",
+        "icon": "🇨🇳",
+        # Four-pillar (governance / strategy / impact-risk-opportunity management /
+        # metrics & targets) structure, ISSB/TCFD-aligned, with a "double
+        # materiality"-style dual lens (impact + financial materiality).
+        "standards": [
+            "Governance of sustainability-related risks and opportunities",
+            "Strategy & business-model resilience (double materiality lens)",
+            "Impact, risk & opportunity management processes",
+            "Metrics & targets",
+            "Climate change (GHG Scope 1 & 2 mandatory; Scope 3 encouraged)",
+            "Pollutant discharge & waste / circular economy",
+            "Ecosystems & biodiversity",
+            "Energy use & resource security",
+            "Rural revitalisation & inclusive development",
+            "Innovation-driven growth, supplier & customer relations",
+            "Employees, due diligence & anti-corruption",
+        ],
+        "key_metrics": [
+            "GHG emissions (Scope 1 & 2 mandatory, Scope 3 encouraged, tCO2e)",
+            "Energy consumption and clean-energy share",
+            "Water use, pollutant discharge and waste/circularity rates",
+            "Biodiversity and ecosystem-impact indicators",
+            "Rural-revitalisation and social-contribution spend",
+            "Board oversight of sustainability and anti-corruption measures",
+        ],
+        "thresholds": {
+            "mandatory_disclosure": "SSE 180, STAR 50, SZSE 100 & ChiNext constituents "
+                                    "and A+H dual-listed companies (~450 firms)",
+            "first_reports": "FY2025 reports, published by 30 April 2026 (effective 1 May 2024)",
+            "voluntary": "All other listed companies encouraged to report",
+        },
+    },
+
     "europe": {
         "name": "ESRS / CSRD (European Sustainability Reporting Standards)",
         "short": "CSRD / ESRS",
