@@ -409,9 +409,12 @@ export default function EngineEventsPanel({ globalState, roundEvents, sections =
 
   // 43. Goodwill Impairment
   // FIX-D: goodwill_impairment is now a dict { amount, pct, trigger } not a raw number.
-  if ((roundEvents?.balance_sheet?.goodwill_impairment?.amount || 0) > 0) {
-    const impairment = (roundEvents.balance_sheet.goodwill_impairment.amount / 1_000_000).toFixed(1);
-    const trigger = roundEvents.balance_sheet.goodwill_impairment.trigger || 'reputation';
+  // BS-HIST: diagnostics moved to balance_sheet_diagnostics (balance_sheet now
+  // carries the full statement); fall back to the old key for pre-fix sessions.
+  const _bsDiag = roundEvents?.balance_sheet_diagnostics || roundEvents?.balance_sheet;
+  if ((_bsDiag?.goodwill_impairment?.amount || 0) > 0) {
+    const impairment = (_bsDiag.goodwill_impairment.amount / 1_000_000).toFixed(1);
+    const trigger = _bsDiag.goodwill_impairment.trigger || 'reputation';
     const triggerLabel = trigger === 'ebitda_margin' ? 'Low EBITDA margin' : trigger === 'survival' ? 'Survival mode' : 'Low reputation';
     events.push({
       icon: '📉', color: 'var(--danger)',

@@ -653,7 +653,14 @@ def run_new_engines(
                 include_esg_on_bs=_include_esg_on_bs,
             )
             global_state["balance_sheet"] = bs
-            extra["balance_sheet"] = bs_diag
+            # BS-HIST: persist the FULL statement (with its accumulating
+            # balance_sheet_history) through active_event_flags so it survives
+            # round-to-round. Previously the diagnostics were written to
+            # extra["balance_sheet"], clobbering the statement on reload — so
+            # get_balance_sheet saw no total_assets, rebuilt a fresh one-round
+            # sheet, and the Year-by-Year view only ever showed the final year.
+            extra["balance_sheet"] = bs
+            extra["balance_sheet_diagnostics"] = bs_diag
 
             # Covenant warning message for UI (surcharge already applied inside engine)
             # FIX-A: Removed duplicate surcharge block — balance_sheet.py Step 9
