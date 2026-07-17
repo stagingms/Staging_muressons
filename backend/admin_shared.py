@@ -77,6 +77,12 @@ ROLE_ALLOWED_TABS = {
         "scorecard_evaluator", "bonuses", "peer_eval", "reports",
         "notes", "annotations", "teaching_journal", "technical_glossary",
         "intervention_config",
+        # Player-facing round surface toggles (consequence map / board room).
+        "player_features",
+        # ESG Leadership Profile rubric editor — moved to the base facilitator
+        # dashboard (all run-managing facilitators tune the rubric; project_admin
+        # never sees it because its tab set is fixed, not cumulative).
+        "esg_weights",
     ],
     "lead_facilitator": [
         # All facilitator tabs plus:
@@ -88,8 +94,6 @@ ROLE_ALLOWED_TABS = {
         "undo_round", "activity_log",
         # I2 (Workstream C): read-only effective-settings view over owned cohorts.
         "cohort_settings_view",
-        # ESG Leadership Profile rubric editor — lead facilitators & super admins.
-        "esg_weights",
     ],
     "super_admin": ["*"],  # All tabs
     # project_admin gets a FIXED set (not cumulative with facilitator tabs):
@@ -135,6 +139,29 @@ def is_admin_role(role: str) -> bool:
     admin/is_admin gate so the now-distinct god_mode tier keeps full super-admin
     power (all-tabs, session-ownership bypass, is_admin=True)."""
     return ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("super_admin", 3)
+
+
+def can_orchestrate_turnaround(role: str, fac_id: str = "") -> bool:
+    """P1: True if this caller may orchestrate the post-completion Turnaround
+    module for a session they manage.
+
+    Two-key model (mirrors the side-track pool -> per-facilitator grant pattern):
+      1. The module must be globally enabled -- even privileged roles cannot
+         orchestrate a switched-off module (superadmin flips the switch first).
+      2. lead_facilitator and above bypass the per-facilitator grant list (their
+         bypass is audited at the call site, exactly like assign_cohort_side_tracks);
+         a base facilitator must hold an explicit grant.
+
+    project_admin is level 0 (off the run ladder) so it never qualifies -- and
+    orchestration endpoints additionally sit behind require_sim_manager."""
+    if not _god_mode_settings.get("turnaround_module_enabled", False):
+        return False
+    if ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("lead_facilitator", 2):
+        return True
+    if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get("facilitator", 1):
+        return False  # project_admin / players never orchestrate
+    perms = _god_mode_settings.get("turnaround_facilitator_permissions", {})
+    return bool(perms.get(fac_id, False))
 
 
 def get_allowed_tabs(fac: dict) -> list[str]:
@@ -225,6 +252,11 @@ _god_mode_settings: dict = {
     "currency_symbol": "$",
     "side_tracks_available": [],
     "side_tracks_facilitator_permissions": {},
+    # Post-completion Turnaround module (P1). OFF by default: a normal run is
+    # complete at R10 and this never changes that. Superadmin must (1) enable
+    # globally, then (2) grant named facilitators to orchestrate it.
+    "turnaround_module_enabled": False,
+    "turnaround_facilitator_permissions": {},   # {fac_id: True} explicit grants
     "default_ending_pathway": "activist_ultimatum",
     "ending_pathways_available": [
         "activist_ultimatum",
@@ -244,6 +276,87 @@ _god_mode_settings: dict = {
     "black_swan_events_enabled": True,            # Enable stochastic Black Swan disruptions
     "npc_cascading_enabled": True,                # Enable NPC stakeholder cascade reactions
     "foreshadowing_signals_enabled": True,        # Show pedagogical foreshadowing hints
+
+    # ── Advanced cohort controls (HIGH-tier setup data points) ──────────────
+    # RNG seed (GAME-4): a non-empty seed makes every stochastic roll reproducible
+    # and identical across all teams in the cohort — rankings reflect strategy, not
+    # luck. Applied by stamping active_event_flags["stochastic_seed"] (see
+    # admin_router cohort-settings PATCH). Empty ⇒ legacy non-deterministic.
+    "rng_seed": "",
+
+    # Result-visibility controls (granular output gating):
+    #   results_reveal_round — hide leaderboard / peer ranks / final valuation from
+    #     PLAYERS until this round (0 = always visible; 10 = only at the finale).
+    #   redact_peer_identities — anonymise other teams in peer/benchmark views.
+    "results_reveal_round": 0,
+    "redact_peer_identities": False,
+
+    # Quiz / knowledge-check (uses quiz_banks.py + InlineQuizEngine):
+    "quiz_enabled": False,
+    "quiz_graded": False,           # count quiz toward the cohort gradebook
+    "quiz_pass_threshold": 70,      # percent required to pass (0–100)
+    "quiz_max_attempts": 2,         # attempts per quiz (>=1); matches legacy engine default
+
+    # Team / roster provisioning:
+    #   team_count — hard roster cap enforced at join (0 = platform default of 5).
+    #   max_team_size — seats per team (0 = unlimited); informational in the
+    #     current one-session-per-player model.
+    #   join_method — "code" (join code), "open" (anyone with link), "roster"
+    #     (pre-provisioned only). join_code empty ⇒ auto-generated on demand.
+    "team_count": 0,
+    "max_team_size": 0,
+    "join_method": "code",
+    "join_code": "",
+
+    # ── MEDIUM-tier cohort controls ─────────────────────────────────────────
+    # Time & scheduling:
+    #   cohort_timezone — IANA zone name (e.g. "Asia/Kolkata") used to render
+    #     schedules/timers in the cohort's local time. Empty ⇒ browser-local.
+    #     (Per-round timer DURATION reuses the existing engine toggles
+    #      decision_timer_enabled / decision_timer_seconds — no duplicate knob.)
+    #   late_join_policy — "anytime" (legacy), "before_round_2" (no new joins
+    #     once any team is past Round 1), "closed" (no new joins; rejoin still OK).
+    "cohort_timezone": "",
+    "late_join_policy": "anytime",
+
+    # Reports & data:
+    #   report_access — what PLAYERS see of their own final report:
+    #     "full" (legacy: everything), "summary" (headline numbers only — the
+    #     narrative report bodies are withheld), "facilitator_only" (players get
+    #     a locked notice; facilitators view via admin surfaces).
+    "report_access": "full",
+
+    # ── LOW-tier / polish cohort controls ───────────────────────────────────
+    # Accessibility profile — cohort-level DEFAULTS pushed to every player's
+    # cockpit (each player can still adjust locally; these set the baseline for
+    # e.g. a cohort with known accessibility requirements).
+    "accessibility_defaults": {
+        "high_contrast": False,
+        "font_scale": 1.0,        # 0.8 – 1.6 multiplier
+        "reduced_motion": False,
+        "colorblind_safe": False, # colourblind-safe palette for charts/badges
+        "screen_reader_mode": False,  # denser aria labels, no canvas-only visuals
+    },
+
+    # White-label branding — institution identity on the cockpit + reports.
+    "branding_institution": "",      # e.g. "IIM Ahmedabad" (empty = platform default)
+    "branding_logo_url": "",         # https URL to the institution logo
+    "branding_primary_color": "",    # hex "#RRGGBB" accent (empty = default theme)
+
+    # Data retention & compliance:
+    #   data_retention_days — reap the cohort + its player sessions N days after
+    #     its end_date (0 = keep forever, legacy behaviour).
+    #   consent_required — players must tick consent at join (captured with a
+    #     UTC timestamp on their session record).
+    #   consent_text — the statement players agree to (empty ⇒ platform default).
+    "data_retention_days": 0,
+    "consent_required": False,
+    "consent_text": "",
+
+    # Webhooks / LMS: POSTed fire-and-forget on lifecycle events (round
+    # committed, game over) so LMS/gradebook integrations can sync without
+    # polling. https-only; empty = disabled.
+    "webhook_url": "",
 }
 
 
@@ -293,7 +406,175 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "industry_vertical",
     "region_id",
     "esg_bs_scholarly_mode",   # Scholarly ESG capitalisation toggle (IAS 38 what-if)
+    # Advanced cohort controls (HIGH-tier setup data points)
+    "rng_seed",
+    "results_reveal_round",
+    "redact_peer_identities",
+    "quiz_enabled",
+    "quiz_graded",
+    "quiz_pass_threshold",
+    "quiz_max_attempts",
+    "team_count",
+    "max_team_size",
+    "join_method",
+    "join_code",
+    # MEDIUM-tier cohort controls
+    "cohort_timezone",
+    "late_join_policy",
+    "report_access",
+    # LOW-tier / polish cohort controls
+    "accessibility_defaults",
+    "branding_institution",
+    "branding_logo_url",
+    "branding_primary_color",
+    "data_retention_days",
+    "consent_required",
+    "consent_text",
+    "webhook_url",
 })
+
+
+# ── Advanced-controls validation / normalisation ────────────────────────────
+# Coerce + clamp the HIGH-tier cohort controls to safe ranges before they are
+# persisted, so a malformed payload can never poison the effective settings.
+_JOIN_METHODS = frozenset({"code", "open", "roster"})
+_LATE_JOIN_POLICIES = frozenset({"anytime", "before_round_2", "closed"})
+_REPORT_ACCESS_LEVELS = frozenset({"full", "summary", "facilitator_only"})
+import re as _re
+_HEX_COLOR_RE = _re.compile(r"#[0-9a-fA-F]{6}")
+
+
+def normalize_advanced_cohort_settings(body: dict) -> dict:
+    """Return a copy of `body` with the advanced-control keys coerced/clamped.
+
+    Only touches keys that are present; unknown keys pass through untouched (the
+    caller still filters against COHORT_OVERRIDABLE_KEYS afterwards)."""
+    out = dict(body)
+
+    def _as_int(key, lo, hi, default):
+        if key in out:
+            try:
+                out[key] = max(lo, min(hi, int(out[key])))
+            except (TypeError, ValueError):
+                out[key] = default
+
+    _as_int("results_reveal_round", 0, 10, 0)
+    _as_int("quiz_pass_threshold", 0, 100, 70)
+    _as_int("quiz_max_attempts", 1, 20, 1)
+    _as_int("team_count", 0, 500, 0)
+    _as_int("max_team_size", 0, 100, 0)
+
+    for key in ("redact_peer_identities", "quiz_enabled", "quiz_graded"):
+        if key in out:
+            out[key] = bool(out[key])
+
+    if "join_method" in out:
+        out["join_method"] = out["join_method"] if out["join_method"] in _JOIN_METHODS else "code"
+
+    if "rng_seed" in out and out["rng_seed"] is not None:
+        # Store as a trimmed string; empty ⇒ non-deterministic.
+        out["rng_seed"] = str(out["rng_seed"]).strip()[:64]
+
+    if "join_code" in out and out["join_code"] is not None:
+        out["join_code"] = str(out["join_code"]).strip()[:32]
+
+    # ── MEDIUM-tier controls ────────────────────────────────────────────────
+    # Per-round timer duration reuses the pre-existing engine knob; clamp it to
+    # a sane boardroom range when it flows through cohort settings.
+    _as_int("decision_timer_seconds", 30, 7200, 300)
+
+    if "late_join_policy" in out:
+        out["late_join_policy"] = (
+            out["late_join_policy"] if out["late_join_policy"] in _LATE_JOIN_POLICIES
+            else "anytime"
+        )
+
+    if "report_access" in out:
+        out["report_access"] = (
+            out["report_access"] if out["report_access"] in _REPORT_ACCESS_LEVELS
+            else "full"
+        )
+
+    if "cohort_timezone" in out and out["cohort_timezone"] is not None:
+        tz = str(out["cohort_timezone"]).strip()[:64]
+        if tz:
+            try:
+                from zoneinfo import ZoneInfo
+                ZoneInfo(tz)  # raises for unknown zones
+            except Exception:
+                tz = ""  # unknown zone ⇒ fall back to browser-local
+        out["cohort_timezone"] = tz
+
+    # ── LOW-tier / polish controls ──────────────────────────────────────────
+    if "accessibility_defaults" in out:
+        raw = out["accessibility_defaults"] if isinstance(out["accessibility_defaults"], dict) else {}
+        acc = {}
+        for bkey in ("high_contrast", "reduced_motion", "colorblind_safe", "screen_reader_mode"):
+            acc[bkey] = bool(raw.get(bkey, False))
+        try:
+            fs = float(raw.get("font_scale", 1.0))
+        except (TypeError, ValueError):
+            fs = 1.0
+        acc["font_scale"] = max(0.8, min(1.6, fs)) if fs == fs else 1.0  # NaN-safe
+        out["accessibility_defaults"] = acc
+
+    if "branding_institution" in out and out["branding_institution"] is not None:
+        out["branding_institution"] = str(out["branding_institution"]).strip()[:120]
+
+    if "branding_logo_url" in out and out["branding_logo_url"] is not None:
+        url = str(out["branding_logo_url"]).strip()[:500]
+        # https-only (or empty) — never let a plain-http/js: URL into the cockpit.
+        out["branding_logo_url"] = url if url.startswith("https://") else ""
+
+    if "branding_primary_color" in out and out["branding_primary_color"] is not None:
+        col = str(out["branding_primary_color"]).strip()
+        out["branding_primary_color"] = col if _HEX_COLOR_RE.fullmatch(col) else ""
+
+    _as_int("data_retention_days", 0, 3650, 0)
+
+    if "consent_required" in out:
+        out["consent_required"] = bool(out["consent_required"])
+
+    if "consent_text" in out and out["consent_text"] is not None:
+        out["consent_text"] = str(out["consent_text"]).strip()[:2000]
+
+    if "webhook_url" in out and out["webhook_url"] is not None:
+        wurl = str(out["webhook_url"]).strip()[:500]
+        out["webhook_url"] = wurl if wurl.startswith("https://") else ""
+
+    return out
+
+
+# ── Cohort settings templates (clone-as-template) ───────────────────────────
+# Named, reusable snapshots of a cohort's override layer. A facilitator saves a
+# tuned cohort's settings once, then applies them to any number of future
+# cohorts — repeatable setups without hand-copying two dozen switches.
+# {template_id: {"name", "settings", "created_by", "source_session_id", "created_at"}}
+_cohort_templates: dict[str, dict] = {}
+
+
+def cohort_templates_snapshot() -> dict:
+    """JSON-safe copy of the template store (for the memory snapshot)."""
+    return {tid: dict(t) for tid, t in _cohort_templates.items()}
+
+
+def restore_cohort_templates(data: dict) -> None:
+    if isinstance(data, dict):
+        for tid, t in data.items():
+            if isinstance(t, dict) and isinstance(t.get("settings"), dict):
+                _cohort_templates[tid] = dict(t)
+
+
+def resolve_roster_cap(session_id: str, default: int = 5) -> int:
+    """Effective roster cap for a cohort's join flow.
+
+    Returns the configured team_count when set (> 0); otherwise `default` (the
+    legacy platform cap), so an unconfigured cohort behaves exactly as before."""
+    try:
+        tc = int(get_effective_settings(session_id).get("team_count", 0) or 0)
+    except (TypeError, ValueError, Exception):
+        return default
+    return tc if tc > 0 else default
 
 
 # C6: keys that carry the climate branch. `simulation_mode` is only treated as
@@ -355,6 +636,8 @@ DEFAULT_ESG_WEIGHTS: dict = {
         "rd_cap": 40,                 # cap on the R&D contribution
         "synergy": 200,
         "brsr_pioneer": 30,
+        "brsr_steward": 30,   # × mr brsr_steward_bonus (Leadership-Indicator tier 2)
+        "brsr_laggard": 30,   # × mr brsr_laggard_penalty (score < 40 track outcome)
     },
 }
 
@@ -1043,11 +1326,27 @@ def _get_session_paradigm(session_id: str) -> str:
 #  DEFAULT ARCHETYPES
 # ═════════════════════════════════════════════════════════════════
 
-# AR-C: `requires_solvent` is the second classification axis. When True, the
-# archetype is only awarded to a company that ended solvent (Double-Materiality
-# Adjusted Value > 0); an insolvent company is downgraded to the failure band.
-# The three flattering profiles require solvency; the failure/turnaround ones
-# do not. Custom archetypes carry the same field (default False).
+# AR-B/AR-C: the terminal archetype is a TWO-AXIS classification —
+#   axis 1: M_R (regenerative-strategy quality)   → `mr_threshold`
+#   axis 2: realized value / solvency (outcome)    → `requires_solvent`
+# `requires_solvent=True` means the label is only awarded to a company that
+# ended solvent (Double-Materiality Adjusted Value = final_treasury x M_R − NCD
+# > 0); an insolvent company is downgraded into the failure band regardless of
+# M_R. The full matrix (matching round_logic's R10 resolver):
+#
+#                        │ solvent (DMAV > 0)          │ value-destroyed (DMAV ≤ 0)
+#   ─────────────────────┼─────────────────────────────┼───────────────────────────
+#   M_R ≥ 1.8            │ Regenerative Titan          │ Hollow Idealist
+#   1.2 ≤ M_R < 1.8      │ De-risked Safe-Haven        │ Hollow Idealist
+#   0.8 ≤ M_R < 1.2      │ Fragile Giant               │ Stranded Relic
+#   M_R < 0.8            │ Pragmatic Operator          │ Stranded Relic
+#
+# The Turnaround Manager is awarded only via the post-R10 survival/turnaround
+# arc (see turnaround_engine.py), not by the M_R ladder. Ordering matters:
+# within an M_R-threshold tie the solvency-gated (requires_solvent) entry must
+# precede the non-gated one so the custom matcher resolves solvent → gated
+# label and insolvent → failure label. Custom archetypes carry the same fields
+# (default requires_solvent False).
 DEFAULT_ARCHETYPES = [
     {
         "key": "regenerative_titan", "title": "The Regenerative Titan",
@@ -1067,6 +1366,27 @@ DEFAULT_ARCHETYPES = [
         "description": "Big but brittle.", "mr_threshold": 0.8, "icon": "",
         "gradient": "linear-gradient(135deg, #f59e0b, #d97706)", "is_default": True,
         "requires_solvent": True,
+    },
+    {
+        # AR-B: solvent but low-M_R — kept the lights on, unremarkable. Reserving
+        # "Stranded Relic" for value destruction stops a solvent, cautious
+        # operator being mislabelled a failure.
+        "key": "pragmatic_operator", "title": "The Pragmatic Operator",
+        "description": "Kept the lights on — solvent and steady, but the strategy "
+                       "left regenerative value on the table.",
+        "mr_threshold": 0.0, "icon": "",
+        "gradient": "linear-gradient(135deg, #475569, #334155)", "is_default": True,
+        "requires_solvent": True,
+    },
+    {
+        # AR-B: strong ESG story on an insolvent balance sheet — the honest label
+        # for a high-M_R company that still destroyed enterprise value.
+        "key": "hollow_idealist", "title": "The Hollow Idealist",
+        "description": "A regenerative story the balance sheet couldn't fund — "
+                       "enterprise value turned negative.",
+        "mr_threshold": 1.2, "icon": "",
+        "gradient": "linear-gradient(135deg, #a855f7, #7e22ce)", "is_default": True,
+        "requires_solvent": False,
     },
     {
         "key": "stranded_relic", "title": "The Stranded Relic",

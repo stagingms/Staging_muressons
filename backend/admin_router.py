@@ -15,6 +15,7 @@ import collections
 import importlib
 import threading
 import copy
+import uuid
 from typing import Any, Optional
 from datetime import datetime, timezone
 import random
@@ -221,6 +222,8 @@ from admin_shared import (
     _god_mode_settings,
     # GOD-012: Per-cohort settings layer
     cohort_settings, COHORT_OVERRIDABLE_KEYS, get_effective_settings,
+    normalize_advanced_cohort_settings,
+    _cohort_templates,
     resolve_climate_paradigm, seed_effective_flags,
     project_effective, visible_keys_for_role, bu_scope_source,
     _facilitator_registry, _persist_facilitators, _load_facilitator_registry,
@@ -306,6 +309,14 @@ class FacilitatorUpdateRequest(BaseModel):
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
+
+
+class FacilitatorBulkDeleteRequest(BaseModel):
+    # Batch counterpart of DELETE /facilitators/{fac_id}. Bounds are enforced
+    # manually in the handler (empty / oversize → 400) rather than via Field
+    # constraints so validation failures surface as 400, not Pydantic's 422.
+    facilitator_ids: list[str]
+    hard: bool = False
 
 
 # ── Global Settings (Sim Switchboard ↔ player sessions) ─────────
@@ -747,6 +758,9 @@ async def patch_cohort_settings(
 
     caller_role = get_role(caller_fac) if caller_fac else "facilitator"
 
+    # HIGH-tier advanced controls: coerce/clamp before any filtering or persistence.
+    body = normalize_advanced_cohort_settings(body)
+
     # lead_facilitators may only touch freeze keys and specific simulation parameters for sessions they own
     _LEAD_FAC_KEYS = frozenset({
         "system_frozen", "freeze_message", "freeze_started_at",
@@ -784,6 +798,35 @@ async def patch_cohort_settings(
         safe_body["freeze_started_at"] = None
 
     cohort_settings[session_id].update(safe_body)
+
+    # RNG seed (GAME-4): stamp the cohort's stochastic_seed onto the live game
+    # state so every engine roll is reproducible + identical across teams. Mirror
+    # the ending_pathway/CEO-interview flag-propagation pattern (parent + children).
+    if "rng_seed" in safe_body:
+        _seed = (safe_body.get("rng_seed") or "").strip()
+        try:
+            latest = await db.fetch_latest_state(session_id)
+            if latest:
+                gs = latest["global_state"]
+                flags = gs.setdefault("active_event_flags", {})
+                if _seed:
+                    flags["stochastic_seed"] = _seed
+                else:
+                    flags.pop("stochastic_seed", None)  # empty ⇒ back to non-deterministic
+                await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+                for child in await db.get_child_sessions(session_id):
+                    child_state = await db.fetch_latest_state(child["session_id"])
+                    if not child_state:
+                        continue
+                    child_gs = child_state["global_state"]
+                    child_flags = child_gs.setdefault("active_event_flags", {})
+                    if _seed:
+                        child_flags["stochastic_seed"] = _seed
+                    else:
+                        child_flags.pop("stochastic_seed", None)
+                    await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
+        except Exception as _e:  # never fail the settings write on a stamping hiccup
+            print(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
 
     _audit("cohort_settings_patched", details={
         "session_id": session_id,
@@ -838,6 +881,114 @@ async def delete_cohort_settings(
         "removed_overrides": removed,
         "effective": _god_mode_settings,
     }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  COHORT SETTINGS TEMPLATES — clone-as-template (MEDIUM tier)
+#
+#  A facilitator tunes one cohort's override layer, saves it under a name,
+#  and applies it to any future cohort — repeatable setups without
+#  hand-copying two dozen switches. Templates store ONLY overridable,
+#  normalised keys, and 'apply' goes through the exact same PATCH path as a
+#  manual edit (normalisation, role filtering, RNG-seed stamping, audit).
+# ═════════════════════════════════════════════════════════════════
+
+class CohortTemplateCreateRequest(BaseModel):
+    name: str
+    source_session_id: str
+    description: str | None = None
+
+
+@admin_router.get("/cohort-templates", summary="List saved cohort settings templates")
+async def list_cohort_templates(_guard: None = Depends(require_facilitator)):
+    return {"templates": [
+        {"template_id": tid, "name": t.get("name", ""),
+         "description": t.get("description", ""),
+         "created_by": t.get("created_by", ""),
+         "source_session_id": t.get("source_session_id", ""),
+         "created_at": t.get("created_at", ""),
+         "keys": sorted(t.get("settings", {}).keys())}
+        for tid, t in _cohort_templates.items()
+    ]}
+
+
+@admin_router.post("/cohort-templates", summary="Save a cohort's settings as a reusable template")
+async def create_cohort_template(body: CohortTemplateCreateRequest, request: Request,
+                                 _guard: None = Depends(require_facilitator)):
+    """Snapshot the source cohort's override layer (overridable keys only) under
+    a template name. Any facilitator may save templates — provisioning-adjacent,
+    so project_admin is deliberately allowed too."""
+    name = (body.name or "").strip()[:80]
+    if not name:
+        raise HTTPException(status_code=422, detail="Template name is required.")
+    overrides = cohort_settings.get(body.source_session_id, {})
+    settings = {k: v for k, v in normalize_advanced_cohort_settings(dict(overrides)).items()
+                if k in COHORT_OVERRIDABLE_KEYS}
+    # Never bake transient freeze state into a reusable template.
+    for _transient in ("system_frozen", "freeze_message", "freeze_started_at"):
+        settings.pop(_transient, None)
+    if not settings:
+        raise HTTPException(status_code=422,
+                            detail="Source cohort has no overrides to save — tune its settings first.")
+    template_id = f"tpl-{uuid.uuid4().hex[:10]}"
+    try:
+        from auth_jwt import get_facilitator_from_request
+        created_by = get_facilitator_from_request(request) or ""
+    except Exception:
+        created_by = ""
+    _cohort_templates[template_id] = {
+        "name": name,
+        "description": (body.description or "").strip()[:300],
+        "settings": settings,
+        "created_by": created_by,
+        "source_session_id": body.source_session_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        db._persist()  # snapshot templates immediately (memory backend)
+    except Exception:
+        pass
+    _audit("cohort_template_created", details={
+        "template_id": template_id, "name": name,
+        "source_session_id": body.source_session_id, "keys": sorted(settings.keys()),
+    })
+    return {"status": "ok", "template_id": template_id, "name": name,
+            "settings": settings}
+
+
+@admin_router.delete("/cohort-templates/{template_id}", summary="Delete a cohort settings template")
+async def delete_cohort_template(template_id: str, _guard: None = Depends(require_lead_facilitator)):
+    removed = _cohort_templates.pop(template_id, None)
+    if removed is None:
+        raise HTTPException(status_code=404, detail="Template not found.")
+    try:
+        db._persist()
+    except Exception:
+        pass
+    _audit("cohort_template_deleted", details={"template_id": template_id, "name": removed.get("name", "")})
+    return {"status": "ok", "template_id": template_id}
+
+
+@admin_router.post("/cohort-templates/{template_id}/apply/{session_id}",
+                   summary="Apply a settings template to a cohort")
+async def apply_cohort_template(template_id: str, session_id: str, request: Request,
+                                _guard: None = Depends(require_lead_facilitator)):
+    """Merge a template's settings into the target cohort's override layer.
+
+    Delegates to the cohort-settings PATCH handler so template application is
+    byte-for-byte a manual settings edit: same normalisation, same role/key
+    filtering, same RNG-seed stamping and audit trail."""
+    tpl = _cohort_templates.get(template_id)
+    if tpl is None:
+        raise HTTPException(status_code=404, detail="Template not found.")
+    result = await patch_cohort_settings(session_id, body=dict(tpl.get("settings", {})), request=request)
+    _audit("cohort_template_applied", details={
+        "template_id": template_id, "name": tpl.get("name", ""), "session_id": session_id,
+    })
+    return {"status": "ok", "template_id": template_id, "name": tpl.get("name", ""),
+            "session_id": session_id,
+            "applied": result.get("applied", {}),
+            "effective": result.get("effective", {})}
 
 
 @admin_router.get("/scaffolding-status", summary="Get active pedagogical scaffolding features (read-only)")
@@ -1916,6 +2067,130 @@ async def delete_facilitator(
     }
 
 
+_MAX_BULK_DELETE = 200
+
+
+@admin_router.post("/facilitators/bulk-delete", summary="Delete multiple facilitators in batch")
+async def bulk_delete_facilitators(
+    req: FacilitatorBulkDeleteRequest,
+    request: Request,
+    _guard: None = Depends(require_super_admin),
+):
+    """Batch counterpart of DELETE /facilitators/{fac_id}.
+
+    Applies the exact same per-account semantics as delete_facilitator — soft
+    delete (default) stamps deleted_at + cascade-soft-deletes owned cohorts and
+    bumps the JWT token version; hard delete removes the registry record and
+    cascade-hard-deletes owned cohorts. Each ID is processed independently: an
+    unknown or already-deleted ID is reported per-ID and never aborts the batch.
+
+    Self-protection: the caller cannot delete their own account mid-batch
+    (skipped_self) — their session token is left untouched so they stay logged
+    in. This mirrors why the single-delete UI never targets the current user.
+
+    Body: { facilitator_ids: [str], hard: bool = False }
+    Returns: { status, hard, requested, deleted, results: [{facilitator_id, status, ...}] }
+    """
+    from auth_jwt import get_facilitator_from_request
+
+    # Normalise: trim, drop blanks, de-duplicate while preserving order.
+    seen: set[str] = set()
+    ids: list[str] = []
+    for raw in req.facilitator_ids:
+        fid = (raw or "").strip()
+        if fid and fid not in seen:
+            seen.add(fid)
+            ids.append(fid)
+
+    # Input validation — surfaced as 400 (see model note).
+    if not ids:
+        raise HTTPException(400, "facilitator_ids must contain at least one non-empty ID")
+    if len(ids) > _MAX_BULK_DELETE:
+        raise HTTPException(
+            400,
+            f"Too many facilitators in one batch ({len(ids)}); maximum is {_MAX_BULK_DELETE}.",
+        )
+
+    hard = req.hard
+    caller_id = get_facilitator_from_request(request)
+
+    results: list[dict] = []
+    deleted_count = 0
+
+    for fid in ids:
+        # Self-protection: never delete the account making the request.
+        if caller_id and fid == caller_id:
+            results.append({"facilitator_id": fid, "status": "skipped_self"})
+            continue
+
+        fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fid), None)
+        if not fac:
+            results.append({"facilitator_id": fid, "status": "not_found"})
+            continue
+
+        # Soft delete is idempotent: an already-stamped record is a no-op.
+        if not hard and fac.get("deleted_at"):
+            results.append({"facilitator_id": fid, "status": "already_deleted"})
+            continue
+
+        # ── Cascade: delete all top-level cohorts owned by this facilitator ──
+        owned_sessions = await db.fetch_sessions_by_facilitator(fid)
+        total_sessions_deleted = 0
+        total_players_removed = 0
+        for sess in owned_sessions:
+            result = await _cascade_delete_session(sess["session_id"], hard=hard)
+            total_sessions_deleted += result["sessions_deleted"]
+            total_players_removed += result["players_removed"]
+            await manager.broadcast_admin({
+                "type": "session_deleted",
+                "session_id": sess["session_id"],
+            })
+
+        # ── Immediately revoke outstanding JWT tokens for this facilitator ───
+        bump_token_version(fid)
+
+        # ── Remove / soft-delete the facilitator record ──────────────────────
+        if hard:
+            _facilitator_registry[:] = [f for f in _facilitator_registry if f["facilitator_id"] != fid]
+        else:
+            fac["deleted_at"] = datetime.now(timezone.utc).isoformat()
+
+        deleted_count += 1
+        results.append({
+            "facilitator_id": fid,
+            "status": "deleted",
+            "hard": hard,
+            "sessions_deleted": total_sessions_deleted,
+            "players_removed": total_players_removed,
+        })
+
+    _persist_facilitators()
+
+    _audit(
+        "facilitators_bulk_deleted",
+        actor="god_mode",
+        details={
+            "requested": len(ids),
+            "deleted": deleted_count,
+            "hard": hard,
+            "results": results,
+        },
+    )
+
+    # A batch that hit no unknown/skipped IDs is "completed"; anything left
+    # unresolved (not_found / skipped_self) is "partial".
+    unresolved = any(r["status"] in ("not_found", "skipped_self") for r in results)
+    overall_status = "partial" if unresolved else "completed"
+
+    return {
+        "status": overall_status,
+        "hard": hard,
+        "requested": len(ids),
+        "deleted": deleted_count,
+        "results": results,
+    }
+
+
 @admin_router.post("/facilitators/login", summary="Facilitator login")
 async def facilitator_login(request: Request, response: Response, body: dict = Body(...)):
     # HIGH-009: Rate-limit login attempts per IP
@@ -2803,7 +3078,7 @@ async def force_advance_cohort(session_id: str, request: Request, _guard: None =
     }
 
 
-# ── ESG Leadership Profile weights (lead facilitator / super admin) ──────────
+# ── ESG Leadership Profile weights (facilitator dashboard; no project_admin) ─
 class EsgWeightsRequest(BaseModel):
     weights: dict
     reason: str | None = None
@@ -2824,6 +3099,11 @@ def _sanitize_esg_weights(incoming: dict) -> dict:
                 try:
                     fv = float(v)
                     if fv == fv and fv not in (float("inf"), float("-inf")):  # not NaN/inf
+                        # Blend shares are convex weights by contract — clamp to
+                        # [0, 1] so a hostile/typo'd payload can't invert or
+                        # amplify a dimension (e.g. reputation_blend: 5).
+                        if k.endswith("_blend"):
+                            fv = min(1.0, max(0.0, fv))
                         out[dim][k] = fv
                 except (TypeError, ValueError):
                     continue
@@ -2838,10 +3118,13 @@ async def get_esg_profile_weights():
 
 @admin_router.post("/esg-profile-weights", summary="Set ESG Leadership Profile signal weights")
 async def set_esg_profile_weights(body: EsgWeightsRequest, request: Request,
-                                  _guard: None = Depends(require_lead_facilitator)):
-    """Lead facilitators and super admins tune the ESG assessment rubric — the
-    weight each performance signal carries in the five ESG dimensions. Global
-    default rubric; unknown keys are dropped and values coerced to numbers."""
+                                  _guard: None = Depends(require_sim_manager)):
+    """Run-managing facilitators (base and up) tune the ESG assessment rubric —
+    the weight each performance signal carries in the five ESG dimensions.
+    Moved to the facilitator dashboard: any facilitator may edit; project_admin
+    (provisioning-only charter) is rejected by require_sim_manager. Global
+    default rubric; unknown keys are dropped, values coerced to numbers, and
+    blend shares clamped to [0, 1]."""
     caller = get_fac_role(request)
     clean = _sanitize_esg_weights(body.weights)
     _god_mode_settings["esg_profile_weights"] = clean
@@ -2851,11 +3134,38 @@ async def set_esg_profile_weights(body: EsgWeightsRequest, request: Request,
 
 
 @admin_router.post("/esg-profile-weights/reset", summary="Reset ESG Profile weights to defaults")
-async def reset_esg_profile_weights(request: Request, _guard: None = Depends(require_lead_facilitator)):
+async def reset_esg_profile_weights(request: Request, _guard: None = Depends(require_sim_manager)):
     _god_mode_settings["esg_profile_weights"] = {dim: dict(sig) for dim, sig in DEFAULT_ESG_WEIGHTS.items()}
     mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
     _audit("esg_profile_weights_reset", details={"_caller_role": get_fac_role(request)})
     return {"status": "ok", "esg_profile_weights": DEFAULT_ESG_WEIGHTS}
+
+
+# ── Player-facing round surface toggles (facilitator-accessible) ─────────────
+_PLAYER_FEATURE_KEYS = ("consequence_map_enabled", "board_room_moments_enabled")
+
+
+class PlayerFeatureTogglesRequest(BaseModel):
+    consequence_map_enabled: bool | None = None
+    board_room_moments_enabled: bool | None = None
+
+
+@admin_router.post("/player-feature-toggles", summary="Toggle player-facing round surfaces")
+async def set_player_feature_toggles(body: PlayerFeatureTogglesRequest, request: Request,
+                                     _guard: None = Depends(require_sim_manager)):
+    """Any run-managing facilitator can switch the player-facing Decision
+    Consequence Map and Board Room Moment on or off. Global (shared across
+    cohorts), whitelisted, and audited."""
+    changed = {}
+    for k in _PLAYER_FEATURE_KEYS:
+        v = getattr(body, k, None)
+        if v is not None:
+            _god_mode_settings[k] = bool(v)
+            changed[k] = bool(v)
+    if changed:
+        mark_godmode_dirty()
+        _audit("player_feature_toggles_updated", details={**changed, "_caller_role": get_fac_role(request)})
+    return {"status": "ok", **{k: _god_mode_settings.get(k, True) for k in _PLAYER_FEATURE_KEYS}}
 
 
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
@@ -4075,6 +4385,9 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             "simulation_mode": sess.get("simulation_mode", "conglomerate"),
             "industry_vertical": sess.get("industry_vertical", ""),
             "region_id": sess.get("region_id", ""),
+            # P5: labelled, non-authoritative turnaround annotation (canonical
+            # R10 result stays the leaderboard figure).
+            "turnaround": __import__("turnaround_engine").leaderboard_annotation(gs),
         })
 
     # Sort: group player sessions under their parent cohort, then by terminal value
@@ -4371,6 +4684,7 @@ async def get_session_report(session_id: str, _guard: None = Depends(require_fac
         },
         "archetype": archetype,
         "ending_pathway": ending_pathway,
+        "turnaround": __import__("turnaround_engine").leaderboard_annotation(gs),
         "bu_breakdown": bu_summary,
         "ceo_interview": ceo_interview,
         "sandbox": sandbox_summary,
@@ -9119,6 +9433,231 @@ async def set_facilitator_side_track_permissions(fac_id: str, body: dict = Body(
     perms[fac_id] = tracks
     _persist_facilitators()
     return {"status": "ok", "facilitator_id": fac_id, "permitted_tracks": tracks}
+
+
+# =================================================================
+#  TURNAROUND MODULE -- permission spine (God Mode -> Facilitator grant)
+#  P1: the module is a post-completion, optional add-on. A normal run is
+#  complete at R10; this never changes that. Two keys are required before any
+#  facilitator can orchestrate it: (1) global enable, (2) per-facilitator grant.
+#  Mirrors the side-track global-pool / per-facilitator-permission pattern above.
+#  Orchestration + player endpoints (open/commit/advance) are P3 and gate on
+#  require_sim_manager -- project_admin is excluded there by design.
+# =================================================================
+
+@admin_router.put("/turnaround/global", summary="Enable/disable the post-completion Turnaround module (God Mode)")
+async def update_turnaround_global(request: Request, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
+    """God Mode master switch for the Turnaround module. OFF by default.
+
+    I5: god_mode callers must supply a 'reason' for the audit trail.
+    Disabling globally does not delete per-facilitator grants; it simply makes
+    them inert (can_orchestrate_turnaround returns False while disabled)."""
+    _caller_role = _require_god_mode_reason(request, body.get("reason"))
+    enabled = body.get("enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(400, "'enabled' must be a boolean")
+
+    _god_mode_settings["turnaround_module_enabled"] = enabled
+    mark_godmode_dirty()  # publish god-mode change to workers + snapshot
+    _audit("turnaround_module_global_updated", details={
+        "enabled": enabled, "_caller_role": _caller_role, "_reason": body.get("reason"),
+    })
+    return {"status": "ok", "turnaround_module_enabled": enabled}
+
+
+@admin_router.get("/turnaround/facilitator-permissions", summary="Get per-facilitator turnaround orchestration grants")
+async def get_turnaround_permissions(_guard: None = Depends(require_super_admin)):
+    """Returns the module's global switch and the set of facilitators granted
+    orchestration rights."""
+    perms = _god_mode_settings.get("turnaround_facilitator_permissions", {})
+    return {
+        "module_enabled": _god_mode_settings.get("turnaround_module_enabled", False),
+        "permissions": perms,
+    }
+
+
+@admin_router.put("/turnaround/facilitator-permissions/{fac_id}", summary="Grant/revoke turnaround orchestration for a facilitator")
+async def set_turnaround_permission(fac_id: str, body: dict = Body(...), _guard: None = Depends(require_super_admin)):
+    """God Mode: grant or revoke Turnaround orchestration for a specific
+    facilitator. A grant is rejected unless the module is globally enabled first
+    (parity with side-track permissions)."""
+    granted = body.get("granted")
+    if not isinstance(granted, bool):
+        raise HTTPException(400, "'granted' must be a boolean")
+    if granted and not _god_mode_settings.get("turnaround_module_enabled", False):
+        raise HTTPException(400, "Turnaround module not globally enabled. Enable it first via PUT /turnaround/global")
+
+    fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
+    if not fac:
+        raise HTTPException(404, f"Facilitator {fac_id} not found")
+
+    perms = _god_mode_settings.setdefault("turnaround_facilitator_permissions", {})
+    if granted:
+        perms[fac_id] = True
+    else:
+        perms.pop(fac_id, None)
+    mark_godmode_dirty()
+    _persist_facilitators()
+    _audit("turnaround_permission_updated", details={"facilitator_id": fac_id, "granted": granted})
+    return {"status": "ok", "facilitator_id": fac_id, "granted": granted}
+
+
+@admin_router.get("/turnaround/eligibility/{session_id}", summary="Check if a completed session may enter the Turnaround arc")
+async def turnaround_eligibility(session_id: str, request: Request,
+                                 role: str = Depends(get_fac_role),
+                                 _guard: None = Depends(require_sim_manager)):
+    """Facilitator-facing eligibility for the post-completion Turnaround module.
+    Combines the two-key permission check (can_orchestrate_turnaround) with the
+    score-based gate (canonical M_R < threshold) and completion state. Ownership
+    is enforced so a facilitator only sees their own sessions."""
+    from admin_shared import can_orchestrate_turnaround
+    from auth_jwt import get_facilitator_from_request
+    from config import TURNAROUND_ARC_MR_THRESHOLD, TURNAROUND_ARC_MAX_ROUNDS
+    from engine import turnaround_score_eligible
+
+    await _assert_session_ownership(request, session_id)
+    fac_id = get_facilitator_from_request(request) or ""
+
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]
+    flags = gs.get("active_event_flags", {})
+    rn = latest.get("round_number", gs.get("round_number", 1))
+    completed = rn >= 10 or bool(gs.get("game_over"))
+
+    canonical = gs.get("final_report_canonical") or {}
+    mr = canonical.get("regenerative_multiple",
+                       flags.get("regenerative_multiple", gs.get("regenerative_multiple", 1.0)))
+
+    module_on = _god_mode_settings.get("turnaround_module_enabled", False)
+    permitted = can_orchestrate_turnaround(role, fac_id)
+    already = bool(flags.get("turnaround_status")) or bool(gs.get("turnaround_mode"))
+    score_ok = completed and turnaround_score_eligible(mr)
+    eligible = bool(module_on and permitted and score_ok and not already)
+
+    return {
+        "session_id": session_id,
+        "eligible": eligible,
+        "module_enabled": module_on,
+        "caller_permitted": permitted,
+        "completed": completed,
+        "score_eligible": score_ok,
+        "already_run": already,
+        "current_mr": round(float(mr), 3) if isinstance(mr, (int, float)) else mr,
+        "threshold": TURNAROUND_ARC_MR_THRESHOLD,
+        "max_rounds": TURNAROUND_ARC_MAX_ROUNDS,
+    }
+
+
+# ═════════════════════════════════════════════════════════════════
+#  TURNAROUND MODULE — orchestration (P3). Facilitator-driven; every
+#  endpoint gates on require_sim_manager (project_admin excluded) + session
+#  ownership + the two-key can_orchestrate_turnaround permission. A normal run
+#  stays complete at R10; these only ever append turnaround state and the
+#  amended report — final_report_canonical is never mutated.
+# ═════════════════════════════════════════════════════════════════
+
+@admin_router.post("/turnaround/{session_id}/open", summary="Open the post-completion Turnaround arc (facilitator)")
+async def turnaround_open(session_id: str, request: Request,
+                          role: str = Depends(get_fac_role),
+                          _guard: None = Depends(require_sim_manager)):
+    from admin_shared import can_orchestrate_turnaround
+    from auth_jwt import get_facilitator_from_request
+    from config import TURNAROUND_ARC_MR_THRESHOLD
+    from engine import turnaround_score_eligible
+    import turnaround_engine as te
+
+    await _assert_session_ownership(request, session_id)
+    fac_id = get_facilitator_from_request(request) or ""
+    if not _god_mode_settings.get("turnaround_module_enabled", False):
+        raise HTTPException(403, "Turnaround module is not enabled")
+    if not can_orchestrate_turnaround(role, fac_id):
+        raise HTTPException(403, "You are not permitted to orchestrate the Turnaround module")
+
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]; bus = latest["bu_states"]
+    flags = gs.get("active_event_flags", {})
+    if gs.get("turnaround_mode"):
+        raise HTTPException(409, "Turnaround already active for this session")
+    if flags.get("turnaround_status") in ("graduated", "expired"):
+        raise HTTPException(409, "Turnaround has already been run for this session")
+    rn = latest.get("round_number", gs.get("round_number", 1))
+    if not (rn >= 10 or gs.get("game_over")):
+        raise HTTPException(409, "Session has not completed its 10 rounds")
+    canon = gs.get("final_report_canonical") or {}
+    mr = canon.get("regenerative_multiple",
+                   flags.get("regenerative_multiple", gs.get("regenerative_multiple", 1.0)))
+    if not turnaround_score_eligible(mr):
+        raise HTTPException(409, f"Not eligible: M_R {mr} is not below {TURNAROUND_ARC_MR_THRESHOLD}")
+
+    result = te.enter_arc(gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus)
+    _audit("turnaround_opened", details={"session_id": session_id, "by": fac_id})
+    return {"ok": True, **result}
+
+
+@admin_router.post("/turnaround/{session_id}/commit", summary="Commit a Turnaround round decision (facilitator)")
+async def turnaround_commit(session_id: str, request: Request, body: dict = Body(...),
+                            role: str = Depends(get_fac_role),
+                            _guard: None = Depends(require_sim_manager)):
+    import turnaround_engine as te
+    await _assert_session_ownership(request, session_id)
+    choice = body.get("choice")
+
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]; bus = latest["bu_states"]
+    if not gs.get("turnaround_mode"):
+        raise HTTPException(409, "Session is not in turnaround mode")
+    cfg = te.get_turnaround_round_config(int(gs.get("turnaround_round", 1)))
+    if not cfg or choice not in cfg["options"]:
+        raise HTTPException(400, f"Invalid choice; expected one of {list((cfg or {}).get('options', {}))}")
+    try:
+        result = te.apply_commit(gs, bus, choice)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    await db.update_latest_global_state(session_id, gs, bus)
+    _audit("turnaround_committed", details={
+        "session_id": session_id, "choice": choice,
+        "round": result.get("turnaround_round"), "phase": result.get("phase"),
+        "arc_complete": result.get("arc_complete"),
+    })
+    return {"ok": True, **result}
+
+
+@admin_router.post("/turnaround/{session_id}/abort", summary="Abort an in-flight Turnaround arc (facilitator)")
+async def turnaround_abort(session_id: str, request: Request,
+                           role: str = Depends(get_fac_role),
+                           _guard: None = Depends(require_sim_manager)):
+    import turnaround_engine as te
+    await _assert_session_ownership(request, session_id)
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]; bus = latest["bu_states"]
+    if not gs.get("turnaround_mode"):
+        raise HTTPException(409, "No active turnaround to abort")
+    result = te.abort_arc(gs, bus)
+    await db.update_latest_global_state(session_id, gs, bus)
+    _audit("turnaround_aborted", details={"session_id": session_id})
+    return {"ok": True, **result}
+
+
+@admin_router.get("/turnaround/{session_id}/state", summary="Current Turnaround arc state (facilitator)")
+async def turnaround_state(session_id: str, request: Request,
+                           role: str = Depends(get_fac_role),
+                           _guard: None = Depends(require_sim_manager)):
+    import turnaround_engine as te
+    await _assert_session_ownership(request, session_id)
+    latest = await db.fetch_latest_state(session_id)
+    if not latest:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]
+    return {"session_id": session_id, **te.arc_state(gs)}
 
 
 @admin_router.put("/cohorts/{session_id}/side-tracks", summary="Assign side tracks to a cohort (Facilitator)")

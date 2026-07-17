@@ -13,6 +13,7 @@ import InterventionConfig from '../../components/InterventionConfig';
 import AuditTrail from '../../components/AuditTrail';
 import DebriefReport from '../../components/DebriefReport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
+import { useAnalyticsVisibility } from '../../hooks/useAnalyticsVisibility';
 
 // ── New Capsim-inspired components ──
 import DashboardHome from '../../components/DashboardHome';
@@ -23,6 +24,7 @@ import ReportsExport from '../../components/ReportsExport';
 import RoundTimeline from '../../components/RoundTimeline';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 import ESGWeightsEditor from '../../components/ESGWeightsEditor';
+import PlayerFeatureToggles from '../../components/PlayerFeatureToggles';
 import StudentBonuses from '../../components/StudentBonuses';
 import CreateCohortModal from '../../components/CreateCohortModal';
 import FacilitatorManager from '../../components/FacilitatorManager';
@@ -402,6 +404,9 @@ export default function FacilitatorPage() {
 function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPasswordChanged }) {
     const [leaderboard, setLeaderboard] = useState([]);
     const [selectedSession, _setSelectedSession] = useState(null);
+    // Per-cohort analytics visibility (fail-open) for the selected cohort — drives
+    // which analytics panels/tabs this facilitator sees. Missing/loading → all shown.
+    const cohortVisibility = useAnalyticsVisibility(selectedSession);
     const [activityLog, setActivityLog] = useState([]);
     const [clockTime, setClockTime] = useState('');
     const wsRef = useRef(null);
@@ -1082,6 +1087,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                 );
             case 'esg_weights':
                 return <ESGWeightsEditor />;
+            case 'player_features':
+                return <PlayerFeatureToggles />;
             case 'notes':
                 return <FacilitatorNotes sessionId={selectedSession} />;
             case 'cohort_comparison':
@@ -1140,9 +1147,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
             case 'platform_analytics':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-                        <PlatformAnalytics visibility={null} leaderboard={leaderboard} onNavigate={setActiveTab} onSelectSession={setSelectedSession} />
+                        <PlatformAnalytics visibility={cohortVisibility.facilitator} leaderboard={leaderboard} onNavigate={setActiveTab} onSelectSession={setSelectedSession} />
                         {/* Cohort Pulse heatmap — shows live KPI grid across all teams in selected cohort */}
-                        <CohortPulse cohortId={selectedSession} />
+                        {cohortVisibility.isFacilitatorVisible('cohort_pulse') && <CohortPulse cohortId={selectedSession} />}
                         {/* B5: teachable-moment prompts when a cohort converges on an adverse flag */}
                         <FacilitatorTeachableMoments cohortId={selectedSession} />
                     </div>
