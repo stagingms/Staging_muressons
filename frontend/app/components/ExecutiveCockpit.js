@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ExecutiveCockpit.module.css';
 import KPIDashboard from './KPIDashboard';
+import TurnaroundPhaseChip from './TurnaroundPhaseChip';
 import MarketRealityFeed from './MarketRealityFeed';
 import InvestmentMatrix from './InvestmentMatrix';
 import CountdownTimer from './CountdownTimer';
@@ -1650,6 +1651,10 @@ export default function ExecutiveCockpit({
         {focusStep === 'strategy' && (
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
+            {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
+            <TurnaroundPhaseChip active={globalState?.turnaround_mode}
+              phase={globalState?.active_event_flags?.turnaround_phase}
+              round={globalState?.turnaround_round} maxRounds={4} />
 
             <div className={focusStyles.sectionTitle}>
               <span>{isPillarMode ? '🎛️' : '📋'}</span>
@@ -1808,6 +1813,10 @@ export default function ExecutiveCockpit({
         {focusStep === 'allocation' && (
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
+            {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
+            <TurnaroundPhaseChip active={globalState?.turnaround_mode}
+              phase={globalState?.active_event_flags?.turnaround_phase}
+              round={globalState?.turnaround_round} maxRounds={4} />
 
             {/* Locked decision summary */}
             <div className={focusStyles.decisionSummary}>

@@ -41,7 +41,11 @@ async def get_god_settings(_guard: None = Depends(require_super_admin)):
 @god_router.put("/god/settings", summary="Update god mode global settings")
 async def update_god_settings(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
     changed = {}
-    for key in ("allow_facilitator_cohort_creation",):
+    # turnaround_module_enabled (P1) is a simple boolean feature flag; the
+    # dedicated PUT /turnaround/global endpoint is the primary control (it also
+    # enforces the god_mode audit reason), but allow it here too for parity with
+    # the other boolean toggles surfaced in the settings panel.
+    for key in ("allow_facilitator_cohort_creation", "turnaround_module_enabled"):
         if key in body:
             old = _god_mode_settings.get(key)
             _god_mode_settings[key] = body[key]

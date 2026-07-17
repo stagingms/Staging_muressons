@@ -17,6 +17,9 @@ const TOGGLE_SWITCHES = [
     { key: 'black_swan_events_enabled',   label: 'Black Swan Events',                  icon: '🦢',  desc: 'Stochastic, low-probability, high-impact events (sovereign crises, pandemic waves, climate litigation) triggered by game state + difficulty tier.' },
     { key: 'npc_cascading_enabled',       label: 'NPC Cascading Reactions',             icon: '👥',  desc: 'Stakeholder NPCs trigger irreversible cascades (divestment campaigns, proxy fights, regulatory enforcement) when satisfaction drops below thresholds.' },
     { key: 'foreshadowing_signals_enabled', label: 'Foreshadowing Signals',             icon: '🔮',  desc: 'Pedagogical hints that signal upcoming systemic consequences based on student decisions. Helps students learn cause-effect relationships.' },
+    // Post-completion Turnaround module (P1/P4). NOT a tick engine — an optional
+    // 4-round crisis-recovery arc a granted facilitator runs AFTER a run finishes.
+    { key: 'turnaround_module_enabled', label: 'Post-Completion Turnaround Module', icon: '🔧',  desc: 'Optional 4-round crisis-recovery arc a GRANTED facilitator can run AFTER a session completes its 10 rounds, offered to teams whose terminal M_R fell below 0.80. Off by default; also requires a per-facilitator grant. A normal run stays complete at R10.' },
 ];
 
 export default function SystemicRiskControls() {
