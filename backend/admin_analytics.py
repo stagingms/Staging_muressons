@@ -57,8 +57,14 @@ def _require_facilitator(role: str = Depends(_get_fac_role)):
 #  ANALYTICS VISIBILITY â€” God Mode controls what facilitators/players see
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
+# NOTE: this dict is the authoritative catalog + default state. The setter
+# endpoints reject any key not present here, so it must stay in sync with the
+# frontend FACILITATOR_ANALYTICS / PLAYER_ANALYTICS arrays in
+# CreateCohortModal.js (add a key in both, same commit). Values are the default
+# visibility; per-cohort overrides layer on top via resolve_analytics_visibility.
 _analytics_visibility: dict = {
     "facilitator": {
+        # ── Core analytics (shipped) ──
         "decision_heatmap": True,
         "time_to_decision": True,
         "cohort_comparison": True,
@@ -67,12 +73,43 @@ _analytics_visibility: dict = {
         "risk_exposure": True,
         "materiality_matrix": True,
         "technical_reference": True,
+        # ── Live cohort monitoring ──
+        "cohort_pulse": True,          # live health/engagement pulse
+        "leaderboard_matrix": True,    # team ranking matrix
+        "session_health": True,        # connection / commit / pacing health
+        "engine_event_feed": True,     # complexity / engine event stream
+        # ── Deep-dive & audit ──
+        "consequence_dna": True,       # decision→outcome causal DNA
+        "decision_timeline": True,     # per-team decision chronology
+        "stakeholder_map": True,       # Mendelow stakeholder grid
+        "audit_trail": True,           # facilitator action / override log
+        "shadow_board_audit": False,   # advanced governance audit (Executive+)
+        # ── ESG / disclosure dashboards ──
+        "sdg_alignment": True,         # SDG alignment radar
+        "tcfd_dashboard": False,       # TCFD climate-scenario dashboard
+        "peer_evaluation": False,      # inter-team peer evaluation results
     },
     "player": {
+        # ── Core analytics (shipped) ──
         "peer_benchmarking": True,
         "decision_impact": True,
         "what_if_simulator": False,
-    }
+        # ── Performance & history ──
+        "kpi_dashboard": True,         # personal KPI cockpit
+        "decision_history": True,      # own past decisions & rationale
+        "consequence_timeline": True,  # unfolding consequences over rounds
+        "stock_performance": True,     # share-price / valuation chart
+        "balanced_scorecard": False,   # sustainability balanced scorecard
+        # ── Risk & strategy lenses ──
+        "risk_radar": True,            # multi-axis risk radar
+        "esg_leadership": False,       # ESG leadership profile
+        "competitor_intel": False,     # rival intelligence cards
+        # ── Reports & engagement ──
+        "annual_report": True,         # narrative annual report
+        "achievement_badges": True,    # gamified milestone badges
+        "regret_meter": False,         # counterfactual regret meter
+        "glossary": True,              # in-game technical glossary
+    },
 }
 
 

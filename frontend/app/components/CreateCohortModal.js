@@ -5,7 +5,11 @@ import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META } from '../lib/verticalC
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
+// Analytics-visibility catalog. Keys MUST stay in sync with the backend
+// _analytics_visibility dict in admin_analytics.py — the setter endpoints reject
+// any key not present there (add in both, same commit).
 const FACILITATOR_ANALYTICS = [
+    // ── Core analytics ──
     { key: 'decision_heatmap', label: 'Decision Heatmap', icon: '📊', tooltip: 'Choice distribution matrix showing which strategic options (A, B, C, etc.) were selected in each round across all players. Includes a heatmap grid with counts/percentages and stacked bar charts for visual comparison. Answers: "What are the most popular choices per round?"' },
     { key: 'time_to_decision', label: 'Time-to-Decision', icon: '⏱', tooltip: 'Decision speed analytics — how long players take to commit their choices each round. Displays average, median, min, and max times in seconds with horizontal bar visualizations. Answers: "Are players deliberating or rushing?"' },
     { key: 'cohort_comparison', label: 'Cohort Comparison', icon: '📈', tooltip: 'Plots KPI trajectories side-by-side for multiple cohorts on an SVG line chart. Togglable between Treasury, Reputation, Synergy, and EBITDA metrics. Answers: "How do different cohorts perform against each other over time?"' },
@@ -14,12 +18,43 @@ const FACILITATOR_ANALYTICS = [
     { key: 'risk_exposure', label: 'Risk Exposure', icon: '📉', tooltip: 'Multi-axis tracking of non-financial risks per cohort over time: Carbon Intensity, Natural Capital Debt, Social License, and Governance Risk. Rendered as vertical bar charts per cohort. Answers: "How are teams managing ESG/sustainability risks?"' },
     { key: 'materiality_matrix', label: 'Materiality Matrix', icon: '🧩', tooltip: 'Toggles the Mendelow\'s Materiality Matrix panel — the drag-and-drop issue mapping grid with financial vs. societal impact axes for stakeholder analysis. Used for teaching ESG materiality assessment.' },
     { key: 'technical_reference', label: 'Technical Reference', icon: '📐', tooltip: 'Toggles the Technical Glossary panel — a comprehensive reference guide explaining simulation terminology, engine mechanics, KPI calculation formulas, and contagion/talent engine parameters.' },
+    // ── Live cohort monitoring ──
+    { key: 'cohort_pulse', label: 'Cohort Pulse', icon: '🩺', tooltip: 'Live cohort health pulse — real-time engagement, commit progress, and sentiment across all teams in the active round. Answers: "Is the room with me right now?"' },
+    { key: 'leaderboard_matrix', label: 'Leaderboard Matrix', icon: '🥇', tooltip: 'Ranked matrix of every team across the headline KPIs (Treasury, Reputation, Synergy, M_R) with movement since last round. Answers: "Who is leading and who is falling behind?"' },
+    { key: 'session_health', label: 'Session Health', icon: '💓', tooltip: 'Operational health of the live session — player connections, commit/lock status per team, pacing drift, and stalled players. Answers: "Is the session running cleanly?"' },
+    { key: 'engine_event_feed', label: 'Engine Event Feed', icon: '📡', tooltip: 'Chronological stream of engine/complexity events fired this run (crises, shockwaves, black swans, threshold breaches). Answers: "What has the engine thrown at the teams?"' },
+    // ── Deep-dive & audit ──
+    { key: 'consequence_dna', label: 'Consequence DNA', icon: '🧬', tooltip: 'Decision→outcome causal visualiser — traces how each choice propagated through the engines into KPI movement. Answers: "Why did this team get this result?"' },
+    { key: 'decision_timeline', label: 'Decision Timeline', icon: '🧭', tooltip: 'Per-team chronology of every decision, override, and intervention across the ten rounds. Answers: "What was this team\'s narrative arc?"' },
+    { key: 'stakeholder_map', label: 'Stakeholder Map', icon: '🗺️', tooltip: 'Region-specific Mendelow stakeholder grid (power × interest) with live satisfaction/trust state per stakeholder. Answers: "Who holds leverage over these teams?"' },
+    { key: 'audit_trail', label: 'Audit Trail', icon: '📜', tooltip: 'Immutable log of facilitator actions — overrides, unlocks, injections, grading, and God-Mode changes. Answers: "What was changed, by whom, and when?"' },
+    { key: 'shadow_board_audit', label: 'Shadow Board Audit', icon: '🕵️', tooltip: 'Advanced governance audit contrasting each team\'s decisions against a shadow board\'s recommendations. Executive-tier debrief tool. Disabled by default.' },
+    // ── ESG / disclosure dashboards ──
+    { key: 'sdg_alignment', label: 'SDG Alignment Radar', icon: '🌐', tooltip: 'Radar of each cohort\'s alignment to the 17 UN SDGs derived from decisions taken. Answers: "Which goals are teams advancing or neglecting?"' },
+    { key: 'tcfd_dashboard', label: 'TCFD Scenarios', icon: '🌡️', tooltip: 'TCFD climate-scenario dashboard (orderly 1.5°C / disorderly 2°C / hothouse 4°C) with each team\'s exposure. Advanced-climate cohorts. Disabled by default.' },
+    { key: 'peer_evaluation', label: 'Peer Evaluation', icon: '🧑‍⚖️', tooltip: 'Aggregated inter-team peer-evaluation results and rubric scores. Surfaces only when the peer-evaluation exercise is run. Disabled by default.' },
 ];
 
 const PLAYER_ANALYTICS = [
+    // ── Core analytics ──
     { key: 'peer_benchmarking', label: 'Peer Benchmarking', icon: '🏆', tooltip: 'Shows the player their anonymous percentile ranking vs. the cohort for Treasury, Reputation, and Synergy. Includes bar visualizations with their value compared against the cohort average. Answers: "How do I rank among my peers?"' },
     { key: 'decision_impact', label: 'Decision Impact', icon: '🧠', tooltip: 'Per-round KPI attribution — shows how each choice affected Treasury, Reputation, and Synergy with colour-coded delta badges (+/-) and a narrative explanation of the outcome. Answers: "What impact did my decisions actually have?"' },
     { key: 'what_if_simulator', label: 'What-If Simulator', icon: '📈', tooltip: 'Counterfactual analysis — shows what would have happened if the player had chosen the most popular alternative option. Displays projected Treasury and Reputation diffs. Only appears when choices differ from the majority. Disabled by default.' },
+    // ── Performance & history ──
+    { key: 'kpi_dashboard', label: 'KPI Dashboard', icon: '📟', tooltip: 'The player\'s personal KPI cockpit — Treasury, Reputation, Synergy, EBITDA and ESG headline metrics with round-on-round deltas. Answers: "Where do I stand right now?"' },
+    { key: 'decision_history', label: 'Decision History', icon: '🕰️', tooltip: 'A log of the player\'s own past decisions with the rationale captured and the outcome that followed. Answers: "What have I chosen so far and why?"' },
+    { key: 'consequence_timeline', label: 'Consequence Timeline', icon: '⏳', tooltip: 'Shows consequences unfolding across future rounds from earlier decisions (delayed effects, compounding debt). Answers: "What did my past choices set in motion?"' },
+    { key: 'stock_performance', label: 'Stock Performance', icon: '📉', tooltip: 'Share-price / enterprise-value chart tracking the market\'s valuation of the player\'s company over the ten rounds. Answers: "Is the market rewarding my strategy?"' },
+    { key: 'balanced_scorecard', label: 'Balanced Scorecard', icon: '🎯', tooltip: 'Sustainability balanced scorecard across financial, customer, internal-process and learning/ESG perspectives. Advanced pedagogy. Disabled by default.' },
+    // ── Risk & strategy lenses ──
+    { key: 'risk_radar', label: 'Risk Radar', icon: '🕸️', tooltip: 'Multi-axis radar of the player\'s current risk exposure (carbon, natural-capital, social-licence, governance, liquidity). Answers: "Where am I fragile?"' },
+    { key: 'esg_leadership', label: 'ESG Leadership Profile', icon: '🌱', tooltip: 'Profiles the player\'s ESG leadership style from the pattern of decisions taken across the run. Reflective debrief tool. Disabled by default.' },
+    { key: 'competitor_intel', label: 'Competitor Intel', icon: '🔭', tooltip: 'Rival-intelligence cards giving partial, fog-of-war signals about other teams\' moves. Disabled by default (competitive cohorts only).' },
+    // ── Reports & engagement ──
+    { key: 'annual_report', label: 'Annual Report', icon: '📕', tooltip: 'A narrative annual report generated from the player\'s results — financials, ESG highlights, and board commentary. Answers: "How does my year read as a story?"' },
+    { key: 'achievement_badges', label: 'Achievement Badges', icon: '🏅', tooltip: 'Gamified milestone badges earned for strategic and sustainability achievements during the run. Drives engagement.' },
+    { key: 'regret_meter', label: 'Regret Meter', icon: '😬', tooltip: 'A counterfactual "regret" gauge estimating value left on the table versus the best available path. Reflective tool. Disabled by default.' },
+    { key: 'glossary', label: 'Glossary', icon: '📖', tooltip: 'In-game technical glossary explaining KPIs, engines, and sustainability terminology on demand. Answers: "What does this term mean?"' },
 ];
 
 const PEDAGOGICAL_TOGGLES = [
@@ -132,6 +167,45 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [pacingMode, setPacingMode] = useState('free_play');
     const [maxUnlockedRound, setMaxUnlockedRound] = useState(10);
     const [roundSchedules, setRoundSchedules] = useState({});
+
+    // Advanced cohort controls (HIGH-tier) — persisted as cohort settings.
+    const [rngSeed, setRngSeed] = useState('');                     // '' = non-deterministic
+    const [resultsRevealRound, setResultsRevealRound] = useState(0);// 0 = always visible
+    const [redactPeers, setRedactPeers] = useState(false);
+    const [quizEnabled, setQuizEnabled] = useState(false);
+    const [quizGraded, setQuizGraded] = useState(false);
+    const [quizPassThreshold, setQuizPassThreshold] = useState(70);
+    const [quizMaxAttempts, setQuizMaxAttempts] = useState(2);
+    const [teamCount, setTeamCount] = useState(0);                  // 0 = unlimited
+    const [maxTeamSize, setMaxTeamSize] = useState(0);              // 0 = unlimited
+    const [joinMethod, setJoinMethod] = useState('code');           // code | open | roster
+    const [joinCode, setJoinCode] = useState('');
+
+    // MEDIUM-tier cohort controls — timers/timezone, late-join, report access.
+    const [cohortTimezone, setCohortTimezone] = useState('');       // '' = browser-local
+    const [roundTimerSeconds, setRoundTimerSeconds] = useState(0);  // 0 = no timer
+    const [lateJoinPolicy, setLateJoinPolicy] = useState('anytime');// anytime | before_round_2 | closed
+    const [reportAccess, setReportAccess] = useState('full');       // full | summary | facilitator_only
+
+    // Clone-as-template: apply a saved settings template after creation, and/or
+    // save this cohort's tuned settings under a name for future reuse.
+    const [availableTemplates, setAvailableTemplates] = useState([]);
+    const [applyTemplateId, setApplyTemplateId] = useState('');
+    const [saveTemplateName, setSaveTemplateName] = useState('');
+
+    // LOW-tier polish — accessibility defaults, branding, compliance, webhook.
+    const [accHighContrast, setAccHighContrast] = useState(false);
+    const [accFontScale, setAccFontScale] = useState(1.0);
+    const [accReducedMotion, setAccReducedMotion] = useState(false);
+    const [accColorblindSafe, setAccColorblindSafe] = useState(false);
+    const [accScreenReader, setAccScreenReader] = useState(false);
+    const [brandInstitution, setBrandInstitution] = useState('');
+    const [brandLogoUrl, setBrandLogoUrl] = useState('');
+    const [brandPrimaryColor, setBrandPrimaryColor] = useState('');
+    const [dataRetentionDays, setDataRetentionDays] = useState(0);  // 0 = keep forever
+    const [consentRequired, setConsentRequired] = useState(false);
+    const [consentText, setConsentText] = useState('');
+    const [webhookUrl, setWebhookUrl] = useState('');
 
     // Simulation mode & industry localisation
     const [simulationMode, setSimulationMode] = useState('conglomerate'); // 'conglomerate' | 'single_bu'
@@ -311,6 +385,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             })
             .catch(() => {});
 
+        // Fetch saved cohort settings templates (clone-as-template)
+        fetch(`${API}/api/admin/cohort-templates`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d?.templates) setAvailableTemplates(d.templates); })
+            .catch(() => {});
+
         // Fetch facilitators
         fetch(`${API}/api/admin/facilitators`, { credentials: 'include' })
             .then(res => res.json())
@@ -363,6 +443,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const REGIONS = [
         { id: 'asean',         label: 'ASEAN',          flag: '🌏' },
         { id: 'south_asia',    label: 'India',           flag: '🇮🇳' },
+        { id: 'china',         label: 'China',           flag: '🇨🇳' },
         { id: 'europe',        label: 'Europe',          flag: '🇪🇺' },
         { id: 'north_america', label: 'North America',   flag: '🇺🇸' },
         { id: 'africa',        label: 'Africa',          flag: '🌍' },
@@ -477,6 +558,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 difficulty_tier: (scenarioPresets.find(pr => pr.id === selectedExperienceLevel) || {}).difficulty_tier || 'advanced',
                 ...pedagogicalToggles,
                 ...engineModuleToggles,
+                // MEDIUM-tier: per-round timer duration. Setting a duration in
+                // Advanced Controls also switches the Decision Timer toggle on.
+                ...(roundTimerSeconds > 0 ? {
+                    decision_timer_enabled: true,
+                    decision_timer_seconds: roundTimerSeconds,
+                } : {}),
             },
         });
         steps.push({
@@ -504,8 +591,62 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 global_carbon_fee: carbonFee,
                 market_hostility_index: hostility,
                 scope_3_threshold: scope3,
+                // Advanced cohort controls (HIGH-tier). Backend clamps/coerces
+                // these and stamps rng_seed onto the cohort's stochastic stream.
+                rng_seed: rngSeed.trim(),
+                results_reveal_round: resultsRevealRound,
+                redact_peer_identities: redactPeers,
+                quiz_enabled: quizEnabled,
+                quiz_graded: quizGraded,
+                quiz_pass_threshold: quizPassThreshold,
+                quiz_max_attempts: quizMaxAttempts,
+                team_count: teamCount,
+                max_team_size: maxTeamSize,
+                join_method: joinMethod,
+                join_code: joinCode.trim(),
+                // MEDIUM-tier controls. Backend validates the timezone against
+                // the IANA db and clamps/coerces the rest. (The per-round timer
+                // goes through the Pedagogical Settings step instead — it reuses
+                // the engine's existing decision_timer toggles.)
+                cohort_timezone: cohortTimezone.trim(),
+                late_join_policy: lateJoinPolicy,
+                report_access: reportAccess,
+                // LOW-tier polish. Backend sanitises everything (https-only
+                // URLs, hex-only colour, font scale clamped 0.8–1.6).
+                accessibility_defaults: {
+                    high_contrast: accHighContrast,
+                    font_scale: accFontScale,
+                    reduced_motion: accReducedMotion,
+                    colorblind_safe: accColorblindSafe,
+                    screen_reader_mode: accScreenReader,
+                },
+                branding_institution: brandInstitution.trim(),
+                branding_logo_url: brandLogoUrl.trim(),
+                branding_primary_color: brandPrimaryColor.trim(),
+                data_retention_days: dataRetentionDays,
+                consent_required: consentRequired,
+                consent_text: consentText.trim(),
+                webhook_url: webhookUrl.trim(),
             },
         });
+        // Clone-as-template: apply a saved template's settings on top of the
+        // switchboard (explicit switchboard values above win only where the
+        // template doesn't set them — the template PATCH merges after).
+        if (applyTemplateId) {
+            steps.push({
+                name: 'Apply Settings Template', method: 'POST',
+                url: `${API}/api/admin/cohort-templates/${applyTemplateId}/apply/${sid}`,
+                payload: {},
+            });
+        }
+        // Save this cohort's tuned settings under a template name for reuse.
+        if (saveTemplateName.trim()) {
+            steps.push({
+                name: 'Save As Template', method: 'POST',
+                url: `${API}/api/admin/cohort-templates`,
+                payload: { name: saveTemplateName.trim(), source_session_id: sid },
+            });
+        }
         if (Object.keys(buSubstitutions).length > 0 || Object.values(buRegions).some(v => v)) {
             steps.push({ name: 'BU Substitutions', method: 'PUT', url: `${API}/api/admin/${sid}/bu-composition`, payload: { substitutions: buSubstitutions, bu_regions: buRegions } });
         }
@@ -1924,6 +2065,234 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     ))}
                                 </div>
                             </div>
+                        </section>
+{/* ── Section 7: Advanced Controls (Quiz · Result Visibility · Teams · RNG Seed · Time/Timezone · Report Access · Templates) ── */}
+                        <section className={styles.configSection}>
+                            <div className={styles.sectionHeader}>
+                                <h3>7. Advanced Controls</h3>
+                                <p>Quizzes &amp; grading, result-visibility gating, team/roster limits, and a fair-play RNG seed. All optional; sensible defaults keep behaviour unchanged.</p>
+                            </div>
+
+                            {(() => {
+                                const fld = { display: 'flex', flexDirection: 'column', gap: 4, minWidth: 150 };
+                                const lbl = { fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.03em', textTransform: 'uppercase' };
+                                const inp = { padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #334155', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: '0.82rem' };
+                                const row = { display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', marginBottom: '1rem' };
+                                const grp = { fontSize: '0.7rem', fontWeight: 800, color: '#c7d2fe', letterSpacing: '0.04em', textTransform: 'uppercase', margin: '0.2rem 0 0.5rem' };
+                                const chk = (checked, onClick, label, hint) => (
+                                    <div onClick={onClick} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0.35rem 0.1rem' }} data-tooltip={hint}>
+                                        <div style={{ width: 34, height: 20, borderRadius: 10, background: checked ? '#10b981' : '#475569', position: 'relative', transition: 'background .15s', flexShrink: 0 }}>
+                                            <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: checked ? 16 : 2, transition: 'left .15s' }} />
+                                        </div>
+                                        <span style={{ fontSize: '0.82rem', color: '#e2e8f0' }}>{label}</span>
+                                    </div>
+                                );
+                                return (
+                                    <div>
+                                        {/* Quiz & grading */}
+                                        <div style={grp}>📝 Quiz &amp; Grading</div>
+                                        <div style={row}>
+                                            {chk(quizEnabled, () => setQuizEnabled(v => !v), 'Enable quizzes', 'Surface knowledge-check quizzes (quiz banks) to players.')}
+                                            {chk(quizGraded, () => setQuizGraded(v => !v), 'Count toward grade', 'Include quiz scores in the cohort gradebook.')}
+                                            <div style={fld}>
+                                                <label style={lbl}>Pass threshold (%)</label>
+                                                <input type="number" min={0} max={100} step={5} value={quizPassThreshold} disabled={!quizEnabled}
+                                                    onChange={e => setQuizPassThreshold(Number(e.target.value))} style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Max attempts</label>
+                                                <input type="number" min={1} max={20} value={quizMaxAttempts} disabled={!quizEnabled}
+                                                    onChange={e => setQuizMaxAttempts(Number(e.target.value))} style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
+                                            </div>
+                                        </div>
+
+                                        {/* Result visibility */}
+                                        <div style={grp}>👁 Result Visibility</div>
+                                        <div style={row}>
+                                            <div style={fld}>
+                                                <label style={lbl}>Reveal results at round</label>
+                                                <input type="number" min={0} max={10} value={resultsRevealRound}
+                                                    onChange={e => setResultsRevealRound(Number(e.target.value))} style={{ ...inp, width: 110 }}
+                                                    data-tooltip="Hide leaderboard, peer ranks and final valuation from players until this round. 0 = always visible; 10 = only at the finale." />
+                                                <span style={{ fontSize: '0.66rem', color: '#64748b' }}>0 = always · 10 = finale only</span>
+                                            </div>
+                                            {chk(redactPeers, () => setRedactPeers(v => !v), 'Redact peer identities', 'Anonymise other teams in peer/benchmark views.')}
+                                        </div>
+
+                                        {/* Teams / roster */}
+                                        <div style={grp}>👥 Teams &amp; Roster</div>
+                                        <div style={row}>
+                                            <div style={fld}>
+                                                <label style={lbl}>Team count</label>
+                                                <input type="number" min={0} max={500} value={teamCount}
+                                                    onChange={e => setTeamCount(Number(e.target.value))} style={{ ...inp, width: 90 }} data-tooltip="Hard roster cap enforced when players join. 0 = platform default (5 players)." />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Max team size</label>
+                                                <input type="number" min={0} max={100} value={maxTeamSize}
+                                                    onChange={e => setMaxTeamSize(Number(e.target.value))} style={{ ...inp, width: 90 }} data-tooltip="0 = unlimited." />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Join method</label>
+                                                <select value={joinMethod} onChange={e => setJoinMethod(e.target.value)} style={{ ...inp, width: 150 }}>
+                                                    <option value="code">Join code</option>
+                                                    <option value="open">Open link</option>
+                                                    <option value="roster">Roster only</option>
+                                                </select>
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Join code</label>
+                                                <input type="text" value={joinCode} placeholder="auto" disabled={joinMethod !== 'code'}
+                                                    onChange={e => setJoinCode(e.target.value)} style={{ ...inp, width: 130, opacity: joinMethod === 'code' ? 1 : 0.5 }} />
+                                            </div>
+                                        </div>
+
+                                        {/* RNG seed */}
+                                        <div style={grp}>🎲 Fair-Play RNG Seed</div>
+                                        <div style={row}>
+                                            <div style={{ ...fld, minWidth: 260 }}>
+                                                <label style={lbl}>Stochastic seed</label>
+                                                <input type="text" value={rngSeed} placeholder="blank = random each run"
+                                                    onChange={e => setRngSeed(e.target.value)} style={{ ...inp, width: 260 }}
+                                                    data-tooltip="A non-empty seed makes every stochastic event roll identically for all teams — rankings reflect strategy, not luck. Leave blank for legacy non-deterministic behaviour." />
+                                                <span style={{ fontSize: '0.66rem', color: '#64748b' }}>Same seed ⇒ identical rolls for every team (fair comparison).</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Time & scheduling */}
+                                        <div style={grp}>⏱️ Time &amp; Scheduling</div>
+                                        <div style={row}>
+                                            <div style={fld}>
+                                                <label style={lbl}>Cohort timezone</label>
+                                                <input type="text" value={cohortTimezone} placeholder="e.g. Asia/Kolkata (blank = local)"
+                                                    onChange={e => setCohortTimezone(e.target.value)} style={{ ...inp, width: 210 }}
+                                                    data-tooltip="IANA timezone used to render schedules and timers in the cohort's local time. Backend rejects unknown zones. Blank = each player's browser-local time." />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Round timer (sec)</label>
+                                                <input type="number" min={0} max={7200} value={roundTimerSeconds}
+                                                    onChange={e => setRoundTimerSeconds(Number(e.target.value))} style={{ ...inp, width: 100 }}
+                                                    data-tooltip="Per-round decision timer duration. Setting a value also enables the Decision Timer engine toggle (0 = leave the toggle's own setting in charge)." />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Late joins</label>
+                                                <select value={lateJoinPolicy} onChange={e => setLateJoinPolicy(e.target.value)} style={{ ...inp, width: 170 }}
+                                                    data-tooltip="Enforced server-side at join. Rejoining players are never blocked.">
+                                                    <option value="anytime">Allowed anytime</option>
+                                                    <option value="before_round_2">Until Round 1 ends</option>
+                                                    <option value="closed">Closed</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {/* Report access */}
+                                        <div style={grp}>📄 Player Report Access</div>
+                                        <div style={row}>
+                                            <div style={fld}>
+                                                <label style={lbl}>Final report visibility</label>
+                                                <select value={reportAccess} onChange={e => setReportAccess(e.target.value)} style={{ ...inp, width: 230 }}
+                                                    data-tooltip="Server-enforced. 'Summary' keeps headline numbers but withholds the narrative report bodies; 'Facilitator only' shows players a locked notice — you reveal it during the debrief.">
+                                                    <option value="full">Full report (default)</option>
+                                                    <option value="summary">Summary — numbers only</option>
+                                                    <option value="facilitator_only">Facilitator only</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {/* Settings templates */}
+                                        <div style={grp}>📦 Settings Template</div>
+                                        <div style={row}>
+                                            <div style={fld}>
+                                                <label style={lbl}>Apply saved template</label>
+                                                <select value={applyTemplateId} onChange={e => setApplyTemplateId(e.target.value)} style={{ ...inp, width: 230 }}
+                                                    data-tooltip="Applies a previously saved cohort's settings to this cohort after creation — same validation as manual edits.">
+                                                    <option value="">None</option>
+                                                    {availableTemplates.map(t => (
+                                                        <option key={t.template_id} value={t.template_id}>{t.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div style={{ ...fld, minWidth: 230 }}>
+                                                <label style={lbl}>Save these settings as</label>
+                                                <input type="text" value={saveTemplateName} placeholder="e.g. Spring 2026 MBA setup"
+                                                    onChange={e => setSaveTemplateName(e.target.value)} style={{ ...inp, width: 230 }}
+                                                    data-tooltip="After creation, this cohort's settings are saved under this name for one-click reuse on future cohorts. Leave blank to skip." />
+                                            </div>
+                                        </div>
+
+                                        {/* Accessibility defaults */}
+                                        <div style={grp}>♿ Accessibility Defaults</div>
+                                        <div style={row}>
+                                            {chk(accHighContrast, () => setAccHighContrast(v => !v), 'High contrast', 'Brightens secondary text and strengthens borders for low-vision players.')}
+                                            {chk(accReducedMotion, () => setAccReducedMotion(v => !v), 'Reduced motion', 'Collapses animations and transitions — vestibular-safe.')}
+                                            {chk(accColorblindSafe, () => setAccColorblindSafe(v => !v), 'Colourblind-safe palette', 'Charts and badges switch to a blue/orange palette instead of red/green.')}
+                                            {chk(accScreenReader, () => setAccScreenReader(v => !v), 'Screen-reader mode', 'Always-visible focus outlines and denser ARIA labelling.')}
+                                            <div style={fld}>
+                                                <label style={lbl}>Font scale</label>
+                                                <select value={String(accFontScale)} onChange={e => setAccFontScale(Number(e.target.value))} style={{ ...inp, width: 110 }}
+                                                    data-tooltip="Baseline text-size multiplier for the whole cockpit (players inherit it as their default).">
+                                                    <option value="0.9">90%</option>
+                                                    <option value="1">100%</option>
+                                                    <option value="1.15">115%</option>
+                                                    <option value="1.3">130%</option>
+                                                    <option value="1.5">150%</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {/* White-label branding */}
+                                        <div style={grp}>🏷️ White-Label Branding</div>
+                                        <div style={row}>
+                                            <div style={fld}>
+                                                <label style={lbl}>Institution name</label>
+                                                <input type="text" value={brandInstitution} placeholder="e.g. IIM Ahmedabad"
+                                                    onChange={e => setBrandInstitution(e.target.value)} style={{ ...inp, width: 200 }}
+                                                    data-tooltip="Shown in the player cockpit header and on reports. Blank = platform default." />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Logo URL (https)</label>
+                                                <input type="text" value={brandLogoUrl} placeholder="https://…/logo.png"
+                                                    onChange={e => setBrandLogoUrl(e.target.value)} style={{ ...inp, width: 220 }}
+                                                    data-tooltip="https-only; anything else is rejected server-side." />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Accent colour</label>
+                                                <input type="text" value={brandPrimaryColor} placeholder="#1E90FF"
+                                                    onChange={e => setBrandPrimaryColor(e.target.value)} style={{ ...inp, width: 100 }}
+                                                    data-tooltip="Hex #RRGGBB only. Blank = default theme." />
+                                            </div>
+                                        </div>
+
+                                        {/* Compliance */}
+                                        <div style={grp}>🔐 Data Retention &amp; Consent</div>
+                                        <div style={row}>
+                                            <div style={fld}>
+                                                <label style={lbl}>Retention (days)</label>
+                                                <input type="number" min={0} max={3650} value={dataRetentionDays}
+                                                    onChange={e => setDataRetentionDays(Number(e.target.value))} style={{ ...inp, width: 100 }}
+                                                    data-tooltip="Cohort data (incl. player sessions) is deleted this many days after the cohort's end date. 0 = keep forever (default). Players can export their own data any time via the API." />
+                                            </div>
+                                            {chk(consentRequired, () => setConsentRequired(v => !v), 'Require consent at join', 'New players must accept the consent statement before joining; acceptance is timestamped on their session.')}
+                                            <div style={{ ...fld, minWidth: 260 }}>
+                                                <label style={lbl}>Consent statement</label>
+                                                <input type="text" value={consentText} placeholder="default statement" disabled={!consentRequired}
+                                                    onChange={e => setConsentText(e.target.value)} style={{ ...inp, width: 260, opacity: consentRequired ? 1 : 0.5 }} />
+                                            </div>
+                                        </div>
+
+                                        {/* Webhook / LMS */}
+                                        <div style={grp}>🔗 Webhook / LMS Sync</div>
+                                        <div style={row}>
+                                            <div style={{ ...fld, minWidth: 280 }}>
+                                                <label style={lbl}>Webhook URL (https)</label>
+                                                <input type="text" value={webhookUrl} placeholder="https://lms.example.edu/hooks/muressons"
+                                                    onChange={e => setWebhookUrl(e.target.value)} style={{ ...inp, width: 280 }}
+                                                    data-tooltip="POSTed fire-and-forget on lifecycle events (round committed, game over) so an LMS/gradebook can sync without polling. https-only; blank = disabled." />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </section>
 
                         </AccordionItem>

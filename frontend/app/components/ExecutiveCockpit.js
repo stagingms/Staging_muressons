@@ -1,6 +1,8 @@
 'use client';
 import React from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
+import { useAnalyticsVisibility } from '../hooks/useAnalyticsVisibility';
+import { useCohortPolish } from '../hooks/useCohortPolish';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -330,9 +332,13 @@ export default function ExecutiveCockpit({
   // ── Peer Performance: auto-fetch when commitResults arrive ──
   const [peerLeaderboard, setPeerLeaderboard] = useState([]);
   const [peerLoading, setPeerLoading] = useState(false);
+  // Reveal-schedule: when the facilitator gates rankings, the endpoint returns
+  // { locked:true, message } instead of data — surface that instead of a blank.
+  const [peerLockMsg, setPeerLockMsg] = useState('');
   useEffect(() => {
     if (!commitResults || !sim?.sessionId || sim.sessionId === 'demo') {
       setPeerLeaderboard([]);
+      setPeerLockMsg('');
       return;
     }
     let cancelled = false;
@@ -343,8 +349,13 @@ export default function ExecutiveCockpit({
         const res = await fetch(`${API}/api/simulations/${sim.sessionId}/peer-leaderboard`);
         if (!res.ok) throw new Error(`Peer leaderboard: ${res.status}`);
         const data = await res.json();
-        if (!cancelled && data.leaderboard?.length > 0) {
-          setPeerLeaderboard(data.leaderboard);
+        if (cancelled) return;
+        if (data.locked) {
+          setPeerLeaderboard([]);
+          setPeerLockMsg(data.message || `Peer rankings unlock at round ${data.reveal_round ?? ''}.`);
+        } else {
+          setPeerLockMsg('');
+          if (data.leaderboard?.length > 0) setPeerLeaderboard(data.leaderboard);
         }
       } catch { /* non-critical */ }
       if (!cancelled) setPeerLoading(false);
@@ -680,6 +691,15 @@ export default function ExecutiveCockpit({
     const sessionId = sim?.sessionId || sim?.session_id;
     if (sessionId) loadSessionCurrency(sessionId);
   }, [sim?.sessionId, sim?.session_id, loadSessionCurrency]);
+
+  // Per-cohort player-panel visibility (fail-open): honour the facilitator's
+  // analytics-visibility toggles for this cohort. Missing/loading map → visible.
+  const { isPlayerVisible } = useAnalyticsVisibility(sim?.sessionId || sim?.session_id);
+
+  // LOW-tier polish: cohort accessibility defaults (applied at document level)
+  // + white-label branding for the header. Fail-open — unconfigured cohorts
+  // render exactly as before.
+  const { branding } = useCohortPolish(sim?.sessionId || sim?.session_id);
 
   // Format currency — always uses the configured symbol (defaults $)
   const fmtCurrency = (v) => {
@@ -1093,6 +1113,14 @@ export default function ExecutiveCockpit({
         <div className={styles.headerLogo}>
           <span className={styles.logoMark}>M</span>
           MURESSONS
+          {branding?.institution && (
+            <span style={{ marginLeft: 16, fontSize: '0.75rem', color: 'var(--mur-brand-primary, #94a3b8)', fontWeight: 700, letterSpacing: '0.05em', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+              {branding.logo_url && (
+                <img src={branding.logo_url} alt={`${branding.institution} logo`} style={{ height: 20, width: 'auto', borderRadius: 3 }} />
+              )}
+              {branding.institution.toUpperCase()}
+            </span>
+          )}
           {sim?.username && (
              <span style={{ marginLeft: 16, fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600, letterSpacing: '0.05em', borderLeft: '1px solid rgba(255,255,255,0.1)', paddingLeft: 16 }}>
                WELCOME {sim.username.toUpperCase()}
@@ -2041,6 +2069,13 @@ export default function ExecutiveCockpit({
               commitResults={commitResults}
               isDark={isDark}
             />
+
+            {/* ── Reveal-schedule lock notice ── */}
+            {peerLockMsg && (
+              <div style={{ padding: '10px 14px', background: 'rgba(148,163,184,0.08)', borderRadius: 8, border: '1px dashed rgba(148,163,184,0.35)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8, color: '#94a3b8', fontSize: '0.72rem', fontWeight: 600 }}>
+                <span>🔒</span> {peerLockMsg}
+              </div>
+            )}
 
             {/* ── Inline Peer Performance (Focus Results) ── */}
             {peerLeaderboard.length > 0 && (
@@ -3216,8 +3251,10 @@ export default function ExecutiveCockpit({
             
             
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: '100%' }}>
-              {/* What-If Sandbox Mode — preview decision impacts */}
-              {!commitResults && options?.length > 0 && (
+              {/* What-If Sandbox Mode — preview decision impacts.
+                  Gated by the cohort's player-visibility toggle (what_if_simulator,
+                  disabled by default); fail-open so a missing map still shows it. */}
+              {!commitResults && options?.length > 0 && isPlayerVisible('what_if_simulator') && (
                 <WhatIfSandbox
                   options={options}
                   businessUnits={businessUnits}

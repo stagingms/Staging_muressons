@@ -112,6 +112,14 @@ def _persist():
                 _godmode_snap = admin_shared.godmode_settings_snapshot()
             except Exception:
                 _round_pacing_snap, _godmode_snap = {}, {}
+            # MEDIUM-tier: per-cohort overrides + settings templates are setup
+            # state a facilitator invested real time in — snapshot them so a
+            # restart doesn't silently revert cohorts to global defaults.
+            try:
+                _cohort_settings_snap = {sid: dict(o) for sid, o in dict(admin_shared.cohort_settings).items()}
+                _cohort_templates_snap = admin_shared.cohort_templates_snapshot()
+            except Exception:
+                _cohort_settings_snap, _cohort_templates_snap = {}, {}
             snapshot = {
                 "sessions": sessions_snap,
                 "global_states": gs_snap,
@@ -120,6 +128,8 @@ def _persist():
                 "cohort_marketplaces": getattr(admin_shared, "_cohort_marketplaces", {}),
                 "round_pacing": _round_pacing_snap,
                 "god_mode_settings": _godmode_snap,
+                "cohort_settings": _cohort_settings_snap,
+                "cohort_templates": _cohort_templates_snap,
             }
             _SNAPSHOT_PATH.parent.mkdir(parents=True, exist_ok=True)
             tmp_path = _SNAPSHOT_PATH.with_suffix(".tmp")
@@ -202,6 +212,13 @@ def _apply_snapshot(snapshot: dict) -> int:
         if isinstance(pacing_map, dict):
             for _sid, _policy in pacing_map.items():
                 admin_shared.restore_pacing_policy(_sid, _policy)
+        # MEDIUM-tier: restore per-cohort overrides + settings templates.
+        cs = snapshot.get("cohort_settings")
+        if isinstance(cs, dict):
+            for _sid, _ov in cs.items():
+                if isinstance(_ov, dict):
+                    admin_shared.cohort_settings.setdefault(_sid, {}).update(_ov)
+        admin_shared.restore_cohort_templates(snapshot.get("cohort_templates") or {})
     except Exception as e:
         print(f"[persistence] Failed to restore pacing/god-mode state: {e}")
 
