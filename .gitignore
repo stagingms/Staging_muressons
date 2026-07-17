@@ -65,3 +65,9 @@ archive/
 
 # Setup notes with inlined secrets — local only, never commit
 SETUP_STEPS.md
+
+# Large video assets — keep out of git (141MB); use LFS/external storage if needed
+videos/
+
+# Scratch/staging dirs for pending deletions — never commit
+_to_delete/
