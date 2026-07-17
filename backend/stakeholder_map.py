@@ -738,6 +738,57 @@ def get_migrations_for_round(round_number: int) -> list[dict]:
     return [m for m in SALIENCE_MIGRATIONS if m["round"] == round_number]
 
 
+# ═══════════════════════════════════════════════════════════════
+#  AGENT-DRIVEN SALIENCE (reconciliation, 2026-07)
+#
+#  The scripted SALIENCE_MIGRATIONS above are a Mendelow/Mitchell
+#  *teaching* device. Independently, autonomous_agents.py runs 5
+#  live, metric-reactive agents (the "Autonomous Stakeholders"
+#  panel). Several scripted stakeholders are the SAME real-world
+#  actor as a live agent, so an unconditional scripted shift could
+#  contradict the panel (e.g. feed says the journalist is now
+#  "manage closely" while the live journalist agent is only
+#  "watching").
+#
+#  Fix: for stakeholders that have a live-agent counterpart, the
+#  salience shift is DRIVEN BY that agent — it fires only once the
+#  paired agent has actually escalated (agitated+). Stakeholders
+#  with no agent counterpart keep firing as scripted. If the
+#  autonomous-agent engine is disabled (no agent state present),
+#  behaviour is unchanged / fully scripted.
+# ═══════════════════════════════════════════════════════════════
+
+# stakeholder_id (this map) → agent_id (autonomous_agents.AGENT_PROFILES)
+_STAKEHOLDER_TO_AGENT = {
+    "local_media": "the_journalist",
+    "local_communities": "the_community_activist",
+    "syndicate_banks": "the_institutional_investor",
+    "factory_employees": "the_gen_z_employee",
+    "eu_regulators": "the_regulator",
+}
+
+# Mirrors autonomous_agents._ESCALATED_STAGES — the stages at which a
+# live agent is materially agitated enough to justify a salience shift.
+_AGENT_ESCALATED_STAGES = frozenset({"agitated", "hostile", "triggered"})
+
+
+def _agent_stage_for(stakeholder_id: str, global_state: dict) -> str | None:
+    """
+    Return the live escalation stage of the agent paired to this
+    stakeholder, or None if there is no paired agent OR no agent
+    state is present (engine disabled / pre-first-tick). None means
+    "not agent-gated — fall back to scripted behaviour".
+    """
+    agent_id = _STAKEHOLDER_TO_AGENT.get(stakeholder_id)
+    if not agent_id:
+        return None
+    agents = (global_state.get("autonomous_agents") or {}).get("agents")
+    if not isinstance(agents, dict) or agent_id not in agents:
+        return None
+    state = agents.get(agent_id) or {}
+    return state.get("escalation_stage", "dormant")
+
+
 def apply_salience_migrations(
     round_number: int,
     global_state: dict,
@@ -776,7 +827,18 @@ def apply_salience_migrations(
     if history_key not in global_state:
         global_state[history_key] = []
 
-    for rule in get_migrations_for_round(round_number):
+    # Rules scheduled for exactly this round …
+    rules_to_check = list(get_migrations_for_round(round_number))
+    # … plus paired (agent-driven) rules whose scheduled round has
+    # already passed but were deferred because the paired agent had not
+    # yet escalated. They stay eligible until the agent escalates (or
+    # the sim ends), so an agent that heats up *after* its scripted
+    # round still produces the matching salience shift.
+    for rule in SALIENCE_MIGRATIONS:
+        if rule["stakeholder"] in _STAKEHOLDER_TO_AGENT and rule["round"] < round_number:
+            rules_to_check.append(rule)
+
+    for rule in rules_to_check:
         sid = rule["stakeholder"]
         # Skip if already migrated to this quadrant
         if current.get(sid) == rule["to_quadrant"]:
@@ -786,6 +848,14 @@ def apply_salience_migrations(
         if rule["condition_flags"]:
             if not all(f in all_flags for f in rule["condition_flags"]):
                 continue
+
+        # Agent-driven gate: if this stakeholder has a live-agent
+        # counterpart, only shift salience once that agent is actually
+        # escalated (agitated+). No paired agent / engine off → stage is
+        # None → scripted behaviour, unchanged.
+        agent_stage = _agent_stage_for(sid, global_state)
+        if agent_stage is not None and agent_stage not in _AGENT_ESCALATED_STAGES:
+            continue
 
         # Apply migration
         old_quadrant = current.get(sid, rule["from_quadrant"])
@@ -801,6 +871,8 @@ def apply_salience_migrations(
             "round": round_number,
             "narrative": rule["narrative"],
             "theory_note": rule["theory_note"],
+            "driven_by_agent": _STAKEHOLDER_TO_AGENT.get(sid),
+            "agent_stage": agent_stage,
         }
         migrations_fired.append(event)
         global_state[history_key].append(event)
