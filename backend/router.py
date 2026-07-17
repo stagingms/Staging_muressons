@@ -1618,7 +1618,26 @@ async def commit_turn(session_id: str, body: CommitTurnRequest, request: Request
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Another commit is in progress for this session (cross-process). Please wait.",
             )
-        return await _commit_turn_impl(session_id, body, commit_lock)
+        _commit_result = await _commit_turn_impl(session_id, body, commit_lock)
+        # LOW-tier webhooks: notify the cohort's configured endpoint that a round
+        # was committed (and whether the game just ended). Fire-and-forget —
+        # scheduling can never raise or delay the player's response.
+        try:
+            from webhook_util import fire_webhook
+            _sess_meta = await db.get_session_info(session_id)
+            _parent_cid = (_sess_meta or {}).get("parent_cohort_id")
+            _new_rn = getattr(_commit_result, "new_round_number", None)
+            # The run is R1–R10; reaching R10 is the finale (the R10 commit is an
+            # in-place update, so new_round_number never exceeds 10).
+            _game_over = bool(_new_rn is not None and _new_rn >= 10)
+            fire_webhook(
+                "game_over" if _game_over else "round_committed",
+                session_id, _parent_cid,
+                payload={"round_number": _new_rn, "game_over": _game_over},
+            )
+        except Exception:
+            pass
+        return _commit_result
     finally:
         # CON-1: always hand the advisory lock / pooled connection back.
         if advisory is not None:
