@@ -1207,3 +1207,52 @@ textarea:focus-visible {
 [data-theme="light"] [style*="stroke: rgb(15, 23, 42)"] {
   stroke: #ffffff !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   LOW-tier polish: cohort accessibility profile hooks
+   Applied by useCohortPolish as classes on <html> from the cohort's
+   accessibility_defaults setting. Fail-open: no class = no change.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* High contrast: brighten text, strengthen borders, kill translucency. */
+.mur-high-contrast body {
+  --tw-text-opacity: 1;
+}
+.mur-high-contrast [style*="color: #94a3b8"],
+.mur-high-contrast [style*="color: #64748b"],
+.mur-high-contrast [style*="color:#94a3b8"],
+.mur-high-contrast [style*="color:#64748b"] {
+  color: #e2e8f0 !important;
+}
+.mur-high-contrast [style*="rgba(255,255,255,0.1)"],
+.mur-high-contrast [style*="rgba(255, 255, 255, 0.1)"] {
+  border-color: rgba(255, 255, 255, 0.45) !important;
+}
+
+/* Reduced motion: collapse every animation/transition to (near) zero. */
+.mur-reduced-motion *,
+.mur-reduced-motion *::before,
+.mur-reduced-motion *::after {
+  animation-duration: 0.001s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001s !important;
+  scroll-behavior: auto !important;
+}
+
+/* Colourblind-safe: charts/badges read this var for their palette; the
+   Okabe–Ito-inspired accents replace the red/green defaults. */
+.mur-colorblind-safe {
+  --chart-positive: #0072b2;   /* blue instead of green */
+  --chart-negative: #e69f00;   /* orange instead of red */
+  --chart-warning:  #cc79a7;   /* magenta */
+}
+
+/* Screen-reader mode: ensure focus outlines are always visible and
+   decorative pseudo-content is suppressed. */
+.mur-screen-reader *:focus {
+  outline: 2px solid #38bdf8 !important;
+  outline-offset: 2px !important;
+}
+.mur-screen-reader [aria-hidden="true"][class*="decor"] {
+  display: none !important;
+}
