@@ -1414,9 +1414,37 @@ async def get_final_report(session_id: str):
     flags = gs.get("active_event_flags", {})
     if rn < 10 and not gs.get("game_over"):
         raise HTTPException(status_code=400, detail=f"Game not finished — currently at round {rn}")
+
+    # ── MEDIUM-tier report-access control (server-side, not just UI) ────────
+    # "full" (default) = legacy behaviour; "summary" withholds the narrative
+    # report bodies but keeps headline numbers; "facilitator_only" returns a
+    # locked notice — facilitators still see everything via admin surfaces.
+    _report_access = "full"
+    try:
+        from admin_shared import get_effective_settings as _ges
+        _sess_info = await db.get_session_info(session_id)
+        _scope_sid = (_sess_info or {}).get("parent_cohort_id") or session_id
+        _report_access = _ges(_scope_sid).get("report_access", "full")
+    except Exception:
+        _report_access = "full"
+
+    if _report_access == "facilitator_only":
+        return {
+            "session_id": session_id,
+            "round_number": rn,
+            "locked": True,
+            "report_access": "facilitator_only",
+            "message": "Your facilitator will share the final report during the debrief.",
+            "game_over": gs.get("game_over", False),
+        }
+
+    _withhold_narrative = (_report_access == "summary")
     return {
         "session_id": session_id,
         "round_number": rn,
+        "report_access": _report_access,
+        "final_report_canonical": None if _withhold_narrative else gs.get("final_report_canonical"),
+        "turnaround_amended_report": None if _withhold_narrative else gs.get("turnaround_amended_report"),
         "terminal_valuation": gs.get("terminal_valuation"),
         "regenerative_multiple": gs.get("regenerative_multiple"),
         "archetype": gs.get("archetype"),
@@ -3885,6 +3913,20 @@ async def get_peer_leaderboard(session_id: str):
 
     parent_id = session_info.get("parent_cohort_id")
 
+    # Result-visibility policy (fail-open). reveal_round gates the whole ranking
+    # until a set round; redact_peers forces anonymised team names for everyone
+    # but the requester. Read from the cohort's effective settings; any failure
+    # leaves both off (current behaviour).
+    _reveal_round = 0
+    _redact_peers = False
+    try:
+        from admin_shared import get_effective_settings as _ges
+        _pol = _ges(parent_id or session_id)
+        _reveal_round = int(_pol.get("results_reveal_round", 0) or 0)
+        _redact_peers = bool(_pol.get("redact_peer_identities", False))
+    except Exception:
+        pass
+
     # ── Solo session: Generate AI benchmark players ──────────────
     if not parent_id:
         latest = await db.fetch_latest_state(session_id)
@@ -3980,6 +4022,17 @@ async def get_peer_leaderboard(session_id: str):
     # Sort by treasury descending
     siblings.sort(key=lambda x: x["treasury"], reverse=True)
 
+    # Reveal-schedule: withhold the whole ranking until the configured round.
+    if _reveal_round:
+        my_round = next((s["round_number"] for s in siblings if s["session_id"] == session_id), 1)
+        if my_round < _reveal_round:
+            return {
+                "leaderboard": [],
+                "locked": True,
+                "reveal_round": _reveal_round,
+                "message": f"Peer rankings unlock at round {_reveal_round}.",
+            }
+
     # Anonymize and mark current player
     leaderboard = []
     for i, s in enumerate(siblings):
@@ -3999,7 +4052,12 @@ async def get_peer_leaderboard(session_id: str):
 
         entry = {
             "rank": i + 1,
-            "name": s.get("player_name") or ("Your Team" if is_you else team_name),
+            # Redaction forces the anonymous team label for every peer but the
+            # requester; off (default) keeps the real player name when present.
+            "name": (
+                (s.get("player_name") or "Your Team") if is_you
+                else (team_name if _redact_peers else (s.get("player_name") or team_name))
+            ),
             "treasury": s["treasury"],
             "reputation": s["reputation"],
             "co2": s["carbon"],
