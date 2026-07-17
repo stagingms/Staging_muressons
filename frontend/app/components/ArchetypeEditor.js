@@ -22,7 +22,10 @@ const EMPTY_FORM = {
   requires_solvent: false,
 };
 
-function PreviewCard({ archetype }) {
+// `metricLabel` names the threshold axis shown on the card. The main terminal
+// ladder gates on M_R; side-track ladders gate on a 0–100 composite score, so
+// they pass "Score ≥" instead of the default "M_R ≥".
+function PreviewCard({ archetype, metricLabel = 'M_R ≥' }) {
   return (
     <div style={{
       background: archetype.gradient || 'linear-gradient(135deg, #6366f1, #4f46e5)',
@@ -32,7 +35,7 @@ function PreviewCard({ archetype }) {
       {archetype.icon && <span style={{ fontSize: '1.4rem' }}>{archetype.icon}</span>}
       <div>
         <div style={{ fontWeight: 700, lineHeight: 1.2 }}>{archetype.title || 'Preview'}</div>
-        <div style={{ opacity: 0.8, fontSize: '0.65rem' }}>M_R ≥ {archetype.mr_threshold ?? '—'}</div>
+        <div style={{ opacity: 0.8, fontSize: '0.65rem' }}>{metricLabel} {archetype.mr_threshold ?? '—'}</div>
       </div>
     </div>
   );
@@ -427,10 +430,10 @@ export default function ArchetypeEditor() {
             background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)',
             borderRadius: 10, padding: '0.9rem 1.2rem', fontSize: '0.74rem', color: '#065f46', lineHeight: 1.6,
           }}>
-            <strong>How it works:</strong> At Round 10, the engine computes M_R (Regenerative Multiple).
-            If <em>any</em> custom archetypes exist, they replace the entire default ladder.
-            Archetypes are checked highest-threshold first — the player earns the first one where their M_R equals or exceeds the threshold.
-            The result (<code>profile_title</code>, <code>profile_description</code>, icon) appears on the player&apos;s final screen.
+            <strong>How it works:</strong> At Round 10 the terminal archetype is a <strong>two-axis</strong> classification.
+            <em>Axis 1 — M_R</em> (Regenerative Multiple): archetypes are checked highest-threshold first and the player earns the first one whose threshold their M_R meets or exceeds.
+            <em> Axis 2 — solvency</em>: a <code>solvent-gated</code> archetype is only awarded to a company that ended value-positive (Double-Materiality Adjusted Value = final treasury × M_R − Natural Capital Debt &gt; 0). An insolvent run is downgraded into the failure band (<em>Hollow Idealist</em> for a strong-ESG bankruptcy, <em>Stranded Relic</em> for the mediocre-ESG floor) regardless of M_R.
+            If <em>any</em> custom archetypes exist, they replace the entire default ladder. The result (<code>profile_title</code>, <code>profile_description</code>, icon) appears on the player&apos;s final screen.
           </div>
 
           {/* ═══════════════════════════════════════════════════════
@@ -561,7 +564,7 @@ function SideTrackTable({ track, tblCell, inputSm, section, sectionTitle, sectio
               return (
                 <tr key={a.key} style={{ background: isEditing ? 'rgba(99,102,241,0.04)' : (i % 2 === 0 ? '#fff' : '#fafafa') }}>
                   <td style={tblCell}>
-                    <PreviewCard archetype={isEditing ? { ...a, ...editData } : a} />
+                    <PreviewCard archetype={isEditing ? { ...a, ...editData } : a} metricLabel="Score ≥" />
                   </td>
                   <td style={tblCell}>
                     {isEditing ? (

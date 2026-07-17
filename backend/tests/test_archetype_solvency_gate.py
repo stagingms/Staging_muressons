@@ -37,6 +37,15 @@ def test_stranded_relic_is_never_promoted_or_altered():
     assert solvency_gated_profile("stranded_relic", 5.0) == "stranded_relic"
 
 
+def test_pragmatic_operator_is_the_solvent_low_mr_floor():
+    # AR-B: solvent low-M_R keeps its earned "Pragmatic Operator" label; only
+    # value destruction demotes it to the Stranded Relic floor.
+    assert solvency_gated_profile("pragmatic_operator", 50_000_000.0) == "pragmatic_operator"
+    assert solvency_gated_profile("pragmatic_operator", -1.0) == "stranded_relic"
+    assert solvency_gated_profile("pragmatic_operator", 0.0) == "stranded_relic"
+    assert terminal_archetype_key("pragmatic_operator", 0.5) == "PRAGMATIC_OPERATOR"
+
+
 def test_screenshot_case_maps_to_stranded_relic():
     # Round-10 screenshot: M_R 1.0, treasury -$464.55M, negligible NCD.
     mr = 1.0

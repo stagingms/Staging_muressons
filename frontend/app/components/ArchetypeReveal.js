@@ -15,7 +15,7 @@
  * @property {number} final_mr           – Regenerative Multiple (e.g. 1.34)
  * @property {number} final_treasury     – Raw treasury balance in currency units
  * @property {number} total_ncd          – Accumulated Natural Capital Debt
- * @property {"REGENERATIVE_TITAN"|"SAFE_HAVEN"|"FRAGILE_GIANT"|"STRANDED_RELIC"} archetype
+ * @property {"REGENERATIVE_TITAN"|"SAFE_HAVEN"|"FRAGILE_GIANT"|"PRAGMATIC_OPERATOR"|"HOLLOW_IDEALIST"|"STRANDED_RELIC"|"TURNAROUND_MANAGER"} archetype
  * @property {string[]} triggered_black_swans – IDs/labels of black swan events
  *
  * ── Math Presented ───────────────────────────────────────────────────────
@@ -138,6 +138,48 @@ const ARCHETYPE_MATRIX = {
     scanlineColor:   'rgba(239,68,68,0.04)',
     particleColor:   '#ef4444',
     heroGradient:    'radial-gradient(ellipse 70% 50% at 50% 30%, rgba(239,68,68,0.18) 0%, transparent 70%)',
+  },
+  PRAGMATIC_OPERATOR: {
+    label:       'Pragmatic Operator',
+    tagline:     'You kept the lights on.',
+    descriptor:  'Solvent and steady — you protected the balance sheet without over-reaching. The strategy was unremarkable and left regenerative value on the table, but you avoided the tail risks that sank bolder players.',
+    icon:        '🧭',
+    grade:       'B-',
+    gradeLabel:  'Solvent',
+    accentPrimary:   '#64748b',   // slate-500
+    accentSecondary: '#334155',   // slate-700
+    accentMuted:     '#1e293b',
+    gradientStart:   '#0b1220',
+    gradientMid:     '#131c2b',
+    gradientEnd:     '#0f172a',
+    glowColor:       'rgba(100,116,139,0.28)',
+    borderColor:     'rgba(100,116,139,0.42)',
+    chipBg:          'rgba(100,116,139,0.1)',
+    chipBorder:      'rgba(100,116,139,0.25)',
+    scanlineColor:   'rgba(100,116,139,0.04)',
+    particleColor:   '#64748b',
+    heroGradient:    'radial-gradient(ellipse 70% 50% at 50% 30%, rgba(100,116,139,0.14) 0%, transparent 70%)',
+  },
+  TURNAROUND_MANAGER: {
+    label:       'Turnaround Manager',
+    tagline:     'Rescued from the brink.',
+    descriptor:  'You inherited a crisis and fought your way back. Through disciplined crisis management you steadied the balance sheet and re-earned the market\'s confidence — a comeback built the hard way.',
+    icon:        '🔧',
+    grade:       'C+',
+    gradeLabel:  'Rescued',
+    accentPrimary:   '#8b5cf6',   // violet-500
+    accentSecondary: '#6d28d9',   // violet-700
+    accentMuted:     '#4c1d95',
+    gradientStart:   '#140a26',
+    gradientMid:     '#1c1033',
+    gradientEnd:     '#0f0a1a',
+    glowColor:       'rgba(139,92,246,0.3)',
+    borderColor:     'rgba(139,92,246,0.46)',
+    chipBg:          'rgba(139,92,246,0.1)',
+    chipBorder:      'rgba(139,92,246,0.25)',
+    scanlineColor:   'rgba(139,92,246,0.04)',
+    particleColor:   '#8b5cf6',
+    heroGradient:    'radial-gradient(ellipse 70% 50% at 50% 30%, rgba(139,92,246,0.15) 0%, transparent 70%)',
   },
 };
 

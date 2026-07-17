@@ -475,8 +475,11 @@ class TestPostTick:
         assert extra.get("mr_community_champion_bonus") is True
         assert extra["profile"] == "regenerative_titan"
 
-    def test_r10_profile_stranded_relic(self):
-        """R10: MR < 0.8 → 'The Stranded Relic'.
+    def test_r10_profile_pragmatic_operator(self):
+        """AR-B: MR < 0.8 but SOLVENT → 'The Pragmatic Operator'.
+        DMAV = treasury(+50M) x MR(0.65) - NCD(0) > 0, so the solvency gate keeps
+        the earned solvent label instead of demoting to Stranded Relic (which is
+        now reserved for value destruction).
         Wellbeing bonus (+0.05) active since default burnout=0."""
         gs = make_global(round_number=11, treasury=50_000_000, reputation=60, synergy=1.2)
         gs["active_event_flags"] = {}
@@ -490,6 +493,24 @@ class TestPostTick:
         prev_flags = {"insurance_only": True}
         extra = post_tick(10, gs, bus, decs, {}, prev_flags)
         # MR = 1.0 + 0 (no synergy) + 0 (bailout) + 0 (no truth) + 0.05 (burnout=0) - 0.4 = 0.65
+        assert extra["regenerative_multiple"] == 0.65
+        assert extra["profile"] == "pragmatic_operator"
+        assert extra["profile_title"] == "The Pragmatic Operator"
+
+    def test_r10_profile_stranded_relic_when_insolvent(self):
+        """AR-B: MR < 0.8 AND value-destroyed (negative treasury → DMAV <= 0) →
+        the solvency gate demotes the Pragmatic Operator to 'The Stranded Relic'.
+        This is the honest floor; the same low-M_R strategy that stays solvent is
+        a Pragmatic Operator (see test above)."""
+        gs = make_global(round_number=11, treasury=-50_000_000, reputation=60, synergy=1.2)
+        gs["active_event_flags"] = {}
+        bus = make_bus()
+        for bu in bus:
+            bu["social_license_score"] = 30
+        decs = make_decisions("option_b")
+
+        prev_flags = {"insurance_only": True}
+        extra = post_tick(10, gs, bus, decs, {}, prev_flags)
         assert extra["regenerative_multiple"] == 0.65
         assert extra["profile"] == "stranded_relic"
         assert extra["profile_title"] == "The Stranded Relic"
