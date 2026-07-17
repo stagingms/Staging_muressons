@@ -11,7 +11,11 @@ export const CURRENCIES = [
   { symbol: '£',  code: 'GBP', label: 'Pound',           flag: '🇬🇧' },
   { symbol: '€',  code: 'EUR', label: 'Euro',            flag: '🇪🇺' },
   { symbol: '¥',  code: 'JPY', label: 'Yen',             flag: '🇯🇵' },
-  { symbol: '¥',  code: 'CNY', label: 'Chinese Yuan',    flag: '🇨🇳' },
+  // CNY must NOT reuse the bare '¥' — currency is persisted and looked up BY
+  // SYMBOL (CURRENCIES.find(c => c.symbol === sym)), so a shared glyph makes a
+  // Chinese-Yuan cohort resolve back to the first '¥' match (JPY). 'CN¥'
+  // disambiguates the renminbi while staying legible on KPIs/reports.
+  { symbol: 'CN¥', code: 'CNY', label: 'Chinese Yuan',    flag: '🇨🇳' },
 ];
 
 export const DEFAULT_CURRENCY = CURRENCIES[0]; // ₹ INR
