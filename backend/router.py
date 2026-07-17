@@ -471,6 +471,8 @@ class JoinSessionRequest(BaseModel):
     player_id: str
     password: str = ""  # Password from player induction
     player_name: str = ""  # Display name for the player
+    join_code: str = ""  # Cohort join code (required only when the cohort sets one)
+    consent: bool = False  # Data-processing consent (required only when the cohort demands it)
 
 class PlayerLoginRequest(BaseModel):
     player_id: str
@@ -676,8 +678,73 @@ async def join_session(session_id: str, req: JoinSessionRequest):
                 "player_count": len(players),
             }
 
-    if len(players) >= 5:
-        raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 5 players.")
+    # ── MEDIUM-tier join-policy enforcement (new joins only — rejoin above is
+    # always allowed so a policy change never locks out an existing player) ──
+    try:
+        from admin_shared import get_effective_settings as _ges
+        _join_eff = _ges(session_id)
+    except Exception:
+        _join_eff = {}
+
+    # Join code: enforced only when the facilitator explicitly set one AND the
+    # cohort's join_method is "code" — unconfigured cohorts behave exactly as
+    # before (fail-open). Comparison is trimmed + case-insensitive.
+    _cfg_code = str(_join_eff.get("join_code", "") or "").strip()
+    if _cfg_code and _join_eff.get("join_method", "code") == "code":
+        if (req.join_code or "").strip().upper() != _cfg_code.upper():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This cohort requires a join code. Ask your facilitator for it.",
+            )
+
+    # Consent capture (LOW-tier compliance): when the cohort requires it, a new
+    # join must carry consent=true; the acceptance timestamp is recorded on the
+    # player's session below. Unconfigured cohorts skip this entirely.
+    _consent_required = bool(_join_eff.get("consent_required", False))
+    if _consent_required and not req.consent:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(_join_eff.get("consent_text", "").strip()
+                    or "This cohort requires your consent to data processing before joining."),
+        )
+
+    # Late-join policy: "closed" blocks all new joins; "before_round_2" blocks
+    # once any team in the cohort has advanced past Round 1. "anytime" = legacy.
+    _late_policy = _join_eff.get("late_join_policy", "anytime")
+    if _late_policy == "closed":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This cohort is closed to new joins. Contact your facilitator.",
+        )
+    if _late_policy == "before_round_2":
+        try:
+            _max_round = 1
+            for _child in await db.get_child_sessions(session_id):
+                _cl = await db.fetch_latest_state(_child["session_id"])
+                if _cl:
+                    _max_round = max(_max_round, int(_cl.get("round_number", 1) or 1))
+            if _max_round > 1:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="This cohort no longer accepts new joins — the simulation is past Round 1.",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # fail-open: a state-read hiccup never blocks a legitimate join
+
+    # Roster cap: honour the cohort's configured team_count (fail-safe to the
+    # legacy default of 5). team_count == 0 ⇒ no explicit cap set ⇒ default.
+    try:
+        from admin_shared import resolve_roster_cap as _rrc
+        _roster_cap = _rrc(session_id)
+    except Exception:
+        _roster_cap = 5
+    if len(players) >= _roster_cap:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Cohort has reached its roster cap of {_roster_cap} player(s).",
+        )
 
     # Fetch parent cohort info for naming and mode inheritance
     cohort_info = await db.get_session_info(session_id)
@@ -728,6 +795,18 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     )
 
     player_sid = str(player_session["session_id"])
+
+    # Consent capture (LOW-tier compliance): record the acceptance + timestamp
+    # on the player's session so it is auditable and survives restarts.
+    if _consent_required:
+        try:
+            from datetime import datetime as _dt, timezone as _tz
+            import database_memory as _dm_consent
+            _psess = _dm_consent._sessions.get(player_sid)
+            if _psess is not None:
+                _psess["consent_given_at"] = _dt.now(_tz.utc).isoformat()
+        except Exception:
+            pass
 
     # Track the mapping
     players.append({"player_id": req.player_id, "player_session_id": player_sid})
@@ -1184,6 +1263,23 @@ async def get_session_info(session_id: str):
     except Exception:
         pass
 
+    # MEDIUM-tier time & scheduling: effective cohort timezone (cohort-settings
+    # layer) + the per-round decision timer (existing pedagogical toggles, which
+    # live on the session/parent as pedagogical_overrides). Fail-open throughout.
+    _time_eff = {}
+    _timer_cfg = {}
+    try:
+        from admin_shared import get_effective_settings as _ges
+        _time_eff = _ges(parent_id or session_id)
+    except Exception:
+        _time_eff = {}
+    try:
+        from pedagogical_engine import get_pedagogical_toggles as _gpt
+        _ped_src = (parent if parent_id and parent else session) or {}
+        _timer_cfg = _gpt(_ped_src.get("pedagogical_overrides") or {})
+    except Exception:
+        _timer_cfg = {}
+
     # Resolve simulation_mode, assigned_bu, and industry_vertical.
     # For player sub-sessions these fields live directly on the session;
     # for legacy sessions created before this fix, we apply a two-stage
@@ -1237,6 +1333,62 @@ async def get_session_info(session_id: str):
         "simulation_mode":   _sim_mode   or None,
         "assigned_bu":       _assigned_bu or None,
         "industry_vertical": _industry_vert or None,
+        # MEDIUM-tier time & scheduling: cohort-local timezone + the effective
+        # per-round decision timer (existing pedagogical toggles, surfaced here
+        # so the cockpit can render a countdown without an extra fetch).
+        "cohort_timezone":        _time_eff.get("cohort_timezone", "") or None,
+        "decision_timer_enabled": bool(_timer_cfg.get("decision_timer_enabled", False)),
+        "decision_timer_seconds": int(_timer_cfg.get("decision_timer_seconds", 300) or 300),
+        # LOW-tier polish: cohort accessibility defaults + white-label branding,
+        # so the cockpit can apply both without an extra fetch. All fail-open.
+        "accessibility_defaults": _time_eff.get("accessibility_defaults") or {},
+        "branding": {
+            "institution":   _time_eff.get("branding_institution", "") or None,
+            "logo_url":      _time_eff.get("branding_logo_url", "") or None,
+            "primary_color": _time_eff.get("branding_primary_color", "") or None,
+        },
+        "consent_required": bool(_time_eff.get("consent_required", False)),
+        "consent_text":     _time_eff.get("consent_text", "") or None,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────
+# GET /api/simulations/{session_id}/export-my-data  (LOW-tier compliance)
+# ─────────────────────────────────────────────────────────────────
+
+@router.get(
+    "/{session_id}/export-my-data",
+    summary="Export this session's data (privacy/compliance)",
+)
+async def export_my_data(session_id: str, request: Request):
+    """Player-facing data export: everything the platform holds about THIS
+    session — metadata, per-round states, and this session's decision entries —
+    as one JSON document the player can download and keep. SEC-3 bound: only
+    the session owner (or a facilitator) can export it."""
+    await _assert_player_owns_session(request, session_id)
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Session metadata, minus server-internal / credential fields.
+    _EXCLUDE = {"password", "bump_token_version", "_solo_round_configs",
+                "registered_players", "allowed_player_ids"}
+    meta = {k: v for k, v in sess.items() if k not in _EXCLUDE and not k.startswith("_")}
+
+    try:
+        history = await db.fetch_round_history(session_id)
+    except Exception:
+        history = []
+
+    from datetime import datetime as _dt, timezone as _tz
+    return {
+        "export_version": 1,
+        "generated_at": _dt.now(_tz.utc).isoformat(),
+        "session_id": session_id,
+        "session": meta,
+        "round_history": history,
+        "consent_given_at": sess.get("consent_given_at"),
+        "note": "This export contains all simulation data stored for this session.",
     }
 
 
