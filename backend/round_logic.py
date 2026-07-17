@@ -37,8 +37,10 @@ _ARCHETYPE_REVEAL_KEY = {
     "regenerative_titan": "REGENERATIVE_TITAN",
     "derisked_safe_haven": "SAFE_HAVEN",
     "fragile_giant": "FRAGILE_GIANT",
+    "pragmatic_operator": "PRAGMATIC_OPERATOR",
     "stranded_relic": "STRANDED_RELIC",
     "hollow_idealist": "HOLLOW_IDEALIST",
+    "turnaround_manager": "TURNAROUND_MANAGER",
 }
 
 
@@ -50,12 +52,14 @@ def solvency_gated_profile(profile: str, dmav: float) -> str:
     AR-B: split the failure by ESG tier. A strong-ESG company that still went
     bankrupt (titan / safe-haven tier) becomes the 'hollow_idealist' — a real
     regenerative story on an insolvent balance sheet; a mediocre-ESG failure
-    (fragile-giant tier) becomes the 'stranded_relic'."""
+    (fragile-giant OR pragmatic-operator tier) becomes the 'stranded_relic'.
+    The Pragmatic Operator is a *solvent* label, so an insolvent one is
+    demoted to Stranded Relic just like the Fragile Giant."""
     if dmav > 0:
         return profile
     if profile in ("regenerative_titan", "derisked_safe_haven"):
         return "hollow_idealist"
-    if profile == "fragile_giant":
+    if profile in ("fragile_giant", "pragmatic_operator"):
         return "stranded_relic"
     return profile
 
@@ -2570,11 +2574,18 @@ def _post_r10_grand_finale(
             profile_icon = ""
             profile_gradient = "linear-gradient(135deg, #f59e0b, #d97706)"
         else:
-            profile = "stranded_relic"
-            profile_title = "The Stranded Relic"
-            profile_desc = "A cautionary tale."
+            # AR-B: solvent low-M_R is the "Pragmatic Operator" — kept the lights
+            # on, unremarkable. "Stranded Relic" is reserved for value
+            # destruction (applied by the solvency gate below); a solvent,
+            # cautious operator is no longer mislabelled a failure.
+            profile = "pragmatic_operator"
+            profile_title = "The Pragmatic Operator"
+            profile_desc = (
+                "Kept the lights on — solvent and steady, but the strategy "
+                "left regenerative value on the table."
+            )
             profile_icon = ""
-            profile_gradient = "linear-gradient(135deg, #ef4444, #b91c1c)"
+            profile_gradient = "linear-gradient(135deg, #475569, #334155)"
 
         # AR-A: solvency gate. The ladder above chose on M_R alone; if the
         # company ended value-destroyed (DMAV <= 0, the figure the reveal shows,
@@ -2648,18 +2659,29 @@ def _post_r10_grand_finale(
         "instability_discount": -0.4 if extra.get("mr_instability_discount") else 0,
         "max_achievable_mr": 1.93,  # STRAT-010: 1.0+0.10+0.15+0.20+0.15+0.18+0.10+0.05 = 1.93 (2.03 with JT-scaling)
     }
-    # Enrich mr_breakdown with pathway-specific bonuses
+    # Enrich mr_breakdown with pathway-specific bonuses.
+    # FIX-002 follow-up: report the ACTUAL ramped value the M_R received —
+    # the GAME-2 ramp calculators store it in extra (e.g. a partially-earned
+    # climate-leader bonus of +0.12) — never the nominal full bonus. The
+    # end-of-game ESG Leadership radar consumes these entries and must agree
+    # with the M_R that terminal value actually applied. Boolean extras
+    # (flat, flag-based bonuses like adaptation_premium) keep their nominal.
+    def _mrb(extra_key: str, nominal: float) -> float:
+        v = extra.get(extra_key)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return v
+        return nominal if v else 0
     if ending_pathway == "climate_black_swan":
-        extra["mr_breakdown"]["climate_leader"] = 0.30 if extra.get("mr_climate_leader_bonus") else 0
-        extra["mr_breakdown"]["adaptation_premium"] = 0.20 if extra.get("mr_adaptation_premium") else 0
-        extra["mr_breakdown"]["carbon_transition"] = 0.15 if extra.get("mr_carbon_transition_bonus") else 0
-        extra["mr_breakdown"]["stranded_asset_penalty"] = -0.40 if extra.get("mr_stranded_asset_penalty") else 0
+        extra["mr_breakdown"]["climate_leader"] = _mrb("mr_climate_leader_bonus", 0.30)
+        extra["mr_breakdown"]["adaptation_premium"] = _mrb("mr_adaptation_premium", 0.20)
+        extra["mr_breakdown"]["carbon_transition"] = _mrb("mr_carbon_transition_bonus", 0.15)
+        extra["mr_breakdown"]["stranded_asset_penalty"] = _mrb("mr_stranded_asset_penalty", -0.40)
         extra["mr_breakdown"]["option_mr_penalty"] = extra.get("pathway_mr_penalty_from_option", 0)
     elif ending_pathway == "stakeholder_revolt":
-        extra["mr_breakdown"]["social_regeneration"] = 0.35 if extra.get("mr_social_regeneration_bonus") else 0
-        extra["mr_breakdown"]["employee_champion"] = 0.15 if extra.get("mr_employee_champion_bonus") else 0
-        extra["mr_breakdown"]["community_trust"] = 0.15 if extra.get("mr_community_trust_bonus") else 0
-        extra["mr_breakdown"]["social_collapse"] = -0.50 if extra.get("mr_social_collapse_penalty") else 0
+        extra["mr_breakdown"]["social_regeneration"] = _mrb("mr_social_regeneration_bonus", 0.35)
+        extra["mr_breakdown"]["employee_champion"] = _mrb("mr_employee_champion_bonus", 0.15)
+        extra["mr_breakdown"]["community_trust"] = _mrb("mr_community_trust_bonus", 0.15)
+        extra["mr_breakdown"]["social_collapse"] = _mrb("mr_social_collapse_penalty", -0.50)
         extra["mr_breakdown"]["option_mr_penalty"] = extra.get("pathway_mr_penalty_from_option", 0)
     extra["terminal_value"] = terminal_value
     extra["exit_multiple"] = effective_exit_multiple
@@ -2737,6 +2759,13 @@ def _post_r10_grand_finale(
     gs["active_event_flags"]["profile"]                = profile
     gs["active_event_flags"]["profile_title"]          = profile_title
     gs["active_event_flags"]["archetype"]              = archetype_key
+    # P2: immutable canonical R10 completion snapshot (written once). The
+    # post-completion Turnaround module reads but never mutates this.
+    from engine import record_canonical_completion
+    record_canonical_completion(
+        gs, terminal_value=terminal_value, regenerative_multiple=mr,
+        archetype=archetype_key, profile=profile, profile_title=profile_title,
+    )
     gs["active_event_flags"]["profile_description"]    = profile_desc  # AR-D
     # STRAT-010: Equity bridge fields for leaderboard / frontend
     gs["active_event_flags"]["equity_value"]           = equity_value
