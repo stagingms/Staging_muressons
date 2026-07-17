@@ -53,6 +53,37 @@ def _expired_solo_ids(sessions: dict, today: date) -> list[str]:
     return out
 
 
+def _retention_expired_cohort_ids(sessions: dict, today: date) -> list[str]:
+    """LOW-tier data retention: cohorts whose configured retention window has
+    elapsed — end_date + data_retention_days < today.
+
+    Deliberately opt-in per cohort (data_retention_days > 0 must be SET; the
+    global default of 0 keeps the legacy keep-forever behaviour) and requires an
+    end_date, so an open-ended cohort is never reaped. Returns the cohort ids;
+    the caller also removes their player sub-sessions."""
+    from datetime import timedelta
+    out = []
+    for sid, s in list(sessions.items()):
+        if s.get("parent_cohort_id") or s.get("is_solo"):
+            continue  # cohort roots only (children reaped with their parent)
+        end = s.get("end_date")
+        if not end:
+            continue
+        try:
+            from admin_shared import get_effective_settings
+            days = int(get_effective_settings(sid).get("data_retention_days", 0) or 0)
+        except Exception:
+            days = 0
+        if days <= 0:
+            continue
+        try:
+            if date.fromisoformat(str(end)) + timedelta(days=days) < today:
+                out.append(sid)
+        except (ValueError, TypeError):
+            continue
+    return out
+
+
 def reap_once(today: Optional[date] = None) -> dict:
     """Run one reap pass. Returns a summary dict (also handy for tests)."""
     today = today or date.today()
@@ -71,6 +102,26 @@ def reap_once(today: Optional[date] = None) -> dict:
             getattr(dm, "_global_states", {}).pop(sid, None)
             getattr(dm, "_bu_states", {}).pop(sid, None)
             summary["sessions_reaped"] += 1
+
+        # 1b) LOW-tier data retention: reap cohorts whose configured retention
+        # window (end_date + data_retention_days) has elapsed — including their
+        # player sub-sessions and cohort-settings overlay. Opt-in per cohort;
+        # the default (0) keeps cohorts forever exactly as before.
+        summary["retention_cohorts_reaped"] = 0
+        for cid in _retention_expired_cohort_ids(dm._sessions, today):
+            child_ids = [sid for sid, s in list(dm._sessions.items())
+                         if s.get("parent_cohort_id") == cid]
+            for sid in [cid] + child_ids:
+                dm._sessions.pop(sid, None)
+                getattr(dm, "_global_states", {}).pop(sid, None)
+                getattr(dm, "_bu_states", {}).pop(sid, None)
+                summary["sessions_reaped"] += 1
+            summary["retention_cohorts_reaped"] += 1
+            try:
+                import admin_shared
+                admin_shared.cohort_settings.pop(cid, None)
+            except Exception:
+                pass
 
     live = set(dm._sessions.keys())
 
