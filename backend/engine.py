@@ -96,6 +96,7 @@ from config import (
     TURNAROUND_STAB_EXIT_TREASURY, TURNAROUND_STAB_EXIT_REP, TURNAROUND_STAB_CAPEX_CAP, TURNAROUND_STAB_MR_CAP,
     TURNAROUND_RECOVERY_EXIT_TREASURY, TURNAROUND_RECOVERY_EXIT_REP, TURNAROUND_RECOVERY_CAPEX_CAP, TURNAROUND_RECOVERY_MR_CAP,
     TURNAROUND_EXIT_TREASURY, TURNAROUND_EXIT_REP, TURNAROUND_EXIT_MR_BONUS,
+    TURNAROUND_ARC_MAX_ROUNDS, TURNAROUND_ARC_MR_THRESHOLD, TURNAROUND_ARC_ENTRY_BAILOUT,
 )
 
 
@@ -1295,6 +1296,7 @@ def detect_distress(
     round_number: int,
     already_in_survival: bool = False,
     current_phase: str = "none",
+    deliberate_entry: bool = False,
 ) -> dict:
     """
     FEATURE 25 — 3-Act Turnaround Arc:
@@ -1308,7 +1310,21 @@ def detect_distress(
 
     Only triggers from Round 2 onward (too early = normal volatility, ~1 year grace).
     """
-    if round_number < 2:
+    # P3: deliberate post-completion entry — drop straight into Crisis,
+    # bypassing the auto-trigger condition and the R2 grace guard. The
+    # mid-sim auto path (deliberate_entry=False) is unchanged.
+    if deliberate_entry and current_phase == "none":
+        _crisis = _TURNAROUND_PHASES["crisis"]
+        return {
+            "distress_detected": True, "survival_mode": True,
+            "turnaround_phase": "crisis", "phase_transition": True,
+            "bailout_amount": _crisis["bailout"],
+            "capex_cap_multiplier": _crisis["capex_cap"], "mr_cap": _crisis["mr_cap"],
+            "archetype_override": "turnaround_manager",
+            "message": _crisis["narrative_enter"],
+        }
+
+    if round_number < 2 and not deliberate_entry:
         return {"distress_detected": False, "survival_mode": already_in_survival,
                 "turnaround_phase": current_phase}
 
@@ -1396,6 +1412,64 @@ def detect_distress(
         }
 
     return {"distress_detected": False, "survival_mode": False, "turnaround_phase": "none"}
+
+
+# ── 25b. Turnaround MODULE — post-completion eligibility (P2) ────
+# Pure helpers for the optional, superadmin-gated post-completion Turnaround
+# arc. They READ state but never mutate it; the module-enabled flag is passed in
+# by the caller (router) to avoid an engine->admin import cycle.
+
+def turnaround_score_eligible(mr) -> bool:
+    """True when a completed run's Regenerative Multiple sits below the arc entry
+    threshold (a 'Stranded Relic'-range result a comeback would target)."""
+    try:
+        return float(mr) < TURNAROUND_ARC_MR_THRESHOLD
+    except (TypeError, ValueError):
+        return False
+
+
+def record_canonical_completion(gs: dict, *, terminal_value, regenerative_multiple,
+                                archetype, profile=None, profile_title=None) -> dict:
+    """Write the immutable R10 completion snapshot exactly once (setdefault). The
+    Turnaround module reads but never mutates this, so a normal run's 'completed
+    at R10' result is always recoverable even after an arc runs."""
+    return gs.setdefault("final_report_canonical", {
+        "terminal_value": terminal_value,
+        "regenerative_multiple": regenerative_multiple,
+        "archetype": archetype,
+        "profile": profile,
+        "profile_title": profile_title,
+        "source": "r10",
+    })
+
+
+def turnaround_offer_for(gs: dict, module_enabled: bool):
+    """Return the score-based Turnaround offer dict for a COMPLETED session, or
+    None. This is the non-privileged half (module flag + completion + M_R
+    threshold + not-already-run); per-facilitator authorisation is applied
+    separately by the admin eligibility endpoint via can_orchestrate_turnaround()."""
+    if not module_enabled:
+        return None
+    flags = gs.get("active_event_flags", {}) or {}
+    if flags.get("turnaround_status") or gs.get("turnaround_mode"):
+        return None  # already run or in-flight
+    round_number = gs.get("round_number", flags.get("round_number", 0)) or 0
+    completed = bool(gs.get("game_over")) or round_number >= 10
+    if not completed:
+        return None
+    canonical = gs.get("final_report_canonical") or {}
+    mr = canonical.get("regenerative_multiple",
+                       flags.get("regenerative_multiple", gs.get("regenerative_multiple", 1.0)))
+    if not turnaround_score_eligible(mr):
+        return None
+    return {
+        "eligible": True,
+        "current_mr": round(float(mr), 3),
+        "threshold": TURNAROUND_ARC_MR_THRESHOLD,
+        "max_rounds": TURNAROUND_ARC_MAX_ROUNDS,
+        "premium_if_graduated": TURNAROUND_EXIT_MR_BONUS,
+    }
+
 
 
 # ── 28. Severity Classification ─────────────────────────────────

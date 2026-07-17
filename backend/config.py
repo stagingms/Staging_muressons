@@ -593,6 +593,13 @@ TURNAROUND_EXIT_TREASURY:         float = float(_ta_exit.get("exit_treasury", 20
 TURNAROUND_EXIT_REP:              float = float(_ta_exit.get("exit_reputation", 55))
 TURNAROUND_EXIT_MR_BONUS:         float = float(_ta_exit.get("mr_bonus", 0.10))
 
+# Post-completion Turnaround MODULE (optional, superadmin-gated) — the fixed
+# 4-round arc offered after R10 when canonical M_R < threshold. Numeric params
+# only; permission state lives in _god_mode_settings (admin_shared.py).
+_ta_arc = _ta.get("arc", {})
+TURNAROUND_ARC_MAX_ROUNDS:    int   = int(_ta_arc.get("max_rounds", 4))
+TURNAROUND_ARC_MR_THRESHOLD:  float = float(_ta_arc.get("eligibility_mr_threshold", 0.80))
+TURNAROUND_ARC_ENTRY_BAILOUT: float = float(_ta_arc.get("entry_bailout", 3_000_000))
 
 # ═════════════════════════════════════════════════════════════════
 #  HOT-RELOAD SUPPORT

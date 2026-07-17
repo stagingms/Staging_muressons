@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './SessionViewer.module.css';
 import { Abbr } from './Glossary';
 import { formatSessionId, getShortCode } from '../utils/sessionUtils';
+import TurnaroundConsole from './TurnaroundConsole';
 
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -315,6 +316,15 @@ function SessionCard({ sessionId, data, leaderboardEntry, isSelected, onSelect, 
                     {flags.filter(f => !f.startsWith('shadow_board_')).length > (compact ? 3 : 8) && (
                         <span className={styles.flagMore}>+{flags.filter(f => !f.startsWith('shadow_board_')).length - (compact ? 3 : 8)}</span>
                     )}
+                </div>
+            )}
+
+            {/* Post-completion Turnaround console (P4) — expanded view only.
+                SLOT: facilitator admin surface. Only mounts when a card is
+                opened (non-compact); the console self-checks eligibility. */}
+            {!compact && (
+                <div style={{ marginTop: '0.75rem' }}>
+                    <TurnaroundConsole sessionId={sessionId} />
                 </div>
             )}
 

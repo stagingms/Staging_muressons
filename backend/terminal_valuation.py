@@ -538,6 +538,16 @@ _ARCHETYPES = {
         "gradient": "linear-gradient(135deg, #f59e0b, #d97706)"},
     "stranded_relic": {"title": "The Stranded Relic", "icon": "\U0001f480",
         "gradient": "linear-gradient(135deg, #ef4444, #b91c1c)"},
+    # AR-B: two-axis matrix labels. `determine_archetype` classifies on M_R
+    # alone (used by what-if projections + the turnaround re-valuation, where the
+    # solvency axis is out of frame); the authoritative two-axis R10 mapping —
+    # which actually awards these two — lives in
+    # round_logic.solvency_gated_profile. They are mirrored here so any label
+    # lookup by key resolves to a title/gradient.
+    "pragmatic_operator": {"title": "The Pragmatic Operator", "icon": "\U0001f9ed",
+        "gradient": "linear-gradient(135deg, #475569, #334155)"},
+    "hollow_idealist": {"title": "The Hollow Idealist", "icon": "\U0001f573️",
+        "gradient": "linear-gradient(135deg, #a855f7, #7e22ce)"},
     "turnaround_manager": {"title": "The Turnaround Manager", "icon": "🔧",
         "gradient": "linear-gradient(135deg, #8b5cf6, #6d28d9)"},
 }
