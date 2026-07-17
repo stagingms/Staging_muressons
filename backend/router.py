@@ -1282,21 +1282,34 @@ async def get_final_report(session_id: str):
 # GET /api/simulations/{session_id}/dashboard
 # ─────────────────────────────────────────────────────────────────
 
-def _primary_choice_for_snapshot(h: dict) -> str:
-    """Primary strategic option (e.g. 'option_a') for a raw history snapshot.
+def _choices_by_game_round(history_raw: list[dict]) -> dict:
+    """Map game-round -> primary strategic option (e.g. 'option_a').
 
-    Mirrors round_logic._get_primary_choice / consequence_dna_api._extract_
-    decision_history: prefer the first per-BU decision whose choice_selected is
-    an 'option_*', else fall back to the per-round active_event_flag written by
-    a few rounds (r5/r9). Returns '' when nothing is recorded (legacy sessions).
+    Decisions are persisted one round ahead: a round-N commit produces the
+    round-(N+1) snapshot and its decisions are tagged round_number = N+1 (see
+    commit_turn/new_round), while round 1's initial snapshot carries none. So a
+    decision tagged K belongs to game-round K-1. The per-round rN_choice event
+    flags are already game-round indexed and fill rounds the log misses (they
+    only exist for a few narrative rounds); the decision log wins when both
+    exist. Round 10's decision is never logged, so game-round 10 may be absent.
     """
-    for dec in h.get("decisions", []) or []:
-        ch = dec.get("choice_selected") or ""
-        if isinstance(ch, str) and ch.startswith("option_"):
-            return ch
-    flags = (h.get("global_state", {}) or {}).get("active_event_flags", {}) or {}
-    ch = flags.get(f"r{h.get('round_number', 0)}_choice", "")
-    return ch if isinstance(ch, str) else ""
+    out: dict = {}
+    for h in history_raw:
+        tag = h.get("round_number", 0)
+        for dec in (h.get("decisions") or []):
+            ch = dec.get("choice_selected") or ""
+            if isinstance(ch, str) and ch.startswith("option_"):
+                out[tag - 1] = ch  # decision tagged `tag` == game-round tag-1
+                break
+        flags = (h.get("global_state", {}) or {}).get("active_event_flags", {}) or {}
+        for k, v in flags.items():
+            if isinstance(k, str) and k.endswith("_choice") and isinstance(v, str) and v.startswith("option_"):
+                try:
+                    gr = int(k[1:k.index("_choice")])
+                except (ValueError, IndexError):
+                    continue
+                out.setdefault(gr, v)
+    return out
 
 
 @router.get(
@@ -1334,12 +1347,13 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
     if since_round is not None:
         history_raw = [h for h in history_raw if h.get("round_number", 0) >= since_round]
 
+    _choice_by_round = _choices_by_game_round(history_raw)
     history = [
         RoundSnapshot(
             round_number=h["round_number"],
             global_state=GlobalStateOut(**h["global_state"]),
             business_units=[_bu_out(bu) for bu in h["business_units"]],
-            choice_selected=_primary_choice_for_snapshot(h),
+            choice_selected=_choice_by_round.get(h["round_number"], ""),
         )
         for h in history_raw
     ]
