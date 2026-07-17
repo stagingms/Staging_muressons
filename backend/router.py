@@ -1414,6 +1414,12 @@ async def get_final_report(session_id: str):
     flags = gs.get("active_event_flags", {})
     if rn < 10 and not gs.get("game_over"):
         raise HTTPException(status_code=400, detail=f"Game not finished — currently at round {rn}")
+    # P2: attach the score-based Turnaround offer (module flag + completion +
+    # M_R threshold). Per-facilitator authorisation is applied by the admin
+    # eligibility endpoint, not here (this endpoint has no role context).
+    from admin_shared import _god_mode_settings as _gms
+    from engine import turnaround_offer_for
+    _turnaround_offer = turnaround_offer_for(gs, _gms.get("turnaround_module_enabled", False))
 
     # ── MEDIUM-tier report-access control (server-side, not just UI) ────────
     # "full" (default) = legacy behaviour; "summary" withholds the narrative
@@ -1445,6 +1451,7 @@ async def get_final_report(session_id: str):
         "report_access": _report_access,
         "final_report_canonical": None if _withhold_narrative else gs.get("final_report_canonical"),
         "turnaround_amended_report": None if _withhold_narrative else gs.get("turnaround_amended_report"),
+        "turnaround_offer": _turnaround_offer,
         "terminal_valuation": gs.get("terminal_valuation"),
         "regenerative_multiple": gs.get("regenerative_multiple"),
         "archetype": gs.get("archetype"),
