@@ -20,7 +20,6 @@ import SystemExport from '../../components/SystemExport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
 import TechnicalGlossary from '../../components/TechnicalGlossary';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
-import ESGWeightsEditor from '../../components/ESGWeightsEditor';
 import ArchetypeEditor from '../../components/ArchetypeEditor';
 import MasterVariableEditor from '../../components/MasterVariableEditor';
 import SimulationManager from '../../components/SimulationManager';
@@ -687,8 +686,8 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
                 return <ArchetypeEditor />;
             case 'scorecard_evaluator':
                 return <div style={{padding:'1.5rem'}}><BalancedScorecardEvaluator /></div>;
-            case 'esg_weights':
-                return <ESGWeightsEditor />;
+            // esg_weights: moved to the Facilitator dashboard (Analytics &
+            // Assessment) for all facilitators; no longer a God Mode tab.
             case 'regulatory_sandbox': {
                 const sandboxSessions = leaderboard.filter(s => !s.player_id);
                 return (

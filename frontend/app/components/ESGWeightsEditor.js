@@ -1,10 +1,11 @@
 'use client';
 
 /**
- * ESGWeightsEditor — Analytics & Assessment sub-tab (lead facilitator / super
- * admin). Tunes the weight each performance signal carries in the five ESG
- * Leadership Profile dimensions. Reads/writes the global rubric via
- * /api/admin/esg-profile-weights; the end-of-game ESG radar applies it.
+ * ESGWeightsEditor — Analytics & Assessment sub-tab on the Facilitator
+ * dashboard, open to ALL facilitators (project_admin excluded server-side via
+ * require_sim_manager). Tunes the weight each performance signal carries in
+ * the five ESG Leadership Profile dimensions. Reads/writes the global rubric
+ * via /api/admin/esg-profile-weights; the end-of-game ESG radar applies it.
  */
 import { useState, useEffect, useCallback } from 'react';
 import { DEFAULT_ESG_WEIGHTS, mergeEsgWeights } from './ESGLeadershipProfile';
@@ -47,6 +48,8 @@ const SIGNAL_LABELS = {
   rd_cap: 'R&D contribution cap',
   synergy: 'Synergy reward',
   brsr_pioneer: 'BRSR-pioneer reward',
+  brsr_steward: 'BRSR-steward reward',
+  brsr_laggard: 'BRSR-laggard penalty',
 };
 
 export default function ESGWeightsEditor() {
@@ -94,7 +97,7 @@ export default function ESGWeightsEditor() {
         body: JSON.stringify({ weights: clean, reason: 'Facilitator rubric update' }),
       });
       if (r.ok) { const d = await r.json(); setWeights(mergeEsgWeights(d.esg_profile_weights)); flash('✅ Weights saved'); }
-      else flash(r.status === 403 ? '❌ Lead facilitator or super admin only' : '❌ Save failed', false);
+      else flash(r.status === 403 ? '❌ Facilitator authentication required' : '❌ Save failed', false);
     } catch { flash('❌ Connection error', false); }
     setSaving(false);
   };
@@ -153,6 +156,10 @@ export default function ESGWeightsEditor() {
                 </span>
                 <input
                   type="number" step="any" value={weights?.[dim.id]?.[k] ?? ''}
+                  // Blends are 0–1 shares; the backend clamps too, this just
+                  // keeps the UI honest.
+                  min={k.endsWith('_blend') ? 0 : undefined}
+                  max={k.endsWith('_blend') ? 1 : undefined}
                   onChange={(e) => setVal(dim.id, k, e.target.value)}
                   style={inputStyle}
                 />

@@ -56,7 +56,10 @@ export const DEFAULT_ESG_WEIGHTS = {
     decarbonisation: 1.0, carbon_transition: 70, climate_leader: 40,
     stranded_asset_penalty: 100,
   },
-  innovation: { base: 30, rd_multiplier: 2, rd_cap: 40, synergy: 200, brsr_pioneer: 30 },
+  innovation: {
+    base: 30, rd_multiplier: 2, rd_cap: 40, synergy: 200,
+    brsr_pioneer: 30, brsr_steward: 30, brsr_laggard: 30,
+  },
 };
 
 /** Deep-merge a (possibly partial) weights override over the defaults. */
@@ -67,7 +70,13 @@ export function mergeEsgWeights(override) {
     const o = override && override[dim];
     if (o && typeof o === 'object') {
       for (const k of Object.keys(DEFAULT_ESG_WEIGHTS[dim])) {
-        if (Number.isFinite(Number(o[k]))) out[dim][k] = Number(o[k]);
+        if (Number.isFinite(Number(o[k]))) {
+          let v = Number(o[k]);
+          // Blends are shares of a dimension's baseline; outside [0,1] they
+          // invert the complement term's sign. Mirror the backend clamp.
+          if (k.endsWith('_blend')) v = Math.max(0, Math.min(1, v));
+          out[dim][k] = v;
+        }
       }
     }
   }
@@ -137,11 +146,16 @@ function computePillarScores(data = {}, flags = {}, businessUnits = [], weights 
     + b('carbon_transition') * we.carbon_transition + b('climate_leader') * we.climate_leader
     + b('stranded_asset_penalty') * we.stranded_asset_penalty;  // stranded_asset_penalty is negative
 
-  // 5. Innovation — R&D intensity + synergy / integration rewards.
+  // 5. Innovation — R&D intensity + synergy / integration rewards. All three
+  //    BRSR tiers count: pioneer (+0.65) and steward (+0.35) add credit; the
+  //    laggard penalty (−0.30) is negative in the breakdown, so adding it
+  //    subtracts.
   const wi = W.innovation;
   const innovation = wi.base
     + Math.min(wi.rd_cap, rd * wi.rd_multiplier)
-    + b('synergy_bonus') * wi.synergy + b('brsr_pioneer_bonus') * wi.brsr_pioneer;
+    + b('synergy_bonus') * wi.synergy + b('brsr_pioneer_bonus') * wi.brsr_pioneer
+    + b('brsr_steward_bonus') * wi.brsr_steward
+    + b('brsr_laggard_penalty') * wi.brsr_laggard;
 
   const raw = {
     climate_resilience: climate,
