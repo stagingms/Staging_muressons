@@ -314,6 +314,11 @@
       "exit_treasury": 20000000,
       "exit_reputation": 55,
       "mr_bonus": 0.1
+    },
+    "arc": {
+      "max_rounds": 4,
+      "eligibility_mr_threshold": 0.8,
+      "entry_bailout": 3000000
     }
   }
 }
