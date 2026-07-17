@@ -186,6 +186,14 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     const [expandedVisRow, setExpandedVisRow] = useState(null); // facilitator_id of expanded row
     const deleteTimerRef = useRef(null);
 
+    // Bulk delete (multi-select) — one batched POST /facilitators/bulk-delete,
+    // never a fetch-per-row loop (single persist + single audit on the backend).
+    const [selectedIds, setSelectedIds] = useState(() => new Set());
+    const [bulkDeleteModal, setBulkDeleteModal] = useState(false);
+    const [bulkDeleteHard, setBulkDeleteHard] = useState(false);   // soft delete by default
+    const [bulkDeleteConfirmInput, setBulkDeleteConfirmInput] = useState('');
+    const [bulkDeleting, setBulkDeleting] = useState(false);
+
 
 
     // ────────────────────────────────────────────────────────
@@ -224,6 +232,16 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
 
         return () => clearInterval(interval);
     }, [fetchFacilitators]);
+
+    // Keep the bulk-delete selection consistent with the live registry —
+    // the 10s poll can remove rows deleted by another admin session.
+    useEffect(() => {
+        setSelectedIds(prev => {
+            const live = new Set(facilitators.map(f => f.facilitator_id));
+            const next = new Set([...prev].filter(id => live.has(id)));
+            return next.size === prev.size ? prev : next;
+        });
+    }, [facilitators]);
 
     // Persistent toasts (e.g. generated passwords) stay until the browser tab is
     // hidden or the user clicks the toast. Regular toasts auto-dismiss after 4 s.
@@ -750,6 +768,58 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
             }
         } catch {
             showToast('Delete failed: network error', 'error');
+        }
+    };
+
+    // ── Bulk delete: multi-select helpers + single batched request ────────
+    const toggleSelected = (facId) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(facId)) next.delete(facId); else next.add(facId);
+            return next;
+        });
+    };
+
+    const handleBulkDelete = async () => {
+        const ids = [...selectedIds];
+        if (ids.length === 0) return;
+        setBulkDeleting(true);
+        try {
+            const res = await fetch(`${API}/api/admin/facilitators/bulk-delete`, {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ facilitator_ids: ids, hard: bulkDeleteHard }),
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const results = data.results || [];
+                const deletedIds = new Set(
+                    results.filter(r => r.status === 'deleted').map(r => r.facilitator_id)
+                );
+                setFacilitators(prev => prev.filter(f => !deletedIds.has(f.facilitator_id)));
+                setSelectedIds(new Set());
+                setBulkDeleteModal(false);
+                setBulkDeleteConfirmInput('');
+                setBulkDeleteHard(false);
+                const skipped = results.filter(r => r.status !== 'deleted');
+                if (skipped.length === 0) {
+                    showToast(`Deleted ${data.deleted} facilitator${data.deleted !== 1 ? 's' : ''}`);
+                } else {
+                    showToast(
+                        `Deleted ${data.deleted}, skipped ${skipped.length}: ` +
+                        skipped.map(r => `${r.facilitator_id} (${r.status})`).join(', '),
+                        'error'
+                    );
+                }
+            } else {
+                const err = await res.json().catch(() => ({}));
+                showToast(`Bulk delete failed: ${err.detail || res.status}`, 'error');
+            }
+        } catch {
+            showToast('Bulk delete failed: network error', 'error');
+        } finally {
+            setBulkDeleting(false);
         }
     };
 
@@ -2072,6 +2142,40 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 )}
             </div>
 
+            {/* ── Bulk-selection action bar ── */}
+            {selectedIds.size > 0 && (
+                <div style={{
+                    display: 'flex', alignItems: 'center', gap: '12px',
+                    padding: '8px 14px', marginBottom: '10px', borderRadius: '10px',
+                    border: '1px solid rgba(239,68,68,0.35)', background: 'rgba(239,68,68,0.07)',
+                }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#f87171' }}>
+                        {selectedIds.size} selected
+                    </span>
+                    <button
+                        onClick={() => setSelectedIds(new Set())}
+                        style={{
+                            fontSize: '0.75rem', padding: '4px 10px', borderRadius: '6px',
+                            border: '1px solid var(--border-subtle)', background: 'transparent',
+                            color: 'var(--text-muted)', cursor: 'pointer',
+                        }}
+                    >
+                        Clear selection
+                    </button>
+                    <div style={{ flex: 1 }} />
+                    <button
+                        onClick={() => { setBulkDeleteModal(true); setBulkDeleteConfirmInput(''); setBulkDeleteHard(false); }}
+                        style={{
+                            fontSize: '0.78rem', fontWeight: 700, padding: '6px 14px', borderRadius: '8px',
+                            border: '1px solid rgba(239,68,68,0.5)', background: 'rgba(239,68,68,0.15)',
+                            color: '#f87171', cursor: 'pointer',
+                        }}
+                    >
+                        🗑️ Delete {selectedIds.size} facilitator{selectedIds.size !== 1 ? 's' : ''}…
+                    </button>
+                </div>
+            )}
+
             {/* ── Table ── */}
             {loading ? (
                 <div className={styles.empty}>Loading facilitators…</div>
@@ -2084,6 +2188,25 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     <table className={styles.table}>
                         <thead>
                             <tr>
+                                <th style={{ width: 34 }}>{/* bulk select */}
+                                    <input
+                                        type="checkbox"
+                                        title="Select all visible facilitators"
+                                        checked={filtered.length > 0 && filtered.every(f => selectedIds.has(f.facilitator_id))}
+                                        onChange={() => {
+                                            const allSelected = filtered.every(f => selectedIds.has(f.facilitator_id));
+                                            setSelectedIds(prev => {
+                                                const next = new Set(prev);
+                                                filtered.forEach(f => {
+                                                    if (allSelected) next.delete(f.facilitator_id);
+                                                    else next.add(f.facilitator_id);
+                                                });
+                                                return next;
+                                            });
+                                        }}
+                                        style={{ cursor: 'pointer', accentColor: '#ef4444' }}
+                                    />
+                                </th>
                                 <th style={{ width: 40 }} />{/* toggle */}
                                 <th onClick={() => toggleSort('name')} className={styles.sortable}>
                                     Facilitator <SortIcon col="name" />
@@ -2113,6 +2236,16 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                 return (
                                     <Fragment key={fac.facilitator_id}>
                                     <tr className={fac.enabled === false ? styles.rowDisabled : ''}>
+                                        {/* Bulk-select checkbox */}
+                                        <td style={{ paddingRight: 0 }}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedIds.has(fac.facilitator_id)}
+                                                onChange={() => toggleSelected(fac.facilitator_id)}
+                                                title={`Select ${fac.name}`}
+                                                style={{ cursor: 'pointer', accentColor: '#ef4444' }}
+                                            />
+                                        </td>
                                         {/* Enable/Disable toggle */}
                                         <td style={{ paddingRight: 0 }}>
                                             <button
@@ -2456,6 +2589,119 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                     </div>
                 </>
             )}
+
+            {/* ── Bulk Delete Confirmation Modal ── */}
+            {bulkDeleteModal && (() => {
+                const confirmPhrase = `DELETE ${selectedIds.size}`;
+                const confirmed = bulkDeleteConfirmInput === confirmPhrase;
+                return (
+                <>
+                    <div
+                        onClick={() => !bulkDeleting && setBulkDeleteModal(false)}
+                        style={{
+                            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+                            zIndex: 9998, backdropFilter: 'blur(4px)',
+                        }}
+                    />
+                    <div style={{
+                        position: 'fixed', top: '50%', left: '50%',
+                        transform: 'translate(-50%,-50%)',
+                        zIndex: 9999,
+                        background: 'var(--bg-card, #1e293b)',
+                        border: '1px solid rgba(239,68,68,0.35)',
+                        borderRadius: 14,
+                        padding: '28px 32px',
+                        width: 440,
+                        boxShadow: '0 24px 60px rgba(0,0,0,0.5)',
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+                            <span style={{ fontSize: '1.6rem' }}>⚠️</span>
+                            <div>
+                                <div style={{ fontWeight: 800, fontSize: '1rem', color: '#ef4444' }}>
+                                    Delete {selectedIds.size} Facilitator{selectedIds.size !== 1 ? 's' : ''}
+                                </div>
+                                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: 2 }}>
+                                    All cohorts and player sessions they own are deleted with them.
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Soft vs permanent choice */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16 }}>
+                            {[
+                                { hard: false, label: 'Soft delete (recoverable)', sub: 'Marks accounts and their cohorts as deleted; data stays in the database and can be restored.' },
+                                { hard: true, label: 'Permanent delete', sub: 'Removes accounts from the registry and purges all cohort + player data. Cannot be undone.' },
+                            ].map(opt => (
+                                <label key={String(opt.hard)} style={{
+                                    display: 'flex', gap: 10, alignItems: 'flex-start', cursor: 'pointer',
+                                    padding: '10px 12px', borderRadius: 8,
+                                    border: bulkDeleteHard === opt.hard ? '1.5px solid #ef4444' : '1px solid var(--border-subtle)',
+                                    background: bulkDeleteHard === opt.hard ? 'rgba(239,68,68,0.07)' : 'transparent',
+                                }}>
+                                    <input
+                                        type="radio"
+                                        name="bulkDeleteMode"
+                                        checked={bulkDeleteHard === opt.hard}
+                                        onChange={() => setBulkDeleteHard(opt.hard)}
+                                        style={{ marginTop: 2, accentColor: '#ef4444' }}
+                                    />
+                                    <span>
+                                        <span style={{ display: 'block', fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-primary)' }}>{opt.label}</span>
+                                        <span style={{ display: 'block', fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 2 }}>{opt.sub}</span>
+                                    </span>
+                                </label>
+                            ))}
+                        </div>
+
+                        <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginBottom: 8 }}>
+                            Type <code style={{ background: 'rgba(239,68,68,0.1)', padding: '1px 6px', borderRadius: 4, color: '#f87171', fontWeight: 700 }}>{confirmPhrase}</code> to confirm:
+                        </p>
+                        <input
+                            autoFocus
+                            value={bulkDeleteConfirmInput}
+                            onChange={e => setBulkDeleteConfirmInput(e.target.value)}
+                            placeholder={confirmPhrase}
+                            onKeyDown={e => { if (e.key === 'Enter' && confirmed && !bulkDeleting) handleBulkDelete(); }}
+                            style={{
+                                width: '100%', padding: '9px 12px', borderRadius: 8,
+                                border: confirmed ? '1.5px solid #ef4444' : '1px solid var(--border-subtle)',
+                                background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                                fontFamily: 'var(--font-mono)', fontSize: '0.9rem',
+                                outline: 'none', transition: 'border 0.15s',
+                                marginBottom: 18,
+                                boxSizing: 'border-box',
+                            }}
+                        />
+                        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                            <button
+                                onClick={() => setBulkDeleteModal(false)}
+                                disabled={bulkDeleting}
+                                style={{
+                                    padding: '8px 18px', borderRadius: 8, border: '1px solid var(--border-subtle)',
+                                    background: 'transparent', color: 'var(--text-secondary)',
+                                    cursor: 'pointer', fontSize: '0.82rem', fontWeight: 600,
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                disabled={!confirmed || bulkDeleting}
+                                onClick={handleBulkDelete}
+                                style={{
+                                    padding: '8px 18px', borderRadius: 8, border: 'none',
+                                    background: confirmed && !bulkDeleting ? '#ef4444' : 'rgba(239,68,68,0.2)',
+                                    color: confirmed && !bulkDeleting ? '#fff' : 'rgba(239,68,68,0.4)',
+                                    cursor: confirmed && !bulkDeleting ? 'pointer' : 'not-allowed',
+                                    fontSize: '0.82rem', fontWeight: 700, transition: 'background 0.15s, color 0.15s',
+                                }}
+                            >
+                                {bulkDeleting ? '⏳ Deleting…' : bulkDeleteHard ? 'Delete Permanently' : 'Soft Delete'}
+                            </button>
+                        </div>
+                    </div>
+                </>
+                );
+            })()}
 
             {/* ── Role Change Verification Modal ── */}
             {roleChangeModal && (
