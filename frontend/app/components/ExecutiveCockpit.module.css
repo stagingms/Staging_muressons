@@ -980,11 +980,12 @@
   box-shadow: 0 1px 4px rgba(239,68,68,0.08);
 }
 
+/* Rail cleanup: INFO is the quiet default — no blue spine/tint/text/shadow.
+   Colour is reserved for urgency (alert = red, foreshadow = amber), so the
+   feed stops reading like a barcode. */
 .feedItemInfo {
-  border-left-color: var(--accent-blue);
-  background: rgba(59, 130, 246, 0.04);
-  color: var(--info-text);
-  box-shadow: 0 1px 4px rgba(59,130,246,0.06);
+  border-left-color: rgba(148, 163, 184, 0.14);
+  color: var(--ck-text-2);
 }
 
 @keyframes feedSlideIn {

@@ -21,7 +21,9 @@ import styles from './ExecutiveCockpit.module.css';
 
 const SEVERITY_META = {
   alert: { icon: '🚨', badge: 'ALERT', badgeColor: '#ef4444', badgeBg: 'rgba(239,68,68,0.1)' },
-  info: { icon: '📊', badge: 'INFO', badgeColor: '#3b82f6', badgeBg: 'rgba(59,130,246,0.08)' },
+  // INFO is the quiet default — neutral badge so colour is reserved for
+  // urgency (alert = red, foreshadow = amber). De-noises the feed spine.
+  info: { icon: '📊', badge: 'INFO', badgeColor: '#94a3b8', badgeBg: 'rgba(148,163,184,0.10)' },
   foreshadow: { icon: '📰', badge: 'BREAKING', badgeColor: '#f59e0b', badgeBg: 'rgba(245,158,11,0.1)' },
 };
 
@@ -181,7 +183,8 @@ export default function MarketRealityFeed({
                 borderLeft: '3px solid #ef4444',
                 background: 'rgba(239,68,68,0.04)',
               } : {
-                borderLeft: '3px solid rgba(59,130,246,0.3)',
+                // INFO: quiet neutral hairline, no tint — colour reserved for urgency.
+                borderLeft: '3px solid rgba(148,163,184,0.14)',
               }),
             }}
             onClick={() => isLong && toggleExpand(i)}
