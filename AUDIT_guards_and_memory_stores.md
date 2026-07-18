@@ -62,12 +62,16 @@ decision-history) before any Postgres migration:
 | GET /analytics/player/{session_id} | **none** |
 
 ### B. Unguarded data GETs (anonymous-readable)
-Most unguarded GETs are harmless config/catalog reads, but three return
-session/team data and deserve a deliberate call:
-- `GET /cohort-pulse/{cohort_id}` — full team KPI grid. Note: Cohort Pulse
-  has a player-visible toggle, and players fetch this endpoint, so a naive
-  facilitator guard would break the player mirror. Right fix: allow
-  facilitators always; allow players only when `cohort_pulse_player_visible`.
-- `GET /complexity-events/{session_id}` — event flags per session.
+Most unguarded GETs are harmless config/catalog reads. Three returned
+session/team data:
+- `GET /cohort-pulse/{cohort_id}` — **FIXED**: facilitators (any
+  authenticated role) always pass; player callers admitted only when the
+  cohort's `cohort_pulse_player_visible` flag is on AND their X-Player-Id
+  owns a session in the cohort. Verified all five paths live (anonymous
+  401/403, facilitator 200, member player 200 when visible, non-member 403).
+- `GET /complexity-events/{session_id}` — event flags per session. Still
+  open; low sensitivity (needs a session UUID), decide with the same
+  member-or-facilitator pattern if desired.
 - `GET /analytics/player/{session_id}` — player analytics (may be
-  intentionally player-facing; verify against the player cockpit's usage).
+  intentionally player-facing; verify against the player cockpit's usage
+  before guarding).

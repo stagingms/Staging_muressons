@@ -9265,14 +9265,33 @@ async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depen
 
 # ── Cohort Pulse — real-time KPI heatmap for CohortPulse.js ──────────────────
 @admin_router.get("/cohort-pulse/{cohort_id}", summary="Real-time KPI heatmap for cohort")
-async def get_cohort_pulse(cohort_id: str):
+async def get_cohort_pulse(cohort_id: str, request: Request):
     """
     Returns per-team KPI history and current state for the CohortPulse heatmap.
     Includes climate-engine fields: green_fund, cost_of_capital, carbon_fee_paid.
+
+    Guard (audit finding — was fully unauthenticated, leaking every team's KPI
+    grid): facilitators (any authenticated role) always pass. Player callers
+    are admitted ONLY when the cohort's `cohort_pulse_player_visible` flag is
+    on AND their X-Player-Id owns a session in this cohort — the player-mirror
+    design the visibility toggle promises, without an anonymous side door.
     """
     all_sessions = getattr(db, '_sessions', {})
     global_states = getattr(db, '_global_states', {})
     bu_states_store = getattr(db, '_bu_states', {})
+
+    if get_fac_role(request) == 'anonymous':
+        cohort_meta = all_sessions.get(cohort_id) or {}
+        if not cohort_meta.get("cohort_pulse_player_visible", False):
+            raise HTTPException(status_code=401, detail="Facilitator authentication required")
+        pid = request.headers.get("X-Player-Id", "")
+        member = bool(pid) and any(
+            (sid == cohort_id or s.get("parent_cohort_id") == cohort_id)
+            and s.get("player_id") == pid
+            for sid, s in all_sessions.items()
+        )
+        if not member:
+            raise HTTPException(status_code=403, detail="Not a member of this cohort")
 
     teams = []
     for sid, sess in all_sessions.items():

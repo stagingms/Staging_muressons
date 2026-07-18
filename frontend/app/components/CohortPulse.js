@@ -41,7 +41,9 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
     let first = true;
     const fetchPulse = async () => {
       try {
-        const res = await fetch(`${API}/api/admin/cohort-pulse/${cohortId}`);
+        // credentials: the endpoint is now auth-guarded (facilitators always;
+        // players only when player_visible) — the JWT cookie must reach it.
+        const res = await fetch(`${API}/api/admin/cohort-pulse/${cohortId}`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           setTeams(data.teams || []);
@@ -135,6 +137,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
                 try {
                   await fetch(`${API}/api/admin/cohort-pulse/${cohortId}/visibility`, {
                     method: 'POST',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ player_visible: next }),
                   });
