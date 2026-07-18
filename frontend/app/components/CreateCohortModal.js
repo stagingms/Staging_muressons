@@ -564,23 +564,52 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         } catch { /* keep current list */ }
     };
     const saveCustomLevel = async () => {
-        const name = window.prompt('Name this custom level (e.g. "Evening MBA — gentle start"):');
-        if (!name || !name.trim()) return;
+        const sel = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+
+        // "Update existing" prompt, two routes in:
+        //  1. the currently SELECTED level is a custom one → offer to update it
+        //     in place (Cancel falls through to create-new);
+        //  2. the typed name matches one of the facilitator's existing custom
+        //     levels → offer to overwrite that one.
+        let updateTarget = null;
+        let name;
+        if (sel?.is_custom && window.confirm(
+            `Update the custom level "${sel.name}" with the CURRENT wizard settings?\n\n` +
+            'OK = update it in place · Cancel = save as a new level instead.')) {
+            updateTarget = sel;
+            name = sel.name;
+        } else {
+            name = window.prompt('Name this custom level (e.g. "Evening MBA — gentle start"):');
+            if (!name || !name.trim()) return;
+            name = name.trim();
+            const clash = scenarioPresets.find(p => p.is_custom && p.name.toLowerCase() === name.toLowerCase());
+            if (clash && window.confirm(
+                `A custom level named "${clash.name}" already exists.\n\n` +
+                'OK = update it with the current settings · Cancel = create a separate level with the same name.')) {
+                updateTarget = clash;
+            }
+        }
+
         setSavingLevel(true);
         try {
-            const sel = scenarioPresets.find(p => p.id === selectedExperienceLevel);
-            const r = await fetch(`${API}/api/admin/scenario-presets/custom`, {
-                method: 'POST', credentials: 'include',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name: name.trim(),
-                    description: `Custom level saved from the cohort wizard (base: ${sel?.name || 'Workshop'}).`,
-                    difficulty_tier: sel?.difficulty_tier || 'advanced',
-                    default_pedagogy: pedagogicalToggles,
-                    default_player_visibility: visibility.player,
-                    default_player_features: stagedPlayerFeatures || {},
-                }),
-            });
+            const payload = {
+                name,
+                description: updateTarget ? '' : `Custom level saved from the cohort wizard (base: ${sel?.name || 'Workshop'}).`,
+                difficulty_tier: (updateTarget || sel)?.difficulty_tier || 'advanced',
+                default_pedagogy: pedagogicalToggles,
+                default_player_visibility: visibility.player,
+                default_player_features: stagedPlayerFeatures || {},
+            };
+            const r = await fetch(
+                updateTarget
+                    ? `${API}/api/admin/scenario-presets/custom/${updateTarget.id}`
+                    : `${API}/api/admin/scenario-presets/custom`,
+                {
+                    method: updateTarget ? 'PUT' : 'POST', credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                },
+            );
             const d = await r.json();
             if (r.ok && d.preset?.id) await refreshPresets(d.preset.id);
         } catch { /* leave wizard state untouched on failure */ }

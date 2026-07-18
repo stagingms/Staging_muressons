@@ -8589,6 +8589,36 @@ async def create_custom_level(body: CustomLevelRequest, request: Request,
     return {"status": "ok", "preset": entry}
 
 
+@admin_router.put("/scenario-presets/custom/{preset_id}", summary="Update a custom experience level")
+async def update_custom_level(preset_id: str, body: CustomLevelRequest, request: Request,
+                              _guard: None = Depends(require_sim_manager)):
+    """Edit-in-place for the creator (or an admin). Same whitelisting as
+    create; id and created_by are immutable."""
+    from auth_jwt import get_facilitator_from_request
+    caller = get_facilitator_from_request(request)
+    role = get_fac_role(request)
+    entry = next((c for c in _custom_levels if c.get("id") == preset_id), None)
+    if not entry:
+        raise HTTPException(404, "Custom level not found")
+    if not is_admin_role(role) and entry.get("created_by") != caller:
+        raise HTTPException(403, "You may only edit your own custom levels")
+    tier = body.difficulty_tier if body.difficulty_tier in _ALLOWED_TIERS else entry.get("difficulty_tier", "advanced")
+    entry.update({
+        "name": body.name.strip(),
+        "description": body.description.strip() or entry.get("description", ""),
+        "icon": body.icon or entry.get("icon", "⭐"),
+        "subtitle": f"Custom · {tier.capitalize()}",
+        "difficulty_tier": tier,
+        "target_audience": body.target_audience.strip() or entry.get("target_audience", ""),
+        "default_pedagogy": {k: bool(v) for k, v in (body.default_pedagogy or {}).items() if k in _ALLOWED_PED_KEYS},
+        "default_player_visibility": {k: bool(v) for k, v in (body.default_player_visibility or {}).items() if k in _ALLOWED_VIS_KEYS},
+        "default_player_features": {k: bool(v) for k, v in (body.default_player_features or {}).items() if k in _ALLOWED_FEAT_KEYS},
+    })
+    _persist_custom_levels()
+    _audit("custom_experience_level_updated", details={"id": preset_id, "name": entry["name"], "by": caller})
+    return {"status": "ok", "preset": entry}
+
+
 @admin_router.delete("/scenario-presets/custom/{preset_id}", summary="Delete a custom experience level")
 async def delete_custom_level(preset_id: str, request: Request,
                               _guard: None = Depends(require_sim_manager)):
