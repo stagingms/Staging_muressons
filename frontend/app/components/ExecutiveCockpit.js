@@ -1262,12 +1262,12 @@ export default function ExecutiveCockpit({
         const next = steps.find((s) => !s.done);
         const ready = !next;
         return (
-          <div aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 16px 0', padding: '8px 14px', borderRadius: 10, background: ready ? 'rgba(34,197,94,0.08)' : 'rgba(99,102,241,0.08)', border: `1px solid ${ready ? 'rgba(34,197,94,0.28)' : 'rgba(99,102,241,0.28)'}` }}>
-            <span style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', color: ready ? '#4ade80' : '#a5b4fc', flexShrink: 0 }}>{ready ? '✓ READY' : 'YOUR MOVE'}</span>
+          <div aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-2) var(--space-4) 0', padding: 'var(--space-2) var(--space-4)', borderRadius: 'var(--radius-card)', background: ready ? 'rgba(34,197,94,0.08)' : 'rgba(99,102,241,0.08)', border: `1px solid ${ready ? 'rgba(34,197,94,0.28)' : 'rgba(99,102,241,0.28)'}` }}>
+            <span style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', color: ready ? 'var(--positive-text)' : 'var(--accent-text)', flexShrink: 0 }}>{ready ? '✓ READY' : 'YOUR MOVE'}</span>
             <span style={{ fontSize: '0.82rem', color: '#e2e8f0', flex: 1, minWidth: 0 }}>{ready ? 'All steps complete — review and commit your round.' : next.label}</span>
-            {!ready && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{remaining} step{remaining > 1 ? 's' : ''} to commit</span>}
+            {!ready && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--neutral)', fontFamily: 'var(--font-numeral)', flexShrink: 0 }}>{remaining} step{remaining > 1 ? 's' : ''} to commit</span>}
             {!ready && next.action && (
-              <button onClick={next.action} style={{ flexShrink: 0, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontWeight: 700, fontSize: '0.72rem', border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(99,102,241,0.2)', color: '#c7d2fe' }}>{next.cta} →</button>
+              <button onClick={next.action} style={{ flexShrink: 0, padding: '5px 12px', borderRadius: 'var(--radius-chip)', cursor: 'pointer', fontWeight: 700, fontSize: '0.72rem', border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(99,102,241,0.2)', color: '#c7d2fe' }}>{next.cta} →</button>
             )}
           </div>
         );
@@ -1342,7 +1342,7 @@ export default function ExecutiveCockpit({
                   <div className={styles.resourceLabel}>🌍 ESG Health</div>
                   <div className={styles.resourceValue} style={{ color: c, display: 'flex', alignItems: 'baseline', gap: 5 }}>
                     <AnimatedNumber value={m.composite} format={(v) => esgGrade(v)} />
-                    <span style={{ fontSize: '0.62rem', color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>{m.composite}</span>
+                    <span style={{ fontSize: '0.62rem', color: '#64748b', fontFamily: 'var(--font-numeral)' }}>{m.composite}</span>
                   </div>
                 </div>
               );
