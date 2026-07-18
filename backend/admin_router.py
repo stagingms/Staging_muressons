@@ -8331,6 +8331,13 @@ _scenario_presets = [
             "peer_benchmarking": False,
             "what_if_simulator": False,
         },
+        # Player-facing round surfaces (cohort settings): full scaffolding —
+        # the consequence map explains causality, the board-room moment guides
+        # reflection.
+        "default_player_features": {
+            "consequence_map_enabled": True,
+            "board_room_moments_enabled": True,
+        },
         "tunables": {
             "inflation_rate": 0.015,
             "overrun_probability": 0.10,
@@ -8368,6 +8375,11 @@ _scenario_presets = [
             "decision_impact": True,
             "peer_benchmarking": True,
             "what_if_simulator": False,
+        },
+        # Both round surfaces stay on at Workshop tier.
+        "default_player_features": {
+            "consequence_map_enabled": True,
+            "board_room_moments_enabled": True,
         },
         "tunables": {
             "inflation_rate": 0.025,
@@ -8408,6 +8420,12 @@ _scenario_presets = [
             "peer_benchmarking": True,
             "what_if_simulator": True,
         },
+        # Consequence map stays (analytic transparency); the GUIDED board-room
+        # reflection goes — executives self-debrief (consistent with recap off).
+        "default_player_features": {
+            "consequence_map_enabled": True,
+            "board_room_moments_enabled": False,
+        },
         "tunables": {
             "inflation_rate": 0.040,
             "overrun_probability": 0.35,
@@ -8446,6 +8464,11 @@ _scenario_presets = [
             "decision_impact": False,
             "peer_benchmarking": True,
             "what_if_simulator": False,
+        },
+        # No scaffolding: both round surfaces off.
+        "default_player_features": {
+            "consequence_map_enabled": False,
+            "board_room_moments_enabled": False,
         },
         "tunables": {
             "inflation_rate": 0.060,

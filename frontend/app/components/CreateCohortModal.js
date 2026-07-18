@@ -335,6 +335,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 if (defaultPreset?.default_player_visibility) {
                     setVisibility(prev => ({ ...prev, player: { ...prev.player, ...defaultPreset.default_player_visibility } }));
                 }
+                // …and the player-facing round surfaces.
+                if (defaultPreset?.default_player_features) {
+                    setStagedPlayerFeatures(defaultPreset.default_player_features);
+                }
             }).catch(() => {});
 
         // Fetch available ending pathways
@@ -539,6 +543,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // (levels PRESELECT; facilitators override per cohort).
     const [playerVisCustomised, setPlayerVisCustomised] = useState(false);
 
+    // Player-facing round surfaces (Consequence Map / Board Room Moment)
+    // preselected by the experience level; persisted per-cohort at save via
+    // /player-feature-toggles. Overridable post-creation in the cohort's
+    // Player Dashboard panel (Round Surfaces group).
+    const [stagedPlayerFeatures, setStagedPlayerFeatures] = useState(null);
+
     const toggleVis = (role, key) => {
         if (role === 'player') setPlayerVisCustomised(true);
         setVisibility(prev => ({
@@ -578,6 +588,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             // visibility is admin-owned (and server-enforced).
             const visPayload = canEditFacilitatorVisibility ? visibility : { player: visibility.player };
             steps.push({ name: 'Visibility', method: 'PUT', url: `${API}/api/admin/cohort/${sid}/analytics-visibility`, payload: visPayload });
+        }
+        if (stagedPlayerFeatures) {
+            // Experience-level round surfaces (Consequence Map / Board Room) —
+            // persisted as per-cohort overrides so each cohort matches its
+            // level; the cohort's Player Dashboard panel can override later.
+            steps.push({ name: 'Player Round Surfaces', method: 'POST', url: `${API}/api/admin/player-feature-toggles?session_id=${sid}`, payload: stagedPlayerFeatures });
         }
         steps.push({
             name: 'Pedagogical Settings', method: 'PUT',
@@ -1158,6 +1174,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         if (!playerVisCustomised && p.default_player_visibility) {
                                                             setVisibility(prev => ({ ...prev, player: { ...prev.player, ...p.default_player_visibility } }));
                                                         }
+                                                        // …and the level's player-facing round surfaces.
+                                                        if (p.default_player_features) {
+                                                            setStagedPlayerFeatures(p.default_player_features);
+                                                        }
                                                     }}
                                                     style={{
                                                         display: 'flex', alignItems: 'center', gap: 12,
@@ -1211,6 +1231,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 {' · Player dashboard: '}
                                                 {Object.entries(sel.default_player_visibility || {}).filter(([,v]) => v).map(([k]) =>
                                                     k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                                                ).join(', ') || 'none'}
+                                                {' · Round surfaces: '}
+                                                {Object.entries(sel.default_player_features || {}).filter(([,v]) => v).map(([k]) =>
+                                                    k.replace(/_enabled$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
                                                 ).join(', ') || 'none'}
                                                 {pedagogyCustomised && (
                                                     <span style={{ marginLeft: 6, color: '#f59e0b', fontWeight: 700 }}>⚙ Pedagogy customised</span>
