@@ -60,6 +60,11 @@ backend/db/muressons_state.db
 # Master-password override (bcrypt hash, set from God Mode)
 backend/db/master_password.json
 
+# Auto-generated JWT signing secret (auth_jwt.py) — NEVER commit
+db/jwt_secret.key
+backend/db/jwt_secret.key
+jwt_secret.key
+
 # Local archive — not for GitHub
 archive/
 

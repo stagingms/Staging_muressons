@@ -141,13 +141,26 @@ async def _assert_session_ownership(request: Request, session_id: str) -> None:
         )
 
 
+def _reject_anonymous(role: str) -> None:
+    """BUG-2026-07-18: an expired/invalidated cookie must surface as 401
+    'session expired', NOT as a role-based 403. Before this, a facilitator
+    whose cookie died (JWT expiry, or a restart under the old ephemeral
+    secret) got e.g. 'Registry-admin access required' while the dashboard
+    still looked logged in — misdiagnosing an auth problem as a role problem.
+    401 also lets the frontend distinguish 'log in again' from 'not allowed'."""
+    if role == 'anonymous':
+        raise HTTPException(status_code=401, detail='Session expired — please log in again')
+
+
 def require_super_admin(role: str = Depends(get_fac_role)):
     """Allow super_admin only. Uses hierarchy level to handle 'admin' alias correctly."""
+    _reject_anonymous(role)
     if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('super_admin', 3):
         raise HTTPException(status_code=403, detail='Super Admin required')
 
 def require_lead_facilitator(role: str = Depends(get_fac_role)):
     """Allow lead_facilitator and super_admin. Blocks base facilitator and anonymous."""
+    _reject_anonymous(role)
     if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('lead_facilitator', 2):
         raise HTTPException(status_code=403, detail='Lead Facilitator or higher required')
 
@@ -162,6 +175,7 @@ def require_registry_admin(role: str = Depends(get_fac_role)):
     facilitator provisioning endpoints (create / bulk / Excel upload).
     C6: uses is_admin_role so the distinct god_mode tier is admitted, not just
     the literal 'super_admin' string."""
+    _reject_anonymous(role)
     if not (is_admin_role(role) or role == "project_admin"):
         raise HTTPException(status_code=403, detail='Registry-admin access required')
 

@@ -43,33 +43,56 @@ JWT_ALGORITHM: str = "HS256"
 JWT_EXPIRY_HOURS: int = int(os.getenv("JWT_EXPIRY_HOURS", "2"))
 COOKIE_NAME: str = "mur_session"
 
-# LOW-001: Loud startup notice when JWT_SECRET is not configured.
-# In production (DEBUG != true) this logs at ERROR level so it surfaces in
-# monitoring. The server still starts to avoid hard-failing running workshops,
-# but all JWT sessions will be invalidated on every restart.
+# LOW-001 / BUG-2026-07-18: When JWT_SECRET is not configured, the secret used
+# to be per-process ephemeral — every backend restart silently invalidated all
+# facilitator cookies. The dashboard (rendered from client state) still LOOKED
+# logged in, so the first symptom was a confusing guard error on the next
+# privileged call (e.g. "Registry-admin access required" for god_mode).
+# Fix: auto-generate ONCE and persist to the durable data dir
+# (runtime_paths.data_file — same volume as facilitator_registry.json), so
+# sessions survive restarts. The file is gitignored (db/*.json is not matched;
+# we use a dedicated pattern) and written 0600. Setting JWT_SECRET explicitly
+# still takes precedence and skips the file entirely.
 if not JWT_SECRET:
     import logging as _log
     _auth_logger = _log.getLogger("muressons.auth")
-    _is_prod = os.getenv("DEBUG", "false").lower() != "true"
-    if _is_prod:
+    try:
+        from runtime_paths import data_file as _data_file
+        _secret_path = str(_data_file("jwt_secret.key"))
+        try:
+            with open(_secret_path, "r", encoding="utf-8") as _fh:
+                _stored = _fh.read().strip()
+        except FileNotFoundError:
+            _stored = ""
+        if len(_stored) >= 32:
+            JWT_SECRET = _stored
+        else:
+            JWT_SECRET = secrets.token_hex(32)
+            _dirname = os.path.dirname(_secret_path)
+            if _dirname:
+                os.makedirs(_dirname, exist_ok=True)
+            _fd = os.open(_secret_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(_fd, "w", encoding="utf-8") as _fh:
+                _fh.write(JWT_SECRET)
+            _auth_logger.warning(
+                "[AUTH] JWT_SECRET not set — generated one and persisted it to "
+                f"{_secret_path} so sessions survive restarts. For production, "
+                "prefer an explicit JWT_SECRET env var (openssl rand -hex 32)."
+            )
+    except Exception as _exc:
+        # Persistence unavailable (read-only fs, etc.) — fall back to the old
+        # ephemeral behaviour rather than refusing to start.
+        JWT_SECRET = JWT_SECRET or secrets.token_hex(32)
         _auth_logger.error(
             "\n"
             "╔══════════════════════════════════════════════════╗\n"
-            "║  SECURITY — JWT_SECRET is not configured!        ║\n"
+            "║  SECURITY — JWT_SECRET is not configured and     ║\n"
+            "║  could not be persisted (%s).                    ║\n"
             "║  • All facilitator sessions lost on restart      ║\n"
             "║  • Set JWT_SECRET env var (32 bytes minimum):    ║\n"
             "║    openssl rand -hex 32                          ║\n"
-            "╚══════════════════════════════════════════════════╝"
+            "╚══════════════════════════════════════════════════╝" % _exc
         )
-    else:
-        _auth_logger.warning(
-            "[AUTH] JWT_SECRET not set — ephemeral secret in use. "
-            "Sessions will be lost on server restart. "
-            "This is acceptable for local development only."
-        )
-    # Generate a per-process ephemeral secret so the rest of the auth
-    # pipeline keeps working; tokens issued with it are invalidated on restart.
-    JWT_SECRET = secrets.token_hex(32)
 
 
 def _jwt_available() -> bool:
