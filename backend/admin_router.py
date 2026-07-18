@@ -9003,49 +9003,53 @@ def check_auto_pause_triggers(session_id: str, events: dict, global_state: dict)
 
 @admin_router.get("/decision-history/{session_id}", summary="Full decision timeline for a session")
 async def get_decision_history(session_id: str, _guard: None = Depends(require_facilitator)):
-    """Reconstruct the complete decision history with state snapshots."""
-    global_states = getattr(db, '_global_states', {})
-    bu_states_store = getattr(db, '_bu_states', {})
-    decision_log = getattr(db, '_decision_log', [])
+    """Reconstruct the complete decision timeline with state snapshots.
 
-    rounds = global_states.get(session_id, [])
-    if not rounds:
+    BUGFIX: read from the persisted round history (db.fetch_round_history — the
+    same authoritative source the player dashboard uses) instead of the
+    in-memory `_global_states`/`_bu_states`/`_decision_log`. Under the Postgres
+    backend those in-memory stores aren't populated (they live in
+    database_memory), so the replay only ever saw the seed round and stalled at
+    R1. The DB carries every committed round, its BU snapshots, and its
+    decisions, so the timeline now spans the whole game.
+    """
+    history = await db.fetch_round_history(session_id)
+    if not history:
         raise HTTPException(404, "No history for this session")
 
-    session_decisions = [d for d in decision_log if d.get("session_id") == session_id]
-    dec_by_round = {}
-    for d in session_decisions:
-        rn = d.get("round_number", 0)
-        if rn not in dec_by_round:
-            dec_by_round[rn] = []
-        dec_by_round[rn].append(d)
-
     timeline = []
-    for i, grs in enumerate(rounds):
-        rn = grs.get("round_number", 1)
-        flags = grs.get("active_event_flags", {})
-        bus = bu_states_store.get(session_id, {}).get(rn, [])
+    for h in history:
+        gs = h.get("global_state", {}) or {}
+        rn = h.get("round_number", 1)
+        bus = h.get("business_units", []) or []
+        decs = h.get("decisions", []) or []
 
         # Extract complexity events for this round
+        flags = gs.get("active_event_flags", {}) or {}
         round_complexity = []
         for key, value in flags.items():
             if key in _COMPLEXITY_EVENT_LABELS and value:
                 icon, label, sev = _COMPLEXITY_EVENT_LABELS[key]
                 round_complexity.append({"icon": icon, "label": label, "severity": sev})
 
-        # Get decisions for this round
-        round_decs = dec_by_round.get(rn, [])
-        choices = [d.get("choice_selected", "") for d in round_decs if d.get("choice_selected")]
-        total_capex = sum(d.get("capex_allocated", 0) for d in round_decs)
+        # Decisions for this round (fetch_round_history already scopes them)
+        choices = [d.get("choice_selected", "") for d in decs if d.get("choice_selected")]
+        total_capex = sum(float(d.get("capex", 0) or 0) for d in decs)
+
+        # historical_ebitda / inflation_index aren't dedicated DB columns; use
+        # them when the state carries them, else derive EBITDA from the BUs.
+        ebitda = gs.get("historical_ebitda")
+        if ebitda is None:
+            ebitda = sum(float(b.get("revenue_base", 0)) - float(b.get("opex_base", 0)) for b in bus)
 
         timeline.append({
             "round": rn,
-            "treasury_m": round(float(grs.get("corporate_treasury", 0)) / 1_000_000, 2),
-            "reputation": round(float(grs.get("group_reputation", 50)), 1),
-            "synergy": round(float(grs.get("synergy_multiplier", 1.0)), 3),
-            "ebitda_m": round(float(grs.get("historical_ebitda", 0)) / 1_000_000, 2),
-            "inflation": round(float(grs.get("inflation_index", 0.025)), 4),
-            "cost_of_capital": round(float(grs.get("cost_of_capital", 0.05)), 4),
+            "treasury_m": round(float(gs.get("corporate_treasury", 0)) / 1_000_000, 2),
+            "reputation": round(float(gs.get("group_reputation", 50)), 1),
+            "synergy": round(float(gs.get("synergy_multiplier", 1.0)), 3),
+            "ebitda_m": round(float(ebitda) / 1_000_000, 2),
+            "inflation": round(float(gs.get("inflation_index", 0.025)), 4),
+            "cost_of_capital": round(float(gs.get("cost_of_capital", 0.05)), 4),
             "choices": choices,
             "total_capex": round(total_capex, 0),
             "complexity_events": round_complexity,
