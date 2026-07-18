@@ -265,6 +265,20 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [setupResults, setSetupResults] = useState(null);
     const [retryingIdx, setRetryingIdx] = useState(null);
 
+    // ── RULES-OF-HOOKS: every useState below must stay ABOVE the
+    //    `if (!isOpen) return null` early return, or the hook count
+    //    changes when the modal opens (React error #310).
+    // Mirrors pedagogyCustomised: once the facilitator hand-edits the PLAYER
+    // visibility column, experience-level re-selection stops overwriting it
+    // (levels PRESELECT; facilitators override per cohort).
+    const [playerVisCustomised, setPlayerVisCustomised] = useState(false);
+    // Player-facing round surfaces (Consequence Map / Board Room Moment)
+    // preselected by the experience level; persisted per-cohort at save via
+    // /player-feature-toggles. Overridable post-creation in the cohort's
+    // Player Dashboard panel (Round Surfaces group).
+    const [stagedPlayerFeatures, setStagedPlayerFeatures] = useState(null);
+    const [savingLevel, setSavingLevel] = useState(false);
+
     // Scroll to error banner and open the relevant tab whenever an error is set
     const setValidationError = (msg, tab = null) => {
         setError(msg);
@@ -542,23 +556,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         },
     ];
 
-    // Mirrors pedagogyCustomised: once the facilitator hand-edits the PLAYER
-    // visibility column, experience-level re-selection stops overwriting it
-    // (levels PRESELECT; facilitators override per cohort).
-    const [playerVisCustomised, setPlayerVisCustomised] = useState(false);
 
-    // Player-facing round surfaces (Consequence Map / Board Room Moment)
-    // preselected by the experience level; persisted per-cohort at save via
-    // /player-feature-toggles. Overridable post-creation in the cohort's
-    // Player Dashboard panel (Round Surfaces group).
-    const [stagedPlayerFeatures, setStagedPlayerFeatures] = useState(null);
 
     // ── Facilitator-authorable custom levels ────────────────────────────
     // Captures the wizard's CURRENT pedagogy + player visibility + round
     // surfaces as a named, reusable level (persisted server-side, scoped to
     // this facilitator; admins see all). Engine tunables are deliberately
     // not part of a custom level.
-    const [savingLevel, setSavingLevel] = useState(false);
     const refreshPresets = async (selectId = null) => {
         try {
             const r = await fetch(`${API}/api/admin/scenario-presets`, { credentials: 'include' });
