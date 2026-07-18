@@ -21,10 +21,56 @@ const PLAYER_ANALYTICS = [
     { key: 'what_if_simulator', label: 'What-If Simulator', icon: '📈', desc: 'Counterfactual analysis', tooltip: 'Counterfactual analysis — shows what would have happened if the player had chosen the most popular alternative option. Displays projected Treasury and Reputation diffs. Only appears when choices differ from the majority. Disabled by default.' },
 ];
 
+// Player-facing round surfaces. These are cohort SETTINGS (not analytics
+// visibility), so they persist to the per-cohort override layer via
+// /player-feature-toggles and are read back cohort-effective from
+// global-settings. Each cohort is independent; with no cohort selected the
+// controls set the global default.
+const PLAYER_FEATURES = [
+    { key: 'consequence_map_enabled', label: 'Decision Consequence Map', icon: '🗺️', desc: "Results-view timeline linking each round's decisions to their downstream effects" },
+    { key: 'board_room_moments_enabled', label: 'Board Room Moment', icon: '🏢', desc: 'Guided post-round reflection (Noticing → Making Sense → Working with Meaning)' },
+];
+
 export default function AnalyticsControlPanel({ sessionId }) {
     const [visibility, setVisibility] = useState(null);
     const [saving, setSaving] = useState(false);
     const [status, setStatus] = useState(null);
+    // Player-facing round surfaces — cohort-effective, persisted separately
+    // from analytics visibility (see PLAYER_FEATURES).
+    const [features, setFeatures] = useState({ consequence_map_enabled: true, board_room_moments_enabled: true });
+
+    useEffect(() => {
+        const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+        fetch(`${API}/api/admin/global-settings${qs}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : {})
+            .then(d => setFeatures({
+                consequence_map_enabled: d.consequence_map_enabled !== false,
+                board_room_moments_enabled: d.board_room_moments_enabled !== false,
+            }))
+            .catch(() => {});
+    }, [sessionId]);
+
+    const toggleFeature = async (key) => {
+        const next = !features[key];
+        setFeatures(f => ({ ...f, [key]: next }));   // optimistic
+        setSaving(true);
+        try {
+            const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+            const res = await fetch(`${API}/api/admin/player-feature-toggles${qs}`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [key]: next }),
+            });
+            if (res.ok) {
+                const d = await res.json();
+                setFeatures(f => ({ ...f, [key]: d[key] !== false }));
+                setStatus('✅ Saved'); setTimeout(() => setStatus(null), 2000);
+            } else {
+                setFeatures(f => ({ ...f, [key]: !next }));   // revert
+            }
+        } catch { setFeatures(f => ({ ...f, [key]: !next })); }
+        setSaving(false);
+    };
 
     const DEFAULT_VIS = {
         facilitator: Object.fromEntries(FACILITATOR_ANALYTICS.map(a => [a.key, true])),
@@ -82,7 +128,7 @@ export default function AnalyticsControlPanel({ sessionId }) {
                 <div>
                     <h2 className={styles.title}>Analytics Visibility Controls {sessionId ? `(${sessionId.slice(0,12)})` : ''}</h2>
                     <p className={styles.subtitle}>
-                        {sessionId ? "Override analytics visibility for this specific cohort." : "Choose which analytics are available to Facilitators and Players globally."}
+                        {sessionId ? "Override analytics visibility and player-facing round surfaces for this specific cohort." : "Choose which analytics are available to Facilitators and Players, and the default player-facing round surfaces, globally."}
                         {saving && <span className={styles.savingBadge}>Saving…</span>}
                         {status && <span className={styles.savedBadge}>{status}</span>}
                     </p>
@@ -133,6 +179,30 @@ export default function AnalyticsControlPanel({ sessionId }) {
                             <button
                                 className={`${styles.toggleBtn} ${visibility.player[a.key] ? styles.toggleOn : styles.toggleOff}`}
                                 onClick={() => toggle('player', a.key)}
+                            >
+                                <span className={styles.toggleKnob} />
+                            </button>
+                        </div>
+                    ))}
+
+                    {/* Player-facing round surfaces — per-cohort settings (not
+                        analytics visibility). Persist via /player-feature-toggles. */}
+                    <div className={styles.roleHeader} style={{ marginTop: '0.9rem' }}>
+                        <span>🎬</span>
+                        <h3>Round Surfaces</h3>
+                    </div>
+                    {PLAYER_FEATURES.map(a => (
+                        <div key={a.key} className={styles.toggleRow} data-tooltip={a.desc}>
+                            <div className={styles.toggleInfo}>
+                                <span className={styles.toggleIcon}>{a.icon}</span>
+                                <div>
+                                    <div className={styles.toggleLabel}>{a.label}</div>
+                                    <div className={styles.toggleDesc}>{a.desc}</div>
+                                </div>
+                            </div>
+                            <button
+                                className={`${styles.toggleBtn} ${features[a.key] ? styles.toggleOn : styles.toggleOff}`}
+                                onClick={() => toggleFeature(a.key)}
                             >
                                 <span className={styles.toggleKnob} />
                             </button>

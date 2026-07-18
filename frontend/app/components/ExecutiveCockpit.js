@@ -409,14 +409,19 @@ export default function ExecutiveCockpit({
     return () => { cancelled = true; };
   }, [commitResults, sim?.sessionId]);
 
-  // Pedagogical scaffolding toggles (fetched from god-mode settings)
+  // Pedagogical scaffolding toggles — resolved for THIS cohort. Passing the
+  // session id makes global-settings return the cohort-effective values (global
+  // defaults with any per-cohort overrides applied), so player-facing surfaces
+  // like the Consequence Map / Board Room Moment can be set per cohort.
   const [pedToggles, setPedToggles] = useState({});
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`)
+    const sessionId = sim?.sessionId || sim?.session_id;
+    const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings${qs}`)
       .then(r => r.ok ? r.json() : {})
       .then(d => setPedToggles(d || {}))
       .catch(() => {});
-  }, []);
+  }, [sim?.sessionId, sim?.session_id]);
   const [predictions, setPredictions] = useState([]);
   const [checkpointData, setCheckpointData] = useState(null);
   useEffect(() => {

@@ -77,8 +77,6 @@ ROLE_ALLOWED_TABS = {
         "scorecard_evaluator", "bonuses", "peer_eval", "reports",
         "notes", "annotations", "teaching_journal", "technical_glossary",
         "intervention_config",
-        # Player-facing round surface toggles (consequence map / board room).
-        "player_features",
         # ESG Leadership Profile rubric editor — moved to the base facilitator
         # dashboard (all run-managing facilitators tune the rubric; project_admin
         # never sees it because its tab set is fixed, not cumulative).
@@ -401,6 +399,7 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "decision_timer_seconds",
     "npc_stakeholders_enabled",
     "board_room_moments_enabled",
+    "consequence_map_enabled",   # results-view Decision Consequence Map (per-cohort)
     "brsr_ngrbc_enabled",
     "tcfd_scenarios_enabled",
     "industry_vertical",

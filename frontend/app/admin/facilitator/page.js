@@ -24,7 +24,6 @@ import ReportsExport from '../../components/ReportsExport';
 import RoundTimeline from '../../components/RoundTimeline';
 import BalancedScorecardEvaluator from '../../components/BalancedScorecardEvaluator';
 import ESGWeightsEditor from '../../components/ESGWeightsEditor';
-import PlayerFeatureToggles from '../../components/PlayerFeatureToggles';
 import StudentBonuses from '../../components/StudentBonuses';
 import CreateCohortModal from '../../components/CreateCohortModal';
 import FacilitatorManager from '../../components/FacilitatorManager';
@@ -1087,8 +1086,6 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                 );
             case 'esg_weights':
                 return <ESGWeightsEditor />;
-            case 'player_features':
-                return <PlayerFeatureToggles />;
             case 'notes':
                 return <FacilitatorNotes sessionId={selectedSession} />;
             case 'cohort_comparison':

@@ -150,7 +150,6 @@ export const FACILITATOR_SIDEBAR = [
         icon: '⚙️',
         id: 'config',
         items: [
-            { id: 'player_features',     label: 'Player Features',        icon: '🎛️', tooltip: 'Switch player-facing round surfaces on or off: the results-view Decision Consequence Map and the Board Room Moment reflection. Applies to all cohorts. Answers: "How do I show or hide the consequence map and board-room reflection for players?"' },
             { id: 'auto_pause',          label: 'Auto-Pause Triggers',   icon: '⏸️', tooltip: 'Configure automatic pause conditions that halt round progression for facilitator intervention: low treasury thresholds, reputation floor breaches, bankruptcy detection, or custom KPI triggers. Answers: "When should the simulation automatically pause for my attention?"', requiredRole: 'lead_facilitator' },
             { id: 'undo_round',          label: 'Undo Round',             icon: '↩️', tooltip: 'Roll back the last completed round for a selected session, restoring all KPIs to their previous state. Useful for correcting data entry errors or re-running a round after a teaching moment. Requires confirmation. Answers: "How do I reverse a round that went wrong?"', requiredRole: 'lead_facilitator' },
             { id: 'regulatory_sandbox',  label: 'Regulatory Sandbox',     icon: '⚖️', tooltip: 'Dynamically inject regulatory instruments (e.g., Carbon Tax, Due Diligence) into the simulation to test resilience.', requiredRole: 'lead_facilitator' },

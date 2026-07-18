@@ -3152,20 +3152,47 @@ class PlayerFeatureTogglesRequest(BaseModel):
 
 @admin_router.post("/player-feature-toggles", summary="Toggle player-facing round surfaces")
 async def set_player_feature_toggles(body: PlayerFeatureTogglesRequest, request: Request,
+                                     session_id: str | None = None,
                                      _guard: None = Depends(require_sim_manager)):
     """Any run-managing facilitator can switch the player-facing Decision
-    Consequence Map and Board Room Moment on or off. Global (shared across
-    cohorts), whitelisted, and audited."""
+    Consequence Map and Board Room Moment on or off.
+
+    Per-cohort: when session_id is supplied the change is a per-cohort override
+    (cohort_settings[session_id]) that shadows the global default — each cohort
+    is independent. Without session_id the global default itself is set.
+    Whitelisted, ownership-checked (for the cohort path), and audited. The
+    player dashboard reads the effective value via global-settings?session_id.
+    """
+    if session_id:
+        await _assert_session_ownership(request, session_id)
+        target = cohort_settings.setdefault(session_id, {})
+    else:
+        target = _god_mode_settings
+
     changed = {}
     for k in _PLAYER_FEATURE_KEYS:
         v = getattr(body, k, None)
         if v is not None:
-            _god_mode_settings[k] = bool(v)
+            target[k] = bool(v)
             changed[k] = bool(v)
+
     if changed:
-        mark_godmode_dirty()
-        _audit("player_feature_toggles_updated", details={**changed, "_caller_role": get_fac_role(request)})
-    return {"status": "ok", **{k: _god_mode_settings.get(k, True) for k in _PLAYER_FEATURE_KEYS}}
+        if session_id:
+            # Mirror patch_cohort_settings: in-memory override + live push.
+            await manager.push_to_session(session_id, {
+                "type": "cohort_settings_changed",
+                "session_id": session_id,
+                "changed_keys": list(changed.keys()),
+                "settings": cohort_settings[session_id],
+            })
+        else:
+            mark_godmode_dirty()
+        _audit("player_feature_toggles_updated",
+               details={**changed, "session_id": session_id, "_caller_role": get_fac_role(request)})
+
+    eff = get_effective_settings(session_id)
+    return {"status": "ok", "session_id": session_id,
+            **{k: eff.get(k, True) for k in _PLAYER_FEATURE_KEYS}}
 
 
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
