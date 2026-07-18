@@ -1342,7 +1342,7 @@ export default function ExecutiveCockpit({
                   <div className={styles.resourceLabel}>🌍 ESG Health</div>
                   <div className={styles.resourceValue} style={{ color: c, display: 'flex', alignItems: 'baseline', gap: 5 }}>
                     <AnimatedNumber value={m.composite} format={(v) => esgGrade(v)} />
-                    <span style={{ fontSize: '0.62rem', color: '#64748b', fontFamily: 'var(--font-numeral)' }}>{m.composite}</span>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--neutral-faint)', fontFamily: 'var(--font-numeral)' }}>{m.composite}</span>
                   </div>
                 </div>
               );
@@ -1352,10 +1352,10 @@ export default function ExecutiveCockpit({
               <div className={styles.resourceValue}><AnimatedNumber value={treasury} format={fmtCurrency} /></div>
               <Sparkline data={[...historyData.map(d => d.treasury), treasury]} color="#4ade80" />
               {(() => { const prev = previousGlobalState?.corporate_treasury; const d = prev != null ? treasury - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
               {shadowDeltas?.treasury !== 0 && shadowDeltas?.treasury && (
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.treasury < 0 ? '#f87171' : '#4ade80', marginTop: 2 }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: shadowDeltas.treasury < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
                   → {fmtCurrency(treasury + shadowDeltas.treasury)} ({shadowDeltas.treasury > 0 ? '+' : ''}{fmtCurrency(shadowDeltas.treasury)})
                 </div>
               )}
@@ -1368,25 +1368,25 @@ export default function ExecutiveCockpit({
               return (
                 <div className={styles.resourceCard} title={greenFundTooltip}>
                   <div className={styles.resourceLabel}>🌱 Green Fund</div>
-                  <div className={styles.resourceValue} style={{ color: '#4ade80' }}>{fmtCurrency(greenFund)}</div>
+                  <div className={styles.resourceValue} style={{ color: 'var(--positive-text)' }}>{fmtCurrency(greenFund)}</div>
                   {greenFund === 0 && decisionParadigm === 'advanced_climate' && (
-                    <div style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: 2, lineHeight: 1.3 }}>Funded by carbon fee</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--positive-text)', marginTop: 2, lineHeight: 1.3 }}>Funded by carbon fee</div>
                   )}
                   {greenFund > 0 && decisionParadigm === 'advanced_climate' && (
-                    <div style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: 2, lineHeight: 1.3 }}>+{fmtCurrency(carbonFeePerRound)}/round est.</div>
+                    <div style={{ fontSize: '0.68rem', color: 'var(--positive-text)', marginTop: 2, lineHeight: 1.3 }}>+{fmtCurrency(carbonFeePerRound)}/round est.</div>
                   )}
                 </div>
               );
             })()}
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>🌍 Reputation</div>
-              <div className={styles.resourceValue}><AnimatedNumber value={reputation} format={(v) => Math.round(v)} /><span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
+              <div className={styles.resourceValue}><AnimatedNumber value={reputation} format={(v) => Math.round(v)} /><span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span></div>
               <Sparkline data={[...historyData.map(d => d.reputation), reputation]} color={reputation >= 55 ? '#4ade80' : reputation >= 40 ? '#f59e0b' : '#ef4444'} />
               {(() => { const prev = previousGlobalState?.group_reputation; const d = prev != null ? reputation - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
               ) : null; })()}
               {shadowDeltas?.reputation !== 0 && shadowDeltas?.reputation && (
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.reputation < 0 ? '#f87171' : '#4ade80', marginTop: 2 }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: shadowDeltas.reputation < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
                   → {(reputation + shadowDeltas.reputation).toFixed(0)} ({shadowDeltas.reputation > 0 ? '+' : ''}{shadowDeltas.reputation})
                 </div>
               )}
@@ -1394,10 +1394,10 @@ export default function ExecutiveCockpit({
             {!isHealthcare && (
               <div className={styles.resourceCard}>
                 <div className={styles.resourceLabel}>🏭 Carbon</div>
-                <div className={styles.resourceValue}><AnimatedNumber value={tco2e} format={(v) => Math.round(v).toLocaleString()} /><span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>t</span></div>
+                <div className={styles.resourceValue}><AnimatedNumber value={tco2e} format={(v) => Math.round(v).toLocaleString()} /><span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>t</span></div>
                 <Sparkline data={[...historyData.map(d => d.tco2e), tco2e]} color="#f59e0b" />
                 {(() => { const prev = previousGlobalState?.tco2e_emissions; const d = prev != null ? tco2e - prev : 0; return d !== 0 ? (
-                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#4ade80' : '#f87171', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--positive-text)' : 'var(--danger-text)', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
                 ) : null; })()}
               </div>
             )}
@@ -1406,21 +1406,21 @@ export default function ExecutiveCockpit({
               <div className={styles.resourceValue}><AnimatedNumber value={ebitda} format={fmtCurrency} /></div>
               <Sparkline data={[...historyData.map(d => d.ebitda), ebitda]} color="#818cf8" />
               {(() => { const prevBUs = previousGlobalState?.business_units || history?.[history?.length-1]?.business_units; const prevEbitda = prevBUs?.reduce((a,b) => a + (b.revenue_base||0) - (b.opex_base||0), 0); const d = prevEbitda != null ? ebitda - prevEbitda : 0; return Math.abs(d) > 0.01 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
             </div>
             {isHealthcare && (
               <>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🩺 Avg Burnout</div>
-                  <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? '#ef4444' : systemBurnout > 50 ? '#f59e0b' : '#10b981' }}>
-                    {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                  <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? 'var(--danger)' : systemBurnout > 50 ? 'var(--caution)' : 'var(--positive)' }}>
+                    {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🛏️ Bed Util.</div>
-                  <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? '#ef4444' : totalBedCapacity > 70 ? '#f59e0b' : '#10b981' }}>
-                    {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>%</span>
+                  <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? 'var(--danger)' : totalBedCapacity > 70 ? 'var(--caution)' : 'var(--positive)' }}>
+                    {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>%</span>
                   </div>
                 </div>
               </>
@@ -1429,19 +1429,19 @@ export default function ExecutiveCockpit({
               <>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🏛️ Political Capital</div>
-                  <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? '#10b981' : politicalCapital > 30 ? '#f59e0b' : '#ef4444' }}>
-                    {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                  <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? 'var(--positive)' : politicalCapital > 30 ? 'var(--caution)' : 'var(--danger)' }}>
+                    {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🤝 Community Trust</div>
-                  <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? '#10b981' : communityTrust > 30 ? '#f59e0b' : '#ef4444' }}>
-                    {communityTrust.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
+                  <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? 'var(--positive)' : communityTrust > 30 ? 'var(--caution)' : 'var(--danger)' }}>
+                    {communityTrust.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🌡️ Emissions Int.</div>
-                  <div className={styles.resourceValue} style={{ color: globalEmissions > 100 ? '#ef4444' : globalEmissions > 60 ? '#f59e0b' : '#10b981' }}>
+                  <div className={styles.resourceValue} style={{ color: globalEmissions > 100 ? 'var(--danger)' : globalEmissions > 60 ? 'var(--caution)' : 'var(--positive)' }}>
                     {globalEmissions.toFixed(0)}
                   </div>
                 </div>
@@ -1455,11 +1455,11 @@ export default function ExecutiveCockpit({
                 style={{ cursor: 'help' }}
               >
                 <div className={styles.resourceLabel}>⚖️ Reg. Active</div>
-                <div className={styles.resourceValue} style={{ color: '#a5b4fc' }}>
+                <div className={styles.resourceValue} style={{ color: 'var(--accent-text)' }}>
                   {activeRegulations.length}
-                  <span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>instr.</span>
+                  <span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>instr.</span>
                 </div>
-                <div style={{ fontSize: '0.68rem', color: regulatoryComplexity > 60 ? '#fbbf24' : '#6366f1', marginTop: 2, lineHeight: 1.3 }}>
+                <div style={{ fontSize: '0.68rem', color: regulatoryComplexity > 60 ? 'var(--caution-text)' : 'var(--accent)', marginTop: 2, lineHeight: 1.3 }}>
                   Complexity {regulatoryComplexity.toFixed(0)}/100
                 </div>
               </div>
