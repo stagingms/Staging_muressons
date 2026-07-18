@@ -771,7 +771,7 @@
 
 :global([data-theme="light"]) .sortBtn {
     border-color: #e2e8f0;
-    color: #64748b;
+    color: #334155 /* legibility pass: dark, not grey */;
 }
 
 :global([data-theme="light"]) .sortBtnActive {
@@ -853,7 +853,7 @@
 }
 
 :global([data-theme="light"]) .gaugeLabel {
-    color: #64748b;
+    color: #334155 /* legibility pass: dark, not grey */;
 }
 
 :global([data-theme="light"]) .gaugeValue {

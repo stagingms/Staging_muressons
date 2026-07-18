@@ -91,6 +91,24 @@
                         rgba(99, 102, 241, 0.10) 0%, transparent 60%);
 }
 
+/* ── Light-mode semantic text tiers ──────────────────────────────────────
+   The *-text tokens above are bright pastels chosen for dark surfaces
+   (indigo-300, green-400, …) — on white they wash out completely. In light
+   mode they swap to their deep 700-weight counterparts, and the neutral
+   tier goes dark slate instead of grey, per the light-mode legibility pass
+   (black/dark colours, not grey). */
+[data-theme="light"] {
+    --accent-text:   #4338ca;   /* indigo-700  */
+    --positive-text: #15803d;   /* green-700   */
+    --danger-text:   #b91c1c;   /* red-700     */
+    --caution-text:  #a16207;   /* yellow-700  */
+    --brand-text:    #0f766e;   /* teal-700    */
+    --info-text:     #1d4ed8;   /* blue-700    */
+    --neutral:       #334155;   /* slate-700 — was grey #94a3b8 */
+    --neutral-faint: #475569;   /* slate-600 — unit suffixes stay one step lighter */
+}
+
+
 /* ── Reveal keyframes (global — tokens.css is a plain stylesheet, so these
    names are visible to every CSS-module .module.css file too) ─────────── */
 @keyframes revealPanelIn {

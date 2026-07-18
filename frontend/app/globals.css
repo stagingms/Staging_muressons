@@ -154,13 +154,13 @@
   --kpi-neutral: #475569;
 
   /* Text */
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-muted: #64748b;       /* Upgraded from #94a3b8 â†’ 5.3:1 ratio on white */
+  --text-primary: #000000;   /* legibility pass: black, not slate */
+  --text-secondary: #1e293b; /* legibility pass: near-black slate */
+  --text-muted: #334155;     /* legibility pass: DARK grey (7.5:1), was mid-grey */
   --text-inverse: #f8fafc;
 
   /* Borders & glows */
-  --border-subtle: rgba(15, 23, 42, 0.08);
+  --border-subtle: rgba(2, 6, 23, 0.14); /* darker hairlines for bright rooms */
   --border-active: rgba(37, 99, 235, 0.35);
   --glow-blue: 0 0 16px rgba(37, 99, 235, 0.12);
   --glow-cyan: 0 0 16px rgba(8, 145, 178, 0.1);
