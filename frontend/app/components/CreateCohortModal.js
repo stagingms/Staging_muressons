@@ -240,7 +240,15 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, t.default]))
     );
     // difficultyTier is now derived from selectedExperienceLevel
-    const [openTab, setOpenTab] = useState('core');
+    // Two-column layout: sections open independently per column (multi-open
+    // Set, not a single tab), so the whole panel can be visible at once.
+    // Default: the first section of EACH column.
+    const [openTabs, setOpenTabs] = useState(() => new Set(['core', 'pedagogy']));
+    const toggleTab = (id) => setOpenTabs(prev => {
+        const next = new Set(prev);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        return next;
+    });
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -256,7 +264,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // Scroll to error banner and open the relevant tab whenever an error is set
     const setValidationError = (msg, tab = null) => {
         setError(msg);
-        if (tab) setOpenTab(tab);
+        if (tab) setOpenTabs(prev => new Set(prev).add(tab));
         // Defer scroll so the DOM updates first
         setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
     };
@@ -268,7 +276,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     useEffect(() => {
         if (!isOpen) return;
         setError(null);
-        setOpenTab('core');
+        setOpenTabs(new Set(['core', 'pedagogy']));
 
         if (isEditMode && editSession) {
             // ── Edit mode: pre-populate from existing session ──
@@ -945,25 +953,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     <form onSubmit={isEditMode ? handleEdit : handleCreate} className={styles.form}>
                         {error && <div ref={errorRef} className={styles.errorBox}>{error}</div>}
 
-                        
-
-                        
-                                
-
-                                
-
-                        
-
-                                
-
-                        
-
-                        
-
-                        
-
-                        
-                        <AccordionItem id="core" title="1. Core Configuration" summary="Cohort Name, Facilitator, Scenario, & Currency" isOpen={openTab === 'core'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                        {/* Two parallel columns (wide screens): setup flow (1–4) on the
+                            left, pedagogy/analytics + summary/lock on the right, so the
+                            whole panel is visible on one screen. Stacks below 1100px. */}
+                        <div className={styles.formColumns}>
+                        <div className={styles.formCol}>
+                        <AccordionItem id="core" title="1. Core Configuration" summary="Cohort Name, Facilitator, Scenario, & Currency" isOpen={openTabs.has('core')} onToggle={toggleTab}>
 {/* ── Section 1: Core Details ── */}
                                 <section className={styles.configSection}>
                                     <h3>1. Core Details</h3>
@@ -1243,7 +1238,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         </AccordionItem>
 
                         {!isBaseFacilitator && (
-                            <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway" isOpen={openTab === 'engine'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                            <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway" isOpen={openTabs.has('engine')} onToggle={toggleTab}>
     {/* ── Section 2: Decision Paradigm ── */}
                                     <section className={styles.configSection}>
                                         <div className={styles.sectionHeader}>
@@ -1485,7 +1480,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         )}
 
                         {!isBaseFacilitator && simulationMode !== 'single_bu' && (
-                            <AccordionItem id="verticals" title="2b. Industry Verticals" summary="Optional: Replace default BUs with industry-specific units" isOpen={openTab === 'verticals'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                            <AccordionItem id="verticals" title="2b. Industry Verticals" summary="Optional: Replace default BUs with industry-specific units" isOpen={openTabs.has('verticals')} onToggle={toggleTab}>
 {/* ── BU Vertical Substitution (selected at cohort creation) ── */}
                             <section className={styles.configSection}>
                                 <div className={styles.sectionHeader}>
@@ -1595,7 +1590,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         )}
 
                         {!isBaseFacilitator && (
-                            <AccordionItem id="modules" title="3. Optional Modules" summary="Engine Modules, Side Tracks & CEO" isOpen={openTab === 'modules'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                            <AccordionItem id="modules" title="3. Optional Modules" summary="Engine Modules, Side Tracks & CEO" isOpen={openTabs.has('modules')} onToggle={toggleTab}>
 {/* ── Engine Module Toggles ── */}
                         {isSuperAdmin && (
                             <section className={styles.configSection}>
@@ -1843,7 +1838,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         )}
 
                         {!isBaseFacilitator && (
-                            <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing" isOpen={openTab === 'interventions'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                            <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing" isOpen={openTabs.has('interventions')} onToggle={toggleTab}>
 {/* ── Section 4: Team Interventions ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
@@ -1972,8 +1967,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         
                             </AccordionItem>
                         )}
+                        </div>{/* /formCol left */}
 
-                        <AccordionItem id="pedagogy" title="5. Pedagogy &amp; Analytics" summary="Toggles and Visibility" isOpen={openTab === 'pedagogy'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                        <div className={styles.formCol}>
+                        <AccordionItem id="pedagogy" title="5. Pedagogy &amp; Analytics" summary="Toggles and Visibility" isOpen={openTabs.has('pedagogy')} onToggle={toggleTab}>
 {/* ── Section 5: Pedagogical Scaffolding ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
@@ -2310,7 +2307,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                         </AccordionItem>
 
-                        <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTab === 'lock'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                        <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTabs.has('lock')} onToggle={toggleTab}>
                             {(() => {
                                 // ── Derived values for summary display ──
                                 const facId = currentFacilitatorId || facilitatorId;
@@ -2380,7 +2377,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>📋 Core Configuration</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTab('core')}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('core'))}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2442,7 +2439,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>⚙️ Simulation Engine</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTab('engine')}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('engine'))}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2518,7 +2515,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 <div style={cardS}>
                                                     <div style={headS}>
                                                         <span style={titleS}>🏭 Industry Verticals</span>
-                                                        <button type="button" style={editS} onClick={() => setOpenTab('verticals')}>✎ Edit</button>
+                                                        <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('verticals'))}>✎ Edit</button>
                                                     </div>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                                         {BU_SLOTS.map(({ slot, slotLabel, slotIcon }) => {
@@ -2556,7 +2553,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>🔬 Optional Modules</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTab('modules')}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('modules'))}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2614,7 +2611,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>⚡ Team Interventions</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTab('interventions')}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('interventions'))}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2650,7 +2647,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>🎓 Pedagogy &amp; Analytics</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTab('pedagogy')}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('pedagogy'))}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2731,6 +2728,8 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 );
                             })()}
                         </AccordionItem>
+                        </div>{/* /formCol right */}
+                        </div>{/* /formColumns */}
                     </form>
                 </div>
             </div>

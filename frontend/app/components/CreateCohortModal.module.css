@@ -26,8 +26,10 @@
     background: var(--bg-secondary);
     border: 1px solid var(--border-subtle);
     border-radius: var(--radius-lg);
-    width: 90%;
-    max-width: 650px;
+    width: 94%;
+    /* Wide enough for the two parallel columns; the 1100px breakpoint in
+       .formColumns stacks them before this ever feels cramped. */
+    max-width: 1320px;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.4);
     display: flex;
     flex-direction: column;
@@ -75,6 +77,30 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
+}
+
+/* Two parallel columns: setup flow (1–4) left, pedagogy/analytics +
+   summary/lock right, so the whole panel fits on one screen. Sections open
+   independently per column (multi-open accordion). Stacks on narrow
+   viewports, where the modal also returns to its compact width. */
+.formColumns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    align-items: start;
+}
+
+.formCol {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    min-width: 0;
+}
+
+@media (max-width: 1100px) {
+    .formColumns {
+        grid-template-columns: 1fr;
+    }
 }
 
 .accordionItem {
