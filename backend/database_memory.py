@@ -772,6 +772,11 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "bu_substitutions": grs.get("bu_substitutions", {}),
             # Autonomous stakeholder agent state
             "autonomous_agents": grs.get("autonomous_agents"),
+            # Live stakeholder summary for the dashboard. Falls back to the
+            # active_event_flags copy for rows persisted before the
+            # agent_summary column existed.
+            "agent_summary": grs.get("agent_summary")
+                or (grs.get("active_event_flags") or {}).get("agent_summary"),
         },
         "bu_states": [
             {
@@ -929,6 +934,11 @@ async def insert_next_round(
         "bu_substitutions": global_state.get("bu_substitutions", {}),
         # Autonomous stakeholder agent state
         "autonomous_agents": global_state.get("autonomous_agents"),
+        # Frontend-ready stakeholder summary (round_logic writes it top-level so
+        # the LIVE dashboard reflects escalation every round; without this column
+        # it was silently dropped here and the cockpit fell back to stale
+        # post-commit events).
+        "agent_summary": global_state.get("agent_summary"),
     }
 
     if session_id not in _global_states:
@@ -1121,6 +1131,7 @@ async def update_latest_global_state(
     latest["bu_substitutions"] = global_state.get("bu_substitutions", latest.get("bu_substitutions", {}))
     # Autonomous stakeholder agent state
     latest["autonomous_agents"] = global_state.get("autonomous_agents", latest.get("autonomous_agents"))
+    latest["agent_summary"] = global_state.get("agent_summary", latest.get("agent_summary"))
 
     rn = latest["round_number"]
     if session_id in _bu_states:
