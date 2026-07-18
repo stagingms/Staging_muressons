@@ -549,6 +549,52 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // Player Dashboard panel (Round Surfaces group).
     const [stagedPlayerFeatures, setStagedPlayerFeatures] = useState(null);
 
+    // ── Facilitator-authorable custom levels ────────────────────────────
+    // Captures the wizard's CURRENT pedagogy + player visibility + round
+    // surfaces as a named, reusable level (persisted server-side, scoped to
+    // this facilitator; admins see all). Engine tunables are deliberately
+    // not part of a custom level.
+    const [savingLevel, setSavingLevel] = useState(false);
+    const refreshPresets = async (selectId = null) => {
+        try {
+            const r = await fetch(`${API}/api/admin/scenario-presets`, { credentials: 'include' });
+            const d = await r.json();
+            setScenarioPresets(d.presets || []);
+            if (selectId) setSelectedExperienceLevel(selectId);
+        } catch { /* keep current list */ }
+    };
+    const saveCustomLevel = async () => {
+        const name = window.prompt('Name this custom level (e.g. "Evening MBA — gentle start"):');
+        if (!name || !name.trim()) return;
+        setSavingLevel(true);
+        try {
+            const sel = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+            const r = await fetch(`${API}/api/admin/scenario-presets/custom`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: name.trim(),
+                    description: `Custom level saved from the cohort wizard (base: ${sel?.name || 'Workshop'}).`,
+                    difficulty_tier: sel?.difficulty_tier || 'advanced',
+                    default_pedagogy: pedagogicalToggles,
+                    default_player_visibility: visibility.player,
+                    default_player_features: stagedPlayerFeatures || {},
+                }),
+            });
+            const d = await r.json();
+            if (r.ok && d.preset?.id) await refreshPresets(d.preset.id);
+        } catch { /* leave wizard state untouched on failure */ }
+        setSavingLevel(false);
+    };
+    const deleteCustomLevel = async (id) => {
+        if (!window.confirm('Delete this custom level? Cohorts already created from it are unaffected.')) return;
+        try {
+            await fetch(`${API}/api/admin/scenario-presets/custom/${id}`, { method: 'DELETE', credentials: 'include' });
+            if (selectedExperienceLevel === id) setSelectedExperienceLevel('workshop_standard');
+            await refreshPresets();
+        } catch { /* list refresh best-effort */ }
+    };
+
     const toggleVis = (role, key) => {
         if (role === 'player') setPlayerVisCustomised(true);
         setVisibility(prev => ({
@@ -1211,6 +1257,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                             padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0,
                                                         }}>Selected</span>
                                                     )}
+                                                    {p.is_custom && (
+                                                        <span
+                                                            role="button"
+                                                            title="Delete this custom level"
+                                                            onClick={(e) => { e.stopPropagation(); deleteCustomLevel(p.id); }}
+                                                            style={{ flexShrink: 0, marginLeft: 6, padding: '2px 7px', borderRadius: 6, cursor: 'pointer', color: '#f87171', border: '1px solid rgba(239,68,68,0.35)', fontSize: '0.7rem', fontWeight: 700 }}
+                                                        >✕</span>
+                                                    )}
                                                 </button>
                                             );
                                         })}
@@ -1242,6 +1296,22 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             </div>
                                         ) : null;
                                     })()}
+                                    {/* Author a reusable level from the wizard's current
+                                        pedagogy + player visibility + round surfaces. */}
+                                    <button
+                                        type="button"
+                                        onClick={saveCustomLevel}
+                                        disabled={savingLevel}
+                                        style={{
+                                            marginTop: 8, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
+                                            fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.03em',
+                                            border: '1px dashed rgba(139,92,246,0.5)', background: 'rgba(139,92,246,0.08)',
+                                            color: '#c4b5fd', opacity: savingLevel ? 0.6 : 1,
+                                        }}
+                                        title="Save the CURRENT scaffolding, player-dashboard and round-surface settings as a reusable custom level (visible only to you; admins see all)."
+                                    >
+                                        {savingLevel ? '⏳ Saving level…' : '💾 Save current settings as a custom level'}
+                                    </button>
                                 </div>
                             )}
 

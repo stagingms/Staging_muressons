@@ -8489,9 +8489,121 @@ _scenario_presets = [
 ]
 
 
+# ── Facilitator-authorable custom experience levels ──────────────────────────
+# A custom level bundles the three PEDAGOGICAL preselection maps (scaffolding,
+# player-dashboard analytics, round surfaces) plus a difficulty tier chosen
+# from the built-in tiers. Deliberately NO engine tunables: those stay
+# super-admin territory (the separate POST /scenario-presets below), so a
+# custom level can never escalate engine authority — it is purely a reusable
+# pedagogy bundle. Scoped to the creating facilitator (admins see all).
+from runtime_paths import data_file as _rp_data_file
+_CUSTOM_LEVELS_PATH = str(_rp_data_file("custom_experience_levels.json"))
+_ALLOWED_PED_KEYS = frozenset({
+    "round_recap_enabled", "real_world_cards_enabled", "debrief_protocol_enabled",
+    "prediction_gates_enabled", "confidence_calibration_enabled",
+    "strategy_memo_enabled", "self_learning_mode",
+})
+_ALLOWED_VIS_KEYS = frozenset({"peer_benchmarking", "decision_impact", "what_if_simulator"})
+_ALLOWED_FEAT_KEYS = frozenset({"consequence_map_enabled", "board_room_moments_enabled"})
+_ALLOWED_TIERS = ("foundation", "advanced", "expert")
+
+
+def _load_custom_levels() -> list[dict]:
+    try:
+        import json as _json
+        with open(_CUSTOM_LEVELS_PATH, encoding="utf-8") as f:
+            data = _json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _persist_custom_levels() -> None:
+    try:
+        import json as _json, os as _os
+        _os.makedirs(_os.path.dirname(_CUSTOM_LEVELS_PATH), exist_ok=True)
+        tmp = _CUSTOM_LEVELS_PATH + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            _json.dump(_custom_levels, f, ensure_ascii=False, indent=2)
+        _os.replace(tmp, _CUSTOM_LEVELS_PATH)
+    except Exception as e:
+        print(f"[persistence] Failed to save custom experience levels: {e}")
+
+
+_custom_levels: list[dict] = _load_custom_levels()
+
+
+class CustomLevelRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=60)
+    description: str = Field("", max_length=300)
+    icon: str = Field("⭐", max_length=8)
+    target_audience: str = Field("", max_length=120)
+    difficulty_tier: str = "advanced"
+    default_pedagogy: dict = {}
+    default_player_visibility: dict = {}
+    default_player_features: dict = {}
+
+
 @admin_router.get("/scenario-presets", summary="Get available scenario presets")
-async def get_scenario_presets():
-    return {"presets": _scenario_presets, "current_tunables": _engine_tunables}
+async def get_scenario_presets(request: Request):
+    """Built-in levels for everyone; custom levels only to their creator
+    (admins see all). Anonymous callers get built-ins only."""
+    from auth_jwt import get_facilitator_from_request
+    caller = get_facilitator_from_request(request)
+    role = get_fac_role(request)
+    if is_admin_role(role):
+        customs = list(_custom_levels)
+    elif caller:
+        customs = [c for c in _custom_levels if c.get("created_by") == caller]
+    else:
+        customs = []
+    return {"presets": _scenario_presets + customs, "current_tunables": _engine_tunables}
+
+
+@admin_router.post("/scenario-presets/custom", summary="Create a custom experience level (facilitator)")
+async def create_custom_level(body: CustomLevelRequest, request: Request,
+                              _guard: None = Depends(require_sim_manager)):
+    from auth_jwt import get_facilitator_from_request
+    caller = get_facilitator_from_request(request)
+    tier = body.difficulty_tier if body.difficulty_tier in _ALLOWED_TIERS else "advanced"
+    entry = {
+        "id": f"custom_{uuid.uuid4().hex[:8]}",
+        "name": body.name.strip(),
+        "description": body.description.strip(),
+        "icon": body.icon or "⭐",
+        "subtitle": f"Custom · {tier.capitalize()}",
+        "color": "#8b5cf6",
+        "difficulty_tier": tier,
+        "target_audience": body.target_audience.strip(),
+        "is_custom": True,
+        "created_by": caller,
+        # Whitelist + coerce to bool so a custom level can only ever set the
+        # known pedagogical keys — nothing else rides in.
+        "default_pedagogy": {k: bool(v) for k, v in (body.default_pedagogy or {}).items() if k in _ALLOWED_PED_KEYS},
+        "default_player_visibility": {k: bool(v) for k, v in (body.default_player_visibility or {}).items() if k in _ALLOWED_VIS_KEYS},
+        "default_player_features": {k: bool(v) for k, v in (body.default_player_features or {}).items() if k in _ALLOWED_FEAT_KEYS},
+    }
+    _custom_levels.append(entry)
+    _persist_custom_levels()
+    _audit("custom_experience_level_created", details={"id": entry["id"], "name": entry["name"], "created_by": caller})
+    return {"status": "ok", "preset": entry}
+
+
+@admin_router.delete("/scenario-presets/custom/{preset_id}", summary="Delete a custom experience level")
+async def delete_custom_level(preset_id: str, request: Request,
+                              _guard: None = Depends(require_sim_manager)):
+    from auth_jwt import get_facilitator_from_request
+    caller = get_facilitator_from_request(request)
+    role = get_fac_role(request)
+    entry = next((c for c in _custom_levels if c.get("id") == preset_id), None)
+    if not entry:
+        raise HTTPException(404, "Custom level not found")
+    if not is_admin_role(role) and entry.get("created_by") != caller:
+        raise HTTPException(403, "You may only delete your own custom levels")
+    _custom_levels.remove(entry)
+    _persist_custom_levels()
+    _audit("custom_experience_level_deleted", details={"id": preset_id, "by": caller})
+    return {"status": "ok", "deleted": preset_id}
 
 
 @admin_router.put("/cohort/{session_id}/pedagogical-settings", summary="Save per-cohort pedagogical settings")
