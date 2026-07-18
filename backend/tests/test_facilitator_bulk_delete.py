@@ -51,7 +51,9 @@ def test_anonymous_is_refused():
         "/api/admin/facilitators/bulk-delete",
         json={"facilitator_ids": ["FAC-001"]},
     )
-    assert r.status_code == 403, r.text
+    # BUG-2026-07-18: anonymous (no/dead cookie) is now 401 "Session expired",
+    # not a role-based 403 — see _reject_anonymous in admin_router.
+    assert r.status_code == 401, r.text
 
 
 def test_project_admin_is_refused():

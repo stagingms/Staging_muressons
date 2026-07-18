@@ -200,14 +200,105 @@ def create_prediction_entry(
 
 def evaluate_prediction(prediction: dict, outcome_summary: str, outcome_quality: float) -> dict:
     """
-    Compare prediction with actual outcome.
-    outcome_quality: 0-1 score of how well the decision performed.
+    LEGACY (sentiment-heuristic) evaluation — superseded by score_prediction()
+    below, which scores STRUCTURED predictions deterministically. Kept only for
+    backward compatibility with any old callers; do not use for new code.
     """
     prediction["outcome_summary"] = outcome_summary
     # Simple heuristic: if outcome_quality > 0.6, prediction was "aligned"
     prediction["calibration"] = "aligned" if outcome_quality > 0.6 else "misaligned"
     prediction["calibration_icon"] = "✅" if outcome_quality > 0.6 else "❌"
     return prediction
+
+
+# ── Calibration scoring (PLAN_Calibration_Analytics.md, Phase 2) ─────────────
+# Deterministic band scoring of the structured Predict-Before-Commit inputs.
+# Pure functions: no I/O, no engine-state mutation. The commit path calls
+# score_prediction() AFTER the tick with the realised deltas and writes the
+# result only into the predictions log — never into engine ledgers.
+
+TREASURY_BANDS = ("down_big", "down", "flat", "up", "up_big")
+REPUTATION_DIRS = ("down", "flat", "up")
+
+# Band edges (treasury, $): flat = |Δ| ≤ $1M; big = |Δ| > $5M.
+_TRE_FLAT = 1_000_000
+_TRE_BIG = 5_000_000
+# Reputation: flat = |Δ| < 2 points.
+_REP_FLAT = 2.0
+
+
+def treasury_band_of(delta: float) -> str:
+    """Map a realised treasury delta ($) onto the prediction bands."""
+    d = float(delta or 0)
+    if d < -_TRE_BIG:
+        return "down_big"
+    if d < -_TRE_FLAT:
+        return "down"
+    if d <= _TRE_FLAT:
+        return "flat"
+    if d <= _TRE_BIG:
+        return "up"
+    return "up_big"
+
+
+def reputation_dir_of(delta: float) -> str:
+    """Map a realised reputation delta (points) onto the direction bands."""
+    d = float(delta or 0)
+    if abs(d) < _REP_FLAT:
+        return "flat"
+    return "up" if d > 0 else "down"
+
+
+def score_prediction(pred: dict, treasury_delta: float, reputation_delta: float) -> dict:
+    """Score one structured prediction against realised deltas.
+
+    Rules (documented in PLAN_Calibration_Analytics.md):
+      • A KPI counts only if the player actually predicted it (blank = skipped).
+      • A hit is an EXACT band match (bands are coarse by design).
+      • brier = mean over predicted KPIs of (confidence − hit)², hit ∈ {0,1}.
+        Only computed when a confidence was reported; otherwise None.
+        Brier is a proper scoring rule: honest confidence is the optimal play.
+    Returns a score dict; never raises on malformed input (defensive defaults).
+    """
+    hits = 0
+    of = 0
+    tre_hit = None
+    rep_hit = None
+
+    tb = pred.get("treasury_band")
+    if tb in TREASURY_BANDS:
+        of += 1
+        tre_hit = tb == treasury_band_of(treasury_delta)
+        hits += 1 if tre_hit else 0
+
+    rd = pred.get("reputation_dir")
+    if rd in REPUTATION_DIRS:
+        of += 1
+        rep_hit = rd == reputation_dir_of(reputation_delta)
+        hits += 1 if rep_hit else 0
+
+    brier = None
+    conf = pred.get("confidence")
+    if of > 0 and isinstance(conf, (int, float)):
+        c = min(1.0, max(0.0, float(conf)))
+        parts = []
+        if tre_hit is not None:
+            parts.append((c - (1.0 if tre_hit else 0.0)) ** 2)
+        if rep_hit is not None:
+            parts.append((c - (1.0 if rep_hit else 0.0)) ** 2)
+        brier = round(sum(parts) / len(parts), 4)
+
+    return {
+        "treasury_hit": tre_hit,
+        "reputation_hit": rep_hit,
+        "hits": hits,
+        "of": of,
+        "brier": brier,
+        "actual_treasury_band": treasury_band_of(treasury_delta),
+        "actual_reputation_dir": reputation_dir_of(reputation_delta),
+        "treasury_delta": round(float(treasury_delta or 0), 2),
+        "reputation_delta": round(float(reputation_delta or 0), 2),
+    }
 
 
 # ═══════════════════════════════════════════════════════════════

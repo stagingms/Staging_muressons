@@ -12,6 +12,7 @@ import hmac
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
+from typing import Optional
 import copy
 
 import database as db
@@ -2193,6 +2194,28 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             new_global.setdefault("active_event_flags", {})["consequence_dna_snapshot"] = dna_snapshot
         except Exception as exc:
             _log.warning(f"[WARN] Consequence DNA snapshot capture failed: {exc}")
+
+    # ── Calibration scoring (Phase 2, PLAN_Calibration_Analytics.md) ─────────
+    # Post-tick, READ-ONLY with respect to engine ledgers: reads the deltas the
+    # tick already produced and writes only into the predictions log, which is
+    # then carried forward on new_global's flags. Exception-isolated — a scorer
+    # bug can never fail a commit (risk table, row 2).
+    try:
+        _cal_src = (current_global.get("predictions_log")
+                    or (current_global.get("active_event_flags") or {}).get("predictions_log"))
+        if _cal_src:
+            from pedagogical_engine import score_prediction as _score_pred
+            _cal_log = [dict(p) for p in _cal_src]  # copy: never mutate current state
+            _tre_d = (new_global.get("corporate_treasury") or 0) - (current_global.get("corporate_treasury") or 0)
+            _rep_d = (new_global.get("group_reputation") or 0) - (current_global.get("group_reputation") or 0)
+            for _p in _cal_log:
+                if _p.get("round") == current_round and not _p.get("score"):
+                    _p["score"] = _score_pred(_p, _tre_d, _rep_d)
+            # Both representations (see submit_prediction parity note).
+            new_global.setdefault("active_event_flags", {})["predictions_log"] = _cal_log
+            new_global["predictions_log"] = _cal_log
+    except Exception as _cal_exc:
+        _log.warning(f"[calibration] prediction scoring skipped: {_cal_exc}")
 
     try:
         if current_round == 10:
@@ -5914,6 +5937,94 @@ async def get_balance_sheet(session_id: str):
         pass  # repair is best-effort; never break the endpoint over it
 
     return {"balance_sheet": bs}
+
+
+# ── Calibration analytics: Predict-Before-Commit capture (Phase 1) ──────────
+# PLAN_Calibration_Analytics.md. Structured predictions live in
+# active_event_flags.predictions_log (a real persisted column in both stores,
+# so no memory-parity work is needed). Scoring happens post-tick in the commit
+# path (Phase 2) and is exception-isolated there.
+
+class PredictionSubmitRequest(BaseModel):
+    treasury_band: Optional[str] = None    # down_big|down|flat|up|up_big
+    reputation_dir: Optional[str] = None   # down|flat|up
+    confidence: Optional[float] = None     # 0.5–1.0 (slider; None = not reported)
+    note: str = ""                         # optional free text, kept for debrief
+
+
+@router.post(
+    "/{session_id}/predictions",
+    summary="Submit a structured Predict-Before-Commit prediction for the current round",
+)
+async def submit_prediction(session_id: str, body: PredictionSubmitRequest, request: Request):
+    """Idempotent per (player, round): re-submitting overwrites the earlier
+    unscored record. SEC-3: caller must own the session (X-Player-Id binding).
+    Never blocks a commit — the client fires this before commit-turn and treats
+    failures as non-fatal."""
+    from datetime import datetime, timezone
+    from pedagogical_engine import TREASURY_BANDS, REPUTATION_DIRS
+    await _assert_player_owns_session(request, session_id)
+
+    tb = (body.treasury_band or "").strip() or None
+    rd = (body.reputation_dir or "").strip() or None
+    if tb is not None and tb not in TREASURY_BANDS:
+        raise HTTPException(422, f"treasury_band must be one of {TREASURY_BANDS}")
+    if rd is not None and rd not in REPUTATION_DIRS:
+        raise HTTPException(422, f"reputation_dir must be one of {REPUTATION_DIRS}")
+    if tb is None and rd is None:
+        raise HTTPException(422, "Predict at least one KPI (treasury_band or reputation_dir).")
+    conf = None
+    if body.confidence is not None:
+        conf = min(1.0, max(0.5, float(body.confidence)))
+
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]
+    rn = latest.get("round_number", gs.get("round_number", 1))
+    player_id = request.headers.get("X-Player-Id", "").strip() or "solo"
+
+    record = {
+        "player_id": player_id,
+        "round": rn,
+        "treasury_band": tb,
+        "reputation_dir": rd,
+        "confidence": conf,
+        "note": (body.note or "")[:500],
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+        "score": None,  # written post-tick by the commit-path scorer
+    }
+    flags = gs.setdefault("active_event_flags", {})
+    # Memory-store parity: fetch UNPACKS flag keys to top level and update
+    # RE-PACKS top level over flags ("explicit wins"). Writing only the flags
+    # copy therefore gets clobbered by the stale top-level copy on re-pack —
+    # update BOTH representations with the same list object.
+    existing = gs.get("predictions_log") or flags.get("predictions_log") or []
+    log = [
+        p for p in existing
+        if not (p.get("player_id") == player_id and p.get("round") == rn)
+    ]
+    log.append(record)
+    flags["predictions_log"] = log
+    gs["predictions_log"] = log
+    await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+    return {"status": "ok", "prediction": record}
+
+
+@router.get(
+    "/{session_id}/predictions",
+    summary="Read the session's prediction log (optionally one player's)",
+)
+async def get_predictions(session_id: str, request: Request, player_id: Optional[str] = None):
+    await _assert_player_owns_session(request, session_id)
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(404, "Session not found")
+    _gs = latest["global_state"]
+    log = _gs.get("predictions_log") or (_gs.get("active_event_flags") or {}).get("predictions_log") or []
+    if player_id:
+        log = [p for p in log if p.get("player_id") == player_id]
+    return {"predictions": log, "round_number": latest.get("round_number")}
 
 
 @router.get(

@@ -11,6 +11,7 @@ import MirrorDebrief from './MirrorDebrief';
 import ESGLeadershipProfile from './ESGLeadershipProfile';
 import ArchetypeCard from './ArchetypeCard';
 import FrontPageReveal from './FrontPageReveal';
+import CalibrationReport from './CalibrationReport';
 
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
@@ -169,6 +170,9 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     />
                 </div>
                 <FrontPageReveal sessionId={sessionId} data={d} cohortName={d.cohort_name || ''} />
+                {/* Calibration curve + Overconfidence Index (Phase 3) —
+                    renders nothing if no scored predictions exist. */}
+                <CalibrationReport sessionId={sessionId} />
                 {/* WOW-12: ESG Leadership Profile — radar chart + PNG export */}
                 <ESGLeadershipProfile
                     data={d}

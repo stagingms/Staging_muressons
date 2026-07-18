@@ -5146,6 +5146,108 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
     return {"status": "detonated", "event_id": event_id, "teams_hit": applied, "event": ev}
 
 
+# ── Calibration analytics (PLAN_Calibration_Analytics Phase 4) ───────────────
+@admin_router.get(
+    "/calibration-analytics",
+    summary="Cohort calibration: per-team confidence vs hit-rate from the prediction logs",
+)
+async def get_calibration_analytics(
+    request: Request,
+    session_id: Optional[str] = None,
+    _guard: None = Depends(require_facilitator),
+):
+    """Aggregates the scored Predict-Before-Commit logs across sessions.
+    Admin roles see all sessions; facilitators only cohorts they own.
+    Optional session_id filters to one cohort (itself + child team sessions).
+    Read-only; returns per-team calibration rows, a round trend, and a one-line
+    teleprompter prompt for live teaching."""
+    admin = is_admin_role(get_fac_role(request))
+    sessions = await db.fetch_all_sessions()
+    if session_id:
+        sessions = [s for s in sessions
+                    if s.get("session_id") == session_id or s.get("parent_cohort_id") == session_id]
+    if not admin:
+        from auth_jwt import get_facilitator_from_request
+        fac_id = get_facilitator_from_request(request)
+        fac = next((f for f in _facilitator_registry
+                    if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
+        sessions = [s for s in sessions if fac and owns_session(fac, s)]
+
+    teams = []
+    round_hits: dict[int, list[int]] = {}          # round → [hit, of] accumulators
+    latest_round = 0
+    latest_overconfident_misses = 0
+    for s in sessions:
+        sid = s.get("session_id")
+        try:
+            latest = await db.fetch_latest_state(sid)
+        except Exception:
+            latest = None
+        if not latest:
+            continue
+        _cgs = latest["global_state"]
+        log = _cgs.get("predictions_log") or (_cgs.get("active_event_flags") or {}).get("predictions_log") or []
+        scored = [p for p in log if p.get("score") and p["score"].get("of")]
+        if not scored:
+            continue
+        by_player: dict[str, list[dict]] = {}
+        for p in scored:
+            by_player.setdefault(p.get("player_id") or "solo", []).append(p)
+            rn = int(p.get("round") or 0)
+            acc = round_hits.setdefault(rn, [0, 0])
+            acc[0] += p["score"]["hits"]
+            acc[1] += p["score"]["of"]
+            latest_round = max(latest_round, rn)
+        for pid, preds in by_player.items():
+            hits = sum(p["score"]["hits"] for p in preds)
+            of = sum(p["score"]["of"] for p in preds)
+            confs = [p["confidence"] for p in preds if isinstance(p.get("confidence"), (int, float))]
+            mean_conf = round(sum(confs) / len(confs), 3) if confs else None
+            hit_rate = round(hits / of, 3) if of else None
+            teams.append({
+                "session_id": sid,
+                "cohort_name": s.get("cohort_name") or sid,
+                "player_id": pid,
+                "rounds_predicted": len(preds),
+                "hits": hits, "of": of, "hit_rate": hit_rate,
+                "mean_confidence": mean_conf,
+                "overconfidence": round(mean_conf - hit_rate, 3) if (mean_conf is not None and hit_rate is not None) else None,
+            })
+    # Teleprompter line: count ≥80%-confidence full misses in the latest round.
+    if latest_round:
+        for s in sessions:
+            try:
+                latest = await db.fetch_latest_state(s.get("session_id"))
+            except Exception:
+                continue
+            if not latest:
+                continue
+            _lgs = latest["global_state"]
+            for p in (_lgs.get("predictions_log") or (_lgs.get("active_event_flags") or {}).get("predictions_log") or []):
+                sc = p.get("score") or {}
+                if (p.get("round") == latest_round and sc.get("of")
+                        and sc.get("hits") == 0
+                        and isinstance(p.get("confidence"), (int, float)) and p["confidence"] >= 0.8):
+                    latest_overconfident_misses += 1
+    teleprompter_line = (
+        f"R{latest_round}: {latest_overconfident_misses} team{'s' if latest_overconfident_misses != 1 else ''} "
+        f"predicted with ≥80% confidence and missed every call — name the planning fallacy in the debrief."
+        if latest_overconfident_misses else
+        (f"R{latest_round}: no high-confidence misses this round — ask who UPDATED a belief since last round."
+         if latest_round else "No scored predictions yet — the calibration story starts after the first commit.")
+    )
+    round_trend = [
+        {"round": rn, "hit_rate": round(h / o, 3) if o else None, "n": o}
+        for rn, (h, o) in sorted(round_hits.items())
+    ]
+    return {
+        "teams": teams,
+        "round_trend": round_trend,
+        "teleprompter_line": teleprompter_line,
+        "total_teams": len(teams),
+    }
+
+
 @admin_router.get(
     "/custom-black-swan-log",
     summary="Get history of injected custom Black Swan events",

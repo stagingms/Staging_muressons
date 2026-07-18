@@ -8,6 +8,7 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ExecutiveCockpit.module.css';
+import { playerIdHeader } from '../hooks/useSimulation';
 import KPIDashboard from './KPIDashboard';
 import TurnaroundPhaseChip from './TurnaroundPhaseChip';
 import MarketRealityFeed from './MarketRealityFeed';
@@ -409,6 +410,20 @@ export default function ExecutiveCockpit({
     return () => { cancelled = true; };
   }, [commitResults, sim?.sessionId]);
 
+  // ── Calibration (Phase 3): pull the scored prediction log when results
+  // arrive, so PredictionComparison can render the round's chip. This was the
+  // dead wire — `predictions` state existed but nothing populated it.
+  useEffect(() => {
+    if (!commitResults || !sim?.sessionId || sim.sessionId === 'demo') return;
+    let cancelled = false;
+    const API = process.env.NEXT_PUBLIC_API_URL || '';
+    fetch(`${API}/api/simulations/${sim.sessionId}/predictions`, { headers: { ...playerIdHeader() } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (!cancelled && d) setPredictions(d.predictions || []); })
+      .catch(() => {}); // non-critical
+    return () => { cancelled = true; };
+  }, [commitResults, sim?.sessionId]);
+
   // Pedagogical scaffolding toggles — resolved for THIS cohort. Passing the
   // session id makes global-settings return the cohort-effective values (global
   // defaults with any per-cohort overrides applied), so player-facing surfaces
@@ -615,6 +630,27 @@ export default function ExecutiveCockpit({
   // ── Metacognitive Friction: Pre-Commit Prediction ──
   const [showPredictionModal, setShowPredictionModal] = useState(false);
   const [predictionText, setPredictionText] = useState('');
+  // Calibration (Phase 1): structured prediction inputs. Optional by design —
+  // Skip & Commit never touches them (fluency rule 1).
+  const [predBands, setPredBands] = useState({ treasury: '', reputation: '' });
+  const [predConfidence, setPredConfidence] = useState(0.75);
+
+  // Fire-and-forget submit: a failed POST must never block the commit.
+  const submitPredictionRecord = useCallback(() => {
+    if (!predBands.treasury && !predBands.reputation) return; // nothing predicted
+    if (!sim?.sessionId || sim.sessionId === 'demo') return;
+    const API = process.env.NEXT_PUBLIC_API_URL || '';
+    fetch(`${API}/api/simulations/${sim.sessionId}/predictions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
+      body: JSON.stringify({
+        treasury_band: predBands.treasury || null,
+        reputation_dir: predBands.reputation || null,
+        confidence: pedToggles.confidence_calibration_enabled ? predConfidence : null,
+        note: predictionText.trim().slice(0, 500),
+      }),
+    }).catch(() => {});
+  }, [predBands, predConfidence, predictionText, sim?.sessionId, pedToggles.confidence_calibration_enabled]);
 
   // ── Results-level Balance Sheet Modal ──
   const [resultsBsModalOpen, setResultsBsModalOpen] = useState(false);
@@ -3576,23 +3612,64 @@ export default function ExecutiveCockpit({
               Pausing to predict outcomes strengthens your strategic intuition. What do you expect will happen?
             </p>
 
+            {/* Calibration (Phase 1): structured bands — ~8s, all optional. */}
             <div className={styles.predictionQuestion}>
-              💰 What do you predict will happen to your <strong>Treasury</strong> after this round?
+              💰 <strong>Treasury</strong> this round — your call:
             </div>
-            <textarea
-              className={styles.predictionTextarea}
-              placeholder="e.g., Treasury will drop by ~$3M due to ESG compliance costs, but reputation should rise..."
-              value={predictionText}
-              onChange={(e) => setPredictionText(e.target.value)}
-              rows={3}
-            />
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[['down_big', '▼▼ >$5M drop'], ['down', '▼ $1–5M drop'], ['flat', '≈ flat (±$1M)'], ['up', '▲ $1–5M gain'], ['up_big', '▲▲ >$5M gain']].map(([v, label]) => (
+                <button key={v} type="button"
+                  onClick={() => setPredBands((b) => ({ ...b, treasury: b.treasury === v ? '' : v }))}
+                  style={{
+                    padding: '5px 10px', borderRadius: 999, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
+                    border: `1px solid ${predBands.treasury === v ? 'rgba(0,229,195,0.7)' : 'rgba(148,163,184,0.3)'}`,
+                    background: predBands.treasury === v ? 'rgba(0,229,195,0.15)' : 'transparent',
+                    color: predBands.treasury === v ? '#5eead4' : '#94a3b8',
+                  }}>{label}</button>
+              ))}
+            </div>
 
             <div className={styles.predictionQuestion}>
-              🌍 How will your choices affect <strong>Reputation</strong> and <strong>Carbon</strong>?
+              ⭐ <strong>Reputation</strong> this round — your call:
+            </div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+              {[['down', '▼ falls (≥2 pts)'], ['flat', '≈ flat (<2 pts)'], ['up', '▲ rises (≥2 pts)']].map(([v, label]) => (
+                <button key={v} type="button"
+                  onClick={() => setPredBands((b) => ({ ...b, reputation: b.reputation === v ? '' : v }))}
+                  style={{
+                    padding: '5px 10px', borderRadius: 999, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
+                    border: `1px solid ${predBands.reputation === v ? 'rgba(0,229,195,0.7)' : 'rgba(148,163,184,0.3)'}`,
+                    background: predBands.reputation === v ? 'rgba(0,229,195,0.15)' : 'transparent',
+                    color: predBands.reputation === v ? '#5eead4' : '#94a3b8',
+                  }}>{label}</button>
+              ))}
+            </div>
+
+            {/* Confidence slider — only when the facilitator enabled calibration.
+                Copy states the honesty property once (risk table, row 4). */}
+            {pedToggles.confidence_calibration_enabled && (predBands.treasury || predBands.reputation) && (
+              <div style={{ marginBottom: 12 }}>
+                <div className={styles.predictionQuestion}>
+                  🎯 How confident are you? <strong>{Math.round(predConfidence * 100)}%</strong>
+                </div>
+                <input type="range" min="50" max="100" step="5"
+                  value={Math.round(predConfidence * 100)}
+                  onChange={(e) => setPredConfidence(Number(e.target.value) / 100)}
+                  style={{ width: '100%' }} />
+                <div style={{ fontSize: '0.66rem', color: '#64748b', marginTop: 2 }}>
+                  Scored so that honest confidence beats bravado — 70% right at 70% confident is a better score than 70% right at 100%.
+                </div>
+              </div>
+            )}
+
+            <div className={styles.predictionQuestion}>
+              📝 Why? (optional — you&apos;ll see this next to the actual outcome)
             </div>
             <textarea
               className={styles.predictionTextarea}
-              placeholder="e.g., Option B is balanced — I expect a modest reputation boost with flat emissions..."
+              placeholder="e.g., Option B is balanced — compliance costs bite now, reputation pays back later..."
+              value={predictionText}
+              onChange={(e) => setPredictionText(e.target.value)}
               rows={2}
             />
 
@@ -3654,20 +3731,20 @@ export default function ExecutiveCockpit({
               </button>
               <button
                 className={styles.predictionSkip}
-                onClick={() => { setShowPredictionModal(false); setPredictionText(''); onCommit?.(); }}
+                onClick={() => { setShowPredictionModal(false); setPredictionText(''); setPredBands({ treasury: '', reputation: '' }); onCommit?.(); }}
               >
                 Skip & Commit
               </button>
               <button
                 className={styles.predictionSubmit}
                 onClick={() => {
-                  // Store prediction for post-round comparison
-                  if (predictionText.trim()) {
-                    const key = `prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`;
-                    try { sessionStorage.setItem(key, predictionText); } catch {}
-                  }
+                  // Calibration (Phase 1): persist server-side, fire-and-forget
+                  // (replaces the old sessionStorage-only write). The commit
+                  // proceeds regardless of the POST's fate.
+                  submitPredictionRecord();
                   setShowPredictionModal(false);
                   setPredictionText('');
+                  setPredBands({ treasury: '', reputation: '' });
                   onCommit?.();
                 }}
               >

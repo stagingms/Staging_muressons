@@ -1,108 +1,97 @@
 'use client';
 import React, { useMemo } from 'react';
-import styles from './ExecutiveCockpit.module.css';
 
 /**
- * PredictionComparison — Phase 3.4
- * Compares player's pre-commit predictions (from PredictionGate)
- * with actual outcomes after results are in.
+ * PredictionComparison — calibration chip (PLAN_Calibration_Analytics Phase 3).
  *
- * Shows a split-column view: "What You Predicted" vs "What Actually Happened"
- * with a calibration score indicating metacognitive accuracy.
+ * Slot: results stage (inside the existing commit-results overlay) — V-A:
+ * retrospective content renders after the round resolves, never mid-decision.
  *
- * Appears in the results overlay only when predictions were submitted.
+ * Renders the round's SCORED prediction from the server-side predictions log
+ * (predictions_log, scored post-tick by the backend). Replaces the old
+ * sessionStorage + keyword-sentiment version. Deterministic band scoring:
+ * exact band match = hit; Brier = (confidence − hit)², honest confidence wins.
  *
  * Props:
- *   - predictions:    array of { round, prediction, choice_selected }
- *   - roundNumber:    current round
- *   - commitResults:  results from the committed turn
- *   - globalState:    current global state  
+ *   - predictions: array of server records { round, treasury_band,
+ *       reputation_dir, confidence, note, score }
+ *   - roundNumber: the round whose results are on screen
  */
 
-export default function PredictionComparison({
-  predictions,
-  roundNumber,
-  commitResults,
-  globalState,
-}) {
-  const comparison = useMemo(() => {
-    if (!predictions?.length || !commitResults) return null;
+const BAND_LABEL = {
+  down_big: '▼▼ >$5M drop', down: '▼ $1–5M drop', flat: '≈ flat',
+  up: '▲ $1–5M gain', up_big: '▲▲ >$5M gain',
+};
+const DIR_LABEL = { down: '▼ falls', flat: '≈ flat', up: '▲ rises' };
 
-    // Find the prediction for this round
-    const pred = predictions.find(p => p.round === roundNumber);
-    if (!pred?.prediction) return null;
-
-    // Build the "actual" summary from commit results
-    const ev = commitResults.events || {};
-    const gs = commitResults.globalState || {};
-    const actualParts = [];
-
-    if (gs.corporate_treasury !== undefined && globalState?.corporate_treasury !== undefined) {
-      const delta = gs.corporate_treasury - globalState.corporate_treasury;
-      actualParts.push(`Treasury ${delta >= 0 ? '+' : ''}$${(delta / 1e6).toFixed(1)}M`);
+export default function PredictionComparison({ predictions, roundNumber }) {
+  const view = useMemo(() => {
+    const pred = (predictions || []).find((p) => p.round === roundNumber && p.score);
+    if (!pred) return null;
+    const s = pred.score;
+    const rows = [];
+    if (pred.treasury_band) {
+      rows.push({
+        kpi: '💰 Treasury',
+        predicted: BAND_LABEL[pred.treasury_band] || pred.treasury_band,
+        actual: `${BAND_LABEL[s.actual_treasury_band] || s.actual_treasury_band} (${s.treasury_delta >= 0 ? '+' : ''}$${(s.treasury_delta / 1e6).toFixed(1)}M)`,
+        hit: s.treasury_hit,
+      });
     }
-    if (gs.group_reputation !== undefined && globalState?.group_reputation !== undefined) {
-      const delta = gs.group_reputation - globalState.group_reputation;
-      actualParts.push(`Reputation ${delta >= 0 ? '+' : ''}${delta.toFixed(0)}`);
+    if (pred.reputation_dir) {
+      rows.push({
+        kpi: '⭐ Reputation',
+        predicted: DIR_LABEL[pred.reputation_dir] || pred.reputation_dir,
+        actual: `${DIR_LABEL[s.actual_reputation_dir] || s.actual_reputation_dir} (${s.reputation_delta >= 0 ? '+' : ''}${Number(s.reputation_delta).toFixed(1)})`,
+        hit: s.reputation_hit,
+      });
     }
-    if (ev.summary || ev.narrative_summary) {
-      actualParts.push(ev.summary || ev.narrative_summary);
+    if (!rows.length) return null;
+    let verdict = `${s.hits} of ${s.of} calls right`;
+    const verdictTone = s.hits === s.of ? '#34d399' : s.hits === 0 ? '#f87171' : '#fbbf24';
+    let confLine = null;
+    if (typeof pred.confidence === 'number' && s.brier != null) {
+      const hitRate = s.of ? s.hits / s.of : 0;
+      const gap = pred.confidence - hitRate;
+      confLine =
+        gap > 0.2 ? `You were more confident (${Math.round(pred.confidence * 100)}%) than accurate this round — worth noticing.`
+        : gap < -0.2 ? `You were more accurate than your ${Math.round(pred.confidence * 100)}% confidence suggested — trust your model a little more.`
+        : `Well calibrated: ${Math.round(pred.confidence * 100)}% confident, ${Math.round(hitRate * 100)}% right.`;
+      verdict += ` · Brier ${s.brier.toFixed(2)}`;
     }
+    return { rows, verdict, verdictTone, confLine, note: pred.note };
+  }, [predictions, roundNumber]);
 
-    const actualText = actualParts.join('. ') || 'Results processed — see KPI changes above.';
-
-    // Simple calibration: compare prediction sentiment with outcome direction
-    const predLower = pred.prediction.toLowerCase();
-    const isOptimistic = predLower.includes('increase') || predLower.includes('improve') || predLower.includes('gain') || predLower.includes('positive');
-    const isPessimistic = predLower.includes('decrease') || predLower.includes('worse') || predLower.includes('lose') || predLower.includes('negative') || predLower.includes('risk');
-    
-    const treasuryDelta = (gs.corporate_treasury || 0) - (globalState?.corporate_treasury || 0);
-    const repDelta = (gs.group_reputation || 0) - (globalState?.group_reputation || 0);
-    const outcomePositive = treasuryDelta > 0 && repDelta >= 0;
-    const outcomeNegative = treasuryDelta < -500000 || repDelta < -3;
-
-    let calibration = 'medium';
-    if ((isOptimistic && outcomePositive) || (isPessimistic && outcomeNegative)) {
-      calibration = 'high';
-    } else if ((isOptimistic && outcomeNegative) || (isPessimistic && outcomePositive)) {
-      calibration = 'low';
-    }
-
-    return {
-      prediction: pred.prediction,
-      actual: actualText,
-      calibration,
-      calibrationLabel: calibration === 'high' ? '✅ Well Calibrated' : calibration === 'low' ? '❌ Miscalibrated' : '⚖️ Partially Aligned',
-    };
-  }, [predictions, roundNumber, commitResults, globalState]);
-
-  if (!comparison) return null;
+  if (!view) return null;
 
   return (
-    <div className={styles.predictionComparison}>
-      <div className={styles.predictionComparisonTitle}>
-        <span>🔮</span>
-        <span>PREDICTION vs. REALITY</span>
+    <div style={{
+      marginTop: 12, padding: '12px 14px', borderRadius: 10,
+      background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.25)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8, gap: 10, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#a5b4fc' }}>
+          🔮 Your Prediction vs Reality
+        </span>
+        <span style={{ fontSize: '0.72rem', fontWeight: 800, color: view.verdictTone }}>{view.verdict}</span>
       </div>
-
-      <div className={styles.predictionColumns}>
-        <div className={`${styles.predictionColumn} ${styles.predictionColumnPredicted}`}>
-          <div className={styles.predictionColumnLabel}>📝 What You Predicted</div>
-          {comparison.prediction}
+      {view.rows.map((r) => (
+        <div key={r.kpi} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: '0.76rem', color: '#cbd5e1', padding: '3px 0', flexWrap: 'wrap' }}>
+          <span style={{ width: 96, flexShrink: 0 }}>{r.kpi}</span>
+          <span style={{ color: '#94a3b8' }}>you: <strong style={{ color: '#e2e8f0' }}>{r.predicted}</strong></span>
+          <span style={{ color: '#64748b' }}>→</span>
+          <span style={{ color: '#94a3b8' }}>actual: <strong style={{ color: '#e2e8f0' }}>{r.actual}</strong></span>
+          <span style={{ marginLeft: 'auto' }}>{r.hit ? '✅' : '❌'}</span>
         </div>
-        <div className={`${styles.predictionColumn} ${styles.predictionColumnActual}`}>
-          <div className={styles.predictionColumnLabel}>📊 What Actually Happened</div>
-          {comparison.actual}
+      ))}
+      {view.confLine && (
+        <div style={{ fontSize: '0.72rem', color: '#a5b4fc', marginTop: 6, fontStyle: 'italic' }}>{view.confLine}</div>
+      )}
+      {view.note && (
+        <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: 6 }}>
+          Your reasoning at the time: “{view.note}”
         </div>
-      </div>
-
-      <div className={`${styles.calibrationScore} ${
-        comparison.calibration === 'high' ? styles.calibrationHigh :
-        comparison.calibration === 'low' ? styles.calibrationLow :
-        styles.calibrationMedium
-      }`}>
-        {comparison.calibrationLabel}
-      </div>
+      )}
     </div>
   );
 }

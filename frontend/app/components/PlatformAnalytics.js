@@ -11,6 +11,7 @@ const TABS = [
     { id: 'convergence', label: '🔄 Convergence', key: 'convergence_analysis', title: 'Measures strategy similarity using a convergence gauge (0–100%). Tracks choice entropy (bits of unpredictability) and CapEx standard deviation per round. Low entropy = players thinking alike. Answers: "Are teams converging on the same strategy or diversifying?"' },
     { id: 'learning', label: '🎯 Learning Outcomes', key: 'learning_outcomes', title: 'Tracks gamification and engagement: total learning bonuses awarded, manual facilitator awards, badge distribution counts, and bonuses by category. Answers: "How engaged are students and what milestones have they hit?"' },
     { id: 'risk', label: '📉 Risk Exposure', key: 'risk_exposure', title: 'Multi-axis tracking of non-financial risks per cohort over time: Carbon Intensity, Natural Capital Debt, Social License, and Governance Risk. Rendered as vertical bar charts per cohort. Answers: "How are teams managing ESG/sustainability risks?"' },
+    { id: 'calibration', label: '🎯 Calibration', key: 'calibration_analytics', title: 'Scores each team\'s Predict-Before-Commit forecasts against actual outcomes: per-team stated confidence vs realised hit-rate (scatter with the perfect-calibration diagonal), cohort trend by round, and the most over/under-confident teams. Includes a one-line debrief prompt. Answers: "Are my students\' mental models of the system actually improving?"' },
 ];
 
 const CHOICE_COLORS = {
@@ -79,6 +80,7 @@ export default function PlatformAnalytics({ visibility = null, leaderboard = [],
                 {tab === 'convergence' && <ConvergenceAnalysis data={data.convergence} />}
                 {tab === 'learning' && <LearningOutcomes data={data.learning_outcomes} />}
                 {tab === 'risk' && <RiskExposure data={data.risk_exposure} leaderboard={leaderboard} onNavigate={onNavigate} onSelectSession={onSelectSession} />}
+                {tab === 'calibration' && <CalibrationAnalytics />}
             </div>
         </div>
     );
@@ -490,6 +492,117 @@ function RiskExposure({ data, leaderboard, onNavigate, onSelectSession }) {
                     </div>
                 ))}
             </div>
+        </div>
+    );
+}
+
+
+/* ═══════════════════════════════════════
+   7. CALIBRATION (PLAN_Calibration_Analytics Phase 4)
+   Self-fetching: the calibration aggregate lives on its own endpoint so the
+   heavy /god/analytics payload is untouched. Auth-scoped server-side
+   (facilitators see only their own cohorts).
+   ═══════════════════════════════════════ */
+function CalibrationAnalytics() {
+    const [cal, setCal] = useState(null);
+    const [calLoading, setCalLoading] = useState(true);
+    useEffect(() => {
+        fetch(`${API}/api/admin/calibration-analytics`, { credentials: 'include' })
+            .then(r => (r.ok ? r.json() : null))
+            .then(d => setCal(d))
+            .catch(() => {})
+            .finally(() => setCalLoading(false));
+    }, []);
+
+    if (calLoading) return <div className={styles.loading}>Loading calibration…</div>;
+    if (!cal || !cal.teams?.length) {
+        return <EmptyState msg="No scored predictions yet. Enable 🔮 Predictions (and 🎰 Confidence) in Pedagogical Scaffolding — data appears after teams commit their first predicted round." />;
+    }
+
+    const withConf = cal.teams.filter(t => t.mean_confidence != null && t.hit_rate != null);
+    const sorted = [...cal.teams].filter(t => t.overconfidence != null).sort((a, b) => b.overconfidence - a.overconfidence);
+    const W = 420, H = 280, padL = 46, padB = 40, padT = 16, padR = 16;
+    const iw = W - padL - padR, ih = H - padT - padB;
+    const xOf = c => padL + ((c - 0.5) / 0.5) * iw;
+    const yOf = h => padT + (1 - h) * ih;
+
+    return (
+        <div>
+            {/* Teleprompter line — read this aloud in the debrief */}
+            <div style={{ padding: '10px 14px', borderRadius: 10, marginBottom: 14, background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.3)', fontSize: '0.82rem', color: '#fbbf24', fontWeight: 600 }}
+                 data-tooltip="A ready-to-read debrief prompt generated from the latest round's prediction results.">
+                📢 {cal.teleprompter_line}
+            </div>
+
+            {withConf.length > 0 && (
+                <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                    <div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
+                            Confidence vs accuracy (one dot per team)
+                        </div>
+                        <svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', maxWidth: 460 }} aria-label="Team calibration scatter">
+                            <line x1={padL} y1={yOf(0)} x2={W - padR} y2={yOf(0)} stroke="rgba(148,163,184,0.35)" />
+                            <line x1={padL} y1={yOf(0)} x2={padL} y2={padT} stroke="rgba(148,163,184,0.35)" />
+                            {[0, 0.5, 1].map(v => (
+                                <text key={v} x={padL - 6} y={yOf(v) + 3} textAnchor="end" fontSize="9" fill="#8899a6">{Math.round(v * 100)}%</text>
+                            ))}
+                            {[0.5, 0.75, 1].map(v => (
+                                <text key={v} x={xOf(v)} y={H - padB + 14} textAnchor="middle" fontSize="9" fill="#8899a6">{Math.round(v * 100)}%</text>
+                            ))}
+                            <text x={padL + iw / 2} y={H - 8} textAnchor="middle" fontSize="9" fill="#64748b">mean stated confidence</text>
+                            <text x={12} y={padT + ih / 2} textAnchor="middle" fontSize="9" fill="#64748b" transform={`rotate(-90 12 ${padT + ih / 2})`}>realised hit-rate</text>
+                            <line x1={xOf(0.5)} y1={yOf(0.5)} x2={xOf(1)} y2={yOf(1)} stroke="rgba(52,211,153,0.5)" strokeDasharray="4 4" />
+                            <text x={xOf(0.98)} y={yOf(1) + 12} textAnchor="end" fontSize="8.5" fill="#34d399">perfect calibration</text>
+                            {withConf.map((t, i) => (
+                                <g key={i}>
+                                    <circle cx={xOf(t.mean_confidence)} cy={yOf(t.hit_rate)} r="6"
+                                        fill={t.overconfidence > 0.1 ? '#f87171' : t.overconfidence < -0.1 ? '#fbbf24' : '#34d399'} fillOpacity="0.8">
+                                        <title>{t.cohort_name} · {t.player_id} — {Math.round(t.mean_confidence * 100)}% confident, {Math.round(t.hit_rate * 100)}% right over {t.rounds_predicted} round(s)</title>
+                                    </circle>
+                                </g>
+                            ))}
+                        </svg>
+                        <div style={{ fontSize: '0.68rem', color: '#8899a6', marginTop: 4 }}>
+                            🔴 above the line = overconfident · 🟡 below = underconfident · 🟢 on it = calibrated
+                        </div>
+                    </div>
+
+                    <div style={{ minWidth: 240 }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
+                            Cohort hit-rate by round
+                        </div>
+                        {(cal.round_trend || []).map(r => (
+                            <div key={r.round} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '2px 0', fontSize: '0.76rem' }}>
+                                <span style={{ width: 28, color: '#8899a6' }}>R{r.round}</span>
+                                <div style={{ flex: 1, height: 8, borderRadius: 4, background: 'rgba(148,163,184,0.15)' }}>
+                                    <div style={{ width: `${Math.round((r.hit_rate || 0) * 100)}%`, height: '100%', borderRadius: 4, background: (r.hit_rate || 0) >= 0.6 ? '#34d399' : (r.hit_rate || 0) >= 0.35 ? '#fbbf24' : '#f87171' }} />
+                                </div>
+                                <span style={{ width: 60, textAlign: 'right', color: '#cbd5e1' }}>{r.hit_rate == null ? '—' : `${Math.round(r.hit_rate * 100)}%`} <span style={{ color: '#64748b' }}>({r.n})</span></span>
+                            </div>
+                        ))}
+                        <div style={{ fontSize: '0.68rem', color: '#64748b', marginTop: 6, fontStyle: 'italic' }}>
+                            A rising bar = the cohort's mental model of the system is sharpening.
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {sorted.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                    <div style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#8899a6', marginBottom: 6 }}>
+                        Most over- / under-confident
+                    </div>
+                    {[...sorted.slice(0, 3), ...sorted.slice(-2).filter(t => !sorted.slice(0, 3).includes(t))].map((t, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 10, fontSize: '0.78rem', color: '#cbd5e1', padding: '3px 0' }}>
+                            <span style={{ color: t.overconfidence > 0.1 ? '#f87171' : t.overconfidence < -0.1 ? '#fbbf24' : '#34d399', fontWeight: 800, width: 56 }}>
+                                {t.overconfidence >= 0 ? '+' : ''}{Math.round(t.overconfidence * 100)} pts
+                            </span>
+                            <span>{t.cohort_name} · {t.player_id}</span>
+                            <span style={{ color: '#64748b' }}>({Math.round((t.mean_confidence || 0) * 100)}% conf → {Math.round((t.hit_rate || 0) * 100)}% hit, {t.rounds_predicted} rounds)</span>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }
