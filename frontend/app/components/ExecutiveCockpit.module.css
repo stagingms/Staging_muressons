@@ -402,6 +402,39 @@
   flex-shrink: 0;
 }
 
+/* Rail section rhythm: one header treatment shared by every collapsible rail
+   section (feed-collapsed, round recap) so they read as siblings, not ad-hoc
+   buttons. Neutral by default; colour stays reserved for urgency. */
+.railSectionHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2, 8px);
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  border-radius: var(--radius-card, 10px);
+  border: 1px solid var(--ck-border, #1e293b);
+  background: transparent;
+  color: var(--ck-text-3, #94a3b8);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+}
+.railSectionHeader:hover {
+  background: rgba(148, 163, 184, 0.06);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: var(--ck-text-2, #cbd5e1);
+}
+.railSectionHeaderLabel {
+  flex: 1;
+  min-width: 0;
+}
+.railSectionHeaderChevron {
+  transition: transform 0.2s ease;
+}
+
 /* Right Panel Thin Scrollbars */
 .rightSidebar ::-webkit-scrollbar {
   width: 4px;

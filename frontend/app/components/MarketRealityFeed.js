@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import styles from './ExecutiveCockpit.module.css';
+import RailIcon from './RailIcon';
 
 /**
  * MarketRealityFeed — News ticker + event alert overlay.
@@ -20,17 +21,17 @@ import styles from './ExecutiveCockpit.module.css';
  */
 
 const SEVERITY_META = {
-  alert: { icon: '🚨', badge: 'ALERT', badgeColor: '#ef4444', badgeBg: 'rgba(239,68,68,0.1)' },
+  alert: { iconName: 'alertTriangle', badge: 'ALERT', badgeColor: '#ef4444', badgeBg: 'rgba(239,68,68,0.1)' },
   // INFO is the quiet default — neutral badge so colour is reserved for
   // urgency (alert = red, foreshadow = amber). De-noises the feed spine.
-  info: { icon: '📊', badge: 'INFO', badgeColor: '#94a3b8', badgeBg: 'rgba(148,163,184,0.10)' },
-  foreshadow: { icon: '📰', badge: 'BREAKING', badgeColor: '#f59e0b', badgeBg: 'rgba(245,158,11,0.1)' },
+  info: { iconName: 'info', badge: 'INFO', badgeColor: '#94a3b8', badgeBg: 'rgba(148,163,184,0.10)' },
+  foreshadow: { iconName: 'zap', badge: 'BREAKING', badgeColor: '#f59e0b', badgeBg: 'rgba(245,158,11,0.1)' },
 };
 
 const FILTER_CHIPS = [
-  { id: 'all', label: 'All', icon: '📋' },
-  { id: 'alerts', label: 'Alerts', icon: '⚠️' },
-  { id: 'data', label: 'Data', icon: '📊' },
+  { id: 'all', label: 'All', iconName: 'list' },
+  { id: 'alerts', label: 'Alerts', iconName: 'alertTriangle' },
+  { id: 'data', label: 'Data', iconName: 'barChart' },
 ];
 
 export default function MarketRealityFeed({
@@ -131,7 +132,7 @@ export default function MarketRealityFeed({
   return (
     <div className={styles.feedContainer}>
       <div className={styles.feedTitle} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <span>📰 Market Reality Feed</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><RailIcon name="rss" size={12} /> Market Reality Feed</span>
         {/* #6: Severity Filter Chips */}
         {items.length > 2 && (
           <div style={{ display: 'flex', gap: 3 }}>
@@ -151,7 +152,7 @@ export default function MarketRealityFeed({
                     display: 'flex', alignItems: 'center', gap: 3,
                   }}
                 >
-                  {chip.icon} {chip.label} <span style={{ opacity: 0.6 }}>({count})</span>
+                  <RailIcon name={chip.iconName} size={10} /> {chip.label} <span style={{ opacity: 0.6 }}>({count})</span>
                 </button>
               );
             })}
@@ -208,7 +209,7 @@ export default function MarketRealityFeed({
             )}
 
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
-              <span style={{ fontSize: '0.82rem', flexShrink: 0, lineHeight: 1.5 }}>{meta.icon}</span>
+              <span style={{ flexShrink: 0, lineHeight: 1.5, marginTop: 1 }}><RailIcon name={meta.iconName} size={13} color={meta.badgeColor} /></span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}>
                   <span style={{

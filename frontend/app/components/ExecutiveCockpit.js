@@ -11,6 +11,7 @@ import styles from './ExecutiveCockpit.module.css';
 import KPIDashboard from './KPIDashboard';
 import TurnaroundPhaseChip from './TurnaroundPhaseChip';
 import MarketRealityFeed from './MarketRealityFeed';
+import RailIcon from './RailIcon';
 import InvestmentMatrix from './InvestmentMatrix';
 import CountdownTimer from './CountdownTimer';
 import { DETAILED_DESCRIPTIONS } from '../utils/detailedDescriptions';
@@ -3206,17 +3207,12 @@ export default function ExecutiveCockpit({
             <div style={{ flex: '0 0 auto', padding: '4px 10px' }}>
               <button
                 onClick={() => setRailExpanded(false)}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                  border: '1px solid #1e293b', background: 'transparent',
-                  color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textAlign: 'left',
-                }}
+                className={styles.railSectionHeader}
                 title="Collapse the open panel to bring the feed back"
               >
-                <span>📡</span>
-                <span style={{ flex: 1 }}>Market Reality Feed ({marketEvents.length})</span>
-                <span>▸</span>
+                <RailIcon name="rss" size={13} />
+                <span className={styles.railSectionHeaderLabel}>Market Reality Feed ({marketEvents.length})</span>
+                <RailIcon name="chevronDown" size={12} style={{ transform: 'rotate(-90deg)' }} />
               </button>
             </div>
           ) : (
@@ -3246,17 +3242,17 @@ export default function ExecutiveCockpit({
               <div style={{ marginBottom: 6 }}>
                 <button
                   onClick={() => setRailRecapOpen(v => !v)}
-                  style={{
-                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
-                    padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
-                    border: '1px solid #1e293b', background: 'transparent',
-                    color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textAlign: 'left',
-                  }}
+                  className={styles.railSectionHeader}
                   aria-expanded={railRecapOpen}
                 >
-                  <span>🔍</span>
-                  <span style={{ flex: 1 }}>Round recap — what happened & the road not taken</span>
-                  <span style={{ transition: 'transform 0.2s', transform: railRecapOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                  <RailIcon name="search" size={13} />
+                  <span className={styles.railSectionHeaderLabel}>Round recap — what happened & the road not taken</span>
+                  <RailIcon
+                    name="chevronDown"
+                    size={12}
+                    className={styles.railSectionHeaderChevron}
+                    style={{ transform: railRecapOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  />
                 </button>
                 {railRecapOpen && (
                   <div style={{ marginTop: 6 }}>
