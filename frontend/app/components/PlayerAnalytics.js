@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import styles from './PlayerAnalytics.module.css';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -18,7 +19,9 @@ export default function PlayerAnalytics({ sessionId, isOpen, onClose }) {
     useEffect(() => {
         if (!isOpen || !sessionId) return;
         setLoading(true);
-        fetch(`${API}/api/admin/analytics/player/${sessionId}`)
+        // X-Player-Id: the endpoint is now SEC-3-guarded (owned sessions admit
+        // only their owner; facilitators always pass).
+        fetch(`${API}/api/admin/analytics/player/${sessionId}`, { headers: playerIdHeader(), credentials: 'include' })
             .then(r => r.ok ? r.json() : null)
             .then(d => { setData(d); setLoading(false); })
             .catch(() => setLoading(false));

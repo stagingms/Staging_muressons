@@ -215,7 +215,7 @@ export default function ComplexityEventFeed({ sessionId }) {
     useEffect(() => {
         if (!sessionId) return;
         setLoading(true);
-        fetch(`${API}/api/admin/complexity-events/${sessionId}`)
+        fetch(`${API}/api/admin/complexity-events/${sessionId}`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => { setFeed(d.feed || []); setLoading(false); })
             .catch(() => setLoading(false));
@@ -225,7 +225,7 @@ export default function ComplexityEventFeed({ sessionId }) {
     useEffect(() => {
         if (viewMode !== 'cohort') return;
         setLoading(true);
-        fetch(`${API}/api/admin/complexity-events-all`)
+        fetch(`${API}/api/admin/complexity-events-all`, { credentials: 'include' })
             .then(r => r.json())
             .then(d => { setAllCohorts(d.cohorts || []); setLoading(false); })
             .catch(() => setLoading(false));

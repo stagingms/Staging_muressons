@@ -8614,8 +8614,13 @@ _COMPLEXITY_EVENT_LABELS = {
 
 
 @admin_router.get("/complexity-events/{session_id}", summary="Get complexity engine events for a session")
-async def get_complexity_events(session_id: str):
-    """Surface the 16 engine events from a session's latest state as human-readable cards."""
+async def get_complexity_events(session_id: str, _guard: None = Depends(require_facilitator)):
+    """Surface the 16 engine events from a session's latest state as human-readable cards.
+
+    Guard (audit finding B — was unauthenticated): its only consumers are the
+    facilitator and god-mode dashboards (ComplexityEventFeed), and the sibling
+    /complexity-events-all was already facilitator-guarded — this brings the
+    per-session variant in line."""
     global_states = getattr(db, '_global_states', {})
     rounds = global_states.get(session_id, [])
     if not rounds:

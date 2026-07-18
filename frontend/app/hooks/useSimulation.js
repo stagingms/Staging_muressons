@@ -11,7 +11,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 // SEC-3: attach the player's own id so the backend can bind each game
 // request to its session owner. Header-less requests still work; this only
 // scopes a player to their OWN session and never blocks facilitators.
-function playerIdHeader() {
+export function playerIdHeader() {
     try {
         const pid = typeof window !== 'undefined'
             ? window.localStorage.getItem('muressons_playerId')

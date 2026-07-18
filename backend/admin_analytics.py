@@ -486,10 +486,16 @@ async def get_platform_analytics(request: Request,
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @analytics_router.get("/analytics/player/{session_id}", summary="Player-scoped analytics")
-async def get_player_analytics(session_id: str):
+async def get_player_analytics(session_id: str, request: Request):
     """
     Compute peer benchmarking, decision impact attribution, and
     what-if counterfactual analysis for a specific player session.
+
+    Guard (audit finding B — was fully unauthenticated): facilitators always
+    pass; player callers are bound to their own session with the same SEC-3
+    semantics as router._assert_player_owns_session — an unowned (solo)
+    session admits its UUID bearer, an owned session requires a matching
+    X-Player-Id, and holding a leaked session id alone is not enough.
     """
     all_sessions = getattr(db, '_sessions', {})
     global_states = getattr(db, '_global_states', {})
@@ -499,6 +505,11 @@ async def get_player_analytics(session_id: str):
     sess = all_sessions.get(session_id)
     if not sess:
         raise HTTPException(404, "Session not found")
+
+    if _get_fac_role(request) == 'anonymous':
+        owner = sess.get("player_id") or ""
+        if owner and request.headers.get("X-Player-Id", "") != owner:
+            raise HTTPException(status_code=403, detail="Not your session")
 
     player_rounds = global_states.get(session_id, [])
     if not player_rounds:

@@ -69,9 +69,17 @@ session/team data:
   cohort's `cohort_pulse_player_visible` flag is on AND their X-Player-Id
   owns a session in the cohort. Verified all five paths live (anonymous
   401/403, facilitator 200, member player 200 when visible, non-member 403).
-- `GET /complexity-events/{session_id}` — event flags per session. Still
-  open; low sensitivity (needs a session UUID), decide with the same
-  member-or-facilitator pattern if desired.
-- `GET /analytics/player/{session_id}` — player analytics (may be
-  intentionally player-facing; verify against the player cockpit's usage
-  before guarding).
+- `GET /complexity-events/{session_id}` — **FIXED**: require_facilitator.
+  Its only consumers are the facilitator and god-mode dashboards
+  (ComplexityEventFeed); the sibling /complexity-events-all was already
+  facilitator-guarded.
+- `GET /analytics/player/{session_id}` — **FIXED**: player-facing
+  (PlayerAnalytics in the player cockpit), so it gets SEC-3 semantics
+  mirroring router._assert_player_owns_session: facilitators always pass;
+  an OWNED session admits only its X-Player-Id owner (leaked session ids
+  alone are rejected); an unowned solo session keeps its UUID-as-bearer
+  behaviour. PlayerAnalytics.js now sends the playerIdHeader (exported from
+  useSimulation). Verified all paths live.
+
+**Section B is now fully closed.** Remaining debt is Section A only (the
+Postgres-migration porting checklist).
