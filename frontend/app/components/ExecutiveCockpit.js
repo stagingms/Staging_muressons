@@ -153,6 +153,50 @@ const BASE_YEAR = new Date().getFullYear();
 // Pre-compute period label for a given round using the shared utility
 const getRoundLabel = (round) => roundToQuarter(round, BASE_YEAR).label;
 
+// ── Vital-signs helpers (WOW move 1: presentational only, no logic change) ──
+// A compact trend sparkline drawn from a KPI's own round history.
+function Sparkline({ data, color = '#818cf8', width = 56, height = 15 }) {
+  const pts = (data || []).filter((v) => Number.isFinite(v));
+  if (pts.length < 2) return null;
+  const min = Math.min(...pts), max = Math.max(...pts);
+  const range = (max - min) || 1;
+  const step = width / (pts.length - 1);
+  const y = (v) => height - ((v - min) / range) * (height - 2) - 1;
+  const d = pts.map((v, i) => `${i === 0 ? 'M' : 'L'} ${(i * step).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" style={{ display: 'block', overflow: 'visible' }}>
+      <path d={d} fill="none" stroke={color} strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
+      <circle cx={(width).toFixed(1)} cy={y(pts[pts.length - 1]).toFixed(1)} r="1.7" fill={color} />
+    </svg>
+  );
+}
+
+// Count-up numeral: eases from the previous value to the new one when it
+// changes (round advance / commit); instant under prefers-reduced-motion.
+function AnimatedNumber({ value, format = (v) => v, duration = 850, style, className }) {
+  const [display, setDisplay] = useState(value);
+  const fromRef = useRef(value);
+  const rafRef = useRef(null);
+  useEffect(() => {
+    const to = Number(value);
+    const from = Number(fromRef.current);
+    const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduce || !Number.isFinite(from) || !Number.isFinite(to) || from === to) {
+      setDisplay(to); fromRef.current = to; return;
+    }
+    const start = performance.now();
+    const tick = (now) => {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      setDisplay(from + (to - from) * eased);
+      if (p < 1) { rafRef.current = requestAnimationFrame(tick); }
+      else { fromRef.current = to; }
+    };
+    rafRef.current = requestAnimationFrame(tick);
+    return () => rafRef.current && cancelAnimationFrame(rafRef.current);
+  }, [value, duration]);
+  return <span className={className} style={style}>{format(display)}</span>;
+}
 
 
 export default function ExecutiveCockpit({
@@ -1261,7 +1305,8 @@ export default function ExecutiveCockpit({
           <div className={styles.resourcesPanel} aria-live="polite" aria-label="Key Performance Indicators">
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>💰 Treasury</div>
-              <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
+              <div className={styles.resourceValue}><AnimatedNumber value={treasury} format={fmtCurrency} /></div>
+              <Sparkline data={[...historyData.map(d => d.treasury), treasury]} color="#4ade80" />
               {(() => { const prev = previousGlobalState?.corporate_treasury; const d = prev != null ? treasury - prev : 0; return d !== 0 ? (
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
@@ -1291,7 +1336,8 @@ export default function ExecutiveCockpit({
             })()}
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>🌍 Reputation</div>
-              <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
+              <div className={styles.resourceValue}><AnimatedNumber value={reputation} format={(v) => Math.round(v)} /><span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
+              <Sparkline data={[...historyData.map(d => d.reputation), reputation]} color={reputation >= 55 ? '#4ade80' : reputation >= 40 ? '#f59e0b' : '#ef4444'} />
               {(() => { const prev = previousGlobalState?.group_reputation; const d = prev != null ? reputation - prev : 0; return d !== 0 ? (
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
               ) : null; })()}
@@ -1304,7 +1350,8 @@ export default function ExecutiveCockpit({
             {!isHealthcare && (
               <div className={styles.resourceCard}>
                 <div className={styles.resourceLabel}>🏭 Carbon</div>
-                <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>t</span></div>
+                <div className={styles.resourceValue}><AnimatedNumber value={tco2e} format={(v) => Math.round(v).toLocaleString()} /><span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>t</span></div>
+                <Sparkline data={[...historyData.map(d => d.tco2e), tco2e]} color="#f59e0b" />
                 {(() => { const prev = previousGlobalState?.tco2e_emissions; const d = prev != null ? tco2e - prev : 0; return d !== 0 ? (
                   <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#4ade80' : '#f87171', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
                 ) : null; })()}
@@ -1312,7 +1359,8 @@ export default function ExecutiveCockpit({
             )}
             <div className={styles.resourceCard}>
               <div className={styles.resourceLabel}>📈 EBITDA</div>
-              <div className={styles.resourceValue}>{fmtCurrency(ebitda)}</div>
+              <div className={styles.resourceValue}><AnimatedNumber value={ebitda} format={fmtCurrency} /></div>
+              <Sparkline data={[...historyData.map(d => d.ebitda), ebitda]} color="#818cf8" />
               {(() => { const prevBUs = previousGlobalState?.business_units || history?.[history?.length-1]?.business_units; const prevEbitda = prevBUs?.reduce((a,b) => a + (b.revenue_base||0) - (b.opex_base||0), 0); const d = prevEbitda != null ? ebitda - prevEbitda : 0; return Math.abs(d) > 0.01 ? (
                 <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
