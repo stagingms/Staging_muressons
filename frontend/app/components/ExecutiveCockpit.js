@@ -1246,6 +1246,33 @@ export default function ExecutiveCockpit({
         </div>
       </header>
 
+      {/* WOW move 3: persistent "Your Move" cue — the plain-language next action
+          and the number of steps left before commit, derived from the existing
+          gate state (no new logic, no flow change). */}
+      {!sim?.gameOver && (() => {
+        const isPillar = decisionParadigm === 'multi_toggles' || decisionParadigm === 'brsr_ngrbc';
+        const hasDecision = isPillar ? !!(pillarSelections && Object.keys(pillarSelections).length) : !!decisionChoice;
+        const hasAllocated = !!(allocations && Object.keys(allocations).length);
+        const steps = [];
+        if (roundNumber === 1) steps.push({ done: !!hasCompletedStakeholderMap, label: 'Map your stakeholders to see who holds power and interest.', action: onOpenStakeholderMap, cta: 'Open Stakeholder Map' });
+        if (roundNumber === 2) steps.push({ done: !!hasSubmittedMatrix, label: 'Complete the CSRD double-materiality assessment.', action: onOpenCSRD, cta: 'Open CSRD Assessment' });
+        steps.push({ done: hasDecision, label: isPillar ? 'Set your strategic pillars for this round.' : 'Choose your strategic decision for this round.' });
+        steps.push({ done: hasAllocated, label: 'Allocate the Corporate Sustainability Fund across your units.' });
+        const remaining = steps.filter((s) => !s.done).length;
+        const next = steps.find((s) => !s.done);
+        const ready = !next;
+        return (
+          <div aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '8px 16px 0', padding: '8px 14px', borderRadius: 10, background: ready ? 'rgba(34,197,94,0.08)' : 'rgba(99,102,241,0.08)', border: `1px solid ${ready ? 'rgba(34,197,94,0.28)' : 'rgba(99,102,241,0.28)'}` }}>
+            <span style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', color: ready ? '#4ade80' : '#a5b4fc', flexShrink: 0 }}>{ready ? '✓ READY' : 'YOUR MOVE'}</span>
+            <span style={{ fontSize: '0.82rem', color: '#e2e8f0', flex: 1, minWidth: 0 }}>{ready ? 'All steps complete — review and commit your round.' : next.label}</span>
+            {!ready && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', fontFamily: 'JetBrains Mono, monospace', flexShrink: 0 }}>{remaining} step{remaining > 1 ? 's' : ''} to commit</span>}
+            {!ready && next.action && (
+              <button onClick={next.action} style={{ flexShrink: 0, padding: '5px 12px', borderRadius: 7, cursor: 'pointer', fontWeight: 700, fontSize: '0.72rem', border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(99,102,241,0.2)', color: '#c7d2fe' }}>{next.cta} →</button>
+            )}
+          </div>
+        );
+      })()}
+
       {/* ═══ MAIN CONTENT (3 COLUMNS) ═══ */}
       <div className={`${styles.mainContent} ${isFocusActive ? focusStyles.dashboardFaded : ''}`}>
 
