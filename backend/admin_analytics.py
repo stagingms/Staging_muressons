@@ -168,12 +168,21 @@ async def get_cohort_analytics_visibility(session_id: str):
 
 
 @analytics_router.put("/cohort/{session_id}/analytics-visibility", summary="Set per-cohort analytics visibility overrides")
-async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...), _guard: None = Depends(_require_facilitator)):
+async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...),
+                                          caller_role: str = Depends(_get_fac_role),
+                                          _guard: None = Depends(_require_facilitator)):
     sess = database_memory._sessions.get(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
+    # Governance: the FACILITATOR-dashboard column is admin-owned. A facilitator
+    # must not grant themselves panels an admin turned off, so non-admin callers
+    # may only set the player block; any facilitator block they send is ignored
+    # (reported back, not an error, so older clients keep working).
+    from admin_shared import is_admin_role
+    editable_roles = ("facilitator", "player") if is_admin_role(caller_role) else ("player",)
+    ignored_roles = [r for r in ("facilitator", "player") if r in body and r not in editable_roles]
     overrides = sess.setdefault("analytics_visibility", {"facilitator": {}, "player": {}})
-    for role in ("facilitator", "player"):
+    for role in editable_roles:
         if role in body:
             for key, val in body[role].items():
                 if key in _analytics_visibility.get(role, {}):
@@ -182,6 +191,7 @@ async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...
     database_memory._persist()
     return {
         "cohort_overrides": overrides,
+        "ignored_admin_only_roles": ignored_roles,
         "effective": resolve_analytics_visibility(session_id),
     }
 

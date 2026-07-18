@@ -529,10 +529,18 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         }));
     };
 
+    // Governance: which analytics a FACILITATOR may see is an admin decision
+    // (super_admin / god_mode), not something a facilitator grants themselves
+    // during cohort setup. Facilitators keep the Player column (pedagogy).
+    // The backend enforces this too — set_cohort_analytics_visibility ignores
+    // the facilitator block from non-admin callers.
+    const canEditFacilitatorVisibility = ['super_admin', 'admin', 'god_mode'].includes(currentFacilitatorRole);
+    const visRoles = canEditFacilitatorVisibility ? ['facilitator', 'player'] : ['player'];
+
     // Check if any visibility setting differs from global defaults
     const hasVisibilityOverrides = () => {
         if (!visibilityDefaults) return false;
-        for (const role of ['facilitator', 'player']) {
+        for (const role of visRoles) {
             for (const [key, val] of Object.entries(visibility[role] || {})) {
                 if ((visibilityDefaults[role] || {})[key] !== val) return true;
             }
@@ -548,7 +556,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const buildSubConfigSteps = (sid) => {
         const steps = [];
         if (hasVisibilityOverrides()) {
-            steps.push({ name: 'Visibility', method: 'PUT', url: `${API}/api/admin/cohort/${sid}/analytics-visibility`, payload: visibility });
+            // Non-admins send only the Player column — facilitator-dashboard
+            // visibility is admin-owned (and server-enforced).
+            const visPayload = canEditFacilitatorVisibility ? visibility : { player: visibility.player };
+            steps.push({ name: 'Visibility', method: 'PUT', url: `${API}/api/admin/cohort/${sid}/analytics-visibility`, payload: visPayload });
         }
         steps.push({
             name: 'Pedagogical Settings', method: 'PUT',
@@ -2017,31 +2028,43 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
                                 <h3>6. Analytics Visibility</h3>
-                                <p>Choose which analytics panels are visible for this cohort. Changes override the global defaults.</p>
+                                <p>
+                                    {canEditFacilitatorVisibility
+                                        ? 'Choose which analytics panels are visible for this cohort. Changes override the global defaults.'
+                                        : 'Choose which analytics panels players in this cohort can see. Facilitator-dashboard visibility is managed by your platform administrator.'}
+                                </p>
                             </div>
 
                             <div className={styles.visSection}>
-                                <div className={styles.visRoleLabel}>🎓 Facilitator Dashboard</div>
-                                <div className={styles.visGrid}>
-                                    {FACILITATOR_ANALYTICS.map(a => (
-                                        <div
-                                            key={a.key}
-                                            className={`${styles.visCard} ${visibility.facilitator[a.key] ? styles.visCardActive : ''}`}
-                                            onClick={() => toggleVis('facilitator', a.key)}
-                                            data-tooltip={a.tooltip}
-                                        >
-                                            <span className={styles.visIcon}>{a.icon}</span>
-                                            <span className={styles.visLabel}>{a.label}</span>
-                                            <div className={styles.visToggleTrack}
-                                                style={{ background: visibility.facilitator[a.key] ? '#10b981' : '#475569' }}
-                                            >
-                                                <div className={styles.visToggleThumb}
-                                                    style={{ left: visibility.facilitator[a.key] ? '14px' : '2px' }}
-                                                />
-                                            </div>
+                                {/* Governance: facilitator-dashboard visibility is admin-owned —
+                                    a facilitator must not grant themselves panels an admin turned
+                                    off. Rendered only for super_admin / god_mode; the backend
+                                    ignores the facilitator block from non-admin callers anyway. */}
+                                {canEditFacilitatorVisibility && (
+                                    <>
+                                        <div className={styles.visRoleLabel}>🎓 Facilitator Dashboard</div>
+                                        <div className={styles.visGrid}>
+                                            {FACILITATOR_ANALYTICS.map(a => (
+                                                <div
+                                                    key={a.key}
+                                                    className={`${styles.visCard} ${visibility.facilitator[a.key] ? styles.visCardActive : ''}`}
+                                                    onClick={() => toggleVis('facilitator', a.key)}
+                                                    data-tooltip={a.tooltip}
+                                                >
+                                                    <span className={styles.visIcon}>{a.icon}</span>
+                                                    <span className={styles.visLabel}>{a.label}</span>
+                                                    <div className={styles.visToggleTrack}
+                                                        style={{ background: visibility.facilitator[a.key] ? '#10b981' : '#475569' }}
+                                                    >
+                                                        <div className={styles.visToggleThumb}
+                                                            style={{ left: visibility.facilitator[a.key] ? '14px' : '2px' }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
-                                </div>
+                                    </>
+                                )}
 
                                 <div className={styles.visRoleLabel}>👤 Player Dashboard</div>
                                 <div className={styles.visGrid}>
