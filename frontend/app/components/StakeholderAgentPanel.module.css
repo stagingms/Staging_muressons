@@ -88,6 +88,41 @@
   margin-left: 4px;
 }
 
+/* View toggle — segmented control switching the roster between the List
+   (default) and the relationship Map. One view at a time. */
+.viewToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border-radius: var(--radius-pill, 999px);
+  background: rgba(148, 163, 184, 0.10);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+.viewToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 9px;
+  border: none;
+  border-radius: var(--radius-pill, 999px);
+  background: transparent;
+  color: var(--neutral, #94a3b8);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.viewToggleBtn:hover {
+  color: var(--text-secondary, #cbd5e1);
+}
+.viewToggleActive {
+  background: var(--accent, #6366f1);
+  color: #fff;
+}
+
 /* â”€â”€ Panel Body â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .panelBody {
   padding: 6px;

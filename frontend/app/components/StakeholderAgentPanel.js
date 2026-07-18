@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import styles from './StakeholderAgentPanel.module.css';
 import StakeholderAvatar from './StakeholderAvatar';
 import StakeholderConstellation from './StakeholderConstellation';
+import RailIcon from './RailIcon';
 import { REVEAL_EASE, REVEAL_STAGGER } from '../styles/reveal';
 
 /* Initials for the monogram avatar: first letters of the two most
@@ -88,7 +89,7 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0 }) {
           />
           <div className={styles.agentInfo}>
             <div className={styles.agentName}>
-              {action?.icon || agent?.icon} {name}
+              {name}
             </div>
             <div className={styles.agentTitle}>
               {action?.title || agent?.title || ''}
@@ -209,6 +210,9 @@ export default function StakeholderAgentPanel({
 }) {
   const [expandedAgents, setExpandedAgents] = useState({});
   const [isCollapsed, setIsCollapsed] = useState(false);
+  // View toggle — 'list' (default, the regular roster) vs 'field' (the
+  // Mendelow-style relationship map). One at a time, never both.
+  const [view, setView] = useState('list');
 
   const toggleAgent = (id) => {
     setExpandedAgents((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -294,6 +298,28 @@ export default function StakeholderAgentPanel({
               {interferenceActive.length} 📡
             </span>
           )}
+          {!isCollapsed && (
+            <div className={styles.viewToggle} onClick={(e) => e.stopPropagation()} role="group" aria-label="Stakeholder view">
+              <button
+                type="button"
+                className={`${styles.viewToggleBtn} ${view === 'list' ? styles.viewToggleActive : ''}`}
+                onClick={() => setView('list')}
+                aria-pressed={view === 'list'}
+                title="List view"
+              >
+                <RailIcon name="rows" size={11} /> List
+              </button>
+              <button
+                type="button"
+                className={`${styles.viewToggleBtn} ${view === 'field' ? styles.viewToggleActive : ''}`}
+                onClick={() => setView('field')}
+                aria-pressed={view === 'field'}
+                title="Relationship map (power × interest)"
+              >
+                <RailIcon name="target" size={11} /> Map
+              </button>
+            </div>
+          )}
           <span className={styles.collapseArrow}>
             {isCollapsed ? '▼' : '▲'}
           </span>
@@ -309,14 +335,17 @@ export default function StakeholderAgentPanel({
             transition={{ duration: 0.3 }}
             className={styles.panelBody}
           >
-            {/* SA-E: living relationship orbit above the roster (Rail slot,
-                not a new panel). Re-keys on roundNumber so it re-settles as
-                the "reaction" beat when a round commits. */}
-            <StakeholderConstellation key={`field-${roundNumber}`} nodes={constellationNodes} />
+            {/* SA-E: the Mendelow-style relationship map. Toggled view — shown
+                instead of the roster, never alongside it. Re-keys on roundNumber
+                so it re-settles as the "reaction" beat when a round commits. */}
+            {view === 'field' && (
+              <StakeholderConstellation key={`field-${roundNumber}`} nodes={constellationNodes} />
+            )}
 
-            {/* Agent cards — index drives the staggered reveal; the roundNumber
-                key remounts them each commit so the ring-sweep replays. */}
-            {sortedAgents.map((agent, i) => (
+            {/* Agent cards (default list view) — index drives the staggered
+                reveal; the roundNumber key remounts them each commit so the
+                ring-sweep replays. */}
+            {view === 'list' && sortedAgents.map((agent, i) => (
               <AgentCard
                 key={`${agent.agent_id}-${roundNumber}`}
                 index={i}
@@ -328,7 +357,7 @@ export default function StakeholderAgentPanel({
             ))}
 
             {/* Inter-Agent Interference alerts */}
-            {interferenceActive.length > 0 && (
+            {view === 'list' && interferenceActive.length > 0 && (
               <div className={styles.interferenceSection}>
                 <div className={styles.interferenceTitle}>
                   <span>📡</span> Feedback Loops Active
@@ -360,7 +389,7 @@ export default function StakeholderAgentPanel({
             )}
 
             {/* Cascade chain log */}
-            {cascadesFired.length > 0 && (
+            {view === 'list' && cascadesFired.length > 0 && (
               <div className={styles.cascadeSection}>
                 <div className={styles.cascadeTitle}>⚡ Cascade Chain</div>
                 {cascadesFired.map((c, i) => (

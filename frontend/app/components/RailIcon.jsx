@@ -51,6 +51,18 @@ const ICONS = {
     </>
   ),
   chevronDown: <path d="M6 9l6 6 6-6" />,
+  target: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="12" cy="12" r="3.5" />
+    </>
+  ),
+  rows: (
+    <>
+      <rect x="3" y="5" width="18" height="5" rx="1" />
+      <rect x="3" y="14" width="18" height="5" rx="1" />
+    </>
+  ),
 };
 
 export default function RailIcon({ name, size = 13, color = 'currentColor', strokeWidth = 2, style, className }) {
