@@ -440,8 +440,17 @@
   color: var(--gauge-green);
 }
 
-/* Phase 2.4: Dashboard stays visible (semi-transparent) during Focus Mode */
+/* Phase 2.4 (reworked): dim the SIDE panels during Focus Mode, never the
+   container. The old `opacity` on .dashboardFaded itself was group opacity —
+   children can never exceed a faded ancestor — so once CANVAS_FIRST moved the
+   Decision Canvas INSIDE mainContent, the primary work surface faded with
+   everything else (merely dim in dark mode at 0.45; effectively INVISIBLE in
+   light mode at 0.15). Container stays opaque; each column dims individually;
+   the KPI aside and the canvas column are exempt below. */
 .dashboardFaded {
+  opacity: 1;
+}
+.dashboardFaded > * {
   opacity: 0.45;
   transition: opacity 0.4s ease;
   /* filter: blur removed — causes GPU compositor churn */
@@ -871,10 +880,13 @@
   color: var(--text-muted);
 }
 
-/* Dashboard fade in light mode */
+/* Dashboard fade in light mode — dim the side panels a bit harder than dark
+   (0.35 vs 0.45) but nowhere near the old 0.15 whole-container ghost. */
 :global([data-theme="light"]) .dashboardFaded {
-  opacity: 0.15;
-  /* filter: blur removed — causes GPU compositor churn */
+  opacity: 1;
+}
+:global([data-theme="light"]) .dashboardFaded > * {
+  opacity: 0.35;
 }
 
 /* Back button */
@@ -919,4 +931,20 @@
   .panelInline {
     margin: 4px 4px 8px;
   }
+}
+
+/* ── Focus-fade exemptions (placed AFTER the theme overrides so they win the
+   cascade in both themes) ─────────────────────────────────────────────────
+   1. The left KPI aside stays fully visible + interactive (Phase 2.4 intent).
+   2. The column hosting the inline Decision Canvas (CANVAS_FIRST) is the
+      PRIMARY work surface — it must never fade. :has() is supported by every
+      browser this app targets; where unsupported the column merely dims like
+      the others (the pre-fix dark-mode behaviour, never the 0.15 ghost). */
+.dashboardFaded > aside:first-child {
+  opacity: 1;
+  pointer-events: auto;
+}
+.dashboardFaded > *:has(.panelInline) {
+  opacity: 1;
+  pointer-events: auto;
 }
