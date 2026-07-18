@@ -3987,7 +3987,25 @@ def _run_reporting_layer(ctx: TickContext) -> None:
 # memory) prerequisite. Adding the other engine states (board_governance,
 # org_politics, supply_chain, autonomous_agents) also changes THEIR cross-round
 # behaviour and must land in separate, individually golden-diffed commits.
-ENGINE_STATE_KEYS: tuple[str, ...] = ("npc_stakeholders",)
+# STATE-CARRY FIX (balance-sheet year-by-year audit, 2026-07-18): every
+# stateful engine ledger round_logic maintains on global_state must be listed
+# here, or _assemble_global_state silently drops it at the tick boundary and
+# the engine re-initialises EVERY round. Only npc_stakeholders was listed —
+# so the balance sheet rebuilt fresh each round (its year-by-year history
+# never spanned more than the final round), the autonomous stakeholder agents
+# lost grievance memory / patience each tick (decay re-applied from initial
+# values instead of accumulating), and biodiversity / board / org-politics /
+# supply-chain / regulatory-sandbox state reset likewise.
+ENGINE_STATE_KEYS: tuple[str, ...] = (
+    "npc_stakeholders",
+    "autonomous_agents",
+    "balance_sheet",
+    "biodiversity_state",
+    "board_governance",
+    "org_politics",
+    "supply_chain",
+    "regulatory_sandbox",
+)
 
 
 def _assemble_global_state(ctx: TickContext, initial_treasury: float) -> dict[str, Any]:
@@ -4038,7 +4056,11 @@ def _assemble_global_state(ctx: TickContext, initial_treasury: float) -> dict[st
         "systemic_tipping_state":     events.pop("_systemic_tipping_state_internal", {}),
         # SPEC §1.7 — carry forward stateful engine sub-dicts (NPC stakeholders)
         # so they persist across the tick boundary instead of resetting each round.
-        **{k: ctx.current_global[k] for k in ENGINE_STATE_KEYS if k in ctx.current_global},
+        # is-not-None guard: the memory store's explicit columns can hold None
+        # before an engine's first tick; carrying the key with a None value
+        # would defeat round_logic's `if key not in global_state` init check
+        # and crash the engine (NoneType is not subscriptable).
+        **{k: ctx.current_global[k] for k in ENGINE_STATE_KEYS if ctx.current_global.get(k) is not None},
     }
 
 

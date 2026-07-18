@@ -735,7 +735,7 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
     rn = grs["round_number"]
     bus = _bu_states.get(session_id, {}).get(rn, [])
 
-    return {
+    out = {
         "state_id": grs["state_id"],
         "round_number": rn,
         "global_state": {
@@ -808,6 +808,14 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             for bu in bus
         ],
     }
+    # PARITY with database.py (Postgres): unpack non-column keys from
+    # active_event_flags to top level so engine ledgers (balance_sheet,
+    # board_governance, supply_chain, …) are readable exactly as under
+    # Postgres. Explicit values above always win.
+    for _k, _v in (grs.get("active_event_flags") or {}).items():
+        if _k not in out["global_state"]:
+            out["global_state"][_k] = _v
+    return out
 
 
 async def fetch_latest_round(session_id: str) -> Optional[int]:
@@ -882,6 +890,13 @@ async def fetch_round_history(session_id: str) -> list[dict]:
                 if dec.get("session_id") == session_id and dec.get("round_number") == rn
             ],
         })
+    # PARITY with database.py (Postgres): unpack non-column flag keys to
+    # top level per round (explicit values win) — see fetch_latest_state.
+    for h in history:
+        gs_out = h["global_state"]
+        for _k, _v in (gs_out.get("active_event_flags") or {}).items():
+            if _k not in gs_out:
+                gs_out[_k] = _v
     return history
 
 
@@ -940,6 +955,18 @@ async def insert_next_round(
         # post-commit events).
         "agent_summary": global_state.get("agent_summary"),
     }
+
+    # PARITY with database.py (Postgres): pack every global_state key the
+    # explicit schema above doesn't store into active_event_flags. Without
+    # this, engine ledgers written top-level (balance_sheet, board_governance,
+    # supply_chain, …) were silently dropped in memory mode — e.g. the
+    # Year-by-Year balance sheet lost its accumulated history and rebuilt a
+    # fresh one-round statement on every read.
+    _packed_flags = dict(state_entry.get("active_event_flags") or {})
+    for _k, _v in global_state.items():
+        if _k not in state_entry and _k != "active_event_flags":
+            _packed_flags[_k] = _v
+    state_entry["active_event_flags"] = _packed_flags
 
     if session_id not in _global_states:
         _global_states[session_id] = []
@@ -1132,6 +1159,14 @@ async def update_latest_global_state(
     # Autonomous stakeholder agent state
     latest["autonomous_agents"] = global_state.get("autonomous_agents", latest.get("autonomous_agents"))
     latest["agent_summary"] = global_state.get("agent_summary", latest.get("agent_summary"))
+    # PARITY with database.py (Postgres): pack extra top-level keys back into
+    # active_event_flags so ledgers modified via fetch→update round-trips
+    # (balance_sheet, board_governance, …) are not silently dropped.
+    _packed = dict(latest.get("active_event_flags") or {})
+    for _k, _v in global_state.items():
+        if _k not in latest and _k != "active_event_flags":
+            _packed[_k] = _v
+    latest["active_event_flags"] = _packed
 
     rn = latest["round_number"]
     if session_id in _bu_states:
