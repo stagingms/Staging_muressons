@@ -5886,6 +5886,33 @@ async def get_balance_sheet(session_id: str):
             await db.update_latest_global_state(session_id, gs, bus)
         except Exception:
             bs = {}
+
+    # ── Year-by-year repair: stitch the FULL history at read time ──────────
+    # Sessions whose early rounds were played before the ENGINE_STATE_KEYS
+    # carry fix (ecad3ee) had balance_sheet_history reset every tick, so the
+    # latest state only holds the tail (e.g. rounds [8,9,10] → the UI showed
+    # just Year 4 + Year 5). But each round's OWN state row still carries its
+    # single-entry history — union them all, latest state winning on
+    # duplicates, so the Year-by-Year Statement shows every year for legacy
+    # sessions too. Healthy sessions are a no-op (their latest history is
+    # already the superset).
+    try:
+        if isinstance(bs, dict):
+            hist_by_round: dict[int, dict] = {}
+            for row in await db.fetch_round_history(session_id):
+                row_bs = (row.get("global_state") or {}).get("balance_sheet") or {}
+                for h in row_bs.get("balance_sheet_history") or []:
+                    if isinstance(h, dict) and h.get("round") is not None:
+                        hist_by_round[int(h["round"])] = h
+            for h in bs.get("balance_sheet_history") or []:  # latest state wins
+                if isinstance(h, dict) and h.get("round") is not None:
+                    hist_by_round[int(h["round"])] = h
+            if len(hist_by_round) > len(bs.get("balance_sheet_history") or []):
+                bs = {**bs, "balance_sheet_history":
+                      [hist_by_round[k] for k in sorted(hist_by_round)]}
+    except Exception:
+        pass  # repair is best-effort; never break the endpoint over it
+
     return {"balance_sheet": bs}
 
 
