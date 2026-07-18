@@ -1994,8 +1994,8 @@ export default function ExecutiveCockpit({
               onClick={() => {
                 // Go straight to the confirm flow — same trigger as the cockpit
                 // footer — instead of dismissing to the dashboard first. The
-                // 'Review Your Decisions' modal already provides review +
-                // Go-Back-&-Edit, so the dashboard detour was a redundant step.
+                // Predict-Before-You-Commit modal is the single review+confirm
+                // step (staged decisions, per-BU allocations, Go Back & Edit).
                 if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
                 const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
                 if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
@@ -3612,10 +3612,30 @@ export default function ExecutiveCockpit({
                 <div>Capital Allocated: <strong style={{ color: '#f1f5f9' }}>
                   {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0))}
                 </strong></div>
+                {/* Per-BU breakdown — folded in from the retired 'Review Your
+                    Decisions' modal so this single screen carries its full
+                    review content. */}
+                {Object.entries(allocations || {}).filter(([, v]) => v > 0).map(([buId, v]) => {
+                  const bu = (businessUnits || []).find(b => b.bu_id === buId);
+                  return (
+                    <div key={buId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', paddingLeft: 10 }}>
+                      <span>· {bu?.name || buId}</span>
+                      <span style={{ fontFamily: 'var(--font-numeral)', color: '#cbd5e1' }}>{fmtCurrency(v)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             <div className={styles.predictionActions}>
+              {/* Go Back & Edit — moved here from the retired Review modal:
+                  closes without committing so the player can adjust. */}
+              <button
+                className={styles.predictionSkip}
+                onClick={() => { setShowPredictionModal(false); }}
+              >
+                ← Go Back &amp; Edit
+              </button>
               <button
                 className={styles.predictionSkip}
                 onClick={() => { setShowPredictionModal(false); setPredictionText(''); onCommit?.(); }}

@@ -473,7 +473,6 @@ export default function CockpitPage() {
   const [pillarConfig, setPillarConfig] = useState(null);
 
   // Pre-commit review modal
-  const [showReviewModal, setShowReviewModal] = useState(false);
 
   // R2 BU selection for Strategic Pillars mode
   const [r2BuSelection, setR2BuSelection] = useState(null); // { selected_bu, bu_label }
@@ -1166,7 +1165,16 @@ export default function CockpitPage() {
     } else if (Object.keys(allocations).length === 0) {
       setBlockAlert("You must allocate capital to at least one business unit before committing your turn.");
     } else {
-      setShowReviewModal(true);
+      // ONE confirmation screen, not two: the 'Predict Before You Commit'
+      // modal (which now carries the per-BU allocation breakdown and a
+      // Go Back & Edit action) is the single review+confirm step. The old
+      // 'Review Your Decisions' modal duplicated its content, so a commit
+      // proceeds straight to the ceremony from here.
+      setShowCommitCeremony(true);
+      setTimeout(() => {
+        setShowCommitCeremony(false);
+        handleCommitTurn();
+      }, 800);
     }
   };
 
@@ -1610,129 +1618,9 @@ export default function CockpitPage() {
         </div>
       )}
 
-      {/* ── Pre-Commit Review Modal ── */}
-      {showReviewModal && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)', zIndex: 10001,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          fontFamily: "'DM Sans', sans-serif", backdropFilter: 'blur(4px)',
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: 12, padding: '2rem 2.2rem', maxWidth: 520, width: '90%',
-            boxShadow: '0 25px 60px rgba(0,0,0,0.18)',
-            border: '1px solid #e2e8f0', maxHeight: '85vh', overflow: 'auto',
-          }}>
-            <h2 style={{ color: '#0f172a', margin: '0 0 0.3rem', fontSize: '1.15rem', fontWeight: 800 }}>📋 Review Your Decisions</h2>
-            <p style={{ color: '#64748b', margin: '0 0 1.2rem', fontSize: '0.78rem' }}>Round {roundNumber} — Confirm before submitting to the board.</p>
-
-            {/* Strategic Decision Summary */}
-            <div style={{
-              background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
-              padding: '1rem 1.2rem', marginBottom: '1rem',
-            }}>
-              <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280', marginBottom: '0.6rem' }}>
-                {isPillarMode ? '🎛️ Strategic Pillar Selections' : '📋 Strategic Decision'}
-              </div>
-
-              {isPillarMode ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {pillarConfig?.areas && Object.entries(pillarConfig.areas).map(([areaKey, area]) => {
-                    const selectedOpt = pillarSelections?.[areaKey];
-                    const opt = selectedOpt ? area.options?.[selectedOpt] : null;
-                    const areaIcons = { energy: '⚡', operations: '🏭', supply_chain: '🔗', offsetting: '🌱' };
-                    return (
-                      <div key={areaKey} style={{
-                        display: 'flex', alignItems: 'center', gap: '0.6rem',
-                        padding: '0.5rem 0.7rem', borderRadius: 6,
-                        background: selectedOpt ? '#f0fdf4' : '#fef2f2',
-                        border: `1px solid ${selectedOpt ? '#bbf7d0' : '#fecaca'}`,
-                      }}>
-                        <span style={{ fontSize: '1.1rem' }}>{areaIcons[areaKey] || '📌'}</span>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a' }}>{area.label}</div>
-                          <div style={{ fontSize: '0.7rem', color: selectedOpt ? '#15803d' : '#b91c1c' }}>
-                            {opt ? `${opt.title} (${opt.cost ? `$${(opt.cost / 1_000_000).toFixed(1)}M` : 'Free'})` : '— No selection (skipped)'}
-                          </div>
-                        </div>
-                        <span style={{ fontSize: '0.9rem' }}>{selectedOpt ? '✅' : '⏭️'}</span>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{
-                  padding: '0.5rem 0.7rem', borderRadius: 6,
-                  background: '#f0fdf4', border: '1px solid #bbf7d0',
-                  display: 'flex', alignItems: 'center', gap: '0.6rem',
-                }}>
-                  <span style={{ fontSize: '1.1rem' }}>📋</span>
-                  <div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f172a' }}>
-                      {decisionChoice === 'option_a' ? 'Option A' : decisionChoice === 'option_b' ? 'Option B' : 'Option C'} — {sim.roundConfig?.options?.[decisionChoice]?.title || ''}
-                    </div>
-                    <div style={{ fontSize: '0.7rem', color: '#15803d', borderBottom: '1px dashed #bbf7d0' }}>
-                      {sim.roundConfig?.options?.[decisionChoice]?.description || decisionChoice}
-                    </div>
-                  </div>
-                  <span style={{ fontSize: '0.9rem' }}>✅</span>
-                </div>
-              )}
-            </div>
-
-            {/* Capital Allocation Summary */}
-            {Object.keys(allocations).length > 0 && (
-              <div style={{
-                background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8,
-                padding: '1rem 1.2rem', marginBottom: '1rem',
-              }}>
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#6b7280', marginBottom: '0.5rem' }}>
-                  💰 Capital Allocation
-                </div>
-                {businessUnits.map(bu => {
-                  const amt = allocations[bu.bu_id] || 0;
-                  if (amt === 0) return null;
-                  return (
-                    <div key={bu.bu_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: '0.75rem', color: '#334155' }}>
-                      <span>{bu.name}</span>
-                      <span style={{ fontWeight: 700 }}>${(amt / 1_000_000).toFixed(2)}M</span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem' }}>
-              <button
-                onClick={() => setShowReviewModal(false)}
-                style={{
-                  flex: 1, padding: '10px 0', background: '#f1f5f9', color: '#475569',
-                  border: '1px solid #d1d5db', borderRadius: 6, fontWeight: 700, cursor: 'pointer',
-                  fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase',
-                }}
-              >← Go Back & Edit</button>
-              <button
-                onClick={() => {
-                  setShowReviewModal(false);
-                  // EX-2/NF-4: Show commit ceremony overlay
-                  setShowCommitCeremony(true);
-                  setTimeout(() => {
-                    setShowCommitCeremony(false);
-                    handleCommitTurn();
-                  }, 800);
-                }}
-                style={{
-                  flex: 1, padding: '10px 0',
-                  background: 'linear-gradient(135deg, #16a34a, #15803d)',
-                  color: '#fff', border: 'none', borderRadius: 6, fontWeight: 700, cursor: 'pointer',
-                  fontSize: '0.72rem', letterSpacing: '0.04em', textTransform: 'uppercase',
-                  boxShadow: '0 4px 12px rgba(22,163,74,0.25)',
-                }}
-              >✅ Confirm & Submit</button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Review modal removed: the Predict-Before-You-Commit screen is the
+          single review + confirm step (it now shows the per-BU allocation
+          breakdown and offers Go Back & Edit). */}
 
       {/* EX-2/NF-4: Commit Ceremony Overlay */}
       {showCommitCeremony && (
