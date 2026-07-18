@@ -8322,6 +8322,15 @@ _scenario_presets = [
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
         },
+        # Player-dashboard analytics preselected by this level (facilitators can
+        # override per cohort in Section 6). Novices get their own feedback
+        # (decision impact) but no peer ranking (demotivation risk) and no
+        # counterfactuals (cognitive load).
+        "default_player_visibility": {
+            "decision_impact": True,
+            "peer_benchmarking": False,
+            "what_if_simulator": False,
+        },
         "tunables": {
             "inflation_rate": 0.015,
             "overrun_probability": 0.10,
@@ -8352,6 +8361,13 @@ _scenario_presets = [
             "confidence_calibration_enabled": True,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
+        },
+        # Progressive disclosure: own feedback + peer ranking, but the what-if
+        # counterfactual stays hidden until Executive tier.
+        "default_player_visibility": {
+            "decision_impact": True,
+            "peer_benchmarking": True,
+            "what_if_simulator": False,
         },
         "tunables": {
             "inflation_rate": 0.025,
@@ -8384,6 +8400,14 @@ _scenario_presets = [
             "strategy_memo_enabled": True,
             "self_learning_mode": False,
         },
+        # Full visibility: every player analytic on, including the what-if
+        # counterfactual — executives are expected to confront the road not
+        # taken.
+        "default_player_visibility": {
+            "decision_impact": True,
+            "peer_benchmarking": True,
+            "what_if_simulator": True,
+        },
         "tunables": {
             "inflation_rate": 0.040,
             "overrun_probability": 0.35,
@@ -8414,6 +8438,14 @@ _scenario_presets = [
             "confidence_calibration_enabled": False,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
+        },
+        # No scaffolding: interpretive aids (impact attribution, what-if) off;
+        # peer ranking stays on — competitive pressure is part of the stress
+        # test, not a scaffold.
+        "default_player_visibility": {
+            "decision_impact": False,
+            "peer_benchmarking": True,
+            "what_if_simulator": False,
         },
         "tunables": {
             "inflation_rate": 0.060,

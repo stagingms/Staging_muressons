@@ -331,6 +331,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 if (defaultPreset?.default_pedagogy) {
                     setPedagogicalToggles(prev => ({ ...prev, ...defaultPreset.default_pedagogy }));
                 }
+                // Each level also preselects the PLAYER dashboard analytics.
+                if (defaultPreset?.default_player_visibility) {
+                    setVisibility(prev => ({ ...prev, player: { ...prev.player, ...defaultPreset.default_player_visibility } }));
+                }
             }).catch(() => {});
 
         // Fetch available ending pathways
@@ -530,7 +534,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         },
     ];
 
+    // Mirrors pedagogyCustomised: once the facilitator hand-edits the PLAYER
+    // visibility column, experience-level re-selection stops overwriting it
+    // (levels PRESELECT; facilitators override per cohort).
+    const [playerVisCustomised, setPlayerVisCustomised] = useState(false);
+
     const toggleVis = (role, key) => {
+        if (role === 'player') setPlayerVisCustomised(true);
         setVisibility(prev => ({
             ...prev,
             [role]: { ...prev[role], [key]: !prev[role][key] },
@@ -1143,6 +1153,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         if (!pedagogyCustomised && p.default_pedagogy) {
                                                             setPedagogicalToggles(prev => ({ ...prev, ...p.default_pedagogy }));
                                                         }
+                                                        // …and the level's player-dashboard visibility (Section 6,
+                                                        // player column) unless the facilitator has hand-edited it.
+                                                        if (!playerVisCustomised && p.default_player_visibility) {
+                                                            setVisibility(prev => ({ ...prev, player: { ...prev.player, ...p.default_player_visibility } }));
+                                                        }
                                                     }}
                                                     style={{
                                                         display: 'flex', alignItems: 'center', gap: 12,
@@ -1193,6 +1208,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 {Object.entries(sel.default_pedagogy || {}).filter(([,v]) => v).map(([k]) =>
                                                     k.replace(/_enabled$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
                                                 ).join(', ') || 'No scaffolding'} enabled by default
+                                                {' · Player dashboard: '}
+                                                {Object.entries(sel.default_player_visibility || {}).filter(([,v]) => v).map(([k]) =>
+                                                    k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                                                ).join(', ') || 'none'}
                                                 {pedagogyCustomised && (
                                                     <span style={{ marginLeft: 6, color: '#f59e0b', fontWeight: 700 }}>⚙ Pedagogy customised</span>
                                                 )}
