@@ -13,6 +13,21 @@
   border: 1px solid var(--border-subtle, rgba(148, 163, 184, 0.15));
   position: relative;
   overflow: hidden;
+  /* Move 4: shared reveal language — settle entrance + spotlight halo. */
+  animation: revealPanelIn var(--reveal-dur) var(--reveal-ease) both;
+}
+.container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--reveal-spotlight);
+  pointer-events: none;
+  z-index: 0;
+  animation: revealBackdropIn var(--reveal-dur-slow) var(--reveal-ease) both;
+}
+.container > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ── Header ── */
@@ -31,6 +46,8 @@
   font-weight: 800;
   color: var(--text-primary, #f1f5f9);
   letter-spacing: 0.02em;
+  /* Move 4: typographic reveal rhythm. */
+  animation: revealHeadlineIn var(--reveal-dur-slow) var(--reveal-ease) both;
 }
 
 .headerSubtitle {

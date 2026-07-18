@@ -9,6 +9,23 @@
   border-radius: var(--radius-lg, 12px);
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.04), rgba(99, 102, 241, 0.03));
   border: 1px solid rgba(16, 185, 129, 0.15);
+  /* Move 4: shared reveal language — settle entrance + spotlight halo. */
+  position: relative;
+  animation: revealPanelIn var(--reveal-dur) var(--reveal-ease) both;
+}
+.container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--reveal-spotlight);
+  pointer-events: none;
+  z-index: 0;
+  animation: revealBackdropIn var(--reveal-dur-slow) var(--reveal-ease) both;
+}
+.container > * {
+  position: relative;
+  z-index: 1;
 }
 
 .header {
@@ -22,6 +39,8 @@
   font-size: var(--fs-sm, 0.82rem);
   font-weight: 900;
   color: var(--text-primary, #f1f5f9);
+  /* Move 4: typographic reveal rhythm. */
+  animation: revealHeadlineIn var(--reveal-dur-slow) var(--reveal-ease) both;
 }
 
 .skipBtn {

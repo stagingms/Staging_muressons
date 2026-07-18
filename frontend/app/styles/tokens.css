@@ -71,6 +71,67 @@
     --motion-fast:  120ms;
     --motion-stage: 260ms;
     --motion-ease:  cubic-bezier(0.2, 0, 0, 1);
+
+    /* ── Reveal language (Move 4) — ONE entrance vocabulary shared by every
+       "wow" surface (commit ceremony, consequence replay, M_R ladder,
+       archetype reveal, front page). Three dimensions: a signature settle
+       easing, a spotlight backdrop, and a typographic headline rhythm. The
+       reduced-motion block at the foot of this file collapses all of it.
+       JS/framer-motion consumers read the same numbers from styles/reveal.js
+       — keep the two in sync. ─── */
+    --reveal-ease:      cubic-bezier(0.16, 1, 0.3, 1);   /* settle (tween)   */
+    --reveal-ease-pop:  cubic-bezier(0.2, 1.4, 0.4, 1);  /* ceremony overshoot */
+    --reveal-dur:       520ms;   /* panels / cards              */
+    --reveal-dur-slow:  720ms;   /* headlines / hero text       */
+    --reveal-stagger:   90ms;    /* step between sequenced items */
+    --reveal-rise:      14px;    /* entrance travel distance     */
+    --reveal-spotlight: radial-gradient(ellipse 120% 85% at 50% 0%,
+                        rgba(99, 102, 241, 0.10) 0%, transparent 60%);
+}
+
+/* ── Reveal keyframes (global — tokens.css is a plain stylesheet, so these
+   names are visible to every CSS-module .module.css file too) ─────────── */
+@keyframes revealPanelIn {
+    from { opacity: 0; transform: translateY(var(--reveal-rise)) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes revealHeadlineIn {
+    from { opacity: 0; transform: translateY(calc(var(--reveal-rise) * 0.55));
+           filter: blur(6px); letter-spacing: 0.06em; }
+    to   { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+@keyframes revealBackdropIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* ── Reveal utility classes (global) ─────────────────────────────────── */
+.reveal-panel    { animation: revealPanelIn    var(--reveal-dur)      var(--reveal-ease) both; }
+.reveal-headline { animation: revealHeadlineIn var(--reveal-dur-slow) var(--reveal-ease) both; }
+.reveal-backdrop { animation: revealBackdropIn var(--reveal-dur)      var(--reveal-ease) both; }
+
+/* Sequenced children share the panel entrance, offset by the rhythm step. */
+.reveal-stagger > * { animation: revealPanelIn var(--reveal-dur) var(--reveal-ease) both; }
+.reveal-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.reveal-stagger > *:nth-child(2) { animation-delay: calc(var(--reveal-stagger) * 1); }
+.reveal-stagger > *:nth-child(3) { animation-delay: calc(var(--reveal-stagger) * 2); }
+.reveal-stagger > *:nth-child(4) { animation-delay: calc(var(--reveal-stagger) * 3); }
+.reveal-stagger > *:nth-child(5) { animation-delay: calc(var(--reveal-stagger) * 4); }
+.reveal-stagger > *:nth-child(6) { animation-delay: calc(var(--reveal-stagger) * 5); }
+.reveal-stagger > *:nth-child(7) { animation-delay: calc(var(--reveal-stagger) * 6); }
+.reveal-stagger > *:nth-child(8) { animation-delay: calc(var(--reveal-stagger) * 7); }
+
+/* Spotlight backdrop — a soft brand halo behind a focal reveal. Host needs
+   position:relative; the halo sits under content and never intercepts input. */
+.reveal-spotlight { position: relative; }
+.reveal-spotlight::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--reveal-spotlight);
+    pointer-events: none;
+    z-index: 0;
+    animation: revealBackdropIn var(--reveal-dur-slow) var(--reveal-ease) both;
 }
 
 

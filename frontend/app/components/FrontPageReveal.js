@@ -281,10 +281,12 @@ export default function FrontPageReveal({ sessionId, data = {}, cohortName = '' 
   if (!enabled) return null;
 
   return (
-    <div style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(148,163,184,0.2)' }}>
+    /* Move 4: shares the reveal language — the newsprint settles in on the
+       same signature ease as every other wow moment. */
+    <div className="reveal-panel" style={{ marginTop: 16, borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(148,163,184,0.2)' }}>
       <div style={{ background: '#f4f1ea', color: '#111', padding: '20px 24px', fontFamily: 'Georgia, serif' }}>
         <div style={{ height: 6, background: tpl.tone, margin: '-20px -24px 14px' }} />
-        <div style={{ textAlign: 'center', fontSize: '1.9rem', fontWeight: 800, letterSpacing: '0.02em' }}>THE MURESSONS TIMES</div>
+        <div className="reveal-headline" style={{ textAlign: 'center', fontSize: '1.9rem', fontWeight: 800, letterSpacing: '0.02em' }}>THE MURESSONS TIMES</div>
         <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #111', borderBottom: '1px solid #ccc', padding: '6px 0', fontSize: '0.75rem', color: '#555', margin: '8px 0 16px' }}>
           <span>YEAR 5 · TERMINAL EDITION{cohortName ? ` · ${cohortName}` : ''}</span>
           <span>Business · Front Page</span>

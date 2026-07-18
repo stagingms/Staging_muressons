@@ -2006,7 +2006,7 @@ export default function ExecutiveCockpit({
           <div>
             <div style={{ textAlign: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: '2rem', marginBottom: 4 }}>📊</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
+              <h3 className="reveal-headline" style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
               <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Review your outcomes before advancing.</p>
               {/* W5: ceremony stamp — pure decoration on the results card */}
               <div aria-hidden="true" className="stamp-ceremony" style={{
@@ -2015,7 +2015,7 @@ export default function ExecutiveCockpit({
                 color: '#4ade80', fontSize: '0.68rem', fontWeight: 800,
                 letterSpacing: '0.18em', textTransform: 'uppercase',
                 fontFamily: 'var(--font-numeral, monospace)',
-                animation: 'stampIn 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) 0.15s both',
+                animation: 'stampIn 0.45s var(--reveal-ease-pop, cubic-bezier(0.2, 1.4, 0.4, 1)) 0.15s both',
               }}>
                 ✦ Board Resolution Passed ✦
               </div>

@@ -27,6 +27,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
+import { REVEAL_EASE } from '../styles/reveal';
 import styles from './ArchetypeReveal.module.css';
 
 // ── Archetype Configuration Matrix ──────────────────────────────────────────
@@ -318,7 +319,7 @@ function WaterfallRow({ icon, label, sublabel, value, valueDisplay, color, op, i
       className={`${styles.waterfallRow} ${isFinal ? styles.waterfallRowFinal : ''} ${isDeduction ? styles.waterfallRowDeduction : ''}`}
       initial={{ opacity: 0, x: -16 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.45, delay, ease: 'easeOut' }}
+      transition={{ duration: 0.45, delay, ease: REVEAL_EASE }}
       style={isFinal ? { borderColor: color, boxShadow: `inset 3px 0 0 ${color}` } : {}}
     >
       <div className={styles.waterfallOp}>
@@ -452,7 +453,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
         className={styles.statusBar}
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
+        transition={{ duration: 0.5, delay: 0.2, ease: REVEAL_EASE }}
       >
         <div className={styles.statusDot} style={{ background: theme.accentPrimary, boxShadow: `0 0 8px ${theme.accentPrimary}` }} />
         <span className={styles.statusLabel}>SIMULATION TERMINAL — ROUND 10 COMPLETE</span>
@@ -495,7 +496,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                 className={styles.heroIdentity}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.15 }}
+                transition={{ duration: 0.6, delay: 0.15, ease: REVEAL_EASE }}
               >
                 <div className={styles.archetypeChip} style={{ background: theme.chipBg, border: `1px solid ${theme.chipBorder}`, color: theme.accentPrimary }}>
                   ⬡ ARCHETYPE CLASSIFICATION
@@ -517,7 +518,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
               className={styles.mathSection}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.4 }}
+              transition={{ duration: 0.4, ease: REVEAL_EASE }}
               aria-label="Double materiality financial breakdown"
             >
               {/* Section header */}
@@ -525,7 +526,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                 className={styles.mathHeader}
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4 }}
+                transition={{ duration: 0.4, ease: REVEAL_EASE }}
               >
                 <div className={styles.mathDividerLine} style={{ background: `linear-gradient(90deg, transparent, ${theme.borderColor}, transparent)` }} />
                 <div className={styles.mathHeaderContent}>
@@ -570,7 +571,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                 className={styles.butWait}
                 initial={{ opacity: 0, scaleX: 0 }}
                 animate={{ opacity: 1, scaleX: 1 }}
-                transition={{ duration: 0.5, delay: 0.6 }}
+                transition={{ duration: 0.5, delay: 0.6, ease: REVEAL_EASE }}
                 style={{ borderColor: theme.borderColor }}
               >
                 <span style={{ color: theme.accentPrimary }}>
@@ -635,7 +636,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
               <motion.div
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 1.3 }}
+                transition={{ duration: 0.5, delay: 1.3, ease: REVEAL_EASE }}
               >
                 <WaterfallRow
                   icon={isValueDestroyed ? '💥' : '✦'}
@@ -661,7 +662,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
                     className={styles.destructionCallout}
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.4, delay: 0.2 }}
+                    transition={{ duration: 0.4, delay: 0.2, ease: REVEAL_EASE }}
                   >
                     <span className={styles.destructionIcon}>⚠</span>
                     {insolventBeforeNcd ? (
@@ -683,7 +684,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
               className={styles.swanSection}
               initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
+              transition={{ duration: 0.5, delay: 0.2, ease: REVEAL_EASE }}
               aria-label="Black swan events log"
             >
               <div className={styles.swanHeader}>
@@ -716,7 +717,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
               className={styles.ctaSection}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, delay: 0.4 }}
+              transition={{ duration: 0.45, delay: 0.4, ease: REVEAL_EASE }}
             >
               {onContinue && (
                 <button
