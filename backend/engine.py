@@ -4008,6 +4008,24 @@ ENGINE_STATE_KEYS: tuple[str, ...] = (
 )
 
 
+def _slim_prev_state(g: dict) -> dict:
+    """Momentum-sized snapshot of a global state for _prev_global_states.
+
+    calc_momentum_score reads corporate_treasury, group_reputation and
+    scalar event flags from prior rounds. Keeping only those (and dropping
+    nested engine ledgers, plus any older _prev chain) makes the history
+    O(1) per round instead of tripling each tick.
+    """
+    flags = g.get("active_event_flags") or {}
+    return {
+        "round_number":       g.get("round_number"),
+        "corporate_treasury": g.get("corporate_treasury"),
+        "group_reputation":   g.get("group_reputation"),
+        "active_event_flags": {k: v for k, v in flags.items()
+                               if isinstance(v, (bool, int, float, str))},
+    }
+
+
 def _assemble_global_state(ctx: TickContext, initial_treasury: float) -> dict[str, Any]:
     """
     Build the immutable next-round global state dict from the fully-evolved
@@ -4051,7 +4069,13 @@ def _assemble_global_state(ctx: TickContext, initial_treasury: float) -> dict[st
         "carbon_forwards":            events.get("carbon_offset_market", {}).get("remaining_forwards",
                                           ctx.current_global.get("carbon_forwards", [])),
         "momentum_history":           events.pop("_momentum_history_internal", []),
-        "_prev_global_states":        (ctx.current_global.get("_prev_global_states", []) + [ctx.current_global])[-3:],
+        # PERF FIX (10-round playthrough audit): push a SLIM snapshot, not the
+        # full current_global. The full dict contains its own _prev list plus
+        # (post STATE-CARRY fix) every engine ledger, so each round's payload
+        # tripled — 58KB at R2 grew to 122MB by R9 and commits crawled. The
+        # only consumer is calc_momentum_score, which reads treasury,
+        # reputation and scalar event flags; nested ledgers are dropped.
+        "_prev_global_states":        (ctx.current_global.get("_prev_global_states", []) + [_slim_prev_state(ctx.current_global)])[-3:],
         # Preserve systemic tipping state across rounds
         "systemic_tipping_state":     events.pop("_systemic_tipping_state_internal", {}),
         # SPEC §1.7 — carry forward stateful engine sub-dicts (NPC stakeholders)
