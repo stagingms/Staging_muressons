@@ -7038,10 +7038,15 @@ async def undo_round(
     last_res = None
 
     for tgt in set(targets):
-        rounds_data = _global_states.get(tgt, [])
-        if not rounds_data:
+        # BUGFIX: drive the rollback from the authoritative DB round, not a bare
+        # `_global_states` (which was undefined in this module — every call
+        # NameError'd — and is empty under the Postgres backend anyway).
+        # db.undo_latest_round mutates the DB, so re-reading fetch_latest_state
+        # each pass is what correctly bounds the loop at target_round.
+        latest_state = await db.fetch_latest_state(tgt)
+        if not latest_state:
             continue
-        current = rounds_data[-1]["round_number"]
+        current = latest_state["round_number"]
         stop_at = max(1, target_round) if target_round is not None else current - 1
 
         if stop_at >= current:
@@ -7054,10 +7059,10 @@ async def undo_round(
 
         # Loop: undo one round at a time until we reach stop_at
         while True:
-            rounds_data = _global_states.get(tgt, [])
-            if not rounds_data:
+            latest_state = await db.fetch_latest_state(tgt)
+            if not latest_state:
                 break
-            current = rounds_data[-1]["round_number"]
+            current = latest_state["round_number"]
             if current <= stop_at:
                 break
 
