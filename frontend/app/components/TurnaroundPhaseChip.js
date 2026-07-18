@@ -23,7 +23,14 @@ const GATE = {
     exit: 'Comeback complete',
 };
 
-export default function TurnaroundPhaseChip({ phase = 'crisis', round = 1, maxRounds = 4, active = true }) {
+export default function TurnaroundPhaseChip({ phase = 'crisis', round = 1, maxRounds = 4, active = false }) {
+    // active defaults FALSE (was true): a mount that forgets the prop must
+    // never paint a phantom "T1/4 · Crisis" chip. NOTE the name collision this
+    // chip must survive: the always-on MID-SIM distress arc (engine FEATURE 25)
+    // also writes `turnaround_phase` into flags on distressed sessions — this
+    // chip is ONLY for the facilitator-gated POST-COMPLETION module, so callers
+    // gate `active` on flags.turnaround_status === 'open' (set exclusively by
+    // turnaround_engine.enter_arc after R10 + eligibility + facilitator grant).
     if (!active) return null;
     const idx = PHASES.indexOf(phase);
 

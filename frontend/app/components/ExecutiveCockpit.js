@@ -1777,10 +1777,18 @@ export default function ExecutiveCockpit({
         {focusStep === 'strategy' && (
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-            {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
-            <TurnaroundPhaseChip active={globalState?.turnaround_mode}
+            {/* KPI-belt slot: POST-COMPLETION Turnaround phase only. Gated on
+                turnaround_status === 'open' — set exclusively by the facilitator-
+                gated enter_arc AFTER R10 — because the always-on mid-sim distress
+                arc also writes `turnaround_phase` into flags, which used to paint
+                this chip at the start of distressed runs. turnaround_status
+                travels inside active_event_flags, which the API passes whole —
+                top-level extras like turnaround_mode are model-filtered. */}
+            <TurnaroundPhaseChip
+              active={globalState?.active_event_flags?.turnaround_status === 'open'}
               phase={globalState?.active_event_flags?.turnaround_phase}
-              round={globalState?.turnaround_round} maxRounds={4} />
+              round={globalState?.active_event_flags?.turnaround_round ?? globalState?.turnaround_round}
+              maxRounds={4} />
 
             <div className={focusStyles.sectionTitle}>
               <span>{isPillarMode ? '🎛️' : '📋'}</span>
@@ -1939,10 +1947,18 @@ export default function ExecutiveCockpit({
         {focusStep === 'allocation' && (
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-            {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
-            <TurnaroundPhaseChip active={globalState?.turnaround_mode}
+            {/* KPI-belt slot: POST-COMPLETION Turnaround phase only. Gated on
+                turnaround_status === 'open' — set exclusively by the facilitator-
+                gated enter_arc AFTER R10 — because the always-on mid-sim distress
+                arc also writes `turnaround_phase` into flags, which used to paint
+                this chip at the start of distressed runs. turnaround_status
+                travels inside active_event_flags, which the API passes whole —
+                top-level extras like turnaround_mode are model-filtered. */}
+            <TurnaroundPhaseChip
+              active={globalState?.active_event_flags?.turnaround_status === 'open'}
               phase={globalState?.active_event_flags?.turnaround_phase}
-              round={globalState?.turnaround_round} maxRounds={4} />
+              round={globalState?.active_event_flags?.turnaround_round ?? globalState?.turnaround_round}
+              maxRounds={4} />
 
             {/* Locked decision summary */}
             <div className={focusStyles.decisionSummary}>
