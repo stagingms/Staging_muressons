@@ -489,6 +489,19 @@ export default function CockpitPage() {
   const r2LoadedRoundRef = useRef(null);
   const [csrdDone, setCsrdDone] = useState(false);
 
+  // Cohort-effective briefing-video config (Read | Watch on round briefings).
+  // Fetched at page level — pedToggles lives inside ExecutiveCockpit and is
+  // not in scope here.
+  const [briefingVideoCfg, setBriefingVideoCfg] = useState({ base: '', map: {} });
+  useEffect(() => {
+    const sid = sim?.sessionId || sim?.session_id;
+    const qs = sid ? `?session_id=${encodeURIComponent(sid)}` : '';
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings${qs}`)
+      .then(r => (r.ok ? r.json() : {}))
+      .then(d => setBriefingVideoCfg({ base: d.briefing_video_base || '', map: d.briefing_videos || {} }))
+      .catch(() => {});
+  }, [sim?.sessionId, sim?.session_id]);
+
   // Detect paradigm + assigned_bu from session (poll every 8s for facilitator changes)
   useEffect(() => {
     if (!sim.sessionId || sim.sessionId === 'demo') return;
@@ -1221,11 +1234,9 @@ export default function CockpitPage() {
         briefingVideoUrl={(() => {
           // Per-round briefing video (Read|Watch choice). Cohort-effective:
           // explicit per-round URL wins, else the {round} pattern derives it.
-          const map = pedToggles?.briefing_videos || {};
-          const explicit = map[roundNumber] ?? map[String(roundNumber)];
+          const explicit = briefingVideoCfg.map[roundNumber] ?? briefingVideoCfg.map[String(roundNumber)];
           if (explicit) return explicit;
-          const base = pedToggles?.briefing_video_base;
-          return base ? base.replaceAll('{round}', String(roundNumber)) : null;
+          return briefingVideoCfg.base ? briefingVideoCfg.base.replaceAll('{round}', String(roundNumber)) : null;
         })()}
         roundNumber={roundNumber}
         isHealthcare={isHealthcare}
