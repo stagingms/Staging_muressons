@@ -50,6 +50,38 @@ export default function AnalyticsControlPanel({ sessionId }) {
             .catch(() => {});
     }, [sessionId]);
 
+    // ── Briefing videos (per-cohort): URL pattern + per-round overrides ──
+    const [videoBase, setVideoBase] = useState('');
+    const [videoLines, setVideoLines] = useState('');   // "1 = https://…" per line
+    const [videoStatus, setVideoStatus] = useState(null);
+    useEffect(() => {
+        const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+        fetch(`${API}/api/admin/global-settings${qs}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : {})
+            .then(d => {
+                setVideoBase(d.briefing_video_base || '');
+                const map = d.briefing_videos || {};
+                setVideoLines(Object.entries(map).map(([k, v]) => `${k} = ${v}`).join('\n'));
+            }).catch(() => {});
+    }, [sessionId]);
+    const saveVideos = async () => {
+        if (!sessionId) { setVideoStatus('❌ Select a cohort first'); return; }
+        const map = {};
+        for (const line of videoLines.split('\n')) {
+            const m = line.match(/^\s*(\d{1,2})\s*[=:]\s*(\S.*)$/);
+            if (m) map[m[1]] = m[2].trim();
+        }
+        try {
+            const r = await fetch(`${API}/api/admin/sessions/${sessionId}/briefing-videos`, {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ briefing_video_base: videoBase.trim(), briefing_videos: map }),
+            });
+            setVideoStatus(r.ok ? '✅ Saved — players see Watch on their next briefing' : '❌ Save failed');
+        } catch { setVideoStatus('❌ Connection error'); }
+        setTimeout(() => setVideoStatus(null), 4000);
+    };
+
     const toggleFeature = async (key) => {
         const next = !features[key];
         setFeatures(f => ({ ...f, [key]: next }));   // optimistic
@@ -191,6 +223,29 @@ export default function AnalyticsControlPanel({ sessionId }) {
                         <span>🎬</span>
                         <h3>Round Surfaces</h3>
                     </div>
+                    {/* Briefing videos — URLs only; media lives on YouTube/Vimeo/CDN. */}
+                    <div className={styles.roleHeader} style={{ marginTop: '0.9rem' }}>
+                        <span>🎬</span>
+                        <h3>Briefing Videos</h3>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '4px 2px' }}>
+                        <label style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75 }}>URL pattern (optional, {'{round}'} = round no.)</label>
+                        <input type="text" value={videoBase} onChange={e => setVideoBase(e.target.value)}
+                            placeholder="https://cdn.example.edu/briefing-{round}.mp4"
+                            style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.3)', background: 'transparent', color: 'inherit', fontSize: '0.78rem' }} />
+                        <label style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', opacity: 0.75, marginTop: 4 }}>Per-round URLs — one per line, e.g. “1 = https://youtu.be/…”</label>
+                        <textarea value={videoLines} onChange={e => setVideoLines(e.target.value)} rows={3}
+                            placeholder={"1 = https://youtu.be/K_6cGzU7vrI\n2 = https://youtu.be/…"}
+                            style={{ padding: '6px 10px', borderRadius: 8, border: '1px solid rgba(148,163,184,0.3)', background: 'transparent', color: 'inherit', fontSize: '0.76rem', fontFamily: 'inherit', resize: 'vertical' }} />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <button onClick={saveVideos}
+                                style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(99,102,241,0.18)', color: 'inherit', fontWeight: 700, fontSize: '0.74rem', cursor: 'pointer' }}>
+                                💾 Save briefing videos
+                            </button>
+                            {videoStatus && <span style={{ fontSize: '0.74rem', fontWeight: 700 }}>{videoStatus}</span>}
+                        </div>
+                    </div>
+
                     {PLAYER_FEATURES.map(a => (
                         <div key={a.key} className={styles.toggleRow} data-tooltip={a.desc}>
                             <div className={styles.toggleInfo}>
