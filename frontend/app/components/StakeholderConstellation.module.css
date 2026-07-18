@@ -1,0 +1,116 @@
+/* StakeholderConstellation — SA-E. Relationship orbit above the roster.
+   Distance from YOU = tolerance (allied sit close, estranged drift out);
+   tint = agent identity; ring = escalation stage; pulse = agitation.
+   Pure presentation. */
+
+.field {
+  position: relative;
+  width: 100%;
+  height: 168px;
+  border-radius: var(--radius-card, 12px);
+  background: radial-gradient(120% 100% at 50% 50%, rgba(99, 102, 241, 0.10), transparent 62%);
+  border: 1px solid rgba(148, 163, 184, 0.10);
+  overflow: hidden;
+  margin-bottom: 10px;
+  animation: revealPanelIn var(--reveal-dur, 520ms) var(--reveal-ease, ease) both;
+}
+
+.legend {
+  position: absolute;
+  top: 7px;
+  left: 10px;
+  font-size: 8.5px;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  z-index: 4;
+}
+.legendRight {
+  left: auto;
+  right: 10px;
+  color: #475569;
+}
+
+.orbit {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  border: 1px dashed rgba(148, 163, 184, 0.10);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+}
+
+.core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent, #6366f1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  z-index: 3;
+  box-shadow: 0 0 0 5px rgba(99, 102, 241, 0.14), 0 0 20px rgba(99, 102, 241, 0.45);
+}
+
+.node {
+  position: absolute;
+  z-index: 2;
+  transform: translate(-50%, -50%);
+  cursor: default;
+}
+.nodeInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid;
+}
+.disc {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-numeral, 'JetBrains Mono', monospace);
+  font-weight: 800;
+}
+
+/* Gentle life. Amplitude is small — this is ambient, not a screensaver. */
+@keyframes scDriftA { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-50%, -58%); } }
+@keyframes scDriftB { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-44%, -54%); } }
+@keyframes scDriftC { 0%, 100% { transform: translate(-50%, -50%); } 50% { transform: translate(-56%, -46%); } }
+.driftA { animation: scDriftA 6s ease-in-out infinite; }
+.driftB { animation: scDriftB 7.5s ease-in-out infinite; }
+.driftC { animation: scDriftC 6.8s ease-in-out infinite; }
+
+@keyframes scPulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.16), 0 0 14px rgba(249, 115, 22, 0.45); }
+  50%      { box-shadow: 0 0 0 7px rgba(249, 115, 22, 0.08), 0 0 22px rgba(249, 115, 22, 0.70); }
+}
+.agitated .ring { animation: scPulse 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .field, .driftA, .driftB, .driftC, .agitated .ring { animation: none !important; }
+  .node { animation: none !important; }
+}

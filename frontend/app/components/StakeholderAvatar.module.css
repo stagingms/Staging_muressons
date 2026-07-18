@@ -22,6 +22,15 @@
   fill: var(--neutral, #94a3b8);
 }
 
+/* SA-D: monogram identity — initials in the agent's brand colour. */
+.mono {
+  font-family: var(--font-numeral, 'JetBrains Mono', monospace);
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  user-select: none;
+}
+
 .ring {
   transition: stroke 0.5s ease, stroke-dashoffset 0.8s ease, stroke-width 0.3s ease;
 }

@@ -4,6 +4,17 @@ import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './StakeholderAgentPanel.module.css';
 import StakeholderAvatar from './StakeholderAvatar';
+import StakeholderConstellation from './StakeholderConstellation';
+import { REVEAL_EASE, REVEAL_STAGGER } from '../styles/reveal';
+
+/* Initials for the monogram avatar: first letters of the two most
+ * significant name words (skips honorifics), upper-cased. Pure display. */
+function initialsOf(name = '') {
+  const words = String(name).trim().split(/\s+/)
+    .filter((w) => !/^(the|dr|mr|mrs|ms|prof|sir|hon|commissioner)\.?$/i.test(w));
+  const pick = (words.length ? words : String(name).trim().split(/\s+/)).filter(Boolean);
+  return ((pick[0]?.[0] || '') + (pick[1]?.[0] || pick[0]?.[1] || '')).toUpperCase() || '•';
+}
 
 /* ═════════════════════════════════════════════════════════════════
  *  STAKEHOLDER AGENT PANEL
@@ -38,20 +49,26 @@ const TREND_ICONS = {
   'n/a':         { icon: '—',  label: 'N/A',       color: '#475569' },
 };
 
-function AgentCard({ agent, action, isExpanded, onToggle }) {
+function AgentCard({ agent, action, isExpanded, onToggle, index = 0 }) {
   const stageMeta = STAGE_META[action?.stage || agent?.stage || 'dormant'];
   const trendMeta = TREND_ICONS[action?.trend || agent?.trend || 'stable'];
   const isTriggered = (action?.stage || agent?.stage) === 'triggered';
   const stageChanged = action?.stage_changed;
 
+  const name = action?.name || agent?.name || 'Stakeholder';
+  const tint = action?.color || agent?.color || '#94a3b8';
+  // Resting stance — live dialogue if the agent spoke this round, else the F6
+  // "what they want" demand. Gives every row a voice without expanding it.
+  const stance = action?.message || action?.demand || agent?.demand || '';
+
   return (
     <motion.div
       className={`${styles.agentCard} ${isTriggered ? styles.agentTriggered : ''} ${stageChanged ? styles.agentStageChanged : ''}`}
-      style={{ '--agent-color': action?.color || agent?.color || '#888' }}
+      style={{ '--agent-color': tint }}
       layout
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.52, ease: REVEAL_EASE, delay: Math.min(index, 8) * REVEAL_STAGGER }}
     >
       {/* Header row */}
       <div className={styles.agentHeader} onClick={onToggle}>
@@ -65,15 +82,22 @@ function AgentCard({ agent, action, isExpanded, onToggle }) {
             tolerance={action?.tolerance ?? agent?.tolerance ?? 50}
             maxTolerance={agent?.max_tolerance || 100}
             thresholds={agent?.thresholds || {}}
-            label={`${action?.name || agent?.name || 'Stakeholder'}, ${stageMeta.label.toLowerCase()}, tolerance ${Math.round(action?.tolerance ?? agent?.tolerance ?? 50)} of ${agent?.max_tolerance || 100}`}
+            initials={initialsOf(name)}
+            tint={tint}
+            label={`${name}, ${stageMeta.label.toLowerCase()}, tolerance ${Math.round(action?.tolerance ?? agent?.tolerance ?? 50)} of ${agent?.max_tolerance || 100}`}
           />
           <div className={styles.agentInfo}>
             <div className={styles.agentName}>
-              {action?.icon || agent?.icon} {action?.name || agent?.name}
+              {action?.icon || agent?.icon} {name}
             </div>
             <div className={styles.agentTitle}>
               {action?.title || agent?.title || ''}
             </div>
+            {stance && (
+              <div className={styles.agentStance} style={{ '--stance-accent': stageMeta.color }}>
+                {stance}
+              </div>
+            )}
           </div>
         </div>
         <div className={styles.agentMeta}>
@@ -207,6 +231,26 @@ export default function StakeholderAgentPanel({
     });
   }, [mergedAgents]);
 
+  // SA-E: constellation nodes — the same merged fields the rows use, shaped
+  // for the relationship orbit. Sorted order keeps node identity stable.
+  const constellationNodes = useMemo(
+    () => sortedAgents.map((a) => {
+      const stage = a.action?.stage || a.stage || 'dormant';
+      return {
+        id: a.agent_id,
+        name: a.action?.name || a.name || 'Stakeholder',
+        initials: initialsOf(a.action?.name || a.name || ''),
+        tint: a.action?.color || a.color || '#94a3b8',
+        tolerance: a.action?.tolerance ?? a.tolerance ?? 50,
+        maxTolerance: a.max_tolerance || 100,
+        stage,
+        stageColor: (STAGE_META[stage] || STAGE_META.dormant).color,
+        leverage: a.leverage || '',
+      };
+    }),
+    [sortedAgents]
+  );
+
   // Counts
   const triggeredCount = mergedAgents.filter(
     (a) => (a.action?.stage || a.stage) === 'triggered'
@@ -265,10 +309,17 @@ export default function StakeholderAgentPanel({
             transition={{ duration: 0.3 }}
             className={styles.panelBody}
           >
-            {/* Agent cards */}
-            {sortedAgents.map((agent) => (
+            {/* SA-E: living relationship orbit above the roster (Rail slot,
+                not a new panel). Re-keys on roundNumber so it re-settles as
+                the "reaction" beat when a round commits. */}
+            <StakeholderConstellation key={`field-${roundNumber}`} nodes={constellationNodes} />
+
+            {/* Agent cards — index drives the staggered reveal; the roundNumber
+                key remounts them each commit so the ring-sweep replays. */}
+            {sortedAgents.map((agent, i) => (
               <AgentCard
-                key={agent.agent_id}
+                key={`${agent.agent_id}-${roundNumber}`}
+                index={i}
                 agent={agent}
                 action={agent.action}
                 isExpanded={!!expandedAgents[agent.agent_id]}
