@@ -47,7 +47,7 @@ import ConsequencePreview from './ConsequencePreview';
 import { playDeepDiveEnter, playDeepDiveExit, playCommitSuccess, playTippingWarning } from './CockpitSounds';
 import StakeholderAgentPanel from './StakeholderAgentPanel';
 import EBITDAWaterfall from './EBITDAWaterfall';
-import LivingPlanet from './LivingPlanet';
+import LivingPlanet, { computeMetrics as computeEsgMetrics, esgGrade, healthColor as esgHealthColor } from './LivingPlanet';
 import DecisionPressureTimer from './DecisionPressureTimer';
 import ConsequenceReplay from './ConsequenceReplay';
 import PlayerAnnotations from './PlayerAnnotations';
@@ -1303,6 +1303,23 @@ export default function ExecutiveCockpit({
           <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ background: 'var(--ck-surface-0, #0b0f1a)', borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', paddingTop: 10, paddingBottom: 10 }}>
           <div className={styles.resourcesPanel} aria-live="polite" aria-label="Key Performance Indicators">
+            {/* WOW move 2: the always-glanceable ESG health grade — the spine's
+                representative in the KPI belt. Derived from the same composite
+                the Living Planet orb shows; pure presentation. */}
+            {(() => {
+              const m = computeEsgMetrics(globalState);
+              if (!m) return null;
+              const c = esgHealthColor(m.composite);
+              return (
+                <div className={styles.resourceCard} title={`Composite ESG health ${m.composite}/100 — reputation ${m.reputation.score}, carbon ${m.carbon.score}, nature ${m.nature.score}, social ${m.social.score}. See the Living Planet in the Metrics tab.`}>
+                  <div className={styles.resourceLabel}>🌍 ESG Health</div>
+                  <div className={styles.resourceValue} style={{ color: c, display: 'flex', alignItems: 'baseline', gap: 5 }}>
+                    <AnimatedNumber value={m.composite} format={(v) => esgGrade(v)} />
+                    <span style={{ fontSize: '0.62rem', color: '#64748b', fontFamily: 'JetBrains Mono, monospace' }}>{m.composite}</span>
+                  </div>
+                </div>
+              );
+            })()}
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>💰 Treasury</div>
               <div className={styles.resourceValue}><AnimatedNumber value={treasury} format={fmtCurrency} /></div>

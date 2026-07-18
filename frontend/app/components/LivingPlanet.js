@@ -24,15 +24,27 @@ import React, { useMemo } from 'react';
 import styles from './LivingPlanet.module.css';
 
 /** Score 0-100 → colour hex */
-function healthColor(score) {
+export function healthColor(score) {
   if (score >= 75) return '#10b981'; // green
   if (score >= 50) return '#3b82f6'; // blue
   if (score >= 30) return '#f59e0b'; // amber
   return '#ef4444';                  // red
 }
 
+/** Composite 0-100 → a wordless letter grade — the "how are we doing" answer. */
+export function esgGrade(score) {
+  const s = Number(score) || 0;
+  if (s >= 88) return 'A+';
+  if (s >= 78) return 'A';
+  if (s >= 68) return 'B+';
+  if (s >= 58) return 'B';
+  if (s >= 48) return 'C';
+  if (s >= 35) return 'D';
+  return 'F';
+}
+
 /** Compute composite ESG score from global state */
-function computeMetrics(gs) {
+export function computeMetrics(gs) {
   if (!gs) return null;
   const rep = Number(gs.group_reputation) || 50;
   const flags = gs.active_event_flags || {};
@@ -147,14 +159,25 @@ export default function LivingPlanet({ globalState, businessUnits, compact = fal
           />
           <text
             x={size / 2}
-            y={size / 2 + 5}
+            y={size / 2 + (compact ? 2 : 4)}
             textAnchor="middle"
             fill={orbColor}
-            fontSize={compact ? 18 : 24}
+            fontSize={compact ? 26 : 34}
             fontWeight={900}
             fontFamily="var(--font-mono, monospace)"
           >
-            {metrics.composite}
+            {esgGrade(metrics.composite)}
+          </text>
+          <text
+            x={size / 2}
+            y={size / 2 + (compact ? 16 : 20)}
+            textAnchor="middle"
+            fill={orbColor}
+            fontSize={compact ? 9 : 11}
+            opacity={0.75}
+            fontFamily="var(--font-mono, monospace)"
+          >
+            {metrics.composite}/100
           </text>
         </svg>
       </div>
