@@ -1761,17 +1761,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={async () => {
-                                        const next = !ceoInterviewEnabled;
-                                        setCeoInterviewEnabled(next);
-                                        try {
-                                            await fetch(`${API}/api/admin/global-settings`, {
-                                                method: 'PATCH',
-                                                headers: { 'Content-Type': 'application/json' },
-                                                credentials: 'include',
-                                                body: JSON.stringify({ ceo_interview_enabled: next }),
-                                            });
-                                        } catch {}
+                                    onClick={() => {
+                                        // Local state only — persisted PER-COHORT by the wizard's
+                                        // CEO Interview save step (/sessions/{sid}/ceo-interview).
+                                        // The old immediate PATCH /global-settings silently 403'd
+                                        // for facilitators and mutated the GLOBAL default from a
+                                        // cohort wizard for admins (audit finding).
+                                        setCeoInterviewEnabled(!ceoInterviewEnabled);
                                     }}
                                     style={{
                                         padding: '5px 14px', borderRadius: 8, border: 'none',
@@ -1796,16 +1792,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>CEO Voice:</span>
                                         <select
                                             value={ceoVoiceGender}
-                                            onChange={async (e) => {
+                                            onChange={(e) => {
+                                                // Local state only — saved per-cohort at wizard save
+                                                // (see toggle above; audit finding).
                                                 setCeoVoiceGender(e.target.value);
-                                                try {
-                                                    await fetch(`${API}/api/admin/global-settings`, {
-                                                        method: 'PATCH',
-                                                        headers: { 'Content-Type': 'application/json' },
-                                                        credentials: 'include',
-                                                        body: JSON.stringify({ ceo_interview_voice_gender: e.target.value }),
-                                                    });
-                                                } catch {}
                                             }}
                                             style={{
                                                 padding: '3px 8px', borderRadius: 6, fontSize: '0.72rem',

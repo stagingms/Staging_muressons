@@ -711,11 +711,15 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                         Players from deleted sessions
                                     </p>
                                 </div>
+                                {/* DELETE /players/orphans is super_admin-only — showing this
+                                    button to facilitators produced a silent 403 (audit finding). */}
+                                {isSuperAdmin && (
                                 <button onClick={handleClearOrphans} style={{
                                     background: '#ef4444', color: '#fff', border: 'none',
                                     borderRadius: '6px', padding: '0.5rem 1rem', cursor: 'pointer',
                                     fontWeight: 600, fontSize: '0.8rem',
                                 }}>🗑️ Clear All Orphans</button>
+                                )}
                             </div>
                             <div className={styles.tableWrapper}>
                                 <table className={styles.table}>
