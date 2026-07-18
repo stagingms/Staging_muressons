@@ -6134,10 +6134,11 @@ async def get_front_page(session_id: str):
         f"- Reputation: {rep}/100\n"
         f"- Archetype: {archetype}\n"
         f"- Notable achievements: {', '.join(notable_flags_list[:8]) if notable_flags_list else 'none'}\n\n"
+        f"Write like a real broadsheet (FT/WSJ tone): specific, restrained, factual.\n"
         f"Return a JSON object with exactly these keys:\n"
-        f"  headline: a punchy ALL-CAPS newspaper headline (max 12 words)\n"
-        f"  subhead: an italic subheadline (max 25 words)\n"
-        f"  quote: a fictional analyst quote (max 20 words)\n\n"
+        f"  headline: a Title Case broadsheet headline (max 14 words, no exclamation marks)\n"
+        f"  subhead: an italic dek expanding the headline with one concrete figure (max 28 words)\n"
+        f"  quote: a fictional analyst quote, dry and specific (max 20 words)\n\n"
         f"Respond ONLY with the JSON object, no markdown fences."
     )
 
