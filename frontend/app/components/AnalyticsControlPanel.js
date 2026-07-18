@@ -4,7 +4,7 @@ import styles from './AnalyticsControlPanel.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-const FACILITATOR_ANALYTICS = [
+export const FACILITATOR_ANALYTICS = [
     { key: 'decision_heatmap', label: 'Decision Heatmap', icon: '📊', desc: 'Choice distributions per round', tooltip: 'Choice distribution matrix showing which strategic options (A, B, C, etc.) were selected in each round across all players. Includes a heatmap grid with counts/percentages and stacked bar charts for visual comparison. Answers: "What are the most popular choices per round?"' },
     { key: 'time_to_decision', label: 'Time-to-Decision', icon: '⏱', desc: 'Decision speed analytics', tooltip: 'Decision speed analytics — how long players take to commit their choices each round. Displays average, median, min, and max times in seconds with horizontal bar visualizations. Answers: "Are players deliberating or rushing?"' },
     { key: 'cohort_comparison', label: 'Cohort Comparison', icon: '📈', desc: 'KPI trajectories side-by-side', tooltip: 'Plots KPI trajectories side-by-side for multiple cohorts on an SVG line chart. Togglable between Treasury, Reputation, Synergy, and EBITDA metrics. Answers: "How do different cohorts perform against each other over time?"' },

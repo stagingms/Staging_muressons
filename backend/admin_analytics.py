@@ -132,10 +132,30 @@ async def set_analytics_visibility(body: dict = Body(...), _guard: None = Depend
 # Stored on session dict as session["analytics_visibility"] = {facilitator: {...}, player: {...}}
 # Global defaults apply when a cohort has no overrides.
 
-def resolve_analytics_visibility(session_id: str) -> dict:
-    """Merge global defaults with per-cohort overrides. Cohort overrides win."""
+def resolve_analytics_visibility(session_id: str, facilitator_id: str | None = None) -> dict:
+    """Merge visibility layers, most specific last:
+
+        global defaults
+          → per-FACILITATOR profile (admin-set on the registry record;
+            facilitator column only — an account-level baseline)
+          → per-cohort overrides (admin-set for the facilitator column,
+            facilitator-set for the player column)
+
+    facilitator_id is the VIEWING facilitator (the caller), so the same cohort
+    can render differently for two facilitators with different profiles.
+    """
     import copy as _copy
     merged = _copy.deepcopy(_analytics_visibility)
+
+    # Layer 2: per-facilitator profile (facilitator column only).
+    if facilitator_id:
+        fac = next((f for f in _facilitator_registry
+                    if f.get("facilitator_id") == facilitator_id and not f.get("deleted_at")), None)
+        profile = (fac or {}).get("analytics_visibility") or {}
+        for key, val in (profile.get("facilitator") or {}).items():
+            if key in merged.get("facilitator", {}):
+                merged["facilitator"][key] = bool(val)
+
     sess = database_memory._sessions.get(session_id)
     if not sess:
         return merged
@@ -155,15 +175,19 @@ def resolve_analytics_visibility(session_id: str) -> dict:
 
 
 @analytics_router.get("/cohort/{session_id}/analytics-visibility", summary="Get per-cohort analytics visibility")
-async def get_cohort_analytics_visibility(session_id: str):
+async def get_cohort_analytics_visibility(session_id: str, request: Request):
     sess = database_memory._sessions.get(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
     cohort_overrides = sess.get("analytics_visibility")
+    # Per-facilitator profiles apply to the VIEWER: resolve with the caller's
+    # facilitator identity (None for players/anonymous — profile layer skipped).
+    from auth_jwt import get_facilitator_from_request
+    caller_fac_id = get_facilitator_from_request(request)
     return {
         "global_defaults": _analytics_visibility,
         "cohort_overrides": cohort_overrides,
-        "effective": resolve_analytics_visibility(session_id),
+        "effective": resolve_analytics_visibility(session_id, facilitator_id=caller_fac_id),
     }
 
 
@@ -193,6 +217,54 @@ async def set_cohort_analytics_visibility(session_id: str, body: dict = Body(...
         "cohort_overrides": overrides,
         "ignored_admin_only_roles": ignored_roles,
         "effective": resolve_analytics_visibility(session_id),
+    }
+
+
+# ── Per-FACILITATOR visibility profile (admin-owned) ──────────────────────────
+# An account-level baseline for the facilitator-dashboard column, set from the
+# god-mode Facilitator Registry. Layered between global defaults and per-cohort
+# overrides by resolve_analytics_visibility.
+
+@analytics_router.get("/god/facilitators/{facilitator_id}/analytics-visibility",
+                      summary="Get a facilitator's visibility profile")
+async def get_facilitator_visibility_profile(facilitator_id: str,
+                                             _guard: None = Depends(_require_super_admin)):
+    fac = next((f for f in _facilitator_registry
+                if f.get("facilitator_id") == facilitator_id and not f.get("deleted_at")), None)
+    if not fac:
+        raise HTTPException(status_code=404, detail="Facilitator not found")
+    profile = fac.get("analytics_visibility") or {}
+    return {
+        "facilitator_id": facilitator_id,
+        "profile": {"facilitator": profile.get("facilitator", {})},
+        "global_defaults": {"facilitator": _analytics_visibility.get("facilitator", {})},
+    }
+
+
+@analytics_router.put("/god/facilitators/{facilitator_id}/analytics-visibility",
+                      summary="Set a facilitator's visibility profile")
+async def set_facilitator_visibility_profile(facilitator_id: str, body: dict = Body(...),
+                                             _guard: None = Depends(_require_super_admin)):
+    """Body: {"facilitator": {panel_key: bool, ...}} — replaces the profile.
+    An empty dict clears it (back to global defaults). Facilitator column only;
+    the player column is cohort-level pedagogy, not an account property."""
+    fac = next((f for f in _facilitator_registry
+                if f.get("facilitator_id") == facilitator_id and not f.get("deleted_at")), None)
+    if not fac:
+        raise HTTPException(status_code=404, detail="Facilitator not found")
+    incoming = body.get("facilitator") or {}
+    catalog = _analytics_visibility.get("facilitator", {})
+    cleaned = {k: bool(v) for k, v in incoming.items() if k in catalog}
+    if cleaned:
+        fac["analytics_visibility"] = {"facilitator": cleaned}
+    else:
+        fac.pop("analytics_visibility", None)   # empty ⇒ profile cleared
+    from admin_shared import _persist_facilitators
+    _persist_facilitators()
+    return {
+        "facilitator_id": facilitator_id,
+        "profile": {"facilitator": cleaned},
+        "cleared": not cleaned,
     }
 
 

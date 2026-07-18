@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META, resolveVerticalMeta } from '../lib/verticalCatalog';
 
 const CreateCohortModal = dynamic(() => import('./CreateCohortModal'), { ssr: false });
+const FacilitatorVisibilityEditor = dynamic(() => import('./FacilitatorVisibilityEditor'), { ssr: false });
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -184,6 +185,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     const [deleteModal, setDeleteModal] = useState(null);   // { facId, facName } | null
     const [deleteConfirmInput, setDeleteConfirmInput] = useState('');
     const [expandedVisRow, setExpandedVisRow] = useState(null); // facilitator_id of expanded row
+    const [visibilityFac, setVisibilityFac] = useState(null);   // facilitator whose visibility profile is being edited
     const deleteTimerRef = useRef(null);
 
     // Bulk delete (multi-select) — one batched POST /facilitators/bulk-delete,
@@ -2325,6 +2327,13 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                         <td>
                                             <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap' }}>
                                                 <button className={styles.actionBtn} onClick={() => openEditDrawer(fac)} title="Edit facilitator">✏️</button>
+                                                {/* Per-facilitator analytics-visibility profile (admin-owned):
+                                                    which facilitator-dashboard panels THIS account sees. */}
+                                                <button
+                                                    className={styles.actionBtn}
+                                                    onClick={() => setVisibilityFac(fac)}
+                                                    title={`Analytics visibility profile for ${fac.name}`}
+                                                >👁️</button>
                                                 {onNavigate && (
                                                     <button className={styles.actionBtn} onClick={() => onNavigate('cohort_manager')} title="View cohorts">🗂️</button>
                                                 )}
@@ -2970,6 +2979,14 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                         // Refresh facilitator list to pick up updated cohorts_created count
                         fetchFacilitators?.();
                     }}
+                />
+            )}
+
+            {/* ── Per-facilitator visibility profile modal ─────────── */}
+            {visibilityFac && (
+                <FacilitatorVisibilityEditor
+                    facilitator={visibilityFac}
+                    onClose={() => setVisibilityFac(null)}
                 />
             )}
         </section>
