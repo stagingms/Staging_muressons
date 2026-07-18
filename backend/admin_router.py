@@ -528,6 +528,12 @@ class GlobalSettingsPatch(BaseModel):
     foreshadowing_signals_enabled: bool | None = None
     # Single-BU mode override (empty string = all BUs)
     assigned_bu: str | None = None
+    # Briefing videos (player Read|Watch): URL-only config, media hosted
+    # externally. Global defaults here; per-cohort overrides go through
+    # POST /sessions/{sid}/briefing-videos. Settable via API so nobody has to
+    # hand-edit memory_snapshot.json + restart to configure them.
+    briefing_video_base: str | None = None
+    briefing_videos: dict[str, str] | None = None
     # I5 (Workstream E): free-text justification. REQUIRED when the caller is the
     # god_mode break-glass identity; ignored (optional) for named super_admins.
     reason: str | None = None
@@ -556,6 +562,14 @@ async def patch_global_settings(body: GlobalSettingsPatch, request: Request, _gu
     update_data = body.model_dump(exclude_unset=True)
     # `reason` is audit metadata, not a persisted setting — strip before write.
     _reason = update_data.pop("reason", None)
+    # Briefing videos: normalise like the per-cohort endpoint — numeric round
+    # keys only, blank URLs dropped (an all-blank map clears the setting).
+    if isinstance(update_data.get("briefing_videos"), dict):
+        update_data["briefing_videos"] = {
+            str(int(k)): str(v).strip()
+            for k, v in update_data["briefing_videos"].items()
+            if str(k).strip().isdigit() and str(v).strip()
+        }
     # C6: dual-write the climate branch. Legacy clients send simulation_mode
     # in {standard, advanced_climate}; new clients send climate_paradigm. Keep
     # both in sync so every reader (old and new) resolves the same branch.
