@@ -2009,6 +2009,35 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* Quiz — moved here from Advanced Controls: knowledge-check
+                                    quizzes are formative assessment, i.e. scaffolding. */}
+                                <div className={styles.visRoleLabel} style={{ marginTop: '0.9rem' }}>📝 Quiz</div>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', padding: '0.2rem 0.1rem 0.1rem' }}>
+                                    {[
+                                        { on: quizEnabled, toggle: () => setQuizEnabled(v => !v), label: 'Enable quizzes', hint: 'Surface knowledge-check quizzes (quiz banks) to players.' },
+                                        { on: quizGraded, toggle: () => setQuizGraded(v => !v), label: 'Count toward grade', hint: 'Include quiz scores in the cohort gradebook.' },
+                                    ].map(q => (
+                                        <div key={q.label} onClick={q.toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0.35rem 0.1rem' }} data-tooltip={q.hint}>
+                                            <div style={{ width: 34, height: 20, borderRadius: 10, background: q.on ? '#10b981' : '#475569', position: 'relative', transition: 'background .15s', flexShrink: 0 }}>
+                                                <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: q.on ? 16 : 2, transition: 'left .15s' }} />
+                                            </div>
+                                            <span style={{ fontSize: '0.82rem', color: '#e2e8f0' }}>{q.label}</span>
+                                        </div>
+                                    ))}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <label style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Pass threshold (%)</label>
+                                        <input type="number" min={0} max={100} step={5} value={quizPassThreshold} disabled={!quizEnabled}
+                                            onChange={e => setQuizPassThreshold(Number(e.target.value))}
+                                            style={{ padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #334155', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: '0.82rem', width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
+                                    </div>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                        <label style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Max attempts</label>
+                                        <input type="number" min={1} max={20} value={quizMaxAttempts} disabled={!quizEnabled}
+                                            onChange={e => setQuizMaxAttempts(Number(e.target.value))}
+                                            style={{ padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #334155', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: '0.82rem', width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
+                                    </div>
+                                </div>
                             </div>
                         </section>
 {/* ── Section 6: Analytics Visibility ── */}
@@ -2076,11 +2105,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 </div>
                             </div>
                         </section>
-{/* ── Section 7: Advanced Controls (Quiz · Result Visibility · Teams · RNG Seed · Time/Timezone · Report Access · Templates) ── */}
+                        </AccordionItem>
+
+{/* ── Section 7: Advanced Controls — its own accordion tab (quiz moved to §5) ── */}
+                        <AccordionItem id="advanced" title="7. Advanced Controls" summary="Result Visibility, Teams, RNG Seed, Time/Timezone, Report Access & Templates" isOpen={openTabs.has('advanced')} onToggle={toggleTab}>
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
                                 <h3>7. Advanced Controls</h3>
-                                <p>Quizzes &amp; grading, result-visibility gating, team/roster limits, and a fair-play RNG seed. All optional; sensible defaults keep behaviour unchanged.</p>
+                                <p>Result-visibility gating, team/roster limits, and a fair-play RNG seed. All optional; sensible defaults keep behaviour unchanged.</p>
                             </div>
 
                             {(() => {
@@ -2099,22 +2131,9 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 );
                                 return (
                                     <div>
-                                        {/* Quiz & grading */}
-                                        <div style={grp}>📝 Quiz &amp; Grading</div>
-                                        <div style={row}>
-                                            {chk(quizEnabled, () => setQuizEnabled(v => !v), 'Enable quizzes', 'Surface knowledge-check quizzes (quiz banks) to players.')}
-                                            {chk(quizGraded, () => setQuizGraded(v => !v), 'Count toward grade', 'Include quiz scores in the cohort gradebook.')}
-                                            <div style={fld}>
-                                                <label style={lbl}>Pass threshold (%)</label>
-                                                <input type="number" min={0} max={100} step={5} value={quizPassThreshold} disabled={!quizEnabled}
-                                                    onChange={e => setQuizPassThreshold(Number(e.target.value))} style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
-                                            </div>
-                                            <div style={fld}>
-                                                <label style={lbl}>Max attempts</label>
-                                                <input type="number" min={1} max={20} value={quizMaxAttempts} disabled={!quizEnabled}
-                                                    onChange={e => setQuizMaxAttempts(Number(e.target.value))} style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
-                                            </div>
-                                        </div>
+                                        {/* Quiz & grading moved to Section 5 (Pedagogical
+                                            Scaffolding) — formative assessment lives with the
+                                            other scaffolding toggles. */}
 
                                         {/* Result visibility */}
                                         <div style={grp}>👁 Result Visibility</div>
@@ -2307,7 +2326,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                         </AccordionItem>
 
-                        <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTabs.has('lock')} onToggle={toggleTab}>
+                        <AccordionItem id="lock" title="8. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTabs.has('lock')} onToggle={toggleTab}>
                             {(() => {
                                 // ── Derived values for summary display ──
                                 const facId = currentFacilitatorId || facilitatorId;
