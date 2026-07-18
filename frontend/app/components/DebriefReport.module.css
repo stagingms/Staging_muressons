@@ -27,7 +27,7 @@
     margin: 0;
     font-size: 1rem;
     font-weight: 700;
-    color: var(--bg-elevated);
+    color: #1e293b;
 }
 
 .cohortBadge {
@@ -64,7 +64,7 @@
 }
 
 .tab:hover {
-    color: var(--bg-elevated);
+    color: #1e293b;
     background: rgba(99, 102, 241, 0.04);
 }
 
@@ -119,14 +119,14 @@
     padding: 0.85rem 1rem;
     background: #fff;
     border: none;
-    color: var(--bg-elevated);
+    color: #1e293b;
     font-size: 0.88rem;
     cursor: pointer;
     transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s;
 }
 
 .roundCardHeader:hover {
-    background: var(--text-primary);
+    background: #f1f5f9;
 }
 
 .roundNumber {
@@ -218,7 +218,7 @@
     margin: 0 0 0.35rem 0;
     font-size: 0.92rem;
     font-weight: 700;
-    color: var(--bg-elevated);
+    color: #1e293b;
 }
 
 .crisisText p {
@@ -255,7 +255,7 @@
 .decisionTitle {
     font-size: 0.92rem;
     font-weight: 700;
-    color: var(--bg-elevated);
+    color: #1e293b;
 }
 
 .decisionDesc {
@@ -417,7 +417,7 @@
 .sectionHeading {
     font-size: 0.92rem;
     font-weight: 700;
-    color: var(--bg-elevated);
+    color: #1e293b;
     margin: 0 0 1rem 0;
 }
 
@@ -444,7 +444,7 @@
     align-items: center;
     gap: 0.5rem;
     padding: 0.65rem 0.85rem;
-    border-bottom: 1px solid var(--text-primary);
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .trendHeader span {
@@ -455,7 +455,7 @@
     margin: 0;
     font-size: 0.82rem;
     font-weight: 700;
-    color: var(--bg-elevated);
+    color: #1e293b;
 }
 
 .trendChart {
@@ -485,7 +485,7 @@
     gap: 0.5rem;
     margin-bottom: 0.5rem;
     font-size: 0.88rem;
-    color: var(--bg-elevated);
+    color: #1e293b;
 }
 
 .verdictText {
@@ -515,7 +515,7 @@
     gap: 0.5rem;
     margin-bottom: 0.35rem;
     font-size: 0.85rem;
-    color: var(--bg-elevated);
+    color: #1e293b;
 }
 
 .insightIcon {
@@ -565,7 +565,7 @@
     padding: 0.55rem 1rem;
     font-size: 0.82rem;
     color: #475569;
-    border-bottom: 1px solid var(--text-primary);
+    border-bottom: 1px solid #f1f5f9;
 }
 
 .summaryTable tr:last-child td {

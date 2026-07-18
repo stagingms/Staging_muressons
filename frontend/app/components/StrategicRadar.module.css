@@ -112,6 +112,6 @@
     border-color: rgba(148, 163, 184, 0.15);
   }
   .metricCard:hover { background: rgba(241, 245, 249, 0.9); }
-  .metricValue { color: var(--bg-elevated); }
+  .metricValue { color: #1e293b; }
   .metricLabel { color: var(--text-muted); }
 }

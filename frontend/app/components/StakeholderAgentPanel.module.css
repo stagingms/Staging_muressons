@@ -595,7 +595,7 @@
 }
 
 :global([data-theme="light"]) .agentName {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .toleranceTrack {

@@ -1060,7 +1060,10 @@
    â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 :global([data-theme="light"]) .overlay {
     --csrd-bg: #f0f2f7;
-    --csrd-text: var(--bg-elevated);
+    /* BUGFIX: was var(--bg-elevated) — a BACKGROUND colour (near-white
+       #f8fafc) assigned as the TEXT colour, so chip labels and bank headings
+       rendered white-on-white in light mode. */
+    --csrd-text: #0f172a;
     --csrd-heading: #0f172a;
     --csrd-muted: #475569;
     --csrd-axis: #475569;
@@ -1074,7 +1077,10 @@
     --csrd-chip-border: #e2e8f0;
     --csrd-chip-hover: #f8fafc;
     --csrd-modal-bg: #ffffff;
-    --csrd-cancel-bg: var(--text-primary);
+    /* BUGFIX: was var(--text-primary) — a TEXT colour as a button BACKGROUND
+       (pure black after the light-mode pass). Light grey to match its
+       #e2e8f0 hover. */
+    --csrd-cancel-bg: #f1f5f9;
     --csrd-cancel-hover: #e2e8f0;
 }
 

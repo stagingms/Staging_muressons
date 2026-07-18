@@ -803,7 +803,7 @@
 }
 
 :global([data-theme="light"]) .buIconWrap {
-    background: color-mix(in srgb, var(--bu-accent, var(--accent-blue)) 10%, var(--text-primary));
+    background: color-mix(in srgb, var(--bu-accent, var(--accent-blue)) 10%, #f1f5f9);
     border-color: color-mix(in srgb, var(--bu-accent, var(--accent-blue)) 15%, #e2e8f0);
 }
 

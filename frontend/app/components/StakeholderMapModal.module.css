@@ -85,11 +85,11 @@
 
 /* â”€â”€ Bank Pane â”€â”€ */
 .bankPane {
-  /* Hardcoded-dark surface in both themes: pin the text tiers light so the
-     light theme's near-black variables don't vanish (see light-mode pass). */
-  --text-primary: #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+    /* NOTE: the pane itself is dark in both themes, but its child .chip cards
+       follow the theme (var(--bg-elevated) — WHITE in light mode). So the
+       light-text pin must NOT be scoped on the pane (it made chip labels
+       white-on-white in light mode); instead only the pane-level text
+       (.bankTitle / .bankHint below) is pinned light. */
     border-right: 1px solid var(--border-subtle);
     padding: 1rem;
     background: var(--bg-main, #0f172a);
@@ -103,13 +103,13 @@
 .bankTitle {
     font-size: 0.85rem;
     font-weight: 700;
-    color: var(--text-primary);
+    color: #f1f5f9;   /* fixed light — sits on the always-dark pane */
     margin: 0 0 0.3rem;
 }
 
 .bankHint {
     font-size: 0.68rem;
-    color: var(--text-muted);
+    color: #94a3b8;   /* fixed light — sits on the always-dark pane */
     margin: 0 0 0.8rem;
 }
 

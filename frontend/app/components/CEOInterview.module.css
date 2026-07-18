@@ -519,7 +519,7 @@
   color: var(--text-muted);
   line-height: 1.5;
   padding: 0.4rem 0.6rem;
-  border-left: 3px solid var(--text-secondary);
+  border-left: 3px solid #b0bec5;
   background: rgba(255,255,255,0.01);
   border-radius: 0 6px 6px 0;
 }

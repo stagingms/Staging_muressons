@@ -250,7 +250,7 @@
 /* ── Light theme overrides ── */
 :global([data-theme="light"]) .trigger {
   background: #f8fafc;
-  color: var(--bg-elevated);
+  color: #1e293b;
   border-color: var(--text-secondary, #94a3b8);
 }
 
@@ -266,7 +266,7 @@
 
 :global([data-theme="light"]) .option:hover {
   background: rgba(0, 229, 195, 0.06);
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .optionSelected {

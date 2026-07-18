@@ -600,7 +600,7 @@ body.theme-transitioning::before {
   background: linear-gradient(
     90deg,
     var(--bg-elevated) 25%,
-    color-mix(in srgb, var(--text-muted) 12%, transparent) 37%,
+    color-mix(in srgb, #8899a6 12%, transparent) 37%,
     var(--bg-elevated) 63%
   );
   background-size: 200% 100%;

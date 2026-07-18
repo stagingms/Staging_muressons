@@ -665,7 +665,7 @@
 
 :global([data-theme="light"]) .panel {
   background: linear-gradient(165deg, #ffffff, #f8fafc);
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
   box-shadow:
     0 25px 60px rgba(0, 0, 0, 0.15),
     0 0 0 1px rgba(0, 0, 0, 0.04),
@@ -673,8 +673,8 @@
 }
 
 :global([data-theme="light"]) .header {
-  background: var(--text-primary);
-  border-bottom-color: var(--text-primary);
+  background: #f1f5f9;
+  border-bottom-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .stepLabel {
@@ -689,14 +689,14 @@
 
 :global([data-theme="light"]) .closeButton {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
   color: var(--text-secondary);
 }
 
 :global([data-theme="light"]) .closeButton:hover {
-  background: var(--text-primary);
+  background: #f1f5f9;
   color: #0f172a;
-  border-color: var(--text-secondary);
+  border-color: #b0bec5;
 }
 
 /* Content area */
@@ -711,12 +711,12 @@
 /* Breadcrumb */
 :global([data-theme="light"]) .breadcrumb {
   background: #f8fafc;
-  border-top-color: var(--text-primary);
+  border-top-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .breadcrumbDot {
-  background: var(--text-primary);
-  border-color: var(--text-secondary);
+  background: #f1f5f9;
+  border-color: #b0bec5;
 }
 
 :global([data-theme="light"]) .breadcrumbComplete {
@@ -753,13 +753,13 @@
 
 /* KPI Strip */
 :global([data-theme="light"]) .kpiStrip {
-  background: var(--text-primary);
-  border-color: var(--text-primary);
+  background: #f1f5f9;
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .kpiPill {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .kpiPillLabel {
@@ -772,15 +772,15 @@
 
 /* Section Titles */
 :global([data-theme="light"]) .sectionTitle {
-  color: var(--bg-elevated);
-  border-bottom-color: var(--text-primary);
+  color: #1e293b;
+  border-bottom-color: #f1f5f9;
 }
 
 /* Action buttons — keep teal gradient, just adjust disabled */
 :global([data-theme="light"]) .actionButton:disabled {
   background: #e2e8f0;
   color: var(--text-muted);
-  border-color: var(--text-secondary);
+  border-color: #b0bec5;
 }
 
 /* Decision Summary */
@@ -794,7 +794,7 @@
 }
 
 :global([data-theme="light"]) .decisionSummaryRow {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .decisionSummaryValue {
@@ -813,7 +813,7 @@
 /* Results */
 :global([data-theme="light"]) .focusResultCard {
   background: #f8fafc;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .focusResultLabel {
@@ -835,8 +835,8 @@
 }
 
 :global([data-theme="light"]) .commitRecapRow {
-  color: var(--bg-elevated);
-  border-bottom-color: var(--text-secondary);
+  color: #1e293b;
+  border-bottom-color: #b0bec5;
 }
 
 :global([data-theme="light"]) .commitRecapValue {
@@ -845,12 +845,12 @@
 
 /* Prediction */
 :global([data-theme="light"]) .predictionPrompt {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .predictionInput {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
   color: #0f172a;
 }
 
@@ -866,12 +866,12 @@
 /* Two-action buttons */
 :global([data-theme="light"]) .secondaryAction {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
   color: var(--text-secondary);
 }
 
 :global([data-theme="light"]) .secondaryAction:hover {
-  background: var(--text-primary);
+  background: #f1f5f9;
   color: #0f172a;
 }
 
@@ -892,14 +892,14 @@
 /* Back button */
 :global([data-theme="light"]) .backButton {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
   color: var(--text-secondary);
 }
 
 :global([data-theme="light"]) .backButton:hover {
-  background: var(--text-primary);
+  background: #f1f5f9;
   color: #0f172a;
-  border-color: var(--text-secondary);
+  border-color: #b0bec5;
 }
 
 

@@ -71,8 +71,8 @@
 }
 
 .closeBtn:hover {
-    background: var(--text-primary);
-    color: var(--bg-elevated);
+    background: #f1f5f9;
+    color: #1e293b;
 }
 
 .content {
@@ -92,7 +92,7 @@
     width: 100%;
     box-sizing: border-box;
     background: #f8fafc;
-    color: var(--bg-elevated);
+    color: #1e293b;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     padding: 0.55rem 0.8rem 0.55rem 2.2rem;
@@ -232,7 +232,7 @@
     border-radius: 5px;
     font-size: 0.72rem;
     font-weight: 600;
-    background: var(--text-primary);
+    background: #f1f5f9;
     color: var(--text-secondary);
     border: 1px solid #e2e8f0;
 }
@@ -316,7 +316,7 @@
     position: relative;
     background: #ffffff;
     border: 1px solid #e2e8f0;
-    color: var(--bg-elevated);
+    color: #1e293b;
     width: 44px;
     height: 44px;
     border-radius: 12px;

@@ -24,7 +24,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 /* --- Tricolor Strip --- */
@@ -137,7 +137,7 @@
   width: 220px;
 }
 .validationTable td:last-child {
-  color: var(--bg-elevated);
+  color: #1e293b;
   font-weight: 700;
 }
 

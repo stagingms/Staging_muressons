@@ -77,7 +77,7 @@
 .roundToggle:hover {
     background: #334155;
     color: var(--text-primary);
-    border-color: var(--text-secondary);
+    border-color: #b0bec5;
 }
 
 .roundIcon {

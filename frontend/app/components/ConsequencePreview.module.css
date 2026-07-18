@@ -103,9 +103,9 @@
 
 /* Light mode â€” uses data-theme attribute (QW-2 fix) */
 :global([data-theme="light"]) .previewContainer { background: rgba(255,255,255,0.85); border-color: rgba(148,163,184,0.25); }
-:global([data-theme="light"]) .previewTitle { color: var(--bg-elevated); }
+:global([data-theme="light"]) .previewTitle { color: #1e293b; }
 :global([data-theme="light"]) .impactLabel { color: var(--text-muted); }
-:global([data-theme="light"]) .reactionNpc { color: var(--bg-elevated); }
+:global([data-theme="light"]) .reactionNpc { color: #1e293b; }
 :global([data-theme="light"]) .mrProjection { background: rgba(241,245,249,0.6); }
-:global([data-theme="light"]) .mrValue { color: var(--bg-elevated); }
+:global([data-theme="light"]) .mrValue { color: #1e293b; }
 

@@ -1088,7 +1088,7 @@
 
 .commitBtn:disabled {
   background: rgba(100, 116, 139, 0.15);
-  color: var(--bg-elevated);
+  color: #1e293b;
   cursor: not-allowed;
   box-shadow: none;
   border: 1px solid rgba(100, 116, 139, 0.1);
@@ -1142,7 +1142,7 @@
 
 .commitBtnHalf:disabled {
   background: rgba(100, 116, 139, 0.15);
-  color: var(--bg-elevated);
+  color: #1e293b;
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -1179,7 +1179,7 @@
 
 .advanceBtnLocked {
   background: rgba(100, 116, 139, 0.1) !important;
-  color: var(--bg-elevated) !important;
+  color: #1e293b !important;
   cursor: not-allowed !important;
   box-shadow: none !important;
 }
@@ -1519,20 +1519,20 @@
 
 :global([data-theme="light"]) .headerLogo { color: #0f172a; }
 :global([data-theme="light"]) .logoMark { background: linear-gradient(135deg, var(--info), var(--accent-blue)); }
-:global([data-theme="light"]) .headerCenter { color: var(--bg-elevated); }
+:global([data-theme="light"]) .headerCenter { color: #1e293b; }
 :global([data-theme="light"]) .headerYear { color: #0f172a; }
 :global([data-theme="light"]) .headerModule { color: var(--info); }
 :global([data-theme="light"]) .headerDivider { background: #cbd5e1; }
 
 :global([data-theme="light"]) .treasuryDisplay {
-  background: var(--text-primary);
-  border-color: var(--text-primary);
+  background: #f1f5f9;
+  border-color: #f1f5f9;
   color: #0f172a;
 }
 
 /* â”€â”€ Phase Stepper (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .phaseStepper {
-  background: linear-gradient(180deg, var(--text-primary), #f8fafc);
+  background: linear-gradient(180deg, #f1f5f9, #f8fafc);
   border-bottom: 1px solid #e2e8f0;
 }
 
@@ -1559,23 +1559,23 @@
 
 /* â”€â”€ Sidebars (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .leftSidebar {
-  background: var(--text-primary);
-  border-right-color: var(--text-primary);
+  background: #f1f5f9;
+  border-right-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .rightSidebar {
-  background: var(--text-primary);
-  border-left-color: var(--text-primary);
+  background: #f1f5f9;
+  border-left-color: #f1f5f9;
 }
 
 /* â”€â”€ KPI Cards (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .kpiCard {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .kpiTitle {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .kpiValue {
@@ -1585,13 +1585,13 @@
 /* â”€â”€ Briefing (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .centerConsole {
   background: #ffffff;
-  border-left-color: var(--text-primary);
-  border-right-color: var(--text-primary);
+  border-left-color: #f1f5f9;
+  border-right-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .briefingArea {
   background: linear-gradient(180deg, #f8fafc, #ffffff);
-  border-bottom-color: var(--text-primary);
+  border-bottom-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .briefingRound {
@@ -1604,12 +1604,12 @@
 }
 
 :global([data-theme="light"]) .briefingBody {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 /* â”€â”€ Decision Area (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .decisionArea {
-  border-bottom-color: var(--text-primary);
+  border-bottom-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .decisionLabel {
@@ -1619,7 +1619,7 @@
 /* â”€â”€ Decision Tiles (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .pillarTile {
   background: #f8fafc;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .pillarTile:hover {
@@ -1637,13 +1637,13 @@
 
 :global([data-theme="light"]) .pillarSelect {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
   color: #0f172a;
 }
 
 :global([data-theme="light"]) .decisionTile {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .decisionTile:hover {
@@ -1660,17 +1660,17 @@
 }
 
 :global([data-theme="light"]) .decisionTileDesc {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 /* â”€â”€ Strategic Breakdown (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .breakdownPanel {
   background: #f8fafc;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .breakdownTitle {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .breakdownContent {
@@ -1684,11 +1684,11 @@
 
 :global([data-theme="light"]) .resourceCard {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .resourceLabel {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .resourceValue {
@@ -1697,45 +1697,45 @@
 
 /* â”€â”€ Mailbox (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .mailboxSection {
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .mailboxTitle {
   color: #0f172a;
-  border-bottom-color: var(--text-primary);
+  border-bottom-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .mailboxItem {
   background: #f8fafc;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .mailboxFrom {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .mailboxPreview {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .mailboxExpanded {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 /* â”€â”€ Market Reality Feed (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .marketFeed {
   background: #f8fafc;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .marketTitle {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .eventItem {
-  background: var(--text-primary);
-  border-color: var(--text-primary);
+  background: #f1f5f9;
+  border-color: #f1f5f9;
   color: #334155;
 }
 
@@ -1759,7 +1759,7 @@
 /* â”€â”€ Results Panel (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .resultsPanel {
   background: #ffffff;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
   box-shadow: 0 16px 60px rgba(0, 0, 0, 0.12);
 }
 
@@ -1779,11 +1779,11 @@
 
 :global([data-theme="light"]) .resultCard {
   background: #f8fafc;
-  border-color: var(--text-primary);
+  border-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .resultCard:hover {
-  border-color: var(--text-secondary);
+  border-color: #b0bec5;
 }
 
 :global([data-theme="light"]) .resultCardLabel {
@@ -1818,8 +1818,8 @@
 
 :global([data-theme="light"]) .toolbarBtn {
   background: #ffffff;
-  border-color: var(--text-primary);
-  color: var(--bg-elevated);
+  border-color: #f1f5f9;
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .toolbarBtn:hover {
@@ -1835,11 +1835,11 @@
 
 /* â”€â”€ Resources Tab (light) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 :global([data-theme="light"]) .rightResources {
-  border-bottom-color: var(--text-primary);
+  border-bottom-color: #f1f5f9;
 }
 
 :global([data-theme="light"]) .resourcesLabel {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 
 :global([data-theme="light"]) .resourcesPill {
@@ -1848,7 +1848,7 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
 }
 :global([data-theme="light"]) .resourcesPillLabel {
-  color: var(--bg-elevated);
+  color: #1e293b;
 }
 :global([data-theme="light"]) .resourcesPillArrow {
   color: var(--brand);
@@ -2343,7 +2343,7 @@
   background: #f0fdfa;
   box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15), 0 2px 8px rgba(13, 148, 136, 0.1);
 }
-:global([data-theme="light"]) .tileTitle { color: var(--bg-elevated); }
+:global([data-theme="light"]) .tileTitle { color: #1e293b; }
 :global([data-theme="light"]) .tileDesc { color: var(--text-secondary); }
 :global([data-theme="light"]) .tileLabel { color: var(--brand); }
 :global([data-theme="light"]) .tileCost { color: var(--danger); background: rgba(220, 38, 38, 0.06); border-color: rgba(220, 38, 38, 0.12); }
@@ -2353,25 +2353,25 @@
 :global([data-theme="light"]) .pillarTile { background: #ffffff; border: 1px solid #e2e8f0; border-left: 3px solid #cbd5e1; }
 :global([data-theme="light"]) .pillarTile:hover { border-left-color: var(--accent); background: #faf5ff; }
 :global([data-theme="light"]) .pillarTileActive { border-color: var(--accent); border-left-color: var(--accent); background: #faf5ff; }
-:global([data-theme="light"]) .pillarLabel { color: var(--bg-elevated); }
-:global([data-theme="light"]) .pillarSelect { background: #f8fafc; color: var(--bg-elevated); border-color: var(--text-secondary); }
+:global([data-theme="light"]) .pillarLabel { color: #1e293b; }
+:global([data-theme="light"]) .pillarSelect { background: #f8fafc; color: #1e293b; border-color: #b0bec5; }
 
 /* Results panel */
-:global([data-theme="light"]) .resultsPanel { background: #ffffff; border-color: var(--text-primary); box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12); }
+:global([data-theme="light"]) .resultsPanel { background: #ffffff; border-color: #f1f5f9; box-shadow: 0 24px 80px rgba(0, 0, 0, 0.12); }
 :global([data-theme="light"]) .resultsBadge { color: var(--brand); background: rgba(13, 148, 136, 0.06); border-color: rgba(13, 148, 136, 0.15); }
-:global([data-theme="light"]) .resultsTitle { color: var(--bg-elevated); }
+:global([data-theme="light"]) .resultsTitle { color: #1e293b; }
 :global([data-theme="light"]) .resultsSubtitle { color: var(--text-muted); }
-:global([data-theme="light"]) .resultCard { background: #f8fafc; border-color: var(--text-primary); }
+:global([data-theme="light"]) .resultCard { background: #f8fafc; border-color: #f1f5f9; }
 :global([data-theme="light"]) .resultCardLabel { color: var(--text-secondary) !important; }
-:global([data-theme="light"]) .resultCardValue { color: var(--bg-elevated) !important; }
-:global([data-theme="light"]) .resultsEvents { background: #f8fafc; border-color: var(--text-primary); }
-:global([data-theme="light"]) .resultsEventsTitle { color: var(--bg-elevated); }
+:global([data-theme="light"]) .resultCardValue { color: #1e293b !important; }
+:global([data-theme="light"]) .resultsEvents { background: #f8fafc; border-color: #f1f5f9; }
+:global([data-theme="light"]) .resultsEventsTitle { color: #1e293b; }
 :global([data-theme="light"]) .resultsEventItem { color: var(--text-secondary); }
 :global([data-theme="light"]) .advanceBtnLarge { background: linear-gradient(135deg, var(--brand), #0f766e); color: #ffffff; border: none; }
 
 /* Round context card */
-:global([data-theme="light"]) .roundContextCard { background: linear-gradient(135deg, #f8fafc, #f0fdfa); border-bottom-color: var(--text-primary); }
-:global([data-theme="light"]) .roundContextTitle { color: var(--bg-elevated); }
+:global([data-theme="light"]) .roundContextCard { background: linear-gradient(135deg, #f8fafc, #f0fdfa); border-bottom-color: #f1f5f9; }
+:global([data-theme="light"]) .roundContextTitle { color: #1e293b; }
 :global([data-theme="light"]) .roundContextDesc { color: var(--text-secondary); }
 
 /* Free explore hint */
@@ -2543,17 +2543,17 @@
 }
 
 /* â”€â”€ Light Mode Overrides â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
-:global([data-theme="light"]) .deepDiveHeader { background: rgba(13, 148, 136, 0.03); border-bottom-color: var(--text-primary); }
-:global([data-theme="light"]) .deepDiveBackBtn { background: #f8fafc; color: var(--text-secondary); border-color: var(--text-primary); }
+:global([data-theme="light"]) .deepDiveHeader { background: rgba(13, 148, 136, 0.03); border-bottom-color: #f1f5f9; }
+:global([data-theme="light"]) .deepDiveBackBtn { background: #f8fafc; color: var(--text-secondary); border-color: #f1f5f9; }
 :global([data-theme="light"]) .deepDiveBackBtn:hover { background: #f0fdfa; color: var(--brand); border-color: #99f6e4; }
-:global([data-theme="light"]) .deepDiveBuTitle { color: var(--bg-elevated); }
-:global([data-theme="light"]) .deploymentSummary { background: #f8fafc; border-color: var(--text-primary); }
-:global([data-theme="light"]) .optionMini { background: #ffffff; border-color: var(--text-primary); }
-:global([data-theme="light"]) .optionMiniLabel { color: var(--bg-elevated); }
+:global([data-theme="light"]) .deepDiveBuTitle { color: #1e293b; }
+:global([data-theme="light"]) .deploymentSummary { background: #f8fafc; border-color: #f1f5f9; }
+:global([data-theme="light"]) .optionMini { background: #ffffff; border-color: #f1f5f9; }
+:global([data-theme="light"]) .optionMiniLabel { color: #1e293b; }
 :global([data-theme="light"]) .optionMiniCost { color: var(--text-muted); }
 :global([data-theme="light"]) .buTickerItemActive { background: rgba(13, 148, 136, 0.06) !important; border-bottom-color: var(--brand); }
-:global([data-theme="light"]) .buTicker { background: var(--text-primary); border-top-color: var(--text-primary); }
-:global([data-theme="light"]) .buTickerItem { border-right-color: var(--text-primary); }
+:global([data-theme="light"]) .buTicker { background: #f1f5f9; border-top-color: #f1f5f9; }
+:global([data-theme="light"]) .buTickerItem { border-right-color: #f1f5f9; }
 :global([data-theme="light"]) .buTickerItem:hover { background: rgba(13, 148, 136, 0.04); }
 :global([data-theme="light"]) .buTickerName { color: var(--brand); }
 :global([data-theme="light"]) .buTickerMetrics { color: var(--text-secondary); }

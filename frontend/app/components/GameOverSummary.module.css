@@ -185,7 +185,7 @@
 }
 
 .outlineBtn:hover {
-    border-color: var(--text-secondary);
+    border-color: #b0bec5;
     color: var(--text-secondary);
 }
 

@@ -117,12 +117,12 @@
     background: rgba(255, 255, 255, 0.85);
     border-color: rgba(148, 163, 184, 0.25);
   }
-  .radarTitle { color: var(--bg-elevated); }
+  .radarTitle { color: #1e293b; }
   .legendItem { color: var(--text-muted); }
   .tooltip {
     background: rgba(255, 255, 255, 0.95);
     border-color: rgba(99, 102, 241, 0.2);
   }
-  .tooltipTitle { color: var(--bg-elevated); }
-  .tooltipRow span:last-child { color: var(--bg-elevated); }
+  .tooltipTitle { color: #1e293b; }
+  .tooltipRow span:last-child { color: #1e293b; }
 }
