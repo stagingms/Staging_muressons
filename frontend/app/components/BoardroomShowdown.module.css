@@ -36,6 +36,11 @@
 
 /* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .header {
+  /* Hardcoded-dark surface in both themes: pin the text tiers light so the
+     light theme's near-black variables don't vanish (see light-mode pass). */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
     background: linear-gradient(135deg, #1e1e3f, #0f172a);
     padding: 2rem 2.5rem;
     text-align: center;

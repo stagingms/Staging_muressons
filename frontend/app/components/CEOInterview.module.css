@@ -13,6 +13,12 @@
   justify-content: center;
   padding: 1.5rem;
   overflow-y: auto;
+  /* This surface is deliberately cinematic-dark in BOTH themes, so the text
+     tiers are re-scoped to fixed light values here — otherwise light mode's
+     (now near-black) theme variables vanish against the dark panel. */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
 }
 
 .container {

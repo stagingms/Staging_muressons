@@ -10,6 +10,11 @@
 }
 
 .panel {
+  /* Hardcoded-dark surface in both themes: pin the text tiers light so the
+     light theme's near-black variables don't vanish (see light-mode pass). */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
   width: 92vw; max-width: 1200px; height: 88vh;
   background: linear-gradient(160deg, #0d1224 0%, #111832 100%);
   border: 1px solid rgba(99, 102, 241, 0.2);

@@ -49,9 +49,12 @@
   font-weight: 800;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--text-secondary);
-  background: rgba(148, 163, 184, 0.1);
-  border: 1px solid var(--border-subtle);
+  /* FIXED light colours: this header sits on the overlay's HARDCODED dark
+     gradient in BOTH themes, so it must not follow the theme text variables —
+     in light mode those are now near-black and vanished against the navy. */
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: var(--radius-full);
   padding: 0.3rem 1rem;
   margin-bottom: var(--space-sm);
@@ -73,14 +76,14 @@
 .title {
   font-size: var(--fs-xl);
   font-weight: 800;
-  color: var(--text-primary);
+  color: #f8fafc;   /* fixed light — dark backdrop in both themes (see .roundBadge) */
   letter-spacing: -0.02em;
   margin: 0;
 }
 
 .theme {
   font-size: var(--fs-sm);
-  color: var(--text-muted);
+  color: #94a3b8;   /* fixed light — dark backdrop in both themes (see .roundBadge) */
   font-weight: 500;
   margin: 0;
 }

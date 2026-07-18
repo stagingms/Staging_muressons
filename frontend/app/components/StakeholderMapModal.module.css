@@ -35,6 +35,11 @@
 
 /* â”€â”€ Header â”€â”€ */
 .header {
+  /* Hardcoded-dark surface in both themes: pin the text tiers light so the
+     light theme's near-black variables don't vanish (see light-mode pass). */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
     background: linear-gradient(135deg, #1e1e3f, #0f172a);
     padding: 1rem 2rem;
     text-align: center;
@@ -80,6 +85,11 @@
 
 /* â”€â”€ Bank Pane â”€â”€ */
 .bankPane {
+  /* Hardcoded-dark surface in both themes: pin the text tiers light so the
+     light theme's near-black variables don't vanish (see light-mode pass). */
+  --text-primary: #f1f5f9;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
     border-right: 1px solid var(--border-subtle);
     padding: 1rem;
     background: var(--bg-main, #0f172a);
