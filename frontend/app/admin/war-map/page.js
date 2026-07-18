@@ -45,6 +45,33 @@ export default function WarMapPage() {
   const [reducedMotion, setReducedMotion] = useState(false);
   const pollRef = useRef(null);
 
+  // Hover explainer — a floating card that tells the facilitator exactly what
+  // the element under the cursor means in simulation terms.
+  const [tip, setTip] = useState(null); // { x, y, title, lines: [] }
+  const showTip = (e, title, lines) => setTip({ x: e.clientX, y: e.clientY, title, lines });
+  const moveTip = (e) => setTip((t) => (t ? { ...t, x: e.clientX, y: e.clientY } : t));
+  const hideTip = () => setTip(null);
+
+  const healthWord = (h) => (h >= 60 ? 'healthy' : h >= 40 ? 'strained' : 'critical');
+  const buTipLines = (n) => [
+    `One of Muressons' Business Units, plotted at its operating hub. Circle SIZE = its share of group revenue; COLOUR = operational health.`,
+    `Health ${n.health}/100 (${healthWord(n.health)}) — a composite of social licence, carbon intensity and staff strain, averaged across all ${model.teamCount || ''} team${model.teamCount === 1 ? '' : 's'} in the cohort.`,
+    `SLO ${Math.round(n.slo)}/100 — Social Licence to Operate: the community's ongoing permission for this unit to do business. Low SLO invites activist and regulator pressure.`,
+    `CI ${Math.round(n.ci)} — Carbon Intensity: emissions per unit of output. Sustained values above ~120 trigger stranded-asset penalties on the cost of capital.`,
+  ];
+  const shTipLines = (n) => [
+    `One of the five autonomous stakeholders who react to every decision the teams make. The pin sits in their home region; its COLOUR is their current mood.`,
+    `Stage: ${n.label.toUpperCase()} — stakeholders escalate calm → watching → agitated → hostile → on strike, and de-escalate when teams rebuild trust.`,
+    n.hostile
+      ? `${n.hostile} team${n.hostile > 1 ? 's are' : ' is'} currently facing this stakeholder as hostile — expect interventions (penalties, exposés, walkouts) against them.`
+      : `No team currently has this stakeholder hostile.`,
+    n.escalated ? `The pulsing ring marks an escalated stakeholder — worth naming in the debrief.` : null,
+  ].filter(Boolean);
+  const crisisTipLines = (c) => [
+    `The scripted shock striking the cohort THIS round, shown where it hits in the simulation's world. The red pulse means it is live now.`,
+    `Every team faces it simultaneously — how their earlier investments cushion (or amplify) it is the round's teaching point.`,
+  ];
+
   useEffect(() => {
     if (typeof window !== 'undefined') {
       setEnabled(localStorage.getItem('muressons_warmap_enabled') === '1');
@@ -87,6 +114,11 @@ export default function WarMapPage() {
           <div style={S.sub}>
             {model.round ? `ROUND ${model.round}` : 'LIVE'} · {model.teamCount} TEAM{model.teamCount === 1 ? '' : 'S'} · COHORT AGGREGATE
           </div>
+          <div style={S.explain}>
+            The cohort&apos;s world at a glance: each circle is a Business Unit (size = revenue, colour = health),
+            each pin one of the five reactive stakeholders (colour = mood), and the red pulse is this round&apos;s crisis.
+            Hover anything for what it means.
+          </div>
         </div>
         <label style={S.switchWrap} title="Controls this screen's projection only — players and other screens are unaffected">
           <span style={{ fontSize: '0.68rem', color: '#64748b', fontWeight: 700, letterSpacing: '0.08em' }}>PROJECT ON THIS SCREEN</span>
@@ -126,7 +158,9 @@ export default function WarMapPage() {
 
             {/* Live crisis — pulses at the place it strikes this round */}
             {model.crisis && (
-              <g>
+              <g style={{ cursor: 'help' }}
+                 onMouseEnter={(e) => showTip(e, `Round ${model.crisis.round} crisis — ${model.crisis.name}`, crisisTipLines(model.crisis))}
+                 onMouseMove={moveTip} onMouseLeave={hideTip}>
                 {!reducedMotion
                   ? <circle cx={model.crisis.x} cy={model.crisis.y} r="10" fill="none" stroke="#ef4444" strokeWidth="2" className="wm-pulse" />
                   : <circle cx={model.crisis.x} cy={model.crisis.y} r="26" fill="none" stroke="#ef4444" strokeWidth="1.5" strokeDasharray="4 4" />}
@@ -137,7 +171,9 @@ export default function WarMapPage() {
 
             {/* Business units — size = revenue, colour = health */}
             {model.buNodes.map((n) => (
-              <g key={n.id}>
+              <g key={n.id} style={{ cursor: 'help' }}
+                 onMouseEnter={(e) => showTip(e, `Muressons ${n.label} — operating hub`, buTipLines(n))}
+                 onMouseMove={moveTip} onMouseLeave={hideTip}>
                 <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} fillOpacity="0.26" stroke={n.color} strokeWidth="1.5" />
                 <text x={n.x} y={n.y + 3} textAnchor="middle" fontSize="9" fontWeight="800" fill="#e2e8f0" fontFamily="var(--font-mono, monospace)">{n.health}</text>
                 <Label x={n.x} y={n.y + n.r + 13} text={n.label} size={10} weight={600} color="#e2e8f0" />
@@ -147,7 +183,9 @@ export default function WarMapPage() {
 
             {/* Stakeholders — pin colour = escalation state */}
             {model.shNodes.map((n) => (
-              <g key={n.id}>
+              <g key={n.id} style={{ cursor: 'help' }}
+                 onMouseEnter={(e) => showTip(e, `${n.name} — reactive stakeholder`, shTipLines(n))}
+                 onMouseMove={moveTip} onMouseLeave={hideTip}>
                 {n.escalated && !reducedMotion && (
                   <circle cx={n.x} cy={n.y} r="8" fill="none" stroke={n.color} strokeWidth="1.5" className="wm-pulse-s" />
                 )}
@@ -161,18 +199,35 @@ export default function WarMapPage() {
 
           <div style={S.footer}>
             <div style={S.legend}>
-              <span style={{ ...S.dot, background: '#2dd4bf' }} /> healthy
-              <span style={{ ...S.dot, background: '#f59e0b' }} /> strained
-              <span style={{ ...S.dot, background: '#ef4444' }} /> critical
-              <span style={{ marginLeft: 14 }}>● unit (size = revenue, colour = health)</span>
-              <span style={{ marginLeft: 10 }}>▲ stakeholder (colour = escalation)</span>
+              <span title="Health ≥ 60/100 — the unit's social licence, carbon intensity and staff strain are all under control."><span style={{ ...S.dot, background: '#2dd4bf' }} /> healthy</span>
+              <span title="Health 40–59/100 — at least one pressure (social licence, carbon, burnout) is building. Watch this unit."><span style={{ ...S.dot, background: '#f59e0b' }} /> strained</span>
+              <span title="Health < 40/100 — the unit is in trouble: expect stakeholder escalations and financial penalties if unaddressed."><span style={{ ...S.dot, background: '#ef4444' }} /> critical</span>
+              <span style={{ marginLeft: 14 }} title="Each circle is one of Muressons' Business Units at its operating hub. Bigger circle = larger share of group revenue. The number inside is its health score /100.">● unit (size = revenue, colour = health)</span>
+              <span style={{ marginLeft: 10 }} title="Each pin is one of the five autonomous stakeholders (regulator, investor, journalist, activist, employee). They escalate calm → watching → agitated → hostile → on strike in response to team decisions.">▲ stakeholder (colour = escalation)</span>
             </div>
-            <div style={S.eventStrip}>
+            <div style={S.eventStrip} title="Live situation feed — the round's crisis, units under stress, and stakeholder escalations, most urgent first.">
               {model.events.length > 0
                 ? model.events.slice(0, 6).map((e, i) => <span key={i} style={S.eventItem}>⚠ {e}</span>)
                 : <span style={{ color: '#475569' }}>All units healthy · no stakeholder escalations.</span>}
             </div>
           </div>
+
+          {/* Floating hover explainer */}
+          {tip && (
+            <div style={{
+              position: 'fixed',
+              left: Math.min(tip.x + 16, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 356),
+              top: Math.min(tip.y + 14, (typeof window !== 'undefined' ? window.innerHeight : 800) - 220),
+              width: 340, zIndex: 1000, pointerEvents: 'none',
+              background: 'rgba(4,8,16,0.96)', border: '1px solid rgba(45,212,191,0.35)',
+              borderRadius: 10, padding: '12px 14px', boxShadow: '0 8px 30px rgba(0,0,0,0.55)',
+            }}>
+              <div style={{ fontSize: '0.82rem', fontWeight: 800, color: '#2dd4bf', marginBottom: 6, letterSpacing: '0.03em' }}>{tip.title}</div>
+              {tip.lines.map((l, i) => (
+                <div key={i} style={{ fontSize: '0.74rem', color: '#cbd5e1', lineHeight: 1.5, marginBottom: i < tip.lines.length - 1 ? 6 : 0 }}>{l}</div>
+              ))}
+            </div>
+          )}
         </>
       )}
 
@@ -194,6 +249,7 @@ const S = {
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   brand: { fontSize: '1.7rem', fontWeight: 900, letterSpacing: '0.08em' },
   sub: { fontSize: '0.8rem', letterSpacing: '0.18em', color: '#2dd4bf', fontWeight: 700, marginTop: 4 },
+  explain: { fontSize: '0.76rem', color: '#8899a6', marginTop: 6, maxWidth: 720, lineHeight: 1.5 },
   switchWrap: { display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', userSelect: 'none' },
   switch: { position: 'relative', width: 52, height: 28, borderRadius: 14, transition: 'background 0.2s', display: 'inline-block' },
   knob: { position: 'absolute', top: 3, left: 3, width: 22, height: 22, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', boxShadow: '0 1px 4px rgba(0,0,0,0.4)' },
