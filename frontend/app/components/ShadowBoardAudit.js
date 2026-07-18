@@ -1,6 +1,7 @@
 'use client';
 import React, { useState, useEffect, useCallback } from 'react';
 import styles from './ShadowBoardAudit.module.css';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 /**
  * ShadowBoardAudit — Round 5 Reflective Middleware
@@ -97,7 +98,7 @@ export default function ShadowBoardAudit({ sessionId, onComplete, globalState })
         `${API}/api/simulations/${sessionId}/shadow-board-audit/reject`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
           body: JSON.stringify({ rejection_target: confirmTarget }),
         }
       );

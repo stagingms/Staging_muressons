@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -53,7 +54,7 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
     try {
       const res = await fetch(`${API_BASE}/api/simulations/${sessionId}/learning-bonus`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
         body: JSON.stringify({ activity_type: 'quiz_complete', notebook_id: notebookId, score_percent: pct }),
       });
       if (res.ok) {

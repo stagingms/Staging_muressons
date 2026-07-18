@@ -13,6 +13,7 @@ import {
     closestCenter,
 } from '@dnd-kit/core';
 import styles from './StakeholderMapModal.module.css';
+import { playerIdHeader } from '../hooks/useSimulation';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -232,7 +233,9 @@ export default function StakeholderMapModal({ sessionId, onComplete }) {
         try {
             const res = await fetch(`${API}/api/simulations/${sessionId}/stakeholder-map`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                // X-Player-Id required on owned sessions (audit-#9 ownership
+                // binding) — same latent repeat-bug as the materiality matrix.
+                headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
                 body: JSON.stringify({ mapping: placements }),
             });
             const data = await res.json();

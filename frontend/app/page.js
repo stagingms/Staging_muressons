@@ -122,7 +122,7 @@ const UsernamePromptModal = dynamic(() => import('./components/UsernamePromptMod
 import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
 import CrisisAlerts, { CrisisScreen } from './components/CrisisAlerts';
-import useSimulation from './hooks/useSimulation';
+import useSimulation, { playerIdHeader } from './hooks/useSimulation';
 
 // ── New Improvement Components ──────────────────────────────────
 import RoundChecklist from './components/RoundChecklist';
@@ -1792,8 +1792,13 @@ export default function CockpitPage() {
                 // assessment: the intermittent "double materiality repeats twice" bug.
                 let res;
                 try {
+                  // X-Player-Id is REQUIRED on owned (cohort-player) sessions since the
+                  // audit-#9 ownership binding — without it the POST 403s and the
+                  // exercise "repeats": the third occurrence of this bug, and the real
+                  // root cause of the intermittent ones (solo sessions are unowned and
+                  // never hit it; registered players always did).
                   res = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/materiality`, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    method: 'POST', headers: { 'Content-Type': 'application/json', ...playerIdHeader() }, body: JSON.stringify(payload)
                   });
                 } catch {
                   return { error: 'Network error submitting matrix. Please try again.' };
