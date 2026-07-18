@@ -454,6 +454,29 @@ def calc_contagion(
 
 
 # ── 3. Synergy Engine (with Diminishing Returns) ────────────────
+# BALANCE FIX (Risk-Radar authenticity audit, 2026-07-18): calc_synergy_opex
+# applies its efficiency factor as a COMPOUNDING multiplier every round with no
+# floor, so any sustained investment ratcheted opex toward zero by late game
+# (real dev sessions hit ₹13K opex on ₹7.5M revenue → ~100% margins, inflated
+# EBITDA/valuation, and Risk Radar bubbles pinned to the left axis). Synergy
+# reductions now floor at this fraction of the BU's FIRST-SEEN opex baseline —
+# "you still have to run the business." The baseline is stamped into
+# risk_factors (the JSON catch-all persisted by both DB backends), so sessions
+# already below the floor keep their current value but stop falling.
+SYNERGY_OPEX_FLOOR_FRACTION = 0.35
+
+
+def synergy_opex_floor(bu: dict) -> float:
+    """Absolute opex floor for synergy reductions on this BU (35% of the
+    first opex this helper ever saw for it — stamped on first use)."""
+    rf = bu.setdefault("risk_factors", {})
+    base = rf.get("initial_opex_base")
+    if not base or base <= 0:
+        base = float(bu.get("opex_base", 0.0) or 0.0)
+        rf["initial_opex_base"] = base
+    return round(base * SYNERGY_OPEX_FLOOR_FRACTION, 2)
+
+
 def calc_synergy_opex(
     old_opex: float,
     investment_ratio: float,
@@ -2519,8 +2542,13 @@ def _run_financial_layer(ctx: TickContext) -> None:
                 })
                 ctx.events[f"implementation_lag_deferred_{bu['bu_id']}"] = round(reduction_amount, 2)
         else:
-            bu["opex_base"] = calc_synergy_opex(
-                bu["opex_base"], inv_ratio, current_global["synergy_multiplier"],
+            # BALANCE FIX: synergy efficiencies floor at 35% of the BU's
+            # first-seen opex baseline (see synergy_opex_floor).
+            bu["opex_base"] = max(
+                min(synergy_opex_floor(bu), bu["opex_base"]),  # never RAISE opex, only stop the fall
+                calc_synergy_opex(
+                    bu["opex_base"], inv_ratio, current_global["synergy_multiplier"],
+                ),
             )
 
     # ── 1. Corporate Strategic Fund & Short-Term Loan Logic ─────
@@ -2672,7 +2700,12 @@ def _run_financial_layer(ctx: TickContext) -> None:
     for lag_bu_id, opex_reduction in _proj_delta.synergy_lag_completions.items():
         for bu in ctx.new_bus:
             if bu["bu_id"] == lag_bu_id:
-                bu["opex_base"] = max(0.0, round(bu["opex_base"] - opex_reduction, 2))
+                # BALANCE FIX: deferred synergy completions honour the same
+                # opex floor as immediate reductions (synergy_opex_floor).
+                bu["opex_base"] = max(
+                    min(synergy_opex_floor(bu), bu["opex_base"]),
+                    round(bu["opex_base"] - opex_reduction, 2),
+                )
                 ctx.events[f"synergy_lag_completed_{lag_bu_id}"] = opex_reduction
                 break
 
