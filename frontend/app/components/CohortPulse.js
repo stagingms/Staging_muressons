@@ -17,15 +17,23 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
   const [saving, setSaving] = useState(false);
 
   const METRICS = [
-    { key: 'treasury', label: 'Treasury', icon: '💰', format: v => `$${(v / 1_000_000).toFixed(1)}M` },
-    { key: 'reputation', label: 'Reputation', icon: '⭐', format: v => Math.round(v) },
-    { key: 'carbon', label: 'Carbon Intensity', icon: '🏭', format: v => v?.toFixed(1) || '—' },
-    { key: 'social_license', label: 'Social License', icon: '🤝', format: v => Math.round(v || 0) },
-    { key: 'synergy', label: 'Synergy', icon: '🔗', format: v => (v || 1.0).toFixed(2) + '×' },
+    { key: 'treasury', label: 'Treasury', icon: '💰', format: v => `$${(v / 1_000_000).toFixed(1)}M`,
+      tooltip: 'Corporate cash on hand. Funds every decision and allocation; a negative treasury means the team is borrowing to operate. Red cells = teams running dry — a common intervention trigger.' },
+    { key: 'reputation', label: 'Reputation', icon: '⭐', format: v => Math.round(v),
+      tooltip: 'Group reputation, 0–100. Moves with stakeholder reactions, crises, and disclosure choices, and feeds the Regenerative Multiple at valuation. Below ~40 is a warning zone; sustained lows cap pricing power.' },
+    { key: 'carbon', label: 'Carbon Intensity', icon: '🏭', format: v => v?.toFixed(1) || '—',
+      tooltip: 'Average carbon intensity across business units (lower is better). Drives the internal carbon fee, stranded-asset risk, and climate-leadership signals at end-of-game scoring.' },
+    { key: 'social_license', label: 'Social License', icon: '🤝', format: v => Math.round(v || 0),
+      tooltip: 'Community licence to operate, 0–100. Eroded by broken promises and hostile stakeholders; low values trigger the Green Premium Squeeze trap and social-collapse valuation discounts.' },
+    { key: 'synergy', label: 'Synergy', icon: '🔗', format: v => (v || 1.0).toFixed(2) + '×',
+      tooltip: 'Cross-BU synergy multiplier applied to group performance (1.00× = neutral). Built through coherent, mutually reinforcing strategies; instability and governance failures erode it.' },
     // Climate-specific metrics (shown for all sessions — values will be empty for non-climate)
-    { key: 'green_fund', label: 'Green Fund', icon: '🌱', format: v => v != null ? `$${(v / 1_000_000).toFixed(1)}M` : '—' },
-    { key: 'cost_of_capital', label: 'Cost of Capital', icon: '📊', format: v => v != null ? `${(v * 100).toFixed(1)}%` : '—' },
-    { key: 'carbon_fee_paid', label: 'Carbon Fee Paid', icon: '💨', format: v => v != null ? `$${(v / 1_000_000).toFixed(2)}M` : '—' },
+    { key: 'green_fund', label: 'Green Fund', icon: '🌱', format: v => v != null ? `$${(v / 1_000_000).toFixed(1)}M` : '—',
+      tooltip: 'Green Transition Fund balance, filled by the internal carbon fee (emissions × $/tonne). Auto-subsidises green CapEx; decarbonising shrinks the inflow. "—" = not used by this cohort’s paradigm.' },
+    { key: 'cost_of_capital', label: 'Cost of Capital', icon: '📊', format: v => v != null ? `${(v * 100).toFixed(1)}%` : '—',
+      tooltip: 'The rate at which markets lend to the team. Rises with governance risk, instability, and climate exposure; every point makes future investment more expensive. Watch it climb after crises.' },
+    { key: 'carbon_fee_paid', label: 'Carbon Fee Paid', icon: '💨', format: v => v != null ? `$${(v / 1_000_000).toFixed(2)}M` : '—',
+      tooltip: 'Cumulative internal carbon fee the team has paid on its emissions. High values with flat Carbon Intensity = paying the fee instead of decarbonising — a classic discussion prompt.' },
   ];
 
   useEffect(() => {
@@ -111,7 +119,10 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
           </div>
         </div>
         <div className={styles.headerRight}>
-          <label className={styles.toggleLabel}>
+          <label
+            className={styles.toggleLabel}
+            title="Who can see this pulse board. Facilitator Only keeps it on your dashboard; Player-Visible mirrors it to every team's cockpit — useful for debriefs, spicy mid-round."
+          >
             <input
               type="checkbox"
               checked={showToPlayers}
@@ -146,6 +157,7 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
             key={m.key}
             className={`${styles.metricBtn} ${selectedMetric === m.key ? styles.metricBtnActive : ''}`}
             onClick={() => setSelectedMetric(m.key)}
+            title={m.tooltip}
           >
             <span>{m.icon}</span> {m.label}
           </button>
@@ -159,12 +171,12 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
         <div className={styles.heatmapGrid}>
           {/* Header row */}
           <div className={styles.heatmapHeaderRow}>
-            <div className={styles.heatmapTeamHeader}>Team</div>
+            <div className={styles.heatmapTeamHeader} title="One row per team in this cohort. Hover any cell for the exact value that round.">Team</div>
             {Array.from({ length: 10 }, (_, i) => (
-              <div key={i} className={styles.heatmapRoundHeader}>R{i + 1}</div>
+              <div key={i} className={styles.heatmapRoundHeader} title={`Round ${i + 1} — the selected metric's committed value at the end of round ${i + 1}. Empty = not yet played.`}>R{i + 1}</div>
             ))}
-            <div className={styles.heatmapRoundHeader}>Now</div>
-            <div className={styles.heatmapRoundHeader} style={{ width: '120px', textAlign: 'left', paddingLeft: '8px' }}>Active Traps</div>
+            <div className={styles.heatmapRoundHeader} title="The team's live, uncommitted value for the selected metric — where they stand right now, before the current round commits.">Now</div>
+            <div className={styles.heatmapRoundHeader} style={{ width: '120px', textAlign: 'left', paddingLeft: '8px' }} title="Systemic traps currently active on the team (Austerity, Defection, Squeeze, Ratchet). Hover a badge for what triggered it and what it does.">Active Traps</div>
           </div>
 
           {/* Team rows */}
