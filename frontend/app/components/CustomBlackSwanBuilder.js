@@ -17,7 +17,17 @@ const SCOPE_OPTIONS = [
   { value: 'telehealth', label: '📱 Digital Health' },
 ];
 
-export default function CustomBlackSwanBuilder() {
+/**
+ * Facilitator-dashboard tool (tab: custom_black_swan, lead facilitator+).
+ * Per-cohort unlock: a super admin enables `custom_black_swan_enabled` for a
+ * cohort (cohort-settings override); only enabled cohorts appear in the
+ * dropdown for non-admin facilitators, and the inject endpoint enforces the
+ * same flag plus session ownership server-side. Admin roles see all cohorts.
+ *
+ * Props: facilitatorId (scopes the cohort list), isAdmin (bypasses the
+ * per-cohort unlock filter).
+ */
+export default function CustomBlackSwanBuilder({ facilitatorId = null, isAdmin = false }) {
   const [sessions, setSessions] = useState([]);
   const [selectedSession, setSelectedSession] = useState('');
   const [title, setTitle] = useState('');
@@ -33,14 +43,19 @@ export default function CustomBlackSwanBuilder() {
   const [history, setHistory] = useState([]);
   const [showConfirm, setShowConfirm] = useState(false);
 
-  // Load sessions
+  // Load sessions — non-admins get only their own cohorts, and only the ones
+  // a super admin unlocked for the injector (custom_black_swan_enabled is
+  // enriched onto each session by /api/admin/sessions).
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API}/api/admin/sessions`);
+        const qs = !isAdmin && facilitatorId ? `?facilitator_id=${encodeURIComponent(facilitatorId)}` : '';
+        const res = await fetch(`${API}/api/admin/sessions${qs}`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          const sessionList = (data.sessions || []).filter(s => !s.player_id); // Only cohort sessions
+          const sessionList = (data.sessions || [])
+            .filter(s => !s.player_id) // Only cohort sessions
+            .filter(s => isAdmin || s.custom_black_swan_enabled === true);
           setSessions(sessionList);
           if (sessionList.length > 0 && !selectedSession) {
             setSelectedSession(sessionList[0].session_id);
@@ -48,12 +63,12 @@ export default function CustomBlackSwanBuilder() {
         }
       } catch { /* ignore */ }
     })();
-  }, []);
+  }, [facilitatorId, isAdmin]);
 
   // Load history
   const loadHistory = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/api/admin/custom-black-swan-log`);
+      const res = await fetch(`${API}/api/admin/custom-black-swan-log`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
         setHistory(data.events || []);
@@ -76,6 +91,7 @@ export default function CustomBlackSwanBuilder() {
     try {
       const res = await fetch(`${API}/api/admin/${selectedSession}/inject-custom-event`, {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: title.trim(),
@@ -129,6 +145,14 @@ export default function CustomBlackSwanBuilder() {
           </p>
         </div>
       </div>
+
+      {/* No unlocked cohorts: explain the gate instead of an empty dropdown */}
+      {!isAdmin && sessions.length === 0 && (
+        <div className={styles.errorBanner} style={{ marginBottom: 12 }}>
+          🔒 No cohorts are enabled for the injector. A super admin can unlock it
+          per cohort (Analytics &amp; Cohort Controls → Facilitator Tools).
+        </div>
+      )}
 
       {/* ── Form ── */}
       <div className={styles.formGrid}>

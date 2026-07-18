@@ -50,6 +50,35 @@ export default function AnalyticsControlPanel({ sessionId }) {
             .catch(() => {});
     }, [sessionId]);
 
+    // ── Facilitator tools (per-cohort unlocks, super-admin-owned) ──
+    // Custom Black Swan Injector: OFF by default; enabling it here lets the
+    // cohort's lead facilitator use the injector tab for THIS cohort only.
+    // Persists to the cohort-settings override layer.
+    const [swanEnabled, setSwanEnabled] = useState(false);
+    const [swanStatus, setSwanStatus] = useState(null);
+    useEffect(() => {
+        const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+        fetch(`${API}/api/admin/global-settings${qs}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : {})
+            .then(d => setSwanEnabled(d.custom_black_swan_enabled === true))
+            .catch(() => {});
+    }, [sessionId]);
+    const toggleSwan = async () => {
+        if (!sessionId) { setSwanStatus('❌ Select a cohort first'); setTimeout(() => setSwanStatus(null), 3000); return; }
+        const next = !swanEnabled;
+        setSwanEnabled(next); // optimistic
+        try {
+            const r = await fetch(`${API}/api/admin/sessions/${sessionId}/cohort-settings`, {
+                method: 'PATCH', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ custom_black_swan_enabled: next }),
+            });
+            if (!r.ok) { setSwanEnabled(!next); setSwanStatus('❌ Save failed'); }
+            else setSwanStatus(next ? '✅ Injector unlocked for this cohort' : '✅ Injector locked for this cohort');
+        } catch { setSwanEnabled(!next); setSwanStatus('❌ Connection error'); }
+        setTimeout(() => setSwanStatus(null), 3500);
+    };
+
     // ── Briefing videos (per-cohort): URL pattern + per-round overrides ──
     const [videoBase, setVideoBase] = useState('');
     const [videoLines, setVideoLines] = useState('');   // "1 = https://…" per line
@@ -191,6 +220,33 @@ export default function AnalyticsControlPanel({ sessionId }) {
                             </button>
                         </div>
                     ))}
+
+                    {/* Facilitator tools — per-cohort unlocks (cohort-settings
+                        override layer, super-admin-owned). */}
+                    <div className={styles.roleHeader} style={{ marginTop: '0.9rem' }}>
+                        <span>🦢</span>
+                        <h3>Facilitator Tools</h3>
+                    </div>
+                    <div className={styles.toggleRow}
+                         data-tooltip="Unlocks the Custom Black Swan Injector tab for THIS cohort's lead facilitator: they can compose a custom crisis (narrative + treasury/reputation/social-licence/NCD deltas) and inject it into this cohort only. Off = the tab lists nothing for them; the backend enforces the same lock.">
+                        <div className={styles.toggleInfo}>
+                            <span className={styles.toggleIcon}>🦢</span>
+                            <div>
+                                <div className={styles.toggleLabel}>Custom Black Swan Injector</div>
+                                <div className={styles.toggleDesc}>
+                                    {sessionId ? 'Let this cohort’s lead facilitator inject custom crises (this cohort only)' : 'Select a cohort to unlock the injector per cohort'}
+                                </div>
+                            </div>
+                        </div>
+                        <button
+                            className={`${styles.toggleBtn} ${swanEnabled ? styles.toggleOn : styles.toggleOff}`}
+                            onClick={toggleSwan}
+                            disabled={!sessionId}
+                        >
+                            <span className={styles.toggleKnob} />
+                        </button>
+                    </div>
+                    {swanStatus && <div style={{ fontSize: '0.74rem', fontWeight: 700, padding: '2px 4px' }}>{swanStatus}</div>}
                 </div>
 
                 {/* Player column */}

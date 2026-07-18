@@ -92,6 +92,10 @@ ROLE_ALLOWED_TABS = {
         "undo_round", "activity_log",
         # I2 (Workstream C): read-only effective-settings view over owned cohorts.
         "cohort_settings_view",
+        # Custom Black Swan Injector — tab is lead+ but the tool only lists
+        # cohorts a super admin enabled (custom_black_swan_enabled override);
+        # the inject endpoint enforces the same flag server-side.
+        "custom_black_swan",
     ],
     "super_admin": ["*"],  # All tabs
     # project_admin gets a FIXED set (not cumulative with facilitator tabs):
@@ -272,6 +276,10 @@ _god_mode_settings: dict = {
     # Removed from global settings to prevent drift between God Mode and cohort-level ownership.
     "systemic_risk_enabled": True,                # Enable ESG-adjusted WACC + tipping points
     "black_swan_events_enabled": True,            # Enable stochastic Black Swan disruptions
+    # Custom Black Swan Injector (facilitator-dashboard tool). OFF by default:
+    # a super admin enables it per cohort via cohort-settings; only then can a
+    # lead facilitator compose/inject custom crises into that cohort.
+    "custom_black_swan_enabled": False,
     "npc_cascading_enabled": True,                # Enable NPC stakeholder cascade reactions
     "foreshadowing_signals_enabled": True,        # Show pedagogical foreshadowing hints
 
@@ -400,6 +408,7 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "npc_stakeholders_enabled",
     "board_room_moments_enabled",
     "consequence_map_enabled",   # results-view Decision Consequence Map (per-cohort)
+    "custom_black_swan_enabled", # Custom Black Swan Injector unlock (super-admin sets per cohort)
     # Briefing videos: URLs ONLY — the media itself lives on external hosting
     # (YouTube/Vimeo/CDN) or the server's data dir, never in git.
     "briefing_video_base",       # URL pattern with {round}, e.g. https://cdn/x/round-{round}.mp4

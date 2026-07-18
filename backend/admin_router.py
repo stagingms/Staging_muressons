@@ -404,6 +404,8 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         "strategy_memo_enabled": s.get("strategy_memo_enabled", False),
         "what_if_builder_enabled": s.get("what_if_builder_enabled", False),
         "custom_crisis_enabled": s.get("custom_crisis_enabled", False),
+        # Custom Black Swan Injector unlock (super-admin sets per cohort).
+        "custom_black_swan_enabled": s.get("custom_black_swan_enabled", False),
         "round_recap_enabled": s.get("round_recap_enabled", False),
         "real_world_cards_enabled": s.get("real_world_cards_enabled", False),
         "real_world_cards_teleprompter": s.get("real_world_cards_teleprompter", True),
@@ -4266,6 +4268,10 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
             _e.setdefault("climate_paradigm", resolve_climate_paradigm(_eff))
             for _k in ("global_carbon_fee", "market_hostility_index", "scope_3_threshold"):
                 _e.setdefault(_k, _eff.get(_k))
+            # Custom Black Swan Injector unlock — lets the facilitator-dashboard
+            # tool list only the cohorts a super admin enabled, without a
+            # per-session settings round-trip.
+            _e.setdefault("custom_black_swan_enabled", bool(_eff.get("custom_black_swan_enabled", False)))
         except Exception:
             pass
         enriched.append(_e)
@@ -4891,8 +4897,22 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, req
     """
     Immediately mutates the session's game state with the specified deltas,
     injects a mailbox message, and pushes a WebSocket alert to the player.
+
+    Access: lead facilitators may inject ONLY into cohorts they own AND for
+    which a super admin has enabled the injector (custom_black_swan_enabled,
+    set per cohort via cohort-settings). Admin roles (super_admin/god_mode)
+    bypass both the ownership check and the per-cohort unlock (level-based
+    via is_admin_role, per CLAUDE.md convention 1).
     """
     await _assert_session_ownership(request, session_id)
+    if not is_admin_role(get_fac_role(request)):
+        _eff = get_effective_settings(session_id)
+        if not _eff.get("custom_black_swan_enabled", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="The Custom Black Swan Injector is not enabled for this cohort. "
+                       "A super admin can enable it per cohort in the Analytics & Cohort Controls panel.",
+            )
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(
@@ -5128,10 +5148,25 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
 
 @admin_router.get(
     "/custom-black-swan-log",
-    summary="Get history of all injected custom Black Swan events",
+    summary="Get history of injected custom Black Swan events",
 )
-async def get_custom_black_swan_log():
-    return {"events": _custom_black_swan_log}
+async def get_custom_black_swan_log(request: Request, _guard: None = Depends(require_lead_facilitator)):
+    """Injection history. Admin roles see everything; lead facilitators see
+    only events injected into cohorts they own (the tool now lives on the
+    facilitator dashboard, so the log must not leak other cohorts)."""
+    if is_admin_role(get_fac_role(request)):
+        return {"events": _custom_black_swan_log}
+    from auth_jwt import get_facilitator_from_request
+    fac_id = get_facilitator_from_request(request)
+    fac = next((f for f in _facilitator_registry
+                if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
+    if fac is None:
+        return {"events": []}
+    owned = set()
+    for s in await db.fetch_all_sessions():
+        if owns_session(fac, s):
+            owned.add(s.get("session_id"))
+    return {"events": [e for e in _custom_black_swan_log if e.get("session_id") in owned]}
 
 @admin_router.post(
     "/{session_id}/inject-message",

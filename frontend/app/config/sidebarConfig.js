@@ -43,7 +43,7 @@ export const GOD_MODE_SIDEBAR = [
             // promised — broadcasts AND per-cohort round pacing.
             { id: 'session_controls',     label: 'Session Controls',     icon: '🎛️', tooltip: 'Universal broadcasts to every active cohort, plus per-cohort round pacing (free play / manual / scheduled)' },
             { id: 'master_interventions', label: 'Team Interventions',   icon: '🚀', tooltip: 'Directly inject capital, penalties, or narrative events into target teams' },
-            { id: 'crisis_overrides',     label: 'Crisis Overrides',     icon: '🚨', tooltip: 'Manually activate crises, deploy Black Swans, or trigger end-game pathways' },
+            { id: 'crisis_overrides',     label: 'Crisis Overrides',     icon: '🚨', tooltip: 'Manually activate crises, deploy preset Black Swans, or trigger end-game pathways. (The CUSTOM Black Swan Injector now lives on the facilitator dashboard, unlocked per cohort.)' },
             { id: 'decision_timeline',    label: 'Decision History',     icon: '🕰️', tooltip: 'Chronological audit trail of every decision across all sessions with KPI deltas and CapEx breakdowns' },
             { id: 'debrief_view',         label: 'Round Debrief',        icon: '📝', tooltip: 'Round-by-round debrief reports with performance trends and critical analysis for facilitator use' },
         ]
@@ -125,6 +125,7 @@ export const FACILITATOR_SIDEBAR = [
             { id: 'broadcast',      label: 'Bulk Messaging',        icon: '📢', tooltip: 'Send announcements, narrative events, or system messages to all cohorts simultaneously or to selected cohort groups. Supports both pre-written templates and custom messages. Answers: "How do I communicate with all teams at once?"' },
             { id: 'manual_override',label: 'Manual Overrides',      icon: '⚡', tooltip: 'Directly modify a session\'s KPIs (Treasury, Reputation, Synergy) with absolute or delta values, or force-advance rounds. Used for live interventions, correcting data errors, or simulating external shocks. Answers: "How do I manually change a team\'s numbers?"', requiredRole: 'lead_facilitator' },
             { id: 'intervention_config', label: 'Interventions',    icon: '🎮', tooltip: 'Configure which master interventions (manual overrides and narrative swipe files) are available for each cohort. Controls the intervention toolkit available during live facilitation. Answers: "Which intervention tools should this cohort have access to?"' },
+            { id: 'custom_black_swan', label: 'Black Swan Injector', icon: '🦢', tooltip: 'Compose a custom crisis (title, narrative, treasury / reputation / social-licence / natural-capital-debt deltas) and inject it into ONE selected cohort, with an injection history below the form. Lists only cohorts a super admin has enabled for the injector. Answers: "How do I hit this specific cohort with a crisis of my own design?"', requiredRole: 'lead_facilitator' },
         ]
     },
     {

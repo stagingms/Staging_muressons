@@ -12,7 +12,7 @@ import ResourceManager from '../../components/ResourceManager';
 import FacilitatorManager from '../../components/FacilitatorManager';
 import PasswordInput from '../../components/PasswordInput';
 import CrisisTriggerConfig from '../../components/CrisisTriggerConfig';
-import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
+
 import GodModeStatus from '../../components/GodModeStatus';
 import GodModeAuditLog from '../../components/GodModeAuditLog';
 import UniversalBroadcast from '../../components/UniversalBroadcast';
@@ -649,10 +649,13 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
             case 'master_interventions':
                 return <MasterInterventions />;
             case 'crisis_overrides':
+                // Custom Black Swan Injector moved to the facilitator dashboard
+                // (tab: custom_black_swan) — admins see it there with all
+                // cohorts; facilitators only see cohorts unlocked per-cohort
+                // via custom_black_swan_enabled.
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                         <CrisisTriggerConfig />
-                        <CustomBlackSwanBuilder />
                     </div>
                 );
                 

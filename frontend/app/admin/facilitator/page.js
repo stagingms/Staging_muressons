@@ -10,6 +10,7 @@ import SessionViewer from '../../components/SessionViewer';
 import PlayerRegistry from '../../components/PlayerRegistry';
 import MaterialityConfig from '../../components/MaterialityConfig';
 import InterventionConfig from '../../components/InterventionConfig';
+import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
 import AuditTrail from '../../components/AuditTrail';
 import DebriefReport from '../../components/DebriefReport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
@@ -1054,6 +1055,16 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
             // ── Interventions tabs ──
             case 'intervention_config':
                 return requireCohort('Interventions', <InterventionConfig sessionId={selectedSession} />);
+            case 'custom_black_swan':
+                // Lead+ tab; the builder itself lists only cohorts a super admin
+                // unlocked (custom_black_swan_enabled) and the backend enforces
+                // the same flag + ownership on injection.
+                return (
+                    <CustomBlackSwanBuilder
+                        facilitatorId={authData.facilitator_id}
+                        isAdmin={authData.is_admin || authData.role === 'super_admin' || authData.role === 'god_mode'}
+                    />
+                );
             case 'cohort_settings_view':
                 // I2: read-only effective-settings matrix, scoped by the backend
                 // to cohorts this lead owns. No cohort selection required.
