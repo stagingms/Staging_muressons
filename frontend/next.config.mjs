@@ -46,6 +46,14 @@ const nextConfig = {
     //     import Google Fonts at runtime (not covered by next/font self-hosting).
     //   fonts.gstatic.com           — actual font files served by Google.
     //   ws: wss:                    — WebSocket connections to the backend.
+    //   frame-src youtube/vimeo     — briefing videos (RoundBriefing Read|Watch)
+    //     embed as iframes. Without an explicit frame-src, iframes fall back to
+    //     default-src 'self' and the embed renders Chrome's "This content is
+    //     blocked" page. youtube-nocookie kept alongside youtube in case
+    //     toEmbed() switches to the privacy-enhanced host later.
+    //   media-src https:            — facilitator-configured direct video URLs
+    //     (non-YouTube/Vimeo) play through a native <video> tag from wherever
+    //     the media is hosted; config is URL-only, media is never in git.
     const csp = [
       "default-src 'self' blob:",
       "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
@@ -53,7 +61,8 @@ const nextConfig = {
       "font-src 'self' https://fonts.gstatic.com",
       "img-src 'self' data: blob:",
       "connect-src 'self' ws: wss: blob:",
-      "media-src 'self' blob:",
+      "media-src 'self' blob: https:",
+      "frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
       "object-src 'none'",
       "frame-ancestors 'none'",
       "base-uri 'self'",
