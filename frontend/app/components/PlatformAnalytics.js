@@ -26,7 +26,10 @@ export default function PlatformAnalytics({ visibility = null, leaderboard = [],
     const load = async () => {
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/god/analytics`);
+            // credentials: the endpoint is auth-scoped (facilitators see their own
+            // cohorts; admins the platform) — the JWT cookie must reach it even
+            // when the API origin differs in dev.
+            const res = await fetch(`${API}/api/admin/god/analytics`, { credentials: 'include' });
             if (res.ok) setData(await res.json());
         } catch {}
         setLoading(false);

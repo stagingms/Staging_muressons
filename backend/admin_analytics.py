@@ -273,11 +273,21 @@ async def set_facilitator_visibility_profile(facilitator_id: str, body: dict = B
 # â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @analytics_router.get("/god/analytics", summary="Platform-wide analytics")
-async def get_platform_analytics(_guard: None = Depends(_require_super_admin)):  # QA-2026-07-16 #13: was unauthenticated — guard facilitator/admin-only data.
+async def get_platform_analytics(request: Request,
+                                 caller_role: str = Depends(_get_fac_role),
+                                 _guard: None = Depends(_require_facilitator)):
     """
     Compute all analytics from _global_states, _bu_states, _decision_log.
     Returns decision heatmap, time-to-decision, cohort trajectories,
     convergence, learning outcomes, and risk exposure.
+
+    BUGFIX (Cohort Analytics 'Failed to load analytics'): QA-2026-07-16 #13
+    guarded this super_admin-only, which 403'd the facilitator dashboard's
+    Cohort Analytics tab — its primary consumer. The QA intent (block
+    ANONYMOUS access to facilitator/admin-only data) is preserved by
+    _require_facilitator; the data-exposure concern is handled by SCOPING:
+    non-admin callers see only their own cohorts (and their child player
+    sessions), while super_admin/god_mode keep the whole platform.
     """
     import math
     from collections import defaultdict
@@ -286,6 +296,17 @@ async def get_platform_analytics(_guard: None = Depends(_require_super_admin)): 
     global_states = getattr(db, '_global_states', {})
     bu_states = getattr(db, '_bu_states', {})
     decision_log = getattr(db, '_decision_log', [])
+
+    from admin_shared import is_admin_role
+    if not is_admin_role(caller_role):
+        from auth_jwt import get_facilitator_from_request
+        caller_fid = get_facilitator_from_request(request)
+        own = {sid for sid, s in all_sessions.items() if s.get("facilitator_id") == caller_fid}
+        own |= {sid for sid, s in all_sessions.items() if s.get("parent_cohort_id") in own}
+        all_sessions = {sid: s for sid, s in all_sessions.items() if sid in own}
+        global_states = {sid: v for sid, v in global_states.items() if sid in own}
+        bu_states = {sid: v for sid, v in bu_states.items() if sid in own}
+        decision_log = [d for d in decision_log if d.get("session_id") in own]
 
     # â”€â”€ Summary counts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     cohort_sessions = {sid: s for sid, s in all_sessions.items() if not s.get("parent_cohort_id")}
