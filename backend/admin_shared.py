@@ -400,6 +400,10 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "npc_stakeholders_enabled",
     "board_room_moments_enabled",
     "consequence_map_enabled",   # results-view Decision Consequence Map (per-cohort)
+    # Briefing videos: URLs ONLY — the media itself lives on external hosting
+    # (YouTube/Vimeo/CDN) or the server's data dir, never in git.
+    "briefing_video_base",       # URL pattern with {round}, e.g. https://cdn/x/round-{round}.mp4
+    "briefing_videos",           # {round_number: url} per-round overrides
     "brsr_ngrbc_enabled",
     "tcfd_scenarios_enabled",
     "industry_vertical",

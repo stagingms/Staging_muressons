@@ -206,6 +206,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [consentRequired, setConsentRequired] = useState(false);
     const [consentText, setConsentText] = useState('');
     const [webhookUrl, setWebhookUrl] = useState('');
+    // Briefing videos: a URL pattern with {round} (URLs only — the media lives
+    // on YouTube/Vimeo/CDN, never in the repo). Players get a Read|Watch choice
+    // on each round briefing when set.
+    const [briefingVideoBase, setBriefingVideoBase] = useState('');
 
     // Simulation mode & industry localisation
     const [simulationMode, setSimulationMode] = useState('conglomerate'); // 'conglomerate' | 'single_bu'
@@ -669,6 +673,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             // persisted as per-cohort overrides so each cohort matches its
             // level; the cohort's Player Dashboard panel can override later.
             steps.push({ name: 'Player Round Surfaces', method: 'POST', url: `${API}/api/admin/player-feature-toggles?session_id=${sid}`, payload: stagedPlayerFeatures });
+        }
+        if (briefingVideoBase.trim()) {
+            // Briefing videos: URL pattern only (media hosted externally).
+            steps.push({ name: 'Briefing Videos', method: 'POST', url: `${API}/api/admin/sessions/${sid}/briefing-videos`, payload: { briefing_video_base: briefingVideoBase.trim() } });
         }
         steps.push({
             name: 'Pedagogical Settings', method: 'PUT',
@@ -2459,6 +2467,18 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 <input type="text" value={webhookUrl} placeholder="https://lms.example.edu/hooks/muressons"
                                                     onChange={e => setWebhookUrl(e.target.value)} style={{ ...inp, width: 280 }}
                                                     data-tooltip="POSTed fire-and-forget on lifecycle events (round committed, game over) so an LMS/gradebook can sync without polling. https-only; blank = disabled." />
+                                            </div>
+                                        </div>
+
+                                        {/* Briefing videos */}
+                                        <div style={grp}>🎬 Briefing Videos</div>
+                                        <div style={row}>
+                                            <div style={{ ...fld, minWidth: 320 }}>
+                                                <label style={lbl}>Video URL pattern ({'{round}'} = round no.)</label>
+                                                <input type="text" value={briefingVideoBase}
+                                                    placeholder="https://cdn.example.edu/muressons/briefing-{round}.mp4"
+                                                    onChange={e => setBriefingVideoBase(e.target.value)} style={{ ...inp, width: 320 }}
+                                                    data-tooltip="Gives players a Read | Watch choice on every round briefing. {round} is replaced by the round number (1-10). Accepts YouTube / Vimeo / direct video URLs — URLs only, the media itself lives on your hosting, never in the app. Blank = text-only briefings." />
                                             </div>
                                         </div>
                                     </div>

@@ -177,9 +177,37 @@ function getStochasticIndicator(roundNumber) {
   return null;
 }
 
+/** Turn a pasted video URL into something embeddable.
+ *  YouTube / Vimeo links become their iframe-embed equivalents; anything else
+ *  (mp4/webm on a CDN or the server data dir) plays in a native <video>. */
+function toEmbed(url) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, '');
+    if (host === 'youtube.com' || host === 'm.youtube.com') {
+      const id = u.searchParams.get('v') || u.pathname.match(/\/(?:embed|shorts)\/([\w-]{6,})/)?.[1];
+      if (id) return { kind: 'iframe', src: `https://www.youtube.com/embed/${id}` };
+    }
+    if (host === 'youtu.be') {
+      const id = u.pathname.slice(1).split('/')[0];
+      if (id) return { kind: 'iframe', src: `https://www.youtube.com/embed/${id}` };
+    }
+    if (host === 'vimeo.com') {
+      const id = u.pathname.match(/\/(\d+)/)?.[1];
+      if (id) return { kind: 'iframe', src: `https://player.vimeo.com/video/${id}` };
+    }
+    if (host === 'player.vimeo.com' || u.pathname.includes('/embed/')) {
+      return { kind: 'iframe', src: url };
+    }
+    return { kind: 'video', src: url };
+  } catch { return null; }
+}
+
 export default function RoundBriefing({
   roundNumber, isHealthcare, isSDG, decisionParadigm, onProceed,
   prevRoundData, activeFlags, globalState, businessUnits, sessionMeta,
+  briefingVideoUrl,
   onLogout,
 }) {
   // ── Derive SimContext from live session data and resolve briefing ──────────
@@ -191,6 +219,10 @@ export default function RoundBriefing({
   const isClimate = decisionParadigm === 'advanced_climate';
 
   const [recapOpen, setRecapOpen] = useState(false);
+  // Read | Watch choice — Watch appears only when the facilitator configured
+  // a video for this round (URL-only config; media is hosted externally).
+  const briefingEmbed = toEmbed(briefingVideoUrl);
+  const [briefingMode, setBriefingMode] = useState('read');
   const [confirmLogout, setConfirmLogout] = useState(false);
   // Player briefing academic framing: OFF by default; facilitator can re-enable.
   const [showTheory, setShowTheory] = useState(false);
@@ -324,6 +356,24 @@ export default function RoundBriefing({
           <div className={styles.docHeader}>
             <span className={styles.docIcon}>📄</span>
             <h2 className={styles.docTitle}>Intelligence Briefing</h2>
+            {briefingEmbed && (
+              <div role="group" aria-label="Briefing format" style={{ display: 'inline-flex', gap: 2, padding: 2, borderRadius: 999, background: 'rgba(148,163,184,0.12)', border: '1px solid rgba(148,163,184,0.2)', marginLeft: 12 }}>
+                {[['read', '📄 Read'], ['watch', '🎬 Watch']].map(([m, label]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setBriefingMode(m)}
+                    aria-pressed={briefingMode === m}
+                    style={{
+                      padding: '3px 12px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                      fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.04em',
+                      background: briefingMode === m ? 'var(--accent-blue, #2563eb)' : 'transparent',
+                      color: briefingMode === m ? '#fff' : 'inherit',
+                    }}
+                  >{label}</button>
+                ))}
+              </div>
+            )}
             <span className={styles.stamp}>{b.stamp}</span>
           </div>
 
@@ -376,11 +426,37 @@ export default function RoundBriefing({
           )}
 
           {/* Narrative */}
+          {briefingEmbed && briefingMode === 'watch' ? (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ position: 'relative', width: '100%', paddingTop: '56.25%', borderRadius: 10, overflow: 'hidden', background: '#000' }}>
+                {briefingEmbed.kind === 'iframe' ? (
+                  <iframe
+                    src={briefingEmbed.src}
+                    title={`Round ${roundNumber} briefing video`}
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 0 }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    src={briefingEmbed.src}
+                    controls
+                    playsInline
+                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                  />
+                )}
+              </div>
+              <div style={{ marginTop: 6, fontSize: '0.68rem', opacity: 0.7 }}>
+                Prefer text? Switch to 📄 Read above — the written briefing carries the same content.
+              </div>
+            </div>
+          ) : (
           <div className={styles.narrative}>
             {b.narrative.map((para, i) => (
               <p key={i} dangerouslySetInnerHTML={{ __html: sanitizeHtml(showTheory ? para : stripPedagogy(para)) }} />
             ))}
           </div>
+          )}
 
           {/* Climate Intelligence Supplement (Advanced Climate Only) */}
           {climateSupplement && (

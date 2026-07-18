@@ -377,6 +377,10 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         # Results-view Decision Consequence Map (ConsequenceTimeline). Player-readable;
         # fail-open (default ON) so existing cohorts keep the map unless turned off.
         "consequence_map_enabled": s.get("consequence_map_enabled", True),
+        # Briefing videos (player Read|Watch choice). URLs only — media is
+        # hosted externally, never committed to git.
+        "briefing_video_base": s.get("briefing_video_base", ""),
+        "briefing_videos": s.get("briefing_videos", {}),
         # ESG Leadership Profile signal weights (facilitator-tunable rubric).
         "esg_profile_weights": s.get("esg_profile_weights", DEFAULT_ESG_WEIGHTS),
         "mental_model_tracker_enabled": s.get("mental_model_tracker_enabled", True),
@@ -3193,6 +3197,42 @@ async def set_player_feature_toggles(body: PlayerFeatureTogglesRequest, request:
     eff = get_effective_settings(session_id)
     return {"status": "ok", "session_id": session_id,
             **{k: eff.get(k, True) for k in _PLAYER_FEATURE_KEYS}}
+
+
+class BriefingVideosRequest(BaseModel):
+    briefing_video_base: str | None = None          # "" clears
+    briefing_videos: dict | None = None             # {round: url}; {} clears
+
+
+@admin_router.post("/sessions/{session_id}/briefing-videos", summary="Set per-cohort briefing video URLs")
+async def set_briefing_videos(session_id: str, body: BriefingVideosRequest, request: Request,
+                              _guard: None = Depends(require_sim_manager)):
+    """Per-cohort override for the round-briefing videos (URL pattern with
+    {round} plus optional per-round URL map). URLs only — media lives on
+    external hosting or the server data dir, never in the repo. Players read
+    the effective values via global-settings?session_id."""
+    await _assert_session_ownership(request, session_id)
+    target = cohort_settings.setdefault(session_id, {})
+    changed = {}
+    if body.briefing_video_base is not None:
+        target["briefing_video_base"] = str(body.briefing_video_base).strip()
+        changed["briefing_video_base"] = target["briefing_video_base"]
+    if body.briefing_videos is not None:
+        clean = {str(k): str(v).strip() for k, v in (body.briefing_videos or {}).items()
+                 if str(v).strip()}
+        target["briefing_videos"] = clean
+        changed["briefing_videos"] = clean
+    if changed:
+        await manager.push_to_session(session_id, {
+            "type": "cohort_settings_changed", "session_id": session_id,
+            "changed_keys": list(changed.keys()), "settings": cohort_settings[session_id],
+        })
+        _audit("briefing_videos_updated", details={"session_id": session_id, **changed,
+                                                   "_caller_role": get_fac_role(request)})
+    eff = get_effective_settings(session_id)
+    return {"status": "ok", "session_id": session_id,
+            "briefing_video_base": eff.get("briefing_video_base", ""),
+            "briefing_videos": eff.get("briefing_videos", {})}
 
 
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")

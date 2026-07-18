@@ -1218,6 +1218,15 @@ export default function CockpitPage() {
   if (sim.sessionId && showDesktop && !sim.gameOver) {
     return (
       <RoundBriefing
+        briefingVideoUrl={(() => {
+          // Per-round briefing video (Read|Watch choice). Cohort-effective:
+          // explicit per-round URL wins, else the {round} pattern derives it.
+          const map = pedToggles?.briefing_videos || {};
+          const explicit = map[roundNumber] ?? map[String(roundNumber)];
+          if (explicit) return explicit;
+          const base = pedToggles?.briefing_video_base;
+          return base ? base.replaceAll('{round}', String(roundNumber)) : null;
+        })()}
         roundNumber={roundNumber}
         isHealthcare={isHealthcare}
         isSDG={decisionParadigm === 'un_sdg'}
