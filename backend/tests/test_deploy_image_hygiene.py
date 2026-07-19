@@ -155,8 +155,10 @@ def test_seed_files_referenced_by_the_dockerfile_still_ship():
     lines = set(_ignore_lines())
     try:
         tracked = set(subprocess.run(
-            ["git", "ls-files", "db/"], cwd=REPO, capture_output=True, text=True,
-            timeout=30,
+            # ls-tree HEAD, not ls-files: what ships is what is COMMITTED, and
+            # the index can legitimately be mid-edit or stale.
+            ["git", "ls-tree", "-r", "--name-only", "HEAD", "db/"],
+            cwd=REPO, capture_output=True, text=True, timeout=30,
         ).stdout.split())
     except (OSError, subprocess.SubprocessError):
         pytest.skip("git not available")
@@ -184,8 +186,10 @@ def test_no_seed_file_is_left_untracked():
         pytest.skip("no seed filenames found in backend sources")
     try:
         tracked = set(subprocess.run(
-            ["git", "ls-files", "db/"], cwd=REPO, capture_output=True, text=True,
-            timeout=30,
+            # ls-tree HEAD, not ls-files: what ships is what is COMMITTED, and
+            # the index can legitimately be mid-edit or stale.
+            ["git", "ls-tree", "-r", "--name-only", "HEAD", "db/"],
+            cwd=REPO, capture_output=True, text=True, timeout=30,
         ).stdout.split())
     except (OSError, subprocess.SubprocessError):
         pytest.skip("git not available")
