@@ -70,6 +70,7 @@ const EMPTY_FORM = {
     shockwaveEnabled: true,
     tradingFloorEnabled: true,   // Feature 1: Trading-Floor finale console capability
     situationRoomEnabled: true,  // W-D (W4): Situation-Room voice bulletin capability
+    negotiationRoomsEnabled: false,  // Stakeholder Negotiation Rooms — OPT-IN capability
     notes: '',
     createdBy: '',
     dateCreated: new Date().toISOString().slice(0, 10),
@@ -131,6 +132,7 @@ function mapCSVRowToFacilitator(row) {
         industry_vertical: row.industry_vertical || row.vertical || '',
         side_tracks: _csvList(row.side_tracks || row.tracks || row.side_track || ''),
         shockwave_enabled: _csvBool(row.shockwave_enabled ?? row.shockwave, true),
+        negotiation_rooms_enabled: _csvBool(row.negotiation_rooms_enabled ?? row.negotiation, false),
         trading_floor_enabled: _csvBool(row.trading_floor_enabled ?? row.trading_floor, true),
         situation_room_enabled: _csvBool(row.situation_room_enabled ?? row.situation_room, true),
         start_date: row.start_date || row.start || '',
@@ -449,6 +451,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
             shockwaveEnabled: fac.shockwave_enabled !== false,
             tradingFloorEnabled: fac.trading_floor_enabled !== false,
             situationRoomEnabled: fac.situation_room_enabled !== false,
+            negotiationRoomsEnabled: fac.negotiation_rooms_enabled === true,
         });
         setDrawerMode('edit');
         setEditingFacId(fac.facilitator_id);
@@ -511,6 +514,7 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 shockwave_enabled: form.shockwaveEnabled !== false,  // Feature 6 capability
                 trading_floor_enabled: form.tradingFloorEnabled !== false,  // Feature 1 capability
                 situation_room_enabled: form.situationRoomEnabled !== false,  // W-D (W4) capability
+                negotiation_rooms_enabled: form.negotiationRoomsEnabled === true,  // opt-in capability
             };
 
             const getAuthHeaders = () => {
@@ -1312,6 +1316,24 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                             <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.situationRoomEnabled !== false ? '#c9a84c' : '#8899a6' }}>{form.situationRoomEnabled !== false ? 'ON' : 'OFF'}</span>
                             <span onClick={() => updateForm('situationRoomEnabled', !(form.situationRoomEnabled !== false))} style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, background: form.situationRoomEnabled !== false ? '#c9a84c' : 'rgba(148,163,184,0.3)', transition: 'background 0.2s', display: 'inline-block' }}>
                                 <span style={{ position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', transform: form.situationRoomEnabled !== false ? 'translateX(20px)' : 'translateX(0)' }} />
+                            </span>
+                        </label>
+                    </div>
+
+                    {/* Stakeholder Negotiation Rooms — OPT-IN capability. Unlike the
+                        console toggles above this defaults OFF: the facilitator can only
+                        switch the feature on for their own cohorts once a super admin
+                        grants it here (enforced server-side on cohort-settings AND on
+                        every player negotiation call, so revoking takes effect live). */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.6rem', padding: '10px 14px', borderRadius: 8, border: '1px solid rgba(52,211,153,0.3)', background: 'rgba(52,211,153,0.06)' }}>
+                        <div>
+                            <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>🤝 Stakeholder Negotiation Rooms</div>
+                            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted, #8899a6)' }}>Allow this facilitator to enable negotiation rooms on their cohorts — players may meet hostile stakeholders and buy de-escalation with binding, priced concessions. Off by default.</div>
+                        </div>
+                        <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 700, color: form.negotiationRoomsEnabled === true ? '#34d399' : '#8899a6' }}>{form.negotiationRoomsEnabled === true ? 'ON' : 'OFF'}</span>
+                            <span onClick={() => updateForm('negotiationRoomsEnabled', !(form.negotiationRoomsEnabled === true))} style={{ position: 'relative', width: 44, height: 24, borderRadius: 12, background: form.negotiationRoomsEnabled === true ? '#34d399' : 'rgba(148,163,184,0.3)', transition: 'background 0.2s', display: 'inline-block' }}>
+                                <span style={{ position: 'absolute', top: 3, left: 3, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'transform 0.2s', transform: form.negotiationRoomsEnabled === true ? 'translateX(20px)' : 'translateX(0)' }} />
                             </span>
                         </label>
                     </div>

@@ -5997,6 +5997,29 @@ class NegotiationAcceptRequest(BaseModel):
     concession_id: str
 
 
+async def _negotiation_capability_ok(session_id: str) -> bool:
+    """True when the cohort's owning facilitator holds the per-facilitator
+    Negotiation Rooms capability (granted by a super admin). Sessions owned by
+    god_mode/admin identities, or with no resolvable facilitator, pass — the
+    cohort-level toggle is then the only gate. Fail-open on lookup errors so a
+    registry hiccup never strands a live classroom mid-round."""
+    try:
+        from admin_shared import _facilitator_registry, get_role, is_admin_role
+        sess = await db.get_session_info(session_id) or {}
+        fid = sess.get("facilitator_id")
+        if not fid or fid in ("god_mode", "facilitator"):
+            return True
+        fac = next((f for f in _facilitator_registry
+                    if f.get("facilitator_id") == fid and not f.get("deleted_at")), None)
+        if fac is None:
+            return True
+        if is_admin_role(get_role(fac)):
+            return True
+        return fac.get("negotiation_rooms_enabled", False) is True
+    except Exception:
+        return True
+
+
 async def _negotiation_ctx(session_id: str, request: Request):
     """Shared guard + state load for the negotiation endpoints."""
     await _assert_player_owns_session(request, session_id)
@@ -6004,6 +6027,15 @@ async def _negotiation_ctx(session_id: str, request: Request):
     eff = get_effective_settings(session_id)
     if not eff.get("negotiation_rooms_enabled", False):
         raise HTTPException(403, "Negotiation rooms are not enabled for this cohort.")
+    # Capability re-check: the cohort flag alone is not enough — the owning
+    # facilitator must still hold the super-admin-granted capability. This
+    # makes revocation effective IMMEDIATELY on live cohorts instead of only
+    # blocking future enables.
+    if not await _negotiation_capability_ok(session_id):
+        raise HTTPException(
+            403,
+            "Negotiation rooms are unavailable: the capability is not enabled for this cohort's facilitator.",
+        )
     latest = await db.fetch_latest_state(session_id)
     if latest is None:
         raise HTTPException(404, "Session not found")

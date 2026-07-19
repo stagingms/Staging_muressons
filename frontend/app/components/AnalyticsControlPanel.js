@@ -50,6 +50,46 @@ export default function AnalyticsControlPanel({ sessionId }) {
     // cohort's lead facilitator use the injector tab for THIS cohort only.
     // Persists to the cohort-settings override layer.
     const [swanEnabled, setSwanEnabled] = useState(false);
+    // Stakeholder Negotiation Rooms — per-cohort toggle, but only offered to
+    // callers whose facilitator profile carries the super-admin-granted
+    // capability (admins always). The server enforces the same rule on
+    // cohort-settings AND on every player call; this just avoids showing a
+    // control that would 403.
+    const [negoEnabled, setNegoEnabled] = useState(false);
+    const [negoStatus, setNegoStatus] = useState(null);
+    const [negoCapable, setNegoCapable] = useState(false);
+    useEffect(() => {
+        try {
+            const auth = JSON.parse(localStorage.getItem('godmode_auth') || localStorage.getItem('facilitator_auth') || '{}');
+            const isAdmin = auth.is_admin === true || ['super_admin', 'god_mode', 'admin'].includes(auth.role);
+            setNegoCapable(isAdmin || auth.negotiation_rooms_enabled === true);
+        } catch { setNegoCapable(false); }
+    }, []);
+    useEffect(() => {
+        const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
+        fetch(`${API}/api/admin/global-settings${qs}`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : {})
+            .then(d => setNegoEnabled(d.negotiation_rooms_enabled === true))
+            .catch(() => {});
+    }, [sessionId]);
+    const toggleNego = async () => {
+        if (!sessionId) { setNegoStatus('❌ Select a cohort first'); setTimeout(() => setNegoStatus(null), 3000); return; }
+        const next = !negoEnabled;
+        setNegoEnabled(next);
+        try {
+            const r = await fetch(`${API}/api/admin/sessions/${sessionId}/cohort-settings`, {
+                method: 'PATCH', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ negotiation_rooms_enabled: next }),
+            });
+            if (!r.ok) {
+                const err = await r.json().catch(() => ({}));
+                setNegoEnabled(!next);
+                setNegoStatus(`❌ ${err.detail || 'Save failed'}`);
+            } else setNegoStatus(next ? '✅ Rooms open for this cohort' : '✅ Rooms closed for this cohort');
+        } catch { setNegoEnabled(!next); setNegoStatus('❌ Connection error'); }
+        setTimeout(() => setNegoStatus(null), 4500);
+    };
     const [swanStatus, setSwanStatus] = useState(null);
     useEffect(() => {
         const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
@@ -242,6 +282,34 @@ export default function AnalyticsControlPanel({ sessionId }) {
                         </button>
                     </div>
                     {swanStatus && <div style={{ fontSize: '0.74rem', fontWeight: 700, padding: '2px 4px' }}>{swanStatus}</div>}
+
+                    {/* Negotiation Rooms — shown only when the caller's profile
+                        carries the capability (super admin grants it in the
+                        Facilitator Registry). Server enforces regardless. */}
+                    {negoCapable && (
+                        <>
+                            <div className={styles.toggleRow}
+                                 data-tooltip="Opens Stakeholder Negotiation Rooms for THIS cohort: when an autonomous stakeholder turns hostile, players may request a meeting and buy de-escalation with priced, binding concessions (broken promises make future meetings costlier). Requires the per-facilitator capability, granted by a super admin.">
+                                <div className={styles.toggleInfo}>
+                                    <span className={styles.toggleIcon}>🤝</span>
+                                    <div>
+                                        <div className={styles.toggleLabel}>Stakeholder Negotiation Rooms</div>
+                                        <div className={styles.toggleDesc}>
+                                            {sessionId ? 'Let this cohort’s players negotiate with hostile stakeholders' : 'Select a cohort to open rooms per cohort'}
+                                        </div>
+                                    </div>
+                                </div>
+                                <button
+                                    className={`${styles.toggleBtn} ${negoEnabled ? styles.toggleOn : styles.toggleOff}`}
+                                    onClick={toggleNego}
+                                    disabled={!sessionId}
+                                >
+                                    <span className={styles.toggleKnob} />
+                                </button>
+                            </div>
+                            {negoStatus && <div style={{ fontSize: '0.74rem', fontWeight: 700, padding: '2px 4px' }}>{negoStatus}</div>}
+                        </>
+                    )}
                 </div>
 
                 {/* Player column */}

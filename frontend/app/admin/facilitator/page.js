@@ -108,9 +108,9 @@ function FacilitatorLoginGate({ onLogin }) {
                 // backend has always returned — the destructure dropped it, so
                 // the UI couldn't know e.g. can_create_cohorts. Still C-2
                 // compliant: booleans only, no PII.
-                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, permissions } = data;
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled, must_change_password, permissions } = data;
                 localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, permissions }
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled, must_change_password, permissions }
                 ));
                 onLogin(data);
             } else {
@@ -320,6 +320,7 @@ export default function FacilitatorPage() {
                             shockwave_enabled: data.shockwave_enabled ?? cachedAuth.shockwave_enabled,
                             trading_floor_enabled: data.trading_floor_enabled ?? cachedAuth.trading_floor_enabled,
                             situation_room_enabled: data.situation_room_enabled ?? cachedAuth.situation_room_enabled,
+                            negotiation_rooms_enabled: data.negotiation_rooms_enabled ?? cachedAuth.negotiation_rooms_enabled,
                         };
                         localStorage.setItem('facilitator_auth', JSON.stringify(synced));
                         setAuthData(synced);
@@ -1237,8 +1238,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                     role="facilitator"
                     onComplete={(newUsername) => {
                         // C-2: keep only the safe display subset (same rule as login)
-                        const { facilitator_id, role, allowed_tabs, is_admin, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled } = authData;
-                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername, shockwave_enabled, trading_floor_enabled, situation_room_enabled };
+                        const { facilitator_id, role, allowed_tabs, is_admin, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled } = authData;
+                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled };
                         localStorage.setItem('facilitator_auth', JSON.stringify(updated));
                         window.location.reload();
                     }}

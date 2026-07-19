@@ -302,6 +302,10 @@ class FacilitatorCreateRequest(BaseModel):
     shockwave_enabled: bool = True   # Feature 6: allow this facilitator to detonate synchronized shockwaves
     trading_floor_enabled: bool = True   # Feature 1: allow this facilitator to run the Trading-Floor finale console
     situation_room_enabled: bool = True   # W-D (W4): allow this facilitator to fire Situation-Room voice bulletins
+    # Stakeholder Negotiation Rooms — OPT-IN (default False, unlike the
+    # always-on consoles): a super admin grants it per facilitator, and only
+    # then may that facilitator enable the feature for their own cohorts.
+    negotiation_rooms_enabled: bool = False
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -326,6 +330,7 @@ class FacilitatorUpdateRequest(BaseModel):
     shockwave_enabled: bool | None = None   # Feature 6 per-facilitator capability
     trading_floor_enabled: bool | None = None   # Feature 1 per-facilitator capability
     situation_room_enabled: bool | None = None   # W-D (W4) per-facilitator capability
+    negotiation_rooms_enabled: bool | None = None   # Negotiation Rooms per-facilitator capability (opt-in)
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
@@ -804,6 +809,10 @@ async def patch_cohort_settings(
     # HIGH-tier advanced controls: coerce/clamp before any filtering or persistence.
     body = normalize_advanced_cohort_settings(body)
 
+    # Captured BEFORE any role filtering so the capability gate below can tell
+    # "asked and not allowed" from "never asked" (see the 403 further down).
+    _nego_requested = body.get("negotiation_rooms_enabled")
+
     # lead_facilitators may only touch freeze keys and specific simulation parameters for sessions they own
     _LEAD_FAC_KEYS = frozenset({
         "system_frozen", "freeze_message", "freeze_started_at",
@@ -824,12 +833,37 @@ async def patch_cohort_settings(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only modify cohort settings for sessions you own.",
             )
-        # Restrict to lead facilitator allowed keys
-        body = {k: v for k, v in body.items() if k in _LEAD_FAC_KEYS}
+        # Restrict to lead facilitator allowed keys. The Negotiation Rooms key
+        # is added ONLY for a lead whose profile carries the super-admin-granted
+        # capability — that grant is precisely what makes the feature
+        # self-serve for them (without it the key would be silently dropped,
+        # which reads as a broken toggle; the explicit 403 below is clearer).
+        _lead_keys = set(_LEAD_FAC_KEYS)
+        if (caller_fac or {}).get("negotiation_rooms_enabled", False):
+            _lead_keys.add("negotiation_rooms_enabled")
+        body = {k: v for k, v in body.items() if k in _lead_keys}
 
     # Filter to allow-listed keys only
     safe_body = {k: v for k, v in body.items() if k in COHORT_OVERRIDABLE_KEYS}
     rejected_keys = [k for k in body if k not in COHORT_OVERRIDABLE_KEYS]
+
+    # ── Per-facilitator capability gate: Negotiation Rooms ──────────────────
+    # Opt-in per facilitator (granted by a super admin on the registry record).
+    # Checked against the ORIGINAL request, not the filtered body, so an
+    # ungranted caller gets an explanation instead of a silent no-op. Admin
+    # roles (super_admin / god_mode) always pass.
+    # NOTE: caller_role above is derived from the REGISTRY record, so it is
+    # "facilitator" for the virtual god_mode/project_admin identities. Use the
+    # canonical signed-token resolver for the admin bypass (CLAUDE.md role
+    # convention 1: decide on the level via is_admin_role, never on a string
+    # that can silently miss god_mode).
+    if _nego_requested is True and not is_admin_role(get_fac_role(request)):
+        if not (caller_fac or {}).get("negotiation_rooms_enabled", False):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Stakeholder Negotiation Rooms are not enabled for your facilitator profile. "
+                       "A super admin can grant this capability in the Facilitator Registry.",
+            )
 
     if session_id not in cohort_settings:
         cohort_settings[session_id] = {}
@@ -1676,6 +1710,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
             "shockwave_enabled": req.shockwave_enabled if req.shockwave_enabled is not None else True,  # Feature 6
             "trading_floor_enabled": req.trading_floor_enabled if req.trading_floor_enabled is not None else True,  # Feature 1
             "situation_room_enabled": req.situation_room_enabled if req.situation_room_enabled is not None else True,  # W-D (W4)
+            "negotiation_rooms_enabled": req.negotiation_rooms_enabled is True,  # opt-in capability
             "permissions": req.permissions or default_perms,
             "created_by": req.created_by or "",
             "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -1701,6 +1736,7 @@ _BULK_UPLOAD_COLUMNS = [
     "max_cohorts", "decision_paradigm", "role", "ending_pathway",
     "simulation_mode", "industry_vertical", "side_tracks",
     "shockwave_enabled", "trading_floor_enabled", "situation_room_enabled",
+    "negotiation_rooms_enabled",
 ]
 
 # Friendly header aliases accepted in either upload path (case/space tolerant).
@@ -1711,6 +1747,7 @@ _BULK_UPLOAD_ALIASES = {
     "mode": "simulation_mode", "vertical": "industry_vertical", "tracks": "side_tracks",
     "side_track": "side_tracks", "shockwave": "shockwave_enabled",
     "trading_floor": "trading_floor_enabled", "situation_room": "situation_room_enabled",
+    "negotiation": "negotiation_rooms_enabled", "negotiation_rooms": "negotiation_rooms_enabled",
 }
 
 
@@ -1818,6 +1855,7 @@ def _parse_bulk_upload_sheet(raw: bytes):
             "industry_vertical": cell("industry_vertical"),
             "side_tracks": _bulk_list(cell("side_tracks")),
             "shockwave_enabled": _bulk_bool(cell("shockwave_enabled", "true")),
+            "negotiation_rooms_enabled": _bulk_bool(cell("negotiation_rooms_enabled", "false"), default=False),
             "trading_floor_enabled": _bulk_bool(cell("trading_floor_enabled", "true")),
             "situation_room_enabled": _bulk_bool(cell("situation_room_enabled", "true")),
         })
@@ -1903,6 +1941,7 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
                 "is_admin": is_admin_role(_role),
                 "enabled": True,
                 "shockwave_enabled": parsed.get("shockwave_enabled", True),
+                "negotiation_rooms_enabled": parsed.get("negotiation_rooms_enabled", False) is True,
                 "trading_floor_enabled": parsed.get("trading_floor_enabled", True),
                 "situation_room_enabled": parsed.get("situation_room_enabled", True),
                 "permissions": {
@@ -2012,6 +2051,7 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
                 "is_admin": is_admin_role(_role),
                 "enabled": True,
                 "shockwave_enabled": fac_req.shockwave_enabled,
+                "negotiation_rooms_enabled": fac_req.negotiation_rooms_enabled is True,
                 "trading_floor_enabled": fac_req.trading_floor_enabled,
                 "situation_room_enabled": fac_req.situation_room_enabled,
                 "permissions": fac_req.permissions or {
@@ -2336,6 +2376,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         # Live-console capabilities (display-safe booleans; the server-side
         # gates on ring-bell/shockwave/bulletin remain authoritative)
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
+        "negotiation_rooms_enabled": fac.get("negotiation_rooms_enabled", False) is True,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
     }
@@ -2485,6 +2526,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
+        "negotiation_rooms_enabled": fac.get("negotiation_rooms_enabled", False) is True,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
     }
