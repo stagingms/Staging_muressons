@@ -1683,6 +1683,13 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             detail="Rate limited. Wait 5 seconds between commits.",
         )
     _commit_timestamps[session_id] = now
+    # Railway audit §2.3: prune hour-old entries so the per-process dict cannot
+    # grow unbounded over a long-lived worker. (Correctness across workers is
+    # carried by the Postgres advisory lock, not this cooldown.)
+    if len(_commit_timestamps) > 500:
+        _cutoff = now - 3600
+        for _k in [k for k, v in _commit_timestamps.items() if v < _cutoff]:
+            _commit_timestamps.pop(_k, None)
 
     # ── Emergency Freeze guard ───────────────────────────────
     from admin_shared import _god_mode_settings as _gms

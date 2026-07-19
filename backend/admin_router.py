@@ -4884,8 +4884,9 @@ class CustomBlackSwanRequest(BaseModel):
     social_license_impact: float = 0      # Social License delta
     natural_debt_impact: float = 0        # Natural Capital Debt delta
 
-# In-memory history of injected custom events
-_custom_black_swan_log = []
+# Railway audit §2.2: the in-memory _custom_black_swan_log is gone — the
+# injection history now lives on the durable audit trail (admin_audit.jsonl)
+# under action == "custom_black_swan_injected"; see get_custom_black_swan_log.
 
 
 @admin_router.post(
@@ -5020,19 +5021,13 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, req
         "event": event_record,
     })
 
-    # ── Audit log ──
-    _capped_append(_god_mode_audit_log, {
-        "action": "custom_black_swan_injected",
-        "session_id": session_id,
-        "details": event_record,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    })
-
-    # ── Persist to in-memory log ──
-    _custom_black_swan_log.append({
-        "session_id": session_id,
-        **event_record,
-    })
+    # ── Audit log — Railway audit §2.2: ONE durable channel. _audit() both
+    # caps the in-memory list and appends to admin_audit.jsonl in the durable
+    # data dir, so the injection history survives restarts and is identical
+    # across workers. The old ad-hoc _custom_black_swan_log (per-process,
+    # unbounded, non-durable) is gone; the log endpoint reads the audit trail.
+    _audit("custom_black_swan_injected",
+           details={"session_id": session_id, **event_record})
 
     return {"status": "injected", "event": event_record, "message": message}
 
@@ -5173,16 +5168,26 @@ async def run_cohort_dry_run(body: DryRunRequest, request: Request, _guard: None
     from dry_run import run_dry_run
     from admin_shared import get_effective_settings
     settings = get_effective_settings(body.session_id)
-    import asyncio as _asyncio
-    report = await _asyncio.to_thread(
-        run_dry_run,
-        latest["global_state"], latest["bu_states"],
-        settings=settings,
-        strategies=body.strategies,
-        n_reps=body.n_reps,
-        paradigm=sess.get("decision_paradigm") or "legacy_abc",
-        difficulty_tier=sess.get("difficulty_tier") or "standard",
-    )
+    # Railway audit §2.1: run ON the event loop, not in a thread. The bots
+    # seed the process-global `random` module (several engines roll on it);
+    # a thread would interleave with live commits and both contaminate their
+    # randomness and break the dry-run's own determinism. Synchronous
+    # execution makes interleaving impossible on this worker (a full run
+    # measures ~0.2 s), and the RNG state is restored afterwards so the live
+    # entropy stream is bit-for-bit unaffected.
+    import random as _random
+    _rng_state = _random.getstate()
+    try:
+        report = run_dry_run(
+            latest["global_state"], latest["bu_states"],
+            settings=settings,
+            strategies=body.strategies,
+            n_reps=body.n_reps,
+            paradigm=sess.get("decision_paradigm") or "legacy_abc",
+            difficulty_tier=sess.get("difficulty_tier") or "standard",
+        )
+    finally:
+        _random.setstate(_rng_state)
     report["cohort_name"] = sess.get("cohort_name") or body.session_id
     _audit("dry_run_executed", details={"session_id": body.session_id,
                                         "n_reps": report["n_reps"],
@@ -5299,9 +5304,33 @@ async def get_calibration_analytics(
 async def get_custom_black_swan_log(request: Request, _guard: None = Depends(require_lead_facilitator)):
     """Injection history. Admin roles see everything; lead facilitators see
     only events injected into cohorts they own (the tool now lives on the
-    facilitator dashboard, so the log must not leak other cohorts)."""
+    facilitator dashboard, so the log must not leak other cohorts).
+
+    Railway audit §2.2: sourced from the durable audit trail
+    (admin_audit.jsonl, action == custom_black_swan_injected) so history
+    survives restarts and is consistent across workers."""
+    import json as _json
+    from runtime_paths import data_dir as _data_dir
+    events = []
+    _log_file = _data_dir() / "admin_audit.jsonl"
+    try:
+        with open(_log_file, "r", encoding="utf-8") as _f:
+            for line in _f:
+                try:
+                    entry = _json.loads(line)
+                except Exception:
+                    continue
+                if entry.get("action") == "custom_black_swan_injected":
+                    d = entry.get("details") or {}
+                    if d.get("title"):
+                        events.append(d)
+    except FileNotFoundError:
+        pass
+    # Cap what we return: the newest 200 are plenty for the history panel.
+    events = events[-200:]
+
     if is_admin_role(get_fac_role(request)):
-        return {"events": _custom_black_swan_log}
+        return {"events": events}
     from auth_jwt import get_facilitator_from_request
     fac_id = get_facilitator_from_request(request)
     fac = next((f for f in _facilitator_registry
@@ -5309,10 +5338,10 @@ async def get_custom_black_swan_log(request: Request, _guard: None = Depends(req
     if fac is None:
         return {"events": []}
     owned = set()
-    for s in await db.fetch_all_sessions():
+    for s in await db.fetch_all_sessions_raw():
         if owns_session(fac, s):
             owned.add(s.get("session_id"))
-    return {"events": [e for e in _custom_black_swan_log if e.get("session_id") in owned]}
+    return {"events": [e for e in events if e.get("session_id") in owned]}
 
 @admin_router.post(
     "/{session_id}/inject-message",
