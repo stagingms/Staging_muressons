@@ -233,7 +233,18 @@ def open_room(gs: dict, bus: list[dict], round_number: int, agent_id: str) -> di
     return {"room": room, "menu": menu_for_agent(gs, round_number, agent_id)}
 
 
-def say(gs: dict, bus: list[dict], round_number: int, text: str) -> dict:
+def say(gs: dict, bus: list[dict], round_number: int, text: str,
+        llm_reply: Optional[dict] = None) -> dict:
+    """Record the player's turn and the agent's reply.
+
+    Phase 3: `llm_reply` (when the router obtained one) is the validated
+    {dialogue, suggested_concession, mood} payload from llm_negotiator —
+    already stripped of anything not on this agent's menu. It supplies
+    FLAVOUR ONLY: a suggested concession is a highlight the player may click,
+    never an applied effect (accept_concession remains the sole path to
+    state). None → the deterministic scripted line, so no-key deployments and
+    every failure path play identically to Phase 1.
+    """
     log = get_negotiation_log(gs)
     room = log.get("active")
     if not room:
@@ -245,12 +256,31 @@ def say(gs: dict, bus: list[dict], round_number: int, text: str) -> dict:
     if not text:
         return {"error": "empty_message"}
     room["turns"].append({"who": "player", "text": text, "at": _now()})
-    # Phase 1: deterministic scripted reply. Phase 3 swaps this line for the
-    # LLM contract; the room, menu and validation are identical either way.
+
     grievances = compute_grievances(gs, bus, room["agent_id"])
-    reply = scripted_line(room["agent_id"], room["persona"]["stage"], grievances, player_turns + 1)
-    room["turns"].append({"who": "agent", "text": reply, "at": _now()})
-    return {"room": room, "menu": menu_for_agent(gs, round_number, room["agent_id"])}
+    menu = menu_for_agent(gs, round_number, room["agent_id"])
+    menu_ids = {m["id"] for m in menu}
+
+    if llm_reply and llm_reply.get("dialogue"):
+        reply = llm_reply["dialogue"]
+        # Defence in depth: re-check the id here too, in case a caller hands
+        # us an unvalidated payload.
+        suggested = llm_reply.get("suggested_concession")
+        suggested = suggested if suggested in menu_ids else None
+        mood = llm_reply.get("mood", "neutral")
+        source = "llm"
+    else:
+        reply = scripted_line(room["agent_id"], room["persona"]["stage"], grievances, player_turns + 1)
+        suggested, mood, source = None, "neutral", "scripted"
+
+    turn = {"who": "agent", "text": reply, "at": _now(), "source": source}
+    if suggested:
+        turn["suggests"] = suggested
+    if mood != "neutral":
+        turn["mood"] = mood
+    room["turns"].append(turn)
+    room["mood"] = mood
+    return {"room": room, "menu": menu, "suggested_concession": suggested, "mood": mood}
 
 
 def accept_concession(gs: dict, bus: list[dict], round_number: int, concession_id: str) -> dict:

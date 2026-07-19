@@ -6058,9 +6058,31 @@ async def negotiation_state(session_id: str, request: Request):
 
 @router.post("/{session_id}/negotiation/say", summary="Speak in the open negotiation room")
 async def negotiation_say(session_id: str, body: NegotiationSayRequest, request: Request):
-    from negotiation import say
+    """Phase 3: when an LLM key is configured, the agent's reply is generated
+    in persona from engine truth; the payload is validated (offer ids must be
+    on THIS agent's live menu) and can only SUGGEST a concession the player
+    must still click. No key, timeout, or malformed JSON → the deterministic
+    scripted line. The LLM never touches state."""
+    from negotiation import say, get_negotiation_log, compute_grievances, menu_for_agent
     gs, bus, rn = await _negotiation_ctx(session_id, request)
-    result = say(gs, bus, rn, body.text)
+
+    llm_reply = None
+    try:
+        from llm_negotiator import llm_available, negotiate_turn
+        room = get_negotiation_log(gs).get("active")
+        if room and llm_available():
+            llm_reply = await negotiate_turn(
+                room=room,
+                grievances=compute_grievances(gs, bus, room["agent_id"]),
+                menu=menu_for_agent(gs, rn, room["agent_id"]),
+                agent_state=((gs.get("autonomous_agents") or {}).get("agents") or {}).get(room["agent_id"], {}),
+                player_text=body.text,
+                round_number=rn,
+            )
+    except Exception as _llm_exc:   # never let the dialogue layer break the room
+        _log.warning(f"[negotiation] LLM layer skipped: {_llm_exc}")
+
+    result = say(gs, bus, rn, body.text, llm_reply=llm_reply)
     return await _negotiation_persist(session_id, gs, bus, result)
 
 

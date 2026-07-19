@@ -35,6 +35,9 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
   const [busy, setBusy] = useState(false);
   const [text, setText] = useState('');
   const [confirmId, setConfirmId] = useState(null);
+  // Phase 3: the agent's mood + any concession they gestured at. Both are
+  // presentation only — accepting still requires the explicit click below.
+  const [suggested, setSuggested] = useState(null);
   const logRef = useRef(null);
 
   const call = useCallback(async (path, body) => {
@@ -82,6 +85,7 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
     if (d.closed) { setClosedSummary(d.closed); setRoom(null); return; }
     if (d.room) setRoom(d.room);
     if (d.menu) setMenu(d.menu);
+    if ('suggested_concession' in d) setSuggested(d.suggested_concession || null);
   };
 
   const send = async () => {
@@ -129,7 +133,15 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
                 {persona?.stage || closedSummary?.persona?.stage || ''}
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: C.dim }}>{persona?.title || closedSummary?.persona?.title || ''}</div>
+            <div style={{ fontSize: '0.72rem', color: C.dim }}>
+              {persona?.title || closedSummary?.persona?.title || ''}
+              {/* Phase 3: live mood read from the agent's last reply */}
+              {room?.mood && room.mood !== 'neutral' && (
+                <span style={{ marginLeft: 8, fontWeight: 700, color: room.mood === 'softening' ? '#34d399' : '#f87171' }}>
+                  · {room.mood === 'softening' ? '▲ softening' : '▼ hardening'}
+                </span>
+              )}
+            </div>
           </div>
           <div style={{ marginLeft: 'auto', fontSize: '0.68rem', color: C.faint, textAlign: 'right' }}>
             {room && <>Entry fee paid: <strong style={{ color: C.txt }}>{fmtMoney(room.fee_paid)}</strong><br /></>}
@@ -200,7 +212,18 @@ export default function NegotiationRoom({ sessionId, agentId, onClose }) {
               </div>
               <div style={{ overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '40vh' }}>
                 {(menu || []).map((m) => (
-                  <div key={m.id} style={{ padding: '10px 12px', borderRadius: 12, background: C.panel, border: `1px solid ${C.line}` }}>
+                  <div key={m.id} style={{
+                    padding: '10px 12px', borderRadius: 12, background: C.panel,
+                    // Phase 3: highlight what they gestured at — still just a
+                    // highlight; the click below is what commits anything.
+                    border: `1px solid ${suggested === m.id ? 'rgba(52,211,153,0.55)' : C.line}`,
+                    boxShadow: suggested === m.id ? '0 0 0 1px rgba(52,211,153,0.25)' : 'none',
+                  }}>
+                    {suggested === m.id && (
+                      <div style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.06em', color: '#34d399', marginBottom: 4 }}>
+                        THEY GESTURED AT THIS
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
                       <span style={{ fontWeight: 700, fontSize: '0.82rem' }}>{m.label}</span>
                       <span style={{ fontWeight: 800, fontSize: '0.82rem', color: m.cost > 0 ? '#fbbf24' : '#34d399' }}>
