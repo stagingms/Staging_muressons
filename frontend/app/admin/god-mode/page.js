@@ -861,7 +861,7 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
 
                 <nav className={styles.sidebarNav}>
                     {SIDEBAR_CONFIG.map((group) => (
-                        <div key={group.id} className={styles.navCategory}>
+                        <div key={group.id} className={styles.navCategory} data-tour={`nav-${group.id}`}>
                             <div
                                 className={styles.categoryHeader}
                                 onClick={() => toggleCategory(group.id)}

@@ -19,6 +19,7 @@ const GOD_MODE_STEPS = [
         body: 'You have full Super Administrator control over the entire Muressons simulation platform. This quick tour will show you the key areas.',
         color: '#f59e0b',
         tabHint: null,
+        target: null,
     },
     {
         title: 'Command Center',
@@ -26,6 +27,7 @@ const GOD_MODE_STEPS = [
         body: 'Your starting point — the System Overview shows real-time session health, pedagogical scaffolding toggles, and platform-wide KPI gauges. The Platform Analytics tab provides aggregated metrics across all cohorts.',
         color: '#3b82f6',
         tabHint: 'system_overview',
+        target: '[data-tour="nav-command_center"]',
     },
     {
         title: 'Cohort Orchestration',
@@ -33,6 +35,7 @@ const GOD_MODE_STEPS = [
         body: 'Manage facilitators (create accounts, assign roles), provision cohorts, control round pacing, and send universal broadcasts. The 3-tier role system (Super Admin → Lead → Base) is enforced here.',
         color: '#8b5cf6',
         tabHint: 'facilitator_management',
+        target: '[data-tour="nav-orchestration"]',
     },
     {
         title: 'Engine Configuration',
@@ -40,6 +43,7 @@ const GOD_MODE_STEPS = [
         body: 'Tune the simulation engine: adjust macro-economic baselines, configure materiality matrices, edit archetype profiles, and test the scorecard formula. Changes here affect ALL cohorts.',
         color: '#06b6d4',
         tabHint: 'engine_config',
+        target: '[data-tour="nav-engine_core"]',
     },
     {
         title: 'Pedagogical Scaffolding',
@@ -47,6 +51,7 @@ const GOD_MODE_STEPS = [
         body: 'Toggle 11 learning scaffolds: Prediction Gates, Confidence Calibration, Board Room Moments, Case Cards, Strategy Memos, and more. Hover each toggle for a detailed description of its student-facing behaviour.',
         color: '#a855f7',
         tabHint: 'pedagogical_toggles',
+        target: '[data-tour="nav-engine_core"]',
     },
     {
         title: 'Danger Zone',
@@ -54,6 +59,7 @@ const GOD_MODE_STEPS = [
         body: 'Backup & Export creates full system snapshots (JSON/CSV). Import restores from backups. GDPR exports individual player data. Factory Reset requires a typed confirmation phrase and 15-second countdown.',
         color: '#ef4444',
         tabHint: 'backup_export',
+        target: '[data-tour="nav-danger"]',
     },
     {
         title: 'Keyboard Shortcuts',
@@ -61,6 +67,7 @@ const GOD_MODE_STEPS = [
         body: 'Quick navigation: Ctrl+1 through Ctrl+5 opens sidebar categories. Ctrl+B jumps to Session Controls. All scaffolding toggles show descriptions on hover.',
         color: '#22c55e',
         tabHint: null,
+        target: null,
     },
 ];
 
@@ -71,6 +78,7 @@ const FACILITATOR_STEPS = [
         body: 'This dashboard gives you everything you need to run the Muressons simulation for your cohorts. Let\'s take a quick tour of the key areas.',
         color: '#3b82f6',
         tabHint: null,
+        target: null,
     },
     {
         title: 'Command Center',
@@ -78,6 +86,7 @@ const FACILITATOR_STEPS = [
         body: 'Dashboard Home shows your cohort count, player enrollment, and KPI health alerts. The Round Timeline visualises progress across cohorts. The Teleprompter provides round-by-round speaking scripts.',
         color: '#6366f1',
         tabHint: 'dashboard_home',
+        target: '[data-tour="nav-command"]',
     },
     {
         title: 'Live Classroom',
@@ -85,6 +94,7 @@ const FACILITATOR_STEPS = [
         body: 'During live sessions: view the Player Registry, inspect individual sessions with Session Viewer, impersonate any team to see their cockpit, send narrative messages via Swipe File, or broadcast to all teams.',
         color: '#8b5cf6',
         tabHint: 'player_registry',
+        target: '[data-tour="nav-classroom"]',
     },
     {
         title: 'Analytics & Assessment',
@@ -92,6 +102,7 @@ const FACILITATOR_STEPS = [
         body: 'Deep analytics: Decision Heatmaps, Cohort Comparisons, Complexity Feed, and Decision History. Use the Scorecard Sandbox to demonstrate the scoring formula. Export Reports generates CSV/PDF for grading.',
         color: '#06b6d4',
         tabHint: 'decision_heatmap',
+        target: '[data-tour="nav-analytics"]',
     },
     {
         title: 'Configuration',
@@ -99,6 +110,7 @@ const FACILITATOR_STEPS = [
         body: 'Set Auto-Pause triggers to automatically halt rounds at critical thresholds. Use Undo Round to roll back mistakes. The Teaching Journal is your private workspace for notes and annotations.',
         color: '#f59e0b',
         tabHint: 'auto_pause',
+        target: '[data-tour="nav-config"]',
     },
     {
         title: 'Session Context',
@@ -106,6 +118,7 @@ const FACILITATOR_STEPS = [
         body: 'Click any cohort in the Leaderboard to set it as your active session context. This filters Session Viewer, Swipe File, and Manual Overrides to that specific cohort. Your selection persists across page reloads.',
         color: '#22c55e',
         tabHint: 'leaderboard',
+        target: '[data-tour="cohort-selector"]',
     },
     {
         title: 'Notification Bell',
@@ -113,6 +126,7 @@ const FACILITATOR_STEPS = [
         body: 'The bell icon in the sidebar header shows real-time notifications from God Mode: settings changes, pacing overrides, and system freeze events. The badge shows unread count.',
         color: '#ef4444',
         tabHint: null,
+        target: '[data-tour="notification-bell"]',
     },
     {
         title: 'Role Permissions',
@@ -120,6 +134,7 @@ const FACILITATOR_STEPS = [
         body: 'Your available tabs depend on your role. Base Facilitators see core teaching tools. Lead Facilitators unlock Manual Overrides, Materiality Matrix, and Activity Logs. Super Admins have full access.',
         color: '#a855f7',
         tabHint: null,
+        target: '[data-tour="sidebar-nav"]',
     },
 ];
 
@@ -144,6 +159,46 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
             onStepChange(current.tabHint);
         }
     }, [step, visible, steps, onStepChange]);
+
+    // ── Spotlight (July 2026) ─────────────────────────────────────────────
+    // Each step names a DOM target; we measure it and (a) cut a hole in the
+    // dim backdrop over it, (b) ring it, and (c) park the card beside it
+    // rather than dead-centre. Re-measured on resize/scroll and after the
+    // tabHint navigation has had a frame to render. A missing target simply
+    // falls back to the old centred modal — the tour never breaks.
+    const [spot, setSpot] = useState(null);
+
+    useEffect(() => {
+        if (!visible) return undefined;
+        const sel = steps[step]?.target;
+        if (!sel) { setSpot(null); return undefined; }
+
+        let raf = 0;
+        const measure = () => {
+            const el = document.querySelector(sel);
+            if (!el) { setSpot(null); return; }
+            const r = el.getBoundingClientRect();
+            if (r.width === 0 && r.height === 0) { setSpot(null); return; }
+            const pad = 8;
+            setSpot({
+                top: Math.max(0, r.top - pad),
+                left: Math.max(0, r.left - pad),
+                width: r.width + pad * 2,
+                height: r.height + pad * 2,
+            });
+        };
+        // Two frames: the tabHint navigation may expand a sidebar group first.
+        raf = requestAnimationFrame(() => requestAnimationFrame(measure));
+        const t = setTimeout(measure, 260);   // after the CSS expand transition
+        window.addEventListener('resize', measure);
+        window.addEventListener('scroll', measure, true);
+        return () => {
+            cancelAnimationFrame(raf);
+            clearTimeout(t);
+            window.removeEventListener('resize', measure);
+            window.removeEventListener('scroll', measure, true);
+        };
+    }, [visible, step, steps]);
 
     const handleDismiss = useCallback(() => {
         localStorage.setItem(storageKey, 'true');
@@ -171,15 +226,43 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
     return (
         <div style={{
             position: 'fixed', inset: 0, zIndex: 20000,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            background: 'rgba(0,0,0,0.45)',
-            backdropFilter: 'blur(3px)',
+            display: 'flex',
+            alignItems: spot ? 'flex-start' : 'center',
+            justifyContent: spot ? 'flex-start' : 'center',
+            // With a spotlight the dimming is drawn by the four shade panels
+            // below, so this layer stays transparent and the highlighted
+            // region remains fully legible (no blur over the target).
+            background: spot ? 'transparent' : 'rgba(0,0,0,0.45)',
+            backdropFilter: spot ? 'none' : 'blur(3px)',
             animation: 'fadeIn 0.3s ease',
+            pointerEvents: 'none',
         }}>
+            {/* ── Spotlight: four shades leave the target untouched ── */}
+            {spot && (
+                <>
+                    <div style={{ position: 'fixed', left: 0, top: 0, right: 0, height: spot.top, background: 'rgba(2,6,15,0.72)', pointerEvents: 'auto', transition: 'all 0.3s ease' }} />
+                    <div style={{ position: 'fixed', left: 0, top: spot.top + spot.height, right: 0, bottom: 0, background: 'rgba(2,6,15,0.72)', pointerEvents: 'auto', transition: 'all 0.3s ease' }} />
+                    <div style={{ position: 'fixed', left: 0, top: spot.top, width: spot.left, height: spot.height, background: 'rgba(2,6,15,0.72)', pointerEvents: 'auto', transition: 'all 0.3s ease' }} />
+                    <div style={{ position: 'fixed', left: spot.left + spot.width, top: spot.top, right: 0, height: spot.height, background: 'rgba(2,6,15,0.72)', pointerEvents: 'auto', transition: 'all 0.3s ease' }} />
+                    {/* Ring around the live region */}
+                    <div style={{
+                        position: 'fixed',
+                        top: spot.top, left: spot.left, width: spot.width, height: spot.height,
+                        border: `2px solid ${current.color}`,
+                        borderRadius: 12,
+                        boxShadow: `0 0 0 4px ${current.color}33, 0 0 24px ${current.color}66`,
+                        pointerEvents: 'none',
+                        transition: 'all 0.3s ease',
+                        animation: 'tourPulse 2s ease-in-out infinite',
+                    }} />
+                </>
+            )}
             <style dangerouslySetInnerHTML={{ __html: `
                 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
                 @keyframes slideUp { from { transform: translateY(24px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
                 @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0.3); } 50% { box-shadow: 0 0 0 8px rgba(99,102,241,0); } }
+                @keyframes tourPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.62; } }
+                @media (prefers-reduced-motion: reduce) { [style*="tourPulse"] { animation: none !important; } }
             `}} />
             <div style={{
                 background: 'var(--bg-card, #1e293b)',
@@ -188,6 +271,27 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
                 padding: '0',
                 maxWidth: '480px',
                 width: '90%',
+                pointerEvents: 'auto',
+                // Park the card clear of the highlighted region: to its right
+                // when there is room (the sidebar case), otherwise below it.
+                ...(spot ? (() => {
+                    const vw = typeof window !== 'undefined' ? window.innerWidth : 1440;
+                    const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
+                    const CARD_W = 480, GAP = 24;
+                    const rightRoom = vw - (spot.left + spot.width);
+                    if (rightRoom > CARD_W + GAP) {
+                        return {
+                            position: 'fixed',
+                            left: spot.left + spot.width + GAP,
+                            top: Math.min(Math.max(16, spot.top), Math.max(16, vh - 460)),
+                        };
+                    }
+                    const belowRoom = vh - (spot.top + spot.height);
+                    if (belowRoom > 380) {
+                        return { position: 'fixed', left: Math.min(spot.left, vw - CARD_W - 24), top: spot.top + spot.height + GAP };
+                    }
+                    return { position: 'fixed', left: Math.min(spot.left, vw - CARD_W - 24), top: Math.max(16, spot.top - 400) };
+                })() : {}),
                 boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
                 animation: 'slideUp 0.4s ease',
                 overflow: 'hidden',
