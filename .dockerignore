@@ -6,7 +6,13 @@ __pycache__/
 
 # Git & environment
 .git/
-.env
+# BUG-2026-07-19: a bare `.env` matches ONLY the context root in dockerignore
+# semantics, so `COPY backend/ .` was shipping backend/.env — real local
+# credentials — inside every image. `**/` covers every level, and `.env.*`
+# catches variants like backend/.env.railway (the operator's secrets record).
+**/.env
+**/.env.*
+!.env.railway.example
 
 # Documentation (not needed at runtime — saves ~20MB+)
 *.md

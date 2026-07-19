@@ -148,6 +148,17 @@ def test_seed_files_referenced_by_the_dockerfile_still_ship():
         assert (REPO / s).exists(), f"{s} is expected by the app but missing from the repo"
 
 
+def test_env_files_are_excluded_at_every_level():
+    """A bare `.env` in .dockerignore matches only the CONTEXT ROOT, so
+    `COPY backend/ .` shipped backend/.env — real local credentials — inside
+    every image. The `**/` form covers all levels; `.env.*` catches variants
+    like backend/.env.railway. The example template must still ship-able."""
+    lines = set(_ignore_lines())
+    assert "**/.env" in lines
+    assert "**/.env.*" in lines
+    assert "!.env.railway.example" in lines
+
+
 def test_dockerfile_still_copies_the_seed_directory():
     """If this COPY ever goes away the exclusions above become meaningless and
     the seeds vanish — assert the assumption this whole file rests on."""
