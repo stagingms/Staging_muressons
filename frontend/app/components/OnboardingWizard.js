@@ -10,6 +10,20 @@ import { useState, useEffect, useCallback } from 'react';
  *   mode: 'god_mode' | 'facilitator'
  *   onComplete: called when wizard is dismissed
  *   userId: facilitator/admin ID for localStorage key
+ *   deferred: hold the tour back while another full-screen modal is open
+ *
+ * SLOT: OverlayHost (interrupt).
+ *
+ * Why `deferred` exists (July 2026): the spotlight dims the page with four
+ * shade panels that leave a HOLE over the target, so the highlighted region
+ * stays fully legible. That only works if nothing else paints over the hole.
+ * The forced first-login password modal is a peer at the same z-index
+ * (20000) with its own full-screen rgba(0,0,0,0.6) + blur(4px) backdrop, so
+ * when both mounted the backdrop covered the cutout and every step looked
+ * uniformly dark — the ring was visible, the "transparent" region was not.
+ * Two competing interrupts is the actual defect; raising the tour's z-index
+ * would only have hidden a modal the operator MUST complete first. The tour
+ * is held (not marked seen) until the interrupt clears, then plays in full.
  */
 
 const GOD_MODE_STEPS = [
@@ -138,7 +152,7 @@ const FACILITATOR_STEPS = [
     },
 ];
 
-export default function OnboardingWizard({ mode = 'facilitator', onComplete, userId = '', onStepChange }) {
+export default function OnboardingWizard({ mode = 'facilitator', onComplete, userId = '', onStepChange, deferred = false }) {
     const storageKey = `muressons_onboarding_${mode}_${userId}`;
     const [visible, setVisible] = useState(false);
     const [step, setStep] = useState(0);
@@ -147,9 +161,13 @@ export default function OnboardingWizard({ mode = 'facilitator', onComplete, use
 
     useEffect(() => {
         if (typeof window === 'undefined') return;
+        // `deferred` gates SHOWING, never SEEING: the key is untouched here, so
+        // the tour is owed to the user and plays as soon as the blocking
+        // interrupt is dismissed.
+        if (deferred) { setVisible(false); return; }
         const seen = localStorage.getItem(storageKey);
         if (!seen) setVisible(true);
-    }, [storageKey]);
+    }, [storageKey, deferred]);
 
     // Navigate the parent dashboard to the relevant tab when step changes
     useEffect(() => {

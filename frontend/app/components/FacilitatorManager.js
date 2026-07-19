@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic';
 import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META, resolveVerticalMeta } from '../lib/verticalCatalog';
 
 const CreateCohortModal = dynamic(() => import('./CreateCohortModal'), { ssr: false });
+const BulkPlayerUpload = dynamic(() => import('./BulkPlayerUpload'), { ssr: false });
 const FacilitatorVisibilityEditor = dynamic(() => import('./FacilitatorVisibilityEditor'), { ssr: false });
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -178,6 +179,8 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     const [bulkUploading, setBulkUploading] = useState(false);
     const [isDragOver, setIsDragOver] = useState(false);
     const fileInputRef = useRef(null);
+    // Master provisioning workbook (facilitators + cohorts + players)
+    const [showMasterUpload, setShowMasterUpload] = useState(false);
 
     // Table state
     const [search, setSearch] = useState('');
@@ -1890,6 +1893,24 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 </button>
             </div>
 
+            {/* ── Master provisioning ──────────────────────────────────────
+                This sheet creates facilitators ONLY. Provisioning a whole
+                programme in one pass — facilitators, their cohorts, and the
+                players in them — is a different workbook with a different
+                contract (all-or-nothing across three linked sheets), so it is
+                a distinct action rather than an extra column here. */}
+            <div className={styles.bulkFormatBox} style={{ marginTop: '0.9rem' }}>
+                <h5 className={styles.bulkFormatTitle}>Provisioning a whole programme?</h5>
+                <p className={styles.bulkFormatHint}>
+                    The master workbook creates <strong>facilitators, cohorts and players</strong> together
+                    from one file, linked by your own reference keys. Unlike this sheet, it is
+                    strictly all-or-nothing: if any row fails validation, nothing at all is created.
+                </p>
+                <button className={styles.bulkDownloadBtn} onClick={() => setShowMasterUpload(true)}>
+                    🏛️ Open Master Provisioning Upload
+                </button>
+            </div>
+
             {/* Dropzone */}
             <div
                 className={`${styles.dropzone} ${isDragOver ? styles.dropzoneActive : ''}`}
@@ -3009,6 +3030,15 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 <FacilitatorVisibilityEditor
                     facilitator={visibilityFac}
                     onClose={() => setVisibilityFac(null)}
+                />
+            )}
+
+            {/* ── Master provisioning workbook ─────────────────────── */}
+            {showMasterUpload && (
+                <BulkPlayerUpload
+                    mode="master"
+                    onClose={() => setShowMasterUpload(false)}
+                    onDone={() => fetchFacilitators?.()}
                 />
             )}
         </section>

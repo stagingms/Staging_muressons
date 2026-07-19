@@ -1293,8 +1293,18 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                 />
             )}
 
-            {/* ── Onboarding Wizard (first-time only) ── */}
-            <OnboardingWizard mode="facilitator" userId={authData.facilitator_id} onStepChange={(tab) => setActiveTab(tab)} />
+            {/* ── Onboarding Wizard (first-time only) ──
+                Deferred while either password modal is up. Both are peers of
+                the tour at z-index 20000 and paint a full-screen dim backdrop,
+                which covers the spotlight cutout and makes the highlighted
+                region look dimmed rather than transparent. The forced modal
+                also has to be completed first, so the tour waits its turn. */}
+            <OnboardingWizard
+                mode="facilitator"
+                userId={authData.facilitator_id}
+                onStepChange={(tab) => setActiveTab(tab)}
+                deferred={showChangePw || !!authData?.must_change_password}
+            />
 
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>

@@ -435,6 +435,7 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "quiz_max_attempts",
     "team_count",
     "max_team_size",
+    "max_players",   # per-cohort roster cap, clamped to player_capacity.MAX_PLAYERS_CEILING
     "join_method",
     "join_code",
     # MEDIUM-tier cohort controls
@@ -482,6 +483,12 @@ def normalize_advanced_cohort_settings(body: dict) -> dict:
     _as_int("quiz_max_attempts", 1, 20, 1)
     _as_int("team_count", 0, 500, 0)
     _as_int("max_team_size", 0, 100, 0)
+
+    # Roster cap: clamped on the way IN as well as at every read, so a value
+    # above the ceiling can never be persisted in the first place.
+    if "max_players" in out:
+        from player_capacity import clamp_max_players
+        out["max_players"] = clamp_max_players(out["max_players"])
 
     for key in ("redact_peer_identities", "quiz_enabled", "quiz_graded"):
         if key in out:

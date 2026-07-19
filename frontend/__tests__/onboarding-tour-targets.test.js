@@ -55,6 +55,28 @@ describe('onboarding tour targets', () => {
     expect(godMode).toContain('data-tour={`nav-${group.id}`}');
   });
 
+  test('both dashboards defer the tour while a password modal is open', () => {
+    // The spotlight works by leaving a HOLE in four shade panels, so anything
+    // painting a full-screen backdrop above it destroys the effect: every step
+    // renders uniformly dim and the "highlighted" region is not transparent.
+    // The password modals are z-index peers (20000) with exactly such a
+    // backdrop, so each call site must pass `deferred`.
+    for (const [name, src] of [['facilitator', facilitator], ['god-mode', godMode]]) {
+      const call = src.slice(src.indexOf('<OnboardingWizard'));
+      expect([name, /deferred=\{/.test(call.slice(0, call.indexOf('/>')))]).toEqual([name, true]);
+    }
+  });
+
+  test('deferring hides the tour without consuming its localStorage key', () => {
+    // A deferred tour is owed to the user; if `deferred` short-circuited after
+    // the key was written the operator would silently never see the tour.
+    const effect = wizard.slice(wizard.indexOf('const seen = localStorage.getItem'));
+    const guard = wizard.indexOf('if (deferred)');
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(wizard.indexOf('const seen = localStorage.getItem'));
+    expect(effect.slice(0, effect.indexOf('}'))).not.toContain('setItem');
+  });
+
   test('each tour step declares a target key (null is explicit, not omitted)', () => {
     // Steps intentionally without a spotlight must say `target: null` so an
     // omission reads as an oversight rather than a deliberate full-screen step.

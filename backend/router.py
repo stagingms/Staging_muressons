@@ -3658,6 +3658,12 @@ async def change_password(body: ChangePasswordRequest):
     player["password"] = _hash_pw(body.new_password.strip())
     # Clear the forced-change flag now that the player has set a personal password
     player["must_change_password"] = False
+    # The facilitator-visible temp credential dies HERE. It is retained only
+    # while it is still the live password (so the facilitator can read it out
+    # in class); the moment the player owns their password, staff must not be
+    # able to recover it. See player_capacity.py's sibling policy note in
+    # admin_router._roster_projection.
+    player.pop("plaintext_password", None)
 
     # Persist the cleared flag to session metadata so it survives server restarts
     try:
@@ -3670,6 +3676,7 @@ async def change_password(body: ChangePasswordRequest):
                     if rp.get("player_id") == body.player_id:
                         rp["must_change_password"] = False
                         rp["password"] = player["password"]
+                        rp.pop("plaintext_password", None)
                         break
                 _db._persist()
     except Exception:

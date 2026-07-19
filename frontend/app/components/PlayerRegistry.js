@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './PlayerRegistry.module.css';
 import { getShortCode } from '../utils/sessionUtils';
 import CohortSummaryTooltip from './CohortSummaryTooltip';
+import BulkPlayerUpload from './BulkPlayerUpload';
 import { resolveVerticalMeta } from '../lib/verticalCatalog';
 
 const ADJECTIVES = ["blue", "swift", "brave", "quiet", "lucky", "bold", "calm", "proud", "wild", "smart"];
@@ -30,6 +31,8 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
     // Password reset toast
     const [resetToast, setResetToast] = useState(null); // { playerId, password }
     const resetToastTimerRef = useRef(null);
+    // Bulk upload dialog — { sessionId, cohortName } | null
+    const [bulkFor, setBulkFor] = useState(null);
 
     const copyToClipboard = (text) => {
         if (navigator.clipboard?.writeText) {
@@ -91,10 +94,18 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
             // Build from registered_players (plaintext_password is set by the server on generate-player)
             regPlayers.forEach(rp => {
                 if (rp.player_id && !creds.some(c => c.player_id === rp.player_id)) {
-                    // QA-2026-07-16 #11: temp passwords are now RANDOM per user (no shared
-                    // default). plaintext_password is shown once at generation; if it is not
-                    // available (e.g. an older entry), the facilitator resets to reveal a new one.
-                    creds.push({ player_id: rp.player_id, password: rp.plaintext_password || '', pending: !!rp.must_change_password });
+                    // July 2026: the server now sends `temp_password` on every roster
+                    // read, for as long as the credential is still the live one, so
+                    // the facilitator can read it out at any point during setup.
+                    // It goes empty the moment the player sets a personal password —
+                    // that is a "player owns their password now" state, NOT a
+                    // "reset to reveal" prompt. `plaintext_password` is read as a
+                    // fallback so an older backend still populates the row.
+                    creds.push({
+                        player_id: rp.player_id,
+                        password: rp.temp_password || rp.plaintext_password || '',
+                        pending: !!rp.must_change_password,
+                    });
                 }
             });
             // Also include allowed_player_ids that aren't in registered_players
@@ -437,7 +448,11 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                     {isPublic ? '🌍 Publicly Joinable' : '🔒 Private / Hidden'}
                                                 </span>
                                             </label>
-                                            <span className={styles.playerCount}>{sessionPlayers.length}/10 Inducted</span>
+                                            {/* Denominator is the cohort's configured cap, not a
+                                                literal — a cohort set to 12 must not read "/20". */}
+                                            <span className={styles.playerCount}>
+                                                {sessionPlayers.length}/{session.max_players || 20} Inducted
+                                            </span>
                                         </div>
                                     </div>
 
@@ -448,6 +463,16 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                 onClick={() => handleGenerateId(session.session_id)}
                                             >
                                                 + Generate Player ID
+                                            </button>
+                                            <button
+                                                className={styles.inductBtn}
+                                                onClick={() => setBulkFor({
+                                                    sessionId: session.session_id,
+                                                    cohortName: session.cohort_name,
+                                                })}
+                                                title="Create many players at once from an Excel file"
+                                            >
+                                                📥 Bulk Upload
                                             </button>
                                             {/* ✏️ Edit Cohort — lead_facilitator / super_admin, zero players, pre-game only */}
                                             {isLeadOrAdmin && (!session.round_number || session.round_number <= 1) && (allowedIds.length === 0) && onEditCohort && (
@@ -518,7 +543,8 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                             border: '1px solid rgba(245,158,11,0.25)',
                                                             whiteSpace: 'nowrap',
                                                         }}>
-                                                            🔑 {cred.password || '— (reset to reveal)'}
+                                                            🔑 {cred.password
+                                                                || (cred.pending ? '— (reset to reveal)' : '— (player has set their own)')}
                                                         </span>
                                                         {cred.pending && (
                                                             <span style={{
@@ -628,6 +654,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                 <tr>
                                                     <th>Name / Call Sign</th>
                                                     <th>Player ID</th>
+                                                    <th>Programme</th>
                                                     <th>Assigned BU</th>
                                                     <th style={{ textAlign: 'right' }}>Joined At</th>
                                                     <th style={{ textAlign: 'center', minWidth: '120px' }}>Actions</th>
@@ -647,6 +674,11 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                             }}>
                                                                 {p.player_id}
                                                             </span>
+                                                        </td>
+                                                        {/* Programme is optional by design — an open-enrolment
+                                                            cohort has none, so an em-dash is a valid state. */}
+                                                        <td style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                                                            {p.programme || '—'}
                                                         </td>
                                                         <td>
                                                             {(() => {
@@ -751,6 +783,40 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                 session={hoveredSession}
                 anchorRect={hoverAnchorRect}
                 visible={!!hoveredSession}
+            />
+        )}
+        {/* Bulk player upload — OverlayHost slot, summoned from the cohort header */}
+        {bulkFor && (
+            <BulkPlayerUpload
+                mode="cohort"
+                sessionId={bulkFor.sessionId}
+                cohortName={bulkFor.cohortName}
+                onClose={() => setBulkFor(null)}
+                onDone={(payload) => {
+                    // Surface the new credentials immediately rather than waiting
+                    // for the next leaderboard poll — the facilitator is usually
+                    // distributing them in the room right now.
+                    const sid = bulkFor.sessionId;
+                    setGeneratedCreds(prev => ({
+                        ...prev,
+                        [sid]: [
+                            ...(prev[sid] || []),
+                            ...(payload.created || []).map(c => ({
+                                player_id: c.player_id,
+                                password: c.temp_password,
+                                pending: true,
+                            })),
+                        ],
+                    }));
+                    setSessions(prev => prev.map(s => s.session_id === sid ? {
+                        ...s,
+                        allowed_player_ids: [
+                            ...(s.allowed_player_ids || []),
+                            ...(payload.created || []).map(c => c.player_id),
+                        ],
+                    } : s));
+                    fetchPlayers();
+                }}
             />
         )}
     </>

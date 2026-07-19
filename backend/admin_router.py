@@ -270,6 +270,9 @@ from admin_shared import (
     # Shared marketplace (used by cascade delete cleanup)
     _cohort_marketplaces,
 )
+from player_capacity import (
+    MAX_PLAYERS_CEILING, DEFAULT_MAX_PLAYERS, resolve_max_players, capacity_error,
+)
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin \u2014 God Mode"])
 
@@ -1984,6 +1987,381 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
         "credential_note": "All facilitators start with the default password Muressons123 and must change it on first login.",
     }
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  BULK PLAYER PROVISIONING
+#
+#  Two entry points, deliberately on different guards (CLAUDE.md §Role model):
+#
+#    * /{session_id}/players/bulk-*  operates on a LIVE RUN's roster, so it
+#      gates on require_sim_manager — project_admin must not touch a running
+#      cohort's players.
+#    * /provisioning/master-*        is provisioning, which is exactly what
+#      project_admin exists to do, so it gates on require_facilitator.
+#
+#  Both are all-or-nothing: PREVIEW is a separate route rather than a
+#  `dry_run` flag, so an older backend answers 404 and the frontend degrades
+#  instead of accidentally committing an unreviewed file.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _xlsx_response(build_fn, filename: str):
+    """Build a template into a temp file and stream it back."""
+    import tempfile, pathlib
+    from io import BytesIO
+    from fastapi.responses import StreamingResponse
+    tmp = pathlib.Path(tempfile.mkdtemp()) / filename
+    build_fn(tmp)
+    buf = BytesIO(tmp.read_bytes())
+    try:
+        tmp.unlink()
+        tmp.parent.rmdir()
+    except OSError:
+        pass
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+async def _remaining_capacity(session_id: str) -> tuple[int, int, int]:
+    """(limit, used, remaining) for a cohort. Counts registered_players, which
+    is the durable roster the generate-player path also counts."""
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(404, "Session not found.")
+    limit = resolve_max_players(get_effective_settings(session_id))
+    used = len(sess.get("registered_players", []) or [])
+    return limit, used, max(0, limit - used)
+
+
+@admin_router.get("/players/bulk-template", summary="Download the single-cohort player roster template")
+async def players_bulk_template(_guard: None = Depends(require_sim_manager)):
+    from player_bulk_excel import build_player_template
+    return _xlsx_response(build_player_template, "muressons_player_roster_template.xlsx")
+
+
+@admin_router.post("/{session_id}/players/bulk-preview", summary="Parse a player roster WITHOUT creating anything")
+async def players_bulk_preview(session_id: str, request: Request, file: UploadFile = File(...),
+                               _guard: None = Depends(require_sim_manager)):
+    from player_bulk_excel import parse_player_sheet, BulkPlayerError
+    await _assert_session_ownership(request, session_id)
+    limit, used, remaining = await _remaining_capacity(session_id)
+    raw = await file.read()
+    try:
+        players = parse_player_sheet(raw, limit=remaining)
+    except BulkPlayerError as exc:
+        return {"ok": False, "errors": exc.errors, "message": str(exc),
+                "limit": limit, "used": used, "remaining": remaining, "players": []}
+    return {"ok": True, "errors": [], "players": players, "total": len(players),
+            "limit": limit, "used": used, "remaining": remaining,
+            "note": "Nothing was created. POST the same file to bulk-upload to create these players."}
+
+
+@admin_router.post("/{session_id}/players/bulk-upload", summary="Create up to 20 players in one cohort from Excel")
+async def players_bulk_upload(session_id: str, request: Request, file: UploadFile = File(...),
+                              _guard: None = Depends(require_sim_manager)):
+    """All-or-nothing: the sheet is fully validated (including capacity) before
+    the first player is created, so a rejected file leaves the roster untouched."""
+    from player_bulk_excel import parse_player_sheet, BulkPlayerError
+    await _assert_session_ownership(request, session_id)
+    limit, used, remaining = await _remaining_capacity(session_id)
+    raw = await file.read()
+    try:
+        parsed = parse_player_sheet(raw, limit=remaining)
+    except BulkPlayerError as exc:
+        raise HTTPException(400, {"message": str(exc), "errors": exc.errors})
+
+    created = await _create_players_bulk(session_id, parsed)
+    _audit("players_bulk_upload", details={
+        "session_id": session_id, "created": len(created), "filename": file.filename,
+    })
+    return {"status": "success", "created": created, "total_created": len(created),
+            "limit": limit, "used": used + len(created),
+            "credential_note": "Each player has a random temporary password, "
+                               "visible in the Player Registry until they change it."}
+
+
+async def _create_players_bulk(session_id: str, parsed: list[dict]) -> list[dict]:
+    """Create the parsed rows against one cohort. Callers validate FIRST.
+
+    Mirrors induct_player's record shape exactly rather than calling it: that
+    endpoint is a FastAPI handler with its own guard and its own duplicate-name
+    check against _player_registry, and re-entering it per row would re-run the
+    capacity check with a stale count. The shared shape is the contract; the
+    tripwire test asserts the two stay in step.
+    """
+    global _next_player_id
+    sess = await db.get_session_info(session_id)
+    cohort_name = (sess or {}).get("cohort_name", "")
+    allowed = list((sess or {}).get("allowed_player_ids", []) or [])
+    registered = list((sess or {}).get("registered_players", []) or [])
+
+    created = []
+    for rec in parsed:
+        pid = f"MUR-{_next_player_id:03d}"
+        _next_player_id += 1
+        plaintext, hashed = _generate_temp_password()
+        player = {
+            "player_id": pid,
+            "name": rec["name"],
+            "email": rec["email"],
+            "programme": rec["programme"],
+            "assigned_bu": rec["assigned_bu"],
+            "region_id": rec["region_id"],
+            "session_id": session_id,
+            "cohort_name": cohort_name,
+            "password": hashed,
+            "plaintext_password": plaintext,   # revealable until first change
+            "must_change_password": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "playing",
+        }
+        _player_registry.append(player)
+        if pid not in allowed:
+            allowed.append(pid)
+        registered.append(player.copy())
+        created.append({"player_id": pid, "name": rec["name"], "email": rec["email"],
+                        "programme": rec["programme"], "temp_password": plaintext})
+
+    # ONE durable write for the whole batch, not one per player: twenty
+    # sequential update_session_metadata round-trips against Postgres is the
+    # kind of thing that times out a Railway request.
+    await db.update_session_metadata(session_id, {
+        "allowed_player_ids": allowed,
+        "registered_players": registered,
+    })
+    return created
+
+
+@admin_router.get("/provisioning/master-template", summary="Download the facilitators+cohorts+players master template")
+async def provisioning_master_template(_guard: None = Depends(require_facilitator)):
+    from player_bulk_excel import build_master_template
+    return _xlsx_response(build_master_template, "muressons_master_provisioning_template.xlsx")
+
+
+def _resolve_master_refs(request: Request, parsed: dict) -> list[dict]:
+    """Cross-check refs that point OUTSIDE the workbook, and scope roles.
+
+    Returns the error list (empty when clean). Kept separate from parsing
+    because it needs server state (the facilitator registry, the caller's role)
+    that the pure Excel parser must not depend on.
+    """
+    errors: list[dict] = []
+    grantable = assignable_roles_for(get_fac_role(request))
+    known_ids = {f.get("facilitator_id", "").lower() for f in _facilitator_registry}
+    new_refs = {f["ref"].strip().lower() for f in parsed["facilitators"]}
+
+    for f in parsed["facilitators"]:
+        if f["role"] not in grantable:
+            # Downgrade rather than reject: the roster is still valid and the
+            # operator is TOLD, which beats failing a 300-row import over a
+            # role the uploader was never allowed to grant anyway.
+            f["role_requested"] = f["role"]
+            f["role"] = "facilitator"
+
+    for c in parsed["cohorts"]:
+        key = c["facilitator_ref"].strip().lower()
+        if key in new_refs:
+            continue
+        if key in known_ids:
+            c["facilitator_is_new"] = False
+            continue
+        errors.append({
+            "sheet": "Cohorts", "row": c["row"],
+            "error": (f"facilitator_ref '{c['facilitator_ref']}' is neither a ref on the "
+                      f"Facilitators sheet nor an existing facilitator id"),
+        })
+    return errors
+
+
+@admin_router.post("/provisioning/master-preview", summary="Parse the master workbook WITHOUT creating anything")
+async def provisioning_master_preview(request: Request, file: UploadFile = File(...),
+                                      _guard: None = Depends(require_facilitator)):
+    from player_bulk_excel import parse_master_workbook, BulkPlayerError
+    raw = await file.read()
+    try:
+        parsed = parse_master_workbook(raw)
+    except BulkPlayerError as exc:
+        return {"ok": False, "errors": exc.errors, "message": str(exc)}
+    errors = _resolve_master_refs(request, parsed)
+    if errors:
+        return {"ok": False, "errors": errors,
+                "message": f"{len(errors)} error(s) — nothing was created."}
+    downgraded = [f for f in parsed["facilitators"] if f.get("role_requested")]
+    return {
+        "ok": True, "errors": [],
+        "facilitators": parsed["facilitators"],
+        "cohorts": parsed["cohorts"],
+        "players": parsed["players"],
+        "totals": {
+            "facilitators": len(parsed["facilitators"]),
+            "cohorts": len(parsed["cohorts"]),
+            "players": len(parsed["players"]),
+        },
+        "warnings": [
+            f"{f['name']}: requested role '{f['role_requested']}' is above your tier — "
+            f"will be created as 'facilitator'." for f in downgraded
+        ],
+        "note": "Nothing was created. POST the same file to master-upload to commit.",
+    }
+
+
+@admin_router.post("/provisioning/master-upload", summary="Create facilitators, cohorts and players from one workbook")
+async def provisioning_master_upload(request: Request, file: UploadFile = File(...),
+                                     _guard: None = Depends(require_facilitator)):
+    """All-or-nothing across all three sheets.
+
+    Validation is total BEFORE the first write. Once writing begins the three
+    creates are ordered (facilitators → cohorts → players) so a later step can
+    always cite an earlier one; if a create nonetheless fails mid-way, the
+    partial work is rolled back in reverse order and a 500 is raised naming the
+    step, because leaving half a programme provisioned is the failure mode this
+    contract exists to prevent.
+    """
+    import re as _re
+    from player_bulk_excel import parse_master_workbook, BulkPlayerError
+
+    raw = await file.read()
+    try:
+        parsed = parse_master_workbook(raw)
+    except BulkPlayerError as exc:
+        raise HTTPException(400, {"message": str(exc), "errors": exc.errors})
+    ref_errors = _resolve_master_refs(request, parsed)
+    if ref_errors:
+        raise HTTPException(400, {
+            "message": f"{len(ref_errors)} error(s) — nothing was created.",
+            "errors": ref_errors,
+        })
+
+    made_facs: list[str] = []
+    made_sessions: list[str] = []
+    fac_by_ref: dict[str, str] = {}
+
+    try:
+        # ── 1. Facilitators ────────────────────────────────────────────────
+        _plain, _hash = _generate_temp_password()
+        async with _fac_registry_lock:
+            max_id = 0
+            for f in _facilitator_registry:
+                m = _re.search(r"\d+", f.get("facilitator_id", ""))
+                if m:
+                    try:
+                        max_id = max(max_id, int(m.group()))
+                    except ValueError:
+                        pass
+            for rec in parsed["facilitators"]:
+                max_id += 1
+                fid = f"FAC-{max_id:03d}"
+                _facilitator_registry.append({
+                    "facilitator_id": fid,
+                    "name": rec["name"],
+                    "email": rec["email"],
+                    "contact_number": rec["contact_number"],
+                    "programme": rec["programme"],
+                    "password": _hash,
+                    "must_change_password": True,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "max_cohorts": rec["max_cohorts"],
+                    "cohorts_created": 0,
+                    "role": rec["role"],
+                    "is_admin": is_admin_role(rec["role"]),
+                    "enabled": True,
+                    "bu_substitutions": {},
+                    "permissions": {},
+                    "created_by": "master_upload",
+                    "date_created": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
+                })
+                fac_by_ref[rec["ref"].strip().lower()] = fid
+                made_facs.append(fid)
+                rec["facilitator_id"] = fid
+                rec["one_time_password"] = _plain
+            _persist_facilitators()
+
+        # ── 2. Cohorts ─────────────────────────────────────────────────────
+        for rec in parsed["cohorts"]:
+            key = rec["facilitator_ref"].strip().lower()
+            fid = fac_by_ref.get(key)
+            if not fid:
+                fid = next((f["facilitator_id"] for f in _facilitator_registry
+                            if f.get("facilitator_id", "").lower() == key), None)
+            if not fid:
+                raise HTTPException(400, f"Unresolved facilitator_ref '{rec['facilitator_ref']}'")
+            result = await db.create_session(
+                rec["cohort_name"], fid,
+                decision_paradigm=rec["decision_paradigm"],
+                simulation_mode=rec["simulation_mode"],
+                industry_vertical=rec["industry_vertical"] or None,
+                region_id=rec["region_id"] or None,
+                created_by="master_upload",
+            )
+            sid = str(result["session_id"])
+            rec["session_id"] = sid
+            made_sessions.append(sid)
+            # Per-cohort roster cap lands in the cohort override layer, which is
+            # what resolve_max_players reads at both enforcement sites.
+            cohort_settings.setdefault(sid, {})["max_players"] = rec["max_players"]
+            mark_godmode_dirty()
+
+        # ── 3. Players ─────────────────────────────────────────────────────
+        by_cohort: dict[str, list[dict]] = {}
+        for p in parsed["players"]:
+            by_cohort.setdefault(p["cohort_ref"].strip().lower(), []).append(p)
+        sid_by_ref = {c["ref"].strip().lower(): c["session_id"] for c in parsed["cohorts"]}
+        players_created = []
+        for cref, group in by_cohort.items():
+            players_created.extend(await _create_players_bulk(sid_by_ref[cref], group))
+
+    except HTTPException:
+        await _rollback_master_upload(made_facs, made_sessions)
+        raise
+    except Exception as exc:
+        await _rollback_master_upload(made_facs, made_sessions)
+        raise HTTPException(500, f"Master upload failed and was rolled back: {exc}")
+
+    _audit("provisioning_master_upload", details={
+        "facilitators": len(made_facs), "cohorts": len(made_sessions),
+        "players": len(players_created), "filename": file.filename,
+    })
+    return {
+        "status": "success",
+        "facilitators": [{"facilitator_id": f["facilitator_id"], "name": f["name"],
+                          "role": f["role"], "one_time_password": f.get("one_time_password", "")}
+                         for f in parsed["facilitators"]],
+        "cohorts": [{"session_id": c["session_id"], "cohort_name": c["cohort_name"],
+                     "max_players": c["max_players"], "player_count": c.get("player_count", 0)}
+                    for c in parsed["cohorts"]],
+        "players": players_created,
+        "totals": {"facilitators": len(made_facs), "cohorts": len(made_sessions),
+                   "players": len(players_created)},
+        "credential_note": "Facilitators share one temporary password (shown once) and must "
+                           "change it on first login. Player temp passwords are per-player and "
+                           "visible in the Player Registry until changed.",
+    }
+
+
+async def _rollback_master_upload(fac_ids: list[str], session_ids: list[str]) -> None:
+    """Undo a partially-applied master upload, newest first.
+
+    Best-effort by necessity — if the rollback itself fails there is nothing
+    further to try — but every failure is LOGGED with the ids that survived, so
+    an operator can finish the cleanup by hand instead of discovering the
+    orphans weeks later.
+    """
+    for sid in reversed(session_ids):
+        try:
+            await db.delete_session(sid)
+            cohort_settings.pop(sid, None)
+        except Exception:
+            _ar_log.error("master-upload rollback: could not delete session %s", sid)
+    if fac_ids:
+        try:
+            keep = [f for f in _facilitator_registry if f.get("facilitator_id") not in set(fac_ids)]
+            _facilitator_registry[:] = keep
+            _persist_facilitators()
+        except Exception:
+            _ar_log.error("master-upload rollback: facilitators left behind: %s", fac_ids)
+
+
 @admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
 async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, request: Request, _guard: None = Depends(require_super_admin)):
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
@@ -2765,6 +3143,7 @@ class PlayerInductRequest(BaseModel):
     session_id: str = Field(..., max_length=100)
     assigned_bu: str = Field(..., max_length=100)
     region_id: str = Field("", max_length=50)  # NEW — geographic region for single-BU localisation
+    programme: str = Field("", max_length=200)  # OPTIONAL cohort/programme label (e.g. "MBA 2026")
 
 class MasterOverride(BaseModel):
     id: str
@@ -3750,13 +4129,11 @@ _NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "ha
 async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_sim_manager)):
     global _next_player_id
 
-    # Enforce the 10-player-per-cohort cap
+    # Enforce the per-cohort roster cap (was a hardcoded 10; see player_capacity).
+    _limit = resolve_max_players(get_effective_settings(req.session_id))
     existing_in_cohort = [p for p in _player_registry if p.get("session_id") == req.session_id]
-    if len(existing_in_cohort) >= 10:
-        raise HTTPException(
-            status_code=400,
-            detail="Cohort has reached the maximum of 10 players."
-        )
+    if len(existing_in_cohort) >= _limit:
+        raise HTTPException(status_code=400, detail=capacity_error(_limit))
 
     # Check for duplicate name within the same cohort
     existing_names = [
@@ -3792,11 +4169,14 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
         "player_id": generated_id,
         "name": req.name,
         "email": req.email,
+        "programme": getattr(req, "programme", "") or "",
         "assigned_bu": req.assigned_bu,
         "region_id": req.region_id,
         "session_id": req.session_id,
         "cohort_name": _cohort_name,
         "password": generated_password_hash,  # L-4: store bcrypt hash, never plaintext
+        # Retained ONLY while must_change_password is true (see _roster_projection).
+        "plaintext_password": generated_password,
         "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "playing",
@@ -4108,6 +4488,7 @@ async def reset_player_password(player_id: str, _guard: None = Depends(require_s
     new_plaintext, new_hash = _generate_temp_password()
     player["password"] = new_hash
     player["must_change_password"] = True
+    player["plaintext_password"] = new_plaintext  # revealable until the player changes it
 
     # QA-2026-07-16 #4: write the new hash DURABLY through the db interface for
     # every session whose registered_players names this player. The old path
@@ -4340,6 +4721,9 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
             # tool list only the cohorts a super admin enabled, without a
             # per-session settings round-trip.
             _e.setdefault("custom_black_swan_enabled", bool(_eff.get("custom_black_swan_enabled", False)))
+            # Roster cap, so the registry badge reads "n/12" for a cohort
+            # configured to 12 rather than a hardcoded denominator.
+            _e.setdefault("max_players", resolve_max_players(_eff))
         except Exception:
             pass
         enriched.append(_e)
@@ -4354,13 +4738,14 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
     summary="Generate a new allowed player ID and password",
 )
 async def generate_player_id(session_id: str, _guard: None = Depends(require_sim_manager)):
-    # Enforce the 10-player-per-cohort cap at ID generation time
+    # Enforce the per-cohort roster cap at ID generation time (see player_capacity).
     sess_check = await db.get_session_info(session_id)
     if not sess_check:
         raise HTTPException(status_code=404, detail="Session not found.")
+    _limit = resolve_max_players(get_effective_settings(session_id))
     existing_count = len(sess_check.get("registered_players", []))
-    if existing_count >= 10:
-        raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 10 players.")
+    if existing_count >= _limit:
+        raise HTTPException(status_code=400, detail=capacity_error(_limit))
 
     player_id = await db.generate_player_id(session_id)
     if not player_id:
@@ -4374,9 +4759,13 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
         "player_id": player_id,
         "name": "",
         "email": "",
+        "programme": "",
         "assigned_bu": "",
         "session_id": session_id,
         "password": hash_password(generated_password),  # L-4: store bcrypt hash
+        # Retained ONLY while must_change_password is true; router.change_password
+        # deletes it the moment the player sets a personal password.
+        "plaintext_password": generated_password,
         "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "id_generated",
@@ -4401,6 +4790,39 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
 
     # Return plaintext password once for admin to distribute — hash is stored
     return {"status": "success", "player_id": player_id, "password": generated_password}
+
+
+#  Roster projection — the ONLY shape in which registered_players leaves the
+#  server. registered_players carries the bcrypt hash; shipping the raw list to
+#  a browser would leak every hash in the cohort to anyone with the facilitator
+#  dashboard open, so the whitelist below is deliberately explicit (an
+#  allow-list, not a `del entry["password"]` deny-list — a future field added to
+#  the player record must be opted IN, not remembered about).
+#
+#  `temp_password` is the plaintext temporary credential, surfaced only while
+#  must_change_password is still true. Policy (owner decision, July 2026): the
+#  facilitator must be able to read a player's starting password aloud at any
+#  point during setup — "reset to reveal" forced them to invalidate a
+#  credential they had already distributed. The instant the player sets their
+#  own password the plaintext is deleted at the source (router.change_password)
+#  and this projection has nothing left to show.
+_ROSTER_PUBLIC_FIELDS = (
+    "player_id", "name", "email", "programme", "assigned_bu",
+    "region_id", "created_at", "status",
+)
+
+
+def _roster_projection(registered: list | None) -> list[dict]:
+    out = []
+    for rp in (registered or []):
+        if not isinstance(rp, dict):
+            continue
+        entry = {k: rp.get(k, "") for k in _ROSTER_PUBLIC_FIELDS}
+        pending = bool(rp.get("must_change_password", False))
+        entry["must_change_password"] = pending
+        entry["temp_password"] = rp.get("plaintext_password", "") if pending else ""
+        out.append(entry)
+    return out
 
 
 @admin_router.get(
@@ -4554,6 +4976,13 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             "simulation_mode": sess.get("simulation_mode", "conglomerate"),
             "industry_vertical": sess.get("industry_vertical", ""),
             "region_id": sess.get("region_id", ""),
+            # Roster + capacity. These were ABSENT from this payload while the
+            # Player Registry component read them off it, so every credential
+            # rebuilt from the server showed blank and the facilitator's only
+            # recourse was "reset to reveal".
+            "registered_players": _roster_projection(sess.get("registered_players")),
+            "allowed_player_ids": list(sess.get("allowed_player_ids", []) or []),
+            "max_players": resolve_max_players(get_effective_settings(sid)),
             # P5: labelled, non-authoritative turnaround annotation (canonical
             # R10 result stays the leaderboard figure).
             "turnaround": __import__("turnaround_engine").leaderboard_annotation(gs),

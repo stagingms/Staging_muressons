@@ -783,7 +783,15 @@ function GodModeDashboard({ authData, onLogout, onSessionExpired }) {
             )}
 
             {/* ── Onboarding Wizard (first-time only) ── */}
-            <OnboardingWizard mode="god_mode" userId={authData.facilitator_id} onStepChange={(tab) => setActiveTab(tab)} />
+            {/* Deferred while the password modal is up — its full-screen
+                backdrop is a z-index peer and would paint over the tour's
+                spotlight cutout. See OnboardingWizard header. */}
+            <OnboardingWizard
+                mode="god_mode"
+                userId={authData.facilitator_id}
+                onStepChange={(tab) => setActiveTab(tab)}
+                deferred={showChangePw}
+            />
 
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>
