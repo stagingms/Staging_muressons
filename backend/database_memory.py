@@ -578,6 +578,12 @@ async def create_session(
             **gs.get("active_event_flags", {}),
             "loan_interest_rate": loan_interest_rate,
             "ending_pathway": ending_pathway,
+            # Industry + region are declared at cohort setup and live on the
+            # session record, but the engine only ever sees global_state. Seed
+            # them here so stakeholder_map can resolve industry x region
+            # stakeholder maps; empty strings are ignored by the resolver.
+            "industry_vertical": industry_vertical or "",
+            "region_id": region_id or "",
         },
         "bonus_score": 0,
         "historical_ebitda": baseline_ebitda,

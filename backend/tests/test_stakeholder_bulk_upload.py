@@ -63,10 +63,41 @@ def test_resolve_scope_is_lenient_but_exact(vertical, region, expected):
     assert cid == expected
 
 
-def test_both_scopes_on_one_row_is_refused_not_guessed():
+def test_industry_and_region_produce_a_composite_scope():
+    """Changed 2026-07-19: an industry's stakeholder map genuinely differs by
+    market, so naming both is now a COMPOSITE scope rather than an error."""
     cid, err = resolve_scope("Pharma", "Europe")
-    assert cid is None
-    assert "not both" in err
+    assert err is None
+    assert cid == "vertical_pharma__europe"
+
+
+@pytest.mark.parametrize("vertical,region,expected", [
+    ("pharma", "india", "vertical_pharma__south_asia"),
+    ("Chemicals", "Europe", "vertical_chemicals__europe"),
+    ("electronics", "north_america", "vertical_electronics__north_america"),
+    ("Oil & Gas", "🇮🇳 India", "vertical_oil_gas__south_asia"),
+])
+def test_composite_scope_ids(vertical, region, expected):
+    assert resolve_scope(vertical, region) == (expected, None)
+
+
+@pytest.mark.parametrize("sheet,expected", [
+    ("vertical_pharma__south_asia", "vertical_pharma__south_asia"),
+    ("Pharma - India", "vertical_pharma__south_asia"),
+    ("Chemicals - Europe", "vertical_chemicals__europe"),
+])
+def test_composite_sheet_names(sheet, expected):
+    """_norm collapses '__' to '_', so composites are matched by known
+    industry/region pairs rather than by the delimiter."""
+    assert resolve_sheet_scope(sheet) == (expected, None)
+
+
+def test_stakeholder_ids_may_contain_hyphens():
+    """A stakeholder id is a dict key, never a filename — only config_id needs
+    the strict slug rule. Authors must not be forced to rewrite ids like
+    'in-pharma-cdsco'."""
+    path = _form_a([["", "Europe", *_sheet_row("in-pharma-cdsco")]])
+    assert parse_bulk_workbook(path)["europe"][0]["id"] == "in-pharma-cdsco"
 
 
 @pytest.mark.parametrize("vertical,region", [("", "Atlantis"), ("Widgets", "")])
@@ -177,13 +208,13 @@ def test_all_errors_are_reported_together():
     path = _form_a([
         ["", "Atlantis", *_sheet_row("a")],
         ["Widgets", "", *_sheet_row("b")],
-        ["Pharma", "Europe", *_sheet_row("c")],
+        ["", "Europe", *_sheet_row("BAD ID!")],
     ])
     with pytest.raises(ValueError) as exc:
         parse_bulk_workbook(path)
     msg = str(exc.value)
     assert "3 error(s)" in msg
-    assert "Atlantis" in msg and "Widgets" in msg and "not both" in msg
+    assert "Atlantis" in msg and "Widgets" in msg and "BAD ID!" in msg
 
 
 # ── Template ────────────────────────────────────────────────────────────────

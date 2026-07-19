@@ -36,6 +36,9 @@ Design decisions worth knowing:
   * A row whose scope cannot be resolved is an error, never a silent drop —
     silently discarding a region's worth of stakeholders is exactly the failure
     an operator would not notice until a class was running.
+  * A row naming BOTH an industry and a region produces a composite scope
+    (``vertical_pharma__south_asia``) rather than an error, so an industry map
+    can be localised per market.
 """
 
 from __future__ import annotations
@@ -75,6 +78,8 @@ VERTICAL_IDS = {
     "oil_gas": ("oil_gas", "oil", "gas", "oil_and_gas", "energy_oil_gas"),
     "retail_fmcg": ("retail_fmcg", "retail", "fmcg", "consumer_goods", "retail_consumer"),
     "technology": ("technology", "tech", "software", "it"),
+    "chemicals": ("chemicals", "chemical", "specialty_chemicals", "petrochemicals"),
+    "electronics": ("electronics", "electronic", "semiconductors", "hardware"),
     "pharma": ("pharma", "pharmaceutical", "pharmaceuticals", "healthcare",
                "pharma_healthcare", "health"),
 }
@@ -95,14 +100,39 @@ def _match(token: str, table: dict[str, tuple[str, ...]]) -> str | None:
     return None
 
 
+def _split_composite(tok: str) -> str | None:
+    """Recognise an industry+region token as a composite scope id.
+
+    Cannot rely on the "__" separator: _norm collapses any run of non-alphanumeric
+    characters to a SINGLE underscore, so "vertical_pharma__south_asia" arrives
+    here as "vertical_pharma_south_asia". Match against known pairs instead —
+    unambiguous because vertical and region vocabularies are disjoint.
+    """
+    if not tok:
+        return None
+    body = tok[len("vertical_"):] if tok.startswith("vertical_") else tok
+    for v_id, v_aliases in VERTICAL_IDS.items():
+        for v_alias in (v_id, *v_aliases):
+            prefix = f"{v_alias}_"
+            if body.startswith(prefix):
+                r_id = _match(body[len(prefix):], REGION_IDS)
+                if r_id:
+                    return f"vertical_{v_id}__{r_id}"
+    return None
+
+
 def resolve_scope(vertical_raw: Any = "", region_raw: Any = "") -> tuple[str | None, str | None]:
     """Map raw vertical/region labels to a (config_id, error) pair.
 
-    Precedence mirrors the existing single-scope convention: a vertical scope is
-    stored as ``vertical_<id>``; a region scope as the bare region id; neither
-    means the canonical default set. Supplying BOTH is rejected rather than
-    guessed, because the storage model has no combined scope and silently
-    dropping one half would lose data.
+    Scope ids:
+      vertical + region -> ``vertical_<v>__<r>``  (industry localised to a market)
+      vertical only     -> ``vertical_<v>``
+      region only       -> ``<r>``
+      neither           -> ``canonical``
+
+    The composite form exists because an industry's stakeholder map genuinely
+    differs by market (pharma in India is not pharma in Europe). It is resolved
+    ahead of the plain vertical scope by stakeholder_map.get_stakeholders_for_session.
     """
     v_tok, r_tok = _norm(vertical_raw), _norm(region_raw)
 
@@ -119,11 +149,10 @@ def resolve_scope(vertical_raw: Any = "", region_raw: Any = "") -> tuple[str | N
         return None, f"unknown region '{region_raw}'"
 
     if v_id and r_id:
-        return None, (
-            f"row names both a vertical ('{vertical_raw}') and a region ('{region_raw}'); "
-            "stakeholder configs are stored per-vertical OR per-region, not both — "
-            "split these into separate rows"
-        )
+        # Composite industry x region scope. Kept within the 50-char slug rule
+        # enforced by stakeholder_db.save_region_config; the double underscore
+        # is the separator so the two halves stay recoverable.
+        return f"vertical_{v_id}__{r_id}", None
     if v_id:
         return f"vertical_{v_id}", None
     if r_id:
@@ -137,7 +166,13 @@ def resolve_sheet_scope(sheet_name: str) -> tuple[str | None, str | None]:
     tok = _norm(raw)
     if tok in ("canonical", "default", "stakeholder_matrix", "all", ""):
         return CANONICAL_ID, None
-    # "Region: Europe" / "Vertical: Pharma"
+    # Composite industry x region, e.g. "vertical_pharma__south_asia",
+    # "Pharma - India". MUST precede the prefix regex below, which would
+    # otherwise consume the "vertical_" prefix and lose the region half.
+    composite = _split_composite(tok)
+    if composite:
+        return composite, None
+    # "Region - Europe" / "Vertical - Pharma"
     m = re.match(r"^(region|vertical|industry|business)[_\s:-]+(.*)$", tok)
     if m:
         kind, rest = m.group(1), m.group(2)
@@ -164,8 +199,15 @@ def _row_to_stakeholder(get, row_num: int, errors: list[str]) -> dict | None:
     sid = get("ID")
     if not sid:
         return None
-    if not re.match(r"^[a-z0-9_]{1,50}$", sid):
-        errors.append(f"Row {row_num}: ID '{sid}' must be lowercase alphanumeric/underscore.")
+    # Hyphens are allowed. A stakeholder id is only ever a dict key (master_map,
+    # the client's quadrant mapping) — never a filename, so the strict slug rule
+    # that governs config_id does not apply here. Rejecting "in-pharma-cdsco"
+    # would force authors to rewrite their own identifiers for no safety gain.
+    if not re.match(r"^[a-z0-9_-]{1,50}$", sid):
+        errors.append(
+            f"Row {row_num}: ID '{sid}' must be lowercase letters, digits, "
+            f"underscore or hyphen (max 50 characters)."
+        )
         return None
 
     name = get("Name")
@@ -363,9 +405,16 @@ def build_bulk_template(output_path: str | Path,
             tactics = sh.get("engagement_tactics") or []
             for i in range(3):
                 t = tactics[i] if i < len(tactics) else None
-                vals.append(
-                    f"{t.get('option_text','')} | {t.get('rationale','')}" if isinstance(t, dict) else ""
-                )
+                # Must match _parse_tactic's contract EXACTLY: label|correct|rationale.
+                # A previous version wrote "option_text | rationale" — a key that
+                # does not exist on stored tactics and only two fields — so every
+                # tactic was silently dropped on export→import round-trip.
+                if isinstance(t, dict):
+                    label = t.get("label") or t.get("option_text") or ""
+                    correct = "true" if t.get("correct") else "false"
+                    vals.append(f"{label}|{correct}|{t.get('rationale','')}" if label else "")
+                else:
+                    vals.append("")
             for j, v in enumerate(vals, 3):
                 ws.cell(row=row, column=j, value=v)
             row += 1

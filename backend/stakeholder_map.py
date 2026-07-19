@@ -270,11 +270,30 @@ MASTER_MAP = {s["id"]: s["correct_quadrant"] for s in STAKEHOLDERS}
 
 
 def _resolve_active_vertical(global_state: dict) -> str | None:
+    """Return the session's active industry id, or None for a default session.
+
+    Two sources, in order:
+
+      1. An EXPLICIT industry declared at cohort setup (single-BU mode writes
+         industry_vertical onto the session, which is seeded into
+         active_event_flags). This is checked first because it is a direct
+         statement of intent.
+
+      2. BU substitutions — a vertical swapped into a seed slot.
+
+    Source 1 exists because substitutions alone cannot express an industry that
+    IS one of the default slots: a pharma cohort substitutes nothing (pharma is
+    already slot 0), so `v_id != slot` correctly reports "no substitution" and
+    every pharma-specific stakeholder map was unreachable.
     """
-    If the session has any BU substitutions, return the first
-    vertical ID found (used to select alternate stakeholder data).
-    Returns None for default sessions.
-    """
+    explicit = (
+        global_state.get("industry_vertical")
+        or (global_state.get("active_event_flags") or {}).get("industry_vertical")
+        or ""
+    )
+    if isinstance(explicit, str) and explicit.strip():
+        return explicit.strip()
+
     subs = global_state.get("bu_substitutions", {})
     if not subs:
         return None
@@ -291,15 +310,38 @@ def get_stakeholders_for_session(global_state: dict) -> list[dict]:
     """Return the appropriate stakeholder set for a session (vertical or default).
 
     Resolution priority (highest first):
-      1. Industry vertical substitutions — if a BU has been swapped for a vertical
-         BU (e.g. oil_gas, technology), vertical_stakeholders data is used.
-      2. Region localisation — if region_id is set on the global state or its
-         parent metadata, regional overrides from stakeholder_db are applied on
+      1. Industry × region composite — an uploaded ``vertical_<v>__<r>`` config,
+         when the session has BOTH an active vertical and a region. An industry's
+         stakeholder map differs by market (pharma in India is not pharma in
+         Europe), and without this step the vertical branch below would
+         short-circuit and the region would never be consulted.
+      2. Industry vertical substitutions — an uploaded ``vertical_<v>`` config,
+         else built-in vertical_stakeholders data (oil_gas, technology, …).
+      3. Region localisation — regional overrides from stakeholder_db applied on
          top of the canonical STAKEHOLDERS list.
-      3. Canonical STAKEHOLDERS — the global default set.
+      4. Canonical STAKEHOLDERS — the global default set.
     """
     v_id = _resolve_active_vertical(global_state)
+    region_id = global_state.get("region_id", "") or global_state.get(
+        "active_event_flags", {}
+    ).get("region_id", "")
+
     if v_id:
+        # Composite industry x region scope first: an industry's stakeholder map
+        # genuinely differs by market (pharma in India is not pharma in Europe).
+        # Without this step the vertical branch short-circuits and the region is
+        # never consulted, so localised industry maps could not be expressed.
+        # Falls through to the plain vertical scope when no composite exists,
+        # so cohorts predating this are unaffected.
+        if region_id:
+            try:
+                from stakeholder_db import get_region_config_raw as _get_region_cfg
+                composite = _get_region_cfg(f"vertical_{v_id}__{region_id}")
+                if composite:
+                    return composite
+            except ImportError:
+                pass
+
         # Check for JSON vertical override (Excel-uploaded verticals)
         try:
             from stakeholder_db import get_region_config_raw as _get_region_cfg
@@ -318,9 +360,6 @@ def get_stakeholders_for_session(global_state: dict) -> list[dict]:
             pass
 
     # Region-aware path
-    region_id = global_state.get("region_id", "") or global_state.get(
-        "active_event_flags", {}
-    ).get("region_id", "")
     if region_id:
         try:
             from stakeholder_db import get_stakeholders_for_region
