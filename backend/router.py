@@ -2236,9 +2236,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 global_state=new_global,
                 bu_states=new_bus,
             )
-            # Still log R10 decisions to the audit trail
-            for dec in decisions_raw:
-                pass  # decisions are logged inline by insert_next_round; for R10 update we skip
+            # R10 decisions reach the decision log through the same
+            # log_decision path as other rounds (verified: decision_log holds
+            # round-10 rows); the in-place update itself persists no decisions.
         else:
             await db.insert_next_round(
                 session_id=session_id,

@@ -4,15 +4,9 @@ import styles from './PlatformAnalytics.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-const TABS = [
-    { id: 'heatmap', label: '📊 Decision Heatmap', key: 'decision_heatmap', title: 'Choice distribution matrix showing which strategic options (A, B, C, etc.) were selected in each round across all players. Includes a heatmap grid with counts/percentages and stacked bar charts for visual comparison. Answers: "What are the most popular choices per round?"' },
-    { id: 'timing', label: '⏱ Time-to-Decision', key: 'time_to_decision', title: 'Decision speed analytics — how long players take to commit their choices each round. Displays average, median, min, and max times in seconds with horizontal bar visualizations. Answers: "Are players deliberating or rushing?"' },
-    { id: 'cohorts', label: '📈 Cohort Comparison', key: 'cohort_comparison', title: 'Plots KPI trajectories side-by-side for multiple cohorts on an SVG line chart. Togglable between Treasury, Reputation, Synergy, and EBITDA metrics. Answers: "How do different cohorts perform against each other over time?"' },
-    { id: 'convergence', label: '🔄 Convergence', key: 'convergence_analysis', title: 'Measures strategy similarity using a convergence gauge (0–100%). Tracks choice entropy (bits of unpredictability) and CapEx standard deviation per round. Low entropy = players thinking alike. Answers: "Are teams converging on the same strategy or diversifying?"' },
-    { id: 'learning', label: '🎯 Learning Outcomes', key: 'learning_outcomes', title: 'Tracks gamification and engagement: total learning bonuses awarded, manual facilitator awards, badge distribution counts, and bonuses by category. Answers: "How engaged are students and what milestones have they hit?"' },
-    { id: 'risk', label: '📉 Risk Exposure', key: 'risk_exposure', title: 'Multi-axis tracking of non-financial risks per cohort over time: Carbon Intensity, Natural Capital Debt, Social License, and Governance Risk. Rendered as vertical bar charts per cohort. Answers: "How are teams managing ESG/sustainability risks?"' },
-    { id: 'calibration', label: '🎯 Calibration', key: 'calibration_analytics', title: 'Scores each team\'s Predict-Before-Commit forecasts against actual outcomes: per-team stated confidence vs realised hit-rate (scatter with the perfect-calibration diagonal), cohort trend by round, and the most over/under-confident teams. Includes a one-line debrief prompt. Answers: "Are my students\' mental models of the system actually improving?"' },
-];
+// Railway audit §4.3: tabs come from the shared analytics registry — one
+// place to add a card, one tooltip wording for both surfaces.
+import { ANALYTICS_TABS as TABS } from '../config/analyticsRegistry';
 
 const CHOICE_COLORS = {
     option_a: '#3b82f6', option_b: '#f59e0b', option_c: '#10b981',

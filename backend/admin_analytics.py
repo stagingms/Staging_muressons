@@ -71,6 +71,12 @@ _analytics_visibility: dict = {
         "convergence_analysis": True,
         "learning_outcomes": True,
         "risk_exposure": True,
+        # Calibration analytics (Predict-Before-Commit confidence vs accuracy).
+        # Railway audit §4.3 follow-up: the frontend toggle existed but this
+        # key was missing here, and the setters silently DROP unknown keys —
+        # so the toggle could never persist. Keys must stay in sync with
+        # frontend/app/config/analyticsRegistry.js (add in both, same commit).
+        "calibration_analytics": True,
         "materiality_matrix": True,
         "technical_reference": True,
         # ── Live cohort monitoring ──

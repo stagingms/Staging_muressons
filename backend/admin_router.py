@@ -10,9 +10,15 @@ import itertools
 import json
 import asyncio
 import hmac
+import logging as _ar_logging
 import time
 import collections
 import importlib
+
+# Railway audit §4.5: operational prints (security bypass notices, scheduler
+# and god-mode actions) now go through a leveled logger instead of bare
+# stdout, so production log filtering and alerting can see them.
+_ar_log = _ar_logging.getLogger("muressons.admin")
 import threading
 import copy
 import uuid
@@ -860,7 +866,7 @@ async def patch_cohort_settings(
                         child_flags.pop("stochastic_seed", None)
                     await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
         except Exception as _e:  # never fail the settings write on a stamping hiccup
-            print(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
+            _ar_log.warning(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
 
     _audit("cohort_settings_patched", details={
         "session_id": session_id,
@@ -1130,7 +1136,7 @@ async def update_facilitator_role(
     master_ok = verify_master_password(caller_password)
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        print(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
+        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
 
     if not master_ok:
         # Look up the facilitator in the registry and verify their bcrypt hash
@@ -1396,7 +1402,7 @@ async def add_archetype(body: dict = Body(...), _guard: None = Depends(require_s
         customs[existing_idx] = archetype
     else:
         customs.append(archetype)
-    print(f"[god-mode] Archetype added/updated: {key}")
+    _ar_log.info(f"[god-mode] Archetype added/updated: {key}")
     return {"status": "ok", "archetype": archetype}
 
 
@@ -1421,7 +1427,7 @@ async def update_archetype(key: str, body: dict = Body(...), _guard: None = Depe
         customs[idx]["requires_solvent"] = bool(body["requires_solvent"])
     customs[idx]["is_default"] = False
     mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
-    print(f"[god-mode] Archetype updated: {key}")
+    _ar_log.info(f"[god-mode] Archetype updated: {key}")
     return {"status": "ok", "archetype": customs[idx]}
 
 
@@ -1433,7 +1439,7 @@ async def delete_archetype(key: str, _guard: None = Depends(require_super_admin)
     if len(_god_mode_settings["custom_archetypes"]) == before:
         raise HTTPException(404, f"Custom archetype '{key}' not found (defaults cannot be deleted, only overridden)")
     mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
-    print(f"[god-mode] Archetype deleted: {key}")
+    _ar_log.info(f"[god-mode] Archetype deleted: {key}")
     return {"status": "deleted", "key": key}
 
 
@@ -1519,7 +1525,7 @@ async def switch_session_ending_pathway(session_id: str, request: Request, body:
             child_gs.setdefault("active_event_flags", {})["ending_pathway"] = new_pathway
             await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
 
-    print(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
+    _ar_log.info(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
     return {
         "status": "ok",
         "session_id": session_id,
@@ -1571,7 +1577,7 @@ async def configure_cohort_interview(session_id: str, request: Request, body: di
                 child_flags["ceo_interview_voice_gender"] = flags.get("ceo_interview_voice_gender", "female")
             await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
 
-    print(f"[god-mode] CEO Interview config updated for session {session_id}: {', '.join(updated_fields)}")
+    _ar_log.info(f"[god-mode] CEO Interview config updated for session {session_id}: {', '.join(updated_fields)}")
     return {
         "status": "ok",
         "session_id": session_id,
@@ -2282,7 +2288,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
     # LOW-003: Auto-upgrade plaintext passwords to bcrypt on successful login
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator login for fac_id={fac_id_lower}")
+        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator login for fac_id={fac_id_lower}")
         # SEC-4: durable forensic record of break-glass use.
         _audit("master_password_bypass", actor=fac_id_lower,
                details={"endpoint": "facilitator_login"},
@@ -2373,7 +2379,7 @@ async def facilitator_change_password(
         raise HTTPException(403, "Current password is incorrect")
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator password change for fac={fac.get('facilitator_id', 'unknown')}")
+        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator password change for fac={fac.get('facilitator_id', 'unknown')}")
         # SEC-4: durable forensic record.
         _audit("master_password_bypass", actor=fac.get("facilitator_id", "unknown"),
                details={"endpoint": "facilitator_change_password"},
@@ -2544,7 +2550,7 @@ async def change_master_password(request: Request, body: dict = Body(...), _guar
     _audit("master_password_changed", actor=actor,
            details={"override_active": True},
            source_ip=(request.client.host if request.client else "unknown"))
-    print(f"[SECURITY] Master password rotated by {actor}")
+    _ar_log.warning(f"[SECURITY] Master password rotated by {actor}")
     return {
         "status": "success",
         "note": "Effective immediately on all master-bypass logins and persists across restarts (override supersedes .env).",
@@ -2969,11 +2975,11 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
             "message": "Time expired — your turn was auto-committed with default choices.",
         })
 
-        print(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
+        _ar_log.info(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
         return True
 
     except Exception as exc:
-        print(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
+        _ar_log.warning(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
         return False
 
 
@@ -3013,10 +3019,10 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
                     if success:
                         auto_committed_count += 1
             except Exception as exc:
-                print(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
+                _ar_log.info(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
 
         if auto_committed_count > 0:
-            print(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
+            _ar_log.info(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
 
         # ── Now unlock next round ────────────────────────────────
         pacing["unlocked_round"] = current_unlocked + 1
@@ -3070,7 +3076,7 @@ async def _multi_round_unlock_task(session_id: str, round_number: int, delay_sec
             "unlocked_round": round_number,
             "mode": "timed",
         })
-        print(f"[SCHEDULED] Round {round_number} unlocked for session {session_id[:8]}…")
+        _ar_log.info(f"[SCHEDULED] Round {round_number} unlocked for session {session_id[:8]}…")
     except asyncio.CancelledError:
         pass
 
@@ -3318,7 +3324,7 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
                     )
                     pacing["_timer_tasks"].append(task)
                 except Exception as exc:
-                    print(f"[PACING] Could not schedule round {round_number}: {exc}")
+                    _ar_log.warning(f"[PACING] Could not schedule round {round_number}: {exc}")
             # Set next_unlock_at to the first future datetime in the schedule
             first_future = next(
                 (s for s in body.schedule if s), None
@@ -5659,7 +5665,7 @@ async def add_bu_category(body: dict = Body(...), _guard: None = Depends(require
     if not label:
         raise HTTPException(400, "'label' is required")
     entry = mat_db.register_bu(bu_id, label, icon)
-    print(f"[god-mode] BU category registered: {bu_id} ({label})")
+    _ar_log.info(f"[god-mode] BU category registered: {bu_id} ({label})")
     return {"status": "ok", "category": entry}
 
 
@@ -5672,7 +5678,7 @@ async def delete_bu_category(bu_id: str, _guard: None = Depends(require_super_ad
         raise HTTPException(400, str(e))
     if not removed:
         raise HTTPException(404, f"Custom BU category '{bu_id}' not found")
-    print(f"[god-mode] BU category removed: {bu_id}")
+    _ar_log.info(f"[god-mode] BU category removed: {bu_id}")
     return {"status": "deleted", "bu_id": bu_id}
 
 
@@ -5811,7 +5817,7 @@ async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: No
 
     active_bus = get_active_bus(substitutions)
     labels = [BU_PROFILES.get(b, {}).get("label", b) for b in active_bus]
-    print(f"[god-mode] BU composition updated for {session_id} + {len(children)} children: {labels}")
+    _ar_log.info(f"[god-mode] BU composition updated for {session_id} + {len(children)} children: {labels}")
 
     return {
         "status": "ok",
@@ -6220,7 +6226,7 @@ async def upload_stakeholder_excel(
             pass
 
     ids = [s["id"] for s in stakeholders]
-    print(f"[god-mode] Stakeholder Excel uploaded for '{config_id}': {len(ids)} stakeholders")
+    _ar_log.info(f"[god-mode] Stakeholder Excel uploaded for '{config_id}': {len(ids)} stakeholders")
     return {
         "status": "ok",
         "config_id": config_id,
@@ -8823,7 +8829,7 @@ def _persist_custom_levels() -> None:
             _json.dump(_custom_levels, f, ensure_ascii=False, indent=2)
         _os.replace(tmp, _CUSTOM_LEVELS_PATH)
     except Exception as e:
-        print(f"[persistence] Failed to save custom experience levels: {e}")
+        _ar_log.warning(f"[persistence] Failed to save custom experience levels: {e}")
 
 
 _custom_levels: list[dict] = _load_custom_levels()

@@ -184,32 +184,9 @@ def summarise_engine_impacts(events: list[dict], top_n: int = 3) -> list[dict]:
 #     Facilitator-toggleable
 # ═══════════════════════════════════════════════════════════════
 
-def create_prediction_entry(
-    round_number: int, player_id: str, prediction_text: str, choice_selected: str,
-) -> dict:
-    """Create a prediction record for storage."""
-    return {
-        "round": round_number,
-        "player_id": player_id,
-        "prediction": prediction_text,
-        "choice_selected": choice_selected,
-        "outcome_summary": None,  # Filled after round resolves
-        "calibration": None,      # Filled after round resolves
-    }
-
-
-def evaluate_prediction(prediction: dict, outcome_summary: str, outcome_quality: float) -> dict:
-    """
-    LEGACY (sentiment-heuristic) evaluation — superseded by score_prediction()
-    below, which scores STRUCTURED predictions deterministically. Kept only for
-    backward compatibility with any old callers; do not use for new code.
-    """
-    prediction["outcome_summary"] = outcome_summary
-    # Simple heuristic: if outcome_quality > 0.6, prediction was "aligned"
-    prediction["calibration"] = "aligned" if outcome_quality > 0.6 else "misaligned"
-    prediction["calibration_icon"] = "✅" if outcome_quality > 0.6 else "❌"
-    return prediction
-
+# (Railway audit §4.2: the legacy create_prediction_entry/evaluate_prediction
+# keyword-sentiment pair was deleted — zero callers existed; the deterministic
+# band scorer below is the only prediction-evaluation surface.)
 
 # ── Calibration scoring (PLAN_Calibration_Analytics.md, Phase 2) ─────────────
 # Deterministic band scoring of the structured Predict-Before-Commit inputs.

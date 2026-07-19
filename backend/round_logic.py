@@ -10,8 +10,15 @@ Architecture:
 """
 
 from __future__ import annotations
+import logging
 import random
 from typing import Any
+
+# Railway audit §4.5: engine-failure warnings previously went to stdout via
+# print() — unlevelled and invisible to log filtering, exactly the signals a
+# production deployment wants to alert on. All [WARN] prints are now warnings
+# on this logger (uvicorn/Railway pick them up with level + timestamp).
+_rl_log = logging.getLogger("muressons.round_logic")
 
 from round_configs import get_round_config, get_round_options
 
@@ -611,7 +618,7 @@ def run_new_engines(
             if tnfd_mr > 0:
                 extra["tnfd_mr_bonus"] = tnfd_mr
         except Exception as exc:
-            print(f"[WARN] Biodiversity engine failed: {exc}")
+            _rl_log.warning(f"Biodiversity engine failed: {exc}")
 
     # ── SE-6: Balance Sheet Engine ────────────────────────────
     if _toggles.get("balance_sheet_enabled", True):
@@ -678,7 +685,7 @@ def run_new_engines(
                     0.02 if covenant_st == "red" else 0.05
                 )
         except Exception as exc:
-            print(f"[WARN] Balance sheet engine failed: {exc}")
+            _rl_log.warning(f"Balance sheet engine failed: {exc}")
 
     # ── SE-1: Board Governance ────────────────────────────────
     if _toggles.get("board_governance_enabled", True):
@@ -703,7 +710,7 @@ def run_new_engines(
             if resolutions:
                 extra["pending_shareholder_resolutions"] = resolutions
         except Exception as exc:
-            print(f"[WARN] Board governance engine failed: {exc}")
+            _rl_log.warning(f"Board governance engine failed: {exc}")
 
     # ── SI-5: Organisational Politics ─────────────────────────
     if _toggles.get("org_politics_enabled", True):
@@ -722,7 +729,7 @@ def run_new_engines(
             global_state["org_politics"] = org
             extra["org_politics"] = org_diag
         except Exception as exc:
-            print(f"[WARN] Org politics engine failed: {exc}")
+            _rl_log.warning(f"Org politics engine failed: {exc}")
 
     # ── SE-2: Supply Chain Network ────────────────────────────
     if _toggles.get("supply_chain_network_enabled", True):
@@ -741,7 +748,7 @@ def run_new_engines(
             global_state["supply_chain"] = sc
             extra["supply_chain"] = sc_diag
         except Exception as exc:
-            print(f"[WARN] Supply chain engine failed: {exc}")
+            _rl_log.warning(f"Supply chain engine failed: {exc}")
 
     # ── SI-2: NPC Stakeholders ────────────────────────────────
     if _toggles.get("npc_stakeholders_enabled", True):
@@ -772,7 +779,7 @@ def run_new_engines(
                     from npc_stakeholders import build_stakeholder_intel
                     extra["stakeholder_intel"] = build_stakeholder_intel(npc, global_state, bu_states)
                 except Exception as exc:
-                    print(f"[WARN] Stakeholder intel (F6) failed: {exc}")
+                    _rl_log.warning(f"Stakeholder intel (F6) failed: {exc}")
 
             # ── PHASE-1: NPC Cascading Reactions (evaluate_npc_cascades) ──
             # After NPC satisfaction is computed, check if any NPCs cross
@@ -810,7 +817,7 @@ def run_new_engines(
                         if _coalition_pressure > 0 or _coal.get("contagion_nudges"):
                             extra["stakeholder_coalition"] = _coal
                     except Exception as exc:
-                        print(f"[WARN] Stakeholder coalition (F3) failed: {exc}")
+                        _rl_log.warning(f"Stakeholder coalition (F3) failed: {exc}")
 
                 # ── PHASE-2 (F2): continuous tier→SLO feedback ──────────
                 # Runs on the round's escalation tiers, AFTER cascade detection
@@ -835,7 +842,7 @@ def run_new_engines(
                         if _slo_fb:
                             extra["npc_slo_feedback"] = _slo_fb
                     except Exception as exc:
-                        print(f"[WARN] Stakeholder SLO feedback (F2) failed: {exc}")
+                        _rl_log.warning(f"Stakeholder SLO feedback (F2) failed: {exc}")
 
                 if cascades:
                     extra["npc_cascade_events"] = cascades
@@ -881,10 +888,10 @@ def run_new_engines(
                             "severity": "critical",
                         })
             except Exception as exc:
-                print(f"[WARN] NPC cascade evaluation failed: {exc}")
+                _rl_log.warning(f"NPC cascade evaluation failed: {exc}")
 
         except Exception as exc:
-            print(f"[WARN] NPC stakeholders engine failed: {exc}")
+            _rl_log.warning(f"NPC stakeholders engine failed: {exc}")
 
     # ── PHASE-3 (F5): Stakeholder engagement actions & promise ledger ──
     # Runs after the NPC tick (trust is set) and reads the persistent
@@ -904,7 +911,7 @@ def run_new_engines(
                     _ar = apply_engagement_action(npc, global_state, _action, round_number)
                     extra["engagement_action_result"] = _ar
         except Exception as exc:
-            print(f"[WARN] Stakeholder engagement (F5) failed: {exc}")
+            _rl_log.warning(f"Stakeholder engagement (F5) failed: {exc}")
 
     # ── SI-2+: Autonomous Stakeholder Agents ──────────────────
     if _toggles.get("npc_stakeholders_enabled", True):
@@ -935,7 +942,7 @@ def run_new_engines(
             # escalation every round, not just in the post-commit results.
             global_state["agent_summary"] = _agent_summary
         except Exception as exc:
-            print(f"[WARN] Autonomous agents engine failed: {exc}")
+            _rl_log.warning(f"Autonomous agents engine failed: {exc}")
 
     # ── PHASE-1: Systemic Tipping Point Penalty Application ──────
     # After all engines run, apply irreversibility penalties from
@@ -976,7 +983,7 @@ def run_new_engines(
         if tipping_state:
             events["systemic_tipping_state"] = tipping_state
     except Exception as exc:
-        print(f"[WARN] Tipping penalty application failed: {exc}")
+        _rl_log.warning(f"Tipping penalty application failed: {exc}")
 
     # ── SI-1: Non-Linear Branching (R5 checkpoint) ────────────
     if _toggles.get("branching_enabled", True) and round_number == 5:
@@ -990,7 +997,7 @@ def run_new_engines(
             global_state["archetype_detail"] = archetype_result
             extra["archetype_classification"] = archetype_result
         except Exception as exc:
-            print(f"[WARN] Branching engine failed: {exc}")
+            _rl_log.warning(f"Branching engine failed: {exc}")
 
     # ── SE-3: Adaptive Crisis Severity (R6+ with archetype) ───
     if _toggles.get("branching_enabled", True) and round_number > 5:
@@ -1003,7 +1010,7 @@ def run_new_engines(
             )
             extra["adaptive_crisis_severity"] = sev_diag
         except Exception as exc:
-            print(f"[WARN] Adaptive crisis severity failed: {exc}")
+            _rl_log.warning(f"Adaptive crisis severity failed: {exc}")
 
     # ── SE-8: Dynamic Case Injection ──────────────────────────
     if _toggles.get("dynamic_cases_enabled", True):
@@ -1015,7 +1022,7 @@ def run_new_engines(
             if cases:
                 extra["contextual_cases"] = cases
         except Exception as exc:
-            print(f"[WARN] Dynamic cases engine failed: {exc}")
+            _rl_log.warning(f"Dynamic cases engine failed: {exc}")
 
     # ── QW-5: Peer Learning Prompts (R5, R6) ──────────────────
     if _toggles.get("peer_learning_prompts_enabled", True):
@@ -1025,7 +1032,7 @@ def run_new_engines(
             if prompts:
                 extra["peer_learning_prompts"] = prompts
         except Exception as exc:
-            print(f"[WARN] Peer learning prompts failed: {exc}")
+            _rl_log.warning(f"Peer learning prompts failed: {exc}")
 
     # ── QW-1: Decision Timer Config ───────────────────────────
     if _toggles.get("decision_timer_enabled", False):
@@ -1033,7 +1040,7 @@ def run_new_engines(
             from pedagogical_engine import get_timer_config
             extra["decision_timer"] = get_timer_config(_toggles)
         except Exception as exc:
-            print(f"[WARN] Decision timer config failed: {exc}")
+            _rl_log.warning(f"Decision timer config failed: {exc}")
 
     # ── Meadows / Senge: System Archetypes Detection ──────────
     if _toggles.get("system_archetypes_enabled", True):
@@ -1044,7 +1051,7 @@ def run_new_engines(
             if archetypes:
                 extra["system_archetypes_detected"] = archetypes
         except Exception as exc:
-            print(f"[WARN] System archetypes detection failed: {exc}")
+            _rl_log.warning(f"System archetypes detection failed: {exc}")
 
     # ── SE-7: Regulatory Sandbox Effects ──────────────────────
     # ARCHITECTURE: Middleware intercept runs FIRST (before values
@@ -1088,7 +1095,7 @@ def run_new_engines(
                 if agent_diag.get("agent_crosswire_triggers"):
                     extra["regulatory_sandbox_agent_crosswire"] = agent_diag
         except Exception as exc:
-            print(f"[WARN] Regulatory sandbox engine failed: {exc}")
+            _rl_log.warning(f"Regulatory sandbox engine failed: {exc}")
 
     # ── Analytics: Collaboration Gap Tracker ─────────────────────
     # Measures the spread between financial accumulation and ESG
@@ -1110,7 +1117,7 @@ def run_new_engines(
             if not gap_history or gap_history[-1].get("round") != round_number:
                 gap_history.append(gap_data)
         except Exception as exc:
-            print(f"[WARN] Collaboration gap analytics failed: {exc}")
+            _rl_log.warning(f"Collaboration gap analytics failed: {exc}")
 
     return extra
 
