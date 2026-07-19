@@ -1,0 +1,121 @@
+{
+  "meta": {
+    "schema_version": "1.0.0",
+    "simulation_name": "Muressons Global Corporation: Healthcare Edition",
+    "total_rounds": 10,
+    "description": "Baseline seed state for Round 1 of the Healthcare Edition."
+  },
+
+  "round": 1,
+
+  "global_state": {
+    "corporate_treasury_usd": 50000000,
+    "group_reputation_score": 50.0,
+    "group_synergy_multiplier": 1.0,
+    "cost_of_capital_rate": 0.05,
+    "active_event_flags": {}
+  },
+
+  "business_units": [
+    {
+      "bu_id": "hospitals",
+      "name": "Muressons General Hospitals",
+      "description": "Primary healthcare hub — high volume, massive fixed infrastructure costs, intensive power and waste dependency.",
+      "revenue_base": 22000000,
+      "opex_base": 18500000,
+      "water_dependency": 85.0,
+      "carbon_intensity": 70.0,
+      "social_license_score": 65.0,
+      "reputation_score": 55.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 25.0,
+      "patient_outcomes_score": 75.0,
+      "staff_burnout_index": 40.0,
+      "bed_capacity_utilization": 88.0,
+      "risk_factors": {
+        "medical_waste_liability": "high",
+        "staffing_shortages": "high",
+        "power_redundancy": "high",
+        "community_health_impact": "high",
+        "water_scarcity_risk": "high"
+      }
+    },
+    {
+      "bu_id": "clinics",
+      "name": "Muressons Primary Care Clinics",
+      "description": "Decentralized outpatient network — high volume, closer to community, highly sensitive to staff burnout and local sentiment.",
+      "revenue_base": 12500000,
+      "opex_base": 9800000,
+      "water_dependency": 40.0,
+      "carbon_intensity": 35.0,
+      "social_license_score": 70.0,
+      "reputation_score": 60.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 15.0,
+      "patient_outcomes_score": 80.0,
+      "staff_burnout_index": 40.0,
+      "bed_capacity_utilization": 0.0,
+      "risk_factors": {
+        "community_trust": "high",
+        "staff_turnover": "high",
+        "supply_chain_fragility": "medium",
+        "preventative_care_gap": "high"
+      }
+    },
+    {
+      "bu_id": "specialised_care",
+      "name": "Muressons Specialised Care",
+      "description": "Oncology and complex surgery centers — lower volume, extremely high margins, intensive dependency on specialized supply chains and regulatory compliance.",
+      "revenue_base": 15000000,
+      "opex_base": 10500000,
+      "water_dependency": 60.0,
+      "carbon_intensity": 50.0,
+      "social_license_score": 55.0,
+      "reputation_score": 65.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 20.0,
+      "patient_outcomes_score": 85.0,
+      "staff_burnout_index": 50.0,
+      "bed_capacity_utilization": 75.0,
+      "risk_factors": {
+        "regulatory_compliance": "high",
+        "surgical_supply_chain": "high",
+        "malpractice_liability": "high",
+        "rare_earth_dependency": "medium"
+      }
+    },
+    {
+      "bu_id": "telehealth",
+      "name": "Muressons Digital Health",
+      "description": "Telemedicine and AI triage division — asset-light, highly scalable, zero physical beds, massive data privacy and algorithmic bias risks.",
+      "revenue_base": 8000000,
+      "opex_base": 4200000,
+      "water_dependency": 10.0,
+      "carbon_intensity": 25.0,
+      "social_license_score": 50.0,
+      "reputation_score": 45.0,
+      "natural_capital_debt": 0,
+      "governance_risk_score": 10.0,
+      "patient_outcomes_score": 70.0,
+      "staff_burnout_index": 30.0,
+      "bed_capacity_utilization": 0.0,
+      "risk_factors": {
+        "data_privacy_risk": "high",
+        "ai_ethics_exposure": "high",
+        "digital_divide_impact": "high",
+        "data_centre_energy": "medium"
+      }
+    }
+  ],
+
+  "computed_summary": {
+    "total_group_revenue": 57500000,
+    "total_group_opex": 43000000,
+    "group_gross_margin_pct": 25.21,
+    "average_social_license": 60.0,
+    "average_reputation_score": 56.25,
+    "average_carbon_intensity": 45.0,
+    "average_water_dependency": 48.75,
+    "bu_count": 4
+  }
+}

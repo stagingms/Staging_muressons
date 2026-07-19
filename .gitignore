@@ -44,7 +44,13 @@ backend/data/materiality_bu_*.json
 # Local DB/state
 backend/*.db
 db/*.json
+# SEED data is CONFIG, not state — it must be tracked or it never reaches the
+# deployed image. BUG-2026-07-19: only seed_round1.json was re-included, so
+# db/seed_healthcare.json had never been committed and a healthcare-paradigm
+# cohort would fail to seed in production while working perfectly in local dev
+# (database.py:120 picks it by filename). Every seed file needs a line here.
 !db/seed_round1.json
+!db/seed_healthcare.json
 sessions.json
 
 

@@ -141,11 +141,60 @@ def test_seed_data_is_not_excluded():
 
 
 def test_seed_files_referenced_by_the_dockerfile_still_ship():
+    """Seed data must be BOTH present on disk AND tracked by git.
+
+    An earlier version of this test only checked the filesystem, which is why
+    it passed while db/seed_healthcare.json was untracked: .gitignore's
+    `db/*.json` rule re-included only seed_round1.json. The file existed on
+    every developer's disk and in no image, so a healthcare-paradigm cohort
+    seeded fine locally and would have failed in production. What reaches the
+    image is what git tracks, so that is what this asserts.
+    """
+    import subprocess
     seeds = ["db/seed_round1.json", "db/seed_healthcare.json"]
     lines = set(_ignore_lines())
+    try:
+        tracked = set(subprocess.run(
+            ["git", "ls-files", "db/"], cwd=REPO, capture_output=True, text=True,
+            timeout=30,
+        ).stdout.split())
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip("git not available")
     for s in seeds:
         assert s not in lines, f"{s} is seed data and must ship in the image"
         assert (REPO / s).exists(), f"{s} is expected by the app but missing from the repo"
+        assert s in tracked, (
+            f"{s} exists on disk but is NOT tracked by git, so it will not be in "
+            f"the deployed image. Add '!{s}' to .gitignore and `git add -f {s}`."
+        )
+
+
+def test_no_seed_file_is_left_untracked():
+    """Generalises the above: anything the backend loads by filename from db/
+    must be tracked. Catches the NEXT seed file added without a .gitignore
+    re-include, rather than only the one that was already missed."""
+    import re
+    import subprocess
+    backend = REPO / "backend"
+    referenced = set()
+    for py in backend.glob("*.py"):
+        for m in re.finditer(r'"(seed_[a-z0-9_]+\.json)"', py.read_text(encoding="utf-8")):
+            referenced.add(m.group(1))
+    if not referenced:
+        pytest.skip("no seed filenames found in backend sources")
+    try:
+        tracked = set(subprocess.run(
+            ["git", "ls-files", "db/"], cwd=REPO, capture_output=True, text=True,
+            timeout=30,
+        ).stdout.split())
+    except (OSError, subprocess.SubprocessError):
+        pytest.skip("git not available")
+    missing = [n for n in sorted(referenced)
+               if (REPO / "db" / n).exists() and f"db/{n}" not in tracked]
+    assert not missing, (
+        f"seed files present on disk but untracked (they will be absent in "
+        f"production): {missing}"
+    )
 
 
 def test_env_files_are_excluded_at_every_level():
