@@ -16,6 +16,15 @@ export default function PasswordInput({ style, containerStyle, className, ...pro
                 {...props}
                 type={show ? 'text' : 'password'}
                 className={className}
+                // Password managers (NortonLifeLock, 1Password, LastPass, …) inject
+                // their own attributes — e.g. data-nlok-ref-guid — into credential
+                // fields BEFORE React hydrates, which surfaces as a hydration
+                // mismatch error overlay on the login screen. The markup we render
+                // is identical on both sides; the difference is entirely the
+                // extension's. Suppressing here is the documented remedy and is
+                // scoped to this one element, so genuine mismatches elsewhere are
+                // still reported.
+                suppressHydrationWarning
                 style={{ ...style, width: '100%', paddingRight: '2.6rem', boxSizing: 'border-box' }}
             />
             <button

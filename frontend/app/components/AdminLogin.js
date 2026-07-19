@@ -107,6 +107,9 @@ export default function AdminLogin({ onSuccess, subtitle }) {
             <input
               type="text" value={facId} onChange={(e) => setFacId(e.target.value)}
               placeholder="e.g. FAC-001" disabled={loading} autoFocus
+              /* Password managers tag the username field too (it is half of a
+                 saved credential) — see the note in PasswordInput. */
+              suppressHydrationWarning
               style={{ ...inputStyle, fontFamily: 'var(--font-mono, monospace)' }}
             />
           </div>

@@ -103,6 +103,11 @@ export default function JoinCohortModal({ sim }) {
                                 className={styles.input}
                                 autoComplete="off"
                                 spellCheck="false"
+                                /* Password managers tag credential fields before
+                                   hydration — see PasswordInput for the rationale.
+                                   Players hit this screen on their own machines,
+                                   where extensions are most varied. */
+                                suppressHydrationWarning
                             />
                         </div>
 
