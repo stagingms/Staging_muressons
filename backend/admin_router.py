@@ -804,7 +804,13 @@ async def patch_cohort_settings(
     except Exception:
         pass
 
-    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
+    # BUG-2026-07-19 (pattern A): resolve the role from the SIGNED TOKEN, not
+    # the registry record. The virtual identities (god_mode, project_admin)
+    # have no registry row, so the old `get_role(caller_fac) if caller_fac else
+    # "facilitator"` silently demoted god_mode to "facilitator". Here that
+    # merely worked by accident (the lead-only filter didn't fire); relying on
+    # an accident is how the capability gate below broke. Decide on the level.
+    caller_role = get_fac_role(request)
 
     # HIGH-tier advanced controls: coerce/clamp before any filtering or persistence.
     body = normalize_advanced_cohort_settings(body)
@@ -813,6 +819,7 @@ async def patch_cohort_settings(
     # "asked and not allowed" from "never asked" (see the 403 further down).
     _nego_requested = body.get("negotiation_rooms_enabled")
 
+    _lead_blocked: list[str] = []   # keys a lead's role filter refused (pattern B)
     # lead_facilitators may only touch freeze keys and specific simulation parameters for sessions they own
     _LEAD_FAC_KEYS = frozenset({
         "system_frozen", "freeze_message", "freeze_started_at",
@@ -841,6 +848,12 @@ async def patch_cohort_settings(
         _lead_keys = set(_LEAD_FAC_KEYS)
         if (caller_fac or {}).get("negotiation_rooms_enabled", False):
             _lead_keys.add("negotiation_rooms_enabled")
+        # BUG-2026-07-19 (pattern B): this filter used to drop non-lead keys
+        # SILENTLY and — because it ran before the rejected-key computation —
+        # they never appeared in the response either. A lead PATCHing e.g.
+        # ceo_interview_enabled got 200 + an empty rejection list while nothing
+        # changed: a toggle that lies. Record them and report below.
+        _lead_blocked = sorted(k for k in body if k not in _lead_keys)
         body = {k: v for k, v in body.items() if k in _lead_keys}
 
     # Filter to allow-listed keys only
@@ -909,6 +922,7 @@ async def patch_cohort_settings(
         "session_id": session_id,
         "applied": safe_body,
         "rejected_non_overridable": rejected_keys,
+        "rejected_for_role": _lead_blocked,
         "caller_role": caller_role,
     })
 
@@ -925,6 +939,9 @@ async def patch_cohort_settings(
         "session_id": session_id,
         "applied": safe_body,
         "rejected_non_overridable": rejected_keys,
+        # Keys the caller's ROLE may not set (pattern-B fix): previously these
+        # vanished with a 200 and an empty rejection list.
+        "rejected_for_role": _lead_blocked,
         "overrides": cohort_settings[session_id],
         "effective": get_effective_settings(session_id),
     }
@@ -7802,8 +7819,15 @@ async def broadcast_message(req: BroadcastRequest, request: Request, _guard: Non
         (f for f in _facilitator_registry if f["facilitator_id"] == caller_id and not f.get("deleted_at")),
         None,
     ) if caller_id else None
-    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
-    is_super = ROLE_HIERARCHY.get(caller_role, 0) >= ROLE_HIERARCHY.get("super_admin", 3)
+    # BUG-2026-07-19 (pattern A): caller_role was derived from the REGISTRY
+    # record, but god_mode is a VIRTUAL identity with no registry row — so it
+    # resolved to "facilitator", is_super went False, and the ownership filter
+    # below (`caller_fac and owns_session(...)`, with caller_fac None) selected
+    # NOTHING. God Mode's Universal Broadcast returned 200 "sent" while
+    # delivering to zero cohorts. Resolve from the signed token instead and
+    # decide on the LEVEL (CLAUDE.md role convention 1).
+    caller_role = get_fac_role(request)
+    is_super = is_admin_role(caller_role)
 
     # Send immediately
     all_sessions = await db.fetch_all_sessions()
