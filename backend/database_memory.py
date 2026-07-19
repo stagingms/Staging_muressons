@@ -650,6 +650,26 @@ async def get_session_info(session_id: str) -> Optional[dict]:
     """Return basic session metadata by ID."""
     return _sessions.get(session_id)
 
+
+async def fetch_all_sessions_raw() -> list[dict]:
+    """ALL session records, INCLUDING per-player sub-sessions and shells.
+
+    Parity API (Railway audit §1.1): fetch_all_sessions() filters to top-level
+    cohorts for the leaderboard, which made endpoints that need child sessions
+    (situation room, cohort pulse, analytics scoping) reach into the private
+    `_sessions` dict — a read that silently returns {} under Postgres. Use
+    THIS for aggregate reads; never touch the store directly.
+
+    The store key is authoritative for session_id: legacy/minimal records
+    (and some test fixtures) omit the field from the record body."""
+    return [{**s, "session_id": s.get("session_id", k)} for k, s in _sessions.items()]
+
+
+async def fetch_all_decisions() -> list[dict]:
+    """Every decision-log row across all sessions (analytics aggregates).
+    Parity API — mirrors database.fetch_all_decisions."""
+    return [dict(d) for d in _decision_log]
+
 async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
     """Look up an existing session by cohort_name and return its latest state.
     Only matches top-level sessions (not per-player clones)."""
@@ -732,17 +752,19 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
         return None
 
     grs = rounds[-1]
-    rn = grs["round_number"]
+    rn = grs.get("round_number", 1)
     bus = _bu_states.get(session_id, {}).get(rn, [])
 
+    # Defensive .get()s: legacy/minimal rows (and test fixtures) may omit
+    # bookkeeping fields like state_id — a read API should degrade, not raise.
     out = {
-        "state_id": grs["state_id"],
+        "state_id": grs.get("state_id"),
         "round_number": rn,
         "global_state": {
-            "corporate_treasury": float(grs["corporate_treasury"]),
-            "group_reputation": float(grs["group_reputation"]),
-            "synergy_multiplier": float(grs["synergy_multiplier"]),
-            "cost_of_capital": float(grs["cost_of_capital"]),
+            "corporate_treasury": float(grs.get("corporate_treasury", 0) or 0),
+            "group_reputation": float(grs.get("group_reputation", 50) or 0),
+            "synergy_multiplier": float(grs.get("synergy_multiplier", 1.0) or 0),
+            "cost_of_capital": float(grs.get("cost_of_capital", 0.05) or 0),
             "active_event_flags": grs.get("active_event_flags") or {},
             # MP-01: surface the multiplayer commit counts (see update_latest_global_state).
             "team_commits_this_round": grs.get("team_commits_this_round"),
@@ -836,15 +858,17 @@ async def fetch_round_history(session_id: str) -> list[dict]:
     rounds = _global_states.get(session_id, [])
     history = []
     for grs in rounds:
-        rn = grs["round_number"]
+        rn = grs.get("round_number", 1)
         bus = _bu_states.get(session_id, {}).get(rn, [])
+        # Defensive .get()s — legacy/minimal rows and test fixtures may omit
+        # fields; a read API should degrade to defaults, not raise.
         history.append({
             "round_number": rn,
             "global_state": {
-                "corporate_treasury": float(grs["corporate_treasury"]),
-                "group_reputation": float(grs["group_reputation"]),
-                "synergy_multiplier": float(grs["synergy_multiplier"]),
-                "cost_of_capital": float(grs["cost_of_capital"]),
+                "corporate_treasury": float(grs.get("corporate_treasury", 0) or 0),
+                "group_reputation": float(grs.get("group_reputation", 50) or 0),
+                "synergy_multiplier": float(grs.get("synergy_multiplier", 1.0) or 0),
+                "cost_of_capital": float(grs.get("cost_of_capital", 0.05) or 0),
                 "active_event_flags": grs.get("active_event_flags") or {},
                 "bonus_score": grs.get("bonus_score", 0),
                 "historical_ebitda": float(grs.get("historical_ebitda", 0)),

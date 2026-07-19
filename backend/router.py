@@ -394,8 +394,7 @@ class SetUsernameRequest(BaseModel):
 @router.post("/set-username", summary="Set unique username")
 async def set_username(req: SetUsernameRequest):
     from admin_shared import _player_registry, _facilitator_registry, _persist_facilitators
-    import database_memory
-    
+
     username_lower = req.username.strip().lower()
     if not username_lower:
         raise HTTPException(status_code=400, detail="Username cannot be empty")
@@ -449,9 +448,12 @@ async def set_username(req: SetUsernameRequest):
                 if changed:
                     await db.update_session_metadata(session_id, {"registered_players": reg})
 
-            # Update all active sessions owned by this player (discover via the
-            # mirror cache, write durably per session through the db interface).
-            for sid, sess in list(database_memory._sessions.items()):
+            # Update all active sessions owned by this player. Railway audit
+            # §1.2: discovery now goes through the parity db API — the old
+            # memory-mirror iteration found NOTHING under Postgres, so username
+            # propagation silently no-opped there.
+            for sess in await db.fetch_all_sessions_raw():
+                sid = sess.get("session_id")
                 if sess.get("player_id") == req.user_id:
                     await db.update_session_metadata(sid, {
                         "player_name": req.username.strip(),
@@ -658,12 +660,12 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     # (happens after server restart — sub-sessions still exist in _sessions)
     if not players:
         try:
-            from database_memory import _sessions as all_sessions
-            for sid, sdata in all_sessions.items():
+            # Railway audit §1.2: parity db API for the roster rebuild.
+            for sdata in await db.fetch_all_sessions_raw():
                 if sdata.get("parent_cohort_id") == session_id and sdata.get("player_id"):
                     players.append({
                         "player_id": sdata["player_id"],
-                        "player_session_id": sid,
+                        "player_session_id": sdata["session_id"],
                     })
             if players:
                 _session_players[session_id] = players
@@ -802,10 +804,12 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     if _consent_required:
         try:
             from datetime import datetime as _dt, timezone as _tz
-            import database_memory as _dm_consent
-            _psess = _dm_consent._sessions.get(player_sid)
-            if _psess is not None:
-                _psess["consent_given_at"] = _dt.now(_tz.utc).isoformat()
+            # Railway audit §1.2: durable write through the db interface — the
+            # old memory-dict mutation silently no-opped under Postgres, so
+            # consent timestamps were never recorded there.
+            await db.update_session_metadata(
+                player_sid, {"consent_given_at": _dt.now(_tz.utc).isoformat()}
+            )
         except Exception:
             pass
 
@@ -1222,8 +1226,8 @@ async def get_solo_round_configs(session_id: str):
     Returns all 10 rounds' option sets pre-seeded at solo session creation.
     Used by the player cockpit to populate DecisionModal without extra fetches.
     """
-    import database_memory as _dm
-    sess = _dm._sessions.get(session_id)
+    # Railway audit §1.2: parity db API (metadata-merged in both stores).
+    sess = await db.get_session_info(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
     if not sess.get("is_solo"):
@@ -1758,7 +1762,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         )
 
     # ── Side track blocking gate ─────────────────────────────
-    blocking_tid, blocking_st = _get_active_side_track_for_session(session_id)
+    blocking_tid, blocking_st = await _get_active_side_track_for_session(session_id)
     if blocking_tid and blocking_st and not blocking_st.get("completed"):
         from side_tracks import get_track as _st_get
         _st_obj = _st_get(blocking_tid)
@@ -3010,8 +3014,21 @@ async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest, 
     # Propagate to all child player sessions
     try:
         import copy
+        # Railway audit §1.2: this block rewrites round-1 state wholesale in
+        # the memory store — a provisioning-time operation with no shared-store
+        # implementation yet. Fail loudly under Postgres instead of silently
+        # writing to a detached dict (which produced a phantom success).
+        from admin_shared import _in_memory_backend_active
+        if not _in_memory_backend_active():
+            raise HTTPException(
+                status_code=status.HTTP_501_NOT_IMPLEMENTED,
+                detail="Changing a cohort's paradigm after creation is not yet supported "
+                       "on the shared (Postgres) store. Recreate the cohort with the "
+                       "desired paradigm instead.",
+            )
+        # tripwire-allow-block-start — memory-only paradigm rewrite, 501-guarded above
         from database_memory import _sessions, _bu_states, _global_states, _load_seed
-        
+
         # If healthcare is chosen, we must rewrite the business units to healthcare ones.
         # This assumes the configuration is done at Round 1 before significant progression.
         if body.decision_paradigm == "healthcare":
@@ -3040,6 +3057,7 @@ async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest, 
                         child_states[-1]["political_capital"] = seed["global_state"].get("political_capital", 50.0)
                         child_states[-1]["community_trust_score"] = seed["global_state"].get("community_trust_score", 50.0)
                         child_states[-1]["global_emissions_intensity"] = seed["global_state"].get("global_emissions_intensity", 60.0)
+    # tripwire-allow-block-end
     except ImportError:
         pass
 
@@ -4043,18 +4061,16 @@ async def get_peer_leaderboard(session_id: str):
         return {"leaderboard": leaderboard, "ai_benchmark": True}
 
     # ── Multiplayer: Real peer leaderboard ──────────────────────
-    # Find all sibling sessions (same parent)
-    try:
-        from database_memory import _sessions, _global_states
-    except ImportError:
-        return {"leaderboard": [], "message": "Peer comparison unavailable"}
-
+    # Railway audit §1.2: parity db API — the memory-dict read returned an
+    # empty leaderboard under Postgres.
     siblings = []
-    for sid, sess in _sessions.items():
+    for sess in await db.fetch_all_sessions_raw():
+        sid = sess.get("session_id")
         if sess.get("parent_cohort_id") == parent_id:
-            latest_states = _global_states.get(sid, [])
-            if latest_states:
-                gs = latest_states[-1]
+            _row = await db.fetch_latest_state(sid)
+            if _row:
+                gs = dict(_row["global_state"])
+                gs.setdefault("round_number", _row.get("round_number", 1))
                 siblings.append({
                     "session_id": sid,
                     "player_id": sess.get("player_id", ""),
@@ -4088,12 +4104,14 @@ async def get_peer_leaderboard(session_id: str):
         team_name = TEAM_NAMES[i] if i < len(TEAM_NAMES) else f"Team {i + 1}"
         is_you = s["session_id"] == session_id
 
-        # Determine trend based on round number
+        # Determine trend based on round number (Railway audit §1.2: parity
+        # db API — the old _global_states read pinned every trend to "→"
+        # under Postgres).
         trend = "→"
         if s["round_number"] > 1:
-            prev_states = _global_states.get(s["session_id"], [])
+            prev_states = await db.fetch_round_history(s["session_id"])
             if len(prev_states) >= 2:
-                prev_treasury = float(prev_states[-2].get("corporate_treasury", 0))
+                prev_treasury = float(prev_states[-2]["global_state"].get("corporate_treasury", 0))
                 if s["treasury"] > prev_treasury:
                     trend = "↑"
                 elif s["treasury"] < prev_treasury:
@@ -4261,15 +4279,16 @@ async def get_peer_trend_history(session_id: str):
         return {"available": True, "ai_benchmark": True, "peerCount": 3, "rounds": rounds_out}
 
     # ── Multiplayer: Real peer averages ──────────────────────────
-    try:
-        from database_memory import _sessions, _round_states
-    except ImportError:
-        return {"available": False, "reason": "Peer comparison unavailable", "rounds": []}
+    # Railway audit §1.2 + slop find: the old import pulled `_round_states`,
+    # which has NEVER existed in database_memory — the ImportError was caught
+    # and this endpoint returned "unavailable" in EVERY mode since it was
+    # written. Ported to the parity db API; the feature now actually works.
+    _all_sess = await db.fetch_all_sessions_raw()
 
     # Collect all sibling session IDs (excluding self)
     sibling_ids = [
-        sid for sid, sess in _sessions.items()
-        if sess.get("parent_cohort_id") == parent_id and sid != session_id
+        s["session_id"] for s in _all_sess
+        if s.get("parent_cohort_id") == parent_id and s.get("session_id") != session_id
     ]
     if not sibling_ids:
         return {"available": False, "reason": "No peer sessions in this cohort", "rounds": []}
@@ -4357,11 +4376,13 @@ async def get_peer_trend_history(session_id: str):
 #  Full process_tick() engine used for side track rounds.
 # ═════════════════════════════════════════════════════════════════
 
-def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dict | None]:
+async def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dict | None]:
     """
     Check if a session (or its parent cohort) has an active, incomplete side track.
     Returns (track_id, track_state) if a side track is blocking main sim progression,
     or (None, None) if no side track is active.
+    (async since the Railway-audit port: the current-round read goes through
+    the parity db API instead of the memory store's _global_states.)
     """
     from database_memory import _sessions
     sess = _sessions.get(session_id)
@@ -4387,10 +4408,11 @@ def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dic
     states = player_sess.get("side_track_states") or sess.get("side_track_states", {})
     timing = sess.get("side_track_timing", {})
 
-    # Get current main sim round
-    from database_memory import _global_states
-    player_states = _global_states.get(session_id, [])
-    current_main_round = player_states[-1]["round_number"] if player_states else 1
+    # Get current main sim round (Railway audit §1.2: parity db API — the old
+    # _global_states read resolved round 1 forever under Postgres, which kept
+    # every timed side-track permanently locked).
+    _latest = await db.fetch_latest_state(session_id)
+    current_main_round = (_latest or {}).get("round_number", 1)
 
     for tid in active_tracks:
         st = states.get(tid, {})
@@ -6116,13 +6138,14 @@ async def activate_extended_mode(session_id: str):
 async def get_player_annotations(session_id: str):
     """Returns annotations for this session that the facilitator has
     marked as visible to students. Respects the session-level visibility toggle."""
-    import database_memory as db_mem
     from admin_router import _annotations
 
-    # Find the parent cohort session to check visibility toggle
-    sess = db_mem._sessions.get(session_id, {})
+    # Railway audit §1.2: parity db API — the memory-dict read resolved the
+    # parent cohort against an empty map under Postgres, so the visibility
+    # toggle read the wrong record.
+    sess = await db.get_session_info(session_id) or {}
     parent_id = sess.get("parent_cohort_id", session_id)
-    parent_sess = db_mem._sessions.get(parent_id, sess)
+    parent_sess = (await db.get_session_info(parent_id) or sess) if parent_id != session_id else sess
 
     # Check if facilitator has enabled annotations visibility for students
     if not parent_sess.get("annotations_player_visible", False):

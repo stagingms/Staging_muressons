@@ -302,7 +302,7 @@ def create_session(paradigm: str, pathway: str, label: str, bu_mode: str = "4bu"
     # via db.get_session_info(), so this is the authoritative single fix-point.
     if is_single_bu:
         try:
-            import database_memory as _dm
+            import database_memory as _dm  # tripwire-allow: offline QA harness, memory-mode only
             sess = _dm._sessions.get(sid)
             if sess is not None:
                 sess["assigned_bu"]      = bu_mode  # e.g. 'pharma'

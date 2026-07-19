@@ -292,10 +292,21 @@ async def get_platform_analytics(request: Request,
     import math
     from collections import defaultdict
 
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states = getattr(db, '_bu_states', {})
-    decision_log = getattr(db, '_decision_log', [])
+    # Railway audit §1.1: build memory-shaped views via the parity db API so
+    # this works identically under Postgres (the old getattr reads silently
+    # returned {} there). Shapes match the memory store exactly:
+    #   global_states[sid] = list of per-round dicts (fields at top level),
+    #   bu_states[sid]     = {round_number: [bu dicts]}.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    global_states: dict = {}
+    bu_states: dict = {}
+    for _sid in all_sessions:
+        _hist = await db.fetch_round_history(_sid)
+        global_states[_sid] = [
+            {**h["global_state"], "round_number": h.get("round_number", 1)} for h in _hist
+        ]
+        bu_states[_sid] = {h.get("round_number", 1): h.get("business_units") or [] for h in _hist}
+    decision_log = await db.fetch_all_decisions()
 
     from admin_shared import is_admin_role
     if not is_admin_role(caller_role):
@@ -497,10 +508,18 @@ async def get_player_analytics(session_id: str, request: Request):
     session admits its UUID bearer, an owned session requires a matching
     X-Player-Id, and holding a leaked session id alone is not enough.
     """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states = getattr(db, '_bu_states', {})
-    decision_log = getattr(db, '_decision_log', [])
+    # Railway audit §1.1: memory-shaped views via the parity db API (the old
+    # getattr reads silently returned {} under Postgres, 404ing every player).
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    global_states: dict = {}
+    bu_states: dict = {}
+    for _sid in all_sessions:
+        _hist = await db.fetch_round_history(_sid)
+        global_states[_sid] = [
+            {**h["global_state"], "round_number": h.get("round_number", 1)} for h in _hist
+        ]
+        bu_states[_sid] = {h.get("round_number", 1): h.get("business_units") or [] for h in _hist}
+    decision_log = await db.fetch_all_decisions()
 
     sess = all_sessions.get(session_id)
     if not sess:

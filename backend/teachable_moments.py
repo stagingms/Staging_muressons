@@ -105,11 +105,14 @@ def derive_teachable_moments(
 
 async def compute_cohort_teachable_moments(cohort_id: str, threshold_ratio: float = 0.5) -> dict:
     """Live wrapper: gather each team's active flags in the cohort, then derive."""
-    import database_memory as db
+    # Railway audit §1.1: this imported database_memory directly, so under
+    # Postgres both the session scan AND fetch_latest_state ran against the
+    # (empty) memory module. Route through the active store instead.
+    import database as db
 
     # Player (team) sessions are the child sessions of this cohort.
     player_sessions = [
-        sid for sid, s in db._sessions.items()
+        s["session_id"] for s in await db.fetch_all_sessions_raw()
         if s.get("parent_cohort_id") == cohort_id
     ]
 

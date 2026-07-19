@@ -8165,8 +8165,9 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
     chyron-only bulletin."""
     _require_console_capability(request, "situation_room_enabled", "Situation Room")
 
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Railway audit §1.1: reads go through the parity db API (works under both
+    # stores) instead of the memory store's private dicts.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
     has_children = any(s.get("parent_cohort_id") == cohort_id for s in all_sessions.values())
 
     teams = []
@@ -8178,13 +8179,13 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
             continue
         if is_self and has_children:
             continue  # prefer player sub-sessions over the parent shell
-        gs_list = global_states.get(sid, [])
-        if not gs_list:
+        hist = await db.fetch_round_history(sid)
+        if not hist:
             continue
-        latest = gs_list[-1]
-        prev = gs_list[-2] if len(gs_list) > 1 else None
+        latest = hist[-1]["global_state"]
+        prev = hist[-2]["global_state"] if len(hist) > 1 else None
         flags = latest.get("active_event_flags", {}) or {}
-        round_number = max(round_number, int(latest.get("round_number", 1) or 1))
+        round_number = max(round_number, int(hist[-1].get("round_number", 1) or 1))
         teams.append({
             "name": sess.get("player_name") or sess.get("cohort_name") or sid[:8],
             "ebitda": float(latest.get("historical_ebitda", 0) or 0),
@@ -9067,15 +9068,15 @@ async def get_complexity_events(session_id: str, _guard: None = Depends(require_
     facilitator and god-mode dashboards (ComplexityEventFeed), and the sibling
     /complexity-events-all was already facilitator-guarded — this brings the
     per-session variant in line."""
-    global_states = getattr(db, '_global_states', {})
-    rounds = global_states.get(session_id, [])
-    if not rounds:
+    # Railway audit §1.1: parity db API instead of the memory store's dicts.
+    hist = await db.fetch_round_history(session_id)
+    if not hist:
         raise HTTPException(404, "No round data")
 
     feed = []
-    for grs in rounds:
-        rn = grs.get("round_number", 1)
-        flags = grs.get("active_event_flags", {})
+    for row in hist:
+        rn = row.get("round_number", 1)
+        flags = row["global_state"].get("active_event_flags", {}) or {}
         round_events = []
         for key, value in flags.items():
             if key in _COMPLEXITY_EVENT_LABELS and value:
@@ -9121,8 +9122,8 @@ async def get_complexity_events(session_id: str, _guard: None = Depends(require_
 @admin_router.get("/complexity-events-all", summary="Get complexity engine events for ALL cohorts")
 async def get_complexity_events_all(_guard: None = Depends(require_facilitator)):
     """Aggregate complexity events across every cohort for cross-cohort comparison."""
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Railway audit §1.1: parity db API instead of the memory store's dicts.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     cohorts = []
     for sid, sess in all_sessions.items():
@@ -9130,14 +9131,14 @@ async def get_complexity_events_all(_guard: None = Depends(require_facilitator))
         if sess.get("player_id") or sess.get("deleted_at"):
             continue
 
-        rounds = global_states.get(sid, [])
+        rounds = await db.fetch_round_history(sid)
         if not rounds:
             continue
 
         feed = []
-        for grs in rounds:
-            rn = grs.get("round_number", 1)
-            flags = grs.get("active_event_flags", {})
+        for row in rounds:
+            rn = row.get("round_number", 1)
+            flags = row["global_state"].get("active_event_flags", {}) or {}
             round_events = []
             for key, value in flags.items():
                 if key in _COMPLEXITY_EVENT_LABELS and value:
@@ -9195,8 +9196,8 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
     Returns compact health indicators for each cohort.
     Status: active, idle, stuck, disconnected.
     """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Railway audit §1.1: parity db API instead of the memory store's dicts.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
     now = datetime.now(timezone.utc)
     health = []
 
@@ -9204,9 +9205,9 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
         if sess.get("player_id") or sess.get("deleted_at"):
             continue  # Skip player sub-sessions and deleted sessions
 
-        gs_list = global_states.get(sid, [])
-        latest_gs = gs_list[-1] if gs_list else {}
-        round_num = latest_gs.get("round_number", 1)
+        _latest_row = await db.fetch_latest_state(sid)
+        latest_gs = (_latest_row or {}).get("global_state", {}) or {}
+        round_num = (_latest_row or {}).get("round_number", latest_gs.get("round_number", 1))
 
         # Compute health metrics
         treasury = float(latest_gs.get("corporate_treasury", 0))
@@ -9276,9 +9277,23 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
 async def clone_session(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Deep-clone a cohort's current state into a new session."""
     import copy
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states_store = getattr(db, '_bu_states', {})
+    # Railway audit §1.1: cloning writes straight into the memory store's
+    # dicts. Under Postgres those dicts are module-absent, so the old code
+    # "succeeded" while creating NOTHING — a phantom session id. Until a
+    # shared-store clone is implemented, fail LOUDLY instead of lying.
+    from admin_shared import _in_memory_backend_active
+    if not _in_memory_backend_active():
+        raise HTTPException(
+            status_code=status.HTTP_501_NOT_IMPLEMENTED,
+            detail="Session cloning is not yet supported on the shared (Postgres) store. "
+                   "It is available in memory-mode deployments only.",
+        )
+    # tripwire-allow-block-start — memory-only feature, 501-guarded above
+    import database_memory as _dm_clone
+    all_sessions = _dm_clone._sessions
+    global_states = _dm_clone._global_states
+    bu_states_store = _dm_clone._bu_states
+    # tripwire-allow-block-end
 
     source = all_sessions.get(session_id)
     if not source:
@@ -9619,8 +9634,8 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
 
     Normalized_TV = Raw_TV × (ref_exit / paradigm_exit)
     """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Railway audit §1.1: parity db API instead of the memory store's dicts.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     comparisons = []
     for sid, sess in all_sessions.items():
@@ -9631,9 +9646,11 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
         norms = _PARADIGM_NORMALIZATION.get(paradigm, _REFERENCE_PARADIGM)
         ref = _REFERENCE_PARADIGM
 
-        gs_list = global_states.get(sid, [])
-        latest = gs_list[-1] if gs_list else {}
-        flags = latest.get("active_event_flags", {})
+        _row = await db.fetch_latest_state(sid)
+        latest = (_row or {}).get("global_state", {}) or {}
+        if _row:
+            latest.setdefault("round_number", _row.get("round_number", 1))
+        flags = latest.get("active_event_flags", {}) or {}
 
         raw_tv = float(latest.get("terminal_value", 0))
         raw_mr = float(latest.get("regenerative_multiple", 1.0))
@@ -9676,8 +9693,8 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
 @admin_router.get("/cohort-comparison", summary="Side-by-side cohort comparison")
 async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depends(require_facilitator)):
     """Compare all cohorts (or a facilitator's cohorts) side by side."""
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Railway audit §1.1: parity db API instead of the memory store's dicts.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     comparisons = []
     for sid, sess in all_sessions.items():
@@ -9686,9 +9703,11 @@ async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depen
         if facilitator_id and sess.get("facilitator_id") != facilitator_id:
             continue
 
-        gs_list = global_states.get(sid, [])
-        latest = gs_list[-1] if gs_list else {}
-        flags = latest.get("active_event_flags", {})
+        _row = await db.fetch_latest_state(sid)
+        latest = (_row or {}).get("global_state", {}) or {}
+        if _row:
+            latest.setdefault("round_number", _row.get("round_number", 1))
+        flags = latest.get("active_event_flags", {}) or {}
 
         comparisons.append({
             "session_id": sid,
@@ -9727,9 +9746,10 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
     on AND their X-Player-Id owns a session in this cohort — the player-mirror
     design the visibility toggle promises, without an anonymous side door.
     """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states_store = getattr(db, '_bu_states', {})
+    # Railway audit §1.1: parity db API instead of the memory store's dicts.
+    # History rows carry global_state (flags unpacked to top level in both
+    # stores) AND business_units per round, replacing the private _bu_states.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     if get_fac_role(request) == 'anonymous':
         cohort_meta = all_sessions.get(cohort_id) or {}
@@ -9749,7 +9769,12 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
         # Only player sessions whose parent cohort matches, or the cohort session itself
         parent = sess.get("parent_cohort_id")
         if parent == cohort_id or sid == cohort_id:
-            gs_list = global_states.get(sid, [])
+            hist_rows = await db.fetch_round_history(sid)
+            gs_list = [
+                {**row["global_state"], "round_number": row.get("round_number", 1)}
+                for row in hist_rows
+            ]
+            bus_by_round = {row.get("round_number", 1): row.get("business_units") or [] for row in hist_rows}
             history = {}
             cumulative_carbon_fee = 0.0
 
@@ -9759,7 +9784,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
                 fee_this_round = flags.get("internal_carbon_fee_deducted", 0) or 0
                 cumulative_carbon_fee += fee_this_round
                 # Compute average SLO from BU states for this round
-                buses_for_round = bu_states_store.get(sid, {}).get(r, [])
+                buses_for_round = bus_by_round.get(r, [])
                 avg_slo = (
                     sum(b.get("social_license_score", 50) for b in buses_for_round) / len(buses_for_round)
                     if buses_for_round else 50
@@ -9784,7 +9809,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
                 for gs in gs_list
             )
             # Average SLO for the latest round
-            latest_bus = bu_states_store.get(sid, {}).get(latest_rn, [])
+            latest_bus = bus_by_round.get(latest_rn, [])
             latest_slo = (
                 sum(b.get("social_license_score", 50) for b in latest_bus) / len(latest_bus)
                 if latest_bus else 50

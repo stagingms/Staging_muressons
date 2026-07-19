@@ -853,6 +853,45 @@ async def fetch_all_sessions() -> list[dict]:
         return res
 
 
+async def fetch_all_sessions_raw() -> list[dict]:
+    """ALL session records, INCLUDING per-player sub-sessions and shells.
+
+    Parity API (Railway audit §1.1) — the Postgres sessions query already
+    returns every row (child relationships live in metadata), so this simply
+    reuses it under the parity name the memory store also implements. Aggregate
+    endpoints must call this instead of touching a store's private dicts."""
+    return await fetch_all_sessions()
+
+
+async def fetch_all_decisions() -> list[dict]:
+    """Every decision-audit row across all sessions (analytics aggregates).
+    Parity API — mirrors database_memory.fetch_all_decisions."""
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT session_id, round_number, bu_id, decision_node_id,
+                   choice_selected, capex_allocated, time_to_decision_seconds,
+                   team_consensus
+            FROM decision_audit_log
+            ORDER BY round_number
+            """
+        )
+        return [
+            {
+                "session_id": str(r["session_id"]),
+                "round_number": r["round_number"],
+                "bu_id": r["bu_id"],
+                "decision_node_id": r["decision_node_id"],
+                "choice_selected": r["choice_selected"],
+                "capex_allocated": float(r["capex_allocated"] or 0),
+                "time_to_decision_seconds": r["time_to_decision_seconds"],
+                "team_consensus": r["team_consensus"],
+            }
+            for r in rows
+        ]
+
+
 async def update_latest_global_state(
     session_id: str,
     global_state: dict,

@@ -1048,12 +1048,15 @@ _AGENT_DEBRIEF_BANK = {
 async def get_agent_teleprompter(session_id: str):
     """Reads live agent state from a session and returns contextual debrief questions."""
     try:
-        import database_memory as _db
-        rounds = _db._global_states.get(session_id, [])
-        if not rounds:
+        # Railway audit §1.1: read via the parity db API (works under both
+        # stores) instead of the memory store's private dict.
+        import database as _db_api
+        _row = await _db_api.fetch_latest_state(session_id)
+        if not _row:
             return {"session_id": session_id, "agents": None, "message": "Session not found"}
 
-        gs = rounds[-1]
+        gs = dict(_row["global_state"])
+        gs.setdefault("round_number", _row.get("round_number", 1))
         aa_state = gs.get("autonomous_agents") or {}
         agents_raw = aa_state.get("agents", {})
 
