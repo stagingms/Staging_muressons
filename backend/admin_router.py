@@ -6321,6 +6321,206 @@ async def upload_stakeholder_excel(
     }
 
 
+async def _read_bulk_upload(file: UploadFile) -> str:
+    """Shared validation + temp-file write for the bulk endpoints. Returns the
+    temp path; caller is responsible for unlinking it."""
+    import os
+    import tempfile
+
+    filename = file.filename or ""
+    if not filename.lower().endswith(".xlsx"):
+        raise HTTPException(400, "Only .xlsx files are accepted. Please upload a valid Excel file.")
+    contents = await file.read()
+    max_size = 10 * 1024 * 1024   # master files carry many scopes — 10 MB
+    if len(contents) > max_size:
+        raise HTTPException(
+            400, f"File too large ({len(contents):,} bytes). Maximum size is 10 MB."
+        )
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
+    os.write(tmp_fd, contents)
+    os.close(tmp_fd)
+    return tmp_path
+
+
+@admin_router.post(
+    "/stakeholder-config/bulk-preview",
+    summary="Parse a multi-scope stakeholder workbook and report what WOULD change",
+)
+async def bulk_preview_stakeholder_excel(
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_super_admin),
+):
+    """Dry run for the master-file upload. Parses every scope in the workbook,
+    validates all rows, and returns a per-scope diff against what is stored
+    today — WITHOUT writing anything.
+
+    A bulk import replaces whole stakeholder lists, so the operator sees the
+    blast radius (which scopes, how many added/removed/changed) before
+    committing. Validation is total: any error anywhere fails the whole
+    preview, because a half-applied bulk import leaves scopes in an unknown
+    state."""
+    import os
+
+    tmp_path = await _read_bulk_upload(file)
+    try:
+        from stakeholder_bulk_excel import parse_bulk_workbook
+        try:
+            scopes = parse_bulk_workbook(tmp_path)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    from stakeholder_db import get_region_config_raw
+    try:
+        from stakeholder_map import STAKEHOLDERS as _CANON_BASE
+        canonical_ids = {s.get("id") for s in _CANON_BASE}
+    except Exception:
+        canonical_ids = set()
+
+    summary = []
+    for config_id, incoming in sorted(scopes.items()):
+        current = get_region_config_raw(config_id) or []
+        cur_ids = {s.get("id") for s in current if s.get("id")}
+        new_ids = {s.get("id") for s in incoming if s.get("id")}
+        dropped = sorted(cur_ids - new_ids)
+        # Region/vertical files are OVERRIDES merged onto the canonical set
+        # (stakeholder_db.get_stakeholders_for_region), so dropping an entry
+        # does not delete that stakeholder — it reverts to canonical, unless
+        # the entry was scope-only, in which case it really does disappear.
+        # Reporting these as one undifferentiated "removed" count would
+        # mislead the operator about the blast radius.
+        reverts = [i for i in dropped if i in canonical_ids]
+        disappears = [i for i in dropped if i not in canonical_ids]
+        summary.append({
+            "config_id": config_id,
+            "scope_kind": ("canonical" if config_id == "canonical"
+                           else "vertical" if config_id.startswith("vertical_") else "region"),
+            "incoming_overrides": len(incoming),
+            "existing_overrides": len(current),
+            "new_overrides": sorted(new_ids - cur_ids),
+            "replaced_overrides": sorted(new_ids & cur_ids),
+            "reverting_to_canonical": reverts,
+            "removed_entirely": disappears,
+            "is_new_config": not current,
+        })
+    return {
+        "status": "ok",
+        "dry_run": True,
+        "scope_count": len(summary),
+        "total_stakeholders": sum(s["incoming_overrides"] for s in summary),
+        "scopes": summary,
+        "note": (
+            "Region and vertical files are OVERRIDES layered on the canonical set: "
+            "an entry omitted from the upload reverts that stakeholder to its canonical "
+            "definition rather than deleting it, unless the stakeholder exists only in "
+            "this scope. Scopes absent from the workbook are not touched at all."
+        ),
+    }
+
+
+@admin_router.post(
+    "/stakeholder-config/bulk-upload",
+    summary="Apply a multi-scope stakeholder workbook (all verticals / regions at once)",
+)
+async def bulk_upload_stakeholder_excel(
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_super_admin),
+):
+    """Commit a master workbook covering many scopes.
+
+    Accepts either shape: scope columns (Vertical / Region) on one sheet, or one
+    sheet per scope. Every scope is parsed and validated BEFORE any write, so
+    the operation either applies in full or changes nothing. Scopes absent from
+    the file are left untouched."""
+    import os
+
+    tmp_path = await _read_bulk_upload(file)
+    try:
+        from stakeholder_bulk_excel import parse_bulk_workbook
+        try:
+            scopes = parse_bulk_workbook(tmp_path)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    from stakeholder_db import save_region_config
+    applied, failed = [], []
+    for config_id, items in sorted(scopes.items()):
+        if save_region_config(config_id, items):
+            applied.append({"config_id": config_id, "stakeholder_count": len(items)})
+        else:
+            failed.append(config_id)
+
+    if failed:
+        # save_region_config only fails on an invalid slug, which the parser
+        # should already have prevented — surface it rather than half-report ok.
+        raise HTTPException(
+            500,
+            f"Parsed successfully but failed to persist scope(s): {', '.join(failed)}. "
+            f"Applied: {[a['config_id'] for a in applied]}.",
+        )
+
+    _audit("stakeholder_bulk_upload", details={
+        "scopes": [a["config_id"] for a in applied],
+        "total_stakeholders": sum(a["stakeholder_count"] for a in applied),
+    })
+    _ar_log.info(
+        f"[god-mode] Stakeholder bulk upload: {len(applied)} scope(s), "
+        f"{sum(a['stakeholder_count'] for a in applied)} stakeholders"
+    )
+    return {
+        "status": "ok",
+        "scope_count": len(applied),
+        "total_stakeholders": sum(a["stakeholder_count"] for a in applied),
+        "applied": applied,
+    }
+
+
+@admin_router.get(
+    "/stakeholder-config/bulk-template",
+    summary="Download a master stakeholder template pre-filled with current configs",
+)
+async def download_stakeholder_bulk_template(_guard: None = Depends(require_facilitator)):
+    """Master template: scope columns plus every stakeholder currently stored,
+    so an administrator edits an accurate starting point instead of retyping
+    the platform's content."""
+    import os
+    import tempfile
+    from fastapi.responses import FileResponse
+
+    from stakeholder_db import list_region_configs, get_region_config_raw
+    existing = {}
+    for cid in list_region_configs():
+        rows = get_region_config_raw(cid)
+        if rows:
+            existing[cid] = rows
+    if not existing:
+        # No overrides yet — seed the template from the canonical default set.
+        try:
+            from stakeholder_map import STAKEHOLDERS as _CANON
+            existing = {"canonical": list(_CANON)}
+        except Exception:
+            existing = {}
+
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
+    os.close(tmp_fd)
+    from stakeholder_bulk_excel import build_bulk_template
+    build_bulk_template(tmp_path, existing)
+    return FileResponse(
+        tmp_path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="muressons_stakeholder_master.xlsx",
+    )
+
+
 @admin_router.get(
     "/stakeholder-config/download/{config_id}",
     summary="Download stakeholder config as Excel (.xlsx)",

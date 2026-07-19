@@ -308,6 +308,12 @@ export default function StakeholderConfig() {
     const [excelFeedback, setExcelFeedback] = useState({ message: '', type: 'success' });
     const [dragActive, setDragActive] = useState(false);
     const fileInputRef = useRef(null);
+    // Bulk ("master file") mode: one workbook carrying many verticals/regions.
+    // Uploading is destructive per scope, so a dry-run preview is mandatory
+    // before the commit button appears.
+    const [bulkMode, setBulkMode] = useState(false);
+    const [bulkPreview, setBulkPreview] = useState(null);
+    const [bulkFile, setBulkFile] = useState(null);
 
     const EXCEL_SCOPES = [
         { value: 'canonical', label: 'Canonical (Default Set)' },
@@ -378,12 +384,69 @@ export default function StakeholderConfig() {
         }
     };
 
+    // Dry run: parse + report the blast radius, writing nothing.
+    const handleBulkPreview = async (file) => {
+        if (!file) return;
+        if (!file.name.toLowerCase().endsWith('.xlsx')) {
+            showExcelFeedback('Only .xlsx files are accepted.', 'error'); return;
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            showExcelFeedback('File too large. Maximum size is 10 MB for master files.', 'error'); return;
+        }
+        setUploading(true); setBulkPreview(null);
+        try {
+            const fd = new FormData(); fd.append('file', file);
+            const res = await fetch(API + '/api/admin/stakeholder-config/bulk-preview', {
+                method: 'POST', credentials: 'include', body: fd,
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Preview failed');
+            setBulkPreview(data); setBulkFile(file);
+            showExcelFeedback('Parsed ' + data.scope_count + ' scope(s) — review below, then apply.');
+        } catch (err) {
+            showExcelFeedback(err.message, 'error'); setBulkFile(null);
+        } finally { setUploading(false); }
+    };
+
+    const handleBulkApply = async () => {
+        if (!bulkFile) return;
+        setUploading(true);
+        try {
+            const fd = new FormData(); fd.append('file', bulkFile);
+            const res = await fetch(API + '/api/admin/stakeholder-config/bulk-upload', {
+                method: 'POST', credentials: 'include', body: fd,
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Bulk upload failed');
+            showExcelFeedback('Applied ' + data.scope_count + ' scope(s), ' + data.total_stakeholders + ' stakeholders.');
+            setBulkPreview(null); setBulkFile(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        } catch (err) {
+            showExcelFeedback(err.message, 'error');
+        } finally { setUploading(false); }
+    };
+
+    const handleDownloadBulkTemplate = async () => {
+        setDownloading(true);
+        try {
+            const res = await fetch(API + '/api/admin/stakeholder-config/bulk-template', { credentials: 'include' });
+            if (!res.ok) throw new Error('Template download failed');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = 'muressons_stakeholder_master.xlsx';
+            document.body.appendChild(a); a.click(); a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        } catch (err) { showExcelFeedback(err.message, 'error'); }
+        finally { setDownloading(false); }
+    };
+
     const handleDrop = (e) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-            handleUploadExcel(e.dataTransfer.files[0]);
+            (bulkMode ? handleBulkPreview : handleUploadExcel)(e.dataTransfer.files[0]);
         }
     };
 
@@ -439,9 +502,35 @@ export default function StakeholderConfig() {
                     <div style={{ padding: '0 1.15rem 1.15rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
                         <Toast message={excelFeedback.message} type={excelFeedback.type} />
 
+                        {/* Mode switch: single scope vs one master file for everything */}
+                        <div style={{ display: 'inline-flex', gap: 4, padding: 4, borderRadius: 999, background: 'rgba(148,163,184,0.10)', marginBottom: '0.9rem' }}>
+                            {[[false, '📄 Single scope'], [true, '📚 Master file (all verticals & regions)']].map(([mode, label]) => (
+                                <button
+                                    key={String(mode)}
+                                    type="button"
+                                    onClick={() => { setBulkMode(mode); setBulkPreview(null); setBulkFile(null); }}
+                                    style={{
+                                        padding: '5px 14px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                                        fontSize: '0.76rem', fontWeight: 700,
+                                        background: bulkMode === mode ? 'rgba(59,130,246,0.85)' : 'transparent',
+                                        color: bulkMode === mode ? '#fff' : 'var(--text-muted, #64748b)',
+                                    }}
+                                >{label}</button>
+                            ))}
+                        </div>
+
+                        {bulkMode && (
+                            <p style={{ margin: '0 0 0.9rem', fontSize: '0.78rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.6 }}>
+                                Upload one workbook covering many scopes. Either add <strong>Vertical</strong> and{' '}
+                                <strong>Region</strong> columns to a single sheet, or give each scope its own sheet
+                                (e.g. “Region - Europe”, “Vertical - Pharma”, “Canonical”). You will see exactly what
+                                changes before anything is written; scopes absent from the file are left untouched.
+                            </p>
+                        )}
+
                         {/* Scope selector + buttons */}
                         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                            <div className={styles.fieldGroup} style={{ minWidth: '220px' }}>
+                            <div className={styles.fieldGroup} style={{ minWidth: '220px', display: bulkMode ? 'none' : undefined }}>
                                 <label className={styles.label}>Config Scope</label>
                                 <select
                                     className={styles.select}
@@ -455,11 +544,15 @@ export default function StakeholderConfig() {
                             </div>
                             <button
                                 className={styles.btnPrimary}
-                                onClick={handleDownloadExcel}
+                                onClick={bulkMode ? handleDownloadBulkTemplate : handleDownloadExcel}
                                 disabled={downloading}
                                 style={{ alignSelf: 'flex-end' }}
+                                title={bulkMode
+                                    ? 'Download a master template pre-filled with every stakeholder currently configured'
+                                    : 'Download the stakeholder sheet for the selected scope'}
                             >
-                                {downloading ? '⏳ Downloading...' : '⬇️ Download Excel'}
+                                {downloading ? '⏳ Downloading...'
+                                    : bulkMode ? '⬇️ Download master template' : '⬇️ Download Excel'}
                             </button>
                         </div>
 
@@ -484,20 +577,79 @@ export default function StakeholderConfig() {
                                 type="file"
                                 accept=".xlsx"
                                 style={{ display: 'none' }}
-                                onChange={e => handleUploadExcel(e.target.files && e.target.files[0])}
+                                onChange={e => (bulkMode ? handleBulkPreview : handleUploadExcel)(e.target.files && e.target.files[0])}
                             />
                             {uploading ? (
-                                <p style={{ margin: 0, color: '#3b82f6', fontWeight: 600, fontSize: '0.85rem' }}>⏳ Uploading and validating…</p>
+                                <p style={{ margin: 0, color: '#3b82f6', fontWeight: 600, fontSize: '0.85rem' }}>⏳ Parsing and validating…</p>
                             ) : (
                                 <>
                                     <div style={{ fontSize: '2rem', marginBottom: '0.35rem' }}>📤</div>
                                     <p style={{ margin: 0, color: 'var(--text-muted, #64748b)', fontSize: '0.82rem' }}>
                                         <strong style={{ color: 'var(--text-primary, #e2e8f0)' }}>Drop .xlsx file here</strong> or click to browse
                                     </p>
-                                    <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.72rem' }}>Max 5 MB • .xlsx only</p>
+                                    <p style={{ margin: '0.25rem 0 0', color: 'var(--text-muted, #64748b)', fontSize: '0.72rem' }}>
+                                        {bulkMode ? 'Max 10 MB • .xlsx • preview first, nothing is written yet' : 'Max 5 MB • .xlsx only'}
+                                    </p>
                                 </>
                             )}
                         </div>
+
+                        {/* ── Bulk preview: the blast radius, before anything is written ── */}
+                        {bulkMode && bulkPreview && (
+                            <div style={{ marginTop: '1rem', border: '1px solid rgba(59,130,246,0.35)', borderRadius: 10, overflow: 'hidden' }}>
+                                <div style={{ padding: '10px 14px', background: 'rgba(59,130,246,0.10)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                                    <strong style={{ fontSize: '0.84rem', color: 'var(--text-primary, #e2e8f0)' }}>
+                                        Preview — {bulkPreview.scope_count} scope(s), {bulkPreview.total_stakeholders} stakeholder row(s). Nothing written yet.
+                                    </strong>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <button
+                                            onClick={() => { setBulkPreview(null); setBulkFile(null); }}
+                                            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border-subtle, #2d3446)', background: 'transparent', color: 'var(--text-muted, #64748b)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+                                        >Cancel</button>
+                                        <button
+                                            onClick={handleBulkApply}
+                                            disabled={uploading}
+                                            style={{ padding: '6px 16px', borderRadius: 8, border: 'none', background: '#3b82f6', color: '#fff', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 800 }}
+                                        >{uploading ? '⏳ Applying…' : '✅ Apply to ' + bulkPreview.scope_count + ' scope(s)'}</button>
+                                    </div>
+                                </div>
+
+                                <div style={{ maxHeight: 260, overflowY: 'auto' }}>
+                                    {bulkPreview.scopes.map(sc => (
+                                        <div key={sc.config_id} style={{ padding: '9px 14px', borderTop: '1px solid var(--border-subtle, #2d3446)', fontSize: '0.78rem' }}>
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', flexWrap: 'wrap' }}>
+                                                <span style={{ fontWeight: 700, color: 'var(--text-primary, #e2e8f0)' }}>{sc.config_id}</span>
+                                                <span style={{ fontSize: '0.66rem', padding: '1px 7px', borderRadius: 999, background: 'rgba(148,163,184,0.15)', color: 'var(--text-muted, #64748b)', textTransform: 'uppercase', fontWeight: 700 }}>{sc.scope_kind}</span>
+                                                {sc.is_new_config && <span style={{ fontSize: '0.66rem', color: '#22c55e', fontWeight: 700 }}>NEW</span>}
+                                                <span style={{ marginLeft: 'auto', color: 'var(--text-muted, #64748b)' }}>
+                                                    {sc.existing_overrides} → {sc.incoming_overrides} override(s)
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 4, color: 'var(--text-muted, #64748b)' }}>
+                                                {sc.new_overrides.length > 0 && <span style={{ color: '#22c55e' }}>+{sc.new_overrides.length} new</span>}
+                                                {sc.replaced_overrides.length > 0 && <span style={{ color: '#3b82f6' }}>~{sc.replaced_overrides.length} replaced</span>}
+                                                {sc.reverting_to_canonical.length > 0 && (
+                                                    <span style={{ color: '#f59e0b' }} title={'Reverts to the canonical definition: ' + sc.reverting_to_canonical.join(', ')}>
+                                                        ↩ {sc.reverting_to_canonical.length} back to canonical
+                                                    </span>
+                                                )}
+                                                {sc.removed_entirely.length > 0 && (
+                                                    <span style={{ color: '#ef4444' }} title={'Exists only in this scope and will disappear: ' + sc.removed_entirely.join(', ')}>
+                                                        ✕ {sc.removed_entirely.length} removed entirely
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                {bulkPreview.note && (
+                                    <p style={{ margin: 0, padding: '9px 14px', borderTop: '1px solid var(--border-subtle, #2d3446)', fontSize: '0.72rem', color: 'var(--text-muted, #64748b)', lineHeight: 1.6 }}>
+                                        {bulkPreview.note}
+                                    </p>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
