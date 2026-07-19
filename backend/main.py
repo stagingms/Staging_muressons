@@ -160,6 +160,20 @@ elif not os.getenv("MASTER_PASSWORD", ""):
     # testers who need god_mode set MASTER_PASSWORD in backend/.env.
     print("[SEC-4] MASTER_PASSWORD not set — god_mode break-glass DISABLED (safe default).")
 
+# ── Deployment preflight (2026-07-19) ───────────────────────────────────────
+# Warnings, not fatals: the hard failures above already cover what makes a
+# deployment unsafe. These cover what makes one CONFUSING — a shipped master
+# password override, a data dir with no volume behind it, a proxy list that
+# silently collapses rate limiting. Each previously surfaced hours later as an
+# unrelated-looking symptom. Never allowed to prevent a boot.
+try:
+    from deploy_preflight import run_preflight, format_findings
+    _pf = run_preflight()
+    if _pf:
+        print(format_findings(_pf))
+except Exception as _pf_exc:  # pragma: no cover - diagnostics must not break startup
+    print(f"[preflight] skipped: {_pf_exc}")
+
 if _use_memory:
     _refuse_memory_db_in_prod()  # SEC-2: hard-fail in prod unless overridden
     print("[MEMORY] In-memory mode (forced via USE_MEMORY_DB)")

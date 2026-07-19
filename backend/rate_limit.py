@@ -87,20 +87,74 @@ _save_persistent_bans()
 # these headers from arbitrary clients allows an attacker to spoof a new IP
 # on every request and bypass the rate limit entirely.
 #
-# Set TRUSTED_PROXY_IPS to a comma-separated list of your proxy CIDRs/IPs.
+# Set TRUSTED_PROXY_IPS to a comma-separated list of your proxy IPs or CIDRs.
 # Defaults to localhost only (safe for direct-access deployments).
-# Railway / Render / Fly.io: add the platform's egress IP range here.
-_TRUSTED_PROXY_IPS: frozenset[str] = frozenset(
+#
+# BUG-2026-07-19: this list DOCUMENTED CIDR support but compared by exact
+# string (`direct_ip in frozenset`), so a range like 10.0.0.0/8 matched
+# nothing. On a PaaS the app sits behind an edge proxy whose internal address
+# is not knowable in advance, so operators reach for a range — and got silent
+# no-op trust. X-Forwarded-For was then discarded and EVERY request resolved to
+# the same proxy address, collapsing a whole cohort into one rate-limit bucket:
+# one student mistyping their password could 429 the entire room. Entries are
+# now parsed once into exact addresses plus real networks.
+#
+# Railway / Render / Fly.io: add the platform's edge range, e.g.
+#   TRUSTED_PROXY_IPS=127.0.0.1,::1,10.0.0.0/8,100.64.0.0/10
+# Trusting a PRIVATE range is safe here because a client cannot choose the
+# source address of the TCP connection the platform makes to your container.
+# Never add a public range you do not control — that would let anyone on it
+# spoof X-Forwarded-For and bypass rate limiting entirely.
+_TRUSTED_PROXY_RAW: tuple[str, ...] = tuple(
     ip.strip()
     for ip in os.getenv("TRUSTED_PROXY_IPS", "127.0.0.1,::1").split(",")
     if ip.strip()
 )
 
 
+def _parse_trusted(entries):
+    """Split raw entries into (exact-address set, network list).
+
+    Unparseable entries are kept as exact strings rather than dropped: the old
+    behaviour was exact-string matching, and silently discarding a malformed
+    entry would be a security-relevant surprise in the other direction.
+    """
+    import ipaddress
+    exact, nets = set(), []
+    for raw in entries:
+        try:
+            if "/" in raw:
+                nets.append(ipaddress.ip_network(raw, strict=False))
+            else:
+                exact.add(str(ipaddress.ip_address(raw)))
+        except ValueError:
+            exact.add(raw)
+    return frozenset(exact), tuple(nets)
+
+
+_TRUSTED_EXACT, _TRUSTED_NETS = _parse_trusted(_TRUSTED_PROXY_RAW)
+
+# Kept for backwards compatibility: existing code and tests import this name.
+_TRUSTED_PROXY_IPS: frozenset[str] = _TRUSTED_EXACT
+
+
+def _is_trusted_proxy(ip: str) -> bool:
+    if ip in _TRUSTED_EXACT:
+        return True
+    if not _TRUSTED_NETS:
+        return False
+    try:
+        import ipaddress
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return False
+    return any(addr in net for net in _TRUSTED_NETS)
+
+
 def _resolve_client_ip(request: Request) -> str:
     """Return the real client IP, honouring proxy headers only from trusted sources."""
     direct_ip = request.client.host if request.client else "unknown"
-    if direct_ip in _TRUSTED_PROXY_IPS:
+    if _is_trusted_proxy(direct_ip):
         # Trust X-Forwarded-For only when the direct connection is a known proxy
         xff = request.headers.get("X-Forwarded-For", "")
         if xff:

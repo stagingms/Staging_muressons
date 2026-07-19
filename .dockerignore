@@ -50,6 +50,46 @@ archive/
 scratch/
 reports/
 
+# ── MUTABLE RUNTIME STATE — never ship a developer's local state ──────────
+# The Dockerfile does `COPY db/ /app/db/` and `COPY backend/ /app/backend/`,
+# which is correct: both directories hold SEED and CONFIG data the app needs.
+# But they also accumulate mutable runtime state, and runtime_paths.data_file()
+# MIGRATES that state into MURESSONS_DATA_DIR (/data) on first boot. Verified
+# consequences of shipping it:
+#   * master_password.json — a locally rotated master password silently
+#     supersedes the MASTER_PASSWORD env var in production, so the deployment
+#     credential does not work and nothing explains why.
+#   * facilitator_registry.json — a developer's local accounts, with their
+#     bcrypt hashes, BECOME the production registry.
+#   * memory_snapshot.json — local game state resurrects as live sessions.
+#   * admin_audit.jsonl / token_versions.json / rate_bans.json — local
+#     forensic and revocation state, wrong from the very first request.
+#
+# These are named EXPLICITLY rather than globbed. A glob like `db/*.json` also
+# catches seed_round1.json, and `backend/db/*.json` catches every materiality
+# and pillar config — removing configuration the app needs, which fails in
+# production while working perfectly in local dev. The authoritative list of
+# mutable files is the runtime_paths.py module docstring; the tripwire
+# backend/tests/test_deploy_image_hygiene.py pins the two together, so a new
+# state file added later cannot quietly start shipping.
+db/facilitator_registry.json
+db/memory_snapshot.json
+db/memory_snapshot.bak
+db/master_password.json
+db/token_versions.json
+db/rate_bans.json
+db/admin_audit.jsonl
+db/jwt_secret.key
+backend/db/master_password.json
+backend/db/muressons_state.db
+
+# Writability probes left behind by the preflight on a filesystem where the
+# write succeeds but the unlink does not (some network/FUSE mounts).
+db/.write_probe
+db/.preflight_*
+backend/db/.write_probe
+backend/db/.preflight_*
+
 # Misc
 flowchart.html
 skills-lock.json
