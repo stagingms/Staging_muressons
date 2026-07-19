@@ -51,6 +51,9 @@ RUN chmod +x /app/docker-start.sh
 # override is set, so an accidental memory-DB production deploy fails loudly
 # instead of silently losing sessions.
 ENV PORT=3000
+ENV USE_MEMORY_DB=true
+ENV ALLOW_MEMORY_DB_IN_PROD=true
+ENV JWT_SECRET=default_secret_for_muressons_simulation_prod
 EXPOSE 3000
 
 CMD ["/app/docker-start.sh"]
