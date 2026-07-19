@@ -412,6 +412,8 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         "custom_crisis_enabled": s.get("custom_crisis_enabled", False),
         # Custom Black Swan Injector unlock (super-admin sets per cohort).
         "custom_black_swan_enabled": s.get("custom_black_swan_enabled", False),
+        # Stakeholder Negotiation Rooms (player-readable: the rail needs it).
+        "negotiation_rooms_enabled": s.get("negotiation_rooms_enabled", False),
         "round_recap_enabled": s.get("round_recap_enabled", False),
         "real_world_cards_enabled": s.get("real_world_cards_enabled", False),
         "real_world_cards_teleprompter": s.get("real_world_cards_teleprompter", True),
@@ -498,6 +500,7 @@ class GlobalSettingsPatch(BaseModel):
     what_if_builder_enabled: bool | None = None
     briefing_theory_enabled: bool | None = None  # player briefing academic framing (default off)
     custom_crisis_enabled: bool | None = None
+    negotiation_rooms_enabled: bool | None = None  # Stakeholder Negotiation Rooms
     round_recap_enabled: bool | None = None
     real_world_cards_enabled: bool | None = None
     real_world_cards_teleprompter: bool | None = None
@@ -8620,6 +8623,7 @@ _scenario_presets = [
             "real_world_cards_enabled": True,
             "debrief_protocol_enabled": True,
             "prediction_gates_enabled": False,
+            "negotiation_rooms_enabled": False,
             "confidence_calibration_enabled": False,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
@@ -8667,6 +8671,7 @@ _scenario_presets = [
             "real_world_cards_enabled": False,
             "debrief_protocol_enabled": False,
             "prediction_gates_enabled": False,
+            "negotiation_rooms_enabled": False,
             "confidence_calibration_enabled": True,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
@@ -8710,6 +8715,7 @@ _scenario_presets = [
             "real_world_cards_enabled": False,
             "debrief_protocol_enabled": False,
             "prediction_gates_enabled": True,
+            "negotiation_rooms_enabled": True,
             "confidence_calibration_enabled": True,
             "strategy_memo_enabled": True,
             "self_learning_mode": False,
@@ -8755,6 +8761,7 @@ _scenario_presets = [
             "real_world_cards_enabled": False,
             "debrief_protocol_enabled": False,
             "prediction_gates_enabled": False,
+            "negotiation_rooms_enabled": True,
             "confidence_calibration_enabled": False,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
@@ -8803,6 +8810,7 @@ _CUSTOM_LEVELS_PATH = str(_rp_data_file("custom_experience_levels.json"))
 _ALLOWED_PED_KEYS = frozenset({
     "round_recap_enabled", "real_world_cards_enabled", "debrief_protocol_enabled",
     "prediction_gates_enabled", "confidence_calibration_enabled",
+    "negotiation_rooms_enabled",
     "strategy_memo_enabled", "self_learning_mode",
 })
 _ALLOWED_VIS_KEYS = frozenset({"peer_benchmarking", "decision_impact", "what_if_simulator"})

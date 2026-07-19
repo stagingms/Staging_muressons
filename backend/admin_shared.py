@@ -283,6 +283,9 @@ _god_mode_settings: dict = {
     # a super admin enables it per cohort via cohort-settings; only then can a
     # lead facilitator compose/inject custom crises into that cohort.
     "custom_black_swan_enabled": False,
+    # Stakeholder Negotiation Rooms (SPEC_Stakeholder_Negotiation_Rooms).
+    # OFF by default; preset ON for Executive/Chaos experience levels.
+    "negotiation_rooms_enabled": False,
     "npc_cascading_enabled": True,                # Enable NPC stakeholder cascade reactions
     "foreshadowing_signals_enabled": True,        # Show pedagogical foreshadowing hints
 
@@ -412,6 +415,7 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "board_room_moments_enabled",
     "consequence_map_enabled",   # results-view Decision Consequence Map (per-cohort)
     "custom_black_swan_enabled", # Custom Black Swan Injector unlock (super-admin sets per cohort)
+    "negotiation_rooms_enabled", # Stakeholder Negotiation Rooms (per-cohort)
     # Briefing videos: URLs ONLY — the media itself lives on external hosting
     # (YouTube/Vimeo/CDN) or the server's data dir, never in git.
     "briefing_video_base",       # URL pattern with {round}, e.g. https://cdn/x/round-{round}.mp4

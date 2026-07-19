@@ -2206,6 +2206,21 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         except Exception as exc:
             _log.warning(f"[WARN] Consequence DNA snapshot capture failed: {exc}")
 
+    # ── Negotiation rooms: auto-close an open room on commit (fluency rule —
+    # a room never blocks or outlives the round). Exception-isolated. ────────
+    try:
+        from negotiation import close_on_commit as _nego_close
+        _closed_room = _nego_close(current_global, current_round)
+        if _closed_room is not None:
+            # Carry the updated log onto the next round's state (both
+            # representations — the predictions_log parity pattern).
+            _nlog = current_global.get("negotiation_log")
+            if _nlog is not None:
+                new_global.setdefault("active_event_flags", {})["negotiation_log"] = _nlog
+                new_global["negotiation_log"] = _nlog
+    except Exception as _nego_exc:
+        _log.warning(f"[negotiation] auto-close on commit skipped: {_nego_exc}")
+
     # ── Calibration scoring (Phase 2, PLAN_Calibration_Analytics.md) ─────────
     # Post-tick, READ-ONLY with respect to engine ledgers: reads the deltas the
     # tick already produced and writes only into the predictions log, which is
@@ -5966,6 +5981,140 @@ async def get_balance_sheet(session_id: str):
         pass  # repair is best-effort; never break the endpoint over it
 
     return {"balance_sheet": bs}
+
+
+# ── Stakeholder Negotiation Rooms (SPEC_Stakeholder_Negotiation_Rooms §5) ───
+# Phase 1: scripted deal engine. All validation/state transitions live in
+# negotiation.py; these endpoints only guard, load state, delegate, persist.
+
+class NegotiationOpenRequest(BaseModel):
+    agent_id: str
+
+class NegotiationSayRequest(BaseModel):
+    text: str
+
+class NegotiationAcceptRequest(BaseModel):
+    concession_id: str
+
+
+async def _negotiation_ctx(session_id: str, request: Request):
+    """Shared guard + state load for the negotiation endpoints."""
+    await _assert_player_owns_session(request, session_id)
+    from admin_shared import get_effective_settings
+    eff = get_effective_settings(session_id)
+    if not eff.get("negotiation_rooms_enabled", False):
+        raise HTTPException(403, "Negotiation rooms are not enabled for this cohort.")
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]
+    rn = latest.get("round_number", gs.get("round_number", 1))
+    return gs, latest["bu_states"], rn
+
+
+async def _negotiation_persist(session_id: str, gs: dict, bus: list[dict], result: dict):
+    if "error" in result:
+        raise HTTPException(422, result)
+    await db.update_latest_global_state(session_id, gs, bus)
+    return result
+
+
+@router.post("/{session_id}/negotiation/open", summary="Request a meeting with a hostile stakeholder")
+async def negotiation_open(session_id: str, body: NegotiationOpenRequest, request: Request):
+    from negotiation import open_room
+    gs, bus, rn = await _negotiation_ctx(session_id, request)
+    result = open_room(gs, bus, rn, body.agent_id)
+    out = await _negotiation_persist(session_id, gs, bus, result)
+    try:
+        from admin_router import _audit
+        _audit("negotiation_room_opened", details={"session_id": session_id,
+               "agent_id": body.agent_id, "round": rn, "fee": out["room"]["fee_paid"]})
+    except Exception:
+        pass
+    return out
+
+
+@router.get("/{session_id}/negotiation", summary="Current negotiation room state")
+async def negotiation_state(session_id: str, request: Request):
+    await _assert_player_owns_session(request, session_id)
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(404, "Session not found")
+    from negotiation import get_negotiation_log, menu_for_agent
+    gs = latest["global_state"]
+    log = get_negotiation_log(gs)
+    active = log.get("active")
+    rn = latest.get("round_number", 1)
+    return {
+        "active": active,
+        "menu": menu_for_agent(gs, rn, active["agent_id"]) if active else None,
+        "history": [
+            {"agent_id": r.get("agent_id"), "round": r.get("round"),
+             "resolution": r.get("resolution"), "deals": r.get("deals", [])}
+            for r in log.get("history", [])
+        ],
+    }
+
+
+@router.post("/{session_id}/negotiation/say", summary="Speak in the open negotiation room")
+async def negotiation_say(session_id: str, body: NegotiationSayRequest, request: Request):
+    from negotiation import say
+    gs, bus, rn = await _negotiation_ctx(session_id, request)
+    result = say(gs, bus, rn, body.text)
+    return await _negotiation_persist(session_id, gs, bus, result)
+
+
+@router.post("/{session_id}/negotiation/accept", summary="Accept a whitelisted concession")
+async def negotiation_accept(session_id: str, body: NegotiationAcceptRequest, request: Request):
+    from negotiation import accept_concession
+    gs, bus, rn = await _negotiation_ctx(session_id, request)
+    result = accept_concession(gs, bus, rn, body.concession_id)
+    out = await _negotiation_persist(session_id, gs, bus, result)
+    deal = out["deal"]
+    try:
+        from admin_router import _audit
+        _audit("negotiation_deal", details={"session_id": session_id, "round": rn, **deal})
+    except Exception:
+        pass
+    # Mailbox memo in the stakeholder's voice (inject-message precedent).
+    try:
+        from datetime import datetime, timezone
+        from admin_shared import _session_messages
+        from autonomous_agents import AGENT_PROFILES
+        room = out["room"]
+        profile = AGENT_PROFILES[room["agent_id"]]
+        promise = out.get("promise")
+        memo_body = (
+            f"Following our meeting: the {deal['label']} (${deal['cost_paid']:,.0f}) is acknowledged."
+            + (f" We will verify {promise['metric'].replace('_', ' ')} ≥ {promise['target']} "
+               f"by Round {promise['due_round']}. Do not mistake this for goodwill — it is a test."
+               if promise else " Consider this noted, nothing more.")
+        )
+        _session_messages.setdefault(session_id, []).append({
+            "id": f"nego_{room['agent_id']}_{datetime.now(timezone.utc).timestamp():.0f}",
+            "round": rn, "type": "stakeholder",
+            "title": f"{profile['icon']} Memo from {profile['name']}",
+            "body": memo_body, "read": False, "source": "negotiation",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        pass
+    return out
+
+
+@router.post("/{session_id}/negotiation/walk-out", summary="Leave the negotiation without a deal")
+async def negotiation_walk_out(session_id: str, request: Request):
+    from negotiation import walk_out
+    gs, bus, rn = await _negotiation_ctx(session_id, request)
+    result = walk_out(gs, rn)
+    out = await _negotiation_persist(session_id, gs, bus, result)
+    try:
+        from admin_router import _audit
+        _audit("negotiation_walk_out", details={"session_id": session_id, "round": rn,
+               "agent_id": out["closed"]["agent_id"]})
+    except Exception:
+        pass
+    return out
 
 
 # ── Calibration analytics: Predict-Before-Commit capture (Phase 1) ──────────

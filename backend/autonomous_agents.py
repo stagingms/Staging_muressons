@@ -754,17 +754,27 @@ def process_agent_tick(
         })
 
     # ── SPEC F5 — promises: resolve any that mature this round, then apply the
-    # player's engagement action toward one agent (if it targets an agent). ──
-    if engagement_enabled:
+    # player's engagement action toward one agent (if it targets an agent).
+    # Negotiation-room deals (source="negotiation") ride the SAME ledger and
+    # MUST be judged even when the F5 engagement toggle is off — a negotiated
+    # promise that silently never comes due would be a free tolerance pump. ──
+    _has_nego_promises = any(
+        p.get("source") == "negotiation" and p.get("state") == "open"
+        for p in agent_master_state.get("promises", [])
+    )
+    if engagement_enabled or _has_nego_promises:
         try:
             _res = resolve_agent_promises(agent_master_state, gs, bus, round_number)
             if _res:
                 diagnostics["promise_resolutions"] = _res
-            _act = events.get("engagement_action")
-            _tgt = (_act or {}).get("npc_id") or (_act or {}).get("agent_id")
-            if _act and _tgt in agent_master_state.get("agents", {}):
-                diagnostics["engagement_action_result"] = apply_agent_engagement(
-                    agent_master_state, gs, _act, round_number)
+            # Engagement ACTIONS stay strictly behind the F5 toggle — only the
+            # ledger resolution above is shared with negotiation rooms.
+            if engagement_enabled:
+                _act = events.get("engagement_action")
+                _tgt = (_act or {}).get("npc_id") or (_act or {}).get("agent_id")
+                if _act and _tgt in agent_master_state.get("agents", {}):
+                    diagnostics["engagement_action_result"] = apply_agent_engagement(
+                        agent_master_state, gs, _act, round_number)
         except Exception as exc:
             print(f"[WARN] Agent engagement (F5) failed: {exc}")
 
