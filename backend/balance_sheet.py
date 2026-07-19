@@ -477,6 +477,38 @@ def check_covenants(
 #  MAIN PROCESSOR
 # ═══════════════════════════════════════════════════════════════
 
+def _sweep_negative_cash(bs: dict, gs: dict, diagnostics: dict, charge_interest: bool) -> None:
+    """Railway audit §3.1: reclassify a cash DEFICIT as short-term borrowing.
+
+    A statement showing Cash −$478M against Short-Term Debt $0 (observed live)
+    is an accounting fiction that miseducates in a tool teaching students to
+    read a Statement of Financial Position: liabilities are understated by the
+    whole deficit, and D/E / liquidity / covenants are computed off it.
+
+    Mechanics:
+      • short_term_debt is SET (not +=) to the current deficit — cash re-syncs
+        from the treasury every tick, so the sweep is re-derived each round and
+        accumulation would double-count. Nothing else writes this line.
+      • cash floors at 0; the engine's corporate_treasury remains the single
+        source of truth for cash resources and may stay negative.
+      • charge_interest (once per tick): half-year revolver interest on the
+        drawn deficit, at the session's loan_interest_rate, charged to the
+        treasury — living on emergency funding is priced, not free.
+    """
+    cash = bs["current_assets"]["cash_and_equivalents"]
+    deficit = round(-cash, 2) if cash < 0 else 0.0
+    bs["current_liabilities"]["short_term_debt"] = deficit
+    if deficit > 0:
+        bs["current_assets"]["cash_and_equivalents"] = 0.0
+        diagnostics["negative_cash_swept_to_short_term_debt"] = deficit
+        if charge_interest and "corporate_treasury" in gs:
+            rate = float((gs.get("active_event_flags") or {}).get("loan_interest_rate", 0.12) or 0.12)
+            interest = round(deficit * rate / 2.0, 2)
+            if interest > 0:
+                gs["corporate_treasury"] = round(gs["corporate_treasury"] - interest, 2)
+                diagnostics["short_term_debt_interest_charged"] = interest
+
+
 def process_balance_sheet_tick(
     bs: dict,
     gs: dict,
@@ -525,6 +557,16 @@ def process_balance_sheet_tick(
 
     # Sync cash from corporate treasury (single source of truth for cash)
     bs["current_assets"]["cash_and_equivalents"] = gs.get("corporate_treasury", 0)
+
+    # Railway audit §3.1: negative cash is an accounting fiction — a real group
+    # funds a cash deficit with borrowing. Sweep any deficit into short-term
+    # debt (cash floors at 0) BEFORE totals are derived, so total liabilities,
+    # D/E, liquidity ratio and covenants read off a real statement. The
+    # engine's corporate_treasury stays the single source of truth for cash
+    # resources (it may be negative); this is presentation-layer truth-telling,
+    # plus a priced consequence: half-year revolver interest on the drawn
+    # deficit is charged to the treasury so emergency funding is not free.
+    _sweep_negative_cash(bs, gs, diagnostics, charge_interest=True)
 
     # ── Step 1: CAPEX Capitalisation (IAS 16) ──────────────────────────────
     # FIX-5: Record opening PPE BEFORE adding new CAPEX so depreciation in
@@ -839,6 +881,10 @@ def process_balance_sheet_tick(
         gs["corporate_treasury"] = round(gs["corporate_treasury"] - surcharge, 2)
         bs["current_assets"]["cash_and_equivalents"] = gs["corporate_treasury"]
         diagnostics["covenant_surcharge_applied"] = surcharge
+        # §3.1: the surcharge re-synced cash from the (possibly negative)
+        # treasury — re-sweep so the recomputed statement stays real. Interest
+        # was already charged in the Step-0 sweep; never twice per tick.
+        _sweep_negative_cash(bs, gs, diagnostics, charge_interest=False)
 
         # ── Recalculate totals after cash mutation ──────────────────────
         # The surcharge reduced cash_and_equivalents after Step 8 had already
