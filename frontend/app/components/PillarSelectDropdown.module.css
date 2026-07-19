@@ -69,12 +69,8 @@
 
 /* ── Dropdown Menu ── */
 .menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  /* Positioning supplied inline by the component (fixed + portalled). */
   width: max-content;
-  min-width: 100%;
-  max-width: 320px;
   background: rgba(14, 20, 36, 0.97);
   border: 1px solid rgba(0, 229, 195, 0.12);
   border-radius: 8px;
@@ -132,11 +128,12 @@
   font-style: italic;
 }
 
-/* ── Hover Tooltip Popup ── */
+/* ── Hover card ──
+   Positioning is supplied inline by the component (fixed coordinates, via a
+   portal to <body>) so no scrolling ancestor can clip it. Only appearance
+   belongs here — do not re-add position/left/top, they would be overridden
+   anyway and mislead the next reader. */
 .tooltip {
-  position: absolute;
-  left: calc(100% + 8px);
-  top: -4px;
   width: 300px;
   background: rgba(10, 14, 26, 0.98);
   border: 1px solid rgba(0, 229, 195, 0.15);
@@ -149,11 +146,7 @@
   pointer-events: none;
 }
 
-/* If tooltip would overflow right, show on left side */
-.tooltipLeft {
-  left: auto;
-  right: calc(100% + 8px);
-}
+/* (.tooltipLeft retired — side flipping is computed in the component.) */
 
 @keyframes tooltipFadeIn {
   from { opacity: 0; transform: translateX(6px); }
