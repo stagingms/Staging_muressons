@@ -50,7 +50,7 @@ const TREND_ICONS = {
   'n/a':         { icon: '—',  label: 'N/A',       color: '#475569' },
 };
 
-function AgentCard({ agent, action, isExpanded, onToggle, index = 0 }) {
+function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMeeting = null, dealChips = [] }) {
   const stageMeta = STAGE_META[action?.stage || agent?.stage || 'dormant'];
   const trendMeta = TREND_ICONS[action?.trend || agent?.trend || 'stable'];
   const isTriggered = (action?.stage || agent?.stage) === 'triggered';
@@ -194,6 +194,34 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0 }) {
                 <div className={styles.triggeredNarrative}>{action.triggered_event.narrative}</div>
               </div>
             )}
+
+            {/* Negotiation rooms (Phase 2): deals already struck this game… */}
+            {dealChips.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 8 }}>
+                {dealChips.map((d, i) => (
+                  <span key={i} style={{ fontSize: '0.66rem', fontWeight: 700, padding: '3px 8px', borderRadius: 999, background: 'rgba(52,211,153,0.12)', border: '1px solid rgba(52,211,153,0.35)', color: '#34d399' }}>
+                    🤝 {d.label} (R{d.round})
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* …and the door to the table when they are hostile. Entry point
+                only — every rule is enforced server-side (negotiation.py). */}
+            {onRequestMeeting && ['hostile', 'triggered'].includes(action?.stage || agent?.stage) && (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onRequestMeeting(agent.agent_id); }}
+                style={{
+                  marginTop: 10, width: '100%', padding: '8px 0', borderRadius: 10, cursor: 'pointer',
+                  border: '1px solid rgba(239,68,68,0.45)', background: 'rgba(239,68,68,0.12)',
+                  color: 'var(--text-primary, #f1f5f9)', fontWeight: 800, fontSize: '0.76rem', letterSpacing: '0.03em',
+                }}
+                title="Open a negotiation room with this stakeholder. Entry fee applies; concessions are binding."
+              >
+                🤝 Request a meeting
+              </button>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -207,6 +235,10 @@ export default function StakeholderAgentPanel({
   cascadesFired = [],
   interferenceActive = [],
   roundNumber,
+  // Negotiation rooms (Phase 2): entry point + per-agent past-deal chips.
+  // null/[] when the cohort toggle is off — the panel renders exactly as before.
+  onRequestMeeting = null,
+  negotiationHistory = [],
 }) {
   const [expandedAgents, setExpandedAgents] = useState({});
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -353,6 +385,10 @@ export default function StakeholderAgentPanel({
                 action={agent.action}
                 isExpanded={!!expandedAgents[agent.agent_id]}
                 onToggle={() => toggleAgent(agent.agent_id)}
+                onRequestMeeting={onRequestMeeting}
+                dealChips={negotiationHistory
+                  .filter((r) => r.agent_id === agent.agent_id)
+                  .flatMap((r) => (r.deals || []).map((d) => ({ label: d.label, round: r.round })))}
               />
             ))}
 

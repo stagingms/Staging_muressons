@@ -187,6 +187,13 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
             <div key={ti} className={styles.heatmapRow}>
               <div className={styles.heatmapTeamName} title={team.name}>
                 {team.name?.substring(0, 12) || `Team ${ti + 1}`}
+                {/* Negotiation rooms (Phase 2): live flag while a room is open */}
+                {team.current?.negotiating && (
+                  <span
+                    title={`In negotiation with ${String(team.current.negotiating).replace(/^the_/, '').replace(/_/g, ' ')}`}
+                    style={{ marginLeft: 6, fontSize: '0.62rem', fontWeight: 800, padding: '1px 6px', borderRadius: 999, background: 'rgba(239,68,68,0.14)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}
+                  >🤝 negotiating</span>
+                )}
               </div>
               {Array.from({ length: 10 }, (_, ri) => {
                 const roundData = team.history?.[ri + 1];

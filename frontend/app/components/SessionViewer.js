@@ -328,10 +328,78 @@ function SessionCard({ sessionId, data, leaderboardEntry, isSelected, onSelect, 
                 </div>
             )}
 
+            {/* Negotiation transcripts (Phase 2) — expanded view only; the
+                panel self-hides when the session has no rooms. Debrief gold:
+                who they met, what was said, what it cost, what they promised. */}
+            {!compact && <NegotiationTranscripts sessionId={sessionId} />}
+
             {/* Session ID footer */}
             <div className={styles.cardFooter}>
                 <code className={styles.sessionIdCode}>{leaderboardEntry?.short_code || sessionId.slice(0, 8)}</code>
             </div>
+        </div>
+    );
+}
+
+
+/**
+ * NegotiationTranscripts — facilitator-only view of a team's negotiation
+ * rooms (turn-by-turn transcript, deals, promises). Self-hides when empty.
+ */
+function NegotiationTranscripts({ sessionId }) {
+    const [data, setData] = useState(null);
+    const [openIdx, setOpenIdx] = useState(null);
+
+    useEffect(() => {
+        let cancelled = false;
+        fetch(`${API}/api/admin/${sessionId}/negotiation-transcripts`, { credentials: 'include' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => { if (!cancelled) setData(d); })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [sessionId]);
+
+    if (!data || !data.rooms?.length) return null;
+
+    return (
+        <div style={{ marginTop: '0.75rem', padding: '10px 12px', borderRadius: 10, background: 'rgba(148,163,184,0.06)', border: '1px solid rgba(148,163,184,0.18)' }}>
+            <div style={{ fontSize: '0.68rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--text-muted, #8899a6)', marginBottom: 6 }}>
+                🤝 Negotiation transcripts ({data.rooms.length})
+            </div>
+            {data.rooms.map((room, i) => (
+                <div key={i} style={{ marginBottom: 6 }}>
+                    <button type="button" onClick={() => setOpenIdx(openIdx === i ? null : i)}
+                        style={{ width: '100%', textAlign: 'left', display: 'flex', justifyContent: 'space-between', gap: 8, padding: '6px 10px', borderRadius: 8, cursor: 'pointer', background: 'rgba(148,163,184,0.08)', border: '1px solid rgba(148,163,184,0.15)', color: 'var(--text-primary, #f1f5f9)', fontSize: '0.76rem' }}>
+                        <span>{room.persona?.icon} {room.persona?.name} · R{room.round}</span>
+                        <span style={{ color: room.deals?.length ? '#34d399' : '#fbbf24' }}>
+                            {room.deals?.length ? `${room.deals.length} deal${room.deals.length > 1 ? 's' : ''}` : (room.resolution || room.status || 'open')} {openIdx === i ? '▲' : '▼'}
+                        </span>
+                    </button>
+                    {openIdx === i && (
+                        <div style={{ padding: '8px 10px', fontSize: '0.74rem', lineHeight: 1.5 }}>
+                            {(room.turns || []).map((t, j) => (
+                                <div key={j} style={{ marginBottom: 4, color: t.who === 'player' ? 'var(--text-primary, #f1f5f9)' : 'var(--text-secondary, #b0bec5)' }}>
+                                    <strong style={{ color: t.who === 'player' ? '#a5b4fc' : '#fbbf24' }}>{t.who === 'player' ? 'Team' : room.persona?.name}:</strong> {t.text}
+                                </div>
+                            ))}
+                            {(room.deals || []).map((d, j) => (
+                                <div key={`d${j}`} style={{ marginTop: 4, color: '#34d399' }}>
+                                    ✅ {d.label} — ${(d.cost_paid / 1e6).toFixed(2)}M · tolerance {d.tolerance_before} → {d.tolerance_after}
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            ))}
+            {data.promises?.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: '0.72rem', color: 'var(--text-secondary, #b0bec5)' }}>
+                    {data.promises.map((p, i) => (
+                        <div key={i}>
+                            {p.state === 'open' ? '⏳' : p.state === 'kept' ? '✅' : '❌'} Promise to {String(p.agent_id).replace(/^the_/, '').replace(/_/g, ' ')}: {String(p.metric).replace(/_/g, ' ')} ≥ {p.target} by R{p.due_round} — {p.state}
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

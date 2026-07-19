@@ -9,6 +9,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ExecutiveCockpit.module.css';
 import { playerIdHeader } from '../hooks/useSimulation';
+import NegotiationRoom from './NegotiationRoom';
 import KPIDashboard from './KPIDashboard';
 import TurnaroundPhaseChip from './TurnaroundPhaseChip';
 import MarketRealityFeed from './MarketRealityFeed';
@@ -438,6 +439,24 @@ export default function ExecutiveCockpit({
       .catch(() => {});
   }, [sim?.sessionId, sim?.session_id]);
   const [predictions, setPredictions] = useState([]);
+
+  // ── Negotiation rooms (Phase 2): overlay state + deal history ──
+  // Placed AFTER pedToggles' declaration (const binding: reading it earlier
+  // would be a TDZ ReferenceError). negoAgentId non-null mounts the
+  // OverlayHost-slot room; history feeds the rail deal chips and refreshes
+  // after each room closes and each commit.
+  const [negoAgentId, setNegoAgentId] = useState(null);
+  const [negoHistory, setNegoHistory] = useState([]);
+  const negotiationEnabled = pedToggles.negotiation_rooms_enabled === true;
+  const refreshNegoHistory = useCallback(() => {
+    if (!negotiationEnabled || !sim?.sessionId || sim.sessionId === 'demo') return;
+    const API = process.env.NEXT_PUBLIC_API_URL || '';
+    fetch(`${API}/api/simulations/${sim.sessionId}/negotiation`, { headers: { ...playerIdHeader() } })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d) setNegoHistory(d.history || []); })
+      .catch(() => {});
+  }, [negotiationEnabled, sim?.sessionId]);
+  useEffect(() => { refreshNegoHistory(); }, [refreshNegoHistory, commitResults]);
   const [checkpointData, setCheckpointData] = useState(null);
   useEffect(() => {
     if (!logoutConfirm) return;
@@ -3338,6 +3357,8 @@ export default function ExecutiveCockpit({
                     cascadesFired={aaDiag.cascades_fired || []}
                     interferenceActive={aaDiag.interference_active || []}
                     roundNumber={roundNumber}
+                    onRequestMeeting={negotiationEnabled ? (id) => setNegoAgentId(id) : null}
+                    negotiationHistory={negoHistory}
                   />
                 );
               }
@@ -3603,6 +3624,15 @@ export default function ExecutiveCockpit({
       )}
 
       {/* ═══ PRE-COMMIT PREDICTION MODAL (Metacognitive Friction) ═══ */}
+      {/* ═══ NEGOTIATION ROOM (OverlayHost slot — summoned from the rail) ═══ */}
+      {negoAgentId && (
+        <NegotiationRoom
+          sessionId={sim?.sessionId}
+          agentId={negoAgentId}
+          onClose={() => { setNegoAgentId(null); refreshNegoHistory(); }}
+        />
+      )}
+
       {showPredictionModal && (
         <div className={styles.predictionOverlay} onClick={() => { setShowPredictionModal(false); }}>
           <div className={styles.predictionPanel} onClick={(e) => e.stopPropagation()}>
@@ -4212,6 +4242,20 @@ export default function ExecutiveCockpit({
                   commitResults={commitResults}
                   globalState={globalState}
                 />
+                {/* Negotiation rooms (Phase 2): the round's deals — V-A
+                    retrospective chip in the results stage. */}
+                {negoHistory.some((r) => r.round === roundNumber && (r.deals || []).length) && (
+                  <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.3)' }}>
+                    <div style={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#34d399', marginBottom: 6 }}>
+                      🤝 Deals struck this round
+                    </div>
+                    {negoHistory.filter((r) => r.round === roundNumber).flatMap((r) => r.deals || []).map((d, i) => (
+                      <div key={i} style={{ fontSize: '0.76rem', color: 'var(--text-secondary, #b0bec5)', padding: '2px 0' }}>
+                        {d.label} — tolerance {d.tolerance_before} → {d.tolerance_after}{d.promise_id ? ' · commitment registered' : ''}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {pedToggles.real_world_cards_enabled && (
                   <RealWorldCard roundNumber={roundNumber} />
                 )}

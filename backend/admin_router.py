@@ -5167,6 +5167,30 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
     return {"status": "detonated", "event_id": event_id, "teams_hit": applied, "event": ev}
 
 
+# ── Negotiation transcripts (Phase 2): facilitator debrief gold ──────────────
+@admin_router.get(
+    "/{session_id}/negotiation-transcripts",
+    summary="Full negotiation-room transcripts and deals for a session",
+)
+async def get_negotiation_transcripts(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
+    """Facilitator-only: the complete negotiation log (turn-by-turn transcripts,
+    deals, resolutions) for one team session. Non-admins must own the cohort."""
+    await _assert_session_ownership(request, session_id)
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(404, "Session not found")
+    gs = latest["global_state"]
+    log = gs.get("negotiation_log") or (gs.get("active_event_flags") or {}).get("negotiation_log") or {}
+    rooms = list(log.get("history", []))
+    if log.get("active"):
+        rooms = rooms + [log["active"]]
+    promises = [
+        p for p in ((gs.get("autonomous_agents") or {}).get("promises") or [])
+        if p.get("source") == "negotiation"
+    ]
+    return {"session_id": session_id, "rooms": rooms, "promises": promises}
+
+
 # ── Facilitator dry-run: pre-flight difficulty simulator ─────────────────────
 class DryRunRequest(BaseModel):
     session_id: str
@@ -9882,6 +9906,11 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
             if flags.get("green_premium_squeeze", {}).get("active"): active_traps.append("📉 Squeeze")
             if flags.get("regulatory_ratchet", {}).get("active"): active_traps.append("⚖️ Ratchet")
 
+            # Negotiation rooms (Phase 2): live flag while a room is open, so
+            # the facilitator sees "negotiating: journalist" on the pulse.
+            _nego = latest.get("negotiation_log") or flags.get("negotiation_log") or {}
+            _nego_active = (_nego.get("active") or {}).get("agent_id") if isinstance(_nego, dict) else None
+
             teams.append({
                 "name": sess.get("cohort_name") or sess.get("player_name") or sid[:10],
                 "session_id": sid,
@@ -9896,6 +9925,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
                     "cost_of_capital": latest.get("cost_of_capital", 0.05),
                     "carbon_fee_paid": total_fee,
                     "active_traps": active_traps,
+                    "negotiating": _nego_active,
                 },
                 "round": latest.get("round_number", 1),
                 "tipping_point": bool(latest.get("tipping_point_active", False)),
