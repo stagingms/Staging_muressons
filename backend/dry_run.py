@@ -253,9 +253,16 @@ def run_dry_run(initial_global: dict, initial_bus: list[dict], *,
             "_runs": runs,  # kept for crisis-bite aggregation; stripped below
         }
 
-    # ── Crisis bite: median KPI deltas in each scripted crisis round ──
+    # ── Crisis bite: median KPI deltas in each scripted SHOCK round ──
+    # Railway audit §3.3: get_round_crisis() also returns entries for the
+    # decision-gate rounds (R1 "ESG Audit Decision", R2 "Double Materiality
+    # Matrix") — listing those as "crises" with positive deltas was noise
+    # that undermined the report. Only true exogenous shocks belong here.
+    _SHOCK_ROUNDS = {3, 4, 5, 6, 8, 9, 10}
     crisis_bite = []
     for rnd in range(start_round, end_round + 1):
+        if rnd not in _SHOCK_ROUNDS:
+            continue
         crisis = None
         try:
             crisis = get_round_crisis(rnd)

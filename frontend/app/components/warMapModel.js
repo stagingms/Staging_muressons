@@ -39,15 +39,19 @@ export const STAKEHOLDER_META = {
   the_community_activist: { x: 648, y: 306 },     // South Asia — below Consumer Goods
 };
 
-// Round → the crisis that fires and where it strikes.
-export const ROUND_CRISIS = {
-  3: { name: 'Scope 3 supply-chain exposure', lon: 30, lat: 5 },
-  4: { name: 'Contagion — the Round 1 reckoning', lon: 15, lat: 25 },
-  5: { name: 'Cyclone — physical climate risk', lon: 90, lat: 15 },   // Bay of Bengal
-  6: { name: 'AI bias scandal', lon: -95, lat: 40 },
-  8: { name: 'Water scarcity (Blue Stress)', lon: 75, lat: 20 },      // Deccan
-  9: { name: 'Just transition pressure', lon: 25, lat: -12 },
-  10: { name: 'Year-5 activist ultimatum', lon: -52, lat: -14 },  // open South Atlantic
+// Round → WHERE the crisis strikes on the map. Coordinates only — the crisis
+// NAME comes from the backend payload (round_configs.get_round_crisis, the
+// single source of truth). Railway audit §3.2: the old client-side name copy
+// had already drifted from the backend catalog ("AI bias scandal" vs
+// "AI Hiring Bias Scandal").
+export const CRISIS_COORDS = {
+  3: { lon: 30, lat: 5 },
+  4: { lon: 15, lat: 25 },
+  5: { lon: 90, lat: 15 },    // Bay of Bengal
+  6: { lon: -95, lat: 40 },
+  8: { lon: 75, lat: 20 },    // Deccan
+  9: { lon: 25, lat: -12 },
+  10: { lon: -52, lat: -14 }, // open South Atlantic
 };
 
 export const STAGE_COLOR = {
@@ -93,8 +97,13 @@ export function buildWarMap(payload) {
     });
 
   const round = (payload && payload.cohort_round) || 0;
-  const c = ROUND_CRISIS[round];
-  const crisis = c ? { ...c, ...project(c.lon, c.lat), round } : null;
+  // Name/icon from the backend catalog; the client contributes coordinates
+  // only. Rounds without coordinates (decision rounds) show no crisis marker.
+  const backendCrisis = payload && payload.crisis;
+  const coords = CRISIS_COORDS[round];
+  const crisis = backendCrisis && coords
+    ? { name: backendCrisis.name, icon: backendCrisis.icon, ...project(coords.lon, coords.lat), round }
+    : null;
 
   const events = ((payload && payload.events) || []).map((e) =>
     e.kind === 'stakeholder'

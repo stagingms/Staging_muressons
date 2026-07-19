@@ -4529,7 +4529,9 @@ _WARMAP_STAGE_RANK = {"dormant": 0, "watching": 1, "agitated": 2, "hostile": 3, 
 async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
     from autonomous_agents import AGENT_PROFILES
     from collections import Counter
-    sessions = await db.fetch_all_sessions()
+    # Railway audit §1.1/§3.2: raw variant — the leaderboard fetch excludes the
+    # per-player child sessions this aggregation exists to sum over.
+    sessions = await db.fetch_all_sessions_raw()
     bu_acc: dict = {}       # bu_id -> running sums
     agent_acc: dict = {}    # agent_id -> {stages, tol, hostile}
     rounds: list = []
@@ -4605,12 +4607,27 @@ async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depen
         if b["health"] < 40:
             events.append({"kind": "bu", "bu_id": b["bu_id"], "health": b["health"]})
 
+    # Railway audit §3.2: the crisis catalog is served from round_configs (the
+    # single source of truth) instead of being duplicated — and drifting — in
+    # frontend warMapModel.ROUND_CRISIS (e.g. "AI bias scandal" vs the real
+    # "AI Hiring Bias Scandal"). The frontend keeps only map coordinates.
+    crisis = None
+    try:
+        from round_configs import get_round_crisis
+        _c = get_round_crisis(cohort_round) if cohort_round else None
+        if _c:
+            crisis = {"round": cohort_round, "name": _c.get("title") or _c.get("name"),
+                      "icon": _c.get("icon", "⚡")}
+    except Exception:
+        pass
+
     return {
         "team_count": team_n,
         "cohort_round": cohort_round,
         "business_units": business_units,
         "stakeholders": stakeholders,
         "events": events,
+        "crisis": crisis,
     }
 
 
