@@ -5146,6 +5146,50 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
     return {"status": "detonated", "event_id": event_id, "teams_hit": applied, "event": ev}
 
 
+# ── Facilitator dry-run: pre-flight difficulty simulator ─────────────────────
+class DryRunRequest(BaseModel):
+    session_id: str
+    n_reps: int = 3           # seeded repetitions per strategy (1–5)
+    strategies: Optional[list[str]] = None  # default: all four bots
+
+
+@admin_router.post(
+    "/dry-run",
+    summary="Fly the cohort before the class does: bot strategies through the real engine",
+)
+async def run_cohort_dry_run(body: DryRunRequest, request: Request, _guard: None = Depends(require_facilitator)):
+    """Plays 4 bot strategies (aggressive-green / extractive / balanced /
+    chaotic) headlessly through the production engine pipeline from the
+    cohort's CURRENT state to round 10, N seeded reps each, and returns a
+    difficulty report (bankruptcy risk, KPI medians by round, crisis bite,
+    warnings). Pure read: the cohort's real state is deepcopied and never
+    persisted. require_facilitator (config QA is a provisioning activity);
+    non-admins must own the session."""
+    await _assert_session_ownership(request, body.session_id)
+    latest = await db.fetch_latest_state(body.session_id)
+    if latest is None:
+        raise HTTPException(404, "Session not found")
+    sess = await db.get_session_info(body.session_id) or {}
+    from dry_run import run_dry_run
+    from admin_shared import get_effective_settings
+    settings = get_effective_settings(body.session_id)
+    import asyncio as _asyncio
+    report = await _asyncio.to_thread(
+        run_dry_run,
+        latest["global_state"], latest["bu_states"],
+        settings=settings,
+        strategies=body.strategies,
+        n_reps=body.n_reps,
+        paradigm=sess.get("decision_paradigm") or "legacy_abc",
+        difficulty_tier=sess.get("difficulty_tier") or "standard",
+    )
+    report["cohort_name"] = sess.get("cohort_name") or body.session_id
+    _audit("dry_run_executed", details={"session_id": body.session_id,
+                                        "n_reps": report["n_reps"],
+                                        "grade": report["difficulty_grade"]})
+    return report
+
+
 # ── Calibration analytics (PLAN_Calibration_Analytics Phase 4) ───────────────
 @admin_router.get(
     "/calibration-analytics",

@@ -11,6 +11,7 @@ import PlayerRegistry from '../../components/PlayerRegistry';
 import MaterialityConfig from '../../components/MaterialityConfig';
 import InterventionConfig from '../../components/InterventionConfig';
 import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
+import DryRunSimulator from '../../components/DryRunSimulator';
 import AuditTrail from '../../components/AuditTrail';
 import DebriefReport from '../../components/DebriefReport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
@@ -1055,6 +1056,11 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
             // ── Interventions tabs ──
             case 'intervention_config':
                 return requireCohort('Interventions', <InterventionConfig sessionId={selectedSession} />);
+            case 'dry_run': {
+                const fullSession = leaderboard.find(s => s.session_id === selectedSession);
+                return requireCohort('Dry-Run Simulator',
+                    <DryRunSimulator sessionId={selectedSession} cohortName={fullSession?.cohort_name || ''} />);
+            }
             case 'custom_black_swan':
                 // Lead+ tab; the builder itself lists only cohorts a super admin
                 // unlocked (custom_black_swan_enabled) and the backend enforces

@@ -77,6 +77,9 @@ ROLE_ALLOWED_TABS = {
         "scorecard_evaluator", "bonuses", "peer_eval", "reports",
         "notes", "annotations", "teaching_journal", "technical_glossary",
         "intervention_config",
+        # Pre-flight dry-run simulator (bot playthrough difficulty report).
+        # Base-facilitator: config QA belongs to whoever runs the cohort.
+        "dry_run",
         # ESG Leadership Profile rubric editor — moved to the base facilitator
         # dashboard (all run-managing facilitators tune the rubric; project_admin
         # never sees it because its tab set is fixed, not cumulative).
