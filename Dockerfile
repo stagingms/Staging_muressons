@@ -41,23 +41,15 @@ COPY --from=frontend-build /app/frontend/public /app/frontend/public
 COPY docker-start.sh /app/docker-start.sh
 RUN chmod +x /app/docker-start.sh
 
-# Railway injects PORT env at runtime; default to 3000
-# SEC-2: do NOT bake USE_MEMORY_DB=true into the production image. The store is
-# selected at deploy time:
-#   • Production: set USE_MEMORY_DB=false + DATABASE_URL (PostgreSQL).
-#   • Local/offline: set USE_MEMORY_DB=true with DEBUG=true (or
-#     ALLOW_MEMORY_DB_IN_PROD=true for an intentional non-durable run).
-# main.py refuses to boot on the in-memory store when DEBUG=false unless the
-# override is set, so an accidental memory-DB production deploy fails loudly
-# instead of silently losing sessions.
+# ── Runtime defaults ──────────────────────────────────────
+# Non-secret operational defaults. SECRETS (JWT_SECRET, MASTER_PASSWORD,
+# PROJECT_ADMIN_PASSWORD) must be set in Railway → Service → Variables.
+# Railway Variables override these ENV defaults at runtime.
 ENV PORT=3000
 ENV USE_MEMORY_DB=true
 ENV ALLOW_MEMORY_DB_IN_PROD=true
 ENV MURESSONS_DATA_DIR=/data
-ENV JWT_SECRET=0f8cfdfc1dd5c1bcbbc72623ef0a8b1921f1703291b326f2f1eb6b73756c3db5
 ENV JWT_EXPIRY_HOURS=8
-ENV MASTER_PASSWORD=w6eAsGMKm3ODQ8wHWRbezPsh
-ENV PROJECT_ADMIN_PASSWORD=El0gVvsBv8XZNMCcdtwWKS5r
 ENV TRUSTED_PROXY_IPS=127.0.0.1,::1,10.0.0.0/8,100.64.0.0/10
 
 RUN mkdir -p /data && chmod 777 /data
