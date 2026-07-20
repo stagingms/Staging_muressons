@@ -42,12 +42,18 @@ COPY docker-start.sh /app/docker-start.sh
 RUN chmod +x /app/docker-start.sh
 
 # ── Runtime defaults ──────────────────────────────────────
-# Non-secret operational defaults. SECRETS (JWT_SECRET, MASTER_PASSWORD,
-# PROJECT_ADMIN_PASSWORD) must be set in Railway → Service → Variables.
-# Railway Variables override these ENV defaults at runtime.
+# SEC-2: do NOT bake USE_MEMORY_DB=true into the production image. The store
+# is selected at deploy time:
+#   • Production: USE_MEMORY_DB=false (default) + DATABASE_URL (PostgreSQL).
+#   • Local/offline: USE_MEMORY_DB=true with DEBUG=true (or
+#     ALLOW_MEMORY_DB_IN_PROD=true for an intentional non-durable run).
+# main.py refuses to boot on the in-memory store when DEBUG=false unless the
+# override is set, so an accidental memory-DB deploy fails loudly.
+#
+# SECRETS (JWT_SECRET, MASTER_PASSWORD, PROJECT_ADMIN_PASSWORD) must be set
+# in Railway → Service → Variables. They are NOT baked into the image.
 ENV PORT=3000
-ENV USE_MEMORY_DB=true
-ENV ALLOW_MEMORY_DB_IN_PROD=true
+ENV USE_MEMORY_DB=false
 ENV MURESSONS_DATA_DIR=/data
 ENV JWT_EXPIRY_HOURS=8
 ENV TRUSTED_PROXY_IPS=127.0.0.1,::1,10.0.0.0/8,100.64.0.0/10

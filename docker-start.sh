@@ -62,10 +62,18 @@ for i in $(seq 1 60); do
   sleep 1
 done
 
-# Start frontend on Railway's PORT
+# Start frontend on Railway's PORT — with restart loop (parity with backend)
 cd /app/frontend
 export BACKEND_URL="http://127.0.0.1:8000"
-npx next start --port "$FRONTEND_PORT" &
+(
+  while true; do
+    echo "  🔄 Starting frontend on port $FRONTEND_PORT..."
+    npx next start --port "$FRONTEND_PORT" 2>&1
+    EXIT_CODE=$?
+    echo "  ❌ Frontend exited with code $EXIT_CODE — restarting in 3s..."
+    sleep 3
+  done
+) &
 FRONTEND_PID=$!
 
 echo ""
