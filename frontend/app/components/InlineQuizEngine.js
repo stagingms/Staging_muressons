@@ -12,7 +12,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
  * - Tiered bonus: 60-80%=1500, 80-90%=2000, 90-100%=3000
  * Props: { isOpen, onClose, title, questions, sessionId, notebookId }
  */
-export default function InlineQuizEngine({ isOpen, onClose, title, questions = [], sessionId, notebookId, difficulty = 'medium', loading = false }) {
+export default function InlineQuizEngine({ isOpen, onClose, title, questions = [], sessionId, notebookId, difficulty = 'medium', loading = false, onQuizComplete = null }) {
   const DIFFICULTY_BADGES = { easy: { label: 'Easy', icon: '🟢', color: '#22c55e' }, medium: { label: 'Medium', icon: '🟡', color: '#eab308' }, hard: { label: 'Hard', icon: '🔴', color: '#ef4444' } };
   const diffBadge = DIFFICULTY_BADGES[difficulty] || DIFFICULTY_BADGES.medium;
   const [currentQ, setCurrentQ] = useState(0);
@@ -62,9 +62,13 @@ export default function InlineQuizEngine({ isOpen, onClose, title, questions = [
         setBonusResult(data);
         setAttemptNumber(data.attempt || 1);
         if (data.show_answers) setShowCorrectAnswers(true);
+        // Notify the parent so it can refresh the dashboard — the mandatory-quiz
+        // gate (globalState.quiz_gate) flips to unblocked once an attempt is
+        // recorded, letting the player commit their decisions.
+        try { onQuizComplete && onQuizComplete(data); } catch { /* non-critical */ }
       }
     } catch (e) { console.error('Failed to claim quiz bonus', e); }
-  }, [sessionId, notebookId, questions.length]);
+  }, [sessionId, notebookId, questions.length, onQuizComplete]);
 
   const nextQuestion = () => {
     if (currentQ + 1 >= questions.length) {

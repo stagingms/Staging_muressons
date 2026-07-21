@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Muressons — Complete Pathway Map</title>
+<style>
+  :root{
+    --bg:#0e1117; --panel:#161b22; --panel2:#1c2330; --line:#2d3543;
+    --ink:#e6edf3; --dim:#9aa7b4; --faint:#6b7684;
+    --green:#3fb950; --blue:#58a6ff; --amber:#d29922; --red:#f85149; --purple:#bc8cff;
+    --teal:#39c5cf; --pink:#f778ba;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5;font-size:14px}
+  .wrap{max-width:1280px;margin:0 auto;padding:28px 20px 80px}
+  h1{font-size:26px;margin:0 0 4px;letter-spacing:-.3px}
+  .sub{color:var(--dim);margin:0 0 22px;font-size:14px}
+  h2{font-size:18px;margin:34px 0 6px;padding-bottom:6px;border-bottom:1px solid var(--line)}
+  h2 .n{color:var(--faint);font-weight:600;margin-right:8px}
+  .lead{color:var(--dim);margin:6px 0 16px;max-width:900px}
+  .grid{display:grid;gap:12px}
+  .g2{grid-template-columns:repeat(2,1fr)}
+  .g3{grid-template-columns:repeat(3,1fr)}
+  .g4{grid-template-columns:repeat(4,1fr)}
+  .g5{grid-template-columns:repeat(5,1fr)}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .card h3{margin:0 0 6px;font-size:14px;display:flex;align-items:center;gap:7px}
+  .card p{margin:0;color:var(--dim);font-size:12.5px}
+  .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:20px;
+    border:1px solid var(--line);color:var(--dim);margin-top:8px}
+  .pill{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:6px}
+  .p-green{background:rgba(63,185,80,.14);color:var(--green)}
+  .p-blue{background:rgba(88,166,255,.14);color:var(--blue)}
+  .p-amber{background:rgba(210,153,34,.16);color:var(--amber)}
+  .p-red{background:rgba(248,81,73,.15);color:var(--red)}
+  .p-purple{background:rgba(188,140,255,.15);color:var(--purple)}
+  .p-teal{background:rgba(57,197,207,.15);color:var(--teal)}
+  /* round rail */
+  .rail{display:flex;gap:0;overflow-x:auto;padding:6px 2px 14px}
+  .rnode{min-width:118px;flex:1;background:var(--panel);border:1px solid var(--line);
+    border-radius:10px;padding:10px;position:relative;margin-right:22px}
+  .rnode:last-child{margin-right:0}
+  .rnode::after{content:"→";position:absolute;right:-19px;top:50%;transform:translateY(-50%);
+    color:var(--faint);font-size:16px}
+  .rnode:last-child::after{content:""}
+  .rnode .r{font-size:11px;color:var(--faint);font-weight:700}
+  .rnode .t{font-size:12.5px;font-weight:600;margin:3px 0}
+  .rnode .th{font-size:11px;color:var(--dim)}
+  .rnode.hot{border-color:var(--amber)}
+  .rnode.fin{border-color:var(--purple)}
+  .abc{margin-top:6px;font-size:10.5px;color:var(--faint)}
+  /* option rows */
+  .opt{display:flex;gap:8px;margin-top:7px;font-size:12px}
+  .opt b{flex:0 0 20px;height:20px;border-radius:5px;display:flex;align-items:center;
+    justify-content:center;font-size:11px;color:#0e1117}
+  .oa b{background:var(--green)} .ob b{background:var(--amber)} .oc b{background:var(--red)}
+  .opt span{color:var(--dim)}
+  .opt span em{color:var(--ink);font-style:normal;font-weight:600}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0 4px;font-size:12px;color:var(--dim)}
+  .legend b{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:middle}
+  table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+  th,td{text-align:left;padding:7px 9px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--faint);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  td .mono{color:var(--teal);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px}
+  .note{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--blue);
+    border-radius:8px;padding:10px 13px;margin-top:12px;color:var(--dim);font-size:12.5px}
+  .arrowcol{display:flex;flex-direction:column;align-items:center;color:var(--faint);font-size:20px;margin:4px 0}
+  .flow{display:flex;flex-direction:column;gap:6px}
+  .kbd{font-family:ui-monospace,monospace;font-size:11px;background:var(--panel2);
+    border:1px solid var(--line);border-radius:4px;padding:1px 5px;color:var(--teal)}
+  .prq{font-size:11px;color:var(--faint);margin-top:6px}
+  .prq b{color:var(--pink)}
+  .footer{margin-top:40px;color:var(--faint);font-size:11.5px;text-align:center}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+  .band{display:flex;align-items:center;gap:10px;background:var(--panel2);border:1px solid var(--line);
+    border-radius:8px;padding:8px 12px;font-size:12.5px;margin-top:8px}
+  .band .lab{color:var(--faint);font-weight:700;min-width:120px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h2 class="sr-only">A complete map of every configuration option, round-by-round decision, side-track, branching archetype, alternate ending and terminal outcome in the Muressons Global Corporation simulation.</h2>
+
+<h1>Muressons Global Corporation — Complete Pathway Map</h1>
+<p class="sub">Every configuration lever, decision fork, side-track, mid-game branch, alternate ending, and terminal outcome. Reconstructed from the codebase (round_configs, branching_engine, ending_pathways, side_tracks, terminal_valuation).</p>
+
+<!-- ============ LAYER 0 : CONFIG ============ -->
+<h2><span class="n">0</span>Session Configuration Layer <span style="font-size:12px;color:var(--faint);font-weight:400">— set by God&nbsp;Mode / Facilitator before play</span></h2>
+<p class="lead">Seven independent levers are chosen at session creation. They multiply into a very large space of distinct playthroughs before a single player decision is made. Players never see most of these settings.</p>
+<div class="grid g4">
+  <div class="card"><h3>🎛️ Paradigm <span class="pill p-blue">5</span></h3><p><b>legacy_abc</b> · <b>advanced_climate</b> · <b>un_sdg</b> · <b>healthcare</b> · <b>multi_toggles</b>. Each swaps the round-config provider (paradigm_registry.py). Only multi_toggles adds the 5-pillar layer.</p></div>
+  <div class="card"><h3>🏭 Vertical BU swaps <span class="pill p-teal">5</span></h3><p>Oil&nbsp;&amp;&nbsp;Gas, Banking/FS, Retail/FMCG, Agriculture, Technology substitute default slots under slot-fit rules. Each carries its own R1 "blindspot" flag.</p></div>
+  <div class="card"><h3>⚙️ Difficulty tier <span class="pill p-amber">3</span></h3><p>Easy (0.5× prob / 0.7× impact), Standard (1.0×/1.0×), Expert (1.5×/1.3×). Also sets the treasury floor and adaptive crisis scaling.</p></div>
+  <div class="card"><h3>🌍 Region <span class="pill p-teal">5</span></h3><p>ASEAN · South&nbsp;Asia · Europe · North&nbsp;America · Africa — unlocks region-specific Black Swan events.</p></div>
+  <div class="card"><h3>🏁 Ending pathway <span class="pill p-purple">5 + random</span></h3><p>Replaces the R10 crisis. Chosen explicitly or <span class="kbd">random</span>. Drives R5–R8 foreshadowing.</p></div>
+  <div class="card"><h3>🧩 Side tracks <span class="pill p-green">0–6</span></h3><p>Facilitator assigns any subset of 6 parallel mini-sims + injection timing. Some have prerequisites (a DAG).</p></div>
+  <div class="card"><h3>⏭️ Extended horizon <span class="pill p-blue">opt-in</span></h3><p>Adds Rounds 11–20 (Green-bond maturity → 5-yr final valuation) when activated.</p></div>
+  <div class="card"><h3>🔧 Turnaround mode <span class="pill p-purple">opt-in</span></h3><p>A 4-stage crisis-recovery ladder (crisis → stabilisation → recovery → exit) with capped CapEx and M_R.</p></div>
+</div>
+
+<!-- ============ LAYER 1 : MAIN 10 ROUNDS ============ -->
+<h2><span class="n">1</span>Main Simulation — the 10-Round Spine</h2>
+<p class="lead">The core linear flow. Every round = one thematic crisis with three options (A / B / C), and — in the <b>multi_toggles</b> paradigm — five pillar decisions (Energy · Operations · Supply Chain · Offsetting · HR), each with 3 options, chosen simultaneously. Post-round the engine resolves ~40 coupled mechanics. Flags set early rewire later rounds.</p>
+<div class="rail">
+  <div class="rnode"><div class="r">R1</div><div class="t">Foundations</div><div class="th">ESG baseline audit</div><div class="abc">A Surface · B Deep · C Phased</div></div>
+  <div class="rnode"><div class="r">R2</div><div class="t">Double Materiality</div><div class="th">Budget allocation</div><div class="abc">A Full · B Exceptions · C CEO-only</div></div>
+  <div class="rnode"><div class="r">R3</div><div class="t">Scope 3</div><div class="th">Supply-chain decarb</div><div class="abc">A Switch · B Green bond · C Offset</div></div>
+  <div class="rnode hot"><div class="r">R4</div><div class="t">Contagion</div><div class="th">Reputation cascade</div><div class="abc">A Transparency · B PR · C Deny</div></div>
+  <div class="rnode hot"><div class="r">R5 ★</div><div class="t">Climate</div><div class="th">Physical risk + branch</div><div class="abc">A Engineering · B Nature · C Insurance</div></div>
+  <div class="rnode"><div class="r">R6</div><div class="t">AI Bias</div><div class="th">Algorithmic ethics</div><div class="abc">A Monetise · B Overhaul · C Patch</div></div>
+  <div class="rnode"><div class="r">R7</div><div class="t">Circularity</div><div class="th">Circular economy</div><div class="abc">A Redesign · B EPR · C W-to-E</div></div>
+  <div class="rnode"><div class="r">R8</div><div class="t">Blue Stress</div><div class="th">Water scarcity</div><div class="abc">A All BUs · B Electronics · C Desal</div></div>
+  <div class="rnode"><div class="r">R9</div><div class="t">Just Transition</div><div class="th">Workforce justice</div><div class="abc">A Closure · B Managed · C Comm. fund</div></div>
+  <div class="rnode fin"><div class="r">R10 🏁</div><div class="t">Grand Finale</div><div class="th">Ending + terminal val</div><div class="abc">branches → Layer 4</div></div>
+</div>
+<div class="note"><b>★ R5 is the pivot round.</b> Three things happen here besides the climate crisis: (1) the <b>Shadow Board</b> presents three directors (Shareholder / Planet / Governance) — rejecting each sets a penalty flag; (2) the player is silently <b>classified into a strategic archetype</b> (Layer 3); (3) <b>foreshadowing</b> for the chosen ending begins. R4 severity is already pre-wired by the R1 audit choice (deep audit halves it; a blindspot doubles it).</div>
+
+<h3 style="margin-top:18px;font-size:14px">Key cross-round flag dependencies (decisions that rewire later rounds)</h3>
+<table>
+  <tr><th>Set at</th><th>Flag</th><th>Fires at</th><th>Consequence</th></tr>
+  <tr><td>R1</td><td class="mono">deep_audit_completed</td><td>R4</td><td>Halves Contagion crisis severity (40 vs 80)</td></tr>
+  <tr><td>R1</td><td class="mono">electronics_blindspot</td><td>R4</td><td>Doubles crisis severity to 80</td></tr>
+  <tr><td>R2</td><td class="mono">materiality_aligned</td><td>R10</td><td>+0.10 M_R governance bonus</td></tr>
+  <tr><td>R2</td><td class="mono">blockchain_traceability</td><td>R8</td><td>Prevents supply-chain scandal</td></tr>
+  <tr><td>R3</td><td class="mono">early_decarboniser</td><td>R7</td><td>+0.10 synergy multiplier</td></tr>
+  <tr><td>R5</td><td class="mono">insurance_only</td><td>R10</td><td>BLOCKS +0.20 Resilience M_R bonus</td></tr>
+  <tr><td>R5</td><td class="mono">planet_expendable</td><td>R10</td><td>−0.20 M_R + amplifies Climate Black Swan</td></tr>
+  <tr><td>R6</td><td class="mono">ethical_ai_overhaul</td><td>R10</td><td>+0.15 Truth Premium M_R</td></tr>
+  <tr><td>R7</td><td class="mono">synergy_unlock</td><td>R10</td><td>+0.15 Synergy strategic premium</td></tr>
+  <tr><td>R8</td><td class="mono">electronics_water_priority</td><td>R10</td><td>BLOCKS +0.20 Resilience M_R bonus</td></tr>
+  <tr><td>R9</td><td class="mono">community_fund / managed_transition</td><td>R10</td><td>+0.18 / +0.12 M_R (×Just-Transition scaling)</td></tr>
+</table>
+
+<!-- ============ LAYER 2 : SIDE TRACKS ============ -->
+<h2><span class="n">2</span>Side Tracks — 6 Parallel Mini-Simulations</h2>
+<p class="lead">Self-contained tracks (4–10 rounds each) that <b>pause the main sim</b> when injected. They read main state in (<span class="kbd">seed_from_main_state</span>) and write flags/modifiers back out (<span class="kbd">write_back_to_main</span>). Some require another track first — a real dependency graph.</p>
+<div class="grid g3">
+  <div class="card"><h3>🔗 Supply Chain</h3><p>7 rounds · window R3–R8. Visibility, supplier risk, circularity → cuts Black-Swan probability. Enriches the Ethics track.</p><div class="prq">prereq: <b>none</b></div></div>
+  <div class="card"><h3>⚖️ Ethics &amp; Sustainability</h3><p>5 rounds · window R2–R7. AI governance, modern slavery, greenwashing, biodiversity.</p><div class="prq">prereq: <b>supply_chain</b></div></div>
+  <div class="card"><h3>🤝 Stakeholder Management</h3><p>4 rounds · window R1–R6. Salience mapping, IR, community licence, crisis comms → SLO floor + fatigue modifiers.</p><div class="prq">prereq: <b>none</b></div></div>
+  <div class="card"><h3>📊 Sustainability Reporting</h3><p>5 rounds · window R2–R8. CSRD/ESRS, TCFD/ISSB, assurance → <span class="mono">regulatory_readiness</span>.</p><div class="prq">prereq: <b>ethics_sustainability</b></div></div>
+  <div class="card"><h3>🌐 Corporate SDG Deep Track</h3><p>5 rounds · window R1–R8. PAI → living wage → circular procurement → biodiversity → integrated reporting. Feeds <b>M_SDG</b> (0.97–1.26).</p><div class="prq">prereq: <b>none</b></div></div>
+  <div class="card"><h3>🇮🇳 BRSR NGRBC Deep Dive</h3><p>10 rounds · window R2–R8. All 9 NGRBC principles, Essential vs Leadership, BRSR Core assurance → <span class="mono">brsr_net_positive_dividend</span> (+0.05 M_R).</p><div class="prq">prereq: <b>sustainability_reporting + ethics_sustainability</b></div></div>
+</div>
+<div class="note">Prerequisite chain: <b>supply_chain → ethics_sustainability → sustainability_reporting → brsr_ngrbc</b>. Stakeholder Management and Corporate SDG stand alone. Each track's write-back flags can raise (or lower) the main-sim M_R and starting positions of downstream tracks.</div>
+
+<!-- ============ LAYER 3 : R5 BRANCH ============ -->
+<h2><span class="n">3</span>The R5 Branch — Strategic Archetype Classification</h2>
+<p class="lead">At the R5 checkpoint <span class="kbd">classify_player_archetype()</span> reads cumulative reputation, social licence, carbon intensity and trend, then routes the player into one of four archetypes. This sets a <b>crisis-severity multiplier</b> and reskins the R6–R10 themes. Adaptive scaling then layers on top: strong performers get harder crises (up to 1.3×), strugglers get eased ones (down to 0.8×).</p>
+<div class="legend">
+  <span><b style="background:var(--green)"></b>easier crises (earned)</span>
+  <span><b style="background:var(--blue)"></b>standard</span>
+  <span><b style="background:var(--amber)"></b>harder — proving pivot</span>
+  <span><b style="background:var(--red)"></b>hardest — the reckoning</span>
+</div>
+<div class="grid g4">
+  <div class="card" style="border-color:var(--green)"><h3>🌱 Regenerative Leader</h3><p>rep ≥65, SLO ≥60, CI ≤45. Crisis ×<b>0.8</b>, +10 stakeholder support. R6–R10 = scaling &amp; legacy opportunities.</p></div>
+  <div class="card" style="border-color:var(--blue)"><h3>⚖️ Pragmatic Optimizer</h3><p>rep 40–65, treasury ≥$30M. Crisis ×<b>1.0</b>. The "sensible middle" — disruption tests.</p></div>
+  <div class="card" style="border-color:var(--amber)"><h3>🔄 Turnaround Candidate</h3><p>rep improving vs R2 + recent ESG spend. Crisis ×<b>1.2</b>, +5 support. R6–R10 = credibility tests.</p></div>
+  <div class="card" style="border-color:var(--red)"><h3>🔥 Fragile Extractor</h3><p>rep ≤40, SLO ≤40. Crisis ×<b>1.5</b>, −10 support. R6–R10 = "the reckoning," survival mode.</p></div>
+</div>
+<div class="note"><b>Shadow Board (also at R5):</b> reject <b>Planet</b> director → <span class="mono">planet_expendable</span> (−0.20 M_R, amplifies Climate Black Swan) · reject <b>Shareholder</b> → <span class="mono">shareholder_alienated</span> (−0.20 M_R in Hostile Takeover) · reject <b>Governance</b> → <span class="mono">governance_fragility</span> (−0.25 M_R in Regulatory Shutdown + BRSR leak).</div>
+
+<!-- ============ LAYER 4 : ENDINGS ============ -->
+<h2><span class="n">4</span>Alternate Endings — 5 R10 Pathways × 3 Options Each</h2>
+<p class="lead">The pre-selected pathway replaces the R10 crisis. From R5–R8 the player has been fed matching foreshadowing news (invisible label). Each pathway offers a virtuous / hedged / defiant option (A / B / C). Difficulty coefficients normalise scores across pathways on the leaderboard.</p>
+<div class="grid g5">
+  <div class="card" style="border-color:var(--purple)"><h3>🏛️ Activist Ultimatum</h3><p style="color:var(--faint);font-size:11px">default · diff 1.00</p>
+    <div class="opt oa"><b>A</b><span><em>Resist &amp; Integrate</em> — keep synergy (needs synergy&gt;80)</span></div>
+    <div class="opt ob"><b>B</b><span><em>Spin-off</em> weakest BU</span></div>
+    <div class="opt oc"><b>C</b><span><em>Divest</em> — max cash, wipe synergy</span></div></div>
+  <div class="card" style="border-color:var(--green)"><h3>🌋 Climate Black Swan</h3><p style="color:var(--faint);font-size:11px">diff 1.15 · carbon ×3</p>
+    <div class="opt oa"><b>A</b><span><em>Emergency Decarbonisation</em></span></div>
+    <div class="opt ob"><b>B</b><span><em>Climate Adaptation</em> — divest CI&gt;40</span></div>
+    <div class="opt oc"><b>C</b><span><em>Deny &amp; Delay</em> — −0.40 M_R, exit 6×</span></div></div>
+  <div class="card" style="border-color:var(--amber)"><h3>🪧 Stakeholder Revolt</h3><p style="color:var(--faint);font-size:11px">diff 1.10 · triple ultimatum</p>
+    <div class="opt oa"><b>A</b><span><em>Total Stakeholder Compact</em></span></div>
+    <div class="opt ob"><b>B</b><span><em>Selective Appeasement</em></span></div>
+    <div class="opt oc"><b>C</b><span><em>Corporate Hardball</em></span></div></div>
+  <div class="card" style="border-color:var(--red)"><h3>🦈 Hostile Takeover</h3><p style="color:var(--faint);font-size:11px">diff 1.20 · Cerberus bid</p>
+    <div class="opt oa"><b>A</b><span><em>White Knight Defence</em></span></div>
+    <div class="opt ob"><b>B</b><span><em>Poison Pill + Crown Jewel</em></span></div>
+    <div class="opt oc"><b>C</b><span><em>Accept the Bid</em></span></div></div>
+  <div class="card" style="border-color:var(--blue)"><h3>⚖️ Regulatory Shutdown</h3><p style="color:var(--faint);font-size:11px">diff 1.12 · CSDDD notice</p>
+    <div class="opt oa"><b>A</b><span><em>Full Remediation</em></span></div>
+    <div class="opt ob"><b>B</b><span><em>Negotiate Consent Decree</em></span></div>
+    <div class="opt oc"><b>C</b><span><em>Contest the Ruling</em></span></div></div>
+</div>
+<div class="note">Each pathway also carries <b>4 archetype-override skins</b> that rename the final outcome (e.g. Climate → Climate Pioneer 🌍 / Adapted Enterprise 🛡️ / Stranded Giant 🏭 / Fossil Relic 🦴), selected by the terminal Regenerative Multiple. That is 5 pathways × 3 options × 4 outcome skins = <b>60 distinct R10 outcome states</b>, before terminal-valuation numbers.</div>
+
+<!-- ============ LAYER 5 : TERMINAL ============ -->
+<h2><span class="n">5</span>Terminal Valuation → Company Archetype (the real "ending")</h2>
+<p class="lead">After R10, the whole game collapses into one number — the <b>Regenerative Multiple (M_R, 0.0–~2.03)</b> — built from every flag earned across all layers, then multiplied by exit multiple, SDG multiplier (side-track), and pathway difficulty. M_R lands the company in one of five terminal archetypes.</p>
+<div class="flow">
+  <div class="band"><span class="lab" style="color:var(--green)">M_R ≥ 1.8</span><span>🌱 <b>The Regenerative Titan</b> — ESG leadership converts to premium enterprise value.</span></div>
+  <div class="band"><span class="lab" style="color:var(--blue)">1.2 – 1.79</span><span>🏦 <b>The De-risked Safe-Haven</b> — resilient, defensible, mid-premium.</span></div>
+  <div class="band"><span class="lab" style="color:var(--amber)">0.8 – 1.19</span><span>⚠️ <b>The Fragile Giant</b> — large but exposed; instability discount bites.</span></div>
+  <div class="band"><span class="lab" style="color:var(--red)">&lt; 0.8</span><span>💀 <b>The Stranded Relic</b> — value destroyed by deferred ESG risk.</span></div>
+  <div class="band"><span class="lab" style="color:var(--purple)">Survival mode</span><span>🔧 <b>The Turnaround Manager</b> — M_R capped at 0.80; the 4-stage recovery ladder.</span></div>
+</div>
+<div class="note"><b>M_R composition:</b> base +1.00, then bonuses (materiality +0.10, synergy +0.15, resilience +0.20, ethical AI +0.15, community +0.18×JT, just transition +0.12×JT, workforce +0.10, wellbeing +0.05, BRSR dividend +0.05) minus penalties (planet-expendable −0.20, instability discount −0.40). <b>M_SDG</b> (from the Corporate SDG side track only) multiplies the whole valuation 0.97–1.26.</div>
+
+<!-- ============ OVERLAYS ============ -->
+<h2><span class="n">6</span>Always-On Overlays (stochastic, every round)</h2>
+<div class="grid g3">
+  <div class="card"><h3>🦢 Black Swans</h3><p>8 global + 5 region-specific events roll each round (evaluate_black_swans). Probability compounds when metrics are poor. Difficulty tier scales prob &amp; impact.</p></div>
+  <div class="card"><h3>🎲 Scripted stochastics</h3><p>R5 cyclone damage roll (&gt;0.75 → $12M, cut by resilience), R9 strike probability, greenwashing engine, macro interest-rate cycles, FX risk.</p></div>
+  <div class="card"><h3>🔮 Foreshadowing</h3><p>R5–R8 news items keyed to the chosen ending pathway. Players see the hints, never the pathway name.</p></div>
+</div>
+
+<div class="footer">Muressons Global Corporation · pathway map generated from source (round_configs.py · branching_engine.py · ending_pathways.py · side_tracks/* · terminal_valuation.py · SIMULATION_CONTEXT.md). Open in any browser.</div>
+</div>
+</body>
+</html>

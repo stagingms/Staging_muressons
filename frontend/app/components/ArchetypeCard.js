@@ -16,22 +16,26 @@ export default function ArchetypeCard({
   mr = 0,
   terminalValueM = 0,
   sharePrice = null,
+  equityWiped = null,   // explicit backend signal (equity_wiped_out); preferred
   accent = '#10b981',
   cohortName = '',
 }) {
   // ── Equity-truth override ────────────────────────────────────────────────
-  // A shareable card must never headline a flattering archetype over a negative
-  // share price. Mirrors FrontPageReveal's band logic: the backend archetype can
-  // stay "De-risked" on a positive DMAV while net debt has already wiped out
-  // equity (negative share price). When that happens we relabel to the honest
-  // archetype — Hollow Idealist if enterprise value is still positive, Stranded
-  // Relic if it isn't — and recolour to match.
+  // A shareable card must never headline a flattering archetype over an
+  // insolvent outcome. The backend archetype can stay "De-risked" on a positive
+  // DMAV while net debt has already wiped out equity. The honest signal is the
+  // backend's `equity_wiped_out` flag (equity value < 0). NOTE: the reported
+  // share price is now FLOORED at $1 (a stock can't quote negative), so we no
+  // longer infer insolvency from the price sign — we rely on the flag, falling
+  // back to `sharePrice < 0` only for older payloads that predate the flag.
   const priceNum   = sharePrice != null ? Number(sharePrice) : null;
-  const equityWiped = priceNum != null && priceNum < 0;
+  const isEquityWiped = equityWiped != null
+    ? !!equityWiped
+    : (priceNum != null && priceNum < 0);
   const evM         = Number(terminalValueM) || 0;
 
   let dTitle = title, dIcon = icon, dAccent = accent;
-  if (equityWiped) {
+  if (isEquityWiped) {
     if (evM > 0) { dTitle = 'Hollow Idealist'; dIcon = '🕯️'; dAccent = '#a855f7'; }
     else         { dTitle = 'Stranded Relic';  dIcon = '💀'; dAccent = '#ef4444'; }
   }
@@ -63,8 +67,8 @@ export default function ArchetypeCard({
   <text x="60" y="86" font-family="'DM Sans',Arial,sans-serif" font-size="26" letter-spacing="4" fill="#8899a6">MURESSONS GLOBAL · YEAR 5 TERMINAL VALUATION</text>
   <text x="600" y="250" text-anchor="middle" font-size="120">${esc(dIcon)}</text>
   <text x="600" y="340" text-anchor="middle" font-family="'DM Sans',Arial,sans-serif" font-weight="800" font-size="64" fill="#f1f5f9">${esc(dTitle)}</text>
-  ${equityWiped ? `<text x="600" y="384" text-anchor="middle" font-family="'DM Sans',Arial,sans-serif" font-weight="700" font-size="24" letter-spacing="2" fill="#ef4444">EQUITY WIPED OUT · NEGATIVE SHARE PRICE</text>` : ''}
-  ${cohortName ? `<text x="600" y="${equityWiped ? 416 : 384}" text-anchor="middle" font-family="'DM Sans',Arial,sans-serif" font-size="26" fill="#b0bec5">${esc(cohortName)}</text>` : ''}
+  ${isEquityWiped ? `<text x="600" y="384" text-anchor="middle" font-family="'DM Sans',Arial,sans-serif" font-weight="700" font-size="24" letter-spacing="2" fill="#ef4444">EQUITY WIPED OUT · SHARE PRICE COLLAPSED</text>` : ''}
+  ${cohortName ? `<text x="600" y="${isEquityWiped ? 416 : 384}" text-anchor="middle" font-family="'DM Sans',Arial,sans-serif" font-size="26" fill="#b0bec5">${esc(cohortName)}</text>` : ''}
   <g font-family="'DM Sans',Arial,sans-serif" text-anchor="middle">
     <text x="300" y="500" font-size="52" font-weight="800" fill="${esc(dAccent)}">${Number(mr).toFixed(2)}×</text>
     <text x="300" y="536" font-size="22" fill="#8899a6">Regenerative Multiple</text>
@@ -95,7 +99,7 @@ export default function ArchetypeCard({
     };
     img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
-  }, [dTitle, dIcon, mr, terminalValueM, priceNum, priceColor, dAccent, equityWiped, cohortName]);
+  }, [dTitle, dIcon, mr, terminalValueM, priceNum, priceColor, dAccent, isEquityWiped, cohortName]);
 
   return (
     <button

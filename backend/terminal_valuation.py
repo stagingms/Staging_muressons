@@ -33,6 +33,15 @@ log = logging.getLogger(__name__)
 SHARES_OUTSTANDING: int = TV_SHARES_OUTSTANDING   # 100 million shares (IPO anchor)
 IPO_PRICE_PER_SHARE: float = TV_IPO_PRICE       # Opening price at game start
 
+# ── Share-price floor ──────────────────────────────────────────────────────
+# A traded share price can never go negative — a shareholder's residual claim is
+# floored at zero by limited liability, and a listed stock has a de-minimis
+# (penny-stock) floor rather than a negative quote. We report a $1.00 floor,
+# matching the live in-game stock engine (frontend stockValuationEngine already
+# floors intraday/round prices at $1). When net debt has wiped out equity the
+# honest signal is `equity_value < 0` / `equity_wiped_out`, NOT a negative price.
+SHARE_PRICE_FLOOR: float = 1.0
+
 # ── Long-run nominal growth assumption for Gordon Growth exit multiple ───────
 _LONG_RUN_GROWTH: float = TV_LONG_RUN_GROWTH          # 2% terminal growth (real GDP + inflation)
 _EXIT_MULTIPLE_FLOOR: float = TV_EXIT_MULTIPLE_FLOOR       # Distressed / regulatory-shutdown floor
@@ -362,7 +371,13 @@ def calculate_equity_bridge(
         dict with equity_value, price_per_share, market multiples, bridge detail
     """
     equity_value = round(enterprise_value - net_debt, 2)
-    price_per_share = round(equity_value / max(1, shares_outstanding), 4)
+    # Raw per-share residual claim (can be negative when net debt exceeds EV) —
+    # kept for transparency/audit, but the REPORTED price floors at $1.00: a
+    # traded share price is never negative. `equity_wiped_out` carries the honest
+    # insolvency signal, decoupled from the (now non-negative) price.
+    raw_price_per_share = round(equity_value / max(1, shares_outstanding), 4)
+    price_per_share = max(SHARE_PRICE_FLOOR, raw_price_per_share)
+    equity_wiped_out = equity_value < 0
     ipo_price = IPO_PRICE_PER_SHARE
 
     # Market multiples
@@ -372,6 +387,8 @@ def calculate_equity_bridge(
     # Benchmark signals (sector: diversified industrials with ESG lens)
     ev_rev_benchmark = 2.5    # sector median EV/Revenue
     pb_benchmark = 1.5        # sector median Price/Book at fair value
+    # Share-price change is measured against the REPORTED (floored) price so the
+    # headline stat and this percentage stay internally consistent.
     sp_change_pct = round((price_per_share - ipo_price) / ipo_price * 100, 1) if ipo_price > 0 else 0
 
     ev_rev_signal = None
@@ -394,8 +411,11 @@ def calculate_equity_bridge(
         "enterprise_value": round(enterprise_value, 2),
         "net_debt": round(net_debt, 2),
         "equity_value": equity_value,
+        "equity_wiped_out": equity_wiped_out,
         "shares_outstanding": shares_outstanding,
         "price_per_share": round(price_per_share, 2),
+        "price_per_share_raw": round(raw_price_per_share, 2),  # pre-floor, audit only
+        "share_price_floored": price_per_share > raw_price_per_share,
         "ipo_price_per_share": ipo_price,
         "share_price_change_pct": sp_change_pct,
         "share_price_vs_ipo": "gain" if price_per_share >= ipo_price else "loss",
@@ -408,7 +428,9 @@ def calculate_equity_bridge(
         "bridge_note": (
             f"EV ${enterprise_value/1e6:.1f}M − Net Debt ${net_debt/1e6:.1f}M "
             f"= Equity ${equity_value/1e6:.1f}M ÷ {shares_outstanding//1_000_000}M shares "
-            f"= ${price_per_share:.2f}/share"
+            f"= ${raw_price_per_share:.2f}/share"
+            + (f" → floored to ${SHARE_PRICE_FLOOR:.2f} (equity wiped out)"
+               if price_per_share > raw_price_per_share else "")
         ),
     }
 
@@ -521,7 +543,8 @@ def calculate_terminal_value(bus, mr, carbon_tax_per_ton=FINANCIAL_SHADOW_CARBON
         "terminal_value":         tv,
         # STRAT-010 equity bridge fields
         "equity_value":           bridge["equity_value"],
-        "price_per_share":        bridge["price_per_share"],
+        "price_per_share":        bridge["price_per_share"],          # floored at $1
+        "equity_wiped_out":       bridge["equity_wiped_out"],         # honest insolvency signal
         "equity_bridge":          bridge,
         "net_debt":               net_debt,
         "shares_outstanding":     SHARES_OUTSTANDING,

@@ -56,6 +56,24 @@ except Exception:
 
 import main
 
+# ── Registry / identity-store isolation ──────────────────────────────────────
+# Tests that create facilitators (bulk-delete, RBAC probes, quiz panels, …)
+# call _persist_facilitators(), which previously wrote to the REAL
+# db/facilitator_registry.json — every suite run leaked dozens of fixture
+# accounts (BulkSoft*, C3 Gate Probe, Shockwave Probe, …) into the production
+# registry, and token-version / virtual-profile writes leaked alongside.
+# Repoint the persistence paths at the throwaway temp dir. The in-memory
+# registry was already loaded (import time), so reads keep working; only the
+# WRITES are redirected away from real state.
+try:
+    import admin_shared as _ash_iso
+    _ash_iso._FAC_REGISTRY_PATH = str(_tmp_state / "facilitator_registry.json")
+    _ash_iso._TOKEN_VERSION_PATH = str(_tmp_state / "token_versions.json")
+    _ash_iso._VIRTUAL_PROFILES_PATH = str(_tmp_state / "virtual_account_profiles.json")
+    _ash_iso._COHORT_STATE_PATH = str(_tmp_state / "cohort_settings.json")
+except Exception:
+    pass
+
 # Pin the shared-marketplace object identity. Snapshot-restore paths
 # (database_memory._apply_snapshot via _load_from_disk, used by test_res1_* and
 # test_coordination_state) REASSIGN admin_shared._shared_marketplace and

@@ -5,12 +5,35 @@ import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META } from '../lib/verticalC
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
-// Analytics-visibility catalog — imported from the shared registry (Railway
-// audit §4.3: this was the THIRD hand-maintained copy of the card list).
-// Keys still MUST stay in sync with the backend _analytics_visibility dict in
-// admin_analytics.py — the setter endpoints silently drop any key not present
-// there (add in both, same commit); the registry file carries the same note.
-import { ANALYTICS_VISIBILITY_CATALOG as FACILITATOR_ANALYTICS } from '../config/analyticsRegistry';
+// Analytics-visibility catalog. Keys MUST stay in sync with the backend
+// _analytics_visibility dict in admin_analytics.py — the setter endpoints reject
+// any key not present there (add in both, same commit).
+const FACILITATOR_ANALYTICS = [
+    // ── Core analytics ──
+    { key: 'decision_heatmap', label: 'Decision Heatmap', icon: '📊', tooltip: 'Choice distribution matrix showing which strategic options (A, B, C, etc.) were selected in each round across all players. Includes a heatmap grid with counts/percentages and stacked bar charts for visual comparison. Answers: "What are the most popular choices per round?"' },
+    { key: 'time_to_decision', label: 'Time-to-Decision', icon: '⏱', tooltip: 'Decision speed analytics — how long players take to commit their choices each round. Displays average, median, min, and max times in seconds with horizontal bar visualizations. Answers: "Are players deliberating or rushing?"' },
+    { key: 'cohort_comparison', label: 'Cohort Comparison', icon: '📈', tooltip: 'Plots KPI trajectories side-by-side for multiple cohorts on an SVG line chart. Togglable between Treasury, Reputation, Synergy, and EBITDA metrics. Answers: "How do different cohorts perform against each other over time?"' },
+    { key: 'convergence_analysis', label: 'Convergence Analysis', icon: '🔄', tooltip: 'Measures strategy similarity using a convergence gauge (0–100%). Tracks choice entropy (bits of unpredictability) and CapEx standard deviation per round. Low entropy = players thinking alike. Answers: "Are teams converging on the same strategy or diversifying?"' },
+    { key: 'learning_outcomes', label: 'Learning Outcomes', icon: '🎯', tooltip: 'Tracks gamification and engagement: total learning bonuses awarded, manual facilitator awards, badge distribution counts, and bonuses by category. Answers: "How engaged are students and what milestones have they hit?"' },
+    { key: 'risk_exposure', label: 'Risk Exposure', icon: '📉', tooltip: 'Multi-axis tracking of non-financial risks per cohort over time: Carbon Intensity, Natural Capital Debt, Social License, and Governance Risk. Rendered as vertical bar charts per cohort. Answers: "How are teams managing ESG/sustainability risks?"' },
+    { key: 'materiality_matrix', label: 'Materiality Matrix', icon: '🧩', tooltip: 'Toggles the Mendelow\'s Materiality Matrix panel — the drag-and-drop issue mapping grid with financial vs. societal impact axes for stakeholder analysis. Used for teaching ESG materiality assessment.' },
+    { key: 'technical_reference', label: 'Technical Reference', icon: '📐', tooltip: 'Toggles the Technical Glossary panel — a comprehensive reference guide explaining simulation terminology, engine mechanics, KPI calculation formulas, and contagion/talent engine parameters.' },
+    // ── Live cohort monitoring ──
+    { key: 'cohort_pulse', label: 'Cohort Pulse', icon: '🩺', tooltip: 'Live cohort health pulse — real-time engagement, commit progress, and sentiment across all teams in the active round. Answers: "Is the room with me right now?"' },
+    { key: 'leaderboard_matrix', label: 'Leaderboard Matrix', icon: '🥇', tooltip: 'Ranked matrix of every team across the headline KPIs (Treasury, Reputation, Synergy, M_R) with movement since last round. Answers: "Who is leading and who is falling behind?"' },
+    { key: 'session_health', label: 'Session Health', icon: '💓', tooltip: 'Operational health of the live session — player connections, commit/lock status per team, pacing drift, and stalled players. Answers: "Is the session running cleanly?"' },
+    { key: 'engine_event_feed', label: 'Engine Event Feed', icon: '📡', tooltip: 'Chronological stream of engine/complexity events fired this run (crises, shockwaves, black swans, threshold breaches). Answers: "What has the engine thrown at the teams?"' },
+    // ── Deep-dive & audit ──
+    { key: 'consequence_dna', label: 'Consequence DNA', icon: '🧬', tooltip: 'Decision→outcome causal visualiser — traces how each choice propagated through the engines into KPI movement. Answers: "Why did this team get this result?"' },
+    { key: 'decision_timeline', label: 'Decision Timeline', icon: '🧭', tooltip: 'Per-team chronology of every decision, override, and intervention across the ten rounds. Answers: "What was this team\'s narrative arc?"' },
+    { key: 'stakeholder_map', label: 'Stakeholder Map', icon: '🗺️', tooltip: 'Region-specific Mendelow stakeholder grid (power × interest) with live satisfaction/trust state per stakeholder. Answers: "Who holds leverage over these teams?"' },
+    { key: 'audit_trail', label: 'Audit Trail', icon: '📜', tooltip: 'Immutable log of facilitator actions — overrides, unlocks, injections, grading, and God-Mode changes. Answers: "What was changed, by whom, and when?"' },
+    { key: 'shadow_board_audit', label: 'Shadow Board Audit', icon: '🕵️', tooltip: 'Advanced governance audit contrasting each team\'s decisions against a shadow board\'s recommendations. Executive-tier debrief tool. Disabled by default.' },
+    // ── ESG / disclosure dashboards ──
+    { key: 'sdg_alignment', label: 'SDG Alignment Radar', icon: '🌐', tooltip: 'Radar of each cohort\'s alignment to the 17 UN SDGs derived from decisions taken. Answers: "Which goals are teams advancing or neglecting?"' },
+    { key: 'tcfd_dashboard', label: 'TCFD Scenarios', icon: '🌡️', tooltip: 'TCFD climate-scenario dashboard (orderly 1.5°C / disorderly 2°C / hothouse 4°C) with each team\'s exposure. Advanced-climate cohorts. Disabled by default.' },
+    { key: 'peer_evaluation', label: 'Peer Evaluation', icon: '🧑‍⚖️', tooltip: 'Aggregated inter-team peer-evaluation results and rubric scores. Surfaces only when the peer-evaluation exercise is run. Disabled by default.' },
+];
 
 const PLAYER_ANALYTICS = [
     // ── Core analytics ──
@@ -153,6 +176,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [quizGraded, setQuizGraded] = useState(false);
     const [quizPassThreshold, setQuizPassThreshold] = useState(70);
     const [quizMaxAttempts, setQuizMaxAttempts] = useState(2);
+    const [quizMandatory, setQuizMandatory] = useState(false);  // block decisions until the round's quiz is taken
     const [teamCount, setTeamCount] = useState(0);                  // 0 = unlimited
     const [maxTeamSize, setMaxTeamSize] = useState(0);              // 0 = unlimited
     const [joinMethod, setJoinMethod] = useState('code');           // code | open | roster
@@ -183,10 +207,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [consentRequired, setConsentRequired] = useState(false);
     const [consentText, setConsentText] = useState('');
     const [webhookUrl, setWebhookUrl] = useState('');
-    // Briefing videos: a URL pattern with {round} (URLs only — the media lives
-    // on YouTube/Vimeo/CDN, never in the repo). Players get a Read|Watch choice
-    // on each round briefing when set.
-    const [briefingVideoBase, setBriefingVideoBase] = useState('');
 
     // Simulation mode & industry localisation
     const [simulationMode, setSimulationMode] = useState('conglomerate'); // 'conglomerate' | 'single_bu'
@@ -221,15 +241,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         Object.fromEntries(ENGINE_MODULE_TOGGLES.map(t => [t.key, t.default]))
     );
     // difficultyTier is now derived from selectedExperienceLevel
-    // Two-column layout: sections open independently per column (multi-open
-    // Set, not a single tab), so the whole panel can be visible at once.
-    // Default: the first section of EACH column.
-    const [openTabs, setOpenTabs] = useState(() => new Set(['core', 'pedagogy']));
-    const toggleTab = (id) => setOpenTabs(prev => {
-        const next = new Set(prev);
-        if (next.has(id)) next.delete(id); else next.add(id);
-        return next;
-    });
+    const [openTab, setOpenTab] = useState('core');
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -242,24 +254,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [setupResults, setSetupResults] = useState(null);
     const [retryingIdx, setRetryingIdx] = useState(null);
 
-    // ── RULES-OF-HOOKS: every useState below must stay ABOVE the
-    //    `if (!isOpen) return null` early return, or the hook count
-    //    changes when the modal opens (React error #310).
-    // Mirrors pedagogyCustomised: once the facilitator hand-edits the PLAYER
-    // visibility column, experience-level re-selection stops overwriting it
-    // (levels PRESELECT; facilitators override per cohort).
-    const [playerVisCustomised, setPlayerVisCustomised] = useState(false);
-    // Player-facing round surfaces (Consequence Map / Board Room Moment)
-    // preselected by the experience level; persisted per-cohort at save via
-    // /player-feature-toggles. Overridable post-creation in the cohort's
-    // Player Dashboard panel (Round Surfaces group).
-    const [stagedPlayerFeatures, setStagedPlayerFeatures] = useState(null);
-    const [savingLevel, setSavingLevel] = useState(false);
-
     // Scroll to error banner and open the relevant tab whenever an error is set
     const setValidationError = (msg, tab = null) => {
         setError(msg);
-        if (tab) setOpenTabs(prev => new Set(prev).add(tab));
+        if (tab) setOpenTab(tab);
         // Defer scroll so the DOM updates first
         setTimeout(() => errorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
     };
@@ -271,7 +269,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     useEffect(() => {
         if (!isOpen) return;
         setError(null);
-        setOpenTabs(new Set(['core', 'pedagogy']));
+        setOpenTab('core');
 
         if (isEditMode && editSession) {
             // ── Edit mode: pre-populate from existing session ──
@@ -325,14 +323,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 const defaultPreset = presets.find(p => p.id === 'workshop_standard');
                 if (defaultPreset?.default_pedagogy) {
                     setPedagogicalToggles(prev => ({ ...prev, ...defaultPreset.default_pedagogy }));
-                }
-                // Each level also preselects the PLAYER dashboard analytics.
-                if (defaultPreset?.default_player_visibility) {
-                    setVisibility(prev => ({ ...prev, player: { ...prev.player, ...defaultPreset.default_player_visibility } }));
-                }
-                // …and the player-facing round surfaces.
-                if (defaultPreset?.default_player_features) {
-                    setStagedPlayerFeatures(defaultPreset.default_player_features);
                 }
             }).catch(() => {});
 
@@ -533,102 +523,17 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         },
     ];
 
-
-
-    // ── Facilitator-authorable custom levels ────────────────────────────
-    // Captures the wizard's CURRENT pedagogy + player visibility + round
-    // surfaces as a named, reusable level (persisted server-side, scoped to
-    // this facilitator; admins see all). Engine tunables are deliberately
-    // not part of a custom level.
-    const refreshPresets = async (selectId = null) => {
-        try {
-            const r = await fetch(`${API}/api/admin/scenario-presets`, { credentials: 'include' });
-            const d = await r.json();
-            setScenarioPresets(d.presets || []);
-            if (selectId) setSelectedExperienceLevel(selectId);
-        } catch { /* keep current list */ }
-    };
-    const saveCustomLevel = async () => {
-        const sel = scenarioPresets.find(p => p.id === selectedExperienceLevel);
-
-        // "Update existing" prompt, two routes in:
-        //  1. the currently SELECTED level is a custom one → offer to update it
-        //     in place (Cancel falls through to create-new);
-        //  2. the typed name matches one of the facilitator's existing custom
-        //     levels → offer to overwrite that one.
-        let updateTarget = null;
-        let name;
-        if (sel?.is_custom && window.confirm(
-            `Update the custom level "${sel.name}" with the CURRENT wizard settings?\n\n` +
-            'OK = update it in place · Cancel = save as a new level instead.')) {
-            updateTarget = sel;
-            name = sel.name;
-        } else {
-            name = window.prompt('Name this custom level (e.g. "Evening MBA — gentle start"):');
-            if (!name || !name.trim()) return;
-            name = name.trim();
-            const clash = scenarioPresets.find(p => p.is_custom && p.name.toLowerCase() === name.toLowerCase());
-            if (clash && window.confirm(
-                `A custom level named "${clash.name}" already exists.\n\n` +
-                'OK = update it with the current settings · Cancel = create a separate level with the same name.')) {
-                updateTarget = clash;
-            }
-        }
-
-        setSavingLevel(true);
-        try {
-            const payload = {
-                name,
-                description: updateTarget ? '' : `Custom level saved from the cohort wizard (base: ${sel?.name || 'Workshop'}).`,
-                difficulty_tier: (updateTarget || sel)?.difficulty_tier || 'advanced',
-                default_pedagogy: pedagogicalToggles,
-                default_player_visibility: visibility.player,
-                default_player_features: stagedPlayerFeatures || {},
-            };
-            const r = await fetch(
-                updateTarget
-                    ? `${API}/api/admin/scenario-presets/custom/${updateTarget.id}`
-                    : `${API}/api/admin/scenario-presets/custom`,
-                {
-                    method: updateTarget ? 'PUT' : 'POST', credentials: 'include',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                },
-            );
-            const d = await r.json();
-            if (r.ok && d.preset?.id) await refreshPresets(d.preset.id);
-        } catch { /* leave wizard state untouched on failure */ }
-        setSavingLevel(false);
-    };
-    const deleteCustomLevel = async (id) => {
-        if (!window.confirm('Delete this custom level? Cohorts already created from it are unaffected.')) return;
-        try {
-            await fetch(`${API}/api/admin/scenario-presets/custom/${id}`, { method: 'DELETE', credentials: 'include' });
-            if (selectedExperienceLevel === id) setSelectedExperienceLevel('workshop_standard');
-            await refreshPresets();
-        } catch { /* list refresh best-effort */ }
-    };
-
     const toggleVis = (role, key) => {
-        if (role === 'player') setPlayerVisCustomised(true);
         setVisibility(prev => ({
             ...prev,
             [role]: { ...prev[role], [key]: !prev[role][key] },
         }));
     };
 
-    // Governance: which analytics a FACILITATOR may see is an admin decision
-    // (super_admin / god_mode), not something a facilitator grants themselves
-    // during cohort setup. Facilitators keep the Player column (pedagogy).
-    // The backend enforces this too — set_cohort_analytics_visibility ignores
-    // the facilitator block from non-admin callers.
-    const canEditFacilitatorVisibility = ['super_admin', 'admin', 'god_mode'].includes(currentFacilitatorRole);
-    const visRoles = canEditFacilitatorVisibility ? ['facilitator', 'player'] : ['player'];
-
     // Check if any visibility setting differs from global defaults
     const hasVisibilityOverrides = () => {
         if (!visibilityDefaults) return false;
-        for (const role of visRoles) {
+        for (const role of ['facilitator', 'player']) {
             for (const [key, val] of Object.entries(visibility[role] || {})) {
                 if ((visibilityDefaults[role] || {})[key] !== val) return true;
             }
@@ -644,20 +549,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const buildSubConfigSteps = (sid) => {
         const steps = [];
         if (hasVisibilityOverrides()) {
-            // Non-admins send only the Player column — facilitator-dashboard
-            // visibility is admin-owned (and server-enforced).
-            const visPayload = canEditFacilitatorVisibility ? visibility : { player: visibility.player };
-            steps.push({ name: 'Visibility', method: 'PUT', url: `${API}/api/admin/cohort/${sid}/analytics-visibility`, payload: visPayload });
-        }
-        if (stagedPlayerFeatures) {
-            // Experience-level round surfaces (Consequence Map / Board Room) —
-            // persisted as per-cohort overrides so each cohort matches its
-            // level; the cohort's Player Dashboard panel can override later.
-            steps.push({ name: 'Player Round Surfaces', method: 'POST', url: `${API}/api/admin/player-feature-toggles?session_id=${sid}`, payload: stagedPlayerFeatures });
-        }
-        if (briefingVideoBase.trim()) {
-            // Briefing videos: URL pattern only (media hosted externally).
-            steps.push({ name: 'Briefing Videos', method: 'POST', url: `${API}/api/admin/sessions/${sid}/briefing-videos`, payload: { briefing_video_base: briefingVideoBase.trim() } });
+            steps.push({ name: 'Visibility', method: 'PUT', url: `${API}/api/admin/cohort/${sid}/analytics-visibility`, payload: visibility });
         }
         steps.push({
             name: 'Pedagogical Settings', method: 'PUT',
@@ -709,6 +601,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 quiz_graded: quizGraded,
                 quiz_pass_threshold: quizPassThreshold,
                 quiz_max_attempts: quizMaxAttempts,
+                quiz_mandatory: quizMandatory,
                 team_count: teamCount,
                 max_team_size: maxTeamSize,
                 join_method: joinMethod,
@@ -1043,12 +936,25 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     <form onSubmit={isEditMode ? handleEdit : handleCreate} className={styles.form}>
                         {error && <div ref={errorRef} className={styles.errorBox}>{error}</div>}
 
-                        {/* Two parallel columns (wide screens): setup flow (1–4) on the
-                            left, pedagogy/analytics + summary/lock on the right, so the
-                            whole panel is visible on one screen. Stacks below 1100px. */}
-                        <div className={styles.formColumns}>
-                        <div className={styles.formCol}>
-                        <AccordionItem id="core" title="1. Core Configuration" summary="Cohort Name, Facilitator, Scenario, & Currency" isOpen={openTabs.has('core')} onToggle={toggleTab}>
+                        
+
+                        
+                                
+
+                                
+
+                        
+
+                                
+
+                        
+
+                        
+
+                        
+
+                        
+                        <AccordionItem id="core" title="1. Core Configuration" summary="Cohort Name, Facilitator, Scenario, & Currency" isOpen={openTab === 'core'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 1: Core Details ── */}
                                 <section className={styles.configSection}>
                                     <h3>1. Core Details</h3>
@@ -1233,15 +1139,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         if (!pedagogyCustomised && p.default_pedagogy) {
                                                             setPedagogicalToggles(prev => ({ ...prev, ...p.default_pedagogy }));
                                                         }
-                                                        // …and the level's player-dashboard visibility (Section 6,
-                                                        // player column) unless the facilitator has hand-edited it.
-                                                        if (!playerVisCustomised && p.default_player_visibility) {
-                                                            setVisibility(prev => ({ ...prev, player: { ...prev.player, ...p.default_player_visibility } }));
-                                                        }
-                                                        // …and the level's player-facing round surfaces.
-                                                        if (p.default_player_features) {
-                                                            setStagedPlayerFeatures(p.default_player_features);
-                                                        }
                                                     }}
                                                     style={{
                                                         display: 'flex', alignItems: 'center', gap: 12,
@@ -1275,14 +1172,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                             padding: '2px 8px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0,
                                                         }}>Selected</span>
                                                     )}
-                                                    {p.is_custom && (
-                                                        <span
-                                                            role="button"
-                                                            title="Delete this custom level"
-                                                            onClick={(e) => { e.stopPropagation(); deleteCustomLevel(p.id); }}
-                                                            style={{ flexShrink: 0, marginLeft: 6, padding: '2px 7px', borderRadius: 6, cursor: 'pointer', color: '#f87171', border: '1px solid rgba(239,68,68,0.35)', fontSize: '0.7rem', fontWeight: 700 }}
-                                                        >✕</span>
-                                                    )}
                                                 </button>
                                             );
                                         })}
@@ -1300,36 +1189,12 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 {Object.entries(sel.default_pedagogy || {}).filter(([,v]) => v).map(([k]) =>
                                                     k.replace(/_enabled$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
                                                 ).join(', ') || 'No scaffolding'} enabled by default
-                                                {' · Player dashboard: '}
-                                                {Object.entries(sel.default_player_visibility || {}).filter(([,v]) => v).map(([k]) =>
-                                                    k.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                                                ).join(', ') || 'none'}
-                                                {' · Round surfaces: '}
-                                                {Object.entries(sel.default_player_features || {}).filter(([,v]) => v).map(([k]) =>
-                                                    k.replace(/_enabled$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                                                ).join(', ') || 'none'}
                                                 {pedagogyCustomised && (
                                                     <span style={{ marginLeft: 6, color: '#f59e0b', fontWeight: 700 }}>⚙ Pedagogy customised</span>
                                                 )}
                                             </div>
                                         ) : null;
                                     })()}
-                                    {/* Author a reusable level from the wizard's current
-                                        pedagogy + player visibility + round surfaces. */}
-                                    <button
-                                        type="button"
-                                        onClick={saveCustomLevel}
-                                        disabled={savingLevel}
-                                        style={{
-                                            marginTop: 8, padding: '7px 14px', borderRadius: 8, cursor: 'pointer',
-                                            fontWeight: 700, fontSize: '0.72rem', letterSpacing: '0.03em',
-                                            border: '1px dashed rgba(139,92,246,0.5)', background: 'rgba(139,92,246,0.08)',
-                                            color: '#c4b5fd', opacity: savingLevel ? 0.6 : 1,
-                                        }}
-                                        title="Save the CURRENT scaffolding, player-dashboard and round-surface settings as a reusable custom level (visible only to you; admins see all)."
-                                    >
-                                        {savingLevel ? '⏳ Saving level…' : '💾 Save current settings as a custom level'}
-                                    </button>
                                 </div>
                             )}
 
@@ -1369,7 +1234,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         </AccordionItem>
 
                         {!isBaseFacilitator && (
-                            <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway" isOpen={openTabs.has('engine')} onToggle={toggleTab}>
+                            <AccordionItem id="engine" title="2. Simulation Engine" summary="Decision Paradigm & Ending Pathway" isOpen={openTab === 'engine'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
     {/* ── Section 2: Decision Paradigm ── */}
                                     <section className={styles.configSection}>
                                         <div className={styles.sectionHeader}>
@@ -1611,7 +1476,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         )}
 
                         {!isBaseFacilitator && simulationMode !== 'single_bu' && (
-                            <AccordionItem id="verticals" title="2b. Industry Verticals" summary="Optional: Replace default BUs with industry-specific units" isOpen={openTabs.has('verticals')} onToggle={toggleTab}>
+                            <AccordionItem id="verticals" title="2b. Industry Verticals" summary="Optional: Replace default BUs with industry-specific units" isOpen={openTab === 'verticals'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── BU Vertical Substitution (selected at cohort creation) ── */}
                             <section className={styles.configSection}>
                                 <div className={styles.sectionHeader}>
@@ -1721,7 +1586,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         )}
 
                         {!isBaseFacilitator && (
-                            <AccordionItem id="modules" title="3. Optional Modules" summary="Engine Modules, Side Tracks & CEO" isOpen={openTabs.has('modules')} onToggle={toggleTab}>
+                            <AccordionItem id="modules" title="3. Optional Modules" summary="Engine Modules, Side Tracks & CEO" isOpen={openTab === 'modules'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Engine Module Toggles ── */}
                         {isSuperAdmin && (
                             <section className={styles.configSection}>
@@ -1887,13 +1752,17 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 </div>
                                 <button
                                     type="button"
-                                    onClick={() => {
-                                        // Local state only — persisted PER-COHORT by the wizard's
-                                        // CEO Interview save step (/sessions/{sid}/ceo-interview).
-                                        // The old immediate PATCH /global-settings silently 403'd
-                                        // for facilitators and mutated the GLOBAL default from a
-                                        // cohort wizard for admins (audit finding).
-                                        setCeoInterviewEnabled(!ceoInterviewEnabled);
+                                    onClick={async () => {
+                                        const next = !ceoInterviewEnabled;
+                                        setCeoInterviewEnabled(next);
+                                        try {
+                                            await fetch(`${API}/api/admin/global-settings`, {
+                                                method: 'PATCH',
+                                                headers: { 'Content-Type': 'application/json' },
+                                                credentials: 'include',
+                                                body: JSON.stringify({ ceo_interview_enabled: next }),
+                                            });
+                                        } catch {}
                                     }}
                                     style={{
                                         padding: '5px 14px', borderRadius: 8, border: 'none',
@@ -1918,10 +1787,16 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         <span style={{ fontSize: '0.68rem', color: '#94a3b8', fontWeight: 600 }}>CEO Voice:</span>
                                         <select
                                             value={ceoVoiceGender}
-                                            onChange={(e) => {
-                                                // Local state only — saved per-cohort at wizard save
-                                                // (see toggle above; audit finding).
+                                            onChange={async (e) => {
                                                 setCeoVoiceGender(e.target.value);
+                                                try {
+                                                    await fetch(`${API}/api/admin/global-settings`, {
+                                                        method: 'PATCH',
+                                                        headers: { 'Content-Type': 'application/json' },
+                                                        credentials: 'include',
+                                                        body: JSON.stringify({ ceo_interview_voice_gender: e.target.value }),
+                                                    });
+                                                } catch {}
                                             }}
                                             style={{
                                                 padding: '3px 8px', borderRadius: 6, fontSize: '0.72rem',
@@ -1969,7 +1844,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         )}
 
                         {!isBaseFacilitator && (
-                            <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing" isOpen={openTabs.has('interventions')} onToggle={toggleTab}>
+                            <AccordionItem id="interventions" title="4. Team Interventions" summary="Manual Overrides, Swipe Files & Round Pacing" isOpen={openTab === 'interventions'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 4: Team Interventions ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
@@ -2098,10 +1973,8 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                         
                             </AccordionItem>
                         )}
-                        </div>{/* /formCol left */}
 
-                        <div className={styles.formCol}>
-                        <AccordionItem id="pedagogy" title="5. Pedagogy &amp; Analytics" summary="Toggles and Visibility" isOpen={openTabs.has('pedagogy')} onToggle={toggleTab}>
+                        <AccordionItem id="pedagogy" title="5. Pedagogy &amp; Analytics" summary="Toggles and Visibility" isOpen={openTab === 'pedagogy'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
 {/* ── Section 5: Pedagogical Scaffolding ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
@@ -2140,78 +2013,37 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         </div>
                                     ))}
                                 </div>
-
-                                {/* Quiz — moved here from Advanced Controls: knowledge-check
-                                    quizzes are formative assessment, i.e. scaffolding. */}
-                                <div className={styles.visRoleLabel} style={{ marginTop: '0.9rem' }}>📝 Quiz</div>
-                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'flex-end', padding: '0.2rem 0.1rem 0.1rem' }}>
-                                    {[
-                                        { on: quizEnabled, toggle: () => setQuizEnabled(v => !v), label: 'Enable quizzes', hint: 'Surface knowledge-check quizzes (quiz banks) to players.' },
-                                        { on: quizGraded, toggle: () => setQuizGraded(v => !v), label: 'Count toward grade', hint: 'Include quiz scores in the cohort gradebook.' },
-                                    ].map(q => (
-                                        <div key={q.label} onClick={q.toggle} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '0.35rem 0.1rem' }} data-tooltip={q.hint}>
-                                            <div style={{ width: 34, height: 20, borderRadius: 10, background: q.on ? '#10b981' : '#475569', position: 'relative', transition: 'background .15s', flexShrink: 0 }}>
-                                                <div style={{ width: 16, height: 16, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: q.on ? 16 : 2, transition: 'left .15s' }} />
-                                            </div>
-                                            <span style={{ fontSize: '0.82rem', color: '#e2e8f0' }}>{q.label}</span>
-                                        </div>
-                                    ))}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                        <label style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Pass threshold (%)</label>
-                                        <input type="number" min={0} max={100} step={5} value={quizPassThreshold} disabled={!quizEnabled}
-                                            onChange={e => setQuizPassThreshold(Number(e.target.value))}
-                                            style={{ padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #334155', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: '0.82rem', width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
-                                    </div>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                        <label style={{ fontSize: '0.68rem', fontWeight: 700, color: '#94a3b8', letterSpacing: '0.03em', textTransform: 'uppercase' }}>Max attempts</label>
-                                        <input type="number" min={1} max={20} value={quizMaxAttempts} disabled={!quizEnabled}
-                                            onChange={e => setQuizMaxAttempts(Number(e.target.value))}
-                                            style={{ padding: '0.4rem 0.6rem', borderRadius: 8, border: '1px solid #334155', background: 'rgba(15,23,42,0.6)', color: '#e2e8f0', fontSize: '0.82rem', width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
-                                    </div>
-                                </div>
                             </div>
                         </section>
 {/* ── Section 6: Analytics Visibility ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
                                 <h3>6. Analytics Visibility</h3>
-                                <p>
-                                    {canEditFacilitatorVisibility
-                                        ? 'Choose which analytics panels are visible for this cohort. Changes override the global defaults.'
-                                        : 'Choose which analytics panels players in this cohort can see. Facilitator-dashboard visibility is managed by your platform administrator.'}
-                                </p>
+                                <p>Choose which analytics panels are visible for this cohort. Changes override the global defaults.</p>
                             </div>
 
                             <div className={styles.visSection}>
-                                {/* Governance: facilitator-dashboard visibility is admin-owned —
-                                    a facilitator must not grant themselves panels an admin turned
-                                    off. Rendered only for super_admin / god_mode; the backend
-                                    ignores the facilitator block from non-admin callers anyway. */}
-                                {canEditFacilitatorVisibility && (
-                                    <>
-                                        <div className={styles.visRoleLabel}>🎓 Facilitator Dashboard</div>
-                                        <div className={styles.visGrid}>
-                                            {FACILITATOR_ANALYTICS.map(a => (
-                                                <div
-                                                    key={a.key}
-                                                    className={`${styles.visCard} ${visibility.facilitator[a.key] ? styles.visCardActive : ''}`}
-                                                    onClick={() => toggleVis('facilitator', a.key)}
-                                                    data-tooltip={a.tooltip}
-                                                >
-                                                    <span className={styles.visIcon}>{a.icon}</span>
-                                                    <span className={styles.visLabel}>{a.label}</span>
-                                                    <div className={styles.visToggleTrack}
-                                                        style={{ background: visibility.facilitator[a.key] ? '#10b981' : '#475569' }}
-                                                    >
-                                                        <div className={styles.visToggleThumb}
-                                                            style={{ left: visibility.facilitator[a.key] ? '14px' : '2px' }}
-                                                        />
-                                                    </div>
-                                                </div>
-                                            ))}
+                                <div className={styles.visRoleLabel}>🎓 Facilitator Dashboard</div>
+                                <div className={styles.visGrid}>
+                                    {FACILITATOR_ANALYTICS.map(a => (
+                                        <div
+                                            key={a.key}
+                                            className={`${styles.visCard} ${visibility.facilitator[a.key] ? styles.visCardActive : ''}`}
+                                            onClick={() => toggleVis('facilitator', a.key)}
+                                            data-tooltip={a.tooltip}
+                                        >
+                                            <span className={styles.visIcon}>{a.icon}</span>
+                                            <span className={styles.visLabel}>{a.label}</span>
+                                            <div className={styles.visToggleTrack}
+                                                style={{ background: visibility.facilitator[a.key] ? '#10b981' : '#475569' }}
+                                            >
+                                                <div className={styles.visToggleThumb}
+                                                    style={{ left: visibility.facilitator[a.key] ? '14px' : '2px' }}
+                                                />
+                                            </div>
                                         </div>
-                                    </>
-                                )}
+                                    ))}
+                                </div>
 
                                 <div className={styles.visRoleLabel}>👤 Player Dashboard</div>
                                 <div className={styles.visGrid}>
@@ -2236,14 +2068,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 </div>
                             </div>
                         </section>
-                        </AccordionItem>
-
-{/* ── Section 7: Advanced Controls — its own accordion tab (quiz moved to §5) ── */}
-                        <AccordionItem id="advanced" title="7. Advanced Controls" summary="Result Visibility, Teams, RNG Seed, Time/Timezone, Report Access & Templates" isOpen={openTabs.has('advanced')} onToggle={toggleTab}>
+{/* ── Section 7: Advanced Controls (Quiz · Result Visibility · Teams · RNG Seed · Time/Timezone · Report Access · Templates) ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
                                 <h3>7. Advanced Controls</h3>
-                                <p>Result-visibility gating, team/roster limits, and a fair-play RNG seed. All optional; sensible defaults keep behaviour unchanged.</p>
+                                <p>Quizzes &amp; grading, result-visibility gating, team/roster limits, and a fair-play RNG seed. All optional; sensible defaults keep behaviour unchanged.</p>
                             </div>
 
                             {(() => {
@@ -2262,9 +2091,23 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 );
                                 return (
                                     <div>
-                                        {/* Quiz & grading moved to Section 5 (Pedagogical
-                                            Scaffolding) — formative assessment lives with the
-                                            other scaffolding toggles. */}
+                                        {/* Quiz & grading */}
+                                        <div style={grp}>📝 Quiz &amp; Grading</div>
+                                        <div style={row}>
+                                            {chk(quizEnabled, () => setQuizEnabled(v => !v), 'Enable quizzes', 'Surface knowledge-check quizzes (quiz banks) to players.')}
+                                            {chk(quizGraded, () => setQuizGraded(v => !v), 'Count toward grade', 'Include quiz scores in the cohort gradebook.')}
+                                            {chk(quizMandatory, () => setQuizMandatory(v => !v), 'Mandatory', 'Block a player from committing their decisions until they have taken that round’s quiz. Rounds with no quiz are unaffected; passing is not required, so a struggling student is never permanently blocked.')}
+                                            <div style={fld}>
+                                                <label style={lbl}>Pass threshold (%)</label>
+                                                <input type="number" min={0} max={100} step={5} value={quizPassThreshold} disabled={!quizEnabled}
+                                                    onChange={e => setQuizPassThreshold(Number(e.target.value))} style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
+                                            </div>
+                                            <div style={fld}>
+                                                <label style={lbl}>Max attempts</label>
+                                                <input type="number" min={1} max={20} value={quizMaxAttempts} disabled={!quizEnabled}
+                                                    onChange={e => setQuizMaxAttempts(Number(e.target.value))} style={{ ...inp, width: 90, opacity: quizEnabled ? 1 : 0.5 }} />
+                                            </div>
+                                        </div>
 
                                         {/* Result visibility */}
                                         <div style={grp}>👁 Result Visibility</div>
@@ -2450,18 +2293,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     data-tooltip="POSTed fire-and-forget on lifecycle events (round committed, game over) so an LMS/gradebook can sync without polling. https-only; blank = disabled." />
                                             </div>
                                         </div>
-
-                                        {/* Briefing videos */}
-                                        <div style={grp}>🎬 Briefing Videos</div>
-                                        <div style={row}>
-                                            <div style={{ ...fld, minWidth: 320 }}>
-                                                <label style={lbl}>Video URL pattern ({'{round}'} = round no.)</label>
-                                                <input type="text" value={briefingVideoBase}
-                                                    placeholder="https://cdn.example.edu/muressons/briefing-{round}.mp4"
-                                                    onChange={e => setBriefingVideoBase(e.target.value)} style={{ ...inp, width: 320 }}
-                                                    data-tooltip="Gives players a Read | Watch choice on every round briefing. {round} is replaced by the round number (1-10). Accepts YouTube / Vimeo / direct video URLs — URLs only, the media itself lives on your hosting, never in the app. Blank = text-only briefings." />
-                                            </div>
-                                        </div>
                                     </div>
                                 );
                             })()}
@@ -2469,7 +2300,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                         </AccordionItem>
 
-                        <AccordionItem id="lock" title="8. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTabs.has('lock')} onToggle={toggleTab}>
+                        <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTab === 'lock'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
                             {(() => {
                                 // ── Derived values for summary display ──
                                 const facId = currentFacilitatorId || facilitatorId;
@@ -2539,7 +2370,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>📋 Core Configuration</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('core'))}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('core')}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2601,7 +2432,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>⚙️ Simulation Engine</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('engine'))}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('engine')}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2677,7 +2508,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 <div style={cardS}>
                                                     <div style={headS}>
                                                         <span style={titleS}>🏭 Industry Verticals</span>
-                                                        <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('verticals'))}>✎ Edit</button>
+                                                        <button type="button" style={editS} onClick={() => setOpenTab('verticals')}>✎ Edit</button>
                                                     </div>
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                                                         {BU_SLOTS.map(({ slot, slotLabel, slotIcon }) => {
@@ -2715,7 +2546,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>🔬 Optional Modules</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('modules'))}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('modules')}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2773,7 +2604,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>⚡ Team Interventions</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('interventions'))}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('interventions')}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2809,7 +2640,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             <div style={cardS}>
                                                 <div style={headS}>
                                                     <span style={titleS}>🎓 Pedagogy &amp; Analytics</span>
-                                                    <button type="button" style={editS} onClick={() => setOpenTabs(prev => new Set(prev).add('pedagogy'))}>✎ Edit</button>
+                                                    <button type="button" style={editS} onClick={() => setOpenTab('pedagogy')}>✎ Edit</button>
                                                 </div>
                                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                                                     <div style={rowS}>
@@ -2890,8 +2721,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 );
                             })()}
                         </AccordionItem>
-                        </div>{/* /formCol right */}
-                        </div>{/* /formColumns */}
                     </form>
                 </div>
             </div>

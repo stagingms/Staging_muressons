@@ -1,0 +1,372 @@
+[
+  {
+    "id": "in-elec-meity",
+    "name": "MeitY and India Semiconductor Mission",
+    "icon": "🏛️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "MeitY and India Semiconductor Mission shape incentives, localisation, semiconductor capacity and digital policy. The immediate issue is PLI commitments, value addition, investment milestones and ecosystem development. Its decisions or actions can change incentive eligibility, approvals and strategic support.",
+    "urgency_rationale": "Investment commitments have milestone-based financial consequences.",
+    "intel_dossier": [
+      "🔎 MeitY electronics manufacturing: MeitY administers electronics-manufacturing and digital-policy initiatives. | https://www.meity.gov.in/",
+      "🔎 PLI for large-scale electronics manufacturing: The PLI scheme supports incremental electronics manufacturing and investment. | https://www.meity.gov.in/static/uploads/2024/02/PLI-booklet__english.pdf",
+      "🔎 India Semiconductor Mission: ISM supports semiconductor and display ecosystem development. | https://ism.gov.in/"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits steady-state operations; incentive claims and new fabs need close management.",
+    "engagement_tactics": [
+      {
+        "id": "align_investment,_resilience_and_transit",
+        "label": "Align investment, resilience and transition milestones with MeitY and India Semiconductor Mission",
+        "correct": true,
+        "rationale": "Connects business commitments to public-policy outcomes and makes delivery auditable."
+      },
+      {
+        "id": "seek_an_informal_exemption_through_polit",
+        "label": "Seek an informal exemption through political contacts",
+        "correct": false,
+        "rationale": "Creates governance and reputational exposure without solving the underlying issue."
+      },
+      {
+        "id": "announce_investment_before_land,_technol",
+        "label": "Announce investment before land, technology and economics are validated",
+        "correct": false,
+        "rationale": "Overpromising weakens credibility and can trigger public backlash."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-bis",
+    "name": "Bureau of Indian Standards and Testing Laboratories",
+    "icon": "✅",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Bureau of Indian Standards and Testing Laboratories control compulsory registration and product-safety conformity for covered electronics. The immediate issue is model registration, testing, lab capacity, change control and import compliance. Its decisions or actions can block sale or import and trigger product withdrawal.",
+    "urgency_rationale": "Certification timing is directly tied to launch and inventory.",
+    "intel_dossier": [
+      "🔎 BIS compulsory registration scheme: BIS lists electronics and IT goods subject to compulsory registration. | https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-ii-registration-scheme/?lang=en",
+      "🔎 MeitY electronics manufacturing: MeitY administers electronics-manufacturing and digital-policy initiatives. | https://www.meity.gov.in/",
+      "🔎 PLI 2.0 for IT hardware: MeitY’s PLI 2.0 supports domestic IT-hardware manufacturing and exports. | https://www.meity.gov.in/offerings/schemes-and-services/details/production-linked-incentive-scheme-pli-2-0-for-it-hardware-wM0MDOtQWa"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied may fit unchanged registered models; new products require close coordination.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with Bureau of Indian Standards and Testing Laboratories",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-ewaste",
+    "name": "CPCB, State Boards and E-Waste EPR Authorities",
+    "icon": "♻️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "CPCB, State Boards and E-Waste EPR Authorities oversee producer responsibility, recycling, waste-channel compliance and environmental performance. The immediate issue is EPR certificates, collection, recycler integrity and material traceability. Its decisions or actions can restrict registrations, impose environmental compensation or expose fraud.",
+    "urgency_rationale": "EPR compliance affects market access and reputational credibility.",
+    "intel_dossier": [
+      "🔎 CPCB: CPCB administers national waste and pollution-control programmes, including e-waste oversight. | https://cpcb.nic.in/",
+      "🔎 MeitY electronics manufacturing: MeitY administers electronics-manufacturing and digital-policy initiatives. | https://www.meity.gov.in/",
+      "🔎 BIS compulsory registration scheme: BIS lists electronics and IT goods subject to compulsory registration. | https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-ii-registration-scheme/?lang=en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits mature verified systems; enforcement or rapid volume growth requires close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with CPCB, State Boards and E-Waste EPR Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-cyber",
+    "name": "CERT-In and Data-Protection Authorities",
+    "icon": "🔐",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "CERT-In and Data-Protection Authorities set cyber-incident reporting, security guidance and digital accountability expectations. The immediate issue is product vulnerabilities, incident response, logs, software support and personal data. Its decisions or actions can require disclosure, remediation or create customer and government exclusion.",
+    "urgency_rationale": "Connected products can create rapid, system-wide harm.",
+    "intel_dossier": [
+      "🔎 CERT-In: CERT-In coordinates cyber-incident information, response and guidance. | https://www.cert-in.org.in/",
+      "🔎 CERT-In directions: CERT-In directions set cyber-incident reporting and security-practice requirements. | https://www.cert-in.org.in/Directions70B.jsp",
+      "🔎 MeitY electronics manufacturing: MeitY administers electronics-manufacturing and digital-policy initiatives. | https://www.meity.gov.in/"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits low-connectivity products; critical connected devices require close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with CERT-In and Data-Protection Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-trade",
+    "name": "Customs, DGFT and Trade-Policy Authorities",
+    "icon": "🛃",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Customs, DGFT and Trade-Policy Authorities control imports, duties, origin, export policy and trade facilitation. The immediate issue is classification, local-content evidence, component imports and export controls. Its decisions or actions can hold shipments, change landed cost or disrupt production.",
+    "urgency_rationale": "Customs holds and policy changes can stop lines within days.",
+    "intel_dossier": [
+      "🔎 PLI for large-scale electronics manufacturing: The PLI scheme supports incremental electronics manufacturing and investment. | https://www.meity.gov.in/static/uploads/2024/02/PLI-booklet__english.pdf",
+      "🔎 PLI 2.0 for IT hardware: MeitY’s PLI 2.0 supports domestic IT-hardware manufacturing and exports. | https://www.meity.gov.in/offerings/schemes-and-services/details/production-linked-incentive-scheme-pli-2-0-for-it-hardware-wM0MDOtQWa",
+      "🔎 MeitY electronics manufacturing: MeitY administers electronics-manufacturing and digital-policy initiatives. | https://www.meity.gov.in/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during investigations, major policy change or constrained components.",
+    "engagement_tactics": [
+      {
+        "id": "align_investment,_resilience_and_transit",
+        "label": "Align investment, resilience and transition milestones with Customs, DGFT and Trade-Policy Authorities",
+        "correct": true,
+        "rationale": "Connects business commitments to public-policy outcomes and makes delivery auditable."
+      },
+      {
+        "id": "seek_an_informal_exemption_through_polit",
+        "label": "Seek an informal exemption through political contacts",
+        "correct": false,
+        "rationale": "Creates governance and reputational exposure without solving the underlying issue."
+      },
+      {
+        "id": "announce_investment_before_land,_technol",
+        "label": "Announce investment before land, technology and economics are validated",
+        "correct": false,
+        "rationale": "Overpromising weakens credibility and can trigger public backlash."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-suppliers",
+    "name": "Component Makers, EMS Partners and Semiconductor Suppliers",
+    "icon": "🔧",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Component Makers, EMS Partners and Semiconductor Suppliers determine capacity, yield, quality, labour conditions and bill-of-material traceability. The immediate issue is single-source chips, counterfeit risk, quality escapes and geopolitical concentration. Its decisions or actions can stop production, cause recalls or undermine local-value claims.",
+    "urgency_rationale": "Electronics supply disruptions propagate quickly through tightly timed production.",
+    "intel_dossier": [
+      "🔎 PLI for large-scale electronics manufacturing: The PLI scheme supports incremental electronics manufacturing and investment. | https://www.meity.gov.in/static/uploads/2024/02/PLI-booklet__english.pdf",
+      "🔎 India Semiconductor Mission: ISM supports semiconductor and display ecosystem development. | https://ism.gov.in/",
+      "🔎 PLI 2.0 for IT hardware: MeitY’s PLI 2.0 supports domestic IT-hardware manufacturing and exports. | https://www.meity.gov.in/offerings/schemes-and-services/details/production-linked-incentive-scheme-pli-2-0-for-it-hardware-wM0MDOtQWa"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits standard multi-source parts; strategic components require close planning.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with Component Makers, EMS Partners and Semiconductor Suppliers",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-workers",
+    "name": "Factory Workers, Contract Labour and Technical Staff",
+    "icon": "👷",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Factory Workers, Contract Labour and Technical Staff execute precision assembly, testing, quality and equipment maintenance. The immediate issue is working hours, dormitory or transport conditions, exposure, skills and grievance channels. Its decisions or actions can create labour disruption, quality drift or reputational scrutiny.",
+    "urgency_rationale": "Peak production and rapid scaling can intensify labour and quality risk.",
+    "intel_dossier": [
+      "🔎 MeitY electronics manufacturing: MeitY administers electronics-manufacturing and digital-policy initiatives. | https://www.meity.gov.in/",
+      "🔎 CPCB: CPCB administers national waste and pollution-control programmes, including e-waste oversight. | https://cpcb.nic.in/",
+      "🔎 PLI for large-scale electronics manufacturing: The PLI scheme supports incremental electronics manufacturing and investment. | https://www.meity.gov.in/static/uploads/2024/02/PLI-booklet__english.pdf"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is warranted during ramp-up, major overtime or an active grievance.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Factory Workers, Contract Labour and Technical Staff",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-consumers",
+    "name": "Consumers, E-Commerce Platforms and Service Networks",
+    "icon": "📱",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Consumers, E-Commerce Platforms and Service Networks experience product safety, durability, privacy, repair and after-sales service. The immediate issue is battery safety, warranty, software updates, data and repair availability. Its decisions or actions can drive returns, complaints, platform delisting or regulator action.",
+    "urgency_rationale": "A product defect or cyber issue can scale across millions of devices.",
+    "intel_dossier": [
+      "🔎 BIS compulsory registration scheme: BIS lists electronics and IT goods subject to compulsory registration. | https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-ii-registration-scheme/?lang=en",
+      "🔎 CERT-In: CERT-In coordinates cyber-incident information, response and guidance. | https://www.cert-in.org.in/",
+      "🔎 CPCB: CPCB administers national waste and pollution-control programmes, including e-waste oversight. | https://cpcb.nic.in/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during recalls, major launches or widespread service failures.",
+    "engagement_tactics": [
+      {
+        "id": "maintain_accessible_disclosure,_complain",
+        "label": "Maintain accessible disclosure, complaint and recall pathways for Consumers, E-Commerce Platforms and Service Networks",
+        "correct": true,
+        "rationale": "Makes action easy and provides early signals before concerns escalate."
+      },
+      {
+        "id": "run_a_reputation_campaign_without_operat",
+        "label": "Run a reputation campaign without operational proof",
+        "correct": false,
+        "rationale": "Image-led messaging is vulnerable to greenwashing or safety criticism."
+      },
+      {
+        "id": "ignore_low-volume_complaints_until_they_",
+        "label": "Ignore low-volume complaints until they trend publicly",
+        "correct": false,
+        "rationale": "Small clusters can be the first indication of a systemic problem."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-capital",
+    "name": "Investors, Banks and Incentive-Finance Partners",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Investors, Banks and Incentive-Finance Partners assess scale economics, incentive realisation, technology risk and working capital. The immediate issue is capex, yield, customer concentration, claims and obsolescence. Its decisions or actions can raise financing cost or challenge expansion plans.",
+    "urgency_rationale": "Large fixed investment and short product cycles increase execution sensitivity.",
+    "intel_dossier": [
+      "🔎 PLI for large-scale electronics manufacturing: The PLI scheme supports incremental electronics manufacturing and investment. | https://www.meity.gov.in/static/uploads/2024/02/PLI-booklet__english.pdf",
+      "🔎 India Semiconductor Mission: ISM supports semiconductor and display ecosystem development. | https://ism.gov.in/",
+      "🔎 PLI 2.0 for IT hardware: MeitY’s PLI 2.0 supports domestic IT-hardware manufacturing and exports. | https://www.meity.gov.in/offerings/schemes-and-services/details/production-linked-incentive-scheme-pli-2-0-for-it-hardware-wM0MDOtQWa"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during new-facility finance, incentive uncertainty or demand shock.",
+    "engagement_tactics": [
+      {
+        "id": "brief_investors,_banks_and_incentive-fin",
+        "label": "Brief Investors, Banks and Incentive-Finance Partners on material risks, capital needs, milestones and downside cases",
+        "correct": true,
+        "rationale": "Allows investors to test execution quality rather than rely on broad commitments."
+      },
+      {
+        "id": "describe_the_exposure_as_immaterial_unti",
+        "label": "Describe the exposure as immaterial until a charge is booked",
+        "correct": false,
+        "rationale": "Delayed disclosure increases surprise and credibility risk."
+      },
+      {
+        "id": "promise_a_fixed_outcome_that_management_",
+        "label": "Promise a fixed outcome that management cannot control",
+        "correct": false,
+        "rationale": "Overconfidence creates litigation and trust risk if regulation or markets change."
+      }
+    ]
+  },
+  {
+    "id": "in-elec-recyclers",
+    "name": "Authorised Recyclers, Informal Workers and Host Communities",
+    "icon": "🏘️",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Authorised Recyclers, Informal Workers and Host Communities handle end-of-life products and bear toxic, fire and livelihood impacts. The immediate issue is channelisation, worker safety, fire prevention, fair transition and traceability. Its decisions or actions can expose EPR leakage, pollution or social harm.",
+    "urgency_rationale": "Informal leakage can undermine formal compliance and create visible harm.",
+    "intel_dossier": [
+      "🔎 CPCB: CPCB administers national waste and pollution-control programmes, including e-waste oversight. | https://cpcb.nic.in/",
+      "🔎 MeitY electronics manufacturing: MeitY administers electronics-manufacturing and digital-policy initiatives. | https://www.meity.gov.in/",
+      "🔎 BIS compulsory registration scheme: BIS lists electronics and IT goods subject to compulsory registration. | https://www.bis.gov.in/product-certification/products-under-compulsory-certification/scheme-ii-registration-scheme/?lang=en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate where collection depends on informal networks or recycler integrity is uncertain.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Authorised Recyclers, Informal Workers and Host Communities",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  }
+]

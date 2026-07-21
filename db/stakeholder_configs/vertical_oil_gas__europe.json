@@ -1,0 +1,372 @@
+[
+  {
+    "id": "eu-og-energy-regulators",
+    "name": "European Commission, National Energy Regulators and ACER Network",
+    "icon": "🇪🇺",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "European Commission, National Energy Regulators and ACER Network shape market rules, security of supply, infrastructure access and transition pathways. The immediate issue is gas security, infrastructure use, price formation and transition consistency. Its decisions or actions can change market access, investment incentives and asset utilisation.",
+    "urgency_rationale": "Energy-security and transition decisions can rapidly redirect flows and capital.",
+    "intel_dossier": [
+      "🔎 EU energy policy: The European Commission coordinates secure, sustainable and competitive energy policy. | https://energy.ec.europa.eu/index_en",
+      "🔎 European energy security: Commission energy policy balances security of supply, affordability and decarbonisation. | https://energy.ec.europa.eu/topics/energy-security_en",
+      "🔎 EU methane emissions policy: EU rules require measurement, reporting, verification and reduction of energy-sector methane emissions. | https://energy.ec.europa.eu/topics/carbon-management-and-fossil-fuels/methane-emissions_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits mature assets with clear obligations; market redesign requires close engagement.",
+    "engagement_tactics": [
+      {
+        "id": "align_investment,_resilience_and_transit",
+        "label": "Align investment, resilience and transition milestones with European Commission, National Energy Regulators and ACER Network",
+        "correct": true,
+        "rationale": "Connects business commitments to public-policy outcomes and makes delivery auditable."
+      },
+      {
+        "id": "seek_an_informal_exemption_through_polit",
+        "label": "Seek an informal exemption through political contacts",
+        "correct": false,
+        "rationale": "Creates governance and reputational exposure without solving the underlying issue."
+      },
+      {
+        "id": "announce_investment_before_land,_technol",
+        "label": "Announce investment before land, technology and economics are validated",
+        "correct": false,
+        "rationale": "Overpromising weakens credibility and can trigger public backlash."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-methane",
+    "name": "Methane, ETS and Environmental Competent Authorities",
+    "icon": "🌍",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Methane, ETS and Environmental Competent Authorities enforce methane measurement, leak reduction, carbon pricing and environmental permits. The immediate issue is MRV quality, leak detection, flaring, imported-fuel data and allowance exposure. Its decisions or actions can increase cost, restrict imports or require rapid asset upgrades.",
+    "urgency_rationale": "Implementation deadlines and carbon costs directly affect operations and contracts.",
+    "intel_dossier": [
+      "🔎 EU methane emissions policy: EU rules require measurement, reporting, verification and reduction of energy-sector methane emissions. | https://energy.ec.europa.eu/topics/carbon-management-and-fossil-fuels/methane-emissions_en",
+      "🔎 EU Emissions Trading System: The EU ETS prices emissions and shapes industrial decarbonisation. | https://climate.ec.europa.eu/eu-action/carbon-markets/eu-emissions-trading-system-eu-ets_en",
+      "🔎 EU methane import requirements: Commission guidance explains importer obligations under the EU Methane Regulation. | https://energy.ec.europa.eu/document/download/b545c5a6-03c9-4cfa-805a-0411de927ce6_en?filename=Methane+regulation+import+requirements+Q%26A.pdf"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied may fit high-performing assets; new import and MRV duties require close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with Methane, ETS and Environmental Competent Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-offshore",
+    "name": "National Offshore Safety Authorities and EUOAG",
+    "icon": "🌊",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "National Offshore Safety Authorities and EUOAG oversee major-hazard reports, well control, emergency response and financial responsibility. The immediate issue is ageing assets, contractor control, decommissioning and spill response. Its decisions or actions can suspend offshore operations or require major remediation.",
+    "urgency_rationale": "Offshore failures have cross-border environmental and political consequences.",
+    "intel_dossier": [
+      "🔎 EU offshore oil and gas safety: EU policy coordinates high safety standards for offshore operations. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations_en",
+      "🔎 EU Offshore Authorities Group: EUOAG connects national authorities and stakeholders on offshore major-accident prevention. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations/eu-offshore-oil-and-gas-authorities-group_en",
+      "🔎 European Commission environment: EU policy links pollution prevention, circularity and climate transition. | https://environment.ec.europa.eu/index_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits stable low-risk operations; drilling, life extension and decommissioning require close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with National Offshore Safety Authorities and EUOAG",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-governments",
+    "name": "Member-State Governments and Energy Ministries",
+    "icon": "🏢",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Member-State Governments and Energy Ministries balance energy security, affordability, fiscal revenue and climate commitments. The immediate issue is domestic supply, strategic storage, windfall measures and transition investment. Its decisions or actions can change taxes, permits, procurement and social licence.",
+    "urgency_rationale": "Policy can shift quickly during price or supply shocks.",
+    "intel_dossier": [
+      "🔎 EU energy policy: The European Commission coordinates secure, sustainable and competitive energy policy. | https://energy.ec.europa.eu/index_en",
+      "🔎 European energy security: Commission energy policy balances security of supply, affordability and decarbonisation. | https://energy.ec.europa.eu/topics/energy-security_en",
+      "🔎 EU Emissions Trading System: The EU ETS prices emissions and shapes industrial decarbonisation. | https://climate.ec.europa.eu/eu-action/carbon-markets/eu-emissions-trading-system-eu-ets_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits stable policy periods; crisis and major investment decisions require close engagement.",
+    "engagement_tactics": [
+      {
+        "id": "align_investment,_resilience_and_transit",
+        "label": "Align investment, resilience and transition milestones with Member-State Governments and Energy Ministries",
+        "correct": true,
+        "rationale": "Connects business commitments to public-policy outcomes and makes delivery auditable."
+      },
+      {
+        "id": "seek_an_informal_exemption_through_polit",
+        "label": "Seek an informal exemption through political contacts",
+        "correct": false,
+        "rationale": "Creates governance and reputational exposure without solving the underlying issue."
+      },
+      {
+        "id": "announce_investment_before_land,_technol",
+        "label": "Announce investment before land, technology and economics are validated",
+        "correct": false,
+        "rationale": "Overpromising weakens credibility and can trigger public backlash."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-communities",
+    "name": "Coastal Communities, Landowners and Municipalities",
+    "icon": "🏘️",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Coastal Communities, Landowners and Municipalities experience infrastructure, safety, marine, landscape and transition effects. The immediate issue is local benefits, emergency planning, decommissioning and environmental monitoring. Its decisions or actions can challenge permits or influence elected authorities.",
+    "urgency_rationale": "Influence increases sharply for new infrastructure or decommissioning.",
+    "intel_dossier": [
+      "🔎 EU offshore oil and gas safety: EU policy coordinates high safety standards for offshore operations. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations_en",
+      "🔎 European Commission environment: EU policy links pollution prevention, circularity and climate transition. | https://environment.ec.europa.eu/index_en",
+      "🔎 EU Offshore Authorities Group: EUOAG connects national authorities and stakeholders on offshore major-accident prevention. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations/eu-offshore-oil-and-gas-authorities-group_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies where projects have concentrated local impacts or weak trust.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Coastal Communities, Landowners and Municipalities",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-ngos",
+    "name": "Climate NGOs and Environmental Campaigns",
+    "icon": "📣",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Climate NGOs and Environmental Campaigns shape litigation, investor pressure and policy narratives on fossil assets. The immediate issue is methane evidence, transition plans, new exploration and green claims. Its decisions or actions can delay projects, challenge permits or mobilise finance restrictions.",
+    "urgency_rationale": "Campaigns can quickly connect local evidence to EU-wide policy and capital markets.",
+    "intel_dossier": [
+      "🔎 EU methane emissions policy: EU rules require measurement, reporting, verification and reduction of energy-sector methane emissions. | https://energy.ec.europa.eu/topics/carbon-management-and-fossil-fuels/methane-emissions_en",
+      "🔎 EU Emissions Trading System: The EU ETS prices emissions and shapes industrial decarbonisation. | https://climate.ec.europa.eu/eu-action/carbon-markets/eu-emissions-trading-system-eu-ets_en",
+      "🔎 European Commission environment: EU policy links pollution prevention, circularity and climate transition. | https://environment.ec.europa.eu/index_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate for contested projects or material claims under scrutiny.",
+    "engagement_tactics": [
+      {
+        "id": "provide_evidence,_site_access_and_indepe",
+        "label": "Provide evidence, site access and independent verification to Climate NGOs and Environmental Campaigns",
+        "correct": true,
+        "rationale": "Credible transparency can narrow disagreement and expose fixable gaps."
+      },
+      {
+        "id": "threaten_litigation_at_the_first_critici",
+        "label": "Threaten litigation at the first criticism",
+        "correct": false,
+        "rationale": "An aggressive opening can amplify the issue and deter legitimate dialogue."
+      },
+      {
+        "id": "pay_for_favourable_third-party_content",
+        "label": "Pay for favourable third-party content",
+        "correct": false,
+        "rationale": "Perceived astroturfing damages trust if uncovered."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-workers",
+    "name": "Employees, Contractors and Trade Unions",
+    "icon": "👷",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Employees, Contractors and Trade Unions operate hazardous assets and influence the fairness and feasibility of transition. The immediate issue is process safety, skills, job security, reskilling and decommissioning. Its decisions or actions can stop operations or determine whether transition plans are executable.",
+    "urgency_rationale": "Safety and restructuring both require early formal participation.",
+    "intel_dossier": [
+      "🔎 EU offshore oil and gas safety: EU policy coordinates high safety standards for offshore operations. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations_en",
+      "🔎 EU Offshore Authorities Group: EUOAG connects national authorities and stakeholders on offshore major-accident prevention. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations/eu-offshore-oil-and-gas-authorities-group_en",
+      "🔎 EU energy policy: The European Commission coordinates secure, sustainable and competitive energy policy. | https://energy.ec.europa.eu/index_en"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits stable support functions; operational and transition change need close management.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Employees, Contractors and Trade Unions",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-buyers",
+    "name": "Gas Importers, Utilities, Traders and Industrial Offtakers",
+    "icon": "⚡",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Gas Importers, Utilities, Traders and Industrial Offtakers determine demand, contract structure and compliance data needed for imported fuels. The immediate issue is price, flexibility, methane intensity, security and origin data. Its decisions or actions can redirect flows, renegotiate contracts or reject non-compliant supply.",
+    "urgency_rationale": "Import obligations and security concerns are changing contracting requirements.",
+    "intel_dossier": [
+      "🔎 EU methane import requirements: Commission guidance explains importer obligations under the EU Methane Regulation. | https://energy.ec.europa.eu/document/download/b545c5a6-03c9-4cfa-805a-0411de927ce6_en?filename=Methane+regulation+import+requirements+Q%26A.pdf",
+      "🔎 EU methane emissions policy: EU rules require measurement, reporting, verification and reduction of energy-sector methane emissions. | https://energy.ec.europa.eu/topics/carbon-management-and-fossil-fuels/methane-emissions_en",
+      "🔎 European energy security: Commission energy policy balances security of supply, affordability and decarbonisation. | https://energy.ec.europa.eu/topics/energy-security_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits diversified commodity sales; strategic long-term supply needs close coordination.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Gas Importers, Utilities, Traders and Industrial Offtakers",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-capital",
+    "name": "European Banks, Insurers and Institutional Investors",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "European Banks, Insurers and Institutional Investors assess transition, litigation, decommissioning and cash-flow risk. The immediate issue is methane, taxonomy, capex discipline, stranded assets and distributions. Its decisions or actions can restrict finance, raise premiums or demand accelerated transition.",
+    "urgency_rationale": "Capital providers can act before legal requirements fully mature.",
+    "intel_dossier": [
+      "🔎 EU Emissions Trading System: The EU ETS prices emissions and shapes industrial decarbonisation. | https://climate.ec.europa.eu/eu-action/carbon-markets/eu-emissions-trading-system-eu-ets_en",
+      "🔎 EU methane emissions policy: EU rules require measurement, reporting, verification and reduction of energy-sector methane emissions. | https://energy.ec.europa.eu/topics/carbon-management-and-fossil-fuels/methane-emissions_en",
+      "🔎 European Commission environment: EU policy links pollution prevention, circularity and climate transition. | https://environment.ec.europa.eu/index_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during refinancing, major project sanctions or contested transition choices.",
+    "engagement_tactics": [
+      {
+        "id": "brief_european_banks,_insurers_and_insti",
+        "label": "Brief European Banks, Insurers and Institutional Investors on material risks, capital needs, milestones and downside cases",
+        "correct": true,
+        "rationale": "Allows investors to test execution quality rather than rely on broad commitments."
+      },
+      {
+        "id": "describe_the_exposure_as_immaterial_unti",
+        "label": "Describe the exposure as immaterial until a charge is booked",
+        "correct": false,
+        "rationale": "Delayed disclosure increases surprise and credibility risk."
+      },
+      {
+        "id": "promise_a_fixed_outcome_that_management_",
+        "label": "Promise a fixed outcome that management cannot control",
+        "correct": false,
+        "rationale": "Overconfidence creates litigation and trust risk if regulation or markets change."
+      }
+    ]
+  },
+  {
+    "id": "eu-og-suppliers",
+    "name": "Engineering, Technology and Marine-Service Providers",
+    "icon": "🛠️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Engineering, Technology and Marine-Service Providers deliver integrity, methane monitoring, offshore services and decommissioning capability. The immediate issue is scarce skills, certification, technology performance and interface risk. Its decisions or actions can delay compliance or create safety and execution failures.",
+    "urgency_rationale": "New methane and decommissioning requirements increase dependence on specialised suppliers.",
+    "intel_dossier": [
+      "🔎 EU methane emissions policy: EU rules require measurement, reporting, verification and reduction of energy-sector methane emissions. | https://energy.ec.europa.eu/topics/carbon-management-and-fossil-fuels/methane-emissions_en",
+      "🔎 EU offshore oil and gas safety: EU policy coordinates high safety standards for offshore operations. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations_en",
+      "🔎 EU Offshore Authorities Group: EUOAG connects national authorities and stakeholders on offshore major-accident prevention. | https://energy.ec.europa.eu/topics/energy-security/safety-offshore-oil-and-gas-operations/eu-offshore-oil-and-gas-authorities-group_en"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits commoditised services; safety and compliance-critical suppliers need close management.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with Engineering, Technology and Marine-Service Providers",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  }
+]

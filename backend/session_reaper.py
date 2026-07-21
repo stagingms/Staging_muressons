@@ -120,6 +120,7 @@ def reap_once(today: Optional[date] = None) -> dict:
             try:
                 import admin_shared
                 admin_shared.cohort_settings.pop(cid, None)
+                admin_shared.persist_cohort_state()  # durable removal on the volume
             except Exception:
                 pass
 

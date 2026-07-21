@@ -536,7 +536,10 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
         });
 
         if (result && result.error) {
-            setSubmitStatus({ type: 'error', message: result.error });
+            // Only the CFO materiality gate (a 400) is overridable. A generic
+            // failure (500/network/etc.) must NOT show "Force Override", whose
+            // re-submit of the identical payload is what looped the exercise.
+            setSubmitStatus({ type: 'error', message: result.error, overridable: result.overridable === true });
             setIsSubmitting(false);
         } else if (result && result.success) {
             setSubmitStatus({ type: 'success', amount: result.allocated_budget, debrief: result.debrief });
@@ -997,18 +1000,33 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     <div className={`${styles.modalContent} ${submitStatus.type === 'error' ? styles.errorModal : styles.successModal}`}>
                         {submitStatus.type === 'error' ? (
                             <>
-                                <h3>📝 Memo from CFO</h3>
+                                {/* The CFO "Force Override" affordance appears ONLY for the
+                                    materiality gate (a 400 rejecting non-material Q1 issues).
+                                    For any other failure the override is hidden — re-submitting
+                                    the identical payload is what looped the exercise. */}
+                                <h3>{submitStatus.overridable ? '📝 Memo from CFO' : '⚠️ Submission Error'}</h3>
                                 <p className={styles.errorText}>{submitStatus.message}</p>
                                 <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', justifyContent: 'center' }}>
                                     <button onClick={() => setSubmitStatus(null)} className={styles.cancelBtn} style={{ flex: 1 }}>Fix Matrix</button>
-                                    <button
-                                        onClick={() => handleSubmit(true)}
-                                        className={styles.submitBtn}
-                                        style={{ flex: 1, background: '#ef4444', borderColor: '#ef4444', color: 'white' }}
-                                        data-tooltip="Warning: Overriding the CFO may negatively impact your reputation score. Have you considered the long-term ESG implications?"
-                                    >
-                                        Force Override
-                                    </button>
+                                    {submitStatus.overridable ? (
+                                        <button
+                                            onClick={() => handleSubmit(true)}
+                                            className={styles.submitBtn}
+                                            style={{ flex: 1, background: '#ef4444', borderColor: '#ef4444', color: 'white' }}
+                                            data-tooltip="Warning: Overriding the CFO may negatively impact your reputation score. Have you considered the long-term ESG implications?"
+                                        >
+                                            Force Override
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => { setSubmitStatus(null); handleSubmit(false); }}
+                                            className={styles.submitBtn}
+                                            style={{ flex: 1 }}
+                                            data-tooltip="Re-submit your current matrix."
+                                        >
+                                            Try Again
+                                        </button>
+                                    )}
                                 </div>
                             </>
                         ) : (

@@ -8,12 +8,9 @@ import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import styles from './ExecutiveCockpit.module.css';
-import { playerIdHeader } from '../hooks/useSimulation';
-import NegotiationRoom from './NegotiationRoom';
 import KPIDashboard from './KPIDashboard';
 import TurnaroundPhaseChip from './TurnaroundPhaseChip';
 import MarketRealityFeed from './MarketRealityFeed';
-import RailIcon from './RailIcon';
 import InvestmentMatrix from './InvestmentMatrix';
 import CountdownTimer from './CountdownTimer';
 import { DETAILED_DESCRIPTIONS } from '../utils/detailedDescriptions';
@@ -50,7 +47,7 @@ import ConsequencePreview from './ConsequencePreview';
 import { playDeepDiveEnter, playDeepDiveExit, playCommitSuccess, playTippingWarning } from './CockpitSounds';
 import StakeholderAgentPanel from './StakeholderAgentPanel';
 import EBITDAWaterfall from './EBITDAWaterfall';
-import LivingPlanet, { computeMetrics as computeEsgMetrics, esgGrade, healthColor as esgHealthColor } from './LivingPlanet';
+import LivingPlanet from './LivingPlanet';
 import DecisionPressureTimer from './DecisionPressureTimer';
 import ConsequenceReplay from './ConsequenceReplay';
 import PlayerAnnotations from './PlayerAnnotations';
@@ -156,50 +153,6 @@ const BASE_YEAR = new Date().getFullYear();
 // Pre-compute period label for a given round using the shared utility
 const getRoundLabel = (round) => roundToQuarter(round, BASE_YEAR).label;
 
-// ── Vital-signs helpers (WOW move 1: presentational only, no logic change) ──
-// A compact trend sparkline drawn from a KPI's own round history.
-function Sparkline({ data, color = '#818cf8', width = 56, height = 15 }) {
-  const pts = (data || []).filter((v) => Number.isFinite(v));
-  if (pts.length < 2) return null;
-  const min = Math.min(...pts), max = Math.max(...pts);
-  const range = (max - min) || 1;
-  const step = width / (pts.length - 1);
-  const y = (v) => height - ((v - min) / range) * (height - 2) - 1;
-  const d = pts.map((v, i) => `${i === 0 ? 'M' : 'L'} ${(i * step).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
-  return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true" style={{ display: 'block', overflow: 'visible' }}>
-      <path d={d} fill="none" stroke={color} strokeWidth="1.4" strokeLinejoin="round" strokeLinecap="round" opacity="0.9" />
-      <circle cx={(width).toFixed(1)} cy={y(pts[pts.length - 1]).toFixed(1)} r="1.7" fill={color} />
-    </svg>
-  );
-}
-
-// Count-up numeral: eases from the previous value to the new one when it
-// changes (round advance / commit); instant under prefers-reduced-motion.
-function AnimatedNumber({ value, format = (v) => v, duration = 850, style, className }) {
-  const [display, setDisplay] = useState(value);
-  const fromRef = useRef(value);
-  const rafRef = useRef(null);
-  useEffect(() => {
-    const to = Number(value);
-    const from = Number(fromRef.current);
-    const reduce = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (reduce || !Number.isFinite(from) || !Number.isFinite(to) || from === to) {
-      setDisplay(to); fromRef.current = to; return;
-    }
-    const start = performance.now();
-    const tick = (now) => {
-      const p = Math.min((now - start) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setDisplay(from + (to - from) * eased);
-      if (p < 1) { rafRef.current = requestAnimationFrame(tick); }
-      else { fromRef.current = to; }
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => rafRef.current && cancelAnimationFrame(rafRef.current);
-  }, [value, duration]);
-  return <span className={className} style={style}>{format(display)}</span>;
-}
 
 
 export default function ExecutiveCockpit({
@@ -411,52 +364,15 @@ export default function ExecutiveCockpit({
     return () => { cancelled = true; };
   }, [commitResults, sim?.sessionId]);
 
-  // ── Calibration (Phase 3): pull the scored prediction log when results
-  // arrive, so PredictionComparison can render the round's chip. This was the
-  // dead wire — `predictions` state existed but nothing populated it.
-  useEffect(() => {
-    if (!commitResults || !sim?.sessionId || sim.sessionId === 'demo') return;
-    let cancelled = false;
-    const API = process.env.NEXT_PUBLIC_API_URL || '';
-    fetch(`${API}/api/simulations/${sim.sessionId}/predictions`, { headers: { ...playerIdHeader() } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (!cancelled && d) setPredictions(d.predictions || []); })
-      .catch(() => {}); // non-critical
-    return () => { cancelled = true; };
-  }, [commitResults, sim?.sessionId]);
-
-  // Pedagogical scaffolding toggles — resolved for THIS cohort. Passing the
-  // session id makes global-settings return the cohort-effective values (global
-  // defaults with any per-cohort overrides applied), so player-facing surfaces
-  // like the Consequence Map / Board Room Moment can be set per cohort.
+  // Pedagogical scaffolding toggles (fetched from god-mode settings)
   const [pedToggles, setPedToggles] = useState({});
   useEffect(() => {
-    const sessionId = sim?.sessionId || sim?.session_id;
-    const qs = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings${qs}`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`)
       .then(r => r.ok ? r.json() : {})
       .then(d => setPedToggles(d || {}))
       .catch(() => {});
-  }, [sim?.sessionId, sim?.session_id]);
+  }, []);
   const [predictions, setPredictions] = useState([]);
-
-  // ── Negotiation rooms (Phase 2): overlay state + deal history ──
-  // Placed AFTER pedToggles' declaration (const binding: reading it earlier
-  // would be a TDZ ReferenceError). negoAgentId non-null mounts the
-  // OverlayHost-slot room; history feeds the rail deal chips and refreshes
-  // after each room closes and each commit.
-  const [negoAgentId, setNegoAgentId] = useState(null);
-  const [negoHistory, setNegoHistory] = useState([]);
-  const negotiationEnabled = pedToggles.negotiation_rooms_enabled === true;
-  const refreshNegoHistory = useCallback(() => {
-    if (!negotiationEnabled || !sim?.sessionId || sim.sessionId === 'demo') return;
-    const API = process.env.NEXT_PUBLIC_API_URL || '';
-    fetch(`${API}/api/simulations/${sim.sessionId}/negotiation`, { headers: { ...playerIdHeader() } })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setNegoHistory(d.history || []); })
-      .catch(() => {});
-  }, [negotiationEnabled, sim?.sessionId]);
-  useEffect(() => { refreshNegoHistory(); }, [refreshNegoHistory, commitResults]);
   const [checkpointData, setCheckpointData] = useState(null);
   useEffect(() => {
     if (!logoutConfirm) return;
@@ -649,27 +565,6 @@ export default function ExecutiveCockpit({
   // ── Metacognitive Friction: Pre-Commit Prediction ──
   const [showPredictionModal, setShowPredictionModal] = useState(false);
   const [predictionText, setPredictionText] = useState('');
-  // Calibration (Phase 1): structured prediction inputs. Optional by design —
-  // Skip & Commit never touches them (fluency rule 1).
-  const [predBands, setPredBands] = useState({ treasury: '', reputation: '' });
-  const [predConfidence, setPredConfidence] = useState(0.75);
-
-  // Fire-and-forget submit: a failed POST must never block the commit.
-  const submitPredictionRecord = useCallback(() => {
-    if (!predBands.treasury && !predBands.reputation) return; // nothing predicted
-    if (!sim?.sessionId || sim.sessionId === 'demo') return;
-    const API = process.env.NEXT_PUBLIC_API_URL || '';
-    fetch(`${API}/api/simulations/${sim.sessionId}/predictions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
-      body: JSON.stringify({
-        treasury_band: predBands.treasury || null,
-        reputation_dir: predBands.reputation || null,
-        confidence: pedToggles.confidence_calibration_enabled ? predConfidence : null,
-        note: predictionText.trim().slice(0, 500),
-      }),
-    }).catch(() => {});
-  }, [predBands, predConfidence, predictionText, sim?.sessionId, pedToggles.confidence_calibration_enabled]);
 
   // ── Results-level Balance Sheet Modal ──
   const [resultsBsModalOpen, setResultsBsModalOpen] = useState(false);
@@ -1307,33 +1202,6 @@ export default function ExecutiveCockpit({
         </div>
       </header>
 
-      {/* WOW move 3: persistent "Your Move" cue — the plain-language next action
-          and the number of steps left before commit, derived from the existing
-          gate state (no new logic, no flow change). */}
-      {!sim?.gameOver && (() => {
-        const isPillar = decisionParadigm === 'multi_toggles' || decisionParadigm === 'brsr_ngrbc';
-        const hasDecision = isPillar ? !!(pillarSelections && Object.keys(pillarSelections).length) : !!decisionChoice;
-        const hasAllocated = !!(allocations && Object.keys(allocations).length);
-        const steps = [];
-        if (roundNumber === 1) steps.push({ done: !!hasCompletedStakeholderMap, label: 'Map your stakeholders to see who holds power and interest.', action: onOpenStakeholderMap, cta: 'Open Stakeholder Map' });
-        if (roundNumber === 2) steps.push({ done: !!hasSubmittedMatrix, label: 'Complete the CSRD double-materiality assessment.', action: onOpenCSRD, cta: 'Open CSRD Assessment' });
-        steps.push({ done: hasDecision, label: isPillar ? 'Set your strategic pillars for this round.' : 'Choose your strategic decision for this round.' });
-        steps.push({ done: hasAllocated, label: 'Allocate the Corporate Sustainability Fund across your units.' });
-        const remaining = steps.filter((s) => !s.done).length;
-        const next = steps.find((s) => !s.done);
-        const ready = !next;
-        return (
-          <div aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', margin: 'var(--space-2) var(--space-4) 0', padding: 'var(--space-2) var(--space-4)', borderRadius: 'var(--radius-card)', background: ready ? 'rgba(34,197,94,0.08)' : 'rgba(99,102,241,0.08)', border: `1px solid ${ready ? 'rgba(34,197,94,0.28)' : 'rgba(99,102,241,0.28)'}` }}>
-            <span style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.1em', color: ready ? 'var(--positive-text)' : 'var(--accent-text)', flexShrink: 0 }}>{ready ? '✓ READY' : 'YOUR MOVE'}</span>
-            <span style={{ fontSize: '0.82rem', color: '#e2e8f0', flex: 1, minWidth: 0 }}>{ready ? 'All steps complete — review and commit your round.' : next.label}</span>
-            {!ready && <span style={{ fontSize: '0.68rem', fontWeight: 700, color: 'var(--neutral)', fontFamily: 'var(--font-numeral)', flexShrink: 0 }}>{remaining} step{remaining > 1 ? 's' : ''} to commit</span>}
-            {!ready && next.action && (
-              <button onClick={next.action} style={{ flexShrink: 0, padding: '5px 12px', borderRadius: 'var(--radius-chip)', cursor: 'pointer', fontWeight: 700, fontSize: '0.72rem', border: '1px solid rgba(99,102,241,0.5)', background: 'rgba(99,102,241,0.2)', color: '#c7d2fe' }}>{next.cta} →</button>
-            )}
-          </div>
-        );
-      })()}
-
       {/* ═══ MAIN CONTENT (3 COLUMNS) ═══ */}
       <div className={`${styles.mainContent} ${isFocusActive ? focusStyles.dashboardFaded : ''}`}>
 
@@ -1391,32 +1259,14 @@ export default function ExecutiveCockpit({
           <div style={{ flex: 1, overflowY: 'auto' }}>
           <div style={{ background: 'var(--ck-surface-0, #0b0f1a)', borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', paddingTop: 10, paddingBottom: 10 }}>
           <div className={styles.resourcesPanel} aria-live="polite" aria-label="Key Performance Indicators">
-            {/* WOW move 2: the always-glanceable ESG health grade — the spine's
-                representative in the KPI belt. Derived from the same composite
-                the Living Planet orb shows; pure presentation. */}
-            {(() => {
-              const m = computeEsgMetrics(globalState);
-              if (!m) return null;
-              const c = esgHealthColor(m.composite);
-              return (
-                <div className={styles.resourceCard} title={`Composite ESG health ${m.composite}/100 — reputation ${m.reputation.score}, carbon ${m.carbon.score}, nature ${m.nature.score}, social ${m.social.score}. See the Living Planet in the Metrics tab.`}>
-                  <div className={styles.resourceLabel}>🌍 ESG Health</div>
-                  <div className={styles.resourceValue} style={{ color: c, display: 'flex', alignItems: 'baseline', gap: 5 }}>
-                    <AnimatedNumber value={m.composite} format={(v) => esgGrade(v)} />
-                    <span style={{ fontSize: '0.62rem', color: 'var(--neutral-faint)', fontFamily: 'var(--font-numeral)' }}>{m.composite}</span>
-                  </div>
-                </div>
-              );
-            })()}
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>💰 Treasury</div>
-              <div className={styles.resourceValue}><AnimatedNumber value={treasury} format={fmtCurrency} /></div>
-              <Sparkline data={[...historyData.map(d => d.treasury), treasury]} color="#4ade80" />
+              <div className={styles.resourceValue}>{fmtCurrency(treasury)}</div>
               {(() => { const prev = previousGlobalState?.corporate_treasury; const d = prev != null ? treasury - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
               {shadowDeltas?.treasury !== 0 && shadowDeltas?.treasury && (
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: shadowDeltas.treasury < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.treasury < 0 ? '#f87171' : '#4ade80', marginTop: 2 }}>
                   → {fmtCurrency(treasury + shadowDeltas.treasury)} ({shadowDeltas.treasury > 0 ? '+' : ''}{fmtCurrency(shadowDeltas.treasury)})
                 </div>
               )}
@@ -1429,25 +1279,24 @@ export default function ExecutiveCockpit({
               return (
                 <div className={styles.resourceCard} title={greenFundTooltip}>
                   <div className={styles.resourceLabel}>🌱 Green Fund</div>
-                  <div className={styles.resourceValue} style={{ color: 'var(--positive-text)' }}>{fmtCurrency(greenFund)}</div>
+                  <div className={styles.resourceValue} style={{ color: '#4ade80' }}>{fmtCurrency(greenFund)}</div>
                   {greenFund === 0 && decisionParadigm === 'advanced_climate' && (
-                    <div style={{ fontSize: '0.68rem', color: 'var(--positive-text)', marginTop: 2, lineHeight: 1.3 }}>Funded by carbon fee</div>
+                    <div style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: 2, lineHeight: 1.3 }}>Funded by carbon fee</div>
                   )}
                   {greenFund > 0 && decisionParadigm === 'advanced_climate' && (
-                    <div style={{ fontSize: '0.68rem', color: 'var(--positive-text)', marginTop: 2, lineHeight: 1.3 }}>+{fmtCurrency(carbonFeePerRound)}/round est.</div>
+                    <div style={{ fontSize: '0.68rem', color: '#6ee7b7', marginTop: 2, lineHeight: 1.3 }}>+{fmtCurrency(carbonFeePerRound)}/round est.</div>
                   )}
                 </div>
               );
             })()}
             <div className={`${styles.resourceCard} ${shadowDeltas ? styles.resourceCardShadow : ''}`}>
               <div className={styles.resourceLabel}>🌍 Reputation</div>
-              <div className={styles.resourceValue}><AnimatedNumber value={reputation} format={(v) => Math.round(v)} /><span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span></div>
-              <Sparkline data={[...historyData.map(d => d.reputation), reputation]} color={reputation >= 55 ? '#4ade80' : reputation >= 40 ? '#f59e0b' : '#ef4444'} />
+              <div className={styles.resourceValue}>{reputation.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span></div>
               {(() => { const prev = previousGlobalState?.group_reputation; const d = prev != null ? reputation - prev : 0; return d !== 0 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{d.toFixed(1)}</div>
               ) : null; })()}
               {shadowDeltas?.reputation !== 0 && shadowDeltas?.reputation && (
-                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: shadowDeltas.reputation < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 2 }}>
+                <div style={{ fontSize: '0.6rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: shadowDeltas.reputation < 0 ? '#f87171' : '#4ade80', marginTop: 2 }}>
                   → {(reputation + shadowDeltas.reputation).toFixed(0)} ({shadowDeltas.reputation > 0 ? '+' : ''}{shadowDeltas.reputation})
                 </div>
               )}
@@ -1455,33 +1304,31 @@ export default function ExecutiveCockpit({
             {!isHealthcare && (
               <div className={styles.resourceCard}>
                 <div className={styles.resourceLabel}>🏭 Carbon</div>
-                <div className={styles.resourceValue}><AnimatedNumber value={tco2e} format={(v) => Math.round(v).toLocaleString()} /><span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>t</span></div>
-                <Sparkline data={[...historyData.map(d => d.tco2e), tco2e]} color="#f59e0b" />
+                <div className={styles.resourceValue}>{tco2e.toLocaleString()}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>t</span></div>
                 {(() => { const prev = previousGlobalState?.tco2e_emissions; const d = prev != null ? tco2e - prev : 0; return d !== 0 ? (
-                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--positive-text)' : 'var(--danger-text)', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
+                  <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#4ade80' : '#f87171', marginTop: 1 }}>{d < 0 ? '▼' : '▲'} {d > 0 ? '+' : ''}{d.toFixed(0)}t</div>
                 ) : null; })()}
               </div>
             )}
             <div className={styles.resourceCard}>
               <div className={styles.resourceLabel}>📈 EBITDA</div>
-              <div className={styles.resourceValue}><AnimatedNumber value={ebitda} format={fmtCurrency} /></div>
-              <Sparkline data={[...historyData.map(d => d.ebitda), ebitda]} color="#818cf8" />
+              <div className={styles.resourceValue}>{fmtCurrency(ebitda)}</div>
               {(() => { const prevBUs = previousGlobalState?.business_units || history?.[history?.length-1]?.business_units; const prevEbitda = prevBUs?.reduce((a,b) => a + (b.revenue_base||0) - (b.opex_base||0), 0); const d = prevEbitda != null ? ebitda - prevEbitda : 0; return Math.abs(d) > 0.01 ? (
-                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'var(--font-numeral)', color: d < 0 ? 'var(--danger-text)' : 'var(--positive-text)', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
+                <div style={{ fontSize: '0.68rem', fontWeight: 700, fontFamily: 'JetBrains Mono, monospace', color: d < 0 ? '#f87171' : '#4ade80', marginTop: 1 }}>{d > 0 ? '▲' : '▼'} {d > 0 ? '+' : ''}{fmtCurrency(d)}</div>
               ) : null; })()}
             </div>
             {isHealthcare && (
               <>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🩺 Avg Burnout</div>
-                  <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? 'var(--danger)' : systemBurnout > 50 ? 'var(--caution)' : 'var(--positive)' }}>
-                    {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span>
+                  <div className={styles.resourceValue} style={{ color: systemBurnout > 75 ? '#ef4444' : systemBurnout > 50 ? '#f59e0b' : '#10b981' }}>
+                    {systemBurnout.toFixed(1)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🛏️ Bed Util.</div>
-                  <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? 'var(--danger)' : totalBedCapacity > 70 ? 'var(--caution)' : 'var(--positive)' }}>
-                    {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>%</span>
+                  <div className={styles.resourceValue} style={{ color: totalBedCapacity > 85 ? '#ef4444' : totalBedCapacity > 70 ? '#f59e0b' : '#10b981' }}>
+                    {totalBedCapacity.toFixed(1)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>%</span>
                   </div>
                 </div>
               </>
@@ -1490,19 +1337,19 @@ export default function ExecutiveCockpit({
               <>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🏛️ Political Capital</div>
-                  <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? 'var(--positive)' : politicalCapital > 30 ? 'var(--caution)' : 'var(--danger)' }}>
-                    {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span>
+                  <div className={styles.resourceValue} style={{ color: politicalCapital > 50 ? '#10b981' : politicalCapital > 30 ? '#f59e0b' : '#ef4444' }}>
+                    {politicalCapital.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🤝 Community Trust</div>
-                  <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? 'var(--positive)' : communityTrust > 30 ? 'var(--caution)' : 'var(--danger)' }}>
-                    {communityTrust.toFixed(0)}<span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>/100</span>
+                  <div className={styles.resourceValue} style={{ color: communityTrust > 50 ? '#10b981' : communityTrust > 30 ? '#f59e0b' : '#ef4444' }}>
+                    {communityTrust.toFixed(0)}<span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>/100</span>
                   </div>
                 </div>
                 <div className={styles.resourceCard}>
                   <div className={styles.resourceLabel}>🌡️ Emissions Int.</div>
-                  <div className={styles.resourceValue} style={{ color: globalEmissions > 100 ? 'var(--danger)' : globalEmissions > 60 ? 'var(--caution)' : 'var(--positive)' }}>
+                  <div className={styles.resourceValue} style={{ color: globalEmissions > 100 ? '#ef4444' : globalEmissions > 60 ? '#f59e0b' : '#10b981' }}>
                     {globalEmissions.toFixed(0)}
                   </div>
                 </div>
@@ -1516,11 +1363,11 @@ export default function ExecutiveCockpit({
                 style={{ cursor: 'help' }}
               >
                 <div className={styles.resourceLabel}>⚖️ Reg. Active</div>
-                <div className={styles.resourceValue} style={{ color: 'var(--accent-text)' }}>
+                <div className={styles.resourceValue} style={{ color: '#a5b4fc' }}>
                   {activeRegulations.length}
-                  <span style={{ fontSize: '0.68rem', color: 'var(--neutral-faint)', marginLeft: 2 }}>instr.</span>
+                  <span style={{ fontSize: '0.68rem', color: '#475569', marginLeft: 2 }}>instr.</span>
                 </div>
-                <div style={{ fontSize: '0.68rem', color: regulatoryComplexity > 60 ? 'var(--caution-text)' : 'var(--accent)', marginTop: 2, lineHeight: 1.3 }}>
+                <div style={{ fontSize: '0.68rem', color: regulatoryComplexity > 60 ? '#fbbf24' : '#6366f1', marginTop: 2, lineHeight: 1.3 }}>
                   Complexity {regulatoryComplexity.toFixed(0)}/100
                 </div>
               </div>
@@ -1832,18 +1679,10 @@ export default function ExecutiveCockpit({
         {focusStep === 'strategy' && (
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-            {/* KPI-belt slot: POST-COMPLETION Turnaround phase only. Gated on
-                turnaround_status === 'open' — set exclusively by the facilitator-
-                gated enter_arc AFTER R10 — because the always-on mid-sim distress
-                arc also writes `turnaround_phase` into flags, which used to paint
-                this chip at the start of distressed runs. turnaround_status
-                travels inside active_event_flags, which the API passes whole —
-                top-level extras like turnaround_mode are model-filtered. */}
-            <TurnaroundPhaseChip
-              active={globalState?.active_event_flags?.turnaround_status === 'open'}
+            {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
+            <TurnaroundPhaseChip active={globalState?.turnaround_mode}
               phase={globalState?.active_event_flags?.turnaround_phase}
-              round={globalState?.active_event_flags?.turnaround_round ?? globalState?.turnaround_round}
-              maxRounds={4} />
+              round={globalState?.turnaround_round} maxRounds={4} />
 
             <div className={focusStyles.sectionTitle}>
               <span>{isPillarMode ? '🎛️' : '📋'}</span>
@@ -2002,18 +1841,10 @@ export default function ExecutiveCockpit({
         {focusStep === 'allocation' && (
           <div>
             <KPIStrip treasury={treasury} reputation={reputation} carbon={tco2e} ebitda={ebitda} projectedCost={projectedCost} fmtCurrency={fmtCurrency} />
-            {/* KPI-belt slot: POST-COMPLETION Turnaround phase only. Gated on
-                turnaround_status === 'open' — set exclusively by the facilitator-
-                gated enter_arc AFTER R10 — because the always-on mid-sim distress
-                arc also writes `turnaround_phase` into flags, which used to paint
-                this chip at the start of distressed runs. turnaround_status
-                travels inside active_event_flags, which the API passes whole —
-                top-level extras like turnaround_mode are model-filtered. */}
-            <TurnaroundPhaseChip
-              active={globalState?.active_event_flags?.turnaround_status === 'open'}
+            {/* KPI-belt slot: post-completion Turnaround phase (renders only while active) */}
+            <TurnaroundPhaseChip active={globalState?.turnaround_mode}
               phase={globalState?.active_event_flags?.turnaround_phase}
-              round={globalState?.active_event_flags?.turnaround_round ?? globalState?.turnaround_round}
-              maxRounds={4} />
+              round={globalState?.turnaround_round} maxRounds={4} />
 
             {/* Locked decision summary */}
             <div className={focusStyles.decisionSummary}>
@@ -2065,8 +1896,8 @@ export default function ExecutiveCockpit({
               onClick={() => {
                 // Go straight to the confirm flow — same trigger as the cockpit
                 // footer — instead of dismissing to the dashboard first. The
-                // Predict-Before-You-Commit modal is the single review+confirm
-                // step (staged decisions, per-BU allocations, Go Back & Edit).
+                // 'Review Your Decisions' modal already provides review +
+                // Go-Back-&-Edit, so the dashboard detour was a redundant step.
                 if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
                 const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
                 if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
@@ -2083,7 +1914,7 @@ export default function ExecutiveCockpit({
           <div>
             <div style={{ textAlign: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: '2rem', marginBottom: 4 }}>📊</div>
-              <h3 className="reveal-headline" style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#e2e8f0', margin: '0 0 4px' }}>Round {roundNumber} Results</h3>
               <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: 0 }}>Review your outcomes before advancing.</p>
               {/* W5: ceremony stamp — pure decoration on the results card */}
               <div aria-hidden="true" className="stamp-ceremony" style={{
@@ -2092,7 +1923,7 @@ export default function ExecutiveCockpit({
                 color: '#4ade80', fontSize: '0.68rem', fontWeight: 800,
                 letterSpacing: '0.18em', textTransform: 'uppercase',
                 fontFamily: 'var(--font-numeral, monospace)',
-                animation: 'stampIn 0.45s var(--reveal-ease-pop, cubic-bezier(0.2, 1.4, 0.4, 1)) 0.15s both',
+                animation: 'stampIn 0.45s cubic-bezier(0.2, 1.4, 0.4, 1) 0.15s both',
               }}>
                 ✦ Board Resolution Passed ✦
               </div>
@@ -2293,7 +2124,11 @@ export default function ExecutiveCockpit({
               const teamCount = globalState?.cohort_team_count || 0;
               const commitsCount = globalState?.team_commits_this_round || 0;
               const isMultiTeam = teamCount > 1;
-              const allCommitted = commitsCount >= teamCount;
+              // Facilitator-paced advance: under manual/timed pacing (or after a
+              // free-mode timeout/Force Advance) the wait-for-all barrier does
+              // not apply — the next round's commit gate does the pacing.
+              const unblocked = globalState?.cohort_advance_unblocked === true;
+              const allCommitted = commitsCount >= teamCount || unblocked;
               if (isMultiTeam && !allCommitted) {
                 return (
                   <div style={{ padding: '12px 16px', borderRadius: 10, textAlign: 'center', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
@@ -3283,12 +3118,17 @@ export default function ExecutiveCockpit({
             <div style={{ flex: '0 0 auto', padding: '4px 10px' }}>
               <button
                 onClick={() => setRailExpanded(false)}
-                className={styles.railSectionHeader}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                  padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                  border: '1px solid #1e293b', background: 'transparent',
+                  color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textAlign: 'left',
+                }}
                 title="Collapse the open panel to bring the feed back"
               >
-                <RailIcon name="rss" size={13} />
-                <span className={styles.railSectionHeaderLabel}>Market Reality Feed ({marketEvents.length})</span>
-                <RailIcon name="chevronDown" size={12} style={{ transform: 'rotate(-90deg)' }} />
+                <span>📡</span>
+                <span style={{ flex: 1 }}>Market Reality Feed ({marketEvents.length})</span>
+                <span>▸</span>
               </button>
             </div>
           ) : (
@@ -3318,17 +3158,17 @@ export default function ExecutiveCockpit({
               <div style={{ marginBottom: 6 }}>
                 <button
                   onClick={() => setRailRecapOpen(v => !v)}
-                  className={styles.railSectionHeader}
+                  style={{
+                    width: '100%', display: 'flex', alignItems: 'center', gap: 8,
+                    padding: '8px 12px', borderRadius: 8, cursor: 'pointer',
+                    border: '1px solid #1e293b', background: 'transparent',
+                    color: '#94a3b8', fontSize: '0.72rem', fontWeight: 700, textAlign: 'left',
+                  }}
                   aria-expanded={railRecapOpen}
                 >
-                  <RailIcon name="search" size={13} />
-                  <span className={styles.railSectionHeaderLabel}>Round recap — what happened & the road not taken</span>
-                  <RailIcon
-                    name="chevronDown"
-                    size={12}
-                    className={styles.railSectionHeaderChevron}
-                    style={{ transform: railRecapOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                  />
+                  <span>🔍</span>
+                  <span style={{ flex: 1 }}>Round recap — what happened & the road not taken</span>
+                  <span style={{ transition: 'transform 0.2s', transform: railRecapOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
                 </button>
                 {railRecapOpen && (
                   <div style={{ marginTop: 6 }}>
@@ -3357,8 +3197,6 @@ export default function ExecutiveCockpit({
                     cascadesFired={aaDiag.cascades_fired || []}
                     interferenceActive={aaDiag.interference_active || []}
                     roundNumber={roundNumber}
-                    onRequestMeeting={negotiationEnabled ? (id) => setNegoAgentId(id) : null}
-                    negotiationHistory={negoHistory}
                   />
                 );
               }
@@ -3463,6 +3301,54 @@ export default function ExecutiveCockpit({
                 const overAllocated = allocTotal > (csfPool || 0) && (csfPool > 0);
                 const fullyReady = hasReadBriefing && hasDecision && allocTotal > 0;
                 const partialReady = hasDecision && allocTotal <= 0;
+                // Facilitator-paced advance: the current round's commit is
+                // locked until the facilitator's timer fires or they advance
+                // the round. Decisions and allocations still save normally.
+                const roundLocked = globalState?.cohort_round_locked === true;
+                const nextUnlockAt = globalState?.cohort_next_unlock_at;
+                let unlockLabel = null;
+                if (roundLocked && nextUnlockAt) {
+                  try {
+                    unlockLabel = new Date(nextUnlockAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  } catch { unlockLabel = null; }
+                }
+                if (roundLocked && !commitResults) {
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button
+                        className={styles.commitBtn}
+                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#1e293b', border: '1px solid #475569', opacity: 0.85, cursor: 'not-allowed' }}
+                        disabled
+                      >
+                        🔒 Round Locked{unlockLabel ? ` — opens ${unlockLabel}` : ''}
+                      </button>
+                      <div style={{ fontSize: '0.62rem', color: '#94a3b8', textAlign: 'center' }}>
+                        Your decisions are saved. {unlockLabel
+                          ? `The round opens at ${unlockLabel}.`
+                          : 'The facilitator will advance the round.'}
+                      </div>
+                    </div>
+                  );
+                }
+                // Mandatory-quiz gate: this round's quiz must be taken before the
+                // player can commit. Server-enforced too — this is the UX mirror.
+                const quizGate = globalState?.quiz_gate;
+                if (quizGate?.blocked && !commitResults) {
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                      <button
+                        className={styles.commitBtn}
+                        style={{ width: '100%', height: 34, fontSize: '0.75rem', background: '#3730a3', border: '1px solid #4f46e5', opacity: 0.9, cursor: 'not-allowed' }}
+                        disabled
+                      >
+                        🧩 Complete the Quiz First
+                      </button>
+                      <div style={{ fontSize: '0.62rem', color: '#a5b4fc', textAlign: 'center' }}>
+                        This round requires the quiz{quizGate.required_title ? ` “${quizGate.required_title}”` : ''}. Open 📚 Resources to take it, then commit.
+                      </div>
+                    </div>
+                  );
+                }
                 const btnStyle = commitResults
                   ? { background: '#1e293b', borderColor: '#334155' }
                   : overAllocated
@@ -3624,15 +3510,6 @@ export default function ExecutiveCockpit({
       )}
 
       {/* ═══ PRE-COMMIT PREDICTION MODAL (Metacognitive Friction) ═══ */}
-      {/* ═══ NEGOTIATION ROOM (OverlayHost slot — summoned from the rail) ═══ */}
-      {negoAgentId && (
-        <NegotiationRoom
-          sessionId={sim?.sessionId}
-          agentId={negoAgentId}
-          onClose={() => { setNegoAgentId(null); refreshNegoHistory(); }}
-        />
-      )}
-
       {showPredictionModal && (
         <div className={styles.predictionOverlay} onClick={() => { setShowPredictionModal(false); }}>
           <div className={styles.predictionPanel} onClick={(e) => e.stopPropagation()}>
@@ -3642,64 +3519,23 @@ export default function ExecutiveCockpit({
               Pausing to predict outcomes strengthens your strategic intuition. What do you expect will happen?
             </p>
 
-            {/* Calibration (Phase 1): structured bands — ~8s, all optional. */}
             <div className={styles.predictionQuestion}>
-              💰 <strong>Treasury</strong> this round — your call:
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[['down_big', '▼▼ >$5M drop'], ['down', '▼ $1–5M drop'], ['flat', '≈ flat (±$1M)'], ['up', '▲ $1–5M gain'], ['up_big', '▲▲ >$5M gain']].map(([v, label]) => (
-                <button key={v} type="button"
-                  onClick={() => setPredBands((b) => ({ ...b, treasury: b.treasury === v ? '' : v }))}
-                  style={{
-                    padding: '5px 10px', borderRadius: 999, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
-                    border: `1px solid ${predBands.treasury === v ? 'rgba(0,229,195,0.7)' : 'rgba(148,163,184,0.3)'}`,
-                    background: predBands.treasury === v ? 'rgba(0,229,195,0.15)' : 'transparent',
-                    color: predBands.treasury === v ? '#5eead4' : '#94a3b8',
-                  }}>{label}</button>
-              ))}
-            </div>
-
-            <div className={styles.predictionQuestion}>
-              ⭐ <strong>Reputation</strong> this round — your call:
-            </div>
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
-              {[['down', '▼ falls (≥2 pts)'], ['flat', '≈ flat (<2 pts)'], ['up', '▲ rises (≥2 pts)']].map(([v, label]) => (
-                <button key={v} type="button"
-                  onClick={() => setPredBands((b) => ({ ...b, reputation: b.reputation === v ? '' : v }))}
-                  style={{
-                    padding: '5px 10px', borderRadius: 999, cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700,
-                    border: `1px solid ${predBands.reputation === v ? 'rgba(0,229,195,0.7)' : 'rgba(148,163,184,0.3)'}`,
-                    background: predBands.reputation === v ? 'rgba(0,229,195,0.15)' : 'transparent',
-                    color: predBands.reputation === v ? '#5eead4' : '#94a3b8',
-                  }}>{label}</button>
-              ))}
-            </div>
-
-            {/* Confidence slider — only when the facilitator enabled calibration.
-                Copy states the honesty property once (risk table, row 4). */}
-            {pedToggles.confidence_calibration_enabled && (predBands.treasury || predBands.reputation) && (
-              <div style={{ marginBottom: 12 }}>
-                <div className={styles.predictionQuestion}>
-                  🎯 How confident are you? <strong>{Math.round(predConfidence * 100)}%</strong>
-                </div>
-                <input type="range" min="50" max="100" step="5"
-                  value={Math.round(predConfidence * 100)}
-                  onChange={(e) => setPredConfidence(Number(e.target.value) / 100)}
-                  style={{ width: '100%' }} />
-                <div style={{ fontSize: '0.66rem', color: '#64748b', marginTop: 2 }}>
-                  Scored so that honest confidence beats bravado — 70% right at 70% confident is a better score than 70% right at 100%.
-                </div>
-              </div>
-            )}
-
-            <div className={styles.predictionQuestion}>
-              📝 Why? (optional — you&apos;ll see this next to the actual outcome)
+              💰 What do you predict will happen to your <strong>Treasury</strong> after this round?
             </div>
             <textarea
               className={styles.predictionTextarea}
-              placeholder="e.g., Option B is balanced — compliance costs bite now, reputation pays back later..."
+              placeholder="e.g., Treasury will drop by ~$3M due to ESG compliance costs, but reputation should rise..."
               value={predictionText}
               onChange={(e) => setPredictionText(e.target.value)}
+              rows={3}
+            />
+
+            <div className={styles.predictionQuestion}>
+              🌍 How will your choices affect <strong>Reputation</strong> and <strong>Carbon</strong>?
+            </div>
+            <textarea
+              className={styles.predictionTextarea}
+              placeholder="e.g., Option B is balanced — I expect a modest reputation boost with flat emissions..."
               rows={2}
             />
 
@@ -3735,46 +3571,26 @@ export default function ExecutiveCockpit({
                 <div>Capital Allocated: <strong style={{ color: '#f1f5f9' }}>
                   {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0))}
                 </strong></div>
-                {/* Per-BU breakdown — folded in from the retired 'Review Your
-                    Decisions' modal so this single screen carries its full
-                    review content. */}
-                {Object.entries(allocations || {}).filter(([, v]) => v > 0).map(([buId, v]) => {
-                  const bu = (businessUnits || []).find(b => b.bu_id === buId);
-                  return (
-                    <div key={buId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', paddingLeft: 10 }}>
-                      <span>· {bu?.name || buId}</span>
-                      <span style={{ fontFamily: 'var(--font-numeral)', color: '#cbd5e1' }}>{fmtCurrency(v)}</span>
-                    </div>
-                  );
-                })}
               </div>
             </div>
 
             <div className={styles.predictionActions}>
-              {/* Go Back & Edit — moved here from the retired Review modal:
-                  closes without committing so the player can adjust. */}
               <button
                 className={styles.predictionSkip}
-                onClick={() => { setShowPredictionModal(false); }}
-              >
-                ← Go Back &amp; Edit
-              </button>
-              <button
-                className={styles.predictionSkip}
-                onClick={() => { setShowPredictionModal(false); setPredictionText(''); setPredBands({ treasury: '', reputation: '' }); onCommit?.(); }}
+                onClick={() => { setShowPredictionModal(false); setPredictionText(''); onCommit?.(); }}
               >
                 Skip & Commit
               </button>
               <button
                 className={styles.predictionSubmit}
                 onClick={() => {
-                  // Calibration (Phase 1): persist server-side, fire-and-forget
-                  // (replaces the old sessionStorage-only write). The commit
-                  // proceeds regardless of the POST's fate.
-                  submitPredictionRecord();
+                  // Store prediction for post-round comparison
+                  if (predictionText.trim()) {
+                    const key = `prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`;
+                    try { sessionStorage.setItem(key, predictionText); } catch {}
+                  }
                   setShowPredictionModal(false);
                   setPredictionText('');
-                  setPredBands({ treasury: '', reputation: '' });
                   onCommit?.();
                 }}
               >
@@ -4242,20 +4058,6 @@ export default function ExecutiveCockpit({
                   commitResults={commitResults}
                   globalState={globalState}
                 />
-                {/* Negotiation rooms (Phase 2): the round's deals — V-A
-                    retrospective chip in the results stage. */}
-                {negoHistory.some((r) => r.round === roundNumber && (r.deals || []).length) && (
-                  <div style={{ marginTop: 10, padding: '10px 14px', borderRadius: 10, background: 'rgba(52,211,153,0.07)', border: '1px solid rgba(52,211,153,0.3)' }}>
-                    <div style={{ fontSize: '0.66rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#34d399', marginBottom: 6 }}>
-                      🤝 Deals struck this round
-                    </div>
-                    {negoHistory.filter((r) => r.round === roundNumber).flatMap((r) => r.deals || []).map((d, i) => (
-                      <div key={i} style={{ fontSize: '0.76rem', color: 'var(--text-secondary, #b0bec5)', padding: '2px 0' }}>
-                        {d.label} — tolerance {d.tolerance_before} → {d.tolerance_after}{d.promise_id ? ' · commitment registered' : ''}
-                      </div>
-                    ))}
-                  </div>
-                )}
                 {pedToggles.real_world_cards_enabled && (
                   <RealWorldCard roundNumber={roundNumber} />
                 )}

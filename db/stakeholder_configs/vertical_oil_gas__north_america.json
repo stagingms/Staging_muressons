@@ -1,0 +1,372 @@
+[
+  {
+    "id": "na-og-environment",
+    "name": "US EPA and Environment and Climate Change Canada",
+    "icon": "🌍",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "US EPA and Environment and Climate Change Canada set methane, air, water and greenhouse-gas requirements for operations. The immediate issue is methane detection, flaring, reporting, state plans and facility performance. Its decisions or actions can require capital upgrades, penalties or operating changes.",
+    "urgency_rationale": "Methane rules and reporting affect current operating practices and economics.",
+    "intel_dossier": [
+      "🔎 US EPA oil and gas air rules: EPA regulates methane and other air pollution from oil and natural-gas operations. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations",
+      "🔎 EPA methane rule: EPA’s final rule establishes standards and state-plan procedures for methane emissions. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations/epas-final-rule-reduce-methane-and-other",
+      "🔎 Canada Energy Regulator: CER regulates federally governed pipelines and power lines in Canada. | https://www.cer-rec.gc.ca/index-eng.html"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied may fit best-in-class assets; implementation and enforcement require close engagement.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with US EPA and Environment and Climate Change Canada",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-og-upstream",
+    "name": "BOEM, BSEE and the Canada Energy Regulator",
+    "icon": "🌊",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "BOEM, BSEE and the Canada Energy Regulator control offshore leasing, safety, resource stewardship and federally regulated assets. The immediate issue is permits, well control, decommissioning, financial assurance and integrity. Its decisions or actions can delay drilling, suspend operations or increase financial obligations.",
+    "urgency_rationale": "Project schedules and licence to operate depend on these authorities.",
+    "intel_dossier": [
+      "🔎 US offshore energy safety: BSEE regulates safety and environmental enforcement for US offshore energy operations. | https://www.bsee.gov/",
+      "🔎 US offshore leasing and resources: BOEM manages offshore energy and mineral resources. | https://www.boem.gov/",
+      "🔎 Canada Energy Regulator: CER regulates federally governed pipelines and power lines in Canada. | https://www.cer-rec.gc.ca/index-eng.html"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits stable operating assets; new wells and decommissioning require close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with BOEM, BSEE and the Canada Energy Regulator",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-og-pipelines",
+    "name": "PHMSA, CER and State/Provincial Pipeline Regulators",
+    "icon": "🛢️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "PHMSA, CER and State/Provincial Pipeline Regulators oversee pipeline design, integrity, incident reporting and damage prevention. The immediate issue is integrity management, control rooms, geohazards, public awareness and emergency response. Its decisions or actions can restrict service, mandate repairs or impose major penalties.",
+    "urgency_rationale": "Integrity findings can force immediate pressure reductions or shutdowns.",
+    "intel_dossier": [
+      "🔎 US Pipeline and Hazardous Materials Safety Administration: PHMSA regulates pipeline and hazardous-material safety. | https://www.phmsa.dot.gov/",
+      "🔎 Canada Energy Regulator: CER regulates federally governed pipelines and power lines in Canada. | https://www.cer-rec.gc.ca/index-eng.html",
+      "🔎 CER pipeline regulation: CER explains federal jurisdiction and responsibilities for interprovincial and international pipelines. | https://www.cer-rec.gc.ca/en/about/who-we-are-what-we-do/pipeline-regulation-in-canada.html"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits strong mature systems; incidents and expansion need close coordination.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with PHMSA, CER and State/Provincial Pipeline Regulators",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-og-indigenous",
+    "name": "Indigenous Nations and Tribal Governments",
+    "icon": "🪶",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Indigenous Nations and Tribal Governments hold rights, knowledge and governance interests across many project areas. The immediate issue is early consultation, cultural sites, cumulative impacts, monitoring and benefit sharing. Its decisions or actions can reshape routes, challenge approvals or become long-term project partners.",
+    "urgency_rationale": "Rights and land concerns must influence design before commitments are locked.",
+    "intel_dossier": [
+      "🔎 CER Indigenous engagement: CER describes engagement expectations for energy projects affecting Indigenous Peoples. | https://www.cer-rec.gc.ca/en/consultation-engagement/land-matters-guide/brochures/cer-energy-projects-indigenous-peoples/",
+      "🔎 Canada Energy Regulator: CER regulates federally governed pipelines and power lines in Canada. | https://www.cer-rec.gc.ca/index-eng.html",
+      "🔎 CER pipeline regulation: CER explains federal jurisdiction and responsibilities for interprovincial and international pipelines. | https://www.cer-rec.gc.ca/en/about/who-we-are-what-we-do/pipeline-regulation-in-canada.html"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed is insufficient where rights may be affected; it fits only distant, low-impact interests.",
+    "engagement_tactics": [
+      {
+        "id": "use_rights-based,_early_and_continuous_e",
+        "label": "Use rights-based, early and continuous engagement with Indigenous Nations and Tribal Governments",
+        "correct": true,
+        "rationale": "Respects legal and cultural standing while allowing project design to change before lock-in."
+      },
+      {
+        "id": "treat_consultation_as_a_one-time_permitt",
+        "label": "Treat consultation as a one-time permitting formality",
+        "correct": false,
+        "rationale": "Late transactional contact increases legal, schedule and relationship risk."
+      },
+      {
+        "id": "offer_benefits_without_discussing_land,_",
+        "label": "Offer benefits without discussing land, rights and monitoring",
+        "correct": false,
+        "rationale": "Economic offers do not replace consent, impact assessment or stewardship concerns."
+      }
+    ]
+  },
+  {
+    "id": "na-og-landowners",
+    "name": "Landowners, Ranchers and Local Communities",
+    "icon": "🏘️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Landowners, Ranchers and Local Communities provide access and bear safety, noise, traffic, water and property impacts. The immediate issue is easements, restoration, emergency planning, methane and complaint response. Its decisions or actions can delay access, litigate or mobilise local government.",
+    "urgency_rationale": "Local access and trust can become the critical path for wells and pipelines.",
+    "intel_dossier": [
+      "🔎 US EPA oil and gas air rules: EPA regulates methane and other air pollution from oil and natural-gas operations. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations",
+      "🔎 CER pipeline regulation: CER explains federal jurisdiction and responsibilities for interprovincial and international pipelines. | https://www.cer-rec.gc.ca/en/about/who-we-are-what-we-do/pipeline-regulation-in-canada.html",
+      "🔎 US Pipeline and Hazardous Materials Safety Administration: PHMSA regulates pipeline and hazardous-material safety. | https://www.phmsa.dot.gov/"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed may fit stable legacy assets; new construction requires close partnership.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Landowners, Ranchers and Local Communities",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "na-og-workers",
+    "name": "Employees, Contractors and Unions",
+    "icon": "👷",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Employees, Contractors and Unions operate wells, plants, pipelines, refineries and emergency systems. The immediate issue is process safety, competence, fatigue, contractor control and stop-work authority. Its decisions or actions can prevent or cause major incidents and prolonged outages.",
+    "urgency_rationale": "Front-line decisions are critical in high-energy operations.",
+    "intel_dossier": [
+      "🔎 US Pipeline and Hazardous Materials Safety Administration: PHMSA regulates pipeline and hazardous-material safety. | https://www.phmsa.dot.gov/",
+      "🔎 US offshore energy safety: BSEE regulates safety and environmental enforcement for US offshore energy operations. | https://www.bsee.gov/",
+      "🔎 US EPA oil and gas air rules: EPA regulates methane and other air pollution from oil and natural-gas operations. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits low-risk support staff, not operating and maintenance teams.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Employees, Contractors and Unions",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "na-og-customers",
+    "name": "Utilities, Refineries, LNG Buyers and Industrial Offtakers",
+    "icon": "⚡",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Utilities, Refineries, LNG Buyers and Industrial Offtakers anchor revenue and require reliability, quality, flexibility and emissions information. The immediate issue is contract performance, capacity, methane intensity and force majeure. Its decisions or actions can redirect supply, renegotiate price or impair asset utilisation.",
+    "urgency_rationale": "Daily nominations and long-term contracts directly affect cash flow.",
+    "intel_dossier": [
+      "🔎 US EPA oil and gas air rules: EPA regulates methane and other air pollution from oil and natural-gas operations. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations",
+      "🔎 EPA methane rule: EPA’s final rule establishes standards and state-plan procedures for methane emissions. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations/epas-final-rule-reduce-methane-and-other",
+      "🔎 CER pipeline regulation: CER explains federal jurisdiction and responsibilities for interprovincial and international pipelines. | https://www.cer-rec.gc.ca/en/about/who-we-are-what-we-do/pipeline-regulation-in-canada.html"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits diversified short-term sales; anchor customers require close coordination.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Utilities, Refineries, LNG Buyers and Industrial Offtakers",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "na-og-capital",
+    "name": "Banks, Insurers, Pension Funds and Shareholders",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Banks, Insurers, Pension Funds and Shareholders price commodity, litigation, methane, reserve and transition risk. The immediate issue is capital returns, liability, decommissioning and regulatory compliance. Its decisions or actions can raise funding costs, restrict insurance or press for portfolio change.",
+    "urgency_rationale": "Material incidents and regulation can reprice long-lived assets quickly.",
+    "intel_dossier": [
+      "🔎 US EPA oil and gas air rules: EPA regulates methane and other air pollution from oil and natural-gas operations. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations",
+      "🔎 Canada Energy Regulator: CER regulates federally governed pipelines and power lines in Canada. | https://www.cer-rec.gc.ca/index-eng.html",
+      "🔎 US offshore energy safety: BSEE regulates safety and environmental enforcement for US offshore energy operations. | https://www.bsee.gov/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies for project finance, M&A, activism or major incidents.",
+    "engagement_tactics": [
+      {
+        "id": "brief_banks,_insurers,_pension_funds_and",
+        "label": "Brief Banks, Insurers, Pension Funds and Shareholders on material risks, capital needs, milestones and downside cases",
+        "correct": true,
+        "rationale": "Allows investors to test execution quality rather than rely on broad commitments."
+      },
+      {
+        "id": "describe_the_exposure_as_immaterial_unti",
+        "label": "Describe the exposure as immaterial until a charge is booked",
+        "correct": false,
+        "rationale": "Delayed disclosure increases surprise and credibility risk."
+      },
+      {
+        "id": "promise_a_fixed_outcome_that_management_",
+        "label": "Promise a fixed outcome that management cannot control",
+        "correct": false,
+        "rationale": "Overconfidence creates litigation and trust risk if regulation or markets change."
+      }
+    ]
+  },
+  {
+    "id": "na-og-ngos",
+    "name": "Climate, Conservation and Community NGOs",
+    "icon": "📣",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Climate, Conservation and Community NGOs shape permitting, litigation, investor pressure and public narratives. The immediate issue is methane, spills, Indigenous rights, new infrastructure and restoration. Its decisions or actions can delay projects or intensify scrutiny across jurisdictions.",
+    "urgency_rationale": "Campaigns can connect satellite or public data to legal and financial action.",
+    "intel_dossier": [
+      "🔎 EPA methane rule: EPA’s final rule establishes standards and state-plan procedures for methane emissions. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations/epas-final-rule-reduce-methane-and-other",
+      "🔎 CER Indigenous engagement: CER describes engagement expectations for energy projects affecting Indigenous Peoples. | https://www.cer-rec.gc.ca/en/consultation-engagement/land-matters-guide/brochures/cer-energy-projects-indigenous-peoples/",
+      "🔎 US offshore leasing and resources: BOEM manages offshore energy and mineral resources. | https://www.boem.gov/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate for contested projects and live litigation.",
+    "engagement_tactics": [
+      {
+        "id": "provide_evidence,_site_access_and_indepe",
+        "label": "Provide evidence, site access and independent verification to Climate, Conservation and Community NGOs",
+        "correct": true,
+        "rationale": "Credible transparency can narrow disagreement and expose fixable gaps."
+      },
+      {
+        "id": "threaten_litigation_at_the_first_critici",
+        "label": "Threaten litigation at the first criticism",
+        "correct": false,
+        "rationale": "An aggressive opening can amplify the issue and deter legitimate dialogue."
+      },
+      {
+        "id": "pay_for_favourable_third-party_content",
+        "label": "Pay for favourable third-party content",
+        "correct": false,
+        "rationale": "Perceived astroturfing damages trust if uncovered."
+      }
+    ]
+  },
+  {
+    "id": "na-og-contractors",
+    "name": "Drilling, Midstream, EPC and Emergency-Response Contractors",
+    "icon": "🛠️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Drilling, Midstream, EPC and Emergency-Response Contractors deliver safety-critical construction, operations and incident response. The immediate issue is competence, equipment integrity, interface control and mobilisation capacity. Its decisions or actions can cause schedule, safety or environmental failure.",
+    "urgency_rationale": "Contractors perform a large share of high-risk work and can transmit systemic risk.",
+    "intel_dossier": [
+      "🔎 US Pipeline and Hazardous Materials Safety Administration: PHMSA regulates pipeline and hazardous-material safety. | https://www.phmsa.dot.gov/",
+      "🔎 US offshore energy safety: BSEE regulates safety and environmental enforcement for US offshore energy operations. | https://www.bsee.gov/",
+      "🔎 US EPA oil and gas air rules: EPA regulates methane and other air pollution from oil and natural-gas operations. | https://www.epa.gov/controlling-air-pollution-oil-and-natural-gas-operations"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits routine low-risk services; safety-critical work needs integrated management.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with Drilling, Midstream, EPC and Emergency-Response Contractors",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  }
+]

@@ -637,6 +637,19 @@ _notebooklm_notebooks = [
     },
 ]
 
+# Per-round knowledge-check notebooks for the remaining rounds (2, 4, 6-10), so a
+# facilitator who turns on the MANDATORY quiz gate has a topically-aligned quiz on
+# every round — not only the seeded rounds 1/3/5 above. Appended so ids/rounds
+# from the seed set are preserved and never shadowed.
+try:
+    from quiz_banks_rounds import ROUND_QUIZ_NOTEBOOKS as _ROUND_QUIZ_NOTEBOOKS
+    _existing_rounds = {n.get("target_round") for n in _notebooklm_notebooks}
+    for _nb in _ROUND_QUIZ_NOTEBOOKS:
+        if _nb.get("target_round") not in _existing_rounds:
+            _notebooklm_notebooks.append(dict(_nb))
+except Exception as _qbr_exc:  # never let a content-pack import break resources
+    print(f"[resources] round quiz notebooks not loaded: {_qbr_exc}")
+
 
 @resources_router.get("/resources/notebooklm", summary="Get all linked NotebookLM notebooks")
 async def get_notebooklm_notebooks():

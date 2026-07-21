@@ -160,20 +160,6 @@ elif not os.getenv("MASTER_PASSWORD", ""):
     # testers who need god_mode set MASTER_PASSWORD in backend/.env.
     print("[SEC-4] MASTER_PASSWORD not set — god_mode break-glass DISABLED (safe default).")
 
-# ── Deployment preflight (2026-07-19) ───────────────────────────────────────
-# Warnings, not fatals: the hard failures above already cover what makes a
-# deployment unsafe. These cover what makes one CONFUSING — a shipped master
-# password override, a data dir with no volume behind it, a proxy list that
-# silently collapses rate limiting. Each previously surfaced hours later as an
-# unrelated-looking symptom. Never allowed to prevent a boot.
-try:
-    from deploy_preflight import run_preflight, format_findings
-    _pf = run_preflight()
-    if _pf:
-        print(format_findings(_pf))
-except Exception as _pf_exc:  # pragma: no cover - diagnostics must not break startup
-    print(f"[preflight] skipped: {_pf_exc}")
-
 if _use_memory:
     _refuse_memory_db_in_prod()  # SEC-2: hard-fail in prod unless overridden
     print("[MEMORY] In-memory mode (forced via USE_MEMORY_DB)")
@@ -266,6 +252,38 @@ async def lifespan(app: FastAPI):
         print("  For classroom sessions, set USE_MEMORY_DB=false")
         print("  and configure DATABASE_URL for PostgreSQL.")
         print("=" * 70 + "\n")
+
+    # QA #3 / Railway volume: verify the mutable-state directory at boot and
+    # FAIL LOUD when it isn't durable. Everything a facilitator configures —
+    # cohort settings (incl. briefing videos), settings templates, the
+    # facilitator registry, token versions, the memory snapshot — lives in
+    # this directory; on Railway without a mounted volume it is silently wiped
+    # on every redeploy. Also reported live at /health → storage.
+    try:
+        from runtime_paths import storage_status as _storage_status
+        _st = _storage_status()
+        print(f"[storage] data dir: {_st['data_dir']} "
+              f"(configured={_st['configured']}, writable={_st['writable']}, "
+              f"railway={_st['on_railway']}, durable={_st['durable']})")
+        if _st["on_railway"] and not _st["configured"]:
+            print("\n" + "=" * 70)
+            print("  [!!] RAILWAY DETECTED WITHOUT A DURABLE DATA DIRECTORY")
+            print("  MURESSONS_DATA_DIR is not set — facilitator accounts,")
+            print("  cohort settings (briefing videos, pacing, templates) and")
+            print("  the game-state snapshot will be WIPED on every redeploy.")
+            print("  Fix: mount a Railway Volume at /data on this service and")
+            print("  set the variable  MURESSONS_DATA_DIR=/data  (see")
+            print("  DEPLOYMENT_CHECKLIST.md / RAILWAY_LOGIN_FIX.md).")
+            print("=" * 70 + "\n")
+        elif _st["configured"] and not _st["writable"]:
+            print("\n" + "=" * 70)
+            print(f"  [!!] MURESSONS_DATA_DIR={_st['data_dir']} IS NOT WRITABLE")
+            print("  The volume is missing or mounted elsewhere — mutable state")
+            print("  is falling back to ephemeral storage. Check that the")
+            print("  Railway Volume mount path matches MURESSONS_DATA_DIR.")
+            print("=" * 70 + "\n")
+    except Exception as _storage_exc:
+        print(f"[storage] boot verification skipped (non-fatal): {_storage_exc}")
 
     # Sync and seed missing cohort sessions for facilitators (e.g. if initial seeding failed)
     try:
@@ -452,6 +470,7 @@ app.include_router(god_router)           # audit #17: Extracted God-Mode control
 
 
 @app.get("/health", tags=["System"])
+@app.get("/api/health", tags=["System"])  # railway.json healthcheckPath — must exist
 async def health_check():
     # BUGFIX: the old detection `"database_memory" in str(type(db))` was DEAD —
     # `db` is a module, so `str(type(db))` is "<class 'module'>" and never
@@ -464,5 +483,23 @@ async def health_check():
     # demo_mode is TRUE only when ephemeral storage was chosen deliberately —
     # USE_MEMORY_DB explicitly set, or the documented prod opt-in. An incidental
     # dev fallback (Postgres just unreachable) is memory-backed but NOT "demo
-    # mode", so the player banner stays off. This is safe: production can never
-    # silently run o
+    # mode", so the player banner stays off — production can never silently run
+    # on throwaway storage without the deliberate opt-in flags.
+    _demo = _use_memory or _allow_memory_in_prod
+    # Durable-storage report (QA #3 / Railway volume): lets a deployed instance
+    # VERIFY that MURESSONS_DATA_DIR points at a mounted, writable volume —
+    # cohort settings (incl. briefing videos), the facilitator registry and the
+    # memory snapshot all live there. `durable: false` on Railway means every
+    # redeploy wipes that state.
+    try:
+        from runtime_paths import storage_status
+        _storage = storage_status()
+    except Exception:
+        _storage = {"durable": False, "error": "storage probe failed"}
+    return {
+        "status": "ok",
+        "database": "memory" if _memory else "postgresql",
+        "demo_mode": _demo,
+        "storage": _storage,
+        "durable_storage": bool(_storage.get("durable")),
+    }

@@ -1,0 +1,372 @@
+[
+  {
+    "id": "eu-pharma-ema",
+    "name": "EMA and National Medicines Agencies",
+    "icon": "🏛️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "EMA and National Medicines Agencies control market authorisation, inspections, variations, safety monitoring and withdrawals. The immediate issue is dossier quality, pharmacovigilance, manufacturing compliance and benefit-risk evidence. Its decisions or actions can block approval, narrow labels, require studies or suspend products.",
+    "urgency_rationale": "Central and national regulatory decisions can change market access across multiple countries.",
+    "intel_dossier": [
+      "🔎 EMA human medicines regulation: EMA coordinates the centralised authorisation and supervision of human medicines. | https://www.ema.europa.eu/en/human-regulatory-overview",
+      "🔎 EMA pharmacovigilance: EMA coordinates safety monitoring with national authorities, patients and healthcare professionals. | https://www.ema.europa.eu/en/pharmacovigilance",
+      "🔎 EudraLex: EudraLex is the EU body of pharmaceutical law and supporting guidance. | https://health.ec.europa.eu/medicinal-products/eudralex_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied may fit a mature low-risk portfolio, but active procedures require continuous working-level engagement.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with EMA and National Medicines Agencies",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-hta",
+    "name": "EU HTA Bodies and National Payers",
+    "icon": "💶",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "EU HTA Bodies and National Payers assess comparative clinical value and determine reimbursement, price and access conditions. The immediate issue is joint clinical assessment readiness, comparator choice, real-world evidence and budget impact. Its decisions or actions can limit reimbursement, impose managed entry or delay uptake.",
+    "urgency_rationale": "HTA evidence decisions are time-bound and directly affect launch sequencing.",
+    "intel_dossier": [
+      "🔎 EU Health Technology Assessment: The HTA Regulation applies through joint clinical assessments and national reimbursement processes. | https://health.ec.europa.eu/health-technology-assessment_en",
+      "🔎 EU pharmaceutical legislation reform: The European Commission sets out the reform objectives and implementation direction. | https://health.ec.europa.eu/medicinal-products/reform-eu-pharmaceutical-legislation_en",
+      "🔎 EU competition policy for pharmaceuticals: The Commission applies competition and state-aid rules to medicines and health services. | https://competition-policy.ec.europa.eu/sectors/pharmaceuticals-health-services/legislation_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied is possible after stable reimbursement, but new indications and reassessment require close management.",
+    "engagement_tactics": [
+      {
+        "id": "co-develop_an_evidence,_access_and_suppl",
+        "label": "Co-develop an evidence, access and supply plan with EU HTA Bodies and National Payers",
+        "correct": true,
+        "rationale": "Links price or procurement discussions to outcomes, affordability and continuity of supply."
+      },
+      {
+        "id": "offer_a_blanket_discount_with_no_access_",
+        "label": "Offer a blanket discount with no access conditions",
+        "correct": false,
+        "rationale": "Sacrifices value without ensuring uptake, adherence or patient access."
+      },
+      {
+        "id": "escalate_the_negotiation_through_public_",
+        "label": "Escalate the negotiation through public criticism",
+        "correct": false,
+        "rationale": "Hardens positions and can damage trust with other payers."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-commission",
+    "name": "European Commission, HERA and Member-State Health Ministries",
+    "icon": "🇪🇺",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "European Commission, HERA and Member-State Health Ministries shape pharmaceutical law, shortage policy, strategic procurement and industrial resilience. The immediate issue is critical-medicine supply, localisation, incentives and obligations under the legislative reform. Its decisions or actions can change exclusivity, procurement preference, reporting duties and manufacturing economics.",
+    "urgency_rationale": "The reform and resilience agenda affects portfolio and network choices now.",
+    "intel_dossier": [
+      "🔎 EU pharmaceutical legislation reform: The European Commission sets out the reform objectives and implementation direction. | https://health.ec.europa.eu/medicinal-products/reform-eu-pharmaceutical-legislation_en",
+      "🔎 Critical Medicines Act: EU policy focuses on medicine availability, supply resilience and production capacity. | https://health.ec.europa.eu/medicinal-products/critical-medicines-act_en",
+      "🔎 EU competition policy for pharmaceuticals: The Commission applies competition and state-aid rules to medicines and health services. | https://competition-policy.ec.europa.eu/sectors/pharmaceuticals-health-services/legislation_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied applies where the company is a reliable strategic supplier; legislative transition still calls for close management.",
+    "engagement_tactics": [
+      {
+        "id": "align_investment,_resilience_and_transit",
+        "label": "Align investment, resilience and transition milestones with European Commission, HERA and Member-State Health Ministries",
+        "correct": true,
+        "rationale": "Connects business commitments to public-policy outcomes and makes delivery auditable."
+      },
+      {
+        "id": "seek_an_informal_exemption_through_polit",
+        "label": "Seek an informal exemption through political contacts",
+        "correct": false,
+        "rationale": "Creates governance and reputational exposure without solving the underlying issue."
+      },
+      {
+        "id": "announce_investment_before_land,_technol",
+        "label": "Announce investment before land, technology and economics are validated",
+        "correct": false,
+        "rationale": "Overpromising weakens credibility and can trigger public backlash."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-patients",
+    "name": "European Patient Organisations and EURORDIS Networks",
+    "icon": "🫂",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "European Patient Organisations and EURORDIS Networks bring lived experience into regulatory, HTA and access decisions. The immediate issue is meaningful involvement, transparent evidence, equitable access and shortage communication. Its decisions or actions can influence regulators, HTA bodies, Parliament and public opinion.",
+    "urgency_rationale": "For rare or severe disease, access and evidence concerns carry immediate legitimacy.",
+    "intel_dossier": [
+      "🔎 EURORDIS: EURORDIS represents a large network of rare-disease patient organisations. | https://www.eurordis.org/",
+      "🔎 EU Health Technology Assessment: The HTA Regulation applies through joint clinical assessments and national reimbursement processes. | https://health.ec.europa.eu/health-technology-assessment_en",
+      "🔎 EMA pharmacovigilance: EMA coordinates safety monitoring with national authorities, patients and healthcare professionals. | https://www.ema.europa.eu/en/pharmacovigilance"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate for orphan products, contested endpoints or severe access gaps.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for European Patient Organisations and EURORDIS Networks",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-providers",
+    "name": "Hospitals, Prescribers and Hospital Pharmacists",
+    "icon": "⚕️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Hospitals, Prescribers and Hospital Pharmacists translate approvals and reimbursement into treatment pathways and medicine use. The immediate issue is clinical utility, formulary evidence, administration burden and dependable supply. Its decisions or actions can restrict use, redesign pathways or accelerate adoption.",
+    "urgency_rationale": "Shortages and hospital formulary decisions can change demand quickly.",
+    "intel_dossier": [
+      "🔎 EMA human medicines regulation: EMA coordinates the centralised authorisation and supervision of human medicines. | https://www.ema.europa.eu/en/human-regulatory-overview",
+      "🔎 EU Health Technology Assessment: The HTA Regulation applies through joint clinical assessments and national reimbursement processes. | https://health.ec.europa.eu/health-technology-assessment_en",
+      "🔎 Critical Medicines Act: EU policy focuses on medicine availability, supply resilience and production capacity. | https://health.ec.europa.eu/medicinal-products/critical-medicines-act_en"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed may suffice for stable primary-care products; specialist launches need close partnership.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Hospitals, Prescribers and Hospital Pharmacists",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-supply",
+    "name": "European CMOs, API Suppliers and Wholesalers",
+    "icon": "🚚",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "European CMOs, API Suppliers and Wholesalers provide manufacturing capacity, critical inputs, batch release and distribution continuity. The immediate issue is shortage prevention, geographic concentration, GMP compliance and cold-chain resilience. Its decisions or actions can cause EU-wide shortages or regulatory non-compliance.",
+    "urgency_rationale": "Supply resilience is an explicit EU policy priority and failures spread across borders.",
+    "intel_dossier": [
+      "🔎 Critical Medicines Act: EU policy focuses on medicine availability, supply resilience and production capacity. | https://health.ec.europa.eu/medicinal-products/critical-medicines-act_en",
+      "🔎 EudraLex: EudraLex is the EU body of pharmaceutical law and supporting guidance. | https://health.ec.europa.eu/medicinal-products/eudralex_en",
+      "🔎 EMA human medicines regulation: EMA coordinates the centralised authorisation and supervision of human medicines. | https://www.ema.europa.eu/en/human-regulatory-overview"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits non-critical components; sole-source or critical medicines require joint control.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with European CMOs, API Suppliers and Wholesalers",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-workforce",
+    "name": "Scientific Staff, Plant Workers and Works Councils",
+    "icon": "👩‍🔬",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Scientific Staff, Plant Workers and Works Councils hold specialised knowledge and formal consultation rights during operational change. The immediate issue is skills, restructuring, automation, safety and research integrity. Its decisions or actions can delay restructuring, lose critical knowledge or expose compliance weaknesses.",
+    "urgency_rationale": "Works-council timelines and scarce skills make late engagement costly.",
+    "intel_dossier": [
+      "🔎 EudraLex: EudraLex is the EU body of pharmaceutical law and supporting guidance. | https://health.ec.europa.eu/medicinal-products/eudralex_en",
+      "🔎 EU pharmaceutical legislation reform: The European Commission sets out the reform objectives and implementation direction. | https://health.ec.europa.eu/medicinal-products/reform-eu-pharmaceutical-legislation_en",
+      "🔎 EMA human medicines regulation: EMA coordinates the centralised authorisation and supervision of human medicines. | https://www.ema.europa.eu/en/human-regulatory-overview"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during site closure, transfer, major automation or collective bargaining.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Scientific Staff, Plant Workers and Works Councils",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-environment",
+    "name": "Environmental Authorities and Manufacturing Communities",
+    "icon": "🌿",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Environmental Authorities and Manufacturing Communities scrutinise emissions, antimicrobial releases, water use and local industrial impacts. The immediate issue is permit compliance, pollution prevention and credible environmental performance. Its decisions or actions can constrain sites, litigate permits or intensify public pressure.",
+    "urgency_rationale": "Environmental concerns are moving from voluntary ESG into operating requirements.",
+    "intel_dossier": [
+      "🔎 EU pharmaceutical legislation reform: The European Commission sets out the reform objectives and implementation direction. | https://health.ec.europa.eu/medicinal-products/reform-eu-pharmaceutical-legislation_en",
+      "🔎 EudraLex: EudraLex is the EU body of pharmaceutical law and supporting guidance. | https://health.ec.europa.eu/medicinal-products/eudralex_en",
+      "🔎 Critical Medicines Act: EU policy focuses on medicine availability, supply resilience and production capacity. | https://health.ec.europa.eu/medicinal-products/critical-medicines-act_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is justified at high-impact API sites or where permits are under review.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Environmental Authorities and Manufacturing Communities",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-investors",
+    "name": "European Investors, Banks and Stewardship Teams",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "European Investors, Banks and Stewardship Teams assess pipeline quality, regulatory transition, pricing and supply resilience. The immediate issue is capital allocation, exclusivity changes, litigation and transition capex. Its decisions or actions can reprice risk, restrict finance or challenge boards.",
+    "urgency_rationale": "Legislative reform and supply mandates can alter long-term cash flows.",
+    "intel_dossier": [
+      "🔎 EU pharmaceutical legislation reform: The European Commission sets out the reform objectives and implementation direction. | https://health.ec.europa.eu/medicinal-products/reform-eu-pharmaceutical-legislation_en",
+      "🔎 Critical Medicines Act: EU policy focuses on medicine availability, supply resilience and production capacity. | https://health.ec.europa.eu/medicinal-products/critical-medicines-act_en",
+      "🔎 EU competition policy for pharmaceuticals: The Commission applies competition and state-aid rules to medicines and health services. | https://competition-policy.ec.europa.eu/sectors/pharmaceuticals-health-services/legislation_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies around strategic portfolio decisions, large acquisitions or material regulatory events.",
+    "engagement_tactics": [
+      {
+        "id": "brief_european_investors,_banks_and_stew",
+        "label": "Brief European Investors, Banks and Stewardship Teams on material risks, capital needs, milestones and downside cases",
+        "correct": true,
+        "rationale": "Allows investors to test execution quality rather than rely on broad commitments."
+      },
+      {
+        "id": "describe_the_exposure_as_immaterial_unti",
+        "label": "Describe the exposure as immaterial until a charge is booked",
+        "correct": false,
+        "rationale": "Delayed disclosure increases surprise and credibility risk."
+      },
+      {
+        "id": "promise_a_fixed_outcome_that_management_",
+        "label": "Promise a fixed outcome that management cannot control",
+        "correct": false,
+        "rationale": "Overconfidence creates litigation and trust risk if regulation or markets change."
+      }
+    ]
+  },
+  {
+    "id": "eu-pharma-competition-data",
+    "name": "Competition, Data-Protection and Research-Ethics Authorities",
+    "icon": "⚖️",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Competition, Data-Protection and Research-Ethics Authorities oversee competition, privacy, data use, promotion and integrity of research relationships. The immediate issue is patient-data governance, AI use, collaborations, patent settlements and market conduct. Its decisions or actions can impose fines, constrain data models or unwind commercial practices.",
+    "urgency_rationale": "Exposure rises rapidly when digital health, AI or market concentration is central to strategy.",
+    "intel_dossier": [
+      "🔎 EU competition policy for pharmaceuticals: The Commission applies competition and state-aid rules to medicines and health services. | https://competition-policy.ec.europa.eu/sectors/pharmaceuticals-health-services/legislation_en",
+      "🔎 EudraLex: EudraLex is the EU body of pharmaceutical law and supporting guidance. | https://health.ec.europa.eu/medicinal-products/eudralex_en",
+      "🔎 EU pharmaceutical legislation reform: The European Commission sets out the reform objectives and implementation direction. | https://health.ec.europa.eu/medicinal-products/reform-eu-pharmaceutical-legislation_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is necessary for major data programmes, mergers or contested market practices.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with Competition, Data-Protection and Research-Ethics Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  }
+]

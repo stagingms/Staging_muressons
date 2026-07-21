@@ -105,7 +105,7 @@ function LearningHubCard({ notebook, onOpenPodcast, onOpenQuiz, onOpenReview, qu
 }
 
 
-export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClose }) {
+export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClose, onQuizComplete = null }) {
     const [resources, setResources] = useState({ new_this_round: [], archive: [], notebooklm_notebooks: [] });
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
@@ -271,6 +271,7 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
                 loading={quizLoading}
                 sessionId={sessionId}
                 notebookId={quizNb?.id || ''}
+                onQuizComplete={onQuizComplete}
             />
 
             {/* ═══ Inline Review Viewer ═══ */}

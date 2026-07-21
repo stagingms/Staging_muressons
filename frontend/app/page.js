@@ -932,8 +932,12 @@ export default function CockpitPage() {
   const hasDecision = isPillarMode
     ? Object.keys(pillarSelections).length > 0
     : !!decisionChoice;
+  // Mandatory-quiz gate: when the cohort marks quizzes mandatory, a round that
+  // carries a quiz notebook blocks committing until the player has taken it.
+  // Server-resolved and surfaced on globalState.quiz_gate (fail-open).
+  const quizGateBlocked = globalState?.quiz_gate?.blocked === true;
   // Gate enforcement: R1 stakeholder map and R2 materiality matrix are mandatory in ALL modes
-  const isCommitBlocked = (roundNumber === 2 && !hasSubmittedMatrix) || (roundNumber === 1 && !hasCompletedStakeholderMap) || !hasDecision || Object.keys(allocations).length === 0;
+  const isCommitBlocked = (roundNumber === 2 && !hasSubmittedMatrix) || (roundNumber === 1 && !hasCompletedStakeholderMap) || quizGateBlocked || !hasDecision || Object.keys(allocations).length === 0;
 
   // Mailbox messages for the new cockpit (local crisis + facilitator messages)
   // Messages ACCUMULATE across rounds so previous rounds are available in accordion
@@ -1171,6 +1175,9 @@ export default function CockpitPage() {
       setBlockAlert("You must complete the Stakeholder Power/Interest Grid before advancing. Click the ⚖️ Stakeholder Map button to begin.");
     } else if (roundNumber === 2 && !hasSubmittedMatrix) {
       setBlockAlert("You must complete and submit the CSRD Materiality Assessment before advancing.");
+    } else if (quizGateBlocked) {
+      const qt = globalState?.quiz_gate?.required_title;
+      setBlockAlert(`This round's quiz is mandatory${qt ? ` (“${qt}”)` : ''}. Open 📚 Resources and complete the quiz before committing your decisions.`);
     } else if (!hasDecision) {
       setBlockAlert(isPillarMode
         ? "You must select at least one strategic pillar action before committing your turn."
@@ -1709,11 +1716,22 @@ export default function CockpitPage() {
                     method: 'POST', headers: { 'Content-Type': 'application/json', ...playerIdHeader() }, body: JSON.stringify(payload)
                   });
                 } catch {
-                  return { error: 'Network error submitting matrix. Please try again.' };
+                  return { error: 'Network error submitting matrix. Please try again.', overridable: false };
                 }
                 let data = {};
                 try { data = await res.json(); } catch { /* tolerate empty / non-JSON body */ }
-                if (!res.ok) return { error: data.detail || 'Submission failed. Please try again.' };
+                if (!res.ok) {
+                  // "Force Override" is only a legitimate response to the CFO
+                  // materiality GATE — a 400 rejecting non-material issues in Q1.
+                  // Any other failure (500, 403, 404, network) must NOT offer an
+                  // override that just re-submits the identical payload: that is
+                  // exactly what turned a transient/server error into the
+                  // recurring double-materiality loop.
+                  return {
+                    error: data.detail || 'Submission failed. Please try again.',
+                    overridable: res.status === 400,
+                  };
+                }
 
                 // Success is now committed server-side — record it before anything that
                 // can fail, so a flaky refresh can never trigger a re-do.
@@ -1760,6 +1778,7 @@ export default function CockpitPage() {
         roundNumber={roundNumber}
         isOpen={resourceSidebarOpen}
         onClose={() => setResourceSidebarOpen(false)}
+        onQuizComplete={() => { if (sim.fetchDashboard) sim.fetchDashboard(sim.sessionId); }}
       />
 
       {sim.error && (

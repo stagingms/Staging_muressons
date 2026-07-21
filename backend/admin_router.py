@@ -10,15 +10,9 @@ import itertools
 import json
 import asyncio
 import hmac
-import logging as _ar_logging
 import time
 import collections
 import importlib
-
-# Railway audit §4.5: operational prints (security bypass notices, scheduler
-# and god-mode actions) now go through a leveled logger instead of bare
-# stdout, so production log filtering and alerting can see them.
-_ar_log = _ar_logging.getLogger("muressons.admin")
 import threading
 import copy
 import uuid
@@ -147,26 +141,13 @@ async def _assert_session_ownership(request: Request, session_id: str) -> None:
         )
 
 
-def _reject_anonymous(role: str) -> None:
-    """BUG-2026-07-18: an expired/invalidated cookie must surface as 401
-    'session expired', NOT as a role-based 403. Before this, a facilitator
-    whose cookie died (JWT expiry, or a restart under the old ephemeral
-    secret) got e.g. 'Registry-admin access required' while the dashboard
-    still looked logged in — misdiagnosing an auth problem as a role problem.
-    401 also lets the frontend distinguish 'log in again' from 'not allowed'."""
-    if role == 'anonymous':
-        raise HTTPException(status_code=401, detail='Session expired — please log in again')
-
-
 def require_super_admin(role: str = Depends(get_fac_role)):
     """Allow super_admin only. Uses hierarchy level to handle 'admin' alias correctly."""
-    _reject_anonymous(role)
     if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('super_admin', 3):
         raise HTTPException(status_code=403, detail='Super Admin required')
 
 def require_lead_facilitator(role: str = Depends(get_fac_role)):
     """Allow lead_facilitator and super_admin. Blocks base facilitator and anonymous."""
-    _reject_anonymous(role)
     if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('lead_facilitator', 2):
         raise HTTPException(status_code=403, detail='Lead Facilitator or higher required')
 
@@ -181,7 +162,6 @@ def require_registry_admin(role: str = Depends(get_fac_role)):
     facilitator provisioning endpoints (create / bulk / Excel upload).
     C6: uses is_admin_role so the distinct god_mode tier is admitted, not just
     the literal 'super_admin' string."""
-    _reject_anonymous(role)
     if not (is_admin_role(role) or role == "project_admin"):
         raise HTTPException(status_code=403, detail='Registry-admin access required')
 
@@ -244,6 +224,8 @@ from admin_shared import (
     cohort_settings, COHORT_OVERRIDABLE_KEYS, get_effective_settings,
     normalize_advanced_cohort_settings,
     _cohort_templates,
+    get_virtual_profile,
+    mark_cohort_settings_dirty,
     resolve_climate_paradigm, seed_effective_flags,
     project_effective, visible_keys_for_role, bu_scope_source,
     _facilitator_registry, _persist_facilitators, _load_facilitator_registry,
@@ -269,9 +251,6 @@ from admin_shared import (
     get_token_version, bump_token_version,
     # Shared marketplace (used by cascade delete cleanup)
     _cohort_marketplaces,
-)
-from player_capacity import (
-    MAX_PLAYERS_CEILING, DEFAULT_MAX_PLAYERS, resolve_max_players, capacity_error,
 )
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin \u2014 God Mode"])
@@ -305,10 +284,6 @@ class FacilitatorCreateRequest(BaseModel):
     shockwave_enabled: bool = True   # Feature 6: allow this facilitator to detonate synchronized shockwaves
     trading_floor_enabled: bool = True   # Feature 1: allow this facilitator to run the Trading-Floor finale console
     situation_room_enabled: bool = True   # W-D (W4): allow this facilitator to fire Situation-Room voice bulletins
-    # Stakeholder Negotiation Rooms — OPT-IN (default False, unlike the
-    # always-on consoles): a super admin grants it per facilitator, and only
-    # then may that facilitator enable the feature for their own cohorts.
-    negotiation_rooms_enabled: bool = False
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -333,7 +308,6 @@ class FacilitatorUpdateRequest(BaseModel):
     shockwave_enabled: bool | None = None   # Feature 6 per-facilitator capability
     trading_floor_enabled: bool | None = None   # Feature 1 per-facilitator capability
     situation_room_enabled: bool | None = None   # W-D (W4) per-facilitator capability
-    negotiation_rooms_enabled: bool | None = None   # Negotiation Rooms per-facilitator capability (opt-in)
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
@@ -368,6 +342,10 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         # ambiguous simulation_mode for the Timeline-Branch toggle.
         "climate_paradigm": resolve_climate_paradigm(s),
         "front_page_enabled": s.get("front_page_enabled", True),  # Feature 5 toggle (player-readable)
+        # Briefing videos (Read | Watch on round briefings) — player-readable;
+        # cohort-effective via GOD-012. URLs only; empty/{} = text-only briefings.
+        "briefing_video_base": s.get("briefing_video_base", ""),
+        "briefing_videos": s.get("briefing_videos", {}) or {},
         "consequence_replay_enabled": s.get("consequence_replay_enabled", True),  # WOW-1: post-commit causal chain animation
         "global_carbon_fee": s.get("global_carbon_fee", 40),
         "market_hostility_index": s.get("market_hostility_index", 5),
@@ -405,10 +383,6 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         # Results-view Decision Consequence Map (ConsequenceTimeline). Player-readable;
         # fail-open (default ON) so existing cohorts keep the map unless turned off.
         "consequence_map_enabled": s.get("consequence_map_enabled", True),
-        # Briefing videos (player Read|Watch choice). URLs only — media is
-        # hosted externally, never committed to git.
-        "briefing_video_base": s.get("briefing_video_base", ""),
-        "briefing_videos": s.get("briefing_videos", {}),
         # ESG Leadership Profile signal weights (facilitator-tunable rubric).
         "esg_profile_weights": s.get("esg_profile_weights", DEFAULT_ESG_WEIGHTS),
         "mental_model_tracker_enabled": s.get("mental_model_tracker_enabled", True),
@@ -418,10 +392,6 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         "strategy_memo_enabled": s.get("strategy_memo_enabled", False),
         "what_if_builder_enabled": s.get("what_if_builder_enabled", False),
         "custom_crisis_enabled": s.get("custom_crisis_enabled", False),
-        # Custom Black Swan Injector unlock (super-admin sets per cohort).
-        "custom_black_swan_enabled": s.get("custom_black_swan_enabled", False),
-        # Stakeholder Negotiation Rooms (player-readable: the rail needs it).
-        "negotiation_rooms_enabled": s.get("negotiation_rooms_enabled", False),
         "round_recap_enabled": s.get("round_recap_enabled", False),
         "real_world_cards_enabled": s.get("real_world_cards_enabled", False),
         "real_world_cards_teleprompter": s.get("real_world_cards_teleprompter", True),
@@ -508,7 +478,6 @@ class GlobalSettingsPatch(BaseModel):
     what_if_builder_enabled: bool | None = None
     briefing_theory_enabled: bool | None = None  # player briefing academic framing (default off)
     custom_crisis_enabled: bool | None = None
-    negotiation_rooms_enabled: bool | None = None  # Stakeholder Negotiation Rooms
     round_recap_enabled: bool | None = None
     real_world_cards_enabled: bool | None = None
     real_world_cards_teleprompter: bool | None = None
@@ -547,12 +516,6 @@ class GlobalSettingsPatch(BaseModel):
     foreshadowing_signals_enabled: bool | None = None
     # Single-BU mode override (empty string = all BUs)
     assigned_bu: str | None = None
-    # Briefing videos (player Read|Watch): URL-only config, media hosted
-    # externally. Global defaults here; per-cohort overrides go through
-    # POST /sessions/{sid}/briefing-videos. Settable via API so nobody has to
-    # hand-edit memory_snapshot.json + restart to configure them.
-    briefing_video_base: str | None = None
-    briefing_videos: dict[str, str] | None = None
     # I5 (Workstream E): free-text justification. REQUIRED when the caller is the
     # god_mode break-glass identity; ignored (optional) for named super_admins.
     reason: str | None = None
@@ -581,14 +544,6 @@ async def patch_global_settings(body: GlobalSettingsPatch, request: Request, _gu
     update_data = body.model_dump(exclude_unset=True)
     # `reason` is audit metadata, not a persisted setting — strip before write.
     _reason = update_data.pop("reason", None)
-    # Briefing videos: normalise like the per-cohort endpoint — numeric round
-    # keys only, blank URLs dropped (an all-blank map clears the setting).
-    if isinstance(update_data.get("briefing_videos"), dict):
-        update_data["briefing_videos"] = {
-            str(int(k)): str(v).strip()
-            for k, v in update_data["briefing_videos"].items()
-            if str(k).strip().isdigit() and str(v).strip()
-        }
     # C6: dual-write the climate branch. Legacy clients send simulation_mode
     # in {standard, advanced_climate}; new clients send climate_paradigm. Keep
     # both in sync so every reader (old and new) resolves the same branch.
@@ -807,22 +762,11 @@ async def patch_cohort_settings(
     except Exception:
         pass
 
-    # BUG-2026-07-19 (pattern A): resolve the role from the SIGNED TOKEN, not
-    # the registry record. The virtual identities (god_mode, project_admin)
-    # have no registry row, so the old `get_role(caller_fac) if caller_fac else
-    # "facilitator"` silently demoted god_mode to "facilitator". Here that
-    # merely worked by accident (the lead-only filter didn't fire); relying on
-    # an accident is how the capability gate below broke. Decide on the level.
-    caller_role = get_fac_role(request)
+    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
 
     # HIGH-tier advanced controls: coerce/clamp before any filtering or persistence.
     body = normalize_advanced_cohort_settings(body)
 
-    # Captured BEFORE any role filtering so the capability gate below can tell
-    # "asked and not allowed" from "never asked" (see the 403 further down).
-    _nego_requested = body.get("negotiation_rooms_enabled")
-
-    _lead_blocked: list[str] = []   # keys a lead's role filter refused (pattern B)
     # lead_facilitators may only touch freeze keys and specific simulation parameters for sessions they own
     _LEAD_FAC_KEYS = frozenset({
         "system_frozen", "freeze_message", "freeze_started_at",
@@ -843,43 +787,12 @@ async def patch_cohort_settings(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only modify cohort settings for sessions you own.",
             )
-        # Restrict to lead facilitator allowed keys. The Negotiation Rooms key
-        # is added ONLY for a lead whose profile carries the super-admin-granted
-        # capability — that grant is precisely what makes the feature
-        # self-serve for them (without it the key would be silently dropped,
-        # which reads as a broken toggle; the explicit 403 below is clearer).
-        _lead_keys = set(_LEAD_FAC_KEYS)
-        if (caller_fac or {}).get("negotiation_rooms_enabled", False):
-            _lead_keys.add("negotiation_rooms_enabled")
-        # BUG-2026-07-19 (pattern B): this filter used to drop non-lead keys
-        # SILENTLY and — because it ran before the rejected-key computation —
-        # they never appeared in the response either. A lead PATCHing e.g.
-        # ceo_interview_enabled got 200 + an empty rejection list while nothing
-        # changed: a toggle that lies. Record them and report below.
-        _lead_blocked = sorted(k for k in body if k not in _lead_keys)
-        body = {k: v for k, v in body.items() if k in _lead_keys}
+        # Restrict to lead facilitator allowed keys
+        body = {k: v for k, v in body.items() if k in _LEAD_FAC_KEYS}
 
     # Filter to allow-listed keys only
     safe_body = {k: v for k, v in body.items() if k in COHORT_OVERRIDABLE_KEYS}
     rejected_keys = [k for k in body if k not in COHORT_OVERRIDABLE_KEYS]
-
-    # ── Per-facilitator capability gate: Negotiation Rooms ──────────────────
-    # Opt-in per facilitator (granted by a super admin on the registry record).
-    # Checked against the ORIGINAL request, not the filtered body, so an
-    # ungranted caller gets an explanation instead of a silent no-op. Admin
-    # roles (super_admin / god_mode) always pass.
-    # NOTE: caller_role above is derived from the REGISTRY record, so it is
-    # "facilitator" for the virtual god_mode/project_admin identities. Use the
-    # canonical signed-token resolver for the admin bypass (CLAUDE.md role
-    # convention 1: decide on the level via is_admin_role, never on a string
-    # that can silently miss god_mode).
-    if _nego_requested is True and not is_admin_role(get_fac_role(request)):
-        if not (caller_fac or {}).get("negotiation_rooms_enabled", False):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Stakeholder Negotiation Rooms are not enabled for your facilitator profile. "
-                       "A super admin can grant this capability in the Facilitator Registry.",
-            )
 
     if session_id not in cohort_settings:
         cohort_settings[session_id] = {}
@@ -919,13 +832,16 @@ async def patch_cohort_settings(
                         child_flags.pop("stochastic_seed", None)
                     await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
         except Exception as _e:  # never fail the settings write on a stamping hiccup
-            _ar_log.warning(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
+            print(f"[cohort-settings] rng_seed stamp skipped for {session_id}: {_e}")
+
+    # Durably persist the override to the volume so it survives redeploys /
+    # restarts in both memory and Postgres backends.
+    mark_cohort_settings_dirty()
 
     _audit("cohort_settings_patched", details={
         "session_id": session_id,
         "applied": safe_body,
         "rejected_non_overridable": rejected_keys,
-        "rejected_for_role": _lead_blocked,
         "caller_role": caller_role,
     })
 
@@ -942,9 +858,6 @@ async def patch_cohort_settings(
         "session_id": session_id,
         "applied": safe_body,
         "rejected_non_overridable": rejected_keys,
-        # Keys the caller's ROLE may not set (pattern-B fix): previously these
-        # vanished with a 200 and an empty rejection list.
-        "rejected_for_role": _lead_blocked,
         "overrides": cohort_settings[session_id],
         "effective": get_effective_settings(session_id),
     }
@@ -964,6 +877,7 @@ async def delete_cohort_settings(
     per-cohort overrides. super_admin only.
     """
     removed = cohort_settings.pop(session_id, {})
+    mark_cohort_settings_dirty()  # persist the removal to the durable volume
     _audit("cohort_settings_reset", details={"session_id": session_id, "removed_keys": list(removed.keys())})
 
     await manager.push_to_session(session_id, {
@@ -1041,10 +955,7 @@ async def create_cohort_template(body: CohortTemplateCreateRequest, request: Req
         "source_session_id": body.source_session_id,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    try:
-        db._persist()  # snapshot templates immediately (memory backend)
-    except Exception:
-        pass
+    mark_cohort_settings_dirty()  # persist templates to the durable volume
     _audit("cohort_template_created", details={
         "template_id": template_id, "name": name,
         "source_session_id": body.source_session_id, "keys": sorted(settings.keys()),
@@ -1058,10 +969,7 @@ async def delete_cohort_template(template_id: str, _guard: None = Depends(requir
     removed = _cohort_templates.pop(template_id, None)
     if removed is None:
         raise HTTPException(status_code=404, detail="Template not found.")
-    try:
-        db._persist()
-    except Exception:
-        pass
+    mark_cohort_settings_dirty()  # persist the removal to the durable volume
     _audit("cohort_template_deleted", details={"template_id": template_id, "name": removed.get("name", "")})
     return {"status": "ok", "template_id": template_id}
 
@@ -1086,6 +994,49 @@ async def apply_cohort_template(template_id: str, session_id: str, request: Requ
             "session_id": session_id,
             "applied": result.get("applied", {}),
             "effective": result.get("effective", {})}
+
+
+# ── Briefing videos (Read | Watch on round briefings) ────────────────────────
+class BriefingVideosRequest(BaseModel):
+    briefing_video_base: str | None = None
+    briefing_videos: dict | None = None
+
+
+@admin_router.post("/sessions/{session_id}/briefing-videos",
+                   summary="Set per-cohort briefing video URLs")
+async def set_briefing_videos(session_id: str, body: BriefingVideosRequest,
+                              _guard: None = Depends(require_facilitator)):
+    """Store the cohort's briefing-video config (URL pattern + per-round map)
+    in the per-cohort settings layer, through the same normalisation as any
+    settings write (http(s)-only URLs, rounds 1–10). Players read it back via
+    GET /global-settings?session_id=… and get a Read | Watch choice on each
+    round briefing. Facilitator-level access: configuring a cohort's media is
+    provisioning work, so project_admin is deliberately allowed too."""
+    payload = {}
+    if body.briefing_video_base is not None:
+        payload["briefing_video_base"] = body.briefing_video_base
+    if body.briefing_videos is not None:
+        payload["briefing_videos"] = body.briefing_videos
+    if not payload:
+        raise HTTPException(status_code=422, detail="Nothing to save — provide briefing_video_base and/or briefing_videos.")
+
+    clean = normalize_advanced_cohort_settings(payload)
+    cohort_settings.setdefault(session_id, {}).update(
+        {k: v for k, v in clean.items() if k in COHORT_OVERRIDABLE_KEYS}
+    )
+    mark_cohort_settings_dirty()  # durable across redeploys in both backends
+    _audit("briefing_videos_updated", details={
+        "session_id": session_id,
+        "briefing_video_base": clean.get("briefing_video_base"),
+        "rounds_configured": sorted((clean.get("briefing_videos") or {}).keys()),
+    })
+    eff = get_effective_settings(session_id)
+    return {
+        "status": "ok",
+        "session_id": session_id,
+        "briefing_video_base": eff.get("briefing_video_base", ""),
+        "briefing_videos": eff.get("briefing_videos", {}) or {},
+    }
 
 
 @admin_router.get("/scaffolding-status", summary="Get active pedagogical scaffolding features (read-only)")
@@ -1193,7 +1144,7 @@ async def update_facilitator_role(
     master_ok = verify_master_password(caller_password)
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
+        print(f"[SECURITY] MASTER_PASSWORD used for role change by caller={caller_fac_id}")
 
     if not master_ok:
         # Look up the facilitator in the registry and verify their bcrypt hash
@@ -1459,7 +1410,7 @@ async def add_archetype(body: dict = Body(...), _guard: None = Depends(require_s
         customs[existing_idx] = archetype
     else:
         customs.append(archetype)
-    _ar_log.info(f"[god-mode] Archetype added/updated: {key}")
+    print(f"[god-mode] Archetype added/updated: {key}")
     return {"status": "ok", "archetype": archetype}
 
 
@@ -1484,7 +1435,7 @@ async def update_archetype(key: str, body: dict = Body(...), _guard: None = Depe
         customs[idx]["requires_solvent"] = bool(body["requires_solvent"])
     customs[idx]["is_default"] = False
     mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
-    _ar_log.info(f"[god-mode] Archetype updated: {key}")
+    print(f"[god-mode] Archetype updated: {key}")
     return {"status": "ok", "archetype": customs[idx]}
 
 
@@ -1496,7 +1447,7 @@ async def delete_archetype(key: str, _guard: None = Depends(require_super_admin)
     if len(_god_mode_settings["custom_archetypes"]) == before:
         raise HTTPException(404, f"Custom archetype '{key}' not found (defaults cannot be deleted, only overridden)")
     mark_godmode_dirty()  # QA-2026-07-16 #5: publish god-mode change to workers + snapshot
-    _ar_log.info(f"[god-mode] Archetype deleted: {key}")
+    print(f"[god-mode] Archetype deleted: {key}")
     return {"status": "deleted", "key": key}
 
 
@@ -1582,7 +1533,7 @@ async def switch_session_ending_pathway(session_id: str, request: Request, body:
             child_gs.setdefault("active_event_flags", {})["ending_pathway"] = new_pathway
             await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
 
-    _ar_log.info(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
+    print(f"[god-mode] Ending pathway switched to '{new_pathway}' for session {session_id}")
     return {
         "status": "ok",
         "session_id": session_id,
@@ -1634,7 +1585,7 @@ async def configure_cohort_interview(session_id: str, request: Request, body: di
                 child_flags["ceo_interview_voice_gender"] = flags.get("ceo_interview_voice_gender", "female")
             await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
 
-    _ar_log.info(f"[god-mode] CEO Interview config updated for session {session_id}: {', '.join(updated_fields)}")
+    print(f"[god-mode] CEO Interview config updated for session {session_id}: {', '.join(updated_fields)}")
     return {
         "status": "ok",
         "session_id": session_id,
@@ -1730,7 +1681,6 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
             "shockwave_enabled": req.shockwave_enabled if req.shockwave_enabled is not None else True,  # Feature 6
             "trading_floor_enabled": req.trading_floor_enabled if req.trading_floor_enabled is not None else True,  # Feature 1
             "situation_room_enabled": req.situation_room_enabled if req.situation_room_enabled is not None else True,  # W-D (W4)
-            "negotiation_rooms_enabled": req.negotiation_rooms_enabled is True,  # opt-in capability
             "permissions": req.permissions or default_perms,
             "created_by": req.created_by or "",
             "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -1756,7 +1706,6 @@ _BULK_UPLOAD_COLUMNS = [
     "max_cohorts", "decision_paradigm", "role", "ending_pathway",
     "simulation_mode", "industry_vertical", "side_tracks",
     "shockwave_enabled", "trading_floor_enabled", "situation_room_enabled",
-    "negotiation_rooms_enabled",
 ]
 
 # Friendly header aliases accepted in either upload path (case/space tolerant).
@@ -1767,7 +1716,6 @@ _BULK_UPLOAD_ALIASES = {
     "mode": "simulation_mode", "vertical": "industry_vertical", "tracks": "side_tracks",
     "side_track": "side_tracks", "shockwave": "shockwave_enabled",
     "trading_floor": "trading_floor_enabled", "situation_room": "situation_room_enabled",
-    "negotiation": "negotiation_rooms_enabled", "negotiation_rooms": "negotiation_rooms_enabled",
 }
 
 
@@ -1875,7 +1823,6 @@ def _parse_bulk_upload_sheet(raw: bytes):
             "industry_vertical": cell("industry_vertical"),
             "side_tracks": _bulk_list(cell("side_tracks")),
             "shockwave_enabled": _bulk_bool(cell("shockwave_enabled", "true")),
-            "negotiation_rooms_enabled": _bulk_bool(cell("negotiation_rooms_enabled", "false"), default=False),
             "trading_floor_enabled": _bulk_bool(cell("trading_floor_enabled", "true")),
             "situation_room_enabled": _bulk_bool(cell("situation_room_enabled", "true")),
         })
@@ -1961,7 +1908,6 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
                 "is_admin": is_admin_role(_role),
                 "enabled": True,
                 "shockwave_enabled": parsed.get("shockwave_enabled", True),
-                "negotiation_rooms_enabled": parsed.get("negotiation_rooms_enabled", False) is True,
                 "trading_floor_enabled": parsed.get("trading_floor_enabled", True),
                 "situation_room_enabled": parsed.get("situation_room_enabled", True),
                 "permissions": {
@@ -1986,381 +1932,6 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
         "total_errors": len(errors),
         "credential_note": "All facilitators start with the default password Muressons123 and must change it on first login.",
     }
-
-# ═══════════════════════════════════════════════════════════════════════════
-#  BULK PLAYER PROVISIONING
-#
-#  Two entry points, deliberately on different guards (CLAUDE.md §Role model):
-#
-#    * /{session_id}/players/bulk-*  operates on a LIVE RUN's roster, so it
-#      gates on require_sim_manager — project_admin must not touch a running
-#      cohort's players.
-#    * /provisioning/master-*        is provisioning, which is exactly what
-#      project_admin exists to do, so it gates on require_facilitator.
-#
-#  Both are all-or-nothing: PREVIEW is a separate route rather than a
-#  `dry_run` flag, so an older backend answers 404 and the frontend degrades
-#  instead of accidentally committing an unreviewed file.
-# ═══════════════════════════════════════════════════════════════════════════
-
-def _xlsx_response(build_fn, filename: str):
-    """Build a template into a temp file and stream it back."""
-    import tempfile, pathlib
-    from io import BytesIO
-    from fastapi.responses import StreamingResponse
-    tmp = pathlib.Path(tempfile.mkdtemp()) / filename
-    build_fn(tmp)
-    buf = BytesIO(tmp.read_bytes())
-    try:
-        tmp.unlink()
-        tmp.parent.rmdir()
-    except OSError:
-        pass
-    return StreamingResponse(
-        buf,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-    )
-
-
-async def _remaining_capacity(session_id: str) -> tuple[int, int, int]:
-    """(limit, used, remaining) for a cohort. Counts registered_players, which
-    is the durable roster the generate-player path also counts."""
-    sess = await db.get_session_info(session_id)
-    if not sess:
-        raise HTTPException(404, "Session not found.")
-    limit = resolve_max_players(get_effective_settings(session_id))
-    used = len(sess.get("registered_players", []) or [])
-    return limit, used, max(0, limit - used)
-
-
-@admin_router.get("/players/bulk-template", summary="Download the single-cohort player roster template")
-async def players_bulk_template(_guard: None = Depends(require_sim_manager)):
-    from player_bulk_excel import build_player_template
-    return _xlsx_response(build_player_template, "muressons_player_roster_template.xlsx")
-
-
-@admin_router.post("/{session_id}/players/bulk-preview", summary="Parse a player roster WITHOUT creating anything")
-async def players_bulk_preview(session_id: str, request: Request, file: UploadFile = File(...),
-                               _guard: None = Depends(require_sim_manager)):
-    from player_bulk_excel import parse_player_sheet, BulkPlayerError
-    await _assert_session_ownership(request, session_id)
-    limit, used, remaining = await _remaining_capacity(session_id)
-    raw = await file.read()
-    try:
-        players = parse_player_sheet(raw, limit=remaining)
-    except BulkPlayerError as exc:
-        return {"ok": False, "errors": exc.errors, "message": str(exc),
-                "limit": limit, "used": used, "remaining": remaining, "players": []}
-    return {"ok": True, "errors": [], "players": players, "total": len(players),
-            "limit": limit, "used": used, "remaining": remaining,
-            "note": "Nothing was created. POST the same file to bulk-upload to create these players."}
-
-
-@admin_router.post("/{session_id}/players/bulk-upload", summary="Create up to 20 players in one cohort from Excel")
-async def players_bulk_upload(session_id: str, request: Request, file: UploadFile = File(...),
-                              _guard: None = Depends(require_sim_manager)):
-    """All-or-nothing: the sheet is fully validated (including capacity) before
-    the first player is created, so a rejected file leaves the roster untouched."""
-    from player_bulk_excel import parse_player_sheet, BulkPlayerError
-    await _assert_session_ownership(request, session_id)
-    limit, used, remaining = await _remaining_capacity(session_id)
-    raw = await file.read()
-    try:
-        parsed = parse_player_sheet(raw, limit=remaining)
-    except BulkPlayerError as exc:
-        raise HTTPException(400, {"message": str(exc), "errors": exc.errors})
-
-    created = await _create_players_bulk(session_id, parsed)
-    _audit("players_bulk_upload", details={
-        "session_id": session_id, "created": len(created), "filename": file.filename,
-    })
-    return {"status": "success", "created": created, "total_created": len(created),
-            "limit": limit, "used": used + len(created),
-            "credential_note": "Each player has a random temporary password, "
-                               "visible in the Player Registry until they change it."}
-
-
-async def _create_players_bulk(session_id: str, parsed: list[dict]) -> list[dict]:
-    """Create the parsed rows against one cohort. Callers validate FIRST.
-
-    Mirrors induct_player's record shape exactly rather than calling it: that
-    endpoint is a FastAPI handler with its own guard and its own duplicate-name
-    check against _player_registry, and re-entering it per row would re-run the
-    capacity check with a stale count. The shared shape is the contract; the
-    tripwire test asserts the two stay in step.
-    """
-    global _next_player_id
-    sess = await db.get_session_info(session_id)
-    cohort_name = (sess or {}).get("cohort_name", "")
-    allowed = list((sess or {}).get("allowed_player_ids", []) or [])
-    registered = list((sess or {}).get("registered_players", []) or [])
-
-    created = []
-    for rec in parsed:
-        pid = f"MUR-{_next_player_id:03d}"
-        _next_player_id += 1
-        plaintext, hashed = _generate_temp_password()
-        player = {
-            "player_id": pid,
-            "name": rec["name"],
-            "email": rec["email"],
-            "programme": rec["programme"],
-            "assigned_bu": rec["assigned_bu"],
-            "region_id": rec["region_id"],
-            "session_id": session_id,
-            "cohort_name": cohort_name,
-            "password": hashed,
-            "plaintext_password": plaintext,   # revealable until first change
-            "must_change_password": True,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "status": "playing",
-        }
-        _player_registry.append(player)
-        if pid not in allowed:
-            allowed.append(pid)
-        registered.append(player.copy())
-        created.append({"player_id": pid, "name": rec["name"], "email": rec["email"],
-                        "programme": rec["programme"], "temp_password": plaintext})
-
-    # ONE durable write for the whole batch, not one per player: twenty
-    # sequential update_session_metadata round-trips against Postgres is the
-    # kind of thing that times out a Railway request.
-    await db.update_session_metadata(session_id, {
-        "allowed_player_ids": allowed,
-        "registered_players": registered,
-    })
-    return created
-
-
-@admin_router.get("/provisioning/master-template", summary="Download the facilitators+cohorts+players master template")
-async def provisioning_master_template(_guard: None = Depends(require_facilitator)):
-    from player_bulk_excel import build_master_template
-    return _xlsx_response(build_master_template, "muressons_master_provisioning_template.xlsx")
-
-
-def _resolve_master_refs(request: Request, parsed: dict) -> list[dict]:
-    """Cross-check refs that point OUTSIDE the workbook, and scope roles.
-
-    Returns the error list (empty when clean). Kept separate from parsing
-    because it needs server state (the facilitator registry, the caller's role)
-    that the pure Excel parser must not depend on.
-    """
-    errors: list[dict] = []
-    grantable = assignable_roles_for(get_fac_role(request))
-    known_ids = {f.get("facilitator_id", "").lower() for f in _facilitator_registry}
-    new_refs = {f["ref"].strip().lower() for f in parsed["facilitators"]}
-
-    for f in parsed["facilitators"]:
-        if f["role"] not in grantable:
-            # Downgrade rather than reject: the roster is still valid and the
-            # operator is TOLD, which beats failing a 300-row import over a
-            # role the uploader was never allowed to grant anyway.
-            f["role_requested"] = f["role"]
-            f["role"] = "facilitator"
-
-    for c in parsed["cohorts"]:
-        key = c["facilitator_ref"].strip().lower()
-        if key in new_refs:
-            continue
-        if key in known_ids:
-            c["facilitator_is_new"] = False
-            continue
-        errors.append({
-            "sheet": "Cohorts", "row": c["row"],
-            "error": (f"facilitator_ref '{c['facilitator_ref']}' is neither a ref on the "
-                      f"Facilitators sheet nor an existing facilitator id"),
-        })
-    return errors
-
-
-@admin_router.post("/provisioning/master-preview", summary="Parse the master workbook WITHOUT creating anything")
-async def provisioning_master_preview(request: Request, file: UploadFile = File(...),
-                                      _guard: None = Depends(require_facilitator)):
-    from player_bulk_excel import parse_master_workbook, BulkPlayerError
-    raw = await file.read()
-    try:
-        parsed = parse_master_workbook(raw)
-    except BulkPlayerError as exc:
-        return {"ok": False, "errors": exc.errors, "message": str(exc)}
-    errors = _resolve_master_refs(request, parsed)
-    if errors:
-        return {"ok": False, "errors": errors,
-                "message": f"{len(errors)} error(s) — nothing was created."}
-    downgraded = [f for f in parsed["facilitators"] if f.get("role_requested")]
-    return {
-        "ok": True, "errors": [],
-        "facilitators": parsed["facilitators"],
-        "cohorts": parsed["cohorts"],
-        "players": parsed["players"],
-        "totals": {
-            "facilitators": len(parsed["facilitators"]),
-            "cohorts": len(parsed["cohorts"]),
-            "players": len(parsed["players"]),
-        },
-        "warnings": [
-            f"{f['name']}: requested role '{f['role_requested']}' is above your tier — "
-            f"will be created as 'facilitator'." for f in downgraded
-        ],
-        "note": "Nothing was created. POST the same file to master-upload to commit.",
-    }
-
-
-@admin_router.post("/provisioning/master-upload", summary="Create facilitators, cohorts and players from one workbook")
-async def provisioning_master_upload(request: Request, file: UploadFile = File(...),
-                                     _guard: None = Depends(require_facilitator)):
-    """All-or-nothing across all three sheets.
-
-    Validation is total BEFORE the first write. Once writing begins the three
-    creates are ordered (facilitators → cohorts → players) so a later step can
-    always cite an earlier one; if a create nonetheless fails mid-way, the
-    partial work is rolled back in reverse order and a 500 is raised naming the
-    step, because leaving half a programme provisioned is the failure mode this
-    contract exists to prevent.
-    """
-    import re as _re
-    from player_bulk_excel import parse_master_workbook, BulkPlayerError
-
-    raw = await file.read()
-    try:
-        parsed = parse_master_workbook(raw)
-    except BulkPlayerError as exc:
-        raise HTTPException(400, {"message": str(exc), "errors": exc.errors})
-    ref_errors = _resolve_master_refs(request, parsed)
-    if ref_errors:
-        raise HTTPException(400, {
-            "message": f"{len(ref_errors)} error(s) — nothing was created.",
-            "errors": ref_errors,
-        })
-
-    made_facs: list[str] = []
-    made_sessions: list[str] = []
-    fac_by_ref: dict[str, str] = {}
-
-    try:
-        # ── 1. Facilitators ────────────────────────────────────────────────
-        _plain, _hash = _generate_temp_password()
-        async with _fac_registry_lock:
-            max_id = 0
-            for f in _facilitator_registry:
-                m = _re.search(r"\d+", f.get("facilitator_id", ""))
-                if m:
-                    try:
-                        max_id = max(max_id, int(m.group()))
-                    except ValueError:
-                        pass
-            for rec in parsed["facilitators"]:
-                max_id += 1
-                fid = f"FAC-{max_id:03d}"
-                _facilitator_registry.append({
-                    "facilitator_id": fid,
-                    "name": rec["name"],
-                    "email": rec["email"],
-                    "contact_number": rec["contact_number"],
-                    "programme": rec["programme"],
-                    "password": _hash,
-                    "must_change_password": True,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "max_cohorts": rec["max_cohorts"],
-                    "cohorts_created": 0,
-                    "role": rec["role"],
-                    "is_admin": is_admin_role(rec["role"]),
-                    "enabled": True,
-                    "bu_substitutions": {},
-                    "permissions": {},
-                    "created_by": "master_upload",
-                    "date_created": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                })
-                fac_by_ref[rec["ref"].strip().lower()] = fid
-                made_facs.append(fid)
-                rec["facilitator_id"] = fid
-                rec["one_time_password"] = _plain
-            _persist_facilitators()
-
-        # ── 2. Cohorts ─────────────────────────────────────────────────────
-        for rec in parsed["cohorts"]:
-            key = rec["facilitator_ref"].strip().lower()
-            fid = fac_by_ref.get(key)
-            if not fid:
-                fid = next((f["facilitator_id"] for f in _facilitator_registry
-                            if f.get("facilitator_id", "").lower() == key), None)
-            if not fid:
-                raise HTTPException(400, f"Unresolved facilitator_ref '{rec['facilitator_ref']}'")
-            result = await db.create_session(
-                rec["cohort_name"], fid,
-                decision_paradigm=rec["decision_paradigm"],
-                simulation_mode=rec["simulation_mode"],
-                industry_vertical=rec["industry_vertical"] or None,
-                region_id=rec["region_id"] or None,
-                created_by="master_upload",
-            )
-            sid = str(result["session_id"])
-            rec["session_id"] = sid
-            made_sessions.append(sid)
-            # Per-cohort roster cap lands in the cohort override layer, which is
-            # what resolve_max_players reads at both enforcement sites.
-            cohort_settings.setdefault(sid, {})["max_players"] = rec["max_players"]
-            mark_godmode_dirty()
-
-        # ── 3. Players ─────────────────────────────────────────────────────
-        by_cohort: dict[str, list[dict]] = {}
-        for p in parsed["players"]:
-            by_cohort.setdefault(p["cohort_ref"].strip().lower(), []).append(p)
-        sid_by_ref = {c["ref"].strip().lower(): c["session_id"] for c in parsed["cohorts"]}
-        players_created = []
-        for cref, group in by_cohort.items():
-            players_created.extend(await _create_players_bulk(sid_by_ref[cref], group))
-
-    except HTTPException:
-        await _rollback_master_upload(made_facs, made_sessions)
-        raise
-    except Exception as exc:
-        await _rollback_master_upload(made_facs, made_sessions)
-        raise HTTPException(500, f"Master upload failed and was rolled back: {exc}")
-
-    _audit("provisioning_master_upload", details={
-        "facilitators": len(made_facs), "cohorts": len(made_sessions),
-        "players": len(players_created), "filename": file.filename,
-    })
-    return {
-        "status": "success",
-        "facilitators": [{"facilitator_id": f["facilitator_id"], "name": f["name"],
-                          "role": f["role"], "one_time_password": f.get("one_time_password", "")}
-                         for f in parsed["facilitators"]],
-        "cohorts": [{"session_id": c["session_id"], "cohort_name": c["cohort_name"],
-                     "max_players": c["max_players"], "player_count": c.get("player_count", 0)}
-                    for c in parsed["cohorts"]],
-        "players": players_created,
-        "totals": {"facilitators": len(made_facs), "cohorts": len(made_sessions),
-                   "players": len(players_created)},
-        "credential_note": "Facilitators share one temporary password (shown once) and must "
-                           "change it on first login. Player temp passwords are per-player and "
-                           "visible in the Player Registry until changed.",
-    }
-
-
-async def _rollback_master_upload(fac_ids: list[str], session_ids: list[str]) -> None:
-    """Undo a partially-applied master upload, newest first.
-
-    Best-effort by necessity — if the rollback itself fails there is nothing
-    further to try — but every failure is LOGGED with the ids that survived, so
-    an operator can finish the cleanup by hand instead of discovering the
-    orphans weeks later.
-    """
-    for sid in reversed(session_ids):
-        try:
-            await db.delete_session(sid)
-            cohort_settings.pop(sid, None)
-        except Exception:
-            _ar_log.error("master-upload rollback: could not delete session %s", sid)
-    if fac_ids:
-        try:
-            keep = [f for f in _facilitator_registry if f.get("facilitator_id") not in set(fac_ids)]
-            _facilitator_registry[:] = keep
-            _persist_facilitators()
-        except Exception:
-            _ar_log.error("master-upload rollback: facilitators left behind: %s", fac_ids)
-
 
 @admin_router.put("/facilitators/{fac_id}", summary="Update a facilitator's details")
 async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, request: Request, _guard: None = Depends(require_super_admin)):
@@ -2446,7 +2017,6 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
                 "is_admin": is_admin_role(_role),
                 "enabled": True,
                 "shockwave_enabled": fac_req.shockwave_enabled,
-                "negotiation_rooms_enabled": fac_req.negotiation_rooms_enabled is True,
                 "trading_floor_enabled": fac_req.trading_floor_enabled,
                 "situation_room_enabled": fac_req.situation_room_enabled,
                 "permissions": fac_req.permissions or {
@@ -2691,11 +2261,17 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
     # Project-admin virtual account (registry + cohort creation only)
     project_ok = bool(PROJECT_ADMIN_PASSWORD) and hmac.compare_digest(password, PROJECT_ADMIN_PASSWORD)
 
-    # Enforce god_mode for super admin master access
+    # Enforce god_mode for super admin master access.
+    # Virtual accounts are rebuilt per-login by design (no registry row), so
+    # their durable profile state — the chosen display username — is hydrated
+    # from the virtual-profile store; otherwise every login looked like a first
+    # login and the callsign screen re-appeared (then 404'd on save).
+    from admin_shared import get_virtual_profile as _gvp
     if master_ok and fac_id_lower == "god_mode":
         fac = {
             "facilitator_id": "god_mode",
             "name": "God Mode Administrator",
+            "username": _gvp("god_mode").get("username", ""),
             "role": "god_mode",   # C6: distinct level-4 tier, not super_admin
             "is_admin": True,
             "enabled": True,
@@ -2704,6 +2280,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         fac = {
             "facilitator_id": "facilitator",
             "name": "Master Facilitator",
+            "username": _gvp("facilitator").get("username", ""),
             "role": "lead_facilitator",
             "is_admin": False,
             "enabled": True,
@@ -2712,6 +2289,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         fac = {
             "facilitator_id": "project_admin",
             "name": "Project Administrator",
+            "username": _gvp("project_admin").get("username", ""),
             "role": "project_admin",
             "is_admin": False,
             "enabled": True,
@@ -2726,7 +2304,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
     # LOW-003: Auto-upgrade plaintext passwords to bcrypt on successful login
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator login for fac_id={fac_id_lower}")
+        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator login for fac_id={fac_id_lower}")
         # SEC-4: durable forensic record of break-glass use.
         _audit("master_password_bypass", actor=fac_id_lower,
                details={"endpoint": "facilitator_login"},
@@ -2771,7 +2349,6 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         # Live-console capabilities (display-safe booleans; the server-side
         # gates on ring-bell/shockwave/bulletin remain authoritative)
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
-        "negotiation_rooms_enabled": fac.get("negotiation_rooms_enabled", False) is True,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
     }
@@ -2818,7 +2395,7 @@ async def facilitator_change_password(
         raise HTTPException(403, "Current password is incorrect")
     # M-5: Audit log when master password bypass is used
     if master_ok:
-        _ar_log.warning(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator password change for fac={fac.get('facilitator_id', 'unknown')}")
+        print(f"[SECURITY] MASTER_PASSWORD used to bypass facilitator password change for fac={fac.get('facilitator_id', 'unknown')}")
         # SEC-4: durable forensic record.
         _audit("master_password_bypass", actor=fac.get("facilitator_id", "unknown"),
                details={"endpoint": "facilitator_change_password"},
@@ -2866,6 +2443,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
             "expires_in_hours": 8,
             "facilitator_id": "god_mode",
             "name": "God Mode Administrator",
+            "username": get_virtual_profile("god_mode").get("username", ""),
             "role": role,
             "is_admin": True,
             "allowed_tabs": ["*"],
@@ -2892,6 +2470,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
             "expires_in_hours": 8,
             "facilitator_id": "project_admin",
             "name": "Project Administrator",
+            "username": get_virtual_profile("project_admin").get("username", ""),
             "role": "project_admin",
             "is_admin": False,
             "allowed_tabs": _pa_tabs,
@@ -2921,7 +2500,6 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "allowed_tabs": allowed_tabs,
         "permissions": fac.get("permissions", {}),
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
-        "negotiation_rooms_enabled": fac.get("negotiation_rooms_enabled", False) is True,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
     }
@@ -2990,7 +2568,7 @@ async def change_master_password(request: Request, body: dict = Body(...), _guar
     _audit("master_password_changed", actor=actor,
            details={"override_active": True},
            source_ip=(request.client.host if request.client else "unknown"))
-    _ar_log.warning(f"[SECURITY] Master password rotated by {actor}")
+    print(f"[SECURITY] Master password rotated by {actor}")
     return {
         "status": "success",
         "note": "Effective immediately on all master-bypass logins and persists across restarts (override supersedes .env).",
@@ -3143,7 +2721,6 @@ class PlayerInductRequest(BaseModel):
     session_id: str = Field(..., max_length=100)
     assigned_bu: str = Field(..., max_length=100)
     region_id: str = Field("", max_length=50)  # NEW — geographic region for single-BU localisation
-    programme: str = Field("", max_length=200)  # OPTIONAL cohort/programme label (e.g. "MBA 2026")
 
 class MasterOverride(BaseModel):
     id: str
@@ -3416,11 +2993,11 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
             "message": "Time expired — your turn was auto-committed with default choices.",
         })
 
-        _ar_log.info(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
+        print(f"[AUTO-COMMIT] Player session {player_session_id[:8]}… auto-committed R{current_round}→R{new_round}")
         return True
 
     except Exception as exc:
-        _ar_log.warning(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
+        print(f"[AUTO-COMMIT ERROR] {player_session_id[:8]}…: {exc}")
         return False
 
 
@@ -3460,10 +3037,10 @@ async def _scheduled_unlock_task(session_id: str, delay_seconds: int):
                     if success:
                         auto_committed_count += 1
             except Exception as exc:
-                _ar_log.info(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
+                print(f"[AUTO-COMMIT] Failed to check/commit {player_sid[:8]}…: {exc}")
 
         if auto_committed_count > 0:
-            _ar_log.info(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
+            print(f"[SCHEDULED] Auto-committed {auto_committed_count} player(s) for cohort {session_id[:8]}…")
 
         # ── Now unlock next round ────────────────────────────────
         pacing["unlocked_round"] = current_unlocked + 1
@@ -3517,7 +3094,7 @@ async def _multi_round_unlock_task(session_id: str, round_number: int, delay_sec
             "unlocked_round": round_number,
             "mode": "timed",
         })
-        _ar_log.info(f"[SCHEDULED] Round {round_number} unlocked for session {session_id[:8]}…")
+        print(f"[SCHEDULED] Round {round_number} unlocked for session {session_id[:8]}…")
     except asyncio.CancelledError:
         pass
 
@@ -3622,96 +3199,6 @@ async def reset_esg_profile_weights(request: Request, _guard: None = Depends(req
     return {"status": "ok", "esg_profile_weights": DEFAULT_ESG_WEIGHTS}
 
 
-# ── Player-facing round surface toggles (facilitator-accessible) ─────────────
-_PLAYER_FEATURE_KEYS = ("consequence_map_enabled", "board_room_moments_enabled")
-
-
-class PlayerFeatureTogglesRequest(BaseModel):
-    consequence_map_enabled: bool | None = None
-    board_room_moments_enabled: bool | None = None
-
-
-@admin_router.post("/player-feature-toggles", summary="Toggle player-facing round surfaces")
-async def set_player_feature_toggles(body: PlayerFeatureTogglesRequest, request: Request,
-                                     session_id: str | None = None,
-                                     _guard: None = Depends(require_sim_manager)):
-    """Any run-managing facilitator can switch the player-facing Decision
-    Consequence Map and Board Room Moment on or off.
-
-    Per-cohort: when session_id is supplied the change is a per-cohort override
-    (cohort_settings[session_id]) that shadows the global default — each cohort
-    is independent. Without session_id the global default itself is set.
-    Whitelisted, ownership-checked (for the cohort path), and audited. The
-    player dashboard reads the effective value via global-settings?session_id.
-    """
-    if session_id:
-        await _assert_session_ownership(request, session_id)
-        target = cohort_settings.setdefault(session_id, {})
-    else:
-        target = _god_mode_settings
-
-    changed = {}
-    for k in _PLAYER_FEATURE_KEYS:
-        v = getattr(body, k, None)
-        if v is not None:
-            target[k] = bool(v)
-            changed[k] = bool(v)
-
-    if changed:
-        if session_id:
-            # Mirror patch_cohort_settings: in-memory override + live push.
-            await manager.push_to_session(session_id, {
-                "type": "cohort_settings_changed",
-                "session_id": session_id,
-                "changed_keys": list(changed.keys()),
-                "settings": cohort_settings[session_id],
-            })
-        else:
-            mark_godmode_dirty()
-        _audit("player_feature_toggles_updated",
-               details={**changed, "session_id": session_id, "_caller_role": get_fac_role(request)})
-
-    eff = get_effective_settings(session_id)
-    return {"status": "ok", "session_id": session_id,
-            **{k: eff.get(k, True) for k in _PLAYER_FEATURE_KEYS}}
-
-
-class BriefingVideosRequest(BaseModel):
-    briefing_video_base: str | None = None          # "" clears
-    briefing_videos: dict | None = None             # {round: url}; {} clears
-
-
-@admin_router.post("/sessions/{session_id}/briefing-videos", summary="Set per-cohort briefing video URLs")
-async def set_briefing_videos(session_id: str, body: BriefingVideosRequest, request: Request,
-                              _guard: None = Depends(require_sim_manager)):
-    """Per-cohort override for the round-briefing videos (URL pattern with
-    {round} plus optional per-round URL map). URLs only — media lives on
-    external hosting or the server data dir, never in the repo. Players read
-    the effective values via global-settings?session_id."""
-    await _assert_session_ownership(request, session_id)
-    target = cohort_settings.setdefault(session_id, {})
-    changed = {}
-    if body.briefing_video_base is not None:
-        target["briefing_video_base"] = str(body.briefing_video_base).strip()
-        changed["briefing_video_base"] = target["briefing_video_base"]
-    if body.briefing_videos is not None:
-        clean = {str(k): str(v).strip() for k, v in (body.briefing_videos or {}).items()
-                 if str(v).strip()}
-        target["briefing_videos"] = clean
-        changed["briefing_videos"] = clean
-    if changed:
-        await manager.push_to_session(session_id, {
-            "type": "cohort_settings_changed", "session_id": session_id,
-            "changed_keys": list(changed.keys()), "settings": cohort_settings[session_id],
-        })
-        _audit("briefing_videos_updated", details={"session_id": session_id, **changed,
-                                                   "_caller_role": get_fac_role(request)})
-    eff = get_effective_settings(session_id)
-    return {"status": "ok", "session_id": session_id,
-            "briefing_video_base": eff.get("briefing_video_base", ""),
-            "briefing_videos": eff.get("briefing_videos", {})}
-
-
 @admin_router.post("/sessions/{session_id}/pacing", summary="Set round pacing mode")
 async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request, _guard: None = Depends(require_sim_manager)):
     await _assert_session_ownership(request, session_id)
@@ -3765,7 +3252,7 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
                     )
                     pacing["_timer_tasks"].append(task)
                 except Exception as exc:
-                    _ar_log.warning(f"[PACING] Could not schedule round {round_number}: {exc}")
+                    print(f"[PACING] Could not schedule round {round_number}: {exc}")
             # Set next_unlock_at to the first future datetime in the schedule
             first_future = next(
                 (s for s in body.schedule if s), None
@@ -4129,11 +3616,13 @@ _NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "ha
 async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_sim_manager)):
     global _next_player_id
 
-    # Enforce the per-cohort roster cap (was a hardcoded 10; see player_capacity).
-    _limit = resolve_max_players(get_effective_settings(req.session_id))
+    # Enforce the 10-player-per-cohort cap
     existing_in_cohort = [p for p in _player_registry if p.get("session_id") == req.session_id]
-    if len(existing_in_cohort) >= _limit:
-        raise HTTPException(status_code=400, detail=capacity_error(_limit))
+    if len(existing_in_cohort) >= 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Cohort has reached the maximum of 10 players."
+        )
 
     # Check for duplicate name within the same cohort
     existing_names = [
@@ -4169,14 +3658,11 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
         "player_id": generated_id,
         "name": req.name,
         "email": req.email,
-        "programme": getattr(req, "programme", "") or "",
         "assigned_bu": req.assigned_bu,
         "region_id": req.region_id,
         "session_id": req.session_id,
         "cohort_name": _cohort_name,
         "password": generated_password_hash,  # L-4: store bcrypt hash, never plaintext
-        # Retained ONLY while must_change_password is true (see _roster_projection).
-        "plaintext_password": generated_password,
         "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "playing",
@@ -4361,6 +3847,10 @@ async def _cascade_delete_session(session_id: str, hard: bool = False) -> dict:
         except Exception:
             pass
 
+    # Persist the cohort-settings removals to the durable volume so a deleted
+    # cohort's overrides don't resurrect from the last snapshot on restart.
+    mark_cohort_settings_dirty()
+
     return {"sessions_deleted": sessions_deleted, "players_removed": players_removed}
 
 
@@ -4488,7 +3978,6 @@ async def reset_player_password(player_id: str, _guard: None = Depends(require_s
     new_plaintext, new_hash = _generate_temp_password()
     player["password"] = new_hash
     player["must_change_password"] = True
-    player["plaintext_password"] = new_plaintext  # revealable until the player changes it
 
     # QA-2026-07-16 #4: write the new hash DURABLY through the db interface for
     # every session whose registered_players names this player. The old path
@@ -4717,13 +4206,6 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
             _e.setdefault("climate_paradigm", resolve_climate_paradigm(_eff))
             for _k in ("global_carbon_fee", "market_hostility_index", "scope_3_threshold"):
                 _e.setdefault(_k, _eff.get(_k))
-            # Custom Black Swan Injector unlock — lets the facilitator-dashboard
-            # tool list only the cohorts a super admin enabled, without a
-            # per-session settings round-trip.
-            _e.setdefault("custom_black_swan_enabled", bool(_eff.get("custom_black_swan_enabled", False)))
-            # Roster cap, so the registry badge reads "n/12" for a cohort
-            # configured to 12 rather than a hardcoded denominator.
-            _e.setdefault("max_players", resolve_max_players(_eff))
         except Exception:
             pass
         enriched.append(_e)
@@ -4738,14 +4220,13 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
     summary="Generate a new allowed player ID and password",
 )
 async def generate_player_id(session_id: str, _guard: None = Depends(require_sim_manager)):
-    # Enforce the per-cohort roster cap at ID generation time (see player_capacity).
+    # Enforce the 10-player-per-cohort cap at ID generation time
     sess_check = await db.get_session_info(session_id)
     if not sess_check:
         raise HTTPException(status_code=404, detail="Session not found.")
-    _limit = resolve_max_players(get_effective_settings(session_id))
     existing_count = len(sess_check.get("registered_players", []))
-    if existing_count >= _limit:
-        raise HTTPException(status_code=400, detail=capacity_error(_limit))
+    if existing_count >= 10:
+        raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 10 players.")
 
     player_id = await db.generate_player_id(session_id)
     if not player_id:
@@ -4759,13 +4240,9 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
         "player_id": player_id,
         "name": "",
         "email": "",
-        "programme": "",
         "assigned_bu": "",
         "session_id": session_id,
         "password": hash_password(generated_password),  # L-4: store bcrypt hash
-        # Retained ONLY while must_change_password is true; router.change_password
-        # deletes it the moment the player sets a personal password.
-        "plaintext_password": generated_password,
         "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "id_generated",
@@ -4792,39 +4269,6 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
     return {"status": "success", "player_id": player_id, "password": generated_password}
 
 
-#  Roster projection — the ONLY shape in which registered_players leaves the
-#  server. registered_players carries the bcrypt hash; shipping the raw list to
-#  a browser would leak every hash in the cohort to anyone with the facilitator
-#  dashboard open, so the whitelist below is deliberately explicit (an
-#  allow-list, not a `del entry["password"]` deny-list — a future field added to
-#  the player record must be opted IN, not remembered about).
-#
-#  `temp_password` is the plaintext temporary credential, surfaced only while
-#  must_change_password is still true. Policy (owner decision, July 2026): the
-#  facilitator must be able to read a player's starting password aloud at any
-#  point during setup — "reset to reveal" forced them to invalidate a
-#  credential they had already distributed. The instant the player sets their
-#  own password the plaintext is deleted at the source (router.change_password)
-#  and this projection has nothing left to show.
-_ROSTER_PUBLIC_FIELDS = (
-    "player_id", "name", "email", "programme", "assigned_bu",
-    "region_id", "created_at", "status",
-)
-
-
-def _roster_projection(registered: list | None) -> list[dict]:
-    out = []
-    for rp in (registered or []):
-        if not isinstance(rp, dict):
-            continue
-        entry = {k: rp.get(k, "") for k in _ROSTER_PUBLIC_FIELDS}
-        pending = bool(rp.get("must_change_password", False))
-        entry["must_change_password"] = pending
-        entry["temp_password"] = rp.get("plaintext_password", "") if pending else ""
-        out.append(entry)
-    return out
-
-
 @admin_router.get(
     "/leaderboard",
     summary="Get leaderboard data for all active sessions",
@@ -4837,6 +4281,26 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
     """
     sessions = await db.fetch_all_sessions()
     leaderboard = []
+
+    def _roster_view(rp: dict) -> dict:
+        """Facilitator-safe projection of a registered_players entry.
+
+        Carries `temp_password` (the generated credential) for as long as it is
+        still the live one (must_change_password) so the facilitator can read it
+        out at any point during setup — it disappears the moment the player sets
+        a personal password. The bcrypt hash is NEVER serialized (H-2)."""
+        active = bool(rp.get("must_change_password", False))
+        return {
+            "player_id": rp.get("player_id", ""),
+            "name": rp.get("name", ""),
+            "username": rp.get("username", ""),
+            "email": rp.get("email", ""),
+            "assigned_bu": rp.get("assigned_bu", ""),
+            "status": rp.get("status", ""),
+            "created_at": rp.get("created_at", ""),
+            "must_change_password": active,
+            "temp_password": (rp.get("plaintext_password") or "") if active else "",
+        }
 
     # Build player name lookup from registry
     player_name_map = {}
@@ -4973,16 +4437,17 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             "pacing_mode": sess.get("pacing_mode", "free_play"),
             "max_unlocked_round": sess.get("max_unlocked_round", SIM_ROUNDS),
             "start_time": sess.get("start_time"),
+            # Roster data for the Player Registry panel: generated ids + the
+            # live temp credential (facilitator-safe projection; no hashes).
+            # Without these the frontend rebuilt its credential rows as
+            # "— (reset to reveal)" on every refresh even though the password
+            # was generated server-side and is still the active one.
+            "allowed_player_ids": sess.get("allowed_player_ids", []),
+            "max_players": sess.get("max_players"),
+            "registered_players": [_roster_view(rp) for rp in (sess.get("registered_players") or [])],
             "simulation_mode": sess.get("simulation_mode", "conglomerate"),
             "industry_vertical": sess.get("industry_vertical", ""),
             "region_id": sess.get("region_id", ""),
-            # Roster + capacity. These were ABSENT from this payload while the
-            # Player Registry component read them off it, so every credential
-            # rebuilt from the server showed blank and the facilitator's only
-            # recourse was "reset to reveal".
-            "registered_players": _roster_projection(sess.get("registered_players")),
-            "allowed_player_ids": list(sess.get("allowed_player_ids", []) or []),
-            "max_players": resolve_max_players(get_effective_settings(sid)),
             # P5: labelled, non-authoritative turnaround annotation (canonical
             # R10 result stays the leaderboard figure).
             "turnaround": __import__("turnaround_engine").leaderboard_annotation(gs),
@@ -5026,9 +4491,7 @@ _WARMAP_STAGE_RANK = {"dormant": 0, "watching": 1, "agitated": 2, "hostile": 3, 
 async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
     from autonomous_agents import AGENT_PROFILES
     from collections import Counter
-    # Railway audit §1.1/§3.2: raw variant — the leaderboard fetch excludes the
-    # per-player child sessions this aggregation exists to sum over.
-    sessions = await db.fetch_all_sessions_raw()
+    sessions = await db.fetch_all_sessions()
     bu_acc: dict = {}       # bu_id -> running sums
     agent_acc: dict = {}    # agent_id -> {stages, tol, hostile}
     rounds: list = []
@@ -5104,27 +4567,12 @@ async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depen
         if b["health"] < 40:
             events.append({"kind": "bu", "bu_id": b["bu_id"], "health": b["health"]})
 
-    # Railway audit §3.2: the crisis catalog is served from round_configs (the
-    # single source of truth) instead of being duplicated — and drifting — in
-    # frontend warMapModel.ROUND_CRISIS (e.g. "AI bias scandal" vs the real
-    # "AI Hiring Bias Scandal"). The frontend keeps only map coordinates.
-    crisis = None
-    try:
-        from round_configs import get_round_crisis
-        _c = get_round_crisis(cohort_round) if cohort_round else None
-        if _c:
-            crisis = {"round": cohort_round, "name": _c.get("title") or _c.get("name"),
-                      "icon": _c.get("icon", "⚡")}
-    except Exception:
-        pass
-
     return {
         "team_count": team_n,
         "cohort_round": cohort_round,
         "business_units": business_units,
         "stakeholders": stakeholders,
         "events": events,
-        "crisis": crisis,
     }
 
 
@@ -5398,9 +4846,8 @@ class CustomBlackSwanRequest(BaseModel):
     social_license_impact: float = 0      # Social License delta
     natural_debt_impact: float = 0        # Natural Capital Debt delta
 
-# Railway audit §2.2: the in-memory _custom_black_swan_log is gone — the
-# injection history now lives on the durable audit trail (admin_audit.jsonl)
-# under action == "custom_black_swan_injected"; see get_custom_black_swan_log.
+# In-memory history of injected custom events
+_custom_black_swan_log = []
 
 
 @admin_router.post(
@@ -5412,22 +4859,8 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, req
     """
     Immediately mutates the session's game state with the specified deltas,
     injects a mailbox message, and pushes a WebSocket alert to the player.
-
-    Access: lead facilitators may inject ONLY into cohorts they own AND for
-    which a super admin has enabled the injector (custom_black_swan_enabled,
-    set per cohort via cohort-settings). Admin roles (super_admin/god_mode)
-    bypass both the ownership check and the per-cohort unlock (level-based
-    via is_admin_role, per CLAUDE.md convention 1).
     """
     await _assert_session_ownership(request, session_id)
-    if not is_admin_role(get_fac_role(request)):
-        _eff = get_effective_settings(session_id)
-        if not _eff.get("custom_black_swan_enabled", False):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="The Custom Black Swan Injector is not enabled for this cohort. "
-                       "A super admin can enable it per cohort in the Analytics & Cohort Controls panel.",
-            )
     current = await db.fetch_latest_state(session_id)
     if current is None:
         raise HTTPException(
@@ -5535,13 +4968,19 @@ async def inject_custom_event(session_id: str, body: CustomBlackSwanRequest, req
         "event": event_record,
     })
 
-    # ── Audit log — Railway audit §2.2: ONE durable channel. _audit() both
-    # caps the in-memory list and appends to admin_audit.jsonl in the durable
-    # data dir, so the injection history survives restarts and is identical
-    # across workers. The old ad-hoc _custom_black_swan_log (per-process,
-    # unbounded, non-durable) is gone; the log endpoint reads the audit trail.
-    _audit("custom_black_swan_injected",
-           details={"session_id": session_id, **event_record})
+    # ── Audit log ──
+    _capped_append(_god_mode_audit_log, {
+        "action": "custom_black_swan_injected",
+        "session_id": session_id,
+        "details": event_record,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    })
+
+    # ── Persist to in-memory log ──
+    _custom_black_swan_log.append({
+        "session_id": session_id,
+        **event_record,
+    })
 
     return {"status": "injected", "event": event_record, "message": message}
 
@@ -5655,231 +5094,12 @@ async def detonate_shockwave(cohort_id: str, request: Request, body: dict = Body
     return {"status": "detonated", "event_id": event_id, "teams_hit": applied, "event": ev}
 
 
-# ── Negotiation transcripts (Phase 2): facilitator debrief gold ──────────────
-@admin_router.get(
-    "/{session_id}/negotiation-transcripts",
-    summary="Full negotiation-room transcripts and deals for a session",
-)
-async def get_negotiation_transcripts(session_id: str, request: Request, _guard: None = Depends(require_facilitator)):
-    """Facilitator-only: the complete negotiation log (turn-by-turn transcripts,
-    deals, resolutions) for one team session. Non-admins must own the cohort."""
-    await _assert_session_ownership(request, session_id)
-    latest = await db.fetch_latest_state(session_id)
-    if latest is None:
-        raise HTTPException(404, "Session not found")
-    gs = latest["global_state"]
-    log = gs.get("negotiation_log") or (gs.get("active_event_flags") or {}).get("negotiation_log") or {}
-    rooms = list(log.get("history", []))
-    if log.get("active"):
-        rooms = rooms + [log["active"]]
-    promises = [
-        p for p in ((gs.get("autonomous_agents") or {}).get("promises") or [])
-        if p.get("source") == "negotiation"
-    ]
-    return {"session_id": session_id, "rooms": rooms, "promises": promises}
-
-
-# ── Facilitator dry-run: pre-flight difficulty simulator ─────────────────────
-class DryRunRequest(BaseModel):
-    session_id: str
-    n_reps: int = 3           # seeded repetitions per strategy (1–5)
-    strategies: Optional[list[str]] = None  # default: all four bots
-
-
-@admin_router.post(
-    "/dry-run",
-    summary="Fly the cohort before the class does: bot strategies through the real engine",
-)
-async def run_cohort_dry_run(body: DryRunRequest, request: Request, _guard: None = Depends(require_facilitator)):
-    """Plays 4 bot strategies (aggressive-green / extractive / balanced /
-    chaotic) headlessly through the production engine pipeline from the
-    cohort's CURRENT state to round 10, N seeded reps each, and returns a
-    difficulty report (bankruptcy risk, KPI medians by round, crisis bite,
-    warnings). Pure read: the cohort's real state is deepcopied and never
-    persisted. require_facilitator (config QA is a provisioning activity);
-    non-admins must own the session."""
-    await _assert_session_ownership(request, body.session_id)
-    latest = await db.fetch_latest_state(body.session_id)
-    if latest is None:
-        raise HTTPException(404, "Session not found")
-    sess = await db.get_session_info(body.session_id) or {}
-    from dry_run import run_dry_run
-    from admin_shared import get_effective_settings
-    settings = get_effective_settings(body.session_id)
-    # Railway audit §2.1: run ON the event loop, not in a thread. The bots
-    # seed the process-global `random` module (several engines roll on it);
-    # a thread would interleave with live commits and both contaminate their
-    # randomness and break the dry-run's own determinism. Synchronous
-    # execution makes interleaving impossible on this worker (a full run
-    # measures ~0.2 s), and the RNG state is restored afterwards so the live
-    # entropy stream is bit-for-bit unaffected.
-    import random as _random
-    _rng_state = _random.getstate()
-    try:
-        report = run_dry_run(
-            latest["global_state"], latest["bu_states"],
-            settings=settings,
-            strategies=body.strategies,
-            n_reps=body.n_reps,
-            paradigm=sess.get("decision_paradigm") or "legacy_abc",
-            difficulty_tier=sess.get("difficulty_tier") or "standard",
-        )
-    finally:
-        _random.setstate(_rng_state)
-    report["cohort_name"] = sess.get("cohort_name") or body.session_id
-    _audit("dry_run_executed", details={"session_id": body.session_id,
-                                        "n_reps": report["n_reps"],
-                                        "grade": report["difficulty_grade"]})
-    return report
-
-
-# ── Calibration analytics (PLAN_Calibration_Analytics Phase 4) ───────────────
-@admin_router.get(
-    "/calibration-analytics",
-    summary="Cohort calibration: per-team confidence vs hit-rate from the prediction logs",
-)
-async def get_calibration_analytics(
-    request: Request,
-    session_id: Optional[str] = None,
-    _guard: None = Depends(require_facilitator),
-):
-    """Aggregates the scored Predict-Before-Commit logs across sessions.
-    Admin roles see all sessions; facilitators only cohorts they own.
-    Optional session_id filters to one cohort (itself + child team sessions).
-    Read-only; returns per-team calibration rows, a round trend, and a one-line
-    teleprompter prompt for live teaching."""
-    admin = is_admin_role(get_fac_role(request))
-    sessions = await db.fetch_all_sessions()
-    if session_id:
-        sessions = [s for s in sessions
-                    if s.get("session_id") == session_id or s.get("parent_cohort_id") == session_id]
-    if not admin:
-        from auth_jwt import get_facilitator_from_request
-        fac_id = get_facilitator_from_request(request)
-        fac = next((f for f in _facilitator_registry
-                    if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
-        sessions = [s for s in sessions if fac and owns_session(fac, s)]
-
-    teams = []
-    round_hits: dict[int, list[int]] = {}          # round → [hit, of] accumulators
-    latest_round = 0
-    latest_overconfident_misses = 0
-    for s in sessions:
-        sid = s.get("session_id")
-        try:
-            latest = await db.fetch_latest_state(sid)
-        except Exception:
-            latest = None
-        if not latest:
-            continue
-        _cgs = latest["global_state"]
-        log = _cgs.get("predictions_log") or (_cgs.get("active_event_flags") or {}).get("predictions_log") or []
-        scored = [p for p in log if p.get("score") and p["score"].get("of")]
-        if not scored:
-            continue
-        by_player: dict[str, list[dict]] = {}
-        for p in scored:
-            by_player.setdefault(p.get("player_id") or "solo", []).append(p)
-            rn = int(p.get("round") or 0)
-            acc = round_hits.setdefault(rn, [0, 0])
-            acc[0] += p["score"]["hits"]
-            acc[1] += p["score"]["of"]
-            latest_round = max(latest_round, rn)
-        for pid, preds in by_player.items():
-            hits = sum(p["score"]["hits"] for p in preds)
-            of = sum(p["score"]["of"] for p in preds)
-            confs = [p["confidence"] for p in preds if isinstance(p.get("confidence"), (int, float))]
-            mean_conf = round(sum(confs) / len(confs), 3) if confs else None
-            hit_rate = round(hits / of, 3) if of else None
-            teams.append({
-                "session_id": sid,
-                "cohort_name": s.get("cohort_name") or sid,
-                "player_id": pid,
-                "rounds_predicted": len(preds),
-                "hits": hits, "of": of, "hit_rate": hit_rate,
-                "mean_confidence": mean_conf,
-                "overconfidence": round(mean_conf - hit_rate, 3) if (mean_conf is not None and hit_rate is not None) else None,
-            })
-    # Teleprompter line: count ≥80%-confidence full misses in the latest round.
-    if latest_round:
-        for s in sessions:
-            try:
-                latest = await db.fetch_latest_state(s.get("session_id"))
-            except Exception:
-                continue
-            if not latest:
-                continue
-            _lgs = latest["global_state"]
-            for p in (_lgs.get("predictions_log") or (_lgs.get("active_event_flags") or {}).get("predictions_log") or []):
-                sc = p.get("score") or {}
-                if (p.get("round") == latest_round and sc.get("of")
-                        and sc.get("hits") == 0
-                        and isinstance(p.get("confidence"), (int, float)) and p["confidence"] >= 0.8):
-                    latest_overconfident_misses += 1
-    teleprompter_line = (
-        f"R{latest_round}: {latest_overconfident_misses} team{'s' if latest_overconfident_misses != 1 else ''} "
-        f"predicted with ≥80% confidence and missed every call — name the planning fallacy in the debrief."
-        if latest_overconfident_misses else
-        (f"R{latest_round}: no high-confidence misses this round — ask who UPDATED a belief since last round."
-         if latest_round else "No scored predictions yet — the calibration story starts after the first commit.")
-    )
-    round_trend = [
-        {"round": rn, "hit_rate": round(h / o, 3) if o else None, "n": o}
-        for rn, (h, o) in sorted(round_hits.items())
-    ]
-    return {
-        "teams": teams,
-        "round_trend": round_trend,
-        "teleprompter_line": teleprompter_line,
-        "total_teams": len(teams),
-    }
-
-
 @admin_router.get(
     "/custom-black-swan-log",
-    summary="Get history of injected custom Black Swan events",
+    summary="Get history of all injected custom Black Swan events",
 )
-async def get_custom_black_swan_log(request: Request, _guard: None = Depends(require_lead_facilitator)):
-    """Injection history. Admin roles see everything; lead facilitators see
-    only events injected into cohorts they own (the tool now lives on the
-    facilitator dashboard, so the log must not leak other cohorts).
-
-    Railway audit §2.2: sourced from the durable audit trail
-    (admin_audit.jsonl, action == custom_black_swan_injected) so history
-    survives restarts and is consistent across workers."""
-    import json as _json
-    from runtime_paths import data_dir as _data_dir
-    events = []
-    _log_file = _data_dir() / "admin_audit.jsonl"
-    try:
-        with open(_log_file, "r", encoding="utf-8") as _f:
-            for line in _f:
-                try:
-                    entry = _json.loads(line)
-                except Exception:
-                    continue
-                if entry.get("action") == "custom_black_swan_injected":
-                    d = entry.get("details") or {}
-                    if d.get("title"):
-                        events.append(d)
-    except FileNotFoundError:
-        pass
-    # Cap what we return: the newest 200 are plenty for the history panel.
-    events = events[-200:]
-
-    if is_admin_role(get_fac_role(request)):
-        return {"events": events}
-    from auth_jwt import get_facilitator_from_request
-    fac_id = get_facilitator_from_request(request)
-    fac = next((f for f in _facilitator_registry
-                if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
-    if fac is None:
-        return {"events": []}
-    owned = set()
-    for s in await db.fetch_all_sessions_raw():
-        if owns_session(fac, s):
-            owned.add(s.get("session_id"))
-    return {"events": [e for e in events if e.get("session_id") in owned]}
+async def get_custom_black_swan_log():
+    return {"events": _custom_black_swan_log}
 
 @admin_router.post(
     "/{session_id}/inject-message",
@@ -6180,7 +5400,7 @@ async def add_bu_category(body: dict = Body(...), _guard: None = Depends(require
     if not label:
         raise HTTPException(400, "'label' is required")
     entry = mat_db.register_bu(bu_id, label, icon)
-    _ar_log.info(f"[god-mode] BU category registered: {bu_id} ({label})")
+    print(f"[god-mode] BU category registered: {bu_id} ({label})")
     return {"status": "ok", "category": entry}
 
 
@@ -6193,7 +5413,7 @@ async def delete_bu_category(bu_id: str, _guard: None = Depends(require_super_ad
         raise HTTPException(400, str(e))
     if not removed:
         raise HTTPException(404, f"Custom BU category '{bu_id}' not found")
-    _ar_log.info(f"[god-mode] BU category removed: {bu_id}")
+    print(f"[god-mode] BU category removed: {bu_id}")
     return {"status": "deleted", "bu_id": bu_id}
 
 
@@ -6332,7 +5552,7 @@ async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: No
 
     active_bus = get_active_bus(substitutions)
     labels = [BU_PROFILES.get(b, {}).get("label", b) for b in active_bus]
-    _ar_log.info(f"[god-mode] BU composition updated for {session_id} + {len(children)} children: {labels}")
+    print(f"[god-mode] BU composition updated for {session_id} + {len(children)} children: {labels}")
 
     return {
         "status": "ok",
@@ -6741,213 +5961,13 @@ async def upload_stakeholder_excel(
             pass
 
     ids = [s["id"] for s in stakeholders]
-    _ar_log.info(f"[god-mode] Stakeholder Excel uploaded for '{config_id}': {len(ids)} stakeholders")
+    print(f"[god-mode] Stakeholder Excel uploaded for '{config_id}': {len(ids)} stakeholders")
     return {
         "status": "ok",
         "config_id": config_id,
         "stakeholder_count": len(ids),
         "stakeholder_ids": ids,
     }
-
-
-async def _read_bulk_upload(file: UploadFile) -> str:
-    """Shared validation + temp-file write for the bulk endpoints. Returns the
-    temp path; caller is responsible for unlinking it."""
-    import os
-    import tempfile
-
-    filename = file.filename or ""
-    if not filename.lower().endswith(".xlsx"):
-        raise HTTPException(400, "Only .xlsx files are accepted. Please upload a valid Excel file.")
-    contents = await file.read()
-    max_size = 10 * 1024 * 1024   # master files carry many scopes — 10 MB
-    if len(contents) > max_size:
-        raise HTTPException(
-            400, f"File too large ({len(contents):,} bytes). Maximum size is 10 MB."
-        )
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
-    os.write(tmp_fd, contents)
-    os.close(tmp_fd)
-    return tmp_path
-
-
-@admin_router.post(
-    "/stakeholder-config/bulk-preview",
-    summary="Parse a multi-scope stakeholder workbook and report what WOULD change",
-)
-async def bulk_preview_stakeholder_excel(
-    file: UploadFile = File(...),
-    _guard: None = Depends(require_super_admin),
-):
-    """Dry run for the master-file upload. Parses every scope in the workbook,
-    validates all rows, and returns a per-scope diff against what is stored
-    today — WITHOUT writing anything.
-
-    A bulk import replaces whole stakeholder lists, so the operator sees the
-    blast radius (which scopes, how many added/removed/changed) before
-    committing. Validation is total: any error anywhere fails the whole
-    preview, because a half-applied bulk import leaves scopes in an unknown
-    state."""
-    import os
-
-    tmp_path = await _read_bulk_upload(file)
-    try:
-        from stakeholder_bulk_excel import parse_bulk_workbook
-        try:
-            scopes = parse_bulk_workbook(tmp_path)
-        except ValueError as exc:
-            raise HTTPException(400, str(exc))
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-
-    from stakeholder_db import get_region_config_raw
-    try:
-        from stakeholder_map import STAKEHOLDERS as _CANON_BASE
-        canonical_ids = {s.get("id") for s in _CANON_BASE}
-    except Exception:
-        canonical_ids = set()
-
-    summary = []
-    for config_id, incoming in sorted(scopes.items()):
-        current = get_region_config_raw(config_id) or []
-        cur_ids = {s.get("id") for s in current if s.get("id")}
-        new_ids = {s.get("id") for s in incoming if s.get("id")}
-        dropped = sorted(cur_ids - new_ids)
-        # Region/vertical files are OVERRIDES merged onto the canonical set
-        # (stakeholder_db.get_stakeholders_for_region), so dropping an entry
-        # does not delete that stakeholder — it reverts to canonical, unless
-        # the entry was scope-only, in which case it really does disappear.
-        # Reporting these as one undifferentiated "removed" count would
-        # mislead the operator about the blast radius.
-        reverts = [i for i in dropped if i in canonical_ids]
-        disappears = [i for i in dropped if i not in canonical_ids]
-        summary.append({
-            "config_id": config_id,
-            "scope_kind": ("canonical" if config_id == "canonical"
-                           else "vertical" if config_id.startswith("vertical_") else "region"),
-            "incoming_overrides": len(incoming),
-            "existing_overrides": len(current),
-            "new_overrides": sorted(new_ids - cur_ids),
-            "replaced_overrides": sorted(new_ids & cur_ids),
-            "reverting_to_canonical": reverts,
-            "removed_entirely": disappears,
-            "is_new_config": not current,
-        })
-    return {
-        "status": "ok",
-        "dry_run": True,
-        "scope_count": len(summary),
-        "total_stakeholders": sum(s["incoming_overrides"] for s in summary),
-        "scopes": summary,
-        "note": (
-            "Region and vertical files are OVERRIDES layered on the canonical set: "
-            "an entry omitted from the upload reverts that stakeholder to its canonical "
-            "definition rather than deleting it, unless the stakeholder exists only in "
-            "this scope. Scopes absent from the workbook are not touched at all."
-        ),
-    }
-
-
-@admin_router.post(
-    "/stakeholder-config/bulk-upload",
-    summary="Apply a multi-scope stakeholder workbook (all verticals / regions at once)",
-)
-async def bulk_upload_stakeholder_excel(
-    file: UploadFile = File(...),
-    _guard: None = Depends(require_super_admin),
-):
-    """Commit a master workbook covering many scopes.
-
-    Accepts either shape: scope columns (Vertical / Region) on one sheet, or one
-    sheet per scope. Every scope is parsed and validated BEFORE any write, so
-    the operation either applies in full or changes nothing. Scopes absent from
-    the file are left untouched."""
-    import os
-
-    tmp_path = await _read_bulk_upload(file)
-    try:
-        from stakeholder_bulk_excel import parse_bulk_workbook
-        try:
-            scopes = parse_bulk_workbook(tmp_path)
-        except ValueError as exc:
-            raise HTTPException(400, str(exc))
-    finally:
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-
-    from stakeholder_db import save_region_config
-    applied, failed = [], []
-    for config_id, items in sorted(scopes.items()):
-        if save_region_config(config_id, items):
-            applied.append({"config_id": config_id, "stakeholder_count": len(items)})
-        else:
-            failed.append(config_id)
-
-    if failed:
-        # save_region_config only fails on an invalid slug, which the parser
-        # should already have prevented — surface it rather than half-report ok.
-        raise HTTPException(
-            500,
-            f"Parsed successfully but failed to persist scope(s): {', '.join(failed)}. "
-            f"Applied: {[a['config_id'] for a in applied]}.",
-        )
-
-    _audit("stakeholder_bulk_upload", details={
-        "scopes": [a["config_id"] for a in applied],
-        "total_stakeholders": sum(a["stakeholder_count"] for a in applied),
-    })
-    _ar_log.info(
-        f"[god-mode] Stakeholder bulk upload: {len(applied)} scope(s), "
-        f"{sum(a['stakeholder_count'] for a in applied)} stakeholders"
-    )
-    return {
-        "status": "ok",
-        "scope_count": len(applied),
-        "total_stakeholders": sum(a["stakeholder_count"] for a in applied),
-        "applied": applied,
-    }
-
-
-@admin_router.get(
-    "/stakeholder-config/bulk-template",
-    summary="Download a master stakeholder template pre-filled with current configs",
-)
-async def download_stakeholder_bulk_template(_guard: None = Depends(require_facilitator)):
-    """Master template: scope columns plus every stakeholder currently stored,
-    so an administrator edits an accurate starting point instead of retyping
-    the platform's content."""
-    import os
-    import tempfile
-    from fastapi.responses import FileResponse
-
-    from stakeholder_db import list_region_configs, get_region_config_raw
-    existing = {}
-    for cid in list_region_configs():
-        rows = get_region_config_raw(cid)
-        if rows:
-            existing[cid] = rows
-    if not existing:
-        # No overrides yet — seed the template from the canonical default set.
-        try:
-            from stakeholder_map import STAKEHOLDERS as _CANON
-            existing = {"canonical": list(_CANON)}
-        except Exception:
-            existing = {}
-
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
-    os.close(tmp_fd)
-    from stakeholder_bulk_excel import build_bulk_template
-    build_bulk_template(tmp_path, existing)
-    return FileResponse(
-        tmp_path,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename="muressons_stakeholder_master.xlsx",
-    )
 
 
 @admin_router.get(
@@ -8081,15 +7101,10 @@ async def undo_round(
     last_res = None
 
     for tgt in set(targets):
-        # BUGFIX: drive the rollback from the authoritative DB round, not a bare
-        # `_global_states` (which was undefined in this module — every call
-        # NameError'd — and is empty under the Postgres backend anyway).
-        # db.undo_latest_round mutates the DB, so re-reading fetch_latest_state
-        # each pass is what correctly bounds the loop at target_round.
-        latest_state = await db.fetch_latest_state(tgt)
-        if not latest_state:
+        rounds_data = _global_states.get(tgt, [])
+        if not rounds_data:
             continue
-        current = latest_state["round_number"]
+        current = rounds_data[-1]["round_number"]
         stop_at = max(1, target_round) if target_round is not None else current - 1
 
         if stop_at >= current:
@@ -8102,10 +7117,10 @@ async def undo_round(
 
         # Loop: undo one round at a time until we reach stop_at
         while True:
-            latest_state = await db.fetch_latest_state(tgt)
-            if not latest_state:
+            rounds_data = _global_states.get(tgt, [])
+            if not rounds_data:
                 break
-            current = latest_state["round_number"]
+            current = rounds_data[-1]["round_number"]
             if current <= stop_at:
                 break
 
@@ -8448,15 +7463,8 @@ async def broadcast_message(req: BroadcastRequest, request: Request, _guard: Non
         (f for f in _facilitator_registry if f["facilitator_id"] == caller_id and not f.get("deleted_at")),
         None,
     ) if caller_id else None
-    # BUG-2026-07-19 (pattern A): caller_role was derived from the REGISTRY
-    # record, but god_mode is a VIRTUAL identity with no registry row — so it
-    # resolved to "facilitator", is_super went False, and the ownership filter
-    # below (`caller_fac and owns_session(...)`, with caller_fac None) selected
-    # NOTHING. God Mode's Universal Broadcast returned 200 "sent" while
-    # delivering to zero cohorts. Resolve from the signed token instead and
-    # decide on the LEVEL (CLAUDE.md role convention 1).
-    caller_role = get_fac_role(request)
-    is_super = is_admin_role(caller_role)
+    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
+    is_super = ROLE_HIERARCHY.get(caller_role, 0) >= ROLE_HIERARCHY.get("super_admin", 3)
 
     # Send immediately
     all_sessions = await db.fetch_all_sessions()
@@ -8939,9 +7947,8 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
     chyron-only bulletin."""
     _require_console_capability(request, "situation_room_enabled", "Situation Room")
 
-    # Railway audit §1.1: reads go through the parity db API (works under both
-    # stores) instead of the memory store's private dicts.
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
     has_children = any(s.get("parent_cohort_id") == cohort_id for s in all_sessions.values())
 
     teams = []
@@ -8953,13 +7960,13 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
             continue
         if is_self and has_children:
             continue  # prefer player sub-sessions over the parent shell
-        hist = await db.fetch_round_history(sid)
-        if not hist:
+        gs_list = global_states.get(sid, [])
+        if not gs_list:
             continue
-        latest = hist[-1]["global_state"]
-        prev = hist[-2]["global_state"] if len(hist) > 1 else None
+        latest = gs_list[-1]
+        prev = gs_list[-2] if len(gs_list) > 1 else None
         flags = latest.get("active_event_flags", {}) or {}
-        round_number = max(round_number, int(hist[-1].get("round_number", 1) or 1))
+        round_number = max(round_number, int(latest.get("round_number", 1) or 1))
         teams.append({
             "name": sess.get("player_name") or sess.get("cohort_name") or sid[:8],
             "ebitda": float(latest.get("historical_ebitda", 0) or 0),
@@ -9342,26 +8349,9 @@ _scenario_presets = [
             "real_world_cards_enabled": True,
             "debrief_protocol_enabled": True,
             "prediction_gates_enabled": False,
-            "negotiation_rooms_enabled": False,
             "confidence_calibration_enabled": False,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
-        },
-        # Player-dashboard analytics preselected by this level (facilitators can
-        # override per cohort in Section 6). Novices get their own feedback
-        # (decision impact) but no peer ranking (demotivation risk) and no
-        # counterfactuals (cognitive load).
-        "default_player_visibility": {
-            "decision_impact": True,
-            "peer_benchmarking": False,
-            "what_if_simulator": False,
-        },
-        # Player-facing round surfaces (cohort settings): full scaffolding —
-        # the consequence map explains causality, the board-room moment guides
-        # reflection.
-        "default_player_features": {
-            "consequence_map_enabled": True,
-            "board_room_moments_enabled": True,
         },
         "tunables": {
             "inflation_rate": 0.015,
@@ -9390,22 +8380,9 @@ _scenario_presets = [
             "real_world_cards_enabled": False,
             "debrief_protocol_enabled": False,
             "prediction_gates_enabled": False,
-            "negotiation_rooms_enabled": False,
             "confidence_calibration_enabled": True,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
-        },
-        # Progressive disclosure: own feedback + peer ranking, but the what-if
-        # counterfactual stays hidden until Executive tier.
-        "default_player_visibility": {
-            "decision_impact": True,
-            "peer_benchmarking": True,
-            "what_if_simulator": False,
-        },
-        # Both round surfaces stay on at Workshop tier.
-        "default_player_features": {
-            "consequence_map_enabled": True,
-            "board_room_moments_enabled": True,
         },
         "tunables": {
             "inflation_rate": 0.025,
@@ -9434,24 +8411,9 @@ _scenario_presets = [
             "real_world_cards_enabled": False,
             "debrief_protocol_enabled": False,
             "prediction_gates_enabled": True,
-            "negotiation_rooms_enabled": True,
             "confidence_calibration_enabled": True,
             "strategy_memo_enabled": True,
             "self_learning_mode": False,
-        },
-        # Full visibility: every player analytic on, including the what-if
-        # counterfactual — executives are expected to confront the road not
-        # taken.
-        "default_player_visibility": {
-            "decision_impact": True,
-            "peer_benchmarking": True,
-            "what_if_simulator": True,
-        },
-        # Consequence map stays (analytic transparency); the GUIDED board-room
-        # reflection goes — executives self-debrief (consistent with recap off).
-        "default_player_features": {
-            "consequence_map_enabled": True,
-            "board_room_moments_enabled": False,
         },
         "tunables": {
             "inflation_rate": 0.040,
@@ -9480,23 +8442,9 @@ _scenario_presets = [
             "real_world_cards_enabled": False,
             "debrief_protocol_enabled": False,
             "prediction_gates_enabled": False,
-            "negotiation_rooms_enabled": True,
             "confidence_calibration_enabled": False,
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
-        },
-        # No scaffolding: interpretive aids (impact attribution, what-if) off;
-        # peer ranking stays on — competitive pressure is part of the stress
-        # test, not a scaffold.
-        "default_player_visibility": {
-            "decision_impact": False,
-            "peer_benchmarking": True,
-            "what_if_simulator": False,
-        },
-        # No scaffolding: both round surfaces off.
-        "default_player_features": {
-            "consequence_map_enabled": False,
-            "board_room_moments_enabled": False,
         },
         "tunables": {
             "inflation_rate": 0.060,
@@ -9517,152 +8465,9 @@ _scenario_presets = [
 ]
 
 
-# ── Facilitator-authorable custom experience levels ──────────────────────────
-# A custom level bundles the three PEDAGOGICAL preselection maps (scaffolding,
-# player-dashboard analytics, round surfaces) plus a difficulty tier chosen
-# from the built-in tiers. Deliberately NO engine tunables: those stay
-# super-admin territory (the separate POST /scenario-presets below), so a
-# custom level can never escalate engine authority — it is purely a reusable
-# pedagogy bundle. Scoped to the creating facilitator (admins see all).
-from runtime_paths import data_file as _rp_data_file
-_CUSTOM_LEVELS_PATH = str(_rp_data_file("custom_experience_levels.json"))
-_ALLOWED_PED_KEYS = frozenset({
-    "round_recap_enabled", "real_world_cards_enabled", "debrief_protocol_enabled",
-    "prediction_gates_enabled", "confidence_calibration_enabled",
-    "negotiation_rooms_enabled",
-    "strategy_memo_enabled", "self_learning_mode",
-})
-_ALLOWED_VIS_KEYS = frozenset({"peer_benchmarking", "decision_impact", "what_if_simulator"})
-_ALLOWED_FEAT_KEYS = frozenset({"consequence_map_enabled", "board_room_moments_enabled"})
-_ALLOWED_TIERS = ("foundation", "advanced", "expert")
-
-
-def _load_custom_levels() -> list[dict]:
-    try:
-        import json as _json
-        with open(_CUSTOM_LEVELS_PATH, encoding="utf-8") as f:
-            data = _json.load(f)
-        return data if isinstance(data, list) else []
-    except Exception:
-        return []
-
-
-def _persist_custom_levels() -> None:
-    try:
-        import json as _json, os as _os
-        _os.makedirs(_os.path.dirname(_CUSTOM_LEVELS_PATH), exist_ok=True)
-        tmp = _CUSTOM_LEVELS_PATH + ".tmp"
-        with open(tmp, "w", encoding="utf-8") as f:
-            _json.dump(_custom_levels, f, ensure_ascii=False, indent=2)
-        _os.replace(tmp, _CUSTOM_LEVELS_PATH)
-    except Exception as e:
-        _ar_log.warning(f"[persistence] Failed to save custom experience levels: {e}")
-
-
-_custom_levels: list[dict] = _load_custom_levels()
-
-
-class CustomLevelRequest(BaseModel):
-    name: str = Field(..., min_length=1, max_length=60)
-    description: str = Field("", max_length=300)
-    icon: str = Field("⭐", max_length=8)
-    target_audience: str = Field("", max_length=120)
-    difficulty_tier: str = "advanced"
-    default_pedagogy: dict = {}
-    default_player_visibility: dict = {}
-    default_player_features: dict = {}
-
-
 @admin_router.get("/scenario-presets", summary="Get available scenario presets")
-async def get_scenario_presets(request: Request):
-    """Built-in levels for everyone; custom levels only to their creator
-    (admins see all). Anonymous callers get built-ins only."""
-    from auth_jwt import get_facilitator_from_request
-    caller = get_facilitator_from_request(request)
-    role = get_fac_role(request)
-    if is_admin_role(role):
-        customs = list(_custom_levels)
-    elif caller:
-        customs = [c for c in _custom_levels if c.get("created_by") == caller]
-    else:
-        customs = []
-    return {"presets": _scenario_presets + customs, "current_tunables": _engine_tunables}
-
-
-@admin_router.post("/scenario-presets/custom", summary="Create a custom experience level (facilitator)")
-async def create_custom_level(body: CustomLevelRequest, request: Request,
-                              _guard: None = Depends(require_sim_manager)):
-    from auth_jwt import get_facilitator_from_request
-    caller = get_facilitator_from_request(request)
-    tier = body.difficulty_tier if body.difficulty_tier in _ALLOWED_TIERS else "advanced"
-    entry = {
-        "id": f"custom_{uuid.uuid4().hex[:8]}",
-        "name": body.name.strip(),
-        "description": body.description.strip(),
-        "icon": body.icon or "⭐",
-        "subtitle": f"Custom · {tier.capitalize()}",
-        "color": "#8b5cf6",
-        "difficulty_tier": tier,
-        "target_audience": body.target_audience.strip(),
-        "is_custom": True,
-        "created_by": caller,
-        # Whitelist + coerce to bool so a custom level can only ever set the
-        # known pedagogical keys — nothing else rides in.
-        "default_pedagogy": {k: bool(v) for k, v in (body.default_pedagogy or {}).items() if k in _ALLOWED_PED_KEYS},
-        "default_player_visibility": {k: bool(v) for k, v in (body.default_player_visibility or {}).items() if k in _ALLOWED_VIS_KEYS},
-        "default_player_features": {k: bool(v) for k, v in (body.default_player_features or {}).items() if k in _ALLOWED_FEAT_KEYS},
-    }
-    _custom_levels.append(entry)
-    _persist_custom_levels()
-    _audit("custom_experience_level_created", details={"id": entry["id"], "name": entry["name"], "created_by": caller})
-    return {"status": "ok", "preset": entry}
-
-
-@admin_router.put("/scenario-presets/custom/{preset_id}", summary="Update a custom experience level")
-async def update_custom_level(preset_id: str, body: CustomLevelRequest, request: Request,
-                              _guard: None = Depends(require_sim_manager)):
-    """Edit-in-place for the creator (or an admin). Same whitelisting as
-    create; id and created_by are immutable."""
-    from auth_jwt import get_facilitator_from_request
-    caller = get_facilitator_from_request(request)
-    role = get_fac_role(request)
-    entry = next((c for c in _custom_levels if c.get("id") == preset_id), None)
-    if not entry:
-        raise HTTPException(404, "Custom level not found")
-    if not is_admin_role(role) and entry.get("created_by") != caller:
-        raise HTTPException(403, "You may only edit your own custom levels")
-    tier = body.difficulty_tier if body.difficulty_tier in _ALLOWED_TIERS else entry.get("difficulty_tier", "advanced")
-    entry.update({
-        "name": body.name.strip(),
-        "description": body.description.strip() or entry.get("description", ""),
-        "icon": body.icon or entry.get("icon", "⭐"),
-        "subtitle": f"Custom · {tier.capitalize()}",
-        "difficulty_tier": tier,
-        "target_audience": body.target_audience.strip() or entry.get("target_audience", ""),
-        "default_pedagogy": {k: bool(v) for k, v in (body.default_pedagogy or {}).items() if k in _ALLOWED_PED_KEYS},
-        "default_player_visibility": {k: bool(v) for k, v in (body.default_player_visibility or {}).items() if k in _ALLOWED_VIS_KEYS},
-        "default_player_features": {k: bool(v) for k, v in (body.default_player_features or {}).items() if k in _ALLOWED_FEAT_KEYS},
-    })
-    _persist_custom_levels()
-    _audit("custom_experience_level_updated", details={"id": preset_id, "name": entry["name"], "by": caller})
-    return {"status": "ok", "preset": entry}
-
-
-@admin_router.delete("/scenario-presets/custom/{preset_id}", summary="Delete a custom experience level")
-async def delete_custom_level(preset_id: str, request: Request,
-                              _guard: None = Depends(require_sim_manager)):
-    from auth_jwt import get_facilitator_from_request
-    caller = get_facilitator_from_request(request)
-    role = get_fac_role(request)
-    entry = next((c for c in _custom_levels if c.get("id") == preset_id), None)
-    if not entry:
-        raise HTTPException(404, "Custom level not found")
-    if not is_admin_role(role) and entry.get("created_by") != caller:
-        raise HTTPException(403, "You may only delete your own custom levels")
-    _custom_levels.remove(entry)
-    _persist_custom_levels()
-    _audit("custom_experience_level_deleted", details={"id": preset_id, "by": caller})
-    return {"status": "ok", "deleted": preset_id}
+async def get_scenario_presets():
+    return {"presets": _scenario_presets, "current_tunables": _engine_tunables}
 
 
 @admin_router.put("/cohort/{session_id}/pedagogical-settings", summary="Save per-cohort pedagogical settings")
@@ -9840,22 +8645,17 @@ _COMPLEXITY_EVENT_LABELS = {
 
 
 @admin_router.get("/complexity-events/{session_id}", summary="Get complexity engine events for a session")
-async def get_complexity_events(session_id: str, _guard: None = Depends(require_facilitator)):
-    """Surface the 16 engine events from a session's latest state as human-readable cards.
-
-    Guard (audit finding B — was unauthenticated): its only consumers are the
-    facilitator and god-mode dashboards (ComplexityEventFeed), and the sibling
-    /complexity-events-all was already facilitator-guarded — this brings the
-    per-session variant in line."""
-    # Railway audit §1.1: parity db API instead of the memory store's dicts.
-    hist = await db.fetch_round_history(session_id)
-    if not hist:
+async def get_complexity_events(session_id: str):
+    """Surface the 16 engine events from a session's latest state as human-readable cards."""
+    global_states = getattr(db, '_global_states', {})
+    rounds = global_states.get(session_id, [])
+    if not rounds:
         raise HTTPException(404, "No round data")
 
     feed = []
-    for row in hist:
-        rn = row.get("round_number", 1)
-        flags = row["global_state"].get("active_event_flags", {}) or {}
+    for grs in rounds:
+        rn = grs.get("round_number", 1)
+        flags = grs.get("active_event_flags", {})
         round_events = []
         for key, value in flags.items():
             if key in _COMPLEXITY_EVENT_LABELS and value:
@@ -9901,8 +8701,8 @@ async def get_complexity_events(session_id: str, _guard: None = Depends(require_
 @admin_router.get("/complexity-events-all", summary="Get complexity engine events for ALL cohorts")
 async def get_complexity_events_all(_guard: None = Depends(require_facilitator)):
     """Aggregate complexity events across every cohort for cross-cohort comparison."""
-    # Railway audit §1.1: parity db API instead of the memory store's dicts.
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
 
     cohorts = []
     for sid, sess in all_sessions.items():
@@ -9910,14 +8710,14 @@ async def get_complexity_events_all(_guard: None = Depends(require_facilitator))
         if sess.get("player_id") or sess.get("deleted_at"):
             continue
 
-        rounds = await db.fetch_round_history(sid)
+        rounds = global_states.get(sid, [])
         if not rounds:
             continue
 
         feed = []
-        for row in rounds:
-            rn = row.get("round_number", 1)
-            flags = row["global_state"].get("active_event_flags", {}) or {}
+        for grs in rounds:
+            rn = grs.get("round_number", 1)
+            flags = grs.get("active_event_flags", {})
             round_events = []
             for key, value in flags.items():
                 if key in _COMPLEXITY_EVENT_LABELS and value:
@@ -9975,8 +8775,8 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
     Returns compact health indicators for each cohort.
     Status: active, idle, stuck, disconnected.
     """
-    # Railway audit §1.1: parity db API instead of the memory store's dicts.
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
     now = datetime.now(timezone.utc)
     health = []
 
@@ -9984,9 +8784,9 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
         if sess.get("player_id") or sess.get("deleted_at"):
             continue  # Skip player sub-sessions and deleted sessions
 
-        _latest_row = await db.fetch_latest_state(sid)
-        latest_gs = (_latest_row or {}).get("global_state", {}) or {}
-        round_num = (_latest_row or {}).get("round_number", latest_gs.get("round_number", 1))
+        gs_list = global_states.get(sid, [])
+        latest_gs = gs_list[-1] if gs_list else {}
+        round_num = latest_gs.get("round_number", 1)
 
         # Compute health metrics
         treasury = float(latest_gs.get("corporate_treasury", 0))
@@ -10056,23 +8856,9 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
 async def clone_session(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Deep-clone a cohort's current state into a new session."""
     import copy
-    # Railway audit §1.1: cloning writes straight into the memory store's
-    # dicts. Under Postgres those dicts are module-absent, so the old code
-    # "succeeded" while creating NOTHING — a phantom session id. Until a
-    # shared-store clone is implemented, fail LOUDLY instead of lying.
-    from admin_shared import _in_memory_backend_active
-    if not _in_memory_backend_active():
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail="Session cloning is not yet supported on the shared (Postgres) store. "
-                   "It is available in memory-mode deployments only.",
-        )
-    # tripwire-allow-block-start — memory-only feature, 501-guarded above
-    import database_memory as _dm_clone
-    all_sessions = _dm_clone._sessions
-    global_states = _dm_clone._global_states
-    bu_states_store = _dm_clone._bu_states
-    # tripwire-allow-block-end
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    bu_states_store = getattr(db, '_bu_states', {})
 
     source = all_sessions.get(session_id)
     if not source:
@@ -10275,53 +9061,49 @@ def check_auto_pause_triggers(session_id: str, events: dict, global_state: dict)
 
 @admin_router.get("/decision-history/{session_id}", summary="Full decision timeline for a session")
 async def get_decision_history(session_id: str, _guard: None = Depends(require_facilitator)):
-    """Reconstruct the complete decision timeline with state snapshots.
+    """Reconstruct the complete decision history with state snapshots."""
+    global_states = getattr(db, '_global_states', {})
+    bu_states_store = getattr(db, '_bu_states', {})
+    decision_log = getattr(db, '_decision_log', [])
 
-    BUGFIX: read from the persisted round history (db.fetch_round_history — the
-    same authoritative source the player dashboard uses) instead of the
-    in-memory `_global_states`/`_bu_states`/`_decision_log`. Under the Postgres
-    backend those in-memory stores aren't populated (they live in
-    database_memory), so the replay only ever saw the seed round and stalled at
-    R1. The DB carries every committed round, its BU snapshots, and its
-    decisions, so the timeline now spans the whole game.
-    """
-    history = await db.fetch_round_history(session_id)
-    if not history:
+    rounds = global_states.get(session_id, [])
+    if not rounds:
         raise HTTPException(404, "No history for this session")
 
+    session_decisions = [d for d in decision_log if d.get("session_id") == session_id]
+    dec_by_round = {}
+    for d in session_decisions:
+        rn = d.get("round_number", 0)
+        if rn not in dec_by_round:
+            dec_by_round[rn] = []
+        dec_by_round[rn].append(d)
+
     timeline = []
-    for h in history:
-        gs = h.get("global_state", {}) or {}
-        rn = h.get("round_number", 1)
-        bus = h.get("business_units", []) or []
-        decs = h.get("decisions", []) or []
+    for i, grs in enumerate(rounds):
+        rn = grs.get("round_number", 1)
+        flags = grs.get("active_event_flags", {})
+        bus = bu_states_store.get(session_id, {}).get(rn, [])
 
         # Extract complexity events for this round
-        flags = gs.get("active_event_flags", {}) or {}
         round_complexity = []
         for key, value in flags.items():
             if key in _COMPLEXITY_EVENT_LABELS and value:
                 icon, label, sev = _COMPLEXITY_EVENT_LABELS[key]
                 round_complexity.append({"icon": icon, "label": label, "severity": sev})
 
-        # Decisions for this round (fetch_round_history already scopes them)
-        choices = [d.get("choice_selected", "") for d in decs if d.get("choice_selected")]
-        total_capex = sum(float(d.get("capex", 0) or 0) for d in decs)
-
-        # historical_ebitda / inflation_index aren't dedicated DB columns; use
-        # them when the state carries them, else derive EBITDA from the BUs.
-        ebitda = gs.get("historical_ebitda")
-        if ebitda is None:
-            ebitda = sum(float(b.get("revenue_base", 0)) - float(b.get("opex_base", 0)) for b in bus)
+        # Get decisions for this round
+        round_decs = dec_by_round.get(rn, [])
+        choices = [d.get("choice_selected", "") for d in round_decs if d.get("choice_selected")]
+        total_capex = sum(d.get("capex_allocated", 0) for d in round_decs)
 
         timeline.append({
             "round": rn,
-            "treasury_m": round(float(gs.get("corporate_treasury", 0)) / 1_000_000, 2),
-            "reputation": round(float(gs.get("group_reputation", 50)), 1),
-            "synergy": round(float(gs.get("synergy_multiplier", 1.0)), 3),
-            "ebitda_m": round(float(ebitda) / 1_000_000, 2),
-            "inflation": round(float(gs.get("inflation_index", 0.025)), 4),
-            "cost_of_capital": round(float(gs.get("cost_of_capital", 0.05)), 4),
+            "treasury_m": round(float(grs.get("corporate_treasury", 0)) / 1_000_000, 2),
+            "reputation": round(float(grs.get("group_reputation", 50)), 1),
+            "synergy": round(float(grs.get("synergy_multiplier", 1.0)), 3),
+            "ebitda_m": round(float(grs.get("historical_ebitda", 0)) / 1_000_000, 2),
+            "inflation": round(float(grs.get("inflation_index", 0.025)), 4),
+            "cost_of_capital": round(float(grs.get("cost_of_capital", 0.05)), 4),
             "choices": choices,
             "total_capex": round(total_capex, 0),
             "complexity_events": round_complexity,
@@ -10413,8 +9195,8 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
 
     Normalized_TV = Raw_TV × (ref_exit / paradigm_exit)
     """
-    # Railway audit §1.1: parity db API instead of the memory store's dicts.
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
 
     comparisons = []
     for sid, sess in all_sessions.items():
@@ -10425,11 +9207,9 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
         norms = _PARADIGM_NORMALIZATION.get(paradigm, _REFERENCE_PARADIGM)
         ref = _REFERENCE_PARADIGM
 
-        _row = await db.fetch_latest_state(sid)
-        latest = (_row or {}).get("global_state", {}) or {}
-        if _row:
-            latest.setdefault("round_number", _row.get("round_number", 1))
-        flags = latest.get("active_event_flags", {}) or {}
+        gs_list = global_states.get(sid, [])
+        latest = gs_list[-1] if gs_list else {}
+        flags = latest.get("active_event_flags", {})
 
         raw_tv = float(latest.get("terminal_value", 0))
         raw_mr = float(latest.get("regenerative_multiple", 1.0))
@@ -10472,8 +9252,8 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
 @admin_router.get("/cohort-comparison", summary="Side-by-side cohort comparison")
 async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depends(require_facilitator)):
     """Compare all cohorts (or a facilitator's cohorts) side by side."""
-    # Railway audit §1.1: parity db API instead of the memory store's dicts.
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
 
     comparisons = []
     for sid, sess in all_sessions.items():
@@ -10482,11 +9262,9 @@ async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depen
         if facilitator_id and sess.get("facilitator_id") != facilitator_id:
             continue
 
-        _row = await db.fetch_latest_state(sid)
-        latest = (_row or {}).get("global_state", {}) or {}
-        if _row:
-            latest.setdefault("round_number", _row.get("round_number", 1))
-        flags = latest.get("active_event_flags", {}) or {}
+        gs_list = global_states.get(sid, [])
+        latest = gs_list[-1] if gs_list else {}
+        flags = latest.get("active_event_flags", {})
 
         comparisons.append({
             "session_id": sid,
@@ -10514,46 +9292,21 @@ async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depen
 
 # ── Cohort Pulse — real-time KPI heatmap for CohortPulse.js ──────────────────
 @admin_router.get("/cohort-pulse/{cohort_id}", summary="Real-time KPI heatmap for cohort")
-async def get_cohort_pulse(cohort_id: str, request: Request):
+async def get_cohort_pulse(cohort_id: str):
     """
     Returns per-team KPI history and current state for the CohortPulse heatmap.
     Includes climate-engine fields: green_fund, cost_of_capital, carbon_fee_paid.
-
-    Guard (audit finding — was fully unauthenticated, leaking every team's KPI
-    grid): facilitators (any authenticated role) always pass. Player callers
-    are admitted ONLY when the cohort's `cohort_pulse_player_visible` flag is
-    on AND their X-Player-Id owns a session in this cohort — the player-mirror
-    design the visibility toggle promises, without an anonymous side door.
     """
-    # Railway audit §1.1: parity db API instead of the memory store's dicts.
-    # History rows carry global_state (flags unpacked to top level in both
-    # stores) AND business_units per round, replacing the private _bu_states.
-    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
-
-    if get_fac_role(request) == 'anonymous':
-        cohort_meta = all_sessions.get(cohort_id) or {}
-        if not cohort_meta.get("cohort_pulse_player_visible", False):
-            raise HTTPException(status_code=401, detail="Facilitator authentication required")
-        pid = request.headers.get("X-Player-Id", "")
-        member = bool(pid) and any(
-            (sid == cohort_id or s.get("parent_cohort_id") == cohort_id)
-            and s.get("player_id") == pid
-            for sid, s in all_sessions.items()
-        )
-        if not member:
-            raise HTTPException(status_code=403, detail="Not a member of this cohort")
+    all_sessions = getattr(db, '_sessions', {})
+    global_states = getattr(db, '_global_states', {})
+    bu_states_store = getattr(db, '_bu_states', {})
 
     teams = []
     for sid, sess in all_sessions.items():
         # Only player sessions whose parent cohort matches, or the cohort session itself
         parent = sess.get("parent_cohort_id")
         if parent == cohort_id or sid == cohort_id:
-            hist_rows = await db.fetch_round_history(sid)
-            gs_list = [
-                {**row["global_state"], "round_number": row.get("round_number", 1)}
-                for row in hist_rows
-            ]
-            bus_by_round = {row.get("round_number", 1): row.get("business_units") or [] for row in hist_rows}
+            gs_list = global_states.get(sid, [])
             history = {}
             cumulative_carbon_fee = 0.0
 
@@ -10563,7 +9316,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
                 fee_this_round = flags.get("internal_carbon_fee_deducted", 0) or 0
                 cumulative_carbon_fee += fee_this_round
                 # Compute average SLO from BU states for this round
-                buses_for_round = bus_by_round.get(r, [])
+                buses_for_round = bu_states_store.get(sid, {}).get(r, [])
                 avg_slo = (
                     sum(b.get("social_license_score", 50) for b in buses_for_round) / len(buses_for_round)
                     if buses_for_round else 50
@@ -10588,7 +9341,7 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
                 for gs in gs_list
             )
             # Average SLO for the latest round
-            latest_bus = bus_by_round.get(latest_rn, [])
+            latest_bus = bu_states_store.get(sid, {}).get(latest_rn, [])
             latest_slo = (
                 sum(b.get("social_license_score", 50) for b in latest_bus) / len(latest_bus)
                 if latest_bus else 50
@@ -10600,11 +9353,6 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
             if flags.get("supplier_defection", {}).get("active"): active_traps.append("🏭 Defection")
             if flags.get("green_premium_squeeze", {}).get("active"): active_traps.append("📉 Squeeze")
             if flags.get("regulatory_ratchet", {}).get("active"): active_traps.append("⚖️ Ratchet")
-
-            # Negotiation rooms (Phase 2): live flag while a room is open, so
-            # the facilitator sees "negotiating: journalist" on the pulse.
-            _nego = latest.get("negotiation_log") or flags.get("negotiation_log") or {}
-            _nego_active = (_nego.get("active") or {}).get("agent_id") if isinstance(_nego, dict) else None
 
             teams.append({
                 "name": sess.get("cohort_name") or sess.get("player_name") or sid[:10],
@@ -10620,7 +9368,6 @@ async def get_cohort_pulse(cohort_id: str, request: Request):
                     "cost_of_capital": latest.get("cost_of_capital", 0.05),
                     "carbon_fee_paid": total_fee,
                     "active_traps": active_traps,
-                    "negotiating": _nego_active,
                 },
                 "round": latest.get("round_number", 1),
                 "tipping_point": bool(latest.get("tipping_point_active", False)),

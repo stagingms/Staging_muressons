@@ -62,7 +62,13 @@ for i in $(seq 1 60); do
   sleep 1
 done
 
-# Start frontend on Railway's PORT — with restart loop (parity with backend)
+# Start frontend on Railway's PORT — with a restart loop mirroring the backend.
+# Without this, a Next.js crash leaves the container "alive" (the backend PID
+# still exists, so Railway sees a live container) while users get a blank page.
+# Railway's health check hits /api/health, which is proxied THROUGH the frontend,
+# so a dead frontend also stops answering health checks — but only after downtime.
+# Restarting Next.js in place recovers in seconds instead of waiting for the
+# platform to cycle the whole container. (Review C2 — frontend SPOF.)
 cd /app/frontend
 export BACKEND_URL="http://127.0.0.1:8000"
 (

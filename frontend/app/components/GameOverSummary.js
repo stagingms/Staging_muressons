@@ -145,7 +145,52 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                         <span className={styles.statLabel}>Rounds Played</span>
                         <span className={styles.statValue}>{isBRSR ? '5' : '10'}</span>
                     </div>
+                    {/* Quiz score log — the player's knowledge-check performance across
+                        the run. Only rendered when at least one quiz was taken. */}
+                    {d.quiz_score_log && d.quiz_score_log.quizzes_taken > 0 && (
+                        <div className={styles.statCard}
+                            title={d.quiz_score_log.entries.map(e =>
+                                `${e.round != null ? `R${e.round} · ` : ''}${e.title}: ${e.best_score_percent}%`
+                                + `${e.passed ? ' ✓' : ''} (${e.attempts} attempt${e.attempts === 1 ? '' : 's'})`
+                            ).join('\n')}>
+                            <span className={styles.statLabel}>🧩 Quiz Score (avg)</span>
+                            <span className={styles.statValue} style={{
+                                color: d.quiz_score_log.average_best_score >= (d.quiz_score_log.pass_threshold || 70) ? '#10b981' : '#f59e0b',
+                            }}>
+                                {d.quiz_score_log.average_best_score}%
+                            </span>
+                            <span style={{ fontSize: '0.6rem', color: '#94a3b8', marginTop: 2 }}>
+                                {d.quiz_score_log.passed_count}/{d.quiz_score_log.quizzes_taken} passed
+                            </span>
+                        </div>
+                    )}
                 </div>
+
+                {/* Quiz score log — per-round breakdown (the facilitator can read
+                    each player's scores off their final results card). */}
+                {d.quiz_score_log && d.quiz_score_log.quizzes_taken > 0 && (
+                    <div style={{
+                        margin: '0.5rem 0 1rem', padding: '10px 14px', borderRadius: 10,
+                        background: 'rgba(79,70,229,0.08)', border: '1px solid rgba(79,70,229,0.25)',
+                    }}>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 800, color: '#a5b4fc', letterSpacing: '0.04em', marginBottom: 6 }}>
+                            🧩 KNOWLEDGE-CHECK LOG
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {d.quiz_score_log.entries.map(e => (
+                                <div key={e.notebook_id} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.72rem' }}>
+                                    <span style={{ color: '#94a3b8', minWidth: 34 }}>{e.round != null ? `R${e.round}` : '—'}</span>
+                                    <span style={{ flex: 1, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{e.title}</span>
+                                    <span style={{ color: '#94a3b8', fontSize: '0.66rem' }}>{e.attempts} att.</span>
+                                    <span style={{ fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: e.passed ? '#4ade80' : '#fbbf24', minWidth: 42, textAlign: 'right' }}>
+                                        {e.best_score_percent}%
+                                    </span>
+                                    <span style={{ minWidth: 16 }}>{e.passed ? '✓' : '·'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
 
                 {/* Wow moments: replay the journey, name the regret, keep a card */}
                 <RewindRibbon flags={activeFlags} />
@@ -165,6 +210,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                         mr={d.regenerative_multiple || 0}
                         terminalValueM={(d.terminal_value || 0) / 1_000_000}
                         sharePrice={d.price_per_share}
+                        equityWiped={d.equity_wiped_out ?? (d.equity_value != null ? d.equity_value < 0 : null)}
                         accent={accentHex}
                         cohortName={d.cohort_name || ''}
                     />

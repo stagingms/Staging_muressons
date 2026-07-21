@@ -1,0 +1,372 @@
+[
+  {
+    "id": "eu-elec-policy",
+    "name": "European Commission and National Market-Surveillance Authorities",
+    "icon": "🇪🇺",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "European Commission and National Market-Surveillance Authorities set and enforce product sustainability, safety and market-access requirements. The immediate issue is ESPR readiness, Digital Product Passports, product safety and imported-goods controls. Its decisions or actions can block products, require information or order corrective action.",
+    "urgency_rationale": "New product-information and sustainability duties affect design systems now.",
+    "intel_dossier": [
+      "🔎 Ecodesign for Sustainable Products Regulation: ESPR introduces sustainability requirements and Digital Product Passports. | https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/sustainable-products/ecodesign-sustainable-products-regulation_en",
+      "🔎 EU product safety: The General Product Safety framework governs safe consumer products and market surveillance. | https://commission.europa.eu/business-economy-euro/doing-business-eu/eu-product-safety-and-labelling/product-safety/general-product-safety-regulation_en",
+      "🔎 WEEE implementation: The Commission publishes implementation tools and remaining challenges for WEEE. | https://environment.ec.europa.eu/topics/waste-and-recycling/waste-electrical-and-electronic-equipment-weee/implementation-weee-directive_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits mature compliant products; new delegated requirements need close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with European Commission and National Market-Surveillance Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-weee",
+    "name": "National WEEE Registers, Producer-Responsibility Organisations and Recyclers",
+    "icon": "♻️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "National WEEE Registers, Producer-Responsibility Organisations and Recyclers administer producer registration, collection finance, reporting and treatment. The immediate issue is market declarations, take-back, collection performance and recycler evidence. Its decisions or actions can impose fees, penalties or market restrictions.",
+    "urgency_rationale": "Registration and reporting are prerequisites for lawful market participation.",
+    "intel_dossier": [
+      "🔎 WEEE Directive: EU policy governs collection and treatment of waste electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/waste-electrical-and-electronic-equipment-weee_en",
+      "🔎 WEEE implementation: The Commission publishes implementation tools and remaining challenges for WEEE. | https://environment.ec.europa.eu/topics/waste-and-recycling/waste-electrical-and-electronic-equipment-weee/implementation-weee-directive_en",
+      "🔎 Ecodesign for Sustainable Products Regulation: ESPR introduces sustainability requirements and Digital Product Passports. | https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/sustainable-products/ecodesign-sustainable-products-regulation_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits stable verified schemes; weak collection or cross-border complexity requires close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with National WEEE Registers, Producer-Responsibility Organisations and Recyclers",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-rohs",
+    "name": "RoHS Authorities and ECHA Chemical-Safety Networks",
+    "icon": "🧪",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "RoHS Authorities and ECHA Chemical-Safety Networks control hazardous-substance restrictions, exemptions and supply-chain evidence. The immediate issue is declarations, exemptions, component substitutions and laboratory evidence. Its decisions or actions can block sale or force redesign across product lines.",
+    "urgency_rationale": "A restricted component can affect many models and suppliers.",
+    "intel_dossier": [
+      "🔎 RoHS Directive: RoHS restricts hazardous substances in electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/rohs-directive_en",
+      "🔎 Ecodesign for Sustainable Products Regulation: ESPR introduces sustainability requirements and Digital Product Passports. | https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/sustainable-products/ecodesign-sustainable-products-regulation_en",
+      "🔎 WEEE Directive: EU policy governs collection and treatment of waste electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/waste-electrical-and-electronic-equipment-weee_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits stable compliant bills of material; exemption expiry or redesign requires close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with RoHS Authorities and ECHA Chemical-Safety Networks",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-cyber",
+    "name": "ENISA, Data-Protection Authorities and Cybersecurity Regulators",
+    "icon": "🔐",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "ENISA, Data-Protection Authorities and Cybersecurity Regulators oversee privacy, connected-product security, incident handling and certification. The immediate issue is secure-by-design, update support, vulnerability disclosure and personal data. Its decisions or actions can require remediation, fines or exclusion from sensitive markets.",
+    "urgency_rationale": "Connected-device vulnerabilities scale quickly and cross borders.",
+    "intel_dossier": [
+      "🔎 EU cybersecurity policy: ENISA supports EU cybersecurity policy, certification and operational cooperation. | https://www.enisa.europa.eu/",
+      "🔎 EU data protection: The European Data Protection Board promotes consistent application of EU data-protection rules. | https://www.edpb.europa.eu/",
+      "🔎 EU product safety: The General Product Safety framework governs safe consumer products and market surveillance. | https://commission.europa.eu/business-economy-euro/doing-business-eu/eu-product-safety-and-labelling/product-safety/general-product-safety-regulation_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits low-risk non-connected products; connected ecosystems require close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with ENISA, Data-Protection Authorities and Cybersecurity Regulators",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-suppliers",
+    "name": "Semiconductor, Battery, Mineral and Contract-Manufacturing Suppliers",
+    "icon": "🔧",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Semiconductor, Battery, Mineral and Contract-Manufacturing Suppliers determine resilience, human-rights exposure, carbon data and product compliance. The immediate issue is critical chips, mineral provenance, battery data, RoHS and DPP information. Its decisions or actions can stop production or prevent compliant product passports.",
+    "urgency_rationale": "Supply-chain data is becoming part of market access, not optional reporting.",
+    "intel_dossier": [
+      "🔎 European Chips Act: The Chips Act seeks to strengthen Europe’s semiconductor ecosystem and resilience. | https://digital-strategy.ec.europa.eu/en/policies/european-chips-act",
+      "🔎 RoHS Directive: RoHS restricts hazardous substances in electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/rohs-directive_en",
+      "🔎 Ecodesign for Sustainable Products Regulation: ESPR introduces sustainability requirements and Digital Product Passports. | https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/sustainable-products/ecodesign-sustainable-products-regulation_en"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits standard components; critical or high-risk materials require joint control.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with Semiconductor, Battery, Mineral and Contract-Manufacturing Suppliers",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-retailers",
+    "name": "Retailers, Telecom Operators and Online Marketplaces",
+    "icon": "🛒",
+    "correct_quadrant": "manage_closely",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Retailers, Telecom Operators and Online Marketplaces control distribution, returns, product information and customer access. The immediate issue is safety evidence, repair, labelling, recalls and platform compliance. Its decisions or actions can delist products or impose costly service requirements.",
+    "urgency_rationale": "Retailer action can remove products faster than formal enforcement.",
+    "intel_dossier": [
+      "🔎 EU product safety: The General Product Safety framework governs safe consumer products and market surveillance. | https://commission.europa.eu/business-economy-euro/doing-business-eu/eu-product-safety-and-labelling/product-safety/general-product-safety-regulation_en",
+      "🔎 Ecodesign for Sustainable Products Regulation: ESPR introduces sustainability requirements and Digital Product Passports. | https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/sustainable-products/ecodesign-sustainable-products-regulation_en",
+      "🔎 WEEE Directive: EU policy governs collection and treatment of waste electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/waste-electrical-and-electronic-equipment-weee_en"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits standard distribution; strategic launches and recalls require close coordination.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Retailers, Telecom Operators and Online Marketplaces",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-workers",
+    "name": "Factory Employees, Engineers and European Works Councils",
+    "icon": "👷",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Factory Employees, Engineers and European Works Councils hold manufacturing and design knowledge and formal consultation rights. The immediate issue is automation, skills, restructuring, chemical exposure and workload. Its decisions or actions can delay transformation or create knowledge and labour risk.",
+    "urgency_rationale": "Semiconductor and electronics skills are scarce, while restructuring has formal timelines.",
+    "intel_dossier": [
+      "🔎 European Chips Act: The Chips Act seeks to strengthen Europe’s semiconductor ecosystem and resilience. | https://digital-strategy.ec.europa.eu/en/policies/european-chips-act",
+      "🔎 RoHS Directive: RoHS restricts hazardous substances in electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/rohs-directive_en",
+      "🔎 EU cybersecurity policy: ENISA supports EU cybersecurity policy, certification and operational cooperation. | https://www.enisa.europa.eu/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during plant change, closure, ramp-up or collective consultation.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Factory Employees, Engineers and European Works Councils",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-repair",
+    "name": "Consumers, Repair Networks and Right-to-Repair Advocates",
+    "icon": "🛠️",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Consumers, Repair Networks and Right-to-Repair Advocates shape expectations for durability, repairability, spare parts and software support. The immediate issue is repair information, parts, warranty, updates and truthful sustainability claims. Its decisions or actions can influence ecodesign rules, brand preference and collective complaints.",
+    "urgency_rationale": "Repair and durability are central to emerging product requirements.",
+    "intel_dossier": [
+      "🔎 Ecodesign for Sustainable Products Regulation: ESPR introduces sustainability requirements and Digital Product Passports. | https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/sustainable-products/ecodesign-sustainable-products-regulation_en",
+      "🔎 EU product safety: The General Product Safety framework governs safe consumer products and market surveillance. | https://commission.europa.eu/business-economy-euro/doing-business-eu/eu-product-safety-and-labelling/product-safety/general-product-safety-regulation_en",
+      "🔎 WEEE Directive: EU policy governs collection and treatment of waste electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/waste-electrical-and-electronic-equipment-weee_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies to products with poor repairability or active regulatory scrutiny.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Consumers, Repair Networks and Right-to-Repair Advocates",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-capital",
+    "name": "Investors, Banks and Public-Funding Authorities",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Investors, Banks and Public-Funding Authorities assess semiconductor strategy, capex, resilience and transition execution. The immediate issue is Chips Act projects, state aid, yield, energy and technology cycles. Its decisions or actions can alter finance, subsidy support or governance expectations.",
+    "urgency_rationale": "Large strategic investments depend on policy and execution milestones.",
+    "intel_dossier": [
+      "🔎 European Chips Act: The Chips Act seeks to strengthen Europe’s semiconductor ecosystem and resilience. | https://digital-strategy.ec.europa.eu/en/policies/european-chips-act",
+      "🔎 Ecodesign for Sustainable Products Regulation: ESPR introduces sustainability requirements and Digital Product Passports. | https://commission.europa.eu/energy-climate-change-environment/standards-tools-and-labels/products-labelling-rules-and-requirements/sustainable-products/ecodesign-sustainable-products-regulation_en",
+      "🔎 EU cybersecurity policy: ENISA supports EU cybersecurity policy, certification and operational cooperation. | https://www.enisa.europa.eu/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during subsidy agreements, fab construction or demand downturns.",
+    "engagement_tactics": [
+      {
+        "id": "brief_investors,_banks_and_public-fundin",
+        "label": "Brief Investors, Banks and Public-Funding Authorities on material risks, capital needs, milestones and downside cases",
+        "correct": true,
+        "rationale": "Allows investors to test execution quality rather than rely on broad commitments."
+      },
+      {
+        "id": "describe_the_exposure_as_immaterial_unti",
+        "label": "Describe the exposure as immaterial until a charge is booked",
+        "correct": false,
+        "rationale": "Delayed disclosure increases surprise and credibility risk."
+      },
+      {
+        "id": "promise_a_fixed_outcome_that_management_",
+        "label": "Promise a fixed outcome that management cannot control",
+        "correct": false,
+        "rationale": "Overconfidence creates litigation and trust risk if regulation or markets change."
+      }
+    ]
+  },
+  {
+    "id": "eu-elec-communities",
+    "name": "Fab Communities, Utilities and Local Environmental Authorities",
+    "icon": "🏘️",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Fab Communities, Utilities and Local Environmental Authorities experience water, energy, chemical, traffic and employment effects of production sites. The immediate issue is water availability, grid capacity, hazardous materials and local benefits. Its decisions or actions can delay permits or constrain expansion.",
+    "urgency_rationale": "Large fabs create concentrated infrastructure and environmental demands.",
+    "intel_dossier": [
+      "🔎 European Chips Act: The Chips Act seeks to strengthen Europe’s semiconductor ecosystem and resilience. | https://digital-strategy.ec.europa.eu/en/policies/european-chips-act",
+      "🔎 RoHS Directive: RoHS restricts hazardous substances in electrical and electronic equipment. | https://environment.ec.europa.eu/topics/waste-and-recycling/rohs-directive_en",
+      "🔎 EU product safety: The General Product Safety framework governs safe consumer products and market surveillance. | https://commission.europa.eu/business-economy-euro/doing-business-eu/eu-product-safety-and-labelling/product-safety/general-product-safety-regulation_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate for greenfield fabs, expansion or water-stressed locations.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Fab Communities, Utilities and Local Environmental Authorities",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  }
+]

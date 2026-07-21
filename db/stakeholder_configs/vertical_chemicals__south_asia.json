@@ -1,0 +1,372 @@
+[
+  {
+    "id": "in-chem-environment",
+    "name": "MoEFCC, CPCB and State Pollution Control Boards",
+    "icon": "🌿",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "MoEFCC, CPCB and State Pollution Control Boards control environmental clearances, consents, emissions, effluent and hazardous-waste compliance. The immediate issue is permit conditions, online monitoring, waste traceability and contaminated-site liability. Its decisions or actions can stop operations, impose directions or trigger prosecution and remediation.",
+    "urgency_rationale": "Consent and environmental directions can immediately constrain production.",
+    "intel_dossier": [
+      "🔎 MoEFCC hazardous-substances management: MoEFCC administers chemical-safety, hazardous-waste and accident-preparedness frameworks. | https://moef.gov.in/hazardous-substances-management-hsm",
+      "🔎 CPCB: CPCB coordinates pollution standards, monitoring and directions to state boards and industry. | https://cpcb.nic.in/",
+      "🔎 CPCB effluent and emission standards: CPCB maintains sectoral environmental standards and monitoring guidance. | https://cpcb.nic.in/effluent-emission/?page_id=effluent-emission"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied is possible for consistently compliant sites, but expansion and high-hazard operations require close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with MoEFCC, CPCB and State Pollution Control Boards",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-safety",
+    "name": "PESO and District Crisis Groups",
+    "icon": "🚨",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "PESO and District Crisis Groups oversee hazardous storage, transport, safety approvals and off-site emergency preparedness. The immediate issue is major-accident scenarios, inventory thresholds, mutual aid and public warning. Its decisions or actions can withhold licences or expose gaps during an incident.",
+    "urgency_rationale": "Low-frequency events have catastrophic consequences and mandatory response duties.",
+    "intel_dossier": [
+      "🔎 MSIHC and chemical-accident framework: India’s rules require major-accident hazard identification and crisis-management arrangements. | https://moef.gov.in/uploads/2017/06/Amendment-of-Chemical-Accident-Rules.pdf",
+      "🔎 PESO: PESO regulates safety of explosives, compressed gases, petroleum and related hazardous substances. | https://peso.gov.in/web/en/home",
+      "🔎 PESO roles and responsibilities: PESO participates in standards and central, state and district crisis groups. | https://peso.gov.in/web/en/roles-responsibilities"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits stable licensed facilities, but process change or high inventories demand close coordination.",
+    "engagement_tactics": [
+      {
+        "id": "exercise_joint_emergency_plans_and_decis",
+        "label": "Exercise joint emergency plans and decision protocols with PESO and District Crisis Groups",
+        "correct": true,
+        "rationale": "Rehearsal exposes gaps in command, communication, equipment and community warning."
+      },
+      {
+        "id": "treat_the_written_emergency_plan_as_suff",
+        "label": "Treat the written emergency plan as sufficient",
+        "correct": false,
+        "rationale": "Unpractised plans often fail under time pressure."
+      },
+      {
+        "id": "notify_responders_only_after_internal_co",
+        "label": "Notify responders only after internal confirmation is complete",
+        "correct": false,
+        "rationale": "Delay can increase harm and reduce containment options."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-ngt",
+    "name": "National Green Tribunal and Environmental Courts",
+    "icon": "⚖️",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "National Green Tribunal and Environmental Courts can review environmental harm, regulator action and remediation obligations. The immediate issue is documented compliance, restoration, community claims and cumulative impact. Its decisions or actions can order closure, compensation, remediation or independent monitoring.",
+    "urgency_rationale": "Litigation can escalate quickly after an accident, complaint or pollution finding.",
+    "intel_dossier": [
+      "🔎 National Green Tribunal: NGT adjudicates environmental matters and compliance disputes. | https://greentribunal.gov.in/",
+      "🔎 MoEFCC rules and regulations: MoEFCC publishes hazardous-substances and waste-management regulations. | https://moef.gov.in/rules-regulations-3",
+      "🔎 CPCB: CPCB coordinates pollution standards, monitoring and directions to state boards and industry. | https://cpcb.nic.in/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is required once a petition, show-cause notice or material claim arises.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with National Green Tribunal and Environmental Courts",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-communities",
+    "name": "Neighbouring Villages, Panchayats and Local Residents",
+    "icon": "🏘️",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Neighbouring Villages, Panchayats and Local Residents bear exposure, water, odour, traffic and emergency consequences around chemical clusters. The immediate issue is health evidence, groundwater, emergency communication and grievance closure. Its decisions or actions can block access, litigate, mobilise media or challenge permits.",
+    "urgency_rationale": "Perceived health or water impacts carry immediate legitimacy and mobilisation potential.",
+    "intel_dossier": [
+      "🔎 MoEFCC hazardous-substances management: MoEFCC administers chemical-safety, hazardous-waste and accident-preparedness frameworks. | https://moef.gov.in/hazardous-substances-management-hsm",
+      "🔎 MSIHC and chemical-accident framework: India’s rules require major-accident hazard identification and crisis-management arrangements. | https://moef.gov.in/uploads/2017/06/Amendment-of-Chemical-Accident-Rules.pdf",
+      "🔎 National Green Tribunal: NGT adjudicates environmental matters and compliance disputes. | https://greentribunal.gov.in/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies near dense settlements, legacy contamination or active expansion.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Neighbouring Villages, Panchayats and Local Residents",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-workers",
+    "name": "Plant Workers, Contract Labour and Unions",
+    "icon": "👷",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Plant Workers, Contract Labour and Unions operate hazardous processes and are the first line of detection and response. The immediate issue is process safety, exposure monitoring, fatigue, contractor competence and stop-work authority. Its decisions or actions can prevent or trigger major incidents and production stoppages.",
+    "urgency_rationale": "Worker safety failures can become catastrophic within minutes.",
+    "intel_dossier": [
+      "🔎 MSIHC and chemical-accident framework: India’s rules require major-accident hazard identification and crisis-management arrangements. | https://moef.gov.in/uploads/2017/06/Amendment-of-Chemical-Accident-Rules.pdf",
+      "🔎 PESO: PESO regulates safety of explosives, compressed gases, petroleum and related hazardous substances. | https://peso.gov.in/web/en/home",
+      "🔎 PESO roles and responsibilities: PESO participates in standards and central, state and district crisis groups. | https://peso.gov.in/web/en/roles-responsibilities"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed is insufficient for high-hazard operations; it fits only low-risk support functions.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Plant Workers, Contract Labour and Unions",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-suppliers",
+    "name": "Feedstock Suppliers, Tanker Operators and Warehouses",
+    "icon": "🚛",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Feedstock Suppliers, Tanker Operators and Warehouses control raw-material quality and hazardous-material movement across the network. The immediate issue is compatibility, packaging, driver competence, route risk and chain of custody. Its decisions or actions can cause contamination, transport accidents or plant shutdowns.",
+    "urgency_rationale": "A single logistics or quality failure can create immediate off-site impact.",
+    "intel_dossier": [
+      "🔎 PESO: PESO regulates safety of explosives, compressed gases, petroleum and related hazardous substances. | https://peso.gov.in/web/en/home",
+      "🔎 PESO roles and responsibilities: PESO participates in standards and central, state and district crisis groups. | https://peso.gov.in/web/en/roles-responsibilities",
+      "🔎 CPCB: CPCB coordinates pollution standards, monitoring and directions to state boards and industry. | https://cpcb.nic.in/"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits non-hazardous, substitutable inputs; critical hazardous flows need joint controls.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with Feedstock Suppliers, Tanker Operators and Warehouses",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-customers",
+    "name": "Downstream Manufacturers and Export Customers",
+    "icon": "🏭",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Downstream Manufacturers and Export Customers depend on specification, regulatory documentation and continuity for their own products. The immediate issue is product stewardship, restricted substances, quality and supply continuity. Its decisions or actions can switch suppliers, demand indemnities or cascade recalls.",
+    "urgency_rationale": "Customer qualification and export compliance create long replacement cycles.",
+    "intel_dossier": [
+      "🔎 MoEFCC rules and regulations: MoEFCC publishes hazardous-substances and waste-management regulations. | https://moef.gov.in/rules-regulations-3",
+      "🔎 CPCB: CPCB coordinates pollution standards, monitoring and directions to state boards and industry. | https://cpcb.nic.in/",
+      "🔎 MoEFCC hazardous-substances management: MoEFCC administers chemical-safety, hazardous-waste and accident-preparedness frameworks. | https://moef.gov.in/hazardous-substances-management-hsm"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate for strategic accounts or chemicals embedded in regulated products.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Downstream Manufacturers and Export Customers",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-capital",
+    "name": "Lenders, Insurers and Institutional Investors",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Lenders, Insurers and Institutional Investors price accident, pollution, business-interruption and transition risk. The immediate issue is engineering controls, loss history, liability provisions and capex. Its decisions or actions can restrict cover, increase cost of capital or impose covenants.",
+    "urgency_rationale": "A major hazard finding can change coverage and financing before an incident occurs.",
+    "intel_dossier": [
+      "🔎 MoEFCC hazardous-substances management: MoEFCC administers chemical-safety, hazardous-waste and accident-preparedness frameworks. | https://moef.gov.in/hazardous-substances-management-hsm",
+      "🔎 MSIHC and chemical-accident framework: India’s rules require major-accident hazard identification and crisis-management arrangements. | https://moef.gov.in/uploads/2017/06/Amendment-of-Chemical-Accident-Rules.pdf",
+      "🔎 National Green Tribunal: NGT adjudicates environmental matters and compliance disputes. | https://greentribunal.gov.in/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies at renewal, refinancing, acquisition or after a significant incident.",
+    "engagement_tactics": [
+      {
+        "id": "run_scenario-based_loss-prevention_and_c",
+        "label": "Run scenario-based loss-prevention and coverage reviews with Lenders, Insurers and Institutional Investors",
+        "correct": true,
+        "rationale": "Links engineering controls, business interruption and financial protection."
+      },
+      {
+        "id": "optimise_only_for_the_lowest_premium",
+        "label": "Optimise only for the lowest premium",
+        "correct": false,
+        "rationale": "Cheap coverage can leave critical exclusions and weak prevention incentives."
+      },
+      {
+        "id": "disclose_incidents_only_at_renewal",
+        "label": "Disclose incidents only at renewal",
+        "correct": false,
+        "rationale": "Late notification can prejudice coverage and weaken the risk relationship."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-ngos",
+    "name": "Environmental NGOs, Local Media and Public-Health Experts",
+    "icon": "📰",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "medium",
+    "description": "Environmental NGOs, Local Media and Public-Health Experts investigate pollution and translate technical evidence for communities and courts. The immediate issue is credible monitoring, disclosure, cumulative impacts and safer substitution. Its decisions or actions can amplify weak signals into national scrutiny or litigation.",
+    "urgency_rationale": "Influence rises quickly after an odour, spill, health cluster or leaked document.",
+    "intel_dossier": [
+      "🔎 CPCB: CPCB coordinates pollution standards, monitoring and directions to state boards and industry. | https://cpcb.nic.in/",
+      "🔎 National Green Tribunal: NGT adjudicates environmental matters and compliance disputes. | https://greentribunal.gov.in/",
+      "🔎 MoEFCC hazardous-substances management: MoEFCC administers chemical-safety, hazardous-waste and accident-preparedness frameworks. | https://moef.gov.in/hazardous-substances-management-hsm"
+    ],
+    "alternate_quadrant": "monitor",
+    "alternate_rationale": "Monitor is sufficient for low-impact sites; Keep Informed is safer where trust is weak.",
+    "engagement_tactics": [
+      {
+        "id": "provide_evidence,_site_access_and_indepe",
+        "label": "Provide evidence, site access and independent verification to Environmental NGOs, Local Media and Public-Health Experts",
+        "correct": true,
+        "rationale": "Credible transparency can narrow disagreement and expose fixable gaps."
+      },
+      {
+        "id": "threaten_litigation_at_the_first_critici",
+        "label": "Threaten litigation at the first criticism",
+        "correct": false,
+        "rationale": "An aggressive opening can amplify the issue and deter legitimate dialogue."
+      },
+      {
+        "id": "pay_for_favourable_third-party_content",
+        "label": "Pay for favourable third-party content",
+        "correct": false,
+        "rationale": "Perceived astroturfing damages trust if uncovered."
+      }
+    ]
+  },
+  {
+    "id": "in-chem-responders",
+    "name": "Fire Services, Hospitals and Mutual-Aid Partners",
+    "icon": "🚒",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Fire Services, Hospitals and Mutual-Aid Partners provide off-site containment, evacuation, treatment and recovery capacity. The immediate issue is chemical inventories, antidotes, access routes, communication and drills. Its decisions or actions can determine the scale of harm after an event.",
+    "urgency_rationale": "Preparedness gaps only become visible under severe time pressure.",
+    "intel_dossier": [
+      "🔎 MSIHC and chemical-accident framework: India’s rules require major-accident hazard identification and crisis-management arrangements. | https://moef.gov.in/uploads/2017/06/Amendment-of-Chemical-Accident-Rules.pdf",
+      "🔎 PESO roles and responsibilities: PESO participates in standards and central, state and district crisis groups. | https://peso.gov.in/web/en/roles-responsibilities",
+      "🔎 PESO: PESO regulates safety of explosives, compressed gases, petroleum and related hazardous substances. | https://peso.gov.in/web/en/home"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is warranted for major-accident hazard sites and complex community interfaces.",
+    "engagement_tactics": [
+      {
+        "id": "exercise_joint_emergency_plans_and_decis",
+        "label": "Exercise joint emergency plans and decision protocols with Fire Services, Hospitals and Mutual-Aid Partners",
+        "correct": true,
+        "rationale": "Rehearsal exposes gaps in command, communication, equipment and community warning."
+      },
+      {
+        "id": "treat_the_written_emergency_plan_as_suff",
+        "label": "Treat the written emergency plan as sufficient",
+        "correct": false,
+        "rationale": "Unpractised plans often fail under time pressure."
+      },
+      {
+        "id": "notify_responders_only_after_internal_co",
+        "label": "Notify responders only after internal confirmation is complete",
+        "correct": false,
+        "rationale": "Delay can increase harm and reduce containment options."
+      }
+    ]
+  }
+]

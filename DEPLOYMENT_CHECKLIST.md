@@ -21,7 +21,7 @@ runtime gates (#9, #10) that need a staging environment.
 | `MASTER_PASSWORD` | a fresh strong secret, **or leave unset** | god_mode break-glass. QA #1 removed the code default: unset = disabled (safe). If set, rotate away from the burned `sim2026@iim`. |
 | `PROJECT_ADMIN_PASSWORD` | fresh secret or unset | project_admin (provisioning-only). Unset = disabled. Rotate away from burned `simadmin2026@`. |
 | `PLAYER_MASTER_PASSWORD` | usually unset | Optional player master-unlock; keep disabled unless support needs it. Must differ from `MASTER_PASSWORD`. |
-| `MURESSONS_DATA_DIR` | the volume mount path, e.g. `/data` | QA #3: keeps facilitator registry / token versions / bans / audit / master-override / snapshot across redeploys. |
+| `MURESSONS_DATA_DIR` | the volume mount path, e.g. `/data` | QA #3: keeps facilitator registry / token versions / bans / audit / master-override / virtual-account profiles **and the game-state snapshot** — every cohort's settings overlay (pacing, briefing-video URLs, templates, analytics visibility) — across redeploys. |
 | `CORS_ORIGINS` | your frontend origin(s) | Comma-separated allowlist. `RAILWAY_PUBLIC_DOMAIN` is auto-appended. |
 | `TRUSTED_PROXY_IPS` | Railway edge IP(s) | So `X-Forwarded-For` (real client IP) is trusted only from the platform proxy, not spoofable clients (QA #7 depends on this being correct). |
 | `WEB_CONCURRENCY` | leave `1` for now | >1 requires the multi-worker gate below (QA #10). `scale_preflight` clamps to 1 without Postgres anyway. |
@@ -36,8 +36,16 @@ then set `MURESSONS_DATA_DIR=/data`.
   only the *mutable* files from `MURESSONS_DATA_DIR`.
 - On first boot with a fresh volume, existing repo-`db/` copies of the mutable
   files are migrated across automatically (see `backend/runtime_paths.py`).
-- Verify after deploy: create a facilitator, redeploy, confirm the account
-  still logs in (this is the exact failure the volume fixes).
+- **Verify the volume is live two ways:**
+  1. Boot log shows `[storage] data dir: /data (configured=True, writable=True,
+     railway=True, durable=True)`. If instead you see the `[!!] RAILWAY DETECTED
+     WITHOUT A DURABLE DATA DIRECTORY` banner, the volume isn't mounted /
+     `MURESSONS_DATA_DIR` isn't set.
+  2. `GET /health` returns `"durable_storage": true` (and a `storage` object with
+     the details). This is the fastest post-deploy confirmation.
+- End-to-end proof: create a facilitator (or set a cohort's briefing-video
+  URLs), redeploy, confirm the account still logs in and the settings persist —
+  this is the exact failure the volume fixes.
 
 ## 3. Rotate the burned secrets (QA #1)
 

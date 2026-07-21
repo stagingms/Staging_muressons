@@ -1,0 +1,372 @@
+[
+  {
+    "id": "na-pharma-regulators",
+    "name": "FDA and Health Canada",
+    "icon": "🏛️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "FDA and Health Canada control approvals, inspections, labels, safety action and manufacturing compliance in the US and Canada. The immediate issue is accelerated-approval evidence, post-market commitments, data integrity and inspection readiness. Its decisions or actions can delay or withdraw products, require warnings, recalls or remediation.",
+    "urgency_rationale": "Regulatory action can immediately affect two large markets and global confidence.",
+    "intel_dossier": [
+      "🔎 FDA drug development and approval: FDA sets the US approval and lifecycle requirements for drugs. | https://www.fda.gov/drugs/development-approval-process-drugs",
+      "🔎 Health Canada drug shortages: Health Canada coordinates prevention and mitigation of nationally significant shortages. | https://www.canada.ca/en/health-canada/services/drugs-health-products/drug-products/drug-shortages.html",
+      "🔎 FDA safety and availability: FDA publishes safety communications, recalls and post-market information. | https://www.fda.gov/drugs/drug-safety-and-availability"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied may fit a stable mature portfolio, but active submissions and post-market obligations require close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with FDA and Health Canada",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-public-payers",
+    "name": "CMS, Provincial Drug Plans and PMPRB",
+    "icon": "💵",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "CMS, Provincial Drug Plans and PMPRB shape negotiated prices, formulary access and affordability expectations. The immediate issue is Medicare negotiation, Canadian price review, evidence and patient affordability. Its decisions or actions can compress net price, restrict access or reset benchmarks.",
+    "urgency_rationale": "Negotiation and listing cycles create direct revenue and access deadlines.",
+    "intel_dossier": [
+      "🔎 CMS drug price negotiation: CMS implements Medicare drug-price negotiation and related manufacturer requirements. | https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program",
+      "🔎 PMPRB: PMPRB protects Canadians from excessive patented-medicine prices and reports on market trends. | https://pmprb-cepmb.gc.ca/",
+      "🔎 Health Canada drug shortages: Health Canada coordinates prevention and mitigation of nationally significant shortages. | https://www.canada.ca/en/health-canada/services/drugs-health-products/drug-products/drug-shortages.html"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied is possible outside selected products, but high-spend drugs need close engagement.",
+    "engagement_tactics": [
+      {
+        "id": "co-develop_an_evidence,_access_and_suppl",
+        "label": "Co-develop an evidence, access and supply plan with CMS, Provincial Drug Plans and PMPRB",
+        "correct": true,
+        "rationale": "Links price or procurement discussions to outcomes, affordability and continuity of supply."
+      },
+      {
+        "id": "offer_a_blanket_discount_with_no_access_",
+        "label": "Offer a blanket discount with no access conditions",
+        "correct": false,
+        "rationale": "Sacrifices value without ensuring uptake, adherence or patient access."
+      },
+      {
+        "id": "escalate_the_negotiation_through_public_",
+        "label": "Escalate the negotiation through public criticism",
+        "correct": false,
+        "rationale": "Hardens positions and can damage trust with other payers."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-private-payers",
+    "name": "PBMs, Insurers and Integrated Delivery Networks",
+    "icon": "🧾",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "PBMs, Insurers and Integrated Delivery Networks control formulary position, utilisation management, rebates and patient pathways. The immediate issue is net cost, outcomes evidence, prior authorisation, biosimilar strategy and supply. Its decisions or actions can exclude products or impose access friction at scale.",
+    "urgency_rationale": "A single formulary decision can move large patient volumes.",
+    "intel_dossier": [
+      "🔎 CMS drug price negotiation: CMS implements Medicare drug-price negotiation and related manufacturer requirements. | https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program",
+      "🔎 FTC pharmaceuticals: FTC enforces competition law in pharmaceutical markets. | https://www.ftc.gov/news-events/topics/competition-enforcement/pharmaceuticals",
+      "🔎 HHS OIG compliance guidance: HHS OIG publishes compliance guidance relevant to healthcare arrangements and federal programmes. | https://oig.hhs.gov/compliance/compliance-guidance/"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied may work for differentiated products with stable contracts; renewals and competitive launches require close management.",
+    "engagement_tactics": [
+      {
+        "id": "co-develop_an_evidence,_access_and_suppl",
+        "label": "Co-develop an evidence, access and supply plan with PBMs, Insurers and Integrated Delivery Networks",
+        "correct": true,
+        "rationale": "Links price or procurement discussions to outcomes, affordability and continuity of supply."
+      },
+      {
+        "id": "offer_a_blanket_discount_with_no_access_",
+        "label": "Offer a blanket discount with no access conditions",
+        "correct": false,
+        "rationale": "Sacrifices value without ensuring uptake, adherence or patient access."
+      },
+      {
+        "id": "escalate_the_negotiation_through_public_",
+        "label": "Escalate the negotiation through public criticism",
+        "correct": false,
+        "rationale": "Hardens positions and can damage trust with other payers."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-patients",
+    "name": "Patient Advocates, Caregivers and Trial Participants",
+    "icon": "🫂",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Patient Advocates, Caregivers and Trial Participants experience treatment benefit, safety, affordability and access barriers directly. The immediate issue is copay burden, transparent evidence, diversity, consent and shortage communication. Its decisions or actions can influence regulators, legislators, payers and litigation.",
+    "urgency_rationale": "Health and affordability concerns can escalate rapidly and credibly.",
+    "intel_dossier": [
+      "🔎 FDA safety and availability: FDA publishes safety communications, recalls and post-market information. | https://www.fda.gov/drugs/drug-safety-and-availability",
+      "🔎 CMS drug price negotiation: CMS implements Medicare drug-price negotiation and related manufacturer requirements. | https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program",
+      "🔎 Health Canada drug shortages: Health Canada coordinates prevention and mitigation of nationally significant shortages. | https://www.canada.ca/en/health-canada/services/drugs-health-products/drug-products/drug-shortages.html"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies for rare diseases, safety controversies or severe access constraints.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Patient Advocates, Caregivers and Trial Participants",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-providers",
+    "name": "Physicians, Health Systems and Pharmacists",
+    "icon": "⚕️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Physicians, Health Systems and Pharmacists determine prescribing, pathways, infusion capacity and real-world monitoring. The immediate issue is clinical differentiation, administrative burden, reimbursement and supply. Its decisions or actions can accelerate, restrict or abandon adoption.",
+    "urgency_rationale": "Provider workflows and staffing can be the binding constraint after approval.",
+    "intel_dossier": [
+      "🔎 FDA drug development and approval: FDA sets the US approval and lifecycle requirements for drugs. | https://www.fda.gov/drugs/development-approval-process-drugs",
+      "🔎 CMS drug price negotiation: CMS implements Medicare drug-price negotiation and related manufacturer requirements. | https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program",
+      "🔎 FDA safety and availability: FDA publishes safety communications, recalls and post-market information. | https://www.fda.gov/drugs/drug-safety-and-availability"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed is adequate for stable products; complex launches require joint implementation.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Physicians, Health Systems and Pharmacists",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-supply",
+    "name": "CMOs, Wholesalers and Specialty Distributors",
+    "icon": "🚚",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "CMOs, Wholesalers and Specialty Distributors control critical manufacturing capacity, channel inventory and cold-chain execution. The immediate issue is quality events, allocation, serialization, shortage notices and recall readiness. Its decisions or actions can create national shortages, diversion or delayed treatment.",
+    "urgency_rationale": "Supply failures trigger immediate patient and regulator consequences.",
+    "intel_dossier": [
+      "🔎 FDA drug shortages: FDA works with manufacturers to prevent and mitigate shortages. | https://www.fda.gov/drugs/drug-safety-and-availability/drug-shortages",
+      "🔎 Health Canada drug shortages: Health Canada coordinates prevention and mitigation of nationally significant shortages. | https://www.canada.ca/en/health-canada/services/drugs-health-products/drug-products/drug-shortages.html",
+      "🔎 FDA safety and availability: FDA publishes safety communications, recalls and post-market information. | https://www.fda.gov/drugs/drug-safety-and-availability"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits diversified, low-risk channels; specialty and sole-source products need close control.",
+    "engagement_tactics": [
+      {
+        "id": "agree_inventory,_traceability_and_recall",
+        "label": "Agree inventory, traceability and recall protocols with CMOs, Wholesalers and Specialty Distributors",
+        "correct": true,
+        "rationale": "Clarifies decision rights and reduces delay when safety or shortage events occur."
+      },
+      {
+        "id": "push_excess_inventory_into_the_channel",
+        "label": "Push excess inventory into the channel",
+        "correct": false,
+        "rationale": "Creates expiry, grey-market and trust risks."
+      },
+      {
+        "id": "share_forecasts_only_after_production_is",
+        "label": "Share forecasts only after production is fixed",
+        "correct": false,
+        "rationale": "Late information prevents coordinated capacity and allocation decisions."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-employees",
+    "name": "Scientists, Manufacturing Staff and Sales Teams",
+    "icon": "👩‍🔬",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Scientists, Manufacturing Staff and Sales Teams generate evidence, manufacture products and execute commercial conduct. The immediate issue is speak-up culture, incentive design, skills, safety and restructuring. Its decisions or actions can prevent or expose quality, research-integrity and promotion failures.",
+    "urgency_rationale": "Turnover or weak incentives can quickly undermine regulated processes.",
+    "intel_dossier": [
+      "🔎 HHS OIG compliance guidance: HHS OIG publishes compliance guidance relevant to healthcare arrangements and federal programmes. | https://oig.hhs.gov/compliance/compliance-guidance/",
+      "🔎 FDA drug development and approval: FDA sets the US approval and lifecycle requirements for drugs. | https://www.fda.gov/drugs/development-approval-process-drugs",
+      "🔎 FDA safety and availability: FDA publishes safety communications, recalls and post-market information. | https://www.fda.gov/drugs/drug-safety-and-availability"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during integration, site remediation or major workforce change.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Scientists, Manufacturing Staff and Sales Teams",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-enforcement",
+    "name": "FTC, DOJ and HHS OIG",
+    "icon": "⚖️",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "FTC, DOJ and HHS OIG enforce competition, fraud-and-abuse and federal-programme integrity rules. The immediate issue is rebates, contracting, speaker programmes, market concentration and promotion. Its decisions or actions can impose penalties, corporate-integrity obligations or deal remedies.",
+    "urgency_rationale": "Exposure becomes acute when commercial models or transactions are under review.",
+    "intel_dossier": [
+      "🔎 FTC pharmaceuticals: FTC enforces competition law in pharmaceutical markets. | https://www.ftc.gov/news-events/topics/competition-enforcement/pharmaceuticals",
+      "🔎 HHS OIG compliance guidance: HHS OIG publishes compliance guidance relevant to healthcare arrangements and federal programmes. | https://oig.hhs.gov/compliance/compliance-guidance/",
+      "🔎 CMS drug price negotiation: CMS implements Medicare drug-price negotiation and related manufacturer requirements. | https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is required for investigations, mergers or high-risk healthcare arrangements.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with FTC, DOJ and HHS OIG",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-capital",
+    "name": "Shareholders, Creditors and Activist Investors",
+    "icon": "📈",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Shareholders, Creditors and Activist Investors allocate capital and challenge pipeline, pricing and portfolio choices. The immediate issue is launch performance, regulatory risk, patent cliffs and capital allocation. Its decisions or actions can reprice equity, constrain debt or seek board change.",
+    "urgency_rationale": "A clinical, pricing or regulatory event can change valuation instantly.",
+    "intel_dossier": [
+      "🔎 FDA drug development and approval: FDA sets the US approval and lifecycle requirements for drugs. | https://www.fda.gov/drugs/development-approval-process-drugs",
+      "🔎 CMS drug price negotiation: CMS implements Medicare drug-price negotiation and related manufacturer requirements. | https://www.cms.gov/initiatives/medicare-prescription-drug-affordability/overview/medicare-drug-price-negotiation-program",
+      "🔎 FTC pharmaceuticals: FTC enforces competition law in pharmaceutical markets. | https://www.ftc.gov/news-events/topics/competition-enforcement/pharmaceuticals"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during proxy pressure, major readouts, transactions or guidance resets.",
+    "engagement_tactics": [
+      {
+        "id": "brief_shareholders,_creditors_and_activi",
+        "label": "Brief Shareholders, Creditors and Activist Investors on material risks, capital needs, milestones and downside cases",
+        "correct": true,
+        "rationale": "Allows investors to test execution quality rather than rely on broad commitments."
+      },
+      {
+        "id": "describe_the_exposure_as_immaterial_unti",
+        "label": "Describe the exposure as immaterial until a charge is booked",
+        "correct": false,
+        "rationale": "Delayed disclosure increases surprise and credibility risk."
+      },
+      {
+        "id": "promise_a_fixed_outcome_that_management_",
+        "label": "Promise a fixed outcome that management cannot control",
+        "correct": false,
+        "rationale": "Overconfidence creates litigation and trust risk if regulation or markets change."
+      }
+    ]
+  },
+  {
+    "id": "na-pharma-communities",
+    "name": "Manufacturing Communities and Environmental Authorities",
+    "icon": "🏘️",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Manufacturing Communities and Environmental Authorities experience local emissions, water, traffic, employment and emergency risk. The immediate issue is permit compliance, community health, waste and site investment. Its decisions or actions can delay permits, intensify enforcement or challenge expansion.",
+    "urgency_rationale": "Local concerns can become material when tied to health or environmental justice.",
+    "intel_dossier": [
+      "🔎 Health Canada drug shortages: Health Canada coordinates prevention and mitigation of nationally significant shortages. | https://www.canada.ca/en/health-canada/services/drugs-health-products/drug-products/drug-shortages.html",
+      "🔎 FDA safety and availability: FDA publishes safety communications, recalls and post-market information. | https://www.fda.gov/drugs/drug-safety-and-availability",
+      "🔎 FDA drug shortages: FDA works with manufacturers to prevent and mitigate shortages. | https://www.fda.gov/drugs/drug-safety-and-availability/drug-shortages"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate for new facilities, permit renewals or recurring complaints.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Manufacturing Communities and Environmental Authorities",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  }
+]

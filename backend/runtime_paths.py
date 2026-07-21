@@ -52,6 +52,40 @@ def data_dir() -> Path:
     return d
 
 
+def on_railway() -> bool:
+    """True when running inside a Railway deployment (their injected env)."""
+    return bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
+
+
+def storage_status() -> dict:
+    """Durability report for the mutable-state directory.
+
+    `durable` is the single flag deployments should alert on: True when the
+    data dir is explicitly configured (MURESSONS_DATA_DIR → a mounted volume)
+    AND writable, or when we're NOT on an ephemeral platform (local dev /
+    docker-compose with a bind mount, where <repo>/db is fine)."""
+    configured = bool(os.getenv("MURESSONS_DATA_DIR", "").strip())
+    d = data_dir()
+    writable = False
+    try:
+        probe = d / ".write_probe"
+        probe.write_text("ok", encoding="utf-8")
+        probe.unlink()
+        writable = True
+    except OSError:
+        writable = False
+    railway = on_railway()
+    return {
+        "data_dir": str(d),
+        "configured": configured,          # MURESSONS_DATA_DIR set
+        "writable": writable,
+        "on_railway": railway,
+        # On Railway the container FS is ephemeral: durable ⇔ volume configured
+        # and writable. Off Railway, <repo>/db is as durable as the host disk.
+        "durable": (configured and writable) if railway else writable,
+    }
+
+
 def data_file(name: str, legacy: Path | None = None) -> Path:
     """Resolve a mutable runtime file inside data_dir().
 

@@ -77,9 +77,6 @@ ROLE_ALLOWED_TABS = {
         "scorecard_evaluator", "bonuses", "peer_eval", "reports",
         "notes", "annotations", "teaching_journal", "technical_glossary",
         "intervention_config",
-        # Pre-flight dry-run simulator (bot playthrough difficulty report).
-        # Base-facilitator: config QA belongs to whoever runs the cohort.
-        "dry_run",
         # ESG Leadership Profile rubric editor — moved to the base facilitator
         # dashboard (all run-managing facilitators tune the rubric; project_admin
         # never sees it because its tab set is fixed, not cumulative).
@@ -95,10 +92,6 @@ ROLE_ALLOWED_TABS = {
         "undo_round", "activity_log",
         # I2 (Workstream C): read-only effective-settings view over owned cohorts.
         "cohort_settings_view",
-        # Custom Black Swan Injector — tab is lead+ but the tool only lists
-        # cohorts a super admin enabled (custom_black_swan_enabled override);
-        # the inject endpoint enforces the same flag server-side.
-        "custom_black_swan",
     ],
     "super_admin": ["*"],  # All tabs
     # project_admin gets a FIXED set (not cumulative with facilitator tabs):
@@ -279,13 +272,6 @@ _god_mode_settings: dict = {
     # Removed from global settings to prevent drift between God Mode and cohort-level ownership.
     "systemic_risk_enabled": True,                # Enable ESG-adjusted WACC + tipping points
     "black_swan_events_enabled": True,            # Enable stochastic Black Swan disruptions
-    # Custom Black Swan Injector (facilitator-dashboard tool). OFF by default:
-    # a super admin enables it per cohort via cohort-settings; only then can a
-    # lead facilitator compose/inject custom crises into that cohort.
-    "custom_black_swan_enabled": False,
-    # Stakeholder Negotiation Rooms (SPEC_Stakeholder_Negotiation_Rooms).
-    # OFF by default; preset ON for Executive/Chaos experience levels.
-    "negotiation_rooms_enabled": False,
     "npc_cascading_enabled": True,                # Enable NPC stakeholder cascade reactions
     "foreshadowing_signals_enabled": True,        # Show pedagogical foreshadowing hints
 
@@ -308,6 +294,11 @@ _god_mode_settings: dict = {
     "quiz_graded": False,           # count quiz toward the cohort gradebook
     "quiz_pass_threshold": 70,      # percent required to pass (0–100)
     "quiz_max_attempts": 2,         # attempts per quiz (>=1); matches legacy engine default
+    # quiz_mandatory — when ON, a round that has a quiz notebook BLOCKS the
+    # player's decision/commit until they have taken that round's quiz (at least
+    # one recorded attempt; passing is not required so a struggling student is
+    # never permanently trapped). Rounds with no quiz notebook are unaffected.
+    "quiz_mandatory": False,
 
     # Team / roster provisioning:
     #   team_count — hard roster cap enforced at join (0 = platform default of 5).
@@ -369,6 +360,16 @@ _god_mode_settings: dict = {
     # committed, game over) so LMS/gradebook integrations can sync without
     # polling. https-only; empty = disabled.
     "webhook_url": "",
+
+    # Briefing videos — players get a Read | Watch choice on round briefings.
+    # URLs only (YouTube / Vimeo / direct file on the institution's hosting);
+    # the media itself never lives in the app.
+    #   briefing_video_base — URL pattern; "{round}" is replaced by the round
+    #     number (e.g. "https://cdn.x.edu/briefing-{round}.mp4"). Empty = none.
+    #   briefing_videos — explicit per-round map {"1": url, ...}; an explicit
+    #     entry wins over the pattern for that round.
+    "briefing_video_base": "",
+    "briefing_videos": {},
 }
 
 
@@ -413,13 +414,6 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "decision_timer_seconds",
     "npc_stakeholders_enabled",
     "board_room_moments_enabled",
-    "consequence_map_enabled",   # results-view Decision Consequence Map (per-cohort)
-    "custom_black_swan_enabled", # Custom Black Swan Injector unlock (super-admin sets per cohort)
-    "negotiation_rooms_enabled", # Stakeholder Negotiation Rooms (per-cohort)
-    # Briefing videos: URLs ONLY — the media itself lives on external hosting
-    # (YouTube/Vimeo/CDN) or the server's data dir, never in git.
-    "briefing_video_base",       # URL pattern with {round}, e.g. https://cdn/x/round-{round}.mp4
-    "briefing_videos",           # {round_number: url} per-round overrides
     "brsr_ngrbc_enabled",
     "tcfd_scenarios_enabled",
     "industry_vertical",
@@ -433,9 +427,9 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "quiz_graded",
     "quiz_pass_threshold",
     "quiz_max_attempts",
+    "quiz_mandatory",
     "team_count",
     "max_team_size",
-    "max_players",   # per-cohort roster cap, clamped to player_capacity.MAX_PLAYERS_CEILING
     "join_method",
     "join_code",
     # MEDIUM-tier cohort controls
@@ -451,6 +445,8 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "consent_required",
     "consent_text",
     "webhook_url",
+    "briefing_video_base",
+    "briefing_videos",
 })
 
 
@@ -484,13 +480,7 @@ def normalize_advanced_cohort_settings(body: dict) -> dict:
     _as_int("team_count", 0, 500, 0)
     _as_int("max_team_size", 0, 100, 0)
 
-    # Roster cap: clamped on the way IN as well as at every read, so a value
-    # above the ceiling can never be persisted in the first place.
-    if "max_players" in out:
-        from player_capacity import clamp_max_players
-        out["max_players"] = clamp_max_players(out["max_players"])
-
-    for key in ("redact_peer_identities", "quiz_enabled", "quiz_graded"):
+    for key in ("redact_peer_identities", "quiz_enabled", "quiz_graded", "quiz_mandatory"):
         if key in out:
             out[key] = bool(out[key])
 
@@ -568,6 +558,31 @@ def normalize_advanced_cohort_settings(body: dict) -> dict:
         wurl = str(out["webhook_url"]).strip()[:500]
         out["webhook_url"] = wurl if wurl.startswith("https://") else ""
 
+    # Briefing videos: URLs only, http(s) schemes only (a javascript:/data: URL
+    # must never reach the player's embed iframe). The base pattern may carry
+    # the literal "{round}" placeholder; the map is keyed by round number 1–10.
+    def _clean_video_url(u) -> str:
+        u = str(u or "").strip()[:500]
+        return u if (u.startswith("https://") or u.startswith("http://")) else ""
+
+    if "briefing_video_base" in out and out["briefing_video_base"] is not None:
+        out["briefing_video_base"] = _clean_video_url(out["briefing_video_base"])
+
+    if "briefing_videos" in out:
+        raw_map = out["briefing_videos"] if isinstance(out["briefing_videos"], dict) else {}
+        cleaned = {}
+        for k, v in raw_map.items():
+            try:
+                rn = int(str(k).strip())
+            except (TypeError, ValueError):
+                continue
+            if not 1 <= rn <= 10:
+                continue
+            url = _clean_video_url(v)
+            if url:
+                cleaned[str(rn)] = url
+        out["briefing_videos"] = cleaned
+
     return out
 
 
@@ -589,6 +604,82 @@ def restore_cohort_templates(data: dict) -> None:
         for tid, t in data.items():
             if isinstance(t, dict) and isinstance(t.get("settings"), dict):
                 _cohort_templates[tid] = dict(t)
+
+
+# ── Durable cohort-settings store (volume-backed, backend-independent) ────────
+# The per-cohort settings overlay (pacing, briefing-video URLs, analytics
+# visibility, templates, …) previously lived ONLY in this process's dicts.
+# Memory mode happened to snapshot them; Postgres mode never persisted them at
+# all, so a redeploy silently reset every cohort's configuration. This gives
+# them a dedicated JSON home under MURESSONS_DATA_DIR (the mounted Railway
+# volume) — durable across redeploys in BOTH backends, on the exact pattern the
+# facilitator registry / token-version / virtual-profile stores already use.
+# (Multi-worker sharing is out of scope here — WEB_CONCURRENCY=1 per the deploy
+# checklist; the volume makes a single instance fully durable.)
+# Tests override this to a throwaway path so the suite never writes cohort
+# state into the real data dir (same isolation the registry paths use).
+_COHORT_STATE_PATH: str | None = None
+
+
+def _cohort_state_path() -> str:
+    # Explicit override wins (tests); otherwise resolve through the durable data
+    # dir lazily so it honours MURESSONS_DATA_DIR (the Railway volume) at runtime.
+    if _COHORT_STATE_PATH:
+        return _COHORT_STATE_PATH
+    return str(_data_file("cohort_settings.json"))
+
+
+def persist_cohort_state() -> None:
+    """Atomically write the cohort settings + templates to the durable volume."""
+    try:
+        path = _cohort_state_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        payload = {
+            "cohort_settings": {sid: dict(o) for sid, o in cohort_settings.items()},
+            "cohort_templates": cohort_templates_snapshot(),
+        }
+        tmp_path = path + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, path)
+    except Exception as exc:
+        print(f"[cohort-state] Failed to persist: {exc}")
+
+
+def _load_cohort_state() -> None:
+    """Rehydrate cohort settings + templates from the durable volume on boot."""
+    try:
+        path = _cohort_state_path()
+        if not os.path.exists(path):
+            return
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as exc:
+        print(f"[cohort-state] Failed to load ({exc}); starting empty.")
+        return
+    if not isinstance(data, dict):
+        return
+    cs = data.get("cohort_settings")
+    if isinstance(cs, dict):
+        for sid, overrides in cs.items():
+            if isinstance(overrides, dict):
+                cohort_settings.setdefault(sid, {}).update(overrides)
+    restore_cohort_templates(data.get("cohort_templates") or {})
+
+
+def mark_cohort_settings_dirty() -> None:
+    """Publish a cohort-settings mutation to durable storage.
+
+    Always writes the dedicated volume file (durable in every backend). In
+    memory mode ALSO nudges the game-state snapshot so a single restart is
+    covered by either artefact — belt and suspenders, both live on the volume."""
+    persist_cohort_state()
+    if _in_memory_backend_active():
+        try:
+            import database_memory as _dm
+            _dm._persist()
+        except Exception:
+            pass
 
 
 def resolve_roster_cap(session_id: str, default: int = 5) -> int:
@@ -926,6 +1017,74 @@ def bump_token_version(facilitator_id: str) -> int:
 
 
 _load_token_versions()
+
+
+# ── Virtual-account profiles (god_mode / facilitator / project_admin) ─────────
+# The three break-glass accounts are VIRTUAL: they authenticate against env
+# passwords and are deliberately NOT rows in the facilitator registry (whose
+# entries carry bcrypt hashes, deletion cascades and provisioning semantics).
+# But virtual accounts still have mutable per-account state — today a chosen
+# display username (the "callsign" first-login flow) — which previously had
+# nowhere to live: set-username 404'd ("Facilitator not found") and login
+# rebuilt the account dict from scratch each time, re-triggering the
+# first-login screen forever. This store gives that state a durable home with
+# the same volume-aware persistence as the registry/token stores.
+_VIRTUAL_FACILITATOR_IDS = frozenset({"god_mode", "facilitator", "project_admin"})
+_VIRTUAL_PROFILES_PATH = str(_data_file("virtual_account_profiles.json"))
+_virtual_account_profiles: dict[str, dict] = {}
+
+
+def _load_virtual_profiles() -> None:
+    global _virtual_account_profiles
+    try:
+        with open(_VIRTUAL_PROFILES_PATH, "r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        if isinstance(data, dict):
+            _virtual_account_profiles = {
+                str(k): dict(v) for k, v in data.items()
+                if k in _VIRTUAL_FACILITATOR_IDS and isinstance(v, dict)
+            }
+    except FileNotFoundError:
+        _virtual_account_profiles = {}
+    except Exception as exc:
+        print(f"[virtual-profiles] Failed to load ({exc}); starting empty.")
+        _virtual_account_profiles = {}
+
+
+def _persist_virtual_profiles() -> None:
+    try:
+        os.makedirs(os.path.dirname(_VIRTUAL_PROFILES_PATH), exist_ok=True)
+        tmp_path = _VIRTUAL_PROFILES_PATH + ".tmp"
+        with open(tmp_path, "w", encoding="utf-8") as fh:
+            json.dump(_virtual_account_profiles, fh, ensure_ascii=False, indent=2)
+        os.replace(tmp_path, _VIRTUAL_PROFILES_PATH)
+    except Exception as exc:
+        print(f"[virtual-profiles] Failed to persist: {exc}")
+
+
+def is_virtual_facilitator(facilitator_id: str) -> bool:
+    return facilitator_id in _VIRTUAL_FACILITATOR_IDS
+
+
+def get_virtual_profile(facilitator_id: str) -> dict:
+    """Stored mutable profile for a virtual account ({} if none set yet)."""
+    return dict(_virtual_account_profiles.get(facilitator_id, {}))
+
+
+def set_virtual_username(facilitator_id: str, username: str) -> None:
+    """Durably record a virtual account's chosen display username."""
+    if facilitator_id not in _VIRTUAL_FACILITATOR_IDS:
+        raise ValueError(f"{facilitator_id!r} is not a virtual account")
+    profile = _virtual_account_profiles.setdefault(facilitator_id, {})
+    profile["username"] = username.strip()
+    _persist_virtual_profiles()
+
+
+_load_virtual_profiles()
+
+# Rehydrate the durable per-cohort settings overlay + templates from the volume.
+_load_cohort_state()
+
 
 def _generate_emergency_password() -> str:
     """Generate a random 12-char alphanumeric password for the emergency fallback account."""

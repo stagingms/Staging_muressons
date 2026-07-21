@@ -139,6 +139,15 @@ class GlobalStateOut(BaseModel):
     # cockpit reads to release the barrier. None/False = legacy wait-for-all.
     cohort_advance_deadline: Optional[str] = None
     cohort_advance_unblocked: Optional[bool] = False
+    # Facilitator-paced advance: under manual/timed pacing the cockpit shows a
+    # "round opens at …" lock instead of the wait-for-all-teams barrier.
+    cohort_pacing_mode: Optional[str] = None
+    cohort_round_locked: Optional[bool] = False
+    cohort_next_unlock_at: Optional[str] = None
+    # Mandatory-quiz gate for the current round (quiz_gate.quiz_gate_status).
+    # {mandatory, quiz_enabled, required_notebook_id, required_title, completed,
+    #  best_score_percent, blocked}. None when unresolved.
+    quiz_gate: Optional[dict] = None
     # Autonomous stakeholder agents — the frontend-ready escalation summary
     # (name, icon, tolerance, stage, thresholds, …) persisted each tick so the
     # live cockpit panel shows the ACCUMULATED ladder every round. Without this

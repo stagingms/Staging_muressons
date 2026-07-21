@@ -12,7 +12,6 @@ import hmac
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
-from typing import Optional
 import copy
 
 import database as db
@@ -330,6 +329,22 @@ async def _cohort_advance_status(session_info, committed=None, teams=None):
     in_sync = (min_r == max_r)
 
     pacing = _get_pacing(parent)
+
+    # FACILITATOR-PACED ADVANCE: under manual/timed pacing the wait-for-all-teams
+    # barrier does not apply at all. Each team commits whenever it is ready (its
+    # values are saved and its state advances), and the NEXT round's commit is
+    # gated by is_round_unlocked against the facilitator's pacing — the round
+    # advances when the timer fires or the facilitator unlocks it manually. No
+    # auto-commit of stragglers here: a team that skipped a round simply catches
+    # up at its own pace inside the unlocked window.
+    if pacing.get("mode") != "free":
+        return {
+            "deadline_at": pacing.get("next_unlock_at"),
+            "unblocked": True,
+            "committed": committed,
+            "teams": teams,
+        }
+
     timeout = int(pacing.get("free_advance_timeout_seconds", 0) or 0)
     forced = bool(pacing.get("_fa_force"))
     now = datetime.now(timezone.utc)
@@ -393,7 +408,11 @@ class SetUsernameRequest(BaseModel):
 
 @router.post("/set-username", summary="Set unique username")
 async def set_username(req: SetUsernameRequest):
-    from admin_shared import _player_registry, _facilitator_registry, _persist_facilitators
+    from admin_shared import (
+        _player_registry, _facilitator_registry, _persist_facilitators,
+        _virtual_account_profiles, is_virtual_facilitator, set_virtual_username,
+    )
+    import database_memory
 
     username_lower = req.username.strip().lower()
     if not username_lower:
@@ -404,6 +423,13 @@ async def set_username(req: SetUsernameRequest):
             raise HTTPException(status_code=400, detail="Username already taken.")
     for f in _facilitator_registry:
         if f.get("username", "").strip().lower() == username_lower and f["facilitator_id"] != req.user_id:
+            raise HTTPException(status_code=400, detail="Username already taken.")
+    # Virtual break-glass accounts (god_mode / facilitator / project_admin) hold
+    # their usernames in the virtual-profile store, not the registry — include
+    # them in the global uniqueness sweep.
+    for vid, vprof in _virtual_account_profiles.items():
+        if (vprof.get("username", "").strip().lower() == username_lower
+                and vid != req.user_id):
             raise HTTPException(status_code=400, detail="Username already taken.")
 
     if req.role == "player":
@@ -448,23 +474,26 @@ async def set_username(req: SetUsernameRequest):
                 if changed:
                     await db.update_session_metadata(session_id, {"registered_players": reg})
 
-            # Update all active sessions owned by this player. Railway audit
-            # §1.2: discovery now goes through the parity db API — the old
-            # memory-mirror iteration found NOTHING under Postgres, so username
-            # propagation silently no-opped there.
-            for sess in await db.fetch_all_sessions_raw():
-                sid = sess.get("session_id")
+            # Update all active sessions owned by this player (discover via the
+            # mirror cache, write durably per session through the db interface).
+            for sid, sess in list(database_memory._sessions.items()):
                 if sess.get("player_id") == req.user_id:
                     await db.update_session_metadata(sid, {
                         "player_name": req.username.strip(),
                         "cohort_name": f"Player ({req.username.strip()})",
                     })
     elif req.role == "facilitator":
-        fac = next((f for f in _facilitator_registry if f["facilitator_id"] == req.user_id), None)
-        if not fac:
-            raise HTTPException(status_code=404, detail="Facilitator not found.")
-        fac["username"] = req.username.strip()
-        _persist_facilitators()
+        # Virtual accounts (god_mode / facilitator / project_admin) are NOT
+        # registry rows by design — their mutable profile state lives in the
+        # dedicated virtual-profile store. Registry facilitators are unchanged.
+        if is_virtual_facilitator(req.user_id):
+            set_virtual_username(req.user_id, req.username)
+        else:
+            fac = next((f for f in _facilitator_registry if f["facilitator_id"] == req.user_id), None)
+            if not fac:
+                raise HTTPException(status_code=404, detail="Facilitator not found.")
+            fac["username"] = req.username.strip()
+            _persist_facilitators()
     else:
         raise HTTPException(status_code=400, detail="Invalid role.")
         
@@ -660,12 +689,12 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     # (happens after server restart — sub-sessions still exist in _sessions)
     if not players:
         try:
-            # Railway audit §1.2: parity db API for the roster rebuild.
-            for sdata in await db.fetch_all_sessions_raw():
+            from database_memory import _sessions as all_sessions
+            for sid, sdata in all_sessions.items():
                 if sdata.get("parent_cohort_id") == session_id and sdata.get("player_id"):
                     players.append({
                         "player_id": sdata["player_id"],
-                        "player_session_id": sdata["session_id"],
+                        "player_session_id": sid,
                     })
             if players:
                 _session_players[session_id] = players
@@ -804,12 +833,10 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     if _consent_required:
         try:
             from datetime import datetime as _dt, timezone as _tz
-            # Railway audit §1.2: durable write through the db interface — the
-            # old memory-dict mutation silently no-opped under Postgres, so
-            # consent timestamps were never recorded there.
-            await db.update_session_metadata(
-                player_sid, {"consent_given_at": _dt.now(_tz.utc).isoformat()}
-            )
+            import database_memory as _dm_consent
+            _psess = _dm_consent._sessions.get(player_sid)
+            if _psess is not None:
+                _psess["consent_given_at"] = _dt.now(_tz.utc).isoformat()
         except Exception:
             pass
 
@@ -1226,8 +1253,8 @@ async def get_solo_round_configs(session_id: str):
     Returns all 10 rounds' option sets pre-seeded at solo session creation.
     Used by the player cockpit to populate DecisionModal without extra fetches.
     """
-    # Railway audit §1.2: parity db API (metadata-merged in both stores).
-    sess = await db.get_session_info(session_id)
+    import database_memory as _dm
+    sess = _dm._sessions.get(session_id)
     if not sess:
         raise HTTPException(status_code=404, detail="Session not found")
     if not sess.get("is_solo"):
@@ -1449,6 +1476,15 @@ async def get_final_report(session_id: str):
             "game_over": gs.get("game_over", False),
         }
 
+    # Per-player quiz score log for the results / archetype card. Scores are a
+    # performance metric (not narrative), so they survive the "summary" access
+    # tier like the other headline numbers.
+    try:
+        from quiz_gate import build_quiz_score_log
+        _quiz_log = build_quiz_score_log(gs)
+    except Exception:
+        _quiz_log = None
+
     _withhold_narrative = (_report_access == "summary")
     return {
         "session_id": session_id,
@@ -1465,6 +1501,7 @@ async def get_final_report(session_id: str):
         "group_reputation": gs.get("group_reputation"),
         "synergy_multiplier": gs.get("synergy_multiplier"),
         "consequence_dna_snapshot": flags.get("consequence_dna_snapshot"),
+        "quiz_score_log": _quiz_log,
         "game_over": gs.get("game_over", False),
         "game_over_reason": gs.get("game_over_reason"),
     }
@@ -1571,6 +1608,31 @@ async def get_dashboard(session_id: str, request: Request, since_round: int | No
                     latest["global_state"]["team_commits_this_round"] = _adv["committed"]
         except Exception as _exc:
             _log.warning(f"[FREE-ADVANCE] status/enforce failed: {_exc}")
+        # FACILITATOR-PACED ADVANCE: tell the cockpit whether the CURRENT round
+        # is commit-locked by the cohort's pacing, and when it opens — so the
+        # player sees "round opens at …" instead of a raw 403 at commit time.
+        try:
+            from admin_shared import _get_pacing as _gp, is_round_unlocked as _iru
+            _pace_parent = (_si or {}).get("parent_cohort_id") or session_id
+            _pp = _gp(_pace_parent)
+            latest["global_state"]["cohort_pacing_mode"] = _pp.get("mode", "free")
+            latest["global_state"]["cohort_round_locked"] = not _iru(_pace_parent, latest["round_number"])
+            latest["global_state"]["cohort_next_unlock_at"] = _pp.get("next_unlock_at")
+        except Exception:
+            pass
+
+    # MANDATORY-QUIZ GATE: surface whether this round's quiz must be taken before
+    # the player can commit. Runs for ALL player sessions (solo + cohort); the
+    # resolver fails open, so it can never wedge a round. The cockpit reads
+    # global_state.quiz_gate exactly like cohort_round_locked.
+    try:
+        from quiz_gate import quiz_gate_status
+        _qparent = (_si or {}).get("parent_cohort_id")
+        latest["global_state"]["quiz_gate"] = quiz_gate_status(
+            session_id, latest["round_number"], latest["global_state"], _qparent
+        )
+    except Exception:
+        pass
 
     return DashboardResponse(
         session_id=session_id,
@@ -1683,13 +1745,6 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             detail="Rate limited. Wait 5 seconds between commits.",
         )
     _commit_timestamps[session_id] = now
-    # Railway audit §2.3: prune hour-old entries so the per-process dict cannot
-    # grow unbounded over a long-lived worker. (Correctness across workers is
-    # carried by the Postgres advisory lock, not this cooldown.)
-    if len(_commit_timestamps) > 500:
-        _cutoff = now - 3600
-        for _k in [k for k, v in _commit_timestamps.items() if v < _cutoff]:
-            _commit_timestamps.pop(_k, None)
 
     # ── Emergency Freeze guard ───────────────────────────────
     from admin_shared import _god_mode_settings as _gms
@@ -1760,16 +1815,41 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         )
 
     # ── Round pacing gate ────────────────────────────────────
+    # FACILITATOR-PACED ADVANCE: the gate is evaluated against the PARENT
+    # cohort's pacing (pace_session_id), not the player sub-session — the
+    # facilitator sets pacing on the cohort, so checking the child (which always
+    # has a fresh default "free" policy) silently disabled manual/timed pacing
+    # for cohort players. With the parent scope, players commit any unlocked
+    # round whenever they're ready (values saved as usual) and the NEXT round
+    # opens only when the facilitator's timer fires or they advance it manually.
     from admin_shared import is_round_unlocked
-    if not is_round_unlocked(session_id, current_round):
+    if not is_round_unlocked(pace_session_id, current_round):
         if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Round is locked. Waiting for facilitator to unlock.",
+            detail=f"Round {current_round} is locked. It opens when the facilitator's timer fires or they advance the round.",
+        )
+
+    # ── Mandatory-quiz gate (server-side enforcement) ────────
+    # When the cohort marks quizzes mandatory, a round that carries a quiz
+    # notebook cannot be committed until the player has taken that round's quiz.
+    # The frontend blocks the button too, but this is the authoritative check so
+    # a direct POST can't bypass it. Fails OPEN on any resolver error.
+    try:
+        from quiz_gate import quiz_gate_status
+        _qg = quiz_gate_status(session_id, current_round, current["global_state"], parent_id_for_pace)
+    except Exception:
+        _qg = {"blocked": False}
+    if _qg.get("blocked"):
+        if commit_lock.locked(): commit_lock.release()
+        _qt = _qg.get("required_title") or "this round's quiz"
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"This cohort requires you to complete {_qt} before committing your decisions for round {current_round}.",
         )
 
     # ── Side track blocking gate ─────────────────────────────
-    blocking_tid, blocking_st = await _get_active_side_track_for_session(session_id)
+    blocking_tid, blocking_st = _get_active_side_track_for_session(session_id)
     if blocking_tid and blocking_st and not blocking_st.get("completed"):
         from side_tracks import get_track as _st_get
         _st_obj = _st_get(blocking_tid)
@@ -2206,43 +2286,6 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         except Exception as exc:
             _log.warning(f"[WARN] Consequence DNA snapshot capture failed: {exc}")
 
-    # ── Negotiation rooms: auto-close an open room on commit (fluency rule —
-    # a room never blocks or outlives the round). Exception-isolated. ────────
-    try:
-        from negotiation import close_on_commit as _nego_close
-        _closed_room = _nego_close(current_global, current_round)
-        if _closed_room is not None:
-            # Carry the updated log onto the next round's state (both
-            # representations — the predictions_log parity pattern).
-            _nlog = current_global.get("negotiation_log")
-            if _nlog is not None:
-                new_global.setdefault("active_event_flags", {})["negotiation_log"] = _nlog
-                new_global["negotiation_log"] = _nlog
-    except Exception as _nego_exc:
-        _log.warning(f"[negotiation] auto-close on commit skipped: {_nego_exc}")
-
-    # ── Calibration scoring (Phase 2, PLAN_Calibration_Analytics.md) ─────────
-    # Post-tick, READ-ONLY with respect to engine ledgers: reads the deltas the
-    # tick already produced and writes only into the predictions log, which is
-    # then carried forward on new_global's flags. Exception-isolated — a scorer
-    # bug can never fail a commit (risk table, row 2).
-    try:
-        _cal_src = (current_global.get("predictions_log")
-                    or (current_global.get("active_event_flags") or {}).get("predictions_log"))
-        if _cal_src:
-            from pedagogical_engine import score_prediction as _score_pred
-            _cal_log = [dict(p) for p in _cal_src]  # copy: never mutate current state
-            _tre_d = (new_global.get("corporate_treasury") or 0) - (current_global.get("corporate_treasury") or 0)
-            _rep_d = (new_global.get("group_reputation") or 0) - (current_global.get("group_reputation") or 0)
-            for _p in _cal_log:
-                if _p.get("round") == current_round and not _p.get("score"):
-                    _p["score"] = _score_pred(_p, _tre_d, _rep_d)
-            # Both representations (see submit_prediction parity note).
-            new_global.setdefault("active_event_flags", {})["predictions_log"] = _cal_log
-            new_global["predictions_log"] = _cal_log
-    except Exception as _cal_exc:
-        _log.warning(f"[calibration] prediction scoring skipped: {_cal_exc}")
-
     try:
         if current_round == 10:
             # R10: Update existing state in-place (don't insert new round 11)
@@ -2251,9 +2294,9 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 global_state=new_global,
                 bu_states=new_bus,
             )
-            # R10 decisions reach the decision log through the same
-            # log_decision path as other rounds (verified: decision_log holds
-            # round-10 rows); the in-place update itself persists no decisions.
+            # Still log R10 decisions to the audit trail
+            for dec in decisions_raw:
+                pass  # decisions are logged inline by insert_next_round; for R10 update we skip
         else:
             await db.insert_next_round(
                 session_id=session_id,
@@ -3036,21 +3079,8 @@ async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest, 
     # Propagate to all child player sessions
     try:
         import copy
-        # Railway audit §1.2: this block rewrites round-1 state wholesale in
-        # the memory store — a provisioning-time operation with no shared-store
-        # implementation yet. Fail loudly under Postgres instead of silently
-        # writing to a detached dict (which produced a phantom success).
-        from admin_shared import _in_memory_backend_active
-        if not _in_memory_backend_active():
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail="Changing a cohort's paradigm after creation is not yet supported "
-                       "on the shared (Postgres) store. Recreate the cohort with the "
-                       "desired paradigm instead.",
-            )
-        # tripwire-allow-block-start — memory-only paradigm rewrite, 501-guarded above
         from database_memory import _sessions, _bu_states, _global_states, _load_seed
-
+        
         # If healthcare is chosen, we must rewrite the business units to healthcare ones.
         # This assumes the configuration is done at Round 1 before significant progression.
         if body.decision_paradigm == "healthcare":
@@ -3079,7 +3109,6 @@ async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest, 
                         child_states[-1]["political_capital"] = seed["global_state"].get("political_capital", 50.0)
                         child_states[-1]["community_trust_score"] = seed["global_state"].get("community_trust_score", 50.0)
                         child_states[-1]["global_emissions_intensity"] = seed["global_state"].get("global_emissions_intensity", 60.0)
-    # tripwire-allow-block-end
     except ImportError:
         pass
 
@@ -3118,12 +3147,37 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
     global_state = current["global_state"]
     bu_states = current["bu_states"]
 
-    # FIX BUG-8: Materiality idempotency guard — prevent double treasury deduction
+    # FIX BUG-8 (double-materiality "loops twice" ROOT CAUSE): idempotency guard.
+    #
+    # Two coupled defects made a duplicate submit loop forever:
+    #   1. The marker/replay data were stored as TOP-LEVEL global_state keys.
+    #      The memory backend persists via an explicit allow-list, so those keys
+    #      were silently dropped there (guard never fired → double-deduction),
+    #      while Postgres kept them (guard fired). We now store them inside
+    #      `active_event_flags`, the one bag that round-trips through BOTH
+    #      backends (Postgres packs it dynamically; the memory store persists it
+    #      by reference) — so the guard behaves identically everywhere.
+    #   2. When the guard DID fire (Postgres/prod), it returned a bare
+    #      {"status": "already_submitted", ...} dict missing both required fields
+    #      of the strict response_model → FastAPI raised ResponseValidationError
+    #      → generic 500 ("An internal server error occurred"). The frontend
+    #      surfaced that 500 through the CFO "Force Override" modal, whose
+    #      override RE-SUBMITTED → guard again → another 500: the deterministic
+    #      loop the player saw. The guard now REPLAYS the committed result as a
+    #      schema-valid response, so a duplicate submit is a clean no-op.
     _mat_key = f"materiality_submitted_r{global_state.get('round_number', 2)}"
     if body.bu_id:
         _mat_key += f"_{body.bu_id}"
-    if global_state.get(_mat_key):
-        return {"status": "already_submitted", "cached": True, "message": "Materiality already submitted this round"}
+    _idem_store = (global_state.get("active_event_flags", {}) or {}).get("_materiality_idempotency", {}) or {}
+    if _mat_key in _idem_store:
+        _rec = _idem_store[_mat_key] or {}
+        return MaterialitySubmissionResponse(
+            success=True,
+            allocated_budget=int(_rec.get("allocated_budget", 0) or 0),
+            corporate_treasury=global_state.get("corporate_treasury", 0),
+            message="Materiality already submitted this round — showing your committed result.",
+            debrief=_rec.get("debrief"),
+        )
 
     # Load dynamic Materiality Config
     # Priority: 1) BU-specific dict (if bu_id), 2) Cohort sandbox, 3) Global
@@ -3486,10 +3540,26 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         "esrs_mat_threshold":      12,
     }
 
-    # Mark materiality as submitted for idempotency
-    global_state[_mat_key] = True
+    # Finalise the debrief (panel-fee breakdown for the success modal) BEFORE it
+    # is snapshotted into the idempotency record and persisted, so a replay
+    # returns the identical, complete debrief.
+    global_state["r2_esrs_debrief"]["panel_fee_paid"] = panel_fee
+    global_state["r2_esrs_debrief"]["panel_groups_commissioned"] = (
+        global_state.get("stakeholder_panel_groups_commissioned", [])
+    )
 
-    # Persist the updated treasury back to the database for this round
+    # Idempotency marker + replay bundle live INSIDE active_event_flags (the one
+    # bag that round-trips through both backends). A duplicate submit replays
+    # this exact result instead of re-deducting or 500-ing. Kept under a single
+    # nested dict so it never leaks into flag-name collectors.
+    _mat_flags = global_state.setdefault("active_event_flags", {})
+    _idem = _mat_flags.setdefault("_materiality_idempotency", {})
+    _idem[_mat_key] = {
+        "allocated_budget": int(allocated_budget),
+        "debrief": global_state["r2_esrs_debrief"],
+    }
+
+    # Persist once, after all state (treasury, flags, debrief, marker) is final.
     await db.update_latest_global_state(session_id, global_state, bu_states)
 
     msg_parts = [f"Materiality Matrix accepted. Accuracy: {round(full_accuracy*100)}%."]
@@ -3499,12 +3569,6 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         msg_parts.append(f"Option C clawback: −${clawback_applied:,}.")
     if disclosure_allocated:
         msg_parts.append(f"Q2 disclosure budget: +${disclosure_allocated:,}.")
-
-    # Enrich debrief with panel fee breakdown for frontend success modal
-    global_state["r2_esrs_debrief"]["panel_fee_paid"] = panel_fee
-    global_state["r2_esrs_debrief"]["panel_groups_commissioned"] = (
-        global_state.get("stakeholder_panel_groups_commissioned", [])
-    )
 
     return MaterialitySubmissionResponse(
         success=True,
@@ -3658,12 +3722,6 @@ async def change_password(body: ChangePasswordRequest):
     player["password"] = _hash_pw(body.new_password.strip())
     # Clear the forced-change flag now that the player has set a personal password
     player["must_change_password"] = False
-    # The facilitator-visible temp credential dies HERE. It is retained only
-    # while it is still the live password (so the facilitator can read it out
-    # in class); the moment the player owns their password, staff must not be
-    # able to recover it. See player_capacity.py's sibling policy note in
-    # admin_router._roster_projection.
-    player.pop("plaintext_password", None)
 
     # Persist the cleared flag to session metadata so it survives server restarts
     try:
@@ -3676,7 +3734,11 @@ async def change_password(body: ChangePasswordRequest):
                     if rp.get("player_id") == body.player_id:
                         rp["must_change_password"] = False
                         rp["password"] = player["password"]
+                        # The player owns their password now — the generated
+                        # temp credential must stop existing anywhere (it would
+                        # otherwise keep surfacing on facilitator roster reads).
                         rp.pop("plaintext_password", None)
+                        rp.pop("temp_password", None)
                         break
                 _db._persist()
     except Exception:
@@ -4090,16 +4152,18 @@ async def get_peer_leaderboard(session_id: str):
         return {"leaderboard": leaderboard, "ai_benchmark": True}
 
     # ── Multiplayer: Real peer leaderboard ──────────────────────
-    # Railway audit §1.2: parity db API — the memory-dict read returned an
-    # empty leaderboard under Postgres.
+    # Find all sibling sessions (same parent)
+    try:
+        from database_memory import _sessions, _global_states
+    except ImportError:
+        return {"leaderboard": [], "message": "Peer comparison unavailable"}
+
     siblings = []
-    for sess in await db.fetch_all_sessions_raw():
-        sid = sess.get("session_id")
+    for sid, sess in _sessions.items():
         if sess.get("parent_cohort_id") == parent_id:
-            _row = await db.fetch_latest_state(sid)
-            if _row:
-                gs = dict(_row["global_state"])
-                gs.setdefault("round_number", _row.get("round_number", 1))
+            latest_states = _global_states.get(sid, [])
+            if latest_states:
+                gs = latest_states[-1]
                 siblings.append({
                     "session_id": sid,
                     "player_id": sess.get("player_id", ""),
@@ -4133,14 +4197,12 @@ async def get_peer_leaderboard(session_id: str):
         team_name = TEAM_NAMES[i] if i < len(TEAM_NAMES) else f"Team {i + 1}"
         is_you = s["session_id"] == session_id
 
-        # Determine trend based on round number (Railway audit §1.2: parity
-        # db API — the old _global_states read pinned every trend to "→"
-        # under Postgres).
+        # Determine trend based on round number
         trend = "→"
         if s["round_number"] > 1:
-            prev_states = await db.fetch_round_history(s["session_id"])
+            prev_states = _global_states.get(s["session_id"], [])
             if len(prev_states) >= 2:
-                prev_treasury = float(prev_states[-2]["global_state"].get("corporate_treasury", 0))
+                prev_treasury = float(prev_states[-2].get("corporate_treasury", 0))
                 if s["treasury"] > prev_treasury:
                     trend = "↑"
                 elif s["treasury"] < prev_treasury:
@@ -4308,16 +4370,15 @@ async def get_peer_trend_history(session_id: str):
         return {"available": True, "ai_benchmark": True, "peerCount": 3, "rounds": rounds_out}
 
     # ── Multiplayer: Real peer averages ──────────────────────────
-    # Railway audit §1.2 + slop find: the old import pulled `_round_states`,
-    # which has NEVER existed in database_memory — the ImportError was caught
-    # and this endpoint returned "unavailable" in EVERY mode since it was
-    # written. Ported to the parity db API; the feature now actually works.
-    _all_sess = await db.fetch_all_sessions_raw()
+    try:
+        from database_memory import _sessions, _round_states
+    except ImportError:
+        return {"available": False, "reason": "Peer comparison unavailable", "rounds": []}
 
     # Collect all sibling session IDs (excluding self)
     sibling_ids = [
-        s["session_id"] for s in _all_sess
-        if s.get("parent_cohort_id") == parent_id and s.get("session_id") != session_id
+        sid for sid, sess in _sessions.items()
+        if sess.get("parent_cohort_id") == parent_id and sid != session_id
     ]
     if not sibling_ids:
         return {"available": False, "reason": "No peer sessions in this cohort", "rounds": []}
@@ -4405,13 +4466,11 @@ async def get_peer_trend_history(session_id: str):
 #  Full process_tick() engine used for side track rounds.
 # ═════════════════════════════════════════════════════════════════
 
-async def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dict | None]:
+def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dict | None]:
     """
     Check if a session (or its parent cohort) has an active, incomplete side track.
     Returns (track_id, track_state) if a side track is blocking main sim progression,
     or (None, None) if no side track is active.
-    (async since the Railway-audit port: the current-round read goes through
-    the parity db API instead of the memory store's _global_states.)
     """
     from database_memory import _sessions
     sess = _sessions.get(session_id)
@@ -4437,11 +4496,10 @@ async def _get_active_side_track_for_session(session_id: str) -> tuple[str | Non
     states = player_sess.get("side_track_states") or sess.get("side_track_states", {})
     timing = sess.get("side_track_timing", {})
 
-    # Get current main sim round (Railway audit §1.2: parity db API — the old
-    # _global_states read resolved round 1 forever under Postgres, which kept
-    # every timed side-track permanently locked).
-    _latest = await db.fetch_latest_state(session_id)
-    current_main_round = (_latest or {}).get("round_number", 1)
+    # Get current main sim round
+    from database_memory import _global_states
+    player_states = _global_states.get(session_id, [])
+    current_main_round = player_states[-1]["round_number"] if player_states else 1
 
     for tid in active_tracks:
         st = states.get(tid, {})
@@ -5960,310 +6018,7 @@ async def get_balance_sheet(session_id: str):
             await db.update_latest_global_state(session_id, gs, bus)
         except Exception:
             bs = {}
-
-    # ── Year-by-year repair: stitch the FULL history at read time ──────────
-    # Sessions whose early rounds were played before the ENGINE_STATE_KEYS
-    # carry fix (ecad3ee) had balance_sheet_history reset every tick, so the
-    # latest state only holds the tail (e.g. rounds [8,9,10] → the UI showed
-    # just Year 4 + Year 5). But each round's OWN state row still carries its
-    # single-entry history — union them all, latest state winning on
-    # duplicates, so the Year-by-Year Statement shows every year for legacy
-    # sessions too. Healthy sessions are a no-op (their latest history is
-    # already the superset).
-    try:
-        if isinstance(bs, dict):
-            hist_by_round: dict[int, dict] = {}
-            for row in await db.fetch_round_history(session_id):
-                row_bs = (row.get("global_state") or {}).get("balance_sheet") or {}
-                for h in row_bs.get("balance_sheet_history") or []:
-                    if isinstance(h, dict) and h.get("round") is not None:
-                        hist_by_round[int(h["round"])] = h
-            for h in bs.get("balance_sheet_history") or []:  # latest state wins
-                if isinstance(h, dict) and h.get("round") is not None:
-                    hist_by_round[int(h["round"])] = h
-            if len(hist_by_round) > len(bs.get("balance_sheet_history") or []):
-                bs = {**bs, "balance_sheet_history":
-                      [hist_by_round[k] for k in sorted(hist_by_round)]}
-    except Exception:
-        pass  # repair is best-effort; never break the endpoint over it
-
     return {"balance_sheet": bs}
-
-
-# ── Stakeholder Negotiation Rooms (SPEC_Stakeholder_Negotiation_Rooms §5) ───
-# Phase 1: scripted deal engine. All validation/state transitions live in
-# negotiation.py; these endpoints only guard, load state, delegate, persist.
-
-class NegotiationOpenRequest(BaseModel):
-    agent_id: str
-
-class NegotiationSayRequest(BaseModel):
-    text: str
-
-class NegotiationAcceptRequest(BaseModel):
-    concession_id: str
-
-
-async def _negotiation_capability_ok(session_id: str) -> bool:
-    """True when the cohort's owning facilitator holds the per-facilitator
-    Negotiation Rooms capability (granted by a super admin). Sessions owned by
-    god_mode/admin identities, or with no resolvable facilitator, pass — the
-    cohort-level toggle is then the only gate. Fail-open on lookup errors so a
-    registry hiccup never strands a live classroom mid-round."""
-    try:
-        from admin_shared import _facilitator_registry, get_role, is_admin_role
-        sess = await db.get_session_info(session_id) or {}
-        fid = sess.get("facilitator_id")
-        if not fid or fid in ("god_mode", "facilitator"):
-            return True
-        fac = next((f for f in _facilitator_registry
-                    if f.get("facilitator_id") == fid and not f.get("deleted_at")), None)
-        if fac is None:
-            return True
-        if is_admin_role(get_role(fac)):
-            return True
-        return fac.get("negotiation_rooms_enabled", False) is True
-    except Exception:
-        return True
-
-
-async def _negotiation_ctx(session_id: str, request: Request):
-    """Shared guard + state load for the negotiation endpoints."""
-    await _assert_player_owns_session(request, session_id)
-    from admin_shared import get_effective_settings
-    eff = get_effective_settings(session_id)
-    if not eff.get("negotiation_rooms_enabled", False):
-        raise HTTPException(403, "Negotiation rooms are not enabled for this cohort.")
-    # Capability re-check: the cohort flag alone is not enough — the owning
-    # facilitator must still hold the super-admin-granted capability. This
-    # makes revocation effective IMMEDIATELY on live cohorts instead of only
-    # blocking future enables.
-    if not await _negotiation_capability_ok(session_id):
-        raise HTTPException(
-            403,
-            "Negotiation rooms are unavailable: the capability is not enabled for this cohort's facilitator.",
-        )
-    latest = await db.fetch_latest_state(session_id)
-    if latest is None:
-        raise HTTPException(404, "Session not found")
-    gs = latest["global_state"]
-    rn = latest.get("round_number", gs.get("round_number", 1))
-    return gs, latest["bu_states"], rn
-
-
-async def _negotiation_persist(session_id: str, gs: dict, bus: list[dict], result: dict):
-    if "error" in result:
-        raise HTTPException(422, result)
-    await db.update_latest_global_state(session_id, gs, bus)
-    return result
-
-
-@router.post("/{session_id}/negotiation/open", summary="Request a meeting with a hostile stakeholder")
-async def negotiation_open(session_id: str, body: NegotiationOpenRequest, request: Request):
-    from negotiation import open_room
-    gs, bus, rn = await _negotiation_ctx(session_id, request)
-    result = open_room(gs, bus, rn, body.agent_id)
-    out = await _negotiation_persist(session_id, gs, bus, result)
-    try:
-        from admin_router import _audit
-        _audit("negotiation_room_opened", details={"session_id": session_id,
-               "agent_id": body.agent_id, "round": rn, "fee": out["room"]["fee_paid"]})
-    except Exception:
-        pass
-    return out
-
-
-@router.get("/{session_id}/negotiation", summary="Current negotiation room state")
-async def negotiation_state(session_id: str, request: Request):
-    await _assert_player_owns_session(request, session_id)
-    latest = await db.fetch_latest_state(session_id)
-    if latest is None:
-        raise HTTPException(404, "Session not found")
-    from negotiation import get_negotiation_log, menu_for_agent
-    gs = latest["global_state"]
-    log = get_negotiation_log(gs)
-    active = log.get("active")
-    rn = latest.get("round_number", 1)
-    return {
-        "active": active,
-        "menu": menu_for_agent(gs, rn, active["agent_id"]) if active else None,
-        "history": [
-            {"agent_id": r.get("agent_id"), "round": r.get("round"),
-             "resolution": r.get("resolution"), "deals": r.get("deals", [])}
-            for r in log.get("history", [])
-        ],
-    }
-
-
-@router.post("/{session_id}/negotiation/say", summary="Speak in the open negotiation room")
-async def negotiation_say(session_id: str, body: NegotiationSayRequest, request: Request):
-    """Phase 3: when an LLM key is configured, the agent's reply is generated
-    in persona from engine truth; the payload is validated (offer ids must be
-    on THIS agent's live menu) and can only SUGGEST a concession the player
-    must still click. No key, timeout, or malformed JSON → the deterministic
-    scripted line. The LLM never touches state."""
-    from negotiation import say, get_negotiation_log, compute_grievances, menu_for_agent
-    gs, bus, rn = await _negotiation_ctx(session_id, request)
-
-    llm_reply = None
-    try:
-        from llm_negotiator import llm_available, negotiate_turn
-        room = get_negotiation_log(gs).get("active")
-        if room and llm_available():
-            llm_reply = await negotiate_turn(
-                room=room,
-                grievances=compute_grievances(gs, bus, room["agent_id"]),
-                menu=menu_for_agent(gs, rn, room["agent_id"]),
-                agent_state=((gs.get("autonomous_agents") or {}).get("agents") or {}).get(room["agent_id"], {}),
-                player_text=body.text,
-                round_number=rn,
-            )
-    except Exception as _llm_exc:   # never let the dialogue layer break the room
-        _log.warning(f"[negotiation] LLM layer skipped: {_llm_exc}")
-
-    result = say(gs, bus, rn, body.text, llm_reply=llm_reply)
-    return await _negotiation_persist(session_id, gs, bus, result)
-
-
-@router.post("/{session_id}/negotiation/accept", summary="Accept a whitelisted concession")
-async def negotiation_accept(session_id: str, body: NegotiationAcceptRequest, request: Request):
-    from negotiation import accept_concession
-    gs, bus, rn = await _negotiation_ctx(session_id, request)
-    result = accept_concession(gs, bus, rn, body.concession_id)
-    out = await _negotiation_persist(session_id, gs, bus, result)
-    deal = out["deal"]
-    try:
-        from admin_router import _audit
-        _audit("negotiation_deal", details={"session_id": session_id, "round": rn, **deal})
-    except Exception:
-        pass
-    # Mailbox memo in the stakeholder's voice (inject-message precedent).
-    try:
-        from datetime import datetime, timezone
-        from admin_shared import _session_messages
-        from autonomous_agents import AGENT_PROFILES
-        room = out["room"]
-        profile = AGENT_PROFILES[room["agent_id"]]
-        promise = out.get("promise")
-        memo_body = (
-            f"Following our meeting: the {deal['label']} (${deal['cost_paid']:,.0f}) is acknowledged."
-            + (f" We will verify {promise['metric'].replace('_', ' ')} ≥ {promise['target']} "
-               f"by Round {promise['due_round']}. Do not mistake this for goodwill — it is a test."
-               if promise else " Consider this noted, nothing more.")
-        )
-        _session_messages.setdefault(session_id, []).append({
-            "id": f"nego_{room['agent_id']}_{datetime.now(timezone.utc).timestamp():.0f}",
-            "round": rn, "type": "stakeholder",
-            "title": f"{profile['icon']} Memo from {profile['name']}",
-            "body": memo_body, "read": False, "source": "negotiation",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        })
-    except Exception:
-        pass
-    return out
-
-
-@router.post("/{session_id}/negotiation/walk-out", summary="Leave the negotiation without a deal")
-async def negotiation_walk_out(session_id: str, request: Request):
-    from negotiation import walk_out
-    gs, bus, rn = await _negotiation_ctx(session_id, request)
-    result = walk_out(gs, rn)
-    out = await _negotiation_persist(session_id, gs, bus, result)
-    try:
-        from admin_router import _audit
-        _audit("negotiation_walk_out", details={"session_id": session_id, "round": rn,
-               "agent_id": out["closed"]["agent_id"]})
-    except Exception:
-        pass
-    return out
-
-
-# ── Calibration analytics: Predict-Before-Commit capture (Phase 1) ──────────
-# PLAN_Calibration_Analytics.md. Structured predictions live in
-# active_event_flags.predictions_log (a real persisted column in both stores,
-# so no memory-parity work is needed). Scoring happens post-tick in the commit
-# path (Phase 2) and is exception-isolated there.
-
-class PredictionSubmitRequest(BaseModel):
-    treasury_band: Optional[str] = None    # down_big|down|flat|up|up_big
-    reputation_dir: Optional[str] = None   # down|flat|up
-    confidence: Optional[float] = None     # 0.5–1.0 (slider; None = not reported)
-    note: str = ""                         # optional free text, kept for debrief
-
-
-@router.post(
-    "/{session_id}/predictions",
-    summary="Submit a structured Predict-Before-Commit prediction for the current round",
-)
-async def submit_prediction(session_id: str, body: PredictionSubmitRequest, request: Request):
-    """Idempotent per (player, round): re-submitting overwrites the earlier
-    unscored record. SEC-3: caller must own the session (X-Player-Id binding).
-    Never blocks a commit — the client fires this before commit-turn and treats
-    failures as non-fatal."""
-    from datetime import datetime, timezone
-    from pedagogical_engine import TREASURY_BANDS, REPUTATION_DIRS
-    await _assert_player_owns_session(request, session_id)
-
-    tb = (body.treasury_band or "").strip() or None
-    rd = (body.reputation_dir or "").strip() or None
-    if tb is not None and tb not in TREASURY_BANDS:
-        raise HTTPException(422, f"treasury_band must be one of {TREASURY_BANDS}")
-    if rd is not None and rd not in REPUTATION_DIRS:
-        raise HTTPException(422, f"reputation_dir must be one of {REPUTATION_DIRS}")
-    if tb is None and rd is None:
-        raise HTTPException(422, "Predict at least one KPI (treasury_band or reputation_dir).")
-    conf = None
-    if body.confidence is not None:
-        conf = min(1.0, max(0.5, float(body.confidence)))
-
-    latest = await db.fetch_latest_state(session_id)
-    if latest is None:
-        raise HTTPException(404, "Session not found")
-    gs = latest["global_state"]
-    rn = latest.get("round_number", gs.get("round_number", 1))
-    player_id = request.headers.get("X-Player-Id", "").strip() or "solo"
-
-    record = {
-        "player_id": player_id,
-        "round": rn,
-        "treasury_band": tb,
-        "reputation_dir": rd,
-        "confidence": conf,
-        "note": (body.note or "")[:500],
-        "submitted_at": datetime.now(timezone.utc).isoformat(),
-        "score": None,  # written post-tick by the commit-path scorer
-    }
-    flags = gs.setdefault("active_event_flags", {})
-    # Memory-store parity: fetch UNPACKS flag keys to top level and update
-    # RE-PACKS top level over flags ("explicit wins"). Writing only the flags
-    # copy therefore gets clobbered by the stale top-level copy on re-pack —
-    # update BOTH representations with the same list object.
-    existing = gs.get("predictions_log") or flags.get("predictions_log") or []
-    log = [
-        p for p in existing
-        if not (p.get("player_id") == player_id and p.get("round") == rn)
-    ]
-    log.append(record)
-    flags["predictions_log"] = log
-    gs["predictions_log"] = log
-    await db.update_latest_global_state(session_id, gs, latest["bu_states"])
-    return {"status": "ok", "prediction": record}
-
-
-@router.get(
-    "/{session_id}/predictions",
-    summary="Read the session's prediction log (optionally one player's)",
-)
-async def get_predictions(session_id: str, request: Request, player_id: Optional[str] = None):
-    await _assert_player_owns_session(request, session_id)
-    latest = await db.fetch_latest_state(session_id)
-    if latest is None:
-        raise HTTPException(404, "Session not found")
-    _gs = latest["global_state"]
-    log = _gs.get("predictions_log") or (_gs.get("active_event_flags") or {}).get("predictions_log") or []
-    if player_id:
-        log = [p for p in log if p.get("player_id") == player_id]
-    return {"predictions": log, "round_number": latest.get("round_number")}
 
 
 @router.get(
@@ -6355,14 +6110,13 @@ async def activate_extended_mode(session_id: str):
 async def get_player_annotations(session_id: str):
     """Returns annotations for this session that the facilitator has
     marked as visible to students. Respects the session-level visibility toggle."""
+    import database_memory as db_mem
     from admin_router import _annotations
 
-    # Railway audit §1.2: parity db API — the memory-dict read resolved the
-    # parent cohort against an empty map under Postgres, so the visibility
-    # toggle read the wrong record.
-    sess = await db.get_session_info(session_id) or {}
+    # Find the parent cohort session to check visibility toggle
+    sess = db_mem._sessions.get(session_id, {})
     parent_id = sess.get("parent_cohort_id", session_id)
-    parent_sess = (await db.get_session_info(parent_id) or sess) if parent_id != session_id else sess
+    parent_sess = db_mem._sessions.get(parent_id, sess)
 
     # Check if facilitator has enabled annotations visibility for students
     if not parent_sess.get("annotations_player_visible", False):
@@ -6485,11 +6239,10 @@ async def get_front_page(session_id: str):
         f"- Reputation: {rep}/100\n"
         f"- Archetype: {archetype}\n"
         f"- Notable achievements: {', '.join(notable_flags_list[:8]) if notable_flags_list else 'none'}\n\n"
-        f"Write like a real broadsheet (FT/WSJ tone): specific, restrained, factual.\n"
         f"Return a JSON object with exactly these keys:\n"
-        f"  headline: a Title Case broadsheet headline (max 14 words, no exclamation marks)\n"
-        f"  subhead: an italic dek expanding the headline with one concrete figure (max 28 words)\n"
-        f"  quote: a fictional analyst quote, dry and specific (max 20 words)\n\n"
+        f"  headline: a punchy ALL-CAPS newspaper headline (max 12 words)\n"
+        f"  subhead: an italic subheadline (max 25 words)\n"
+        f"  quote: a fictional analyst quote (max 20 words)\n\n"
         f"Respond ONLY with the JSON object, no markdown fences."
     )
 

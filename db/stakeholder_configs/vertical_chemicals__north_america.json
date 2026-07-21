@@ -1,0 +1,372 @@
+[
+  {
+    "id": "na-chem-federal",
+    "name": "US EPA and Health Canada / Environment and Climate Change Canada",
+    "icon": "🏛️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "US EPA and Health Canada / Environment and Climate Change Canada control chemical review, risk management, reporting and market restrictions. The immediate issue is TSCA risk actions, Canadian CMP priorities, data requests and substitution. Its decisions or actions can restrict manufacture or use, require reporting or alter market access.",
+    "urgency_rationale": "Chemical risk-management actions can rapidly affect products and customers.",
+    "intel_dossier": [
+      "🔎 US EPA TSCA: EPA evaluates and manages risks from industrial chemicals under TSCA. | https://www.epa.gov/chemicals-under-tsca",
+      "🔎 Canada Chemicals Management Plan: Canada assesses and manages chemical risks through the Chemicals Management Plan. | https://www.canada.ca/en/health-canada/services/chemical-substances/chemicals-management-plan.html",
+      "🔎 EPA existing-chemical risk management: EPA publishes risk-management actions for existing chemicals under TSCA. | https://www.epa.gov/assessing-and-managing-chemicals-under-tsca/risk-management-existing-chemicals-under-tsca"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits low-priority substances; active evaluation or rulemaking requires close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with US EPA and Health Canada / Environment and Climate Change Canada",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-process-safety",
+    "name": "OSHA, Provincial OHS Regulators and EPA RMP Authorities",
+    "icon": "🚨",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "OSHA, Provincial OHS Regulators and EPA RMP Authorities oversee process safety, worker protection and catastrophic-release prevention. The immediate issue is mechanical integrity, hazard analysis, contractor safety and emergency response. Its decisions or actions can stop work, penalise facilities or expose systemic safety gaps.",
+    "urgency_rationale": "Process-safety weaknesses have immediate life-safety consequences.",
+    "intel_dossier": [
+      "🔎 EPA Risk Management Program: The RMP rule requires covered facilities to prevent and prepare for chemical accidents. | https://www.epa.gov/rmp",
+      "🔎 OSHA process safety management: OSHA’s PSM framework addresses catastrophic releases of highly hazardous chemicals. | https://www.osha.gov/process-safety-management",
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied is plausible for low-hazard sites; covered processes need continuous engagement.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with OSHA, Provincial OHS Regulators and EPA RMP Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-state-regulators",
+    "name": "State, Provincial and Local Environmental Regulators",
+    "icon": "🌿",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "State, Provincial and Local Environmental Regulators issue operating permits and enforce air, water, waste and site-remediation rules. The immediate issue is facility permits, emerging contaminants, fence-line monitoring and clean-up. Its decisions or actions can limit production, require remediation or block expansion.",
+    "urgency_rationale": "Local permits and state rules may be more restrictive than federal baselines.",
+    "intel_dossier": [
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program",
+      "🔎 Canada Chemicals Management Plan: Canada assesses and manages chemical risks through the Chemicals Management Plan. | https://www.canada.ca/en/health-canada/services/chemical-substances/chemicals-management-plan.html",
+      "🔎 Canada chemical substances: Canada publishes chemical risk-assessment and management information. | https://www.canada.ca/en/health-canada/services/chemical-substances.html"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits stable permits; enforcement, expansion or emerging-contaminant exposure requires close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with State, Provincial and Local Environmental Regulators",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-communities",
+    "name": "Fence-Line Communities, Tribal Nations and Local Governments",
+    "icon": "🏘️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Fence-Line Communities, Tribal Nations and Local Governments bear exposure, emergency, property and environmental-justice impacts. The immediate issue is transparent emissions, cumulative exposure, emergency planning and remediation. Its decisions or actions can mobilise permitting, litigation, elections and regulator attention.",
+    "urgency_rationale": "Public TRI data and environmental-justice concerns enable rapid mobilisation.",
+    "intel_dossier": [
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program",
+      "🔎 EPA Risk Management Program: The RMP rule requires covered facilities to prevent and prepare for chemical accidents. | https://www.epa.gov/rmp",
+      "🔎 Canada Chemicals Management Plan: Canada assesses and manages chemical risks through the Chemicals Management Plan. | https://www.canada.ca/en/health-canada/services/chemical-substances/chemicals-management-plan.html"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed may fit low-impact sites with strong trust; high-exposure locations require close partnership.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Fence-Line Communities, Tribal Nations and Local Governments",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-workers",
+    "name": "Union and Non-Union Plant Workers and Contractors",
+    "icon": "👷",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Union and Non-Union Plant Workers and Contractors operate hazardous systems and detect precursor conditions. The immediate issue is PSM quality, exposure, fatigue, contractor control and reporting culture. Its decisions or actions can prevent or trigger catastrophic events and shutdowns.",
+    "urgency_rationale": "Worker decisions are time-critical in process upsets.",
+    "intel_dossier": [
+      "🔎 OSHA process safety management: OSHA’s PSM framework addresses catastrophic releases of highly hazardous chemicals. | https://www.osha.gov/process-safety-management",
+      "🔎 EPA Risk Management Program: The RMP rule requires covered facilities to prevent and prepare for chemical accidents. | https://www.epa.gov/rmp",
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed is insufficient for covered processes but suitable for low-risk support functions.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Union and Non-Union Plant Workers and Contractors",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-logistics",
+    "name": "Railroads, Trucking Firms and Bulk-Terminal Operators",
+    "icon": "🚂",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Railroads, Trucking Firms and Bulk-Terminal Operators move hazardous materials through communities and across jurisdictions. The immediate issue is routing, packaging, emergency information, securement and capacity. Its decisions or actions can cause off-site accidents, delay production or trigger broad scrutiny.",
+    "urgency_rationale": "Transport incidents create immediate cross-company and community exposure.",
+    "intel_dossier": [
+      "🔎 EPA Risk Management Program: The RMP rule requires covered facilities to prevent and prepare for chemical accidents. | https://www.epa.gov/rmp",
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program",
+      "🔎 OSHA process safety management: OSHA’s PSM framework addresses catastrophic releases of highly hazardous chemicals. | https://www.osha.gov/process-safety-management"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits non-hazardous shipments; bulk hazardous movements require joint controls.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with Railroads, Trucking Firms and Bulk-Terminal Operators",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-customers",
+    "name": "Industrial Customers and Retail Product Manufacturers",
+    "icon": "🏭",
+    "correct_quadrant": "manage_closely",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Industrial Customers and Retail Product Manufacturers translate chemical risk and consumer requirements into specifications and approved-supplier lists. The immediate issue is restricted substances, disclosure, reformulation and continuity. Its decisions or actions can phase out substances, switch suppliers or demand indemnification.",
+    "urgency_rationale": "Customer standards can move faster than regulation.",
+    "intel_dossier": [
+      "🔎 US EPA TSCA: EPA evaluates and manages risks from industrial chemicals under TSCA. | https://www.epa.gov/chemicals-under-tsca",
+      "🔎 EPA existing-chemical risk management: EPA publishes risk-management actions for existing chemicals under TSCA. | https://www.epa.gov/assessing-and-managing-chemicals-under-tsca/risk-management-existing-chemicals-under-tsca",
+      "🔎 Canada Chemicals Management Plan: Canada assesses and manages chemical risks through the Chemicals Management Plan. | https://www.canada.ca/en/health-canada/services/chemical-substances/chemicals-management-plan.html"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits standard products; strategic reformulation programmes need close management.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Industrial Customers and Retail Product Manufacturers",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-capital",
+    "name": "Insurers, Banks and Institutional Investors",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Insurers, Banks and Institutional Investors price accident, litigation, pollution and transition exposure. The immediate issue is RMP/PSM performance, legacy liabilities, PFAS and capex. Its decisions or actions can restrict insurance, raise spreads or demand asset changes.",
+    "urgency_rationale": "Emerging-contaminant and major-hazard exposure can materially change valuation.",
+    "intel_dossier": [
+      "🔎 EPA Risk Management Program: The RMP rule requires covered facilities to prevent and prepare for chemical accidents. | https://www.epa.gov/rmp",
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program",
+      "🔎 EPA existing-chemical risk management: EPA publishes risk-management actions for existing chemicals under TSCA. | https://www.epa.gov/assessing-and-managing-chemicals-under-tsca/risk-management-existing-chemicals-under-tsca"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies during renewal, M&A, refinancing or litigation.",
+    "engagement_tactics": [
+      {
+        "id": "run_scenario-based_loss-prevention_and_c",
+        "label": "Run scenario-based loss-prevention and coverage reviews with Insurers, Banks and Institutional Investors",
+        "correct": true,
+        "rationale": "Links engineering controls, business interruption and financial protection."
+      },
+      {
+        "id": "optimise_only_for_the_lowest_premium",
+        "label": "Optimise only for the lowest premium",
+        "correct": false,
+        "rationale": "Cheap coverage can leave critical exclusions and weak prevention incentives."
+      },
+      {
+        "id": "disclose_incidents_only_at_renewal",
+        "label": "Disclose incidents only at renewal",
+        "correct": false,
+        "rationale": "Late notification can prejudice coverage and weaken the risk relationship."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-ngos",
+    "name": "Environmental-Justice Groups, NGOs and Investigative Media",
+    "icon": "📰",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Environmental-Justice Groups, NGOs and Investigative Media use public data, community evidence and litigation to shape enforcement and policy. The immediate issue is TRI trends, fence-line exposure, accidents and product toxicity. Its decisions or actions can amplify local concerns into national campaigns or legal action.",
+    "urgency_rationale": "Public data allows rapid comparison and coalition building.",
+    "intel_dossier": [
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program",
+      "🔎 US EPA TSCA: EPA evaluates and manages risks from industrial chemicals under TSCA. | https://www.epa.gov/chemicals-under-tsca",
+      "🔎 EPA chemical risk evaluations: EPA publishes the status and evidence for existing-chemical risk evaluations. | https://www.epa.gov/assessing-and-managing-chemicals-under-tsca/risk-evaluations-existing-chemicals-under-tsca"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate where the company is central to a live campaign or lawsuit.",
+    "engagement_tactics": [
+      {
+        "id": "provide_evidence,_site_access_and_indepe",
+        "label": "Provide evidence, site access and independent verification to Environmental-Justice Groups, NGOs and Investigative Media",
+        "correct": true,
+        "rationale": "Credible transparency can narrow disagreement and expose fixable gaps."
+      },
+      {
+        "id": "threaten_litigation_at_the_first_critici",
+        "label": "Threaten litigation at the first criticism",
+        "correct": false,
+        "rationale": "An aggressive opening can amplify the issue and deter legitimate dialogue."
+      },
+      {
+        "id": "pay_for_favourable_third-party_content",
+        "label": "Pay for favourable third-party content",
+        "correct": false,
+        "rationale": "Perceived astroturfing damages trust if uncovered."
+      }
+    ]
+  },
+  {
+    "id": "na-chem-responders",
+    "name": "Local Emergency Planning Committees, Fire Departments and Hospitals",
+    "icon": "🚒",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Local Emergency Planning Committees, Fire Departments and Hospitals coordinate off-site preparedness, public warning and medical response. The immediate issue is chemical inventories, plume scenarios, equipment, drills and mutual aid. Its decisions or actions can reduce or magnify harm during an accident.",
+    "urgency_rationale": "Response capability must exist before an event and cannot be improvised.",
+    "intel_dossier": [
+      "🔎 EPA Risk Management Program: The RMP rule requires covered facilities to prevent and prepare for chemical accidents. | https://www.epa.gov/rmp",
+      "🔎 Toxics Release Inventory: TRI provides public facility-level information on toxic releases and waste management. | https://www.epa.gov/toxics-release-inventory-tri-program",
+      "🔎 OSHA process safety management: OSHA’s PSM framework addresses catastrophic releases of highly hazardous chemicals. | https://www.osha.gov/process-safety-management"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is warranted for RMP facilities and communities with limited response resources.",
+    "engagement_tactics": [
+      {
+        "id": "exercise_joint_emergency_plans_and_decis",
+        "label": "Exercise joint emergency plans and decision protocols with Local Emergency Planning Committees, Fire Departments and Hospitals",
+        "correct": true,
+        "rationale": "Rehearsal exposes gaps in command, communication, equipment and community warning."
+      },
+      {
+        "id": "treat_the_written_emergency_plan_as_suff",
+        "label": "Treat the written emergency plan as sufficient",
+        "correct": false,
+        "rationale": "Unpractised plans often fail under time pressure."
+      },
+      {
+        "id": "notify_responders_only_after_internal_co",
+        "label": "Notify responders only after internal confirmation is complete",
+        "correct": false,
+        "rationale": "Delay can increase harm and reduce containment options."
+      }
+    ]
+  }
+]

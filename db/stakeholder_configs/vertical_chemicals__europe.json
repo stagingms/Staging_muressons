@@ -1,0 +1,372 @@
+[
+  {
+    "id": "eu-chem-echa",
+    "name": "ECHA and National REACH/CLP Enforcement Authorities",
+    "icon": "🏛️",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "ECHA and National REACH/CLP Enforcement Authorities control registration, authorisation, restrictions, classification and enforcement. The immediate issue is dossier quality, data sharing, substance evaluation and restricted-use transition. Its decisions or actions can remove market access, require testing or prohibit uses.",
+    "urgency_rationale": "Restriction and compliance decisions can affect entire product families.",
+    "intel_dossier": [
+      "🔎 ECHA: ECHA implements EU chemical-safety laws and provides regulatory and substance information. | https://echa.europa.eu/",
+      "🔎 REACH: REACH establishes registration, evaluation, authorisation and restriction procedures. | https://echa.europa.eu/regulations/reach/understanding-reach",
+      "🔎 CLP: CLP governs classification, labelling and packaging of substances and mixtures. | https://echa.europa.eu/clp"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied may fit fully registered low-concern substances; active evaluation needs close management.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with ECHA and National REACH/CLP Enforcement Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-seveso",
+    "name": "Seveso, Industrial-Emissions and Local Competent Authorities",
+    "icon": "🚨",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Seveso, Industrial-Emissions and Local Competent Authorities oversee major-accident prevention, permits, inspections and public information. The immediate issue is safety reports, ageing assets, climate hazards and emergency preparedness. Its decisions or actions can restrict operations or require major capital upgrades.",
+    "urgency_rationale": "Major-hazard and permit findings carry immediate operational consequences.",
+    "intel_dossier": [
+      "🔎 Industrial accidents and Seveso III: EU policy sets major-accident prevention and public-information requirements. | https://environment.ec.europa.eu/topics/industrial-emissions-and-safety/industrial-accidents_en",
+      "🔎 EU environment policy: EU environmental policy links industrial transition, circularity and pollution prevention. | https://environment.ec.europa.eu/index_en",
+      "🔎 ECHA: ECHA implements EU chemical-safety laws and provides regulatory and substance information. | https://echa.europa.eu/"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits mature compliant sites; material change or inspection programmes require close engagement.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_single_evidence_room_and_joint_",
+        "label": "Create a single evidence room and joint workplan with Seveso, Industrial-Emissions and Local Competent Authorities",
+        "correct": true,
+        "rationale": "Gives the authority traceable data, named owners and early visibility of corrective action."
+      },
+      {
+        "id": "rely_mainly_on_trade-association_lobbyin",
+        "label": "Rely mainly on trade-association lobbying",
+        "correct": false,
+        "rationale": "Collective advocacy cannot substitute for company-specific compliance evidence."
+      },
+      {
+        "id": "wait_for_a_notice,_inspection_or_deficie",
+        "label": "Wait for a notice, inspection or deficiency letter",
+        "correct": false,
+        "rationale": "Reactive engagement reduces room to correct problems before enforcement."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-customers",
+    "name": "Automotive, Electronics, Construction and Consumer-Goods Customers",
+    "icon": "🏭",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Automotive, Electronics, Construction and Consumer-Goods Customers translate restrictions and sustainability requirements into supplier specifications. The immediate issue is PFAS, substances of concern, carbon footprint, traceability and substitution. Its decisions or actions can redesign products, delist suppliers or demand rapid reformulation.",
+    "urgency_rationale": "Customer phase-outs often precede legal bans and create short conversion windows.",
+    "intel_dossier": [
+      "🔎 EU Chemicals Strategy for Sustainability: The strategy seeks safer and more sustainable chemicals and stronger health protection. | https://environment.ec.europa.eu/strategy/chemicals-strategy_en",
+      "🔎 PFAS restriction work: ECHA publishes the status and scope of PFAS restriction processes. | https://echa.europa.eu/hot-topics/perfluoroalkyl-chemicals-pfas",
+      "🔎 ECHA CHEM: ECHA CHEM provides public information from registrations and regulatory lists. | https://chem.echa.europa.eu/"
+    ],
+    "alternate_quadrant": "keep_satisfied",
+    "alternate_rationale": "Keep Satisfied fits commodity products; strategic co-development requires close management.",
+    "engagement_tactics": [
+      {
+        "id": "build_a_joint_service,_quality_and_conti",
+        "label": "Build a joint service, quality and continuity plan with Automotive, Electronics, Construction and Consumer-Goods Customers",
+        "correct": true,
+        "rationale": "Makes performance expectations explicit and creates early-warning triggers."
+      },
+      {
+        "id": "promise_priority_supply_to_every_major_a",
+        "label": "Promise priority supply to every major account",
+        "correct": false,
+        "rationale": "Conflicting commitments become impossible to honour during a disruption."
+      },
+      {
+        "id": "limit_contact_to_sales_teams",
+        "label": "Limit contact to sales teams",
+        "correct": false,
+        "rationale": "Commercial dialogue alone misses quality, safety and operational dependencies."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-workers",
+    "name": "Plant Workers, Contractors and European Works Councils",
+    "icon": "👷",
+    "correct_quadrant": "manage_closely",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Plant Workers, Contractors and European Works Councils operate high-hazard processes and hold formal rights on safety and restructuring. The immediate issue is exposure limits, process safety, competence and transition impacts. Its decisions or actions can stop work, escalate safety concerns or delay restructuring.",
+    "urgency_rationale": "Hazardous exposure and major-accident risk require continuous participation.",
+    "intel_dossier": [
+      "🔎 CLP: CLP governs classification, labelling and packaging of substances and mixtures. | https://echa.europa.eu/clp",
+      "🔎 Industrial accidents and Seveso III: EU policy sets major-accident prevention and public-information requirements. | https://environment.ec.europa.eu/topics/industrial-emissions-and-safety/industrial-accidents_en",
+      "🔎 ECHA: ECHA implements EU chemical-safety laws and provides regulatory and substance information. | https://echa.europa.eu/"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed is suitable only for low-risk support populations, not process operations.",
+    "engagement_tactics": [
+      {
+        "id": "negotiate_a_safety,_skills_and_workload_",
+        "label": "Negotiate a safety, skills and workload plan with Plant Workers, Contractors and European Works Councils",
+        "correct": true,
+        "rationale": "Uses formal worker voice and measurable actions to reduce operational and labour risk."
+      },
+      {
+        "id": "use_attendance_bonuses_to_suppress_griev",
+        "label": "Use attendance bonuses to suppress grievances",
+        "correct": false,
+        "rationale": "Treats symptoms, discourages reporting and can worsen fatigue-related risk."
+      },
+      {
+        "id": "communicate_only_through_line_supervisor",
+        "label": "Communicate only through line supervisors",
+        "correct": false,
+        "rationale": "Workers need trusted escalation channels and protection from retaliation."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-communities",
+    "name": "Local Communities and Municipal Authorities",
+    "icon": "🏘️",
+    "correct_quadrant": "keep_informed",
+    "urgency": "high",
+    "legitimacy": "high",
+    "description": "Local Communities and Municipal Authorities experience emissions, odour, traffic, emergency and site-transition effects. The immediate issue is public safety information, monitoring, land use and legacy pollution. Its decisions or actions can challenge permits, mobilise elected officials or demand remediation.",
+    "urgency_rationale": "Seveso and environmental rules give communities information and participation rights.",
+    "intel_dossier": [
+      "🔎 Industrial accidents and Seveso III: EU policy sets major-accident prevention and public-information requirements. | https://environment.ec.europa.eu/topics/industrial-emissions-and-safety/industrial-accidents_en",
+      "🔎 EU environment policy: EU environmental policy links industrial transition, circularity and pollution prevention. | https://environment.ec.europa.eu/index_en",
+      "🔎 ECHA CHEM: ECHA CHEM provides public information from registrations and regulatory lists. | https://chem.echa.europa.eu/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies to expansion, legacy contamination or repeated concern.",
+    "engagement_tactics": [
+      {
+        "id": "create_a_representative_forum_with_indep",
+        "label": "Create a representative forum with independent data review for Local Communities and Municipal Authorities",
+        "correct": true,
+        "rationale": "Combines voice, verifiable evidence and a public commitments tracker."
+      },
+      {
+        "id": "replace_consultation_with_local_donation",
+        "label": "Replace consultation with local donations",
+        "correct": false,
+        "rationale": "Philanthropy does not address rights, exposure or operational impacts."
+      },
+      {
+        "id": "engage_only_through_local_political_inte",
+        "label": "Engage only through local political intermediaries",
+        "correct": false,
+        "rationale": "Excludes affected groups and makes consent appear managed rather than earned."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-ngos",
+    "name": "Environmental NGOs and Safer-Chemicals Coalitions",
+    "icon": "🌍",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Environmental NGOs and Safer-Chemicals Coalitions shape restriction agendas, public expectations and substitution pressure. The immediate issue is PFAS, endocrine disruptors, transparency and essential-use arguments. Its decisions or actions can accelerate policy action or shift customer demand.",
+    "urgency_rationale": "NGO evidence can move quickly into ECHA, Parliament and customer standards.",
+    "intel_dossier": [
+      "🔎 PFAS restriction work: ECHA publishes the status and scope of PFAS restriction processes. | https://echa.europa.eu/hot-topics/perfluoroalkyl-chemicals-pfas",
+      "🔎 EU Chemicals Strategy for Sustainability: The strategy seeks safer and more sustainable chemicals and stronger health protection. | https://environment.ec.europa.eu/strategy/chemicals-strategy_en",
+      "🔎 ECHA: ECHA implements EU chemical-safety laws and provides regulatory and substance information. | https://echa.europa.eu/"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely is appropriate for products central to a live restriction campaign.",
+    "engagement_tactics": [
+      {
+        "id": "provide_evidence,_site_access_and_indepe",
+        "label": "Provide evidence, site access and independent verification to Environmental NGOs and Safer-Chemicals Coalitions",
+        "correct": true,
+        "rationale": "Credible transparency can narrow disagreement and expose fixable gaps."
+      },
+      {
+        "id": "threaten_litigation_at_the_first_critici",
+        "label": "Threaten litigation at the first criticism",
+        "correct": false,
+        "rationale": "An aggressive opening can amplify the issue and deter legitimate dialogue."
+      },
+      {
+        "id": "pay_for_favourable_third-party_content",
+        "label": "Pay for favourable third-party content",
+        "correct": false,
+        "rationale": "Perceived astroturfing damages trust if uncovered."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-suppliers",
+    "name": "Feedstock, Energy and Logistics Partners",
+    "icon": "🚛",
+    "correct_quadrant": "manage_closely",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Feedstock, Energy and Logistics Partners determine input compliance, energy intensity, continuity and transport safety. The immediate issue is REACH status, recycled feedstock, energy volatility and dangerous-goods controls. Its decisions or actions can interrupt production or transfer non-compliance into finished products.",
+    "urgency_rationale": "European supply and energy shocks can change economics rapidly.",
+    "intel_dossier": [
+      "🔎 REACH: REACH establishes registration, evaluation, authorisation and restriction procedures. | https://echa.europa.eu/regulations/reach/understanding-reach",
+      "🔎 CLP: CLP governs classification, labelling and packaging of substances and mixtures. | https://echa.europa.eu/clp",
+      "🔎 EU environment policy: EU environmental policy links industrial transition, circularity and pollution prevention. | https://environment.ec.europa.eu/index_en"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed fits diversified inputs; sole-source and high-hazard partners need close control.",
+    "engagement_tactics": [
+      {
+        "id": "segment_critical_suppliers_and_fund_trac",
+        "label": "Segment critical suppliers and fund traceability plus remediation with Feedstock, Energy and Logistics Partners",
+        "correct": true,
+        "rationale": "Protects continuity while addressing root causes rather than shifting them down-tier."
+      },
+      {
+        "id": "terminate_every_non-conforming_supplier_",
+        "label": "Terminate every non-conforming supplier immediately",
+        "correct": false,
+        "rationale": "Abrupt exits can deepen shortages and hide problems in less visible tiers."
+      },
+      {
+        "id": "accept_annual_self-certification_as_suff",
+        "label": "Accept annual self-certification as sufficient",
+        "correct": false,
+        "rationale": "High-risk supply chains require evidence, audit and corrective-action closure."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-capital",
+    "name": "Banks, Insurers and Sustainable-Finance Investors",
+    "icon": "🏦",
+    "correct_quadrant": "keep_satisfied",
+    "urgency": "medium",
+    "legitimacy": "high",
+    "description": "Banks, Insurers and Sustainable-Finance Investors assess pollution liability, transition exposure and capital intensity. The immediate issue is restricted-substance revenue, remediation, safety performance and transition capex. Its decisions or actions can withdraw cover, raise spreads or impose transition conditions.",
+    "urgency_rationale": "PFAS and legacy liabilities can become balance-sheet issues before final legal resolution.",
+    "intel_dossier": [
+      "🔎 PFAS restriction work: ECHA publishes the status and scope of PFAS restriction processes. | https://echa.europa.eu/hot-topics/perfluoroalkyl-chemicals-pfas",
+      "🔎 EU Chemicals Strategy for Sustainability: The strategy seeks safer and more sustainable chemicals and stronger health protection. | https://environment.ec.europa.eu/strategy/chemicals-strategy_en",
+      "🔎 Industrial accidents and Seveso III: EU policy sets major-accident prevention and public-information requirements. | https://environment.ec.europa.eu/topics/industrial-emissions-and-safety/industrial-accidents_en"
+    ],
+    "alternate_quadrant": "manage_closely",
+    "alternate_rationale": "Manage Closely applies for refinancing, M&A or material liability reassessment.",
+    "engagement_tactics": [
+      {
+        "id": "run_scenario-based_loss-prevention_and_c",
+        "label": "Run scenario-based loss-prevention and coverage reviews with Banks, Insurers and Sustainable-Finance Investors",
+        "correct": true,
+        "rationale": "Links engineering controls, business interruption and financial protection."
+      },
+      {
+        "id": "optimise_only_for_the_lowest_premium",
+        "label": "Optimise only for the lowest premium",
+        "correct": false,
+        "rationale": "Cheap coverage can leave critical exclusions and weak prevention incentives."
+      },
+      {
+        "id": "disclose_incidents_only_at_renewal",
+        "label": "Disclose incidents only at renewal",
+        "correct": false,
+        "rationale": "Late notification can prejudice coverage and weaken the risk relationship."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-associations",
+    "name": "Chemical Industry Associations and Standards Bodies",
+    "icon": "🧪",
+    "correct_quadrant": "keep_informed",
+    "urgency": "medium",
+    "legitimacy": "medium",
+    "description": "Chemical Industry Associations and Standards Bodies coordinate technical input, guidance and sector transition positions. The immediate issue is workable implementation, data standards and safer substitution pathways. Its decisions or actions can shape implementation detail but cannot shield individual non-compliance.",
+    "urgency_rationale": "Consultation windows create temporary urgency around technical evidence.",
+    "intel_dossier": [
+      "🔎 ECHA: ECHA implements EU chemical-safety laws and provides regulatory and substance information. | https://echa.europa.eu/",
+      "🔎 EU Chemicals Strategy for Sustainability: The strategy seeks safer and more sustainable chemicals and stronger health protection. | https://environment.ec.europa.eu/strategy/chemicals-strategy_en",
+      "🔎 REACH: REACH establishes registration, evaluation, authorisation and restriction procedures. | https://echa.europa.eu/regulations/reach/understanding-reach"
+    ],
+    "alternate_quadrant": "monitor",
+    "alternate_rationale": "Monitor is sufficient outside active consultations; Keep Informed protects early visibility.",
+    "engagement_tactics": [
+      {
+        "id": "participate_in_technical_consultations_a",
+        "label": "Participate in technical consultations and share non-confidential data with Chemical Industry Associations and Standards Bodies",
+        "correct": true,
+        "rationale": "Improves standards while preserving a direct company compliance path."
+      },
+      {
+        "id": "outsource_the_entire_position_to_the_ass",
+        "label": "Outsource the entire position to the association",
+        "correct": false,
+        "rationale": "Company-specific risks and commitments still require direct ownership."
+      },
+      {
+        "id": "seek_a_broad_exemption_without_proposing",
+        "label": "Seek a broad exemption without proposing safer alternatives",
+        "correct": false,
+        "rationale": "Appears defensive and weakens the sector’s licence to operate."
+      }
+    ]
+  },
+  {
+    "id": "eu-chem-consumers",
+    "name": "Consumers and Downstream Product Users",
+    "icon": "👥",
+    "correct_quadrant": "monitor",
+    "urgency": "low",
+    "legitimacy": "medium",
+    "description": "Consumers and Downstream Product Users influence demand indirectly through concern about hazardous substances and product transparency. The immediate issue is clear hazard information, safer products and credible claims. Its decisions or actions can shift brand preference or support stricter restrictions.",
+    "urgency_rationale": "Influence is diffuse unless a substance becomes a public controversy.",
+    "intel_dossier": [
+      "🔎 CLP: CLP governs classification, labelling and packaging of substances and mixtures. | https://echa.europa.eu/clp",
+      "🔎 PFAS restriction work: ECHA publishes the status and scope of PFAS restriction processes. | https://echa.europa.eu/hot-topics/perfluoroalkyl-chemicals-pfas",
+      "🔎 ECHA CHEM: ECHA CHEM provides public information from registrations and regulatory lists. | https://chem.echa.europa.eu/"
+    ],
+    "alternate_quadrant": "keep_informed",
+    "alternate_rationale": "Keep Informed becomes appropriate for consumer-facing products or high-profile substances.",
+    "engagement_tactics": [
+      {
+        "id": "maintain_accessible_disclosure,_complain",
+        "label": "Maintain accessible disclosure, complaint and recall pathways for Consumers and Downstream Product Users",
+        "correct": true,
+        "rationale": "Makes action easy and provides early signals before concerns escalate."
+      },
+      {
+        "id": "run_a_reputation_campaign_without_operat",
+        "label": "Run a reputation campaign without operational proof",
+        "correct": false,
+        "rationale": "Image-led messaging is vulnerable to greenwashing or safety criticism."
+      },
+      {
+        "id": "ignore_low-volume_complaints_until_they_",
+        "label": "Ignore low-volume complaints until they trend publicly",
+        "correct": false,
+        "rationale": "Small clusters can be the first indication of a systemic problem."
+      }
+    ]
+  }
+]

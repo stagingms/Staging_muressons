@@ -9,17 +9,17 @@ const MODES = [
     {
         id: 'free',
         label: '🔓 Free Play',
-        desc: 'All rounds unlocked immediately',
+        desc: 'All rounds open; teams advance together when everyone commits (or the auto-advance timeout lapses)',
     },
     {
         id: 'manual',
         label: '✋ Manual',
-        desc: 'Facilitator unlocks each round',
+        desc: 'Teams commit whenever they are ready (values saved); the next round opens only when you advance it',
     },
     {
         id: 'timed',
         label: '📅 Scheduled',
-        desc: 'Pre-schedule unlocks for all rounds',
+        desc: 'Teams commit whenever they are ready; each round opens automatically at its scheduled time',
     },
 ];
 

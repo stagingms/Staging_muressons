@@ -10,8 +10,6 @@ import SessionViewer from '../../components/SessionViewer';
 import PlayerRegistry from '../../components/PlayerRegistry';
 import MaterialityConfig from '../../components/MaterialityConfig';
 import InterventionConfig from '../../components/InterventionConfig';
-import CustomBlackSwanBuilder from '../../components/CustomBlackSwanBuilder';
-import DryRunSimulator from '../../components/DryRunSimulator';
 import AuditTrail from '../../components/AuditTrail';
 import DebriefReport from '../../components/DebriefReport';
 import PlatformAnalytics from '../../components/PlatformAnalytics';
@@ -108,9 +106,9 @@ function FacilitatorLoginGate({ onLogin }) {
                 // backend has always returned — the destructure dropped it, so
                 // the UI couldn't know e.g. can_create_cohorts. Still C-2
                 // compliant: booleans only, no PII.
-                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled, must_change_password, permissions } = data;
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, permissions } = data;
                 localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled, must_change_password, permissions }
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, permissions }
                 ));
                 onLogin(data);
             } else {
@@ -287,6 +285,14 @@ export default function FacilitatorPage() {
     const [authData, setAuthData] = useState(null);
     const [checked, setChecked] = useState(false);
     const [sessionExpired, setSessionExpired] = useState(false);
+    // Identity is only "verified" once the SERVER (auth/refresh, driven by the
+    // HttpOnly JWT cookie) has confirmed who this session belongs to. The
+    // first-login callsign flow is gated on this — a stale localStorage
+    // identity (e.g. a facilitator later deleted from the registry, or a
+    // god-mode operator opening a cohort's dashboard) previously reached
+    // set-username with a dead id and trapped the user in "Facilitator not
+    // found." The server session is the source of truth, never the cache.
+    const [identityVerified, setIdentityVerified] = useState(false);
 
     useEffect(() => {
         let cachedAuth = null;
@@ -299,18 +305,35 @@ export default function FacilitatorPage() {
         } catch { /* ignore */ }
         setChecked(true);
 
-        // Immediately sync role from backend — localStorage may have a stale role
-        // (e.g. facilitator was promoted to super_admin while already logged in).
+        // Immediately sync IDENTITY + role from backend — localStorage may be
+        // stale (facilitator promoted, deleted, or a different account's cookie
+        // active in this browser).
         if (cachedAuth) {
             fetch(`${API}/api/admin/auth/refresh`, {
                 method: 'POST',
                 credentials: 'include',
             })
-                .then(r => r.ok ? r.json() : null)
+                .then(r => {
+                    if (r.ok) return r.json();
+                    if (r.status === 401 || r.status === 403) {
+                        // The server no longer recognises this session — the
+                        // cached identity is dead (deleted account, revoked or
+                        // expired token). Never keep operating on it: clear it
+                        // and route to login instead of a 404 trap downstream.
+                        localStorage.removeItem('facilitator_auth');
+                        localStorage.removeItem('godmode_auth');
+                        setAuthData(null);
+                        setSessionExpired(true);
+                    }
+                    return null;
+                })
                 .then(data => {
                     if (data && data.role) {
                         const synced = {
                             ...cachedAuth,
+                            // The server's identity is authoritative — adopt it
+                            // even when localStorage carried someone else's id.
+                            facilitator_id: data.facilitator_id || cachedAuth.facilitator_id,
                             role: data.role,
                             is_admin: data.is_admin ?? (data.role === 'super_admin'),
                             allowed_tabs: data.allowed_tabs || cachedAuth.allowed_tabs,
@@ -320,13 +343,14 @@ export default function FacilitatorPage() {
                             shockwave_enabled: data.shockwave_enabled ?? cachedAuth.shockwave_enabled,
                             trading_floor_enabled: data.trading_floor_enabled ?? cachedAuth.trading_floor_enabled,
                             situation_room_enabled: data.situation_room_enabled ?? cachedAuth.situation_room_enabled,
-                            negotiation_rooms_enabled: data.negotiation_rooms_enabled ?? cachedAuth.negotiation_rooms_enabled,
                         };
                         localStorage.setItem('facilitator_auth', JSON.stringify(synced));
                         setAuthData(synced);
+                        setIdentityVerified(true);
                     }
                 })
-                .catch(() => { /* silent — backend may be offline */ });
+                .catch(() => { /* silent — backend may be offline; the callsign
+                                  flow stays gated until identity is verified */ });
         }
     }, []);
 
@@ -399,11 +423,11 @@ export default function FacilitatorPage() {
         );
     }
 
-    return <FacilitatorDashboard authData={authData} onLogout={handleLogout} onSessionExpired={handleSessionExpired} onForcedPasswordChanged={handleForcedPasswordChanged} />;
+    return <FacilitatorDashboard authData={authData} identityVerified={identityVerified} onLogout={handleLogout} onSessionExpired={handleSessionExpired} onForcedPasswordChanged={handleForcedPasswordChanged} />;
 }
 
 
-function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPasswordChanged }) {
+function FacilitatorDashboard({ authData, identityVerified = false, onLogout, onSessionExpired, onForcedPasswordChanged }) {
     const [leaderboard, setLeaderboard] = useState([]);
     const [selectedSession, _setSelectedSession] = useState(null);
     // Per-cohort analytics visibility (fail-open) for the selected cohort — drives
@@ -1057,21 +1081,6 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
             // ── Interventions tabs ──
             case 'intervention_config':
                 return requireCohort('Interventions', <InterventionConfig sessionId={selectedSession} />);
-            case 'dry_run': {
-                const fullSession = leaderboard.find(s => s.session_id === selectedSession);
-                return requireCohort('Dry-Run Simulator',
-                    <DryRunSimulator sessionId={selectedSession} cohortName={fullSession?.cohort_name || ''} />);
-            }
-            case 'custom_black_swan':
-                // Lead+ tab; the builder itself lists only cohorts a super admin
-                // unlocked (custom_black_swan_enabled) and the backend enforces
-                // the same flag + ownership on injection.
-                return (
-                    <CustomBlackSwanBuilder
-                        facilitatorId={authData.facilitator_id}
-                        isAdmin={authData.is_admin || authData.role === 'super_admin' || authData.role === 'god_mode'}
-                    />
-                );
             case 'cohort_settings_view':
                 // I2: read-only effective-settings matrix, scoped by the backend
                 // to cohorts this lead owns. No cohort selection required.
@@ -1226,8 +1235,14 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
         }
     };
 
-    // If no username set, show ONLY the username prompt — no dashboard behind it
-    if (!authData.username) {
+    // If no username set, show ONLY the username prompt — no dashboard behind it.
+    // Gated on identityVerified: the callsign flow may only run for an identity
+    // the SERVER has confirmed this session belongs to. Without the gate, a
+    // stale localStorage id (e.g. a since-deleted facilitator, or god-mode
+    // opening a cohort dashboard) reached set-username and dead-ended in
+    // "Facilitator not found." Until verification resolves, the dashboard
+    // renders normally — the prompt appears once the identity is confirmed.
+    if (!authData.username && identityVerified) {
         return (
             <div style={{
                 position: 'fixed', inset: 0, zIndex: 16000,
@@ -1238,8 +1253,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                     role="facilitator"
                     onComplete={(newUsername) => {
                         // C-2: keep only the safe display subset (same rule as login)
-                        const { facilitator_id, role, allowed_tabs, is_admin, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled } = authData;
-                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername, shockwave_enabled, trading_floor_enabled, situation_room_enabled, negotiation_rooms_enabled };
+                        const { facilitator_id, role, allowed_tabs, is_admin, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled } = authData;
+                        const updated = { facilitator_id, role, allowed_tabs, is_admin, name, username: newUsername, shockwave_enabled, trading_floor_enabled, situation_room_enabled };
                         localStorage.setItem('facilitator_auth', JSON.stringify(updated));
                         window.location.reload();
                     }}
@@ -1293,18 +1308,8 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                 />
             )}
 
-            {/* ── Onboarding Wizard (first-time only) ──
-                Deferred while either password modal is up. Both are peers of
-                the tour at z-index 20000 and paint a full-screen dim backdrop,
-                which covers the spotlight cutout and makes the highlighted
-                region look dimmed rather than transparent. The forced modal
-                also has to be completed first, so the tour waits its turn. */}
-            <OnboardingWizard
-                mode="facilitator"
-                userId={authData.facilitator_id}
-                onStepChange={(tab) => setActiveTab(tab)}
-                deferred={showChangePw || !!authData?.must_change_password}
-            />
+            {/* ── Onboarding Wizard (first-time only) ── */}
+            <OnboardingWizard mode="facilitator" userId={authData.facilitator_id} onStepChange={(tab) => setActiveTab(tab)} />
 
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>
@@ -1347,7 +1352,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                                 👤 {authData.username ? authData.username.toUpperCase() : authData.name} ({authData.facilitator_id})
                             </span>
                             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                <span data-tour="notification-bell"><NotificationBell activityLog={activityLog} /></span>
+                                <NotificationBell activityLog={activityLog} />
                                 <button
                                     onClick={() => setShowChangePw(true)}
                                     style={{
@@ -1388,9 +1393,9 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                 </div>
 
 
-                <nav className={styles.sidebarNav} data-tour="sidebar-nav">
+                <nav className={styles.sidebarNav}>
                     {FILTERED_SIDEBAR.map((group) => (
-                        <div key={group.id} className={styles.navCategory} data-tour={`nav-${group.id}`}>
+                        <div key={group.id} className={styles.navCategory}>
                             <div
                                 className={styles.categoryHeader}
                                 onClick={() => toggleCategory(group.id)}
@@ -1554,7 +1559,7 @@ function FacilitatorDashboard({ authData, onLogout, onSessionExpired, onForcedPa
                 {/* Phase 3 (F2): the selection is now settable right where the
                     quick actions need it — not only via the hidden
                     click-a-leaderboard-row convention. */}
-                <span data-tour="cohort-selector" style={{ color: 'var(--text-muted)', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ color: 'var(--text-muted)', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
                     <CohortSelector
                         leaderboard={leaderboard}
                         selectedSession={selectedSession}
