@@ -1849,7 +1849,7 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         )
 
     # ── Side track blocking gate ─────────────────────────────
-    blocking_tid, blocking_st = _get_active_side_track_for_session(session_id)
+    blocking_tid, blocking_st = await _get_active_side_track_for_session(session_id)
     if blocking_tid and blocking_st and not blocking_st.get("completed"):
         from side_tracks import get_track as _st_get
         _st_obj = _st_get(blocking_tid)
@@ -3077,38 +3077,35 @@ async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest, 
     session_info["paradigm_locked"] = True
 
     # Propagate to all child player sessions
+    # The healthcare paradigm re-seed rewrites the in-memory BU/global dicts
+    # directly. That is a MEMORY-STORE-ONLY operation: under Postgres, round state
+    # lives in tables, so these dict writes are a silent no-op. Guard on the active
+    # backend and skip under Postgres (a durable Postgres re-seed is a follow-up).
+    # NOTE: the former `un_sdg` branch was dead code — un_sdg fails the paradigm
+    # validation at the top of this endpoint, so it could never run; dropped.
     try:
         import copy
-        from database_memory import _sessions, _bu_states, _global_states, _load_seed
-        
-        # If healthcare is chosen, we must rewrite the business units to healthcare ones.
-        # This assumes the configuration is done at Round 1 before significant progression.
-        if body.decision_paradigm == "healthcare":
-            seed = _load_seed(industry="healthcare")
-            # Overwrite the parent cohort BUs
-            _bu_states[session_id] = {1: copy.deepcopy(seed["business_units"])}
-            _bu_states[session_id] = {1: copy.deepcopy(seed["business_units"])}
-            # Also overwrite global state with SDG-specific treasury ($500M)
-            states = _global_states.get(session_id, [])
-            if states:
-                states[-1]["corporate_treasury"] = seed["global_state"]["corporate_treasury_usd"]
-                states[-1]["political_capital"] = seed["global_state"].get("political_capital", 50.0)
-                states[-1]["community_trust_score"] = seed["global_state"].get("community_trust_score", 50.0)
-                states[-1]["global_emissions_intensity"] = seed["global_state"].get("global_emissions_intensity", 60.0)
+        from admin_shared import _in_memory_backend_active
+        if _in_memory_backend_active():
+            # tripwire-allow-block-start
+            from database_memory import _sessions, _bu_states, _global_states, _load_seed
+            seed = None
+            if body.decision_paradigm == "healthcare":
+                seed = _load_seed(industry="healthcare")
+                _bu_states[session_id] = {1: copy.deepcopy(seed["business_units"])}
+                states = _global_states.get(session_id, [])
+                if states:
+                    states[-1]["corporate_treasury"] = seed["global_state"]["corporate_treasury_usd"]
+                    states[-1]["political_capital"] = seed["global_state"].get("political_capital", 50.0)
+                    states[-1]["community_trust_score"] = seed["global_state"].get("community_trust_score", 50.0)
+                    states[-1]["global_emissions_intensity"] = seed["global_state"].get("global_emissions_intensity", 60.0)
 
-        for sid, sdata in _sessions.items():
-            if sdata.get("parent_cohort_id") == session_id:
-                sdata["decision_paradigm"] = body.decision_paradigm
-                if body.decision_paradigm == "healthcare":
-                    _bu_states[sid] = {1: copy.deepcopy(seed["business_units"])}
-                elif body.decision_paradigm == "un_sdg":
-                    _bu_states[sid] = {1: copy.deepcopy(seed["business_units"])}
-                    child_states = _global_states.get(sid, [])
-                    if child_states:
-                        child_states[-1]["corporate_treasury"] = seed["global_state"]["corporate_treasury_usd"]
-                        child_states[-1]["political_capital"] = seed["global_state"].get("political_capital", 50.0)
-                        child_states[-1]["community_trust_score"] = seed["global_state"].get("community_trust_score", 50.0)
-                        child_states[-1]["global_emissions_intensity"] = seed["global_state"].get("global_emissions_intensity", 60.0)
+            for sid, sdata in _sessions.items():
+                if sdata.get("parent_cohort_id") == session_id:
+                    sdata["decision_paradigm"] = body.decision_paradigm
+                    if body.decision_paradigm == "healthcare":
+                        _bu_states[sid] = {1: copy.deepcopy(seed["business_units"])}
+            # tripwire-allow-block-end
     except ImportError:
         pass
 
@@ -4153,17 +4150,21 @@ async def get_peer_leaderboard(session_id: str):
 
     # ── Multiplayer: Real peer leaderboard ──────────────────────
     # Find all sibling sessions (same parent)
-    try:
-        from database_memory import _sessions, _global_states
-    except ImportError:
-        return {"leaderboard": [], "message": "Peer comparison unavailable"}
+    # Parity API: read siblings + round history via db.* (works under Postgres;
+    # a direct _sessions / _global_states read returns {} there).
+    all_sessions = await db.fetch_all_sessions_raw()
 
     siblings = []
-    for sid, sess in _sessions.items():
+    for sess in all_sessions:
+        sid = sess.get("session_id")
         if sess.get("parent_cohort_id") == parent_id:
-            latest_states = _global_states.get(sid, [])
-            if latest_states:
-                gs = latest_states[-1]
+            hist = await db.fetch_round_history(sid)
+            if hist:
+                gs = hist[-1].get("global_state", {})
+                prev_treasury = (
+                    float(hist[-2].get("global_state", {}).get("corporate_treasury", 0))
+                    if len(hist) >= 2 else None
+                )
                 siblings.append({
                     "session_id": sid,
                     "player_id": sess.get("player_id", ""),
@@ -4172,9 +4173,10 @@ async def get_peer_leaderboard(session_id: str):
                     "reputation": float(gs.get("group_reputation", 50)),
                     "carbon": int(gs.get("tco2e_emissions", 0)),
                     "bonus_score": gs.get("bonus_score", 0),
-                    "round_number": gs.get("round_number", 1),
+                    "round_number": hist[-1].get("round_number", 1),
                     "synergy": float(gs.get("synergy_multiplier", 1.0)),
                     "stakeholder_accuracy": gs.get("stakeholder_map_accuracy", None),  # C21
+                    "_prev_treasury": prev_treasury,
                 })
 
     # Sort by treasury descending
@@ -4197,16 +4199,15 @@ async def get_peer_leaderboard(session_id: str):
         team_name = TEAM_NAMES[i] if i < len(TEAM_NAMES) else f"Team {i + 1}"
         is_you = s["session_id"] == session_id
 
-        # Determine trend based on round number
+        # Determine trend based on round number (prev-round treasury precomputed
+        # from fetch_round_history above, so no second store read is needed).
         trend = "→"
-        if s["round_number"] > 1:
-            prev_states = _global_states.get(s["session_id"], [])
-            if len(prev_states) >= 2:
-                prev_treasury = float(prev_states[-2].get("corporate_treasury", 0))
-                if s["treasury"] > prev_treasury:
-                    trend = "↑"
-                elif s["treasury"] < prev_treasury:
-                    trend = "↓"
+        if s["round_number"] > 1 and s.get("_prev_treasury") is not None:
+            prev_treasury = s["_prev_treasury"]
+            if s["treasury"] > prev_treasury:
+                trend = "↑"
+            elif s["treasury"] < prev_treasury:
+                trend = "↓"
 
         entry = {
             "rank": i + 1,
@@ -4370,15 +4371,14 @@ async def get_peer_trend_history(session_id: str):
         return {"available": True, "ai_benchmark": True, "peerCount": 3, "rounds": rounds_out}
 
     # ── Multiplayer: Real peer averages ──────────────────────────
-    try:
-        from database_memory import _sessions, _round_states
-    except ImportError:
-        return {"available": False, "reason": "Peer comparison unavailable", "rounds": []}
-
-    # Collect all sibling session IDs (excluding self)
+    # Parity API: siblings via fetch_all_sessions_raw. The previous code imported
+    # `_round_states` — a name that has NEVER existed in the store — so this whole
+    # branch always raised ImportError and silently returned "unavailable", even
+    # in memory mode. (The per-round reads below already use db.fetch_round_history.)
+    all_sessions = await db.fetch_all_sessions_raw()
     sibling_ids = [
-        sid for sid, sess in _sessions.items()
-        if sess.get("parent_cohort_id") == parent_id and sid != session_id
+        s["session_id"] for s in all_sessions
+        if s.get("parent_cohort_id") == parent_id and s.get("session_id") != session_id
     ]
     if not sibling_ids:
         return {"available": False, "reason": "No peer sessions in this cohort", "rounds": []}
@@ -4466,7 +4466,7 @@ async def get_peer_trend_history(session_id: str):
 #  Full process_tick() engine used for side track rounds.
 # ═════════════════════════════════════════════════════════════════
 
-def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dict | None]:
+async def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dict | None]:
     """
     Check if a session (or its parent cohort) has an active, incomplete side track.
     Returns (track_id, track_state) if a side track is blocking main sim progression,
@@ -4496,10 +4496,10 @@ def _get_active_side_track_for_session(session_id: str) -> tuple[str | None, dic
     states = player_sess.get("side_track_states") or sess.get("side_track_states", {})
     timing = sess.get("side_track_timing", {})
 
-    # Get current main sim round
-    from database_memory import _global_states
-    player_states = _global_states.get(session_id, [])
-    current_main_round = player_states[-1]["round_number"] if player_states else 1
+    # Get current main sim round (parity API — works under Postgres; a direct
+    # _global_states read returns {} there).
+    _rn = await db.fetch_latest_round(session_id)
+    current_main_round = _rn if _rn is not None else 1
 
     for tid in active_tracks:
         st = states.get(tid, {})

@@ -7114,10 +7114,11 @@ async def undo_round(
     last_res = None
 
     for tgt in set(targets):
-        rounds_data = _global_states.get(tgt, [])
-        if not rounds_data:
+        # Parity API: latest round via fetch_latest_round (works under Postgres;
+        # a direct _global_states read returns {} there).
+        current = await db.fetch_latest_round(tgt)
+        if current is None:
             continue
-        current = rounds_data[-1]["round_number"]
         stop_at = max(1, target_round) if target_round is not None else current - 1
 
         if stop_at >= current:
@@ -7130,10 +7131,9 @@ async def undo_round(
 
         # Loop: undo one round at a time until we reach stop_at
         while True:
-            rounds_data = _global_states.get(tgt, [])
-            if not rounds_data:
+            current = await db.fetch_latest_round(tgt)
+            if current is None:
                 break
-            current = rounds_data[-1]["round_number"]
             if current <= stop_at:
                 break
 
@@ -7965,8 +7965,9 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
     chyron-only bulletin."""
     _require_console_capability(request, "situation_room_enabled", "Situation Room")
 
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Parity API: read sessions + round history via db.* (direct _sessions /
+    # _global_states reads return {} under Postgres).
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
     has_children = any(s.get("parent_cohort_id") == cohort_id for s in all_sessions.values())
 
     teams = []
@@ -7978,13 +7979,13 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
             continue
         if is_self and has_children:
             continue  # prefer player sub-sessions over the parent shell
-        gs_list = global_states.get(sid, [])
+        gs_list = await db.fetch_round_history(sid)
         if not gs_list:
             continue
-        latest = gs_list[-1]
-        prev = gs_list[-2] if len(gs_list) > 1 else None
+        latest = gs_list[-1].get("global_state", {})
+        prev = gs_list[-2].get("global_state", {}) if len(gs_list) > 1 else None
         flags = latest.get("active_event_flags", {}) or {}
-        round_number = max(round_number, int(latest.get("round_number", 1) or 1))
+        round_number = max(round_number, int(gs_list[-1].get("round_number", 1) or 1))
         teams.append({
             "name": sess.get("player_name") or sess.get("cohort_name") or sid[:8],
             "ebitda": float(latest.get("historical_ebitda", 0) or 0),
@@ -8665,15 +8666,17 @@ _COMPLEXITY_EVENT_LABELS = {
 @admin_router.get("/complexity-events/{session_id}", summary="Get complexity engine events for a session")
 async def get_complexity_events(session_id: str):
     """Surface the 16 engine events from a session's latest state as human-readable cards."""
-    global_states = getattr(db, '_global_states', {})
-    rounds = global_states.get(session_id, [])
+    # Parity API: fetch_round_history reads the round history under BOTH the
+    # memory and Postgres stores; a direct _global_states read returns {} under
+    # Postgres. Each item is {round_number, global_state:{active_event_flags,…}}.
+    rounds = await db.fetch_round_history(session_id)
     if not rounds:
         raise HTTPException(404, "No round data")
 
     feed = []
     for grs in rounds:
         rn = grs.get("round_number", 1)
-        flags = grs.get("active_event_flags", {})
+        flags = grs.get("global_state", {}).get("active_event_flags", {})
         round_events = []
         for key, value in flags.items():
             if key in _COMPLEXITY_EVENT_LABELS and value:
@@ -8719,8 +8722,9 @@ async def get_complexity_events(session_id: str):
 @admin_router.get("/complexity-events-all", summary="Get complexity engine events for ALL cohorts")
 async def get_complexity_events_all(_guard: None = Depends(require_facilitator)):
     """Aggregate complexity events across every cohort for cross-cohort comparison."""
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Parity API (see get_complexity_events): read via fetch_all_sessions_raw /
+    # fetch_round_history so this works under Postgres, not just the memory store.
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     cohorts = []
     for sid, sess in all_sessions.items():
@@ -8728,14 +8732,14 @@ async def get_complexity_events_all(_guard: None = Depends(require_facilitator))
         if sess.get("player_id") or sess.get("deleted_at"):
             continue
 
-        rounds = global_states.get(sid, [])
+        rounds = await db.fetch_round_history(sid)
         if not rounds:
             continue
 
         feed = []
         for grs in rounds:
             rn = grs.get("round_number", 1)
-            flags = grs.get("active_event_flags", {})
+            flags = grs.get("global_state", {}).get("active_event_flags", {})
             round_events = []
             for key, value in flags.items():
                 if key in _COMPLEXITY_EVENT_LABELS and value:
@@ -8793,8 +8797,7 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
     Returns compact health indicators for each cohort.
     Status: active, idle, stuck, disconnected.
     """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
     now = datetime.now(timezone.utc)
     health = []
 
@@ -8802,9 +8805,12 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
         if sess.get("player_id") or sess.get("deleted_at"):
             continue  # Skip player sub-sessions and deleted sessions
 
-        gs_list = global_states.get(sid, [])
-        latest_gs = gs_list[-1] if gs_list else {}
-        round_num = latest_gs.get("round_number", 1)
+        # Parity API: latest state via fetch_latest_state — its global_state
+        # carries all unpacked fields under both stores; a direct _global_states
+        # read returns {} under Postgres.
+        latest = await db.fetch_latest_state(sid)
+        latest_gs = latest["global_state"] if latest else {}
+        round_num = latest["round_number"] if latest else 1
 
         # Compute health metrics
         treasury = float(latest_gs.get("corporate_treasury", 0))
@@ -8874,9 +8880,20 @@ async def get_session_health(_guard: None = Depends(require_facilitator)):
 async def clone_session(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
     """Deep-clone a cohort's current state into a new session."""
     import copy
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states_store = getattr(db, '_bu_states', {})
+    from admin_shared import _in_memory_backend_active
+    # Cloning deep-copies round/BU state by writing into the in-memory dicts. That
+    # is memory-store-only: under Postgres, round state lives in tables, so a dict
+    # write would create a hollow clone with no state. Fail loudly rather than
+    # silently forking an empty cohort. (A durable Postgres clone is a follow-up.)
+    if not _in_memory_backend_active():
+        raise HTTPException(
+            status_code=501,
+            detail="Session cloning (what-if fork) is only available with the in-memory "
+                   "store, not the Postgres backend.",
+        )
+    all_sessions = getattr(db, '_sessions', {})  # tripwire-allow: memory-only feature, guarded above
+    global_states = getattr(db, '_global_states', {})  # tripwire-allow
+    bu_states_store = getattr(db, '_bu_states', {})  # tripwire-allow
 
     source = all_sessions.get(session_id)
     if not source:
@@ -9080,14 +9097,13 @@ def check_auto_pause_triggers(session_id: str, events: dict, global_state: dict)
 @admin_router.get("/decision-history/{session_id}", summary="Full decision timeline for a session")
 async def get_decision_history(session_id: str, _guard: None = Depends(require_facilitator)):
     """Reconstruct the complete decision history with state snapshots."""
-    global_states = getattr(db, '_global_states', {})
-    bu_states_store = getattr(db, '_bu_states', {})
-    decision_log = getattr(db, '_decision_log', [])
-
-    rounds = global_states.get(session_id, [])
+    # Parity API: read rounds and decisions via db.* so the timeline populates
+    # under Postgres (direct _global_states/_bu_states/_decision_log → {}/[] there).
+    rounds = await db.fetch_round_history(session_id)
     if not rounds:
         raise HTTPException(404, "No history for this session")
 
+    decision_log = await db.fetch_all_decisions()
     session_decisions = [d for d in decision_log if d.get("session_id") == session_id]
     dec_by_round = {}
     for d in session_decisions:
@@ -9099,8 +9115,9 @@ async def get_decision_history(session_id: str, _guard: None = Depends(require_f
     timeline = []
     for i, grs in enumerate(rounds):
         rn = grs.get("round_number", 1)
-        flags = grs.get("active_event_flags", {})
-        bus = bu_states_store.get(session_id, {}).get(rn, [])
+        gs = grs.get("global_state", {})
+        flags = gs.get("active_event_flags", {})
+        bus = grs.get("business_units", [])
 
         # Extract complexity events for this round
         round_complexity = []
@@ -9116,12 +9133,12 @@ async def get_decision_history(session_id: str, _guard: None = Depends(require_f
 
         timeline.append({
             "round": rn,
-            "treasury_m": round(float(grs.get("corporate_treasury", 0)) / 1_000_000, 2),
-            "reputation": round(float(grs.get("group_reputation", 50)), 1),
-            "synergy": round(float(grs.get("synergy_multiplier", 1.0)), 3),
-            "ebitda_m": round(float(grs.get("historical_ebitda", 0)) / 1_000_000, 2),
-            "inflation": round(float(grs.get("inflation_index", 0.025)), 4),
-            "cost_of_capital": round(float(grs.get("cost_of_capital", 0.05)), 4),
+            "treasury_m": round(float(gs.get("corporate_treasury", 0)) / 1_000_000, 2),
+            "reputation": round(float(gs.get("group_reputation", 50)), 1),
+            "synergy": round(float(gs.get("synergy_multiplier", 1.0)), 3),
+            "ebitda_m": round(float(gs.get("historical_ebitda", 0)) / 1_000_000, 2),
+            "inflation": round(float(gs.get("inflation_index", 0.025)), 4),
+            "cost_of_capital": round(float(gs.get("cost_of_capital", 0.05)), 4),
             "choices": choices,
             "total_capex": round(total_capex, 0),
             "complexity_events": round_complexity,
@@ -9213,8 +9230,8 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
 
     Normalized_TV = Raw_TV × (ref_exit / paradigm_exit)
     """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Parity API: sessions + latest state via db.* (direct reads → {} on Postgres).
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     comparisons = []
     for sid, sess in all_sessions.items():
@@ -9225,8 +9242,9 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
         norms = _PARADIGM_NORMALIZATION.get(paradigm, _REFERENCE_PARADIGM)
         ref = _REFERENCE_PARADIGM
 
-        gs_list = global_states.get(sid, [])
-        latest = gs_list[-1] if gs_list else {}
+        _ls = await db.fetch_latest_state(sid)
+        latest = _ls["global_state"] if _ls else {}
+        _round = _ls["round_number"] if _ls else 1
         flags = latest.get("active_event_flags", {})
 
         raw_tv = float(latest.get("terminal_value", 0))
@@ -9244,7 +9262,7 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
             "session_id": sid,
             "cohort_name": sess.get("cohort_name", sid[:12]),
             "paradigm": paradigm,
-            "round": latest.get("round_number", 1),
+            "round": _round,
             "raw_terminal_value_m": round(raw_tv / 1_000_000, 2),
             "normalized_terminal_value_m": round(normalized_tv / 1_000_000, 2),
             "normalization_factor": round(exit_ratio, 4),
@@ -9270,8 +9288,8 @@ async def get_cross_paradigm_comparison(_guard: None = Depends(require_facilitat
 @admin_router.get("/cohort-comparison", summary="Side-by-side cohort comparison")
 async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depends(require_facilitator)):
     """Compare all cohorts (or a facilitator's cohorts) side by side."""
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
+    # Parity API: sessions + latest state via db.* (direct reads → {} on Postgres).
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     comparisons = []
     for sid, sess in all_sessions.items():
@@ -9280,15 +9298,16 @@ async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depen
         if facilitator_id and sess.get("facilitator_id") != facilitator_id:
             continue
 
-        gs_list = global_states.get(sid, [])
-        latest = gs_list[-1] if gs_list else {}
+        _ls = await db.fetch_latest_state(sid)
+        latest = _ls["global_state"] if _ls else {}
+        _round = _ls["round_number"] if _ls else 1
         flags = latest.get("active_event_flags", {})
 
         comparisons.append({
             "session_id": sid,
             "cohort_name": sess.get("cohort_name", sid[:12]),
             "paradigm": sess.get("decision_paradigm", "legacy_abc"),
-            "round": latest.get("round_number", 1),
+            "round": _round,
             "treasury_m": round(float(latest.get("corporate_treasury", 0)) / 1_000_000, 2),
             "reputation": round(float(latest.get("group_reputation", 50)), 1),
             "synergy": round(float(latest.get("synergy_multiplier", 1.0)), 3),
@@ -9315,51 +9334,53 @@ async def get_cohort_pulse(cohort_id: str):
     Returns per-team KPI history and current state for the CohortPulse heatmap.
     Includes climate-engine fields: green_fund, cost_of_capital, carbon_fee_paid.
     """
-    all_sessions = getattr(db, '_sessions', {})
-    global_states = getattr(db, '_global_states', {})
-    bu_states_store = getattr(db, '_bu_states', {})
+    # Parity API: sessions + round history via db.* (direct _sessions /
+    # _global_states / _bu_states reads return {} under Postgres).
+    all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
 
     teams = []
     for sid, sess in all_sessions.items():
         # Only player sessions whose parent cohort matches, or the cohort session itself
         parent = sess.get("parent_cohort_id")
         if parent == cohort_id or sid == cohort_id:
-            gs_list = global_states.get(sid, [])
+            gs_list = await db.fetch_round_history(sid)
             history = {}
             cumulative_carbon_fee = 0.0
 
             for gs in gs_list:
                 r = gs.get("round_number", 1)
-                flags = gs.get("active_event_flags") or {}
+                _g = gs.get("global_state", {})
+                flags = _g.get("active_event_flags") or {}
                 fee_this_round = flags.get("internal_carbon_fee_deducted", 0) or 0
                 cumulative_carbon_fee += fee_this_round
                 # Compute average SLO from BU states for this round
-                buses_for_round = bu_states_store.get(sid, {}).get(r, [])
+                buses_for_round = gs.get("business_units", [])
                 avg_slo = (
                     sum(b.get("social_license_score", 50) for b in buses_for_round) / len(buses_for_round)
                     if buses_for_round else 50
                 )
                 history[r] = {
-                    "treasury": gs.get("corporate_treasury", 0),
-                    "reputation": gs.get("group_reputation", 50),
-                    "carbon": gs.get("tco2e_emissions", 0),
+                    "treasury": _g.get("corporate_treasury", 0),
+                    "reputation": _g.get("group_reputation", 50),
+                    "carbon": _g.get("tco2e_emissions", 0),
                     "social_license": round(avg_slo, 1),
-                    "synergy": gs.get("synergy_multiplier", 1.0),
+                    "synergy": _g.get("synergy_multiplier", 1.0),
                     # Climate-specific fields
-                    "green_fund": gs.get("green_transition_fund", 0),
-                    "cost_of_capital": gs.get("cost_of_capital", 0.05),
+                    "green_fund": _g.get("green_transition_fund", 0),
+                    "cost_of_capital": _g.get("cost_of_capital", 0.05),
                     "carbon_fee_paid": cumulative_carbon_fee,
                 }
 
-            latest = gs_list[-1] if gs_list else {}
-            latest_rn = latest.get("round_number", 1)
+            latest_item = gs_list[-1] if gs_list else {}
+            latest = latest_item.get("global_state", {})
+            latest_rn = latest_item.get("round_number", 1)
             flags = latest.get("active_event_flags", {}) or {}
             total_fee = sum(
-                (gs.get("active_event_flags", {}) or {}).get("internal_carbon_fee_deducted", 0) or 0
+                (gs.get("global_state", {}).get("active_event_flags", {}) or {}).get("internal_carbon_fee_deducted", 0) or 0
                 for gs in gs_list
             )
             # Average SLO for the latest round
-            latest_bus = bu_states_store.get(sid, {}).get(latest_rn, [])
+            latest_bus = latest_item.get("business_units", [])
             latest_slo = (
                 sum(b.get("social_license_score", 50) for b in latest_bus) / len(latest_bus)
                 if latest_bus else 50
@@ -9387,7 +9408,7 @@ async def get_cohort_pulse(cohort_id: str):
                     "carbon_fee_paid": total_fee,
                     "active_traps": active_traps,
                 },
-                "round": latest.get("round_number", 1),
+                "round": latest_rn,
                 "tipping_point": bool(latest.get("tipping_point_active", False)),
             })
 
