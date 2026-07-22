@@ -386,6 +386,7 @@ cohort_settings: dict[str, dict] = {}
 # Global-only administrative keys (e.g. allow_facilitator_cohort_creation)
 # are intentionally excluded — they should never differ between cohorts.
 COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
+    "max_players",        # per-cohort roster cap (clamped via player_capacity)
     "system_frozen",
     "freeze_message",
     "freeze_started_at",
@@ -479,6 +480,13 @@ def normalize_advanced_cohort_settings(body: dict) -> dict:
     _as_int("quiz_max_attempts", 1, 20, 1)
     _as_int("team_count", 0, 500, 0)
     _as_int("max_team_size", 0, 100, 0)
+
+    # Roster cap: clamp on the way IN through the single resolver + hard ceiling
+    # (player_capacity). A value above the ceiling can never be honoured, and a
+    # zero/negative/non-numeric value falls back to the default.
+    if "max_players" in out:
+        from player_capacity import clamp_max_players
+        out["max_players"] = clamp_max_players(out["max_players"])
 
     for key in ("redact_peer_identities", "quiz_enabled", "quiz_graded", "quiz_mandatory"):
         if key in out:

@@ -3629,13 +3629,12 @@ _NOUNS = ["rhino", "eagle", "tiger", "panda", "fox", "bear", "wolf", "lion", "ha
 async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require_sim_manager)):
     global _next_player_id
 
-    # Enforce the 10-player-per-cohort cap
+    # Enforce the per-cohort roster cap (single resolver, clamp-on-read).
+    from player_capacity import resolve_max_players, capacity_error
+    _cap = resolve_max_players(get_effective_settings(req.session_id))
     existing_in_cohort = [p for p in _player_registry if p.get("session_id") == req.session_id]
-    if len(existing_in_cohort) >= 10:
-        raise HTTPException(
-            status_code=400,
-            detail="Cohort has reached the maximum of 10 players."
-        )
+    if len(existing_in_cohort) >= _cap:
+        raise HTTPException(status_code=400, detail=capacity_error(_cap))
 
     # Check for duplicate name within the same cohort
     existing_names = [
@@ -4233,13 +4232,15 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
     summary="Generate a new allowed player ID and password",
 )
 async def generate_player_id(session_id: str, _guard: None = Depends(require_sim_manager)):
-    # Enforce the 10-player-per-cohort cap at ID generation time
+    # Enforce the per-cohort roster cap at ID generation time.
+    from player_capacity import resolve_max_players, capacity_error
     sess_check = await db.get_session_info(session_id)
     if not sess_check:
         raise HTTPException(status_code=404, detail="Session not found.")
+    _cap = resolve_max_players(get_effective_settings(session_id))
     existing_count = len(sess_check.get("registered_players", []))
-    if existing_count >= 10:
-        raise HTTPException(status_code=400, detail="Cohort has reached the maximum of 10 players.")
+    if existing_count >= _cap:
+        raise HTTPException(status_code=400, detail=capacity_error(_cap))
 
     player_id = await db.generate_player_id(session_id)
     if not player_id:
