@@ -2874,6 +2874,124 @@ async def submit_shadow_board_rejection(
 
 
 # ─────────────────────────────────────────────────────────────────
+# Stakeholder Negotiation Rooms — player-facing HTTP over the existing
+# deal engine (negotiation.py / llm_negotiator.py). Slice 5.
+#
+# The engine already exists; these routes wire it and enforce the
+# per-facilitator capability gate. The gate is a LIVE read on every call
+# (never a snapshot copied onto the room at open time), which is exactly
+# what makes a super-admin revoke stop an already-open room mid-game —
+# mirroring how resolve_max_players is enforced on read, not trusted from
+# a stored value.
+# ─────────────────────────────────────────────────────────────────
+
+async def _require_negotiation_open(session_id: str) -> dict:
+    """Raise 403 unless BOTH (a) the cohort's negotiation_rooms_enabled is on
+    AND (b) the owning facilitator currently holds the grant. Returns the
+    session record on success. Re-read per call so a revoke stops a live room."""
+    from admin_shared import get_effective_settings, _facilitator_registry
+
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
+
+    if get_effective_settings(session_id).get("negotiation_rooms_enabled") is not True:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Stakeholder Negotiation Rooms are not enabled for this cohort.",
+        )
+
+    owner_id = sess.get("facilitator_id")
+    owner = next(
+        (f for f in _facilitator_registry
+         if f.get("facilitator_id") == owner_id and not f.get("deleted_at")),
+        None,
+    )
+    if owner is not None:
+        # Real registry owner: the grant must be live-True right now.
+        if owner.get("negotiation_rooms_enabled") is not True:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Stakeholder Negotiation Rooms are not enabled for the owning facilitator's profile.",
+            )
+    elif owner_id not in ("god_mode", "project_admin", "facilitator"):
+        # Unknown, non-virtual owner id — refuse rather than fail open.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Stakeholder Negotiation Rooms are not enabled for the owning facilitator's profile.",
+        )
+    return sess
+
+
+class NegotiationOpenRequest(BaseModel):
+    agent_id: str
+
+
+class NegotiationSayRequest(BaseModel):
+    text: str = ""
+
+
+@router.post("/{session_id}/negotiation/open", summary="Open a Stakeholder Negotiation Room")
+async def open_negotiation_room(session_id: str, body: NegotiationOpenRequest):
+    """Open a room with a stakeholder agent (only takes the meeting once the
+    agent is hostile/triggered — enforced by the engine). Capability-gated."""
+    import negotiation
+    await _require_negotiation_open(session_id)
+
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
+    gs, bus, rn = latest["global_state"], latest["bu_states"], latest["round_number"]
+
+    result = negotiation.open_room(gs, bus, rn, body.agent_id)
+    if "error" in result:
+        # not_hostile / meeting_cap / room_already_open / unknown_agent → 400
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
+    await db.update_latest_global_state(session_id, gs, bus)
+    return result
+
+
+@router.post("/{session_id}/negotiation/say", summary="Send a turn in the open negotiation room")
+async def say_in_negotiation_room(session_id: str, body: NegotiationSayRequest):
+    """Record the player's line and get the agent's reply. Uses the LLM when a
+    key is configured, else the deterministic scripted persona. Capability-gated
+    on every call, so a revoke stops the conversation immediately."""
+    import negotiation
+    await _require_negotiation_open(session_id)
+
+    latest = await db.fetch_latest_state(session_id)
+    if latest is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Session {session_id} not found.")
+    gs, bus, rn = latest["global_state"], latest["bu_states"], latest["round_number"]
+
+    # Best-effort LLM flavour; any failure (incl. no API key configured, the
+    # common case) falls back to the scripted persona so no-key deployments and
+    # every error path play identically. negotiate_turn itself never raises and
+    # returns None without a key.
+    llm_reply = None
+    try:
+        import llm_negotiator
+        log = negotiation.get_negotiation_log(gs)
+        room = log.get("active")
+        if room:
+            agent_id = room["agent_id"]
+            grievances = negotiation.compute_grievances(gs, bus, agent_id)
+            menu = negotiation.menu_for_agent(gs, rn, agent_id)
+            agent_state = ((gs.get("autonomous_agents") or {}).get("agents") or {}).get(agent_id) or {}
+            llm_reply = await llm_negotiator.negotiate_turn(
+                room, grievances, menu, agent_state, body.text, rn,
+            )
+    except Exception:
+        llm_reply = None
+
+    result = negotiation.say(gs, bus, rn, body.text, llm_reply=llm_reply)
+    if "error" in result:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result)
+    await db.update_latest_global_state(session_id, gs, bus)
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────
 # GET /api/simulations/round-config/{round_number}
 # ─────────────────────────────────────────────────────────────────
 

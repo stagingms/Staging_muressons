@@ -289,6 +289,7 @@ class FacilitatorCreateRequest(BaseModel):
     shockwave_enabled: bool = True   # Feature 6: allow this facilitator to detonate synchronized shockwaves
     trading_floor_enabled: bool = True   # Feature 1: allow this facilitator to run the Trading-Floor finale console
     situation_room_enabled: bool = True   # W-D (W4): allow this facilitator to fire Situation-Room voice bulletins
+    negotiation_rooms_enabled: bool = False   # Slice 5: opt-in Stakeholder Negotiation Rooms (default OFF)
 
 class FacilitatorUpdateRequest(BaseModel):
     name: str | None = None
@@ -313,6 +314,7 @@ class FacilitatorUpdateRequest(BaseModel):
     shockwave_enabled: bool | None = None   # Feature 6 per-facilitator capability
     trading_floor_enabled: bool | None = None   # Feature 1 per-facilitator capability
     situation_room_enabled: bool | None = None   # W-D (W4) per-facilitator capability
+    negotiation_rooms_enabled: bool | None = None   # Slice 5 per-facilitator capability (revoke path)
 
 class FacilitatorBulkCreateRequest(BaseModel):
     facilitators: list[FacilitatorCreateRequest]
@@ -432,6 +434,9 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         "esg_bs_scholarly_mode": s.get("esg_bs_scholarly_mode", False),
         # Single-BU mode: when set, all player sessions only show this one BU
         "assigned_bu": s.get("assigned_bu", ""),
+        # Slice 5: Stakeholder Negotiation Rooms — cohort-effective, capability-gated
+        # (default OFF; a lead only turns it on if their profile holds the grant).
+        "negotiation_rooms_enabled": s.get("negotiation_rooms_enabled", False) is True,
         # GOD-012: expose whether cohort-level overrides are active
         "_cohort_overrides_active": bool(session_id and session_id in cohort_settings),
     }
@@ -775,11 +780,27 @@ async def patch_cohort_settings(
     # HIGH-tier advanced controls: coerce/clamp before any filtering or persistence.
     body = normalize_advanced_cohort_settings(body)
 
+    # Slice 5: Stakeholder Negotiation Rooms are a per-facilitator capability. A
+    # lead may only switch the cohort flag ON if their OWN profile holds the
+    # grant; god_mode / super_admin (is_admin_role, resolved from the signed
+    # token so virtual identities aren't demoted) bypass. Refuse BEFORE any write
+    # so a denied toggle leaves the cohort untouched.
+    if body.get("negotiation_rooms_enabled") is True and not is_admin_role(caller_role):
+        if not (caller_fac and caller_fac.get("negotiation_rooms_enabled") is True):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=("Stakeholder Negotiation Rooms are not enabled for your facilitator "
+                        "profile. Ask a super admin to grant the capability."),
+            )
+
     # lead_facilitators may only touch freeze keys and specific simulation parameters for sessions they own
     _LEAD_FAC_KEYS = frozenset({
         "system_frozen", "freeze_message", "freeze_started_at",
         "climate_paradigm",  # C6: canonical climate branch (per-cohort, lead-overridable)
-        "simulation_mode", "global_carbon_fee", "market_hostility_index", "scope_3_threshold"
+        "simulation_mode", "global_carbon_fee", "market_hostility_index", "scope_3_threshold",
+        # Slice 5: a lead may toggle Negotiation Rooms on their OWN cohort — the
+        # capability gate above already requires the grant to turn it ON.
+        "negotiation_rooms_enabled",
     })
     rejected_for_role: list = []
     if caller_role == "lead_facilitator":
@@ -1694,6 +1715,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
             "shockwave_enabled": req.shockwave_enabled if req.shockwave_enabled is not None else True,  # Feature 6
             "trading_floor_enabled": req.trading_floor_enabled if req.trading_floor_enabled is not None else True,  # Feature 1
             "situation_room_enabled": req.situation_room_enabled if req.situation_room_enabled is not None else True,  # W-D (W4)
+            "negotiation_rooms_enabled": req.negotiation_rooms_enabled is True,  # Slice 5: opt-in, default OFF
             "permissions": req.permissions or default_perms,
             "created_by": req.created_by or "",
             "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
@@ -1923,6 +1945,7 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
                 "shockwave_enabled": parsed.get("shockwave_enabled", True),
                 "trading_floor_enabled": parsed.get("trading_floor_enabled", True),
                 "situation_room_enabled": parsed.get("situation_room_enabled", True),
+                "negotiation_rooms_enabled": parsed.get("negotiation_rooms_enabled", False) is True,  # Slice 5
                 "permissions": {
                     "can_undo_rounds": False,
                     "can_override_decisions": False,
@@ -2032,6 +2055,7 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
                 "shockwave_enabled": fac_req.shockwave_enabled,
                 "trading_floor_enabled": fac_req.trading_floor_enabled,
                 "situation_room_enabled": fac_req.situation_room_enabled,
+                "negotiation_rooms_enabled": fac_req.negotiation_rooms_enabled is True,  # Slice 5
                 "permissions": fac_req.permissions or {
                     "can_undo_rounds": True,
                     "can_override_decisions": True,
@@ -2364,6 +2388,7 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
+        "negotiation_rooms_enabled": fac.get("negotiation_rooms_enabled", False) is True,  # Slice 5 (opt-in)
     }
 
 
@@ -2515,6 +2540,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
+        "negotiation_rooms_enabled": fac.get("negotiation_rooms_enabled", False) is True,  # Slice 5 (opt-in)
     }
 
 
@@ -4363,6 +4389,288 @@ async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dic
     return created
 
 
+# ── Slice 4: single-cohort player bulk upload + master provisioning ──────────
+# Wires the already-tested parsers in player_bulk_excel over the shared
+# _create_players_bulk path. Two shapes: a facilitator uploads a flat roster for
+# ONE cohort they run; a registry admin uploads a master workbook that
+# provisions facilitators, cohorts and players together, all-or-nothing.
+
+async def _cohort_remaining_capacity(session_id: str):
+    """(session_info, cap, remaining) for a cohort, or raise 404.
+
+    `remaining` is the effective cap minus the players already registered, so the
+    parser rejects an oversized sheet BEFORE any player is created."""
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    from player_capacity import resolve_max_players
+    cap = resolve_max_players(get_effective_settings(session_id))
+    used = len(sess.get("registered_players", []) or [])
+    return sess, cap, max(0, cap - used)
+
+
+@admin_router.get(
+    "/players/bulk-template",
+    summary="Download the single-cohort player roster .xlsx template",
+)
+async def players_bulk_template(_guard: None = Depends(require_facilitator)):
+    import os, tempfile
+    from fastapi.responses import FileResponse
+    from player_bulk_excel import build_player_template
+    fd, path = tempfile.mkstemp(suffix=".xlsx", prefix="player_template_")
+    os.close(fd)
+    build_player_template(path)
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="player_roster_template.xlsx",
+    )
+
+
+@admin_router.post(
+    "/{session_id}/players/bulk-preview",
+    summary="Validate a player roster sheet WITHOUT creating anything",
+)
+async def players_bulk_preview(
+    session_id: str,
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_sim_manager),
+):
+    """Parse-only: every error at once, nothing created. A deliberately distinct
+    route from bulk-upload so an older backend answers 404/405 and the frontend
+    falls back safely instead of accidentally creating players."""
+    from player_bulk_excel import parse_player_sheet, BulkPlayerError
+    _sess, cap, remaining = await _cohort_remaining_capacity(session_id)
+    raw = await file.read()
+    try:
+        players = parse_player_sheet(raw, limit=remaining)
+    except BulkPlayerError as e:
+        return {"ok": False, "errors": e.errors, "total": 0,
+                "remaining": remaining, "max_players": cap}
+    return {
+        "ok": True,
+        "total": len(players),
+        "remaining": remaining,
+        "max_players": cap,
+        "players": [
+            {k: p.get(k, "") for k in ("name", "email", "programme", "assigned_bu", "region_id")}
+            for p in players
+        ],
+        "note": "Nothing was created. POST the same file to /players/bulk-upload to create these players.",
+    }
+
+
+@admin_router.post(
+    "/{session_id}/players/bulk-upload",
+    summary="Create players in one cohort from an .xlsx roster (all-or-nothing)",
+)
+async def players_bulk_upload(
+    session_id: str,
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_sim_manager),
+):
+    """All-or-nothing: the parser validates the whole sheet (shape, duplicates,
+    capacity) before a single player is created, so a rejected file leaves the
+    roster untouched. Returns the created credentials for one-time display."""
+    from player_bulk_excel import parse_player_sheet, BulkPlayerError
+    _sess, cap, remaining = await _cohort_remaining_capacity(session_id)
+    raw = await file.read()
+    try:
+        players = parse_player_sheet(raw, limit=remaining)
+    except BulkPlayerError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    created = await _create_players_bulk(session_id, players)
+    return {"ok": True, "created": created, "total": len(created), "max_players": cap}
+
+
+@admin_router.get(
+    "/provisioning/master-template",
+    summary="Download the three-sheet master provisioning .xlsx template",
+)
+async def provisioning_master_template(_guard: None = Depends(require_registry_admin)):
+    import os, tempfile
+    from fastapi.responses import FileResponse
+    from player_bulk_excel import build_master_template
+    fd, path = tempfile.mkstemp(suffix=".xlsx", prefix="master_template_")
+    os.close(fd)
+    build_master_template(path)
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename="master_provisioning_template.xlsx",
+    )
+
+
+async def _validate_master_workbook(raw: bytes, request: Request) -> dict:
+    """Parse + the endpoint-level checks the parser cannot do (existing-facilitator
+    resolution, cohort-name collisions), returning the fully-resolved plan or
+    raising HTTPException(400) with everything wrong at once. Creates NOTHING, so
+    preview and upload run the IDENTICAL gate."""
+    from player_bulk_excel import parse_master_workbook, BulkPlayerError
+    try:
+        plan = parse_master_workbook(raw)
+    except BulkPlayerError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    errors: list = []
+
+    # A cohort may cite an EXISTING facilitator id instead of a workbook ref; the
+    # parser flagged those (facilitator_is_new=False) but cannot know the
+    # registry — verify here so a dangling id fails before any write.
+    existing_ids = {f.get("facilitator_id") for f in _facilitator_registry}
+    for c in plan["cohorts"]:
+        if not c["facilitator_is_new"] and c["facilitator_ref"] not in existing_ids:
+            errors.append(
+                f"Cohorts row {c['row']}: facilitator_ref '{c['facilitator_ref']}' "
+                f"is neither a Facilitators.ref in this workbook nor an existing facilitator id."
+            )
+
+    # Cohort names are globally unique among top-level sessions; a collision would
+    # make db.create_session raise mid-import, so catch it up front to keep the
+    # whole upload all-or-nothing.
+    try:
+        existing_names = {
+            (s.get("cohort_name") or "").strip().lower()
+            for s in (await db.fetch_all_sessions() or [])
+            if not s.get("parent_cohort_id")
+        }
+    except Exception:
+        existing_names = set()
+    seen_names: set = set()
+    for c in plan["cohorts"]:
+        nm = c["cohort_name"].strip().lower()
+        if nm in existing_names or nm in seen_names:
+            errors.append(f"Cohorts row {c['row']}: a cohort named '{c['cohort_name']}' already exists.")
+        seen_names.add(nm)
+
+    if errors:
+        raise HTTPException(status_code=400, detail="; ".join(errors))
+    return plan
+
+
+@admin_router.post(
+    "/provisioning/master-preview",
+    summary="Validate a master workbook WITHOUT creating anything",
+)
+async def provisioning_master_preview(
+    request: Request,
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_registry_admin),
+):
+    raw = await file.read()
+    plan = await _validate_master_workbook(raw, request)
+    return {
+        "ok": True,
+        "totals": {
+            "facilitators": len(plan["facilitators"]),
+            "cohorts": len(plan["cohorts"]),
+            "players": len(plan["players"]),
+        },
+        "facilitators": [
+            {"ref": f["ref"], "name": f["name"], "role": f["role"]} for f in plan["facilitators"]
+        ],
+        "cohorts": [
+            {"ref": c["ref"], "cohort_name": c["cohort_name"],
+             "max_players": c["max_players"], "player_count": c.get("player_count", 0)}
+            for c in plan["cohorts"]
+        ],
+        "note": "Nothing was created. POST the same file to /provisioning/master-upload to provision everything.",
+    }
+
+
+@admin_router.post(
+    "/provisioning/master-upload",
+    summary="Provision facilitators + cohorts + players from a master workbook (all-or-nothing)",
+)
+async def provisioning_master_upload(
+    request: Request,
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_registry_admin),
+):
+    """Provision an entire programme in one atomic upload. The plan is validated
+    in full (parser + existing-facilitator resolution + name-collision) before a
+    single record is written, so a workbook that fails validation leaves NO
+    facilitator, NO cohort and NO player behind."""
+    from player_capacity import clamp_max_players
+    raw = await file.read()
+    plan = await _validate_master_workbook(raw, request)
+
+    # 1) Facilitators — a role the caller may not grant is downgraded to
+    #    'facilitator' (never an error), matching the workbook contract.
+    caller_role = get_fac_role(request)
+    grantable = assignable_roles_for(caller_role)
+    ref_to_fac_id: dict = {}
+    created_facilitators: list = []
+    for f in plan["facilitators"]:
+        role = f["role"] if f["role"] in grantable else "facilitator"
+        req = FacilitatorCreateRequest(
+            name=f["name"],
+            email=f["email"] or None,
+            contact_number=f["contact_number"] or None,
+            programme=f["programme"] or None,
+            max_cohorts=f["max_cohorts"],
+            role=role,
+        )
+        res = await create_facilitator(req, request)
+        ref_to_fac_id[f["ref"].strip().lower()] = res["facilitator_id"]
+        created_facilitators.append({
+            "ref": f["ref"], "facilitator_id": res["facilitator_id"],
+            "name": res.get("name", f["name"]), "role": res.get("role", role),
+            "one_time_password": res.get("one_time_password", ""),
+        })
+
+    # 2) Cohorts — resolve the facilitator (new ref or existing id), seed the
+    #    session (round-1 state) and record max_players as a per-cohort override
+    #    so the leaderboard + capacity checks read it back through
+    #    get_effective_settings.
+    ref_to_session_id: dict = {}
+    created_cohorts: list = []
+    for c in plan["cohorts"]:
+        fref = c["facilitator_ref"].strip().lower()
+        fac_id = ref_to_fac_id.get(fref, c["facilitator_ref"])  # existing id passes through
+        result = await db.create_session(
+            c["cohort_name"],
+            fac_id,
+            decision_paradigm=c["decision_paradigm"],
+            simulation_mode=c["simulation_mode"],
+            industry_vertical=c["industry_vertical"] or None,
+            region_id=c["region_id"] or None,
+        )
+        sid = str(result["session_id"])
+        ref_to_session_id[c["ref"].strip().lower()] = sid
+        cap = clamp_max_players(c["max_players"])
+        cohort_settings.setdefault(sid, {})["max_players"] = cap
+        created_cohorts.append({
+            "ref": c["ref"], "session_id": sid, "cohort_name": c["cohort_name"],
+            "facilitator_id": fac_id, "max_players": cap,
+        })
+    mark_cohort_settings_dirty()
+
+    # 3) Players — grouped per cohort, created through the shared durable path.
+    from collections import defaultdict
+    by_cohort: dict = defaultdict(list)
+    for p in plan["players"]:
+        by_cohort[p["cohort_ref"].strip().lower()].append(p)
+    created_players: list = []
+    for cref, group in by_cohort.items():
+        sid = ref_to_session_id.get(cref)
+        if not sid:
+            continue  # unreachable: parser guarantees every player ref resolves
+        created_players.extend(await _create_players_bulk(sid, group))
+
+    return {
+        "ok": True,
+        "totals": {
+            "facilitators": len(created_facilitators),
+            "cohorts": len(created_cohorts),
+            "players": len(created_players),
+        },
+        "facilitators": created_facilitators,
+        "cohorts": created_cohorts,
+        "players": created_players,
+    }
+
+
 # Facilitator-safe roster projection allow-list. An allow-list (not a deny-list)
 # means a field added to the player record later cannot leak by default.
 _ROSTER_PUBLIC_FIELDS = (
@@ -4384,6 +4692,7 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
     terminal value projection, total cash, synergy, risk heatmap,
     talent flight risk, and individual player scores.
     """
+    from player_capacity import resolve_max_players
     sessions = await db.fetch_all_sessions()
     leaderboard = []
 
@@ -4541,7 +4850,12 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
             # "— (reset to reveal)" on every refresh even though the password
             # was generated server-side and is still the active one.
             "allowed_player_ids": sess.get("allowed_player_ids", []),
-            "max_players": sess.get("max_players"),
+            # Slice 4: report the EFFECTIVE cap (global default + per-cohort
+            # override, clamped to the ceiling) rather than the raw stored value,
+            # which is None for cohorts that never set it and un-clamped for ones
+            # persisted by an older build. Mirrors the resolver the two capacity
+            # enforcement sites (generate_player_id / induct_player) already use.
+            "max_players": resolve_max_players(get_effective_settings(sid)),
             "registered_players": [_roster_view(rp) for rp in (sess.get("registered_players") or [])],
             "simulation_mode": sess.get("simulation_mode", "conglomerate"),
             "industry_vertical": sess.get("industry_vertical", ""),

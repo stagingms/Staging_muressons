@@ -387,6 +387,7 @@ cohort_settings: dict[str, dict] = {}
 # are intentionally excluded — they should never differ between cohorts.
 COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "max_players",        # per-cohort roster cap (clamped via player_capacity)
+    "negotiation_rooms_enabled",  # Slice 5: per-cohort Stakeholder Negotiation Rooms (capability-gated)
     "system_frozen",
     "freeze_message",
     "freeze_started_at",
