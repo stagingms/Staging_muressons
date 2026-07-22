@@ -24,6 +24,7 @@ jobs:
         working-directory: backend
         env:
           USE_MEMORY_DB: "true"
+          DEBUG: "true"
         run: python -m pytest tests/ -q
 
   frontend-tests:
