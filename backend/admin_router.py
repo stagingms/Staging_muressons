@@ -2731,6 +2731,7 @@ class PlayerRegisterRequest(BaseModel):
 class PlayerInductRequest(BaseModel):
     name: str = Field(..., max_length=100)
     email: str = Field(..., max_length=200)
+    programme: str = Field("", max_length=200)  # optional programme/cohort label (parity with bulk upload)
     session_id: str = Field(..., max_length=100)
     assigned_bu: str = Field(..., max_length=100)
     region_id: str = Field("", max_length=50)  # NEW — geographic region for single-BU localisation
@@ -3670,11 +3671,13 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
         "player_id": generated_id,
         "name": req.name,
         "email": req.email,
+        "programme": req.programme,
         "assigned_bu": req.assigned_bu,
         "region_id": req.region_id,
         "session_id": req.session_id,
         "cohort_name": _cohort_name,
         "password": generated_password_hash,  # L-4: store bcrypt hash, never plaintext
+        "plaintext_password": generated_password,  # revealable temp credential; erased on personal change
         "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "playing",
@@ -4254,9 +4257,11 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
         "player_id": player_id,
         "name": "",
         "email": "",
+        "programme": "",
         "assigned_bu": "",
         "session_id": session_id,
         "password": hash_password(generated_password),  # L-4: store bcrypt hash
+        "plaintext_password": generated_password,  # revealable temp credential; erased on personal change
         "must_change_password": True,  # Force player to change on first login
         "created_at": datetime.now(timezone.utc).isoformat(),
         "status": "id_generated",
@@ -4283,6 +4288,92 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
     return {"status": "success", "player_id": player_id, "password": generated_password}
 
 
+async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dict]:
+    """Shared bulk player-creation path (used by the bulk-upload endpoints).
+
+    `players` is parser output (player_bulk_excel.parse_player_sheet): dicts with
+    name / email / programme / assigned_bu / region_id. Each is created with a
+    per-player temp password, writing the SAME record shape as induct_player and
+    generate_player_id (kept congruent by test_player_record_shape), and persisted
+    durably (registry + registered_players via the db interface) so the credential
+    works across workers / Postgres. Returns the created credentials for one-time
+    facilitator display.
+
+    Capacity + ownership are enforced by the CALLER before this runs, so the
+    endpoint boundary stays all-or-nothing.
+    """
+    global _next_player_id
+    _cohort_name = ""
+    try:
+        _sess_info = await db.get_session_info(session_id)
+        if _sess_info:
+            _cohort_name = _sess_info.get("cohort_name", "")
+    except Exception:
+        pass
+
+    created: list[dict] = []
+    new_records: list[dict] = []
+    for p in players:
+        pid = f"MUR-{_next_player_id:03d}"
+        _next_player_id += 1
+        temp, temp_hash = _generate_temp_password()
+        player = {
+            "player_id": pid,
+            "name": p.get("name", ""),
+            "email": p.get("email", ""),
+            "programme": p.get("programme", ""),
+            "assigned_bu": p.get("assigned_bu", ""),
+            "region_id": p.get("region_id", ""),
+            "session_id": session_id,
+            "cohort_name": _cohort_name,
+            "password": temp_hash,  # L-4: store bcrypt hash, never plaintext
+            "plaintext_password": temp,  # revealable temp credential; erased on personal change
+            "must_change_password": True,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "status": "playing",
+        }
+        _player_registry.append(player)
+        new_records.append(player)
+        created.append({
+            "player_id": pid,
+            "name": player["name"],
+            "email": player["email"],
+            "programme": player["programme"],
+            "temp_password": temp,
+        })
+
+    # Durable persist: extend allowed_player_ids + registered_players in one write.
+    try:
+        sess = await db.get_session_info(session_id)
+        if sess is not None:
+            allowed = list(sess.get("allowed_player_ids", []) or [])
+            registered = list(sess.get("registered_players", []) or [])
+            existing_ids = {rp.get("player_id") for rp in registered}
+            for rec in new_records:
+                if rec["player_id"] not in allowed:
+                    allowed.append(rec["player_id"])
+                if rec["player_id"] not in existing_ids:
+                    registered.append(rec.copy())
+            await db.update_session_metadata(session_id, {
+                "allowed_player_ids": allowed,
+                "registered_players": registered,
+            })
+    except Exception:
+        pass
+    return created
+
+
+# Facilitator-safe roster projection allow-list. An allow-list (not a deny-list)
+# means a field added to the player record later cannot leak by default.
+_ROSTER_PUBLIC_FIELDS = (
+    "player_id", "name", "username", "email", "programme",
+    "assigned_bu", "status", "created_at",
+)
+# `temp_password` (the live temp credential) and `must_change_password` are
+# added by _roster_view; the bcrypt hash ("password") and "plaintext_password"
+# are NEVER projected.
+
+
 @admin_router.get(
     "/leaderboard",
     summary="Get leaderboard data for all active sessions",
@@ -4304,17 +4395,10 @@ async def get_leaderboard(facilitator_id: Optional[str] = None, _guard: None = D
         out at any point during setup — it disappears the moment the player sets
         a personal password. The bcrypt hash is NEVER serialized (H-2)."""
         active = bool(rp.get("must_change_password", False))
-        return {
-            "player_id": rp.get("player_id", ""),
-            "name": rp.get("name", ""),
-            "username": rp.get("username", ""),
-            "email": rp.get("email", ""),
-            "assigned_bu": rp.get("assigned_bu", ""),
-            "status": rp.get("status", ""),
-            "created_at": rp.get("created_at", ""),
-            "must_change_password": active,
-            "temp_password": (rp.get("plaintext_password") or "") if active else "",
-        }
+        out = {k: rp.get(k, "") for k in _ROSTER_PUBLIC_FIELDS}
+        out["must_change_password"] = active
+        out["temp_password"] = (rp.get("plaintext_password") or "") if active else ""
+        return out
 
     # Build player name lookup from registry
     player_name_map = {}

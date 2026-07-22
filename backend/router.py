@@ -3719,6 +3719,11 @@ async def change_password(body: ChangePasswordRequest):
     player["password"] = _hash_pw(body.new_password.strip())
     # Clear the forced-change flag now that the player has set a personal password
     player["must_change_password"] = False
+    # The player owns their password now — the revealable temp credential must
+    # stop existing on the registry record too (the registered_players copy is
+    # cleared below). Otherwise it would keep surfacing on facilitator roster reads.
+    player.pop("plaintext_password", None)
+    player.pop("temp_password", None)
 
     # Persist the cleared flag to session metadata so it survives server restarts
     try:
