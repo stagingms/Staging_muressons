@@ -143,6 +143,11 @@ async def _assert_session_ownership(request: Request, session_id: str) -> None:
 
 def require_super_admin(role: str = Depends(get_fac_role)):
     """Allow super_admin only. Uses hierarchy level to handle 'admin' alias correctly."""
+    if role == 'anonymous':
+        # BUG-2026-07-18: distinguish "not authenticated" (401) from
+        # "authenticated but insufficient role" (403), so a dead/absent cookie
+        # reads as Session expired rather than a misleading role refusal.
+        raise HTTPException(status_code=401, detail='Facilitator authentication required')
     if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('super_admin', 3):
         raise HTTPException(status_code=403, detail='Super Admin required')
 
@@ -762,7 +767,10 @@ async def patch_cohort_settings(
     except Exception:
         pass
 
-    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
+    # Resolve on the signed-token LEVEL so virtual identities (god_mode /
+    # project_admin) aren't silently demoted to "facilitator" by the absent
+    # registry row (CLAUDE.md role convention 1).
+    caller_role = get_fac_role(request)
 
     # HIGH-tier advanced controls: coerce/clamp before any filtering or persistence.
     body = normalize_advanced_cohort_settings(body)
@@ -773,6 +781,7 @@ async def patch_cohort_settings(
         "climate_paradigm",  # C6: canonical climate branch (per-cohort, lead-overridable)
         "simulation_mode", "global_carbon_fee", "market_hostility_index", "scope_3_threshold"
     })
+    rejected_for_role: list = []
     if caller_role == "lead_facilitator":
         # Ownership check
         session_rec = None
@@ -787,6 +796,9 @@ async def patch_cohort_settings(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You can only modify cohort settings for sessions you own.",
             )
+        # Report keys this role may NOT set BEFORE dropping them, so a disallowed
+        # toggle surfaces as rejected_for_role rather than vanishing with a 200.
+        rejected_for_role = [k for k in body if k not in _LEAD_FAC_KEYS]
         # Restrict to lead facilitator allowed keys
         body = {k: v for k, v in body.items() if k in _LEAD_FAC_KEYS}
 
@@ -858,6 +870,7 @@ async def patch_cohort_settings(
         "session_id": session_id,
         "applied": safe_body,
         "rejected_non_overridable": rejected_keys,
+        "rejected_for_role": rejected_for_role,
         "overrides": cohort_settings[session_id],
         "effective": get_effective_settings(session_id),
     }
@@ -7463,8 +7476,13 @@ async def broadcast_message(req: BroadcastRequest, request: Request, _guard: Non
         (f for f in _facilitator_registry if f["facilitator_id"] == caller_id and not f.get("deleted_at")),
         None,
     ) if caller_id else None
-    caller_role = get_role(caller_fac) if caller_fac else "facilitator"
-    is_super = ROLE_HIERARCHY.get(caller_role, 0) >= ROLE_HIERARCHY.get("super_admin", 3)
+    # Virtual identities (god_mode / project_admin) have no registry row, so
+    # deriving the role from caller_fac silently demoted them to "facilitator"
+    # and the ownership filter below then matched NOTHING — God Mode's Universal
+    # Broadcast returned 200 "sent" but delivered to zero cohorts. Resolve on the
+    # signed-token LEVEL instead (CLAUDE.md role convention 1).
+    caller_role = get_fac_role(request)
+    is_super = is_admin_role(caller_role)
 
     # Send immediately
     all_sessions = await db.fetch_all_sessions()
