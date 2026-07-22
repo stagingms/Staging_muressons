@@ -1309,7 +1309,16 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
             )}
 
             {/* ── Onboarding Wizard (first-time only) ── */}
-            <OnboardingWizard mode="facilitator" userId={authData.facilitator_id} onStepChange={(tab) => setActiveTab(tab)} />
+            {/* Deferred while a password modal is up (voluntary change OR the
+                forced first-login change) — its full-screen backdrop is a
+                z-index peer and would paint over the tour's spotlight cutout.
+                See OnboardingWizard header. */}
+            <OnboardingWizard
+                mode="facilitator"
+                userId={authData.facilitator_id}
+                onStepChange={(tab) => setActiveTab(tab)}
+                deferred={showChangePw || !!authData?.must_change_password}
+            />
 
             {/* ── Sidebar ── */}
             <aside className={styles.sidebar}>
@@ -1352,7 +1361,9 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                 👤 {authData.username ? authData.username.toUpperCase() : authData.name} ({authData.facilitator_id})
                             </span>
                             <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                                <NotificationBell activityLog={activityLog} />
+                                <span data-tour="notification-bell" style={{ display: 'inline-flex' }}>
+                                    <NotificationBell activityLog={activityLog} />
+                                </span>
                                 <button
                                     onClick={() => setShowChangePw(true)}
                                     style={{
@@ -1393,9 +1404,9 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 </div>
 
 
-                <nav className={styles.sidebarNav}>
+                <nav className={styles.sidebarNav} data-tour="sidebar-nav">
                     {FILTERED_SIDEBAR.map((group) => (
-                        <div key={group.id} className={styles.navCategory}>
+                        <div key={group.id} className={styles.navCategory} data-tour={`nav-${group.id}`}>
                             <div
                                 className={styles.categoryHeader}
                                 onClick={() => toggleCategory(group.id)}
@@ -1559,7 +1570,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 {/* Phase 3 (F2): the selection is now settable right where the
                     quick actions need it — not only via the hidden
                     click-a-leaderboard-row convention. */}
-                <span style={{ color: 'var(--text-muted)', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span data-tour="cohort-selector" style={{ color: 'var(--text-muted)', flex: 1, display: 'inline-flex', alignItems: 'center', gap: '0.6rem' }}>
                     <CohortSelector
                         leaderboard={leaderboard}
                         selectedSession={selectedSession}

@@ -8,10 +8,17 @@
  * test targeted the removed API (buildMapModel/regionAnchor/crisisFlags/...);
  * this replaces it with a determinism + behaviour guard on buildWarMap and the
  * helpers it actually exports.
+ *
+ * Crisis contract (Railway audit §3.2): the crisis NAME/ICON come from the
+ * backend payload (`payload.crisis`, sourced from round_configs.get_round_crisis,
+ * the single source of truth) — the client contributes only WHERE it strikes
+ * (CRISIS_COORDS). The old client-side name catalog (ROUND_CRISIS) was removed
+ * because it had drifted from the backend ("Cyclone" vs "Extreme Weather
+ * Event"); these tests exercise the payload-driven contract.
  */
 import {
   buildWarMap, project, buRadius, healthColor,
-  BU_META, STAKEHOLDER_META, ROUND_CRISIS, STAGE_COLOR, STAGE_LABEL,
+  BU_META, STAKEHOLDER_META, CRISIS_COORDS, STAGE_COLOR, STAGE_LABEL,
   MAP_W, MAP_H,
 } from '../app/components/warMapModel';
 
@@ -26,6 +33,7 @@ const payload = (over = {}) => ({
     { agent_id: 'the_journalist', name: 'The Journalist', stage: 'watching', teams_hostile: 0 },
   ],
   cohort_round: 5,
+  crisis: { name: 'Extreme Weather Event', icon: '🌪️' },
   events: [],
   team_count: 3,
   ...over,
@@ -48,9 +56,14 @@ describe('buildWarMap (war-map redesign)', () => {
     expect(m.shNodes.map((n) => n.id)).toEqual(['the_regulator']);
   });
 
-  test('crisis is gated by the cohort round', () => {
-    expect(buildWarMap(payload({ cohort_round: 5 })).crisis.name).toMatch(/Cyclone/);
-    expect(buildWarMap(payload({ cohort_round: 1 })).crisis).toBeNull(); // no crisis defined for R1
+  test('crisis is gated by the cohort round AND the backend payload', () => {
+    // Round with coordinates + backend-supplied name → marker renders.
+    expect(buildWarMap(payload({ cohort_round: 5 })).crisis.name).toMatch(/Extreme Weather/);
+    // Round without coordinates (decision round) → no marker, even with a name.
+    expect(buildWarMap(payload({ cohort_round: 1 })).crisis).toBeNull();
+    // No backend crisis in the payload → no marker; the client must never
+    // invent a name (that client-side copy is the drift the audit removed).
+    expect(buildWarMap(payload({ cohort_round: 5, crisis: null })).crisis).toBeNull();
   });
 
   test('all node coordinates stay inside the viewBox', () => {
@@ -80,7 +93,7 @@ describe('buildWarMap (war-map redesign)', () => {
   test('events list leads with the round crisis', () => {
     const m = buildWarMap(payload({ cohort_round: 5, events: [] }));
     expect(m.events[0]).toContain('Round 5');
-    expect(m.events[0]).toMatch(/Cyclone/);
+    expect(m.events[0]).toMatch(/Extreme Weather/);
   });
 
   test('projection maps lon/lat into the viewBox', () => {
@@ -89,6 +102,7 @@ describe('buildWarMap (war-map redesign)', () => {
     expect(p.y).toBeCloseTo(MAP_H / 2);
     expect(Object.keys(BU_META)).toContain('pharma');
     expect(Object.keys(STAKEHOLDER_META)).toContain('the_regulator');
-    expect(ROUND_CRISIS[5].name).toMatch(/Cyclone/);
+    // Coordinates only — R5 strikes in the Bay of Bengal; names live backend-side.
+    expect(CRISIS_COORDS[5]).toEqual({ lon: 90, lat: 15 });
   });
 });

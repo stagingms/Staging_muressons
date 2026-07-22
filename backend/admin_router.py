@@ -4979,12 +4979,26 @@ async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depen
         if b["health"] < 40:
             events.append({"kind": "bu", "bu_id": b["bu_id"], "health": b["health"]})
 
+    # Crisis name/icon from the round catalog — the SINGLE source of truth
+    # (Railway audit §3.2: the client-side name copy had drifted and was
+    # removed; the frontend contributes coordinates only and renders no marker
+    # unless this key is present). Decision rounds have no crisis → None.
+    _crisis = None
+    try:
+        from round_configs import get_round_crisis
+        _cfg = get_round_crisis(cohort_round) if cohort_round else None
+        if _cfg:
+            _crisis = {"name": _cfg.get("title", ""), "icon": _cfg.get("icon", "")}
+    except Exception:
+        _crisis = None
+
     return {
         "team_count": team_n,
         "cohort_round": cohort_round,
         "business_units": business_units,
         "stakeholders": stakeholders,
         "events": events,
+        "crisis": _crisis,
     }
 
 
