@@ -112,7 +112,7 @@ export default function WarMapPage() {
         <div>
           <div style={S.brand}>MURESSONS GLOBAL OPERATIONS MAP</div>
           <div style={S.sub}>
-            {model.round ? `ROUND ${model.round}` : 'LIVE'} · {model.teamCount} TEAM{model.teamCount === 1 ? '' : 'S'} · COHORT AGGREGATE
+            {model.round ? `ROUND ${model.round}` : 'LIVE'} · {model.teamCount} TEAM{model.teamCount === 1 ? '' : 'S'} · {model.cohortName ? `“${model.cohortName}”` : 'COHORT AGGREGATE'}
           </div>
           <div style={S.explain}>
             The cohort&apos;s world at a glance: each circle is a Business Unit (size = revenue, colour = health),

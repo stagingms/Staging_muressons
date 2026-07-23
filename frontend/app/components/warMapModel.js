@@ -112,5 +112,13 @@ export function buildWarMap(payload) {
   );
   if (crisis) events.unshift(`Round ${crisis.round} · ${crisis.name}`);
 
-  return { buNodes, shNodes, crisis, events, round, teamCount: (payload && payload.team_count) || 0 };
+  return {
+    buNodes, shNodes, crisis, events, round,
+    teamCount: (payload && payload.team_count) || 0,
+    // Scoping fix 2026-07-20: the endpoint now aggregates exactly ONE cohort
+    // (previously platform-wide, so a Round-2 class projected 'on strike'
+    // stakeholders bled in from older cohorts). Surface WHICH cohort so the
+    // header can prove the scope to the room.
+    cohortName: (payload && payload.cohort_name) || '',
+  };
 }

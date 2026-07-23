@@ -4945,20 +4945,69 @@ _WARMAP_STAGE_RANK = {"dormant": 0, "watching": 1, "agitated": 2, "hostile": 3, 
 
 
 @admin_router.get("/war-map", summary="Cohort-aggregate operations & stakeholder map state")
-async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depends(require_facilitator)):
+async def get_war_map(request: Request, facilitator_id: Optional[str] = None,
+                      session_id: Optional[str] = None,
+                      _guard: None = Depends(require_facilitator)):
     from autonomous_agents import AGENT_PROFILES
     from collections import Counter
     sessions = await db.fetch_all_sessions()
-    bu_acc: dict = {}       # bu_id -> running sums
-    agent_acc: dict = {}    # agent_id -> {stages, tol, hostile}
-    rounds: list = []
-    team_n = 0
 
+    # ── Scoping (BUG-2026-07-20: "the map does not match the game stage") ───
+    # This endpoint aggregated EVERY player session on the platform: the
+    # facilitator_id filter was optional and the projector page never sent it,
+    # and even one facilitator's sessions span multiple cohorts. Stakeholder
+    # pins show the WORST escalation stage across the aggregate, so a Round-2
+    # classroom projected "on strike" / "hostile" stakeholders bled in from
+    # older or test cohorts — states its own agents cannot reach (escalation
+    # requires consecutive bad rounds: dormant→watching→agitated→hostile→
+    # triggered). The header honestly said "Round 2"; the pins were lying.
+    #
+    # Now: (1) non-admin callers are ALWAYS scoped to their own sessions — the
+    # query param cannot widen access; (2) aggregation covers exactly ONE
+    # cohort — ?session_id= (the parent cohort id) selects it explicitly,
+    # otherwise the caller's most recently started cohort (the live class).
+    from auth_jwt import get_facilitator_from_request
+    caller_id = get_facilitator_from_request(request)
+    caller_role = get_fac_role(request)
+    if not is_admin_role(caller_role):
+        facilitator_id = caller_id  # own view only, whatever the param said
+    elif facilitator_id is None and not session_id:
+        facilitator_id = caller_id if caller_id != "god_mode" else None
+
+    candidates = []
     for sess in sessions:
         if facilitator_id and sess.get("facilitator_id") != facilitator_id:
             continue
         if not (sess.get("player_id") or sess.get("parent_cohort_id")):
             continue  # skip cohort templates / solo shells
+        candidates.append(sess)
+
+    def _cohort_key(s):
+        return s.get("parent_cohort_id") or s.get("session_id")
+
+    target_cohort = None
+    if session_id:
+        target_cohort = session_id
+    elif candidates:
+        # Most recently started cohort = the class on the projector right now.
+        newest = max(candidates,
+                     key=lambda s: str(s.get("start_time") or ""))
+        target_cohort = _cohort_key(newest)
+
+    scoped = [s for s in candidates if _cohort_key(s) == target_cohort]
+
+    cohort_name = ""
+    if target_cohort:
+        parent = next((s for s in sessions if s.get("session_id") == target_cohort), None)
+        cohort_name = (parent or {}).get("cohort_name", "") or \
+                      (scoped[0].get("cohort_name", "") if scoped else "")
+
+    bu_acc: dict = {}       # bu_id -> running sums
+    agent_acc: dict = {}    # agent_id -> {stages, tol, hostile}
+    rounds: list = []
+    team_n = 0
+
+    for sess in scoped:
         latest = await db.fetch_latest_state(sess["session_id"])
         if not latest:
             continue
@@ -5040,6 +5089,8 @@ async def get_war_map(facilitator_id: Optional[str] = None, _guard: None = Depen
     return {
         "team_count": team_n,
         "cohort_round": cohort_round,
+        "cohort_session_id": target_cohort,
+        "cohort_name": cohort_name,
         "business_units": business_units,
         "stakeholders": stakeholders,
         "events": events,
