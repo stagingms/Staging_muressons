@@ -3571,10 +3571,35 @@ export default function ExecutiveCockpit({
                 <div>Capital Allocated: <strong style={{ color: '#f1f5f9' }}>
                   {fmtCurrency(Object.values(allocations || {}).reduce((s, v) => s + v, 0))}
                 </strong></div>
+                {/* Per-BU breakdown — folded in from the retired 'Review Your
+                    Decisions' modal (17111b0) so this single screen carries its
+                    full review content. REINSTATED 2026-07-20: the squashed
+                    session commit 1ef5c98 dropped it along with Go Back & Edit,
+                    leaving players unable to review or change decisions from
+                    this screen — the exact regression 17111b0's message
+                    promised would not happen. */}
+                {Object.entries(allocations || {}).filter(([, v]) => v > 0).map(([buId, v]) => {
+                  const bu = (businessUnits || []).find(b => b.bu_id === buId);
+                  return (
+                    <div key={buId} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', paddingLeft: 10 }}>
+                      <span>· {bu?.name || buId}</span>
+                      <span style={{ fontFamily: 'var(--font-numeral)', color: '#cbd5e1' }}>{fmtCurrency(v)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
             <div className={styles.predictionActions}>
+              {/* Go Back & Edit — closes WITHOUT committing so the player can
+                  adjust allocations/strategy. This is the review escape hatch;
+                  Skip & Commit is NOT a substitute (it commits immediately). */}
+              <button
+                className={styles.predictionSkip}
+                onClick={() => { setShowPredictionModal(false); }}
+              >
+                ← Go Back &amp; Edit
+              </button>
               <button
                 className={styles.predictionSkip}
                 onClick={() => { setShowPredictionModal(false); setPredictionText(''); onCommit?.(); }}
