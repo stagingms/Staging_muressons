@@ -2244,6 +2244,8 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         del new_global["saved_allocations"]
     if "saved_decision_choice" in new_global:
         del new_global["saved_decision_choice"]
+    if "saved_round" in new_global:
+        del new_global["saved_round"]
 
     # FIX AUDIT-002: Removed duplicate R10 terminal valuation block.
     # The authoritative R10 calculation lives in round_logic.py →
@@ -2527,6 +2529,13 @@ async def save_decisions(request: Request, session_id: str, body: SaveDecisionsR
 
     global_state["saved_allocations"] = body.allocations
     global_state["saved_decision_choice"] = body.decision_choice
+    # BUG-2026-07-20: round-stamp the save. Without this, a save carried into
+    # the next round (engine snapshot copies saved_* forward before the commit
+    # path deletes them) hydrated the NEW round's sliders with the OLD round's
+    # allocations — every round started pre-set at last round's values instead
+    # of zero. The client only hydrates when saved_round matches its current
+    # round, so a stale save can never leak across a round boundary again.
+    global_state["saved_round"] = current.get("round_number", global_state.get("round_number"))
 
     # Update latest state in DB
     await db.update_latest_global_state(session_id, global_state, bu_states)

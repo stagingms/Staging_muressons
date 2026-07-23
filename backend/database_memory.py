@@ -784,6 +784,7 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
             "learning_bonuses_awarded": grs.get("learning_bonuses_awarded", {}),
             "saved_allocations": grs.get("saved_allocations"),
             "saved_decision_choice": grs.get("saved_decision_choice"),
+            "saved_round": grs.get("saved_round"),
             "materiality_budget_allocated": grs.get("materiality_budget_allocated"),
             "materiality_bu_id": grs.get("materiality_bu_id"),
             "csrd_completed": grs.get("csrd_completed", False),
@@ -963,6 +964,7 @@ async def insert_next_round(
         "learning_bonuses_awarded": global_state.get("learning_bonuses_awarded", {}),
         "saved_allocations": global_state.get("saved_allocations"),
         "saved_decision_choice": global_state.get("saved_decision_choice"),
+        "saved_round": global_state.get("saved_round"),
         "materiality_budget_allocated": global_state.get("materiality_budget_allocated"),
         "materiality_bu_id": global_state.get("materiality_bu_id"),
         "csrd_completed": global_state.get("csrd_completed", False),
@@ -1172,6 +1174,7 @@ async def update_latest_global_state(
     latest["learning_bonuses_awarded"] = global_state.get("learning_bonuses_awarded", latest.get("learning_bonuses_awarded", {}))
     latest["saved_allocations"] = global_state.get("saved_allocations")
     latest["saved_decision_choice"] = global_state.get("saved_decision_choice")
+    latest["saved_round"] = global_state.get("saved_round")
     latest["materiality_budget_allocated"] = global_state.get("materiality_budget_allocated")
     latest["materiality_bu_id"] = global_state.get("materiality_bu_id")
     latest["csrd_completed"] = global_state.get("csrd_completed", latest.get("csrd_completed", False))

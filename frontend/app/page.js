@@ -643,15 +643,27 @@ export default function CockpitPage() {
   const [shockwave, setShockwave] = useState(null); // Feature 6: { event, countdown }
 
   // ── Save State Hydration ──────────────────────────────────
-  // Pre-load saved allocations and decisions if they exist
+  // Pre-load saved allocations and decisions if they exist — but ONLY when the
+  // save belongs to the round being played.
+  //
+  // BUG-2026-07-20: this hydration is meant for the mid-round resume case
+  // (player refreshes / returns to an unfinished round). Without the round
+  // check it also fired after a ROUND ADVANCE: the round-change effect below
+  // resets allocations to {}, which made this guard true, and a save carried
+  // forward from the previous round re-filled the sliders — so every round
+  // opened with last round's allocation (e.g. 60% of pool) instead of zero.
+  // The server now stamps saved_round on every save; a mismatch means the
+  // save is stale and the round starts from a clean slate, as the design
+  // intends. Older saves without the stamp are treated as stale (fail-clean).
   useEffect(() => {
-    if (globalState?.saved_allocations && Object.keys(allocations).length === 0) {
+    const savedForThisRound = globalState?.saved_round === roundNumber;
+    if (globalState?.saved_allocations && savedForThisRound && Object.keys(allocations).length === 0) {
       setAllocations(globalState.saved_allocations);
     }
-    if (globalState?.saved_decision_choice && !decisionChoice) {
+    if (globalState?.saved_decision_choice && savedForThisRound && !decisionChoice) {
       setDecisionChoice(globalState.saved_decision_choice);
     }
-  }, [globalState?.saved_allocations, globalState?.saved_decision_choice]);
+  }, [globalState?.saved_allocations, globalState?.saved_decision_choice, globalState?.saved_round, roundNumber]);
 
   // Block alert state
   const [blockAlert, setBlockAlert] = useState(null);
