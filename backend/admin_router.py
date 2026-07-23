@@ -260,6 +260,15 @@ from admin_shared import (
 
 admin_router = APIRouter(prefix="/api/admin", tags=["Admin \u2014 God Mode"])
 
+# Module logger. `logging` was only ever imported LOCALLY inside a few
+# functions here, so any module-level reference to a logger (`_ar_log`) raised
+# NameError \u2014 which the global handler turned into an opaque
+# "An internal server error occurred". Declaring it once at module scope means
+# the whole file can log without a per-call `import logging`.
+import logging
+import logging as _ar_logging
+_ar_log = _ar_logging.getLogger("muressons.admin")
+
 
 # _get_session_paradigm imported from admin_shared
 
@@ -1604,13 +1613,39 @@ async def configure_cohort_interview(session_id: str, request: Request, body: di
             flags["ceo_interview_voice_gender"] = gender
             updated_fields.append(f"voice={gender}")
 
-    await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+    # 2026-07-20: the PARENT write and the CHILD-propagation are now separated,
+    # and both surface a MEANINGFUL error instead of the opaque generic 500.
+    #
+    # Context: this endpoint was reported failing during cohort setup with
+    # "An internal server error occurred" — the global handler's message, shown
+    # whenever DEBUG=false, which hid the actual cause from the operator AND the
+    # logs the operator could see. Two structural problems made that worse:
+    #   1. A single malformed CHILD session raised out of the loop and failed
+    #      the WHOLE request, even though the parent write had already
+    #      succeeded — so the cohort was reported "not configured" when its own
+    #      CEO setting had in fact been applied.
+    #   2. Every failure looked identical, so it could not be triaged.
+    # The parent write is the authoritative one; child propagation is
+    # best-effort catch-up and must not be able to fail the operation.
+    try:
+        await db.update_latest_global_state(session_id, gs, latest["bu_states"])
+    except HTTPException:
+        raise
+    except Exception as exc:
+        _ar_log.exception("CEO-interview: parent write failed for %s", session_id)
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not save the CEO Interview setting for this cohort: {exc}",
+        )
 
-    # Propagate to all child player sessions
+    # Propagate to all child player sessions — best-effort, isolated per child.
     children = await db.get_child_sessions(session_id)
+    child_ok, child_failed = 0, 0
     for child in children:
-        child_state = await db.fetch_latest_state(child["session_id"])
-        if child_state:
+        try:
+            child_state = await db.fetch_latest_state(child["session_id"])
+            if not child_state:
+                continue
             child_gs = child_state["global_state"]
             child_flags = child_gs.setdefault("active_event_flags", {})
             if "ceo_interview_enabled" in body:
@@ -1618,14 +1653,24 @@ async def configure_cohort_interview(session_id: str, request: Request, body: di
             if "ceo_interview_voice_gender" in body:
                 child_flags["ceo_interview_voice_gender"] = flags.get("ceo_interview_voice_gender", "female")
             await db.update_latest_global_state(child["session_id"], child_gs, child_state["bu_states"])
+            child_ok += 1
+        except Exception:
+            # A bad child does not undo the parent write, and does not fail the
+            # request. Players read the effective setting from the parent cohort
+            # anyway; this loop is an optimisation, not the source of truth.
+            child_failed += 1
+            _ar_log.warning("CEO-interview: child propagation failed for %s (parent %s)",
+                            child.get("session_id"), session_id)
 
-    print(f"[god-mode] CEO Interview config updated for session {session_id}: {', '.join(updated_fields)}")
+    _ar_log.info("CEO Interview config updated for %s: %s (children %d ok, %d skipped)",
+                 session_id, ", ".join(updated_fields) or "no-op", child_ok, child_failed)
     return {
         "status": "ok",
         "session_id": session_id,
         "ceo_interview_enabled": flags.get("ceo_interview_enabled"),
         "ceo_interview_voice_gender": flags.get("ceo_interview_voice_gender"),
-        "children_updated": len(children),
+        "children_updated": child_ok,
+        "children_skipped": child_failed,
     }
 
 @admin_router.get("/facilitators", summary="List all facilitators")

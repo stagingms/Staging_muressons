@@ -822,7 +822,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             // warning string).
             const results = newSession.session_id ? await runSubConfigChain(newSession.session_id) : [];
             if (results.some(r => !r.ok)) {
-                setSetupResults({ session: newSession, steps: results });
+                // StartSessionResponse carries session_id/state but NOT cohort_name,
+                // so the summary header rendered an empty "" — stitch the name the
+                // user just typed back in (the edit path already does this).
+                setSetupResults({
+                    session: { ...newSession, cohort_name: newSession.cohort_name || cohortName.trim() },
+                    steps: results,
+                });
             } else {
                 onCreated(newSession);
             }
