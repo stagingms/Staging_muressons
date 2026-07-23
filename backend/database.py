@@ -108,15 +108,61 @@ async def get_pool() -> asyncpg.Pool:
                 CREATE INDEX IF NOT EXISTS idx_dal_node    ON decision_audit_log (decision_node_id);
             """)
             # Immutability triggers (idempotent — DROP IF EXISTS + CREATE)
+            #
+            # BUG-2026-07-20: the original guard blocked EVERY update, but the
+            # app legitimately mutates the CURRENT round in place — materiality
+            # budget allocation, CEO-Interview config, panel fees and God-Mode
+            # overrides all write to the latest global_round_states row via
+            # update_latest_global_state(). On Postgres that raised
+            # "Immutability violation: UPDATE on table global_round_states",
+            # surfaced to the operator as a generic 500 (CEO-Interview save
+            # failed; the double-materiality matrix could not be submitted).
+            # In-memory mode has no triggers, so the bug was Postgres-only and
+            # invisible in local dev.
+            #
+            # The design intent is "HISTORICAL rounds are append-only" — the
+            # round still being played is not historical. The guard now allows
+            # UPDATE on the CURRENT (max round_number) row for a session, while
+            # still rejecting updates to completed rounds and ALL deletes (the
+            # reset/delete admin paths disable the trigger explicitly, so they
+            # are unaffected). decision_audit_log stays strictly append-only.
             await conn.execute("""
                 CREATE OR REPLACE FUNCTION fn_immutable_guard()
                 RETURNS TRIGGER AS $f$
+                DECLARE
+                    v_is_current boolean := false;
                 BEGIN
+                    IF TG_OP = 'DELETE' THEN
+                        RAISE EXCEPTION
+                            'Immutability violation: DELETE on "%" is not allowed. '
+                            'Historical round data is append-only.', TG_TABLE_NAME;
+                    END IF;
+
+                    IF TG_TABLE_NAME = 'global_round_states' THEN
+                        SELECT OLD.round_number = MAX(round_number)
+                          FROM global_round_states
+                          WHERE session_id = OLD.session_id
+                          INTO v_is_current;
+                    ELSIF TG_TABLE_NAME = 'bu_round_states' THEN
+                        SELECT g.round_number = (
+                                 SELECT MAX(round_number) FROM global_round_states
+                                 WHERE session_id = g.session_id)
+                          FROM global_round_states g
+                          WHERE g.state_id = OLD.global_state_id
+                          INTO v_is_current;
+                    ELSE
+                        -- decision_audit_log and anything else: strictly append-only.
+                        v_is_current := false;
+                    END IF;
+
+                    IF v_is_current THEN
+                        RETURN NEW;  -- current round is mutable
+                    END IF;
+
                     RAISE EXCEPTION
-                        'Immutability violation: % on table "%" is not allowed. '
-                        'Historical round data is append-only.',
-                        TG_OP, TG_TABLE_NAME;
-                    RETURN NULL;
+                        'Immutability violation: UPDATE on historical round data in "%" '
+                        'is not allowed. Only the current round may be modified.',
+                        TG_TABLE_NAME;
                 END;
                 $f$ LANGUAGE plpgsql;
 
