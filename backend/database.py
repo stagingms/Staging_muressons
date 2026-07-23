@@ -14,6 +14,32 @@ import asyncpg
 from config import DATABASE_URL, DB_MIN_CONNECTIONS, DB_MAX_CONNECTIONS, SIM_INITIAL_BUDGET, SIM_ROUNDS
 
 
+# ── JSON serialization parity with the memory store ─────────────────────────
+# BUG-2026-07-20: the memory store's snapshot serializer tolerates datetimes
+# and dataclass instances (database_memory._datetime_serializer), but this
+# module used bare json.dumps. So an engine object leaking into
+# active_event_flags (e.g. CIDeltaResult at scope3-weighted rounds) persisted
+# fine locally and 500'd ONLY on Postgres: "Failed to persist round: Object of
+# type CIDeltaResult is not JSON serializable" — stalling the cohort at round 7.
+# The leak itself is fixed at the source (engine.apply_ci_delta_in_place), but
+# the two stores must degrade IDENTICALLY when the next leak happens, so every
+# state dump here now uses the same tolerant default.
+
+def _json_default(obj):
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    import dataclasses as _dc
+    if _dc.is_dataclass(obj) and not isinstance(obj, type):
+        return _dc.asdict(obj)
+    if isinstance(obj, (set, frozenset)):
+        return sorted(obj)
+    raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+
+def _dumps(obj) -> str:
+    return json.dumps(obj, default=_json_default)
+
+
 # ── Connection Pool ─────────────────────────────────────────────
 
 _pool: Optional[asyncpg.Pool] = None
@@ -303,7 +329,7 @@ async def update_session_metadata(session_id: str, updates: dict) -> bool:
         await conn.execute(
             "UPDATE sessions SET metadata = $2 WHERE session_id = $1",
             uuid.UUID(session_id),
-            json.dumps(metadata),
+            _dumps(metadata),
         )
         # Update memory cache too
         from database_memory import _sessions
@@ -478,7 +504,7 @@ async def create_session(
                 uuid.UUID(session_id),
                 cohort_name,
                 facilitator_id or "admin",
-                json.dumps(metadata),
+                _dumps(metadata),
             )
             
             # Prepare global state flags
@@ -525,7 +551,7 @@ async def create_session(
                 gs["group_reputation_score"],
                 gs["group_synergy_multiplier"],
                 gs["cost_of_capital_rate"],
-                json.dumps(flags),
+                _dumps(flags),
             )
 
             # 3. BU round states
@@ -561,7 +587,7 @@ async def create_session(
                     bu.get("governance_risk_score", 0),
                     bu.get("water_dependency", 0),
                     bu.get("carbon_intensity", 0),
-                    json.dumps(rf),
+                    _dumps(rf),
                 )
 
     # Populate cache in database_memory._sessions
@@ -908,7 +934,7 @@ async def insert_next_round(
                 global_state["group_reputation"],
                 global_state["synergy_multiplier"],
                 global_state.get("cost_of_capital", 0.05),
-                json.dumps(flags),
+                _dumps(flags),
             )
 
             # BU states
@@ -944,7 +970,7 @@ async def insert_next_round(
                     bu.get("governance_risk_score", 0),
                     bu.get("water_dependency", 0),
                     bu.get("carbon_intensity", 0),
-                    json.dumps(rf),
+                    _dumps(rf),
                 )
 
             # Decision audit log
@@ -1103,7 +1129,7 @@ async def update_latest_global_state(
                 global_state["group_reputation"],
                 global_state["synergy_multiplier"],
                 global_state.get("cost_of_capital", 0.05),
-                json.dumps(flags),
+                _dumps(flags),
             )
 
             # Update BU states
@@ -1142,7 +1168,7 @@ async def update_latest_global_state(
                     bu.get("governance_risk_score", 0),
                     bu.get("water_dependency", 0),
                     bu.get("carbon_intensity", 0),
-                    json.dumps(rf),
+                    _dumps(rf),
                 )
 
 
@@ -1445,7 +1471,7 @@ async def reset_session_to_round1(session_id: str) -> bool:
                     gs["group_reputation_score"],
                     gs["group_synergy_multiplier"],
                     gs["cost_of_capital_rate"],
-                    json.dumps({
+                    _dumps({
                         **gs.get("active_event_flags", {}),
                         "loan_interest_rate": loan_rate,
                         "bonus_score": 0,
@@ -1493,7 +1519,7 @@ async def reset_session_to_round1(session_id: str) -> bool:
                         bu.get("governance_risk_score", 0),
                         bu.get("water_dependency", 0),
                         bu.get("carbon_intensity", 0),
-                        json.dumps(rf),
+                        _dumps(rf),
                     )
             finally:
                 # Re-enable triggers

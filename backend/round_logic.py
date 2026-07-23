@@ -102,10 +102,14 @@ def match_custom_archetype(customs: list, mr: float, solvent: bool):
 
 
 # I2: Import scope-weighted CI applicator from engine (no circular risk — engine does not import round_logic)
+# BUG-2026-07-20: switched to the IN-PLACE wrapper. The pure apply_ci_delta_to_bus
+# was being called as if it mutated: new CIs were never written back (deltas
+# silently dropped) and the CIDeltaResult dataclass leaked into flags, which
+# Postgres could not serialize — the round-7 "Failed to persist round" stall.
 try:
-    from engine import apply_ci_delta_to_bus as _apply_ci_delta_to_bus
+    from engine import apply_ci_delta_in_place as _apply_ci_delta_to_bus
 except ImportError:
-    # Fallback for test contexts
+    # Fallback for test contexts — mutates and returns a plain dict, same contract.
     def _apply_ci_delta_to_bus(bus, ci_delta, routing="uniform"):
         for bu in bus:
             bu["carbon_intensity"] = max(0.0, round(bu.get("carbon_intensity", 0) + ci_delta, 2))

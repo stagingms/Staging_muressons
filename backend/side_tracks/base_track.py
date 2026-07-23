@@ -334,8 +334,12 @@ class BaseSideTrack(ABC):
         ci_routing = opt.get("ci_routing", "uniform")
         if ci:
             try:
-                from engine import apply_ci_delta_to_bus
-                applied = apply_ci_delta_to_bus(bus, ci, routing=ci_routing)
+                # BUG-2026-07-20: was the PURE apply_ci_delta_to_bus — new CIs
+                # were never applied and the dataclass leaked into flags, which
+                # Postgres cannot serialize. The in-place wrapper mutates `bus`
+                # and returns a plain JSON-safe dict.
+                from engine import apply_ci_delta_in_place
+                applied = apply_ci_delta_in_place(bus, ci, routing=ci_routing)
             except Exception as exc:  # V9: catch ImportError AND any engine-level error
                 # Fallback: uniform application; surface failure in events for debugging
                 for bu in bus:

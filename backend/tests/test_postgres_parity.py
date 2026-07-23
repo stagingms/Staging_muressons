@@ -221,6 +221,45 @@ def test_cohort_settings_persist_through_postgres(client, cohort):
     assert row["max_players"] == 12
 
 
+def test_round_state_with_engine_objects_persists_on_postgres(client, cohort):
+    """The round-7 stall (BUG-2026-07-20): a CIDeltaResult dataclass leaked
+    into active_event_flags and Postgres json.dumps refused it — 'Failed to
+    persist round'. The leak is fixed at the source, but the store must also
+    DEGRADE like the memory store does (serialize the dataclass) so the next
+    leaked object slows nobody's classroom."""
+    import asyncio
+    from dataclasses import dataclass
+
+    @dataclass(frozen=True)
+    class LeakedProbe:
+        applied_deltas: dict
+        new_carbon_intensities: dict
+
+    import database as db
+
+    async def check():
+        latest = await db.fetch_latest_state(cohort)
+        gs = latest["global_state"]
+        gs.setdefault("active_event_flags", {})["parity_leak_probe"] = LeakedProbe(
+            {"pharma": -1.5}, {"pharma": 48.5})
+        # This exact write raised on Postgres before the tolerant serializer.
+        await db.update_latest_global_state(cohort, gs, latest["bu_states"])
+        back = await db.fetch_latest_state(cohort)
+        probe = back["global_state"]["active_event_flags"]["parity_leak_probe"]
+        assert probe["applied_deltas"]["pharma"] == -1.5
+        if db._pool is not None:
+            await db._pool.close()
+
+    # The app's pool is bound to the TestClient's event loop; running db calls
+    # here needs a pool on THIS loop. Swap in a fresh one, restore after.
+    saved_pool = db._pool
+    db._pool = None
+    try:
+        asyncio.new_event_loop().run_until_complete(check())
+    finally:
+        db._pool = saved_pool
+
+
 def test_generated_player_can_log_in_on_postgres(client, cohort):
     """Credential durability: the QA-2026-07-16 #4 class of bug (hash lived in
     one process's dict) is only observable on the Postgres path."""

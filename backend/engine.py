@@ -241,6 +241,33 @@ def apply_ci_delta_to_bus(
     return CIDeltaResult(applied_deltas=applied, new_carbon_intensities=new_cis)
 
 
+def apply_ci_delta_in_place(bus: list[dict], ci_delta: float,
+                            routing: str = "uniform") -> dict[str, float]:
+    """Convenience wrapper both real call sites actually wanted.
+
+    BUG-2026-07-20 (round 7 stall): both callers of the PURE helper above —
+    round_logic._apply_option_impacts and side_tracks.base_track — treated it
+    like the old mutating version. Two consequences:
+      1. new_carbon_intensities was never written back, so option-driven CI
+         deltas were silently DROPPED whenever the real engine was importable
+         (the test-context fallback shim mutates, masking this in some suites).
+      2. The raw CIDeltaResult dataclass was stored into active_event_flags.
+         The memory store's serializer tolerates dataclasses; Postgres
+         json.dumps does not → "Failed to persist round: Object of type
+         CIDeltaResult is not JSON serializable" at scope3_weighted rounds
+         (R3/R7), stalling the cohort.
+
+    This wrapper applies the new CIs to `bus` and returns a PLAIN dict of
+    applied deltas — safe to store in flags on every backend.
+    """
+    result = apply_ci_delta_to_bus(bus, ci_delta, routing=routing)
+    for bu in bus:
+        bu_id = bu.get("bu_id", "")
+        if bu_id in result.new_carbon_intensities:
+            bu["carbon_intensity"] = result.new_carbon_intensities[bu_id]
+    return dict(result.applied_deltas)
+
+
 # ── Data Bridge State Applicator ────────────────────────────────────────────
 # PURE FUNCTION — never mutates the input `state` dict.
 # Enforces the Delta vs Override contract for DataBridgeOutput payloads.
