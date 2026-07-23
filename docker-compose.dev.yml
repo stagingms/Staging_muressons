@@ -1,0 +1,44 @@
+# ═══════════════════════════════════════════════════════════════════════════
+#  Local development on the PRODUCTION configuration (PostgreSQL)
+#
+#  Why: the in-memory store (USE_MEMORY_DB=true) is convenient but it is NOT
+#  what Railway runs. A sequence of production-only failures — the round-state
+#  immutability trigger 500'ing CEO-Interview saves and Double-Materiality
+#  submissions, phantom writes through database_memory._sessions — passed every
+#  memory-mode test and every local manual check, because the defect lived in
+#  the Postgres half of the storage layer that local dev never executed.
+#
+#  Rule of thumb: DEVELOP on memory mode if you like the speed, but before any
+#  push that you intend to deploy, run at least once against this stack:
+#
+#      docker compose -f docker-compose.dev.yml up -d
+#      cd backend
+#      set USE_MEMORY_DB=false            (PowerShell: $env:USE_MEMORY_DB="false")
+#      python -m uvicorn main:app --port 8000
+#      python ..\scripts\smoke_local.py          # must pass with NO memory warning
+#      set PG_PARITY=1
+#      python -m pytest tests/test_postgres_parity.py -q
+#
+#  CI runs the same parity suite against postgres:16 on every push, and
+#  Railway's "Wait for CI" should gate the deploy on it.
+# ═══════════════════════════════════════════════════════════════════════════
+services:
+  postgres:
+    image: postgres:16
+    container_name: muressons-pg
+    environment:
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: muressons
+    ports:
+      - "5432:5432"
+    volumes:
+      # Persists local dev data between restarts — mirroring the Railway volume.
+      - muressons_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  muressons_pgdata:

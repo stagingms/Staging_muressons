@@ -27,6 +27,48 @@ jobs:
           DEBUG: "true"
         run: python -m pytest tests/ -q
 
+  # ── Postgres parity — the deploy gate ────────────────────────────────────
+  # The memory-mode job above cannot see Postgres-only defects: the
+  # fn_immutable_guard trigger 500'd CEO-Interview saves and Double-Materiality
+  # submissions IN PRODUCTION while 1,485 memory-mode tests stayed green,
+  # because triggers only exist on the real database. This job runs the exact
+  # production configuration (USE_MEMORY_DB=false against real PostgreSQL) over
+  # the flows that broke. Enable "Wait for CI" on the Railway service so a
+  # deploy cannot start until this passes.
+  backend-postgres:
+    name: Backend — Postgres parity
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: muressons
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install deps (runtime + test)
+        run: pip install -r backend/requirements-dev.txt
+      - name: Run Postgres parity suite
+        working-directory: backend
+        env:
+          PG_PARITY: "1"
+          USE_MEMORY_DB: "false"
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/muressons
+          DEBUG: "true"
+          MASTER_PASSWORD: sim2026@iim   # test-only credential, matches conftest
+        run: python -m pytest tests/test_postgres_parity.py -q -p no:randomly
+
   frontend-tests:
     name: Frontend — jest
     runs-on: ubuntu-latest

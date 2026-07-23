@@ -55,26 +55,38 @@ If it fails, the output names the fix. The two most common:
 | `god_mode login failed (403)` | A rotated `master_password.json` overrides `.env`. Delete `db\master_password.json` and `backend\db\master_password.json`. |
 | `backend is not reachable` | Backend isn't running, or it's on a different port. |
 
-### Also run it against PostgreSQL
+### Also run it against PostgreSQL — NON-NEGOTIABLE before a deploy push
 
-**This is the single biggest local/production divergence.** `start.bat` sets
-`USE_MEMORY_DB=true`; Railway will run PostgreSQL. Different persistence code
-paths — several past bugs were memory-mode-only, where a write "succeeded"
-into a dict that does not exist under Postgres. The smoke test WARNs when it
-detects the memory store.
+**This is the single biggest local/production divergence, and it has shipped
+real outages.** `start.bat` sets `USE_MEMORY_DB=true`; Railway runs PostgreSQL.
+The round-state immutability trigger only exists on Postgres — it 500'd
+CEO-Interview saves and Double-Materiality submissions in production while all
+1,485 memory-mode tests stayed green. The smoke test WARNs when it detects the
+memory store; treat that warning as a failure for deploy purposes.
 
 With Docker Desktop running:
 
 ```bat
-docker run --name muressons-pg -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=muressons -p 5432:5432 -d postgres:16
+docker compose -f docker-compose.dev.yml up -d
 
 cd backend
 set USE_MEMORY_DB=false
 python -m uvicorn main:app --port 8000
 ```
 
-Then re-run `python scripts\smoke_local.py` in Terminal 2. It should pass with
-**no memory-store warning**. That is the configuration Railway will run.
+Then in Terminal 2:
+
+```bat
+python scripts\smoke_local.py          REM must pass with NO memory-store warning
+cd backend
+set PG_PARITY=1
+python -m pytest tests/test_postgres_parity.py -q
+```
+
+The parity suite replays the exact flows that broke in production (CEO config,
+materiality submit, cohort settings, player credentials) against real Postgres.
+CI runs the same suite on every push (`backend-postgres` job); with Railway's
+**Wait for CI** enabled, a deploy cannot start until it is green.
 
 Restart the backend once more afterwards and confirm your cohorts and
 facilitators are still there — that proves durability, which is the entire

@@ -3,7 +3,15 @@ import pytest
 
 # Force in-memory database for all tests to prevent Postgres connection errors
 # and global state pollution across tests.
-os.environ["USE_MEMORY_DB"] = "true"
+#
+# EXCEPTION — Postgres parity mode (2026-07-20): the memory-only default is
+# precisely how a sequence of Postgres-only production bugs (immutability
+# trigger, phantom _sessions writes) shipped invisibly. When PG_PARITY is set,
+# tests/test_postgres_parity.py must run against REAL Postgres, so the forced
+# override is skipped and the caller's USE_MEMORY_DB/DATABASE_URL win.
+_PG_PARITY = os.environ.get("PG_PARITY", "").strip() in ("1", "true", "yes")
+if not _PG_PARITY:
+    os.environ["USE_MEMORY_DB"] = "true"
 
 # QA-2026-07-16 #1: config.py no longer ships committed default break-glass
 # passwords (unset => disabled). The suite's god_mode / project_admin login

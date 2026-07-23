@@ -117,6 +117,14 @@ def _assert_secure_cookies_in_prod() -> None:
 def _is_postgres_available() -> bool:
     try:
         import asyncpg  # noqa: F401
+        # Unix-socket DSN (postgresql://...?host=/path). A TCP probe cannot see
+        # these, and the old probe therefore silently fell back to the MEMORY
+        # store even with USE_MEMORY_DB=false — the parity suite's fixture guard
+        # is what caught this. Check for the socket file instead.
+        if "host=/" in DATABASE_URL:
+            import glob as _glob
+            sock_dir = DATABASE_URL.split("host=", 1)[1].split("&", 1)[0]
+            return bool(_glob.glob(os.path.join(sock_dir, ".s.PGSQL.*")))
         parsed = urlparse(DATABASE_URL)
         host = parsed.hostname or "localhost"
         port = parsed.port or 5432

@@ -6,8 +6,8 @@
 BEGIN;
 
 -- =========================  EXTENSIONS  =========================
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";   -- uuid_generate_v4()
-CREATE EXTENSION IF NOT EXISTS "pgcrypto";    -- gen_random_uuid() fallback
+-- gen_random_uuid() is built into Postgres 13+; extensions are optional.
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";    -- optional, kept for legacy DBs
 
 -- =========================  ENUM TYPES  =========================
 CREATE TYPE consensus_level AS ENUM (
@@ -22,7 +22,7 @@ CREATE TYPE consensus_level AS ENUM (
 -- One row per simulation run (cohort playthrough).
 -- ============================================================
 CREATE TABLE sessions (
-    session_id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    session_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     cohort_name         VARCHAR(120)    NOT NULL,
     facilitator_id      VARCHAR(80)     NOT NULL,
     start_time          TIMESTAMPTZ     NOT NULL DEFAULT now(),
@@ -40,7 +40,7 @@ CREATE INDEX idx_sessions_start    ON sessions (start_time);
 -- Snapshot of the global game state at each round.
 -- ============================================================
 CREATE TABLE global_round_states (
-    state_id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    state_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id          UUID            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
     round_number        SMALLINT        NOT NULL CHECK (round_number BETWEEN 1 AND 10),
     corporate_treasury  NUMERIC(18,2)   NOT NULL,
@@ -62,7 +62,7 @@ CREATE INDEX idx_grs_events_gin    ON global_round_states USING GIN (active_even
 -- Per-BU snapshot linked to the global round state.
 -- ============================================================
 CREATE TABLE bu_round_states (
-    bu_state_id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    bu_state_id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     global_state_id         UUID            NOT NULL REFERENCES global_round_states(state_id) ON DELETE CASCADE,
     bu_id                   VARCHAR(40)     NOT NULL,      -- e.g. 'pharma', 'electronics'
     revenue_base            NUMERIC(18,2)   NOT NULL,
@@ -90,7 +90,7 @@ CREATE INDEX idx_bu_bu_id          ON bu_round_states (bu_id);
 -- Every player/team decision is recorded here, append-only.
 -- ============================================================
 CREATE TABLE decision_audit_log (
-    log_id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    log_id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id              UUID            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
     round_number            SMALLINT        NOT NULL CHECK (round_number BETWEEN 1 AND 10),
     bu_id                   VARCHAR(40),                 -- NULL = global-level decision

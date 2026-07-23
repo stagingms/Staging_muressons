@@ -31,10 +31,17 @@ async def get_pool() -> asyncpg.Pool:
         # Railway's managed Postgres does NOT auto-run init.sql.
         # This block is idempotent — safe on both fresh and existing DBs.
         async with _pool.acquire() as conn:
+            # Extensions are best-effort: gen_random_uuid() is BUILT IN since
+            # Postgres 13, so the schema no longer depends on uuid-ossp. Some
+            # managed/minimal Postgres builds (and the CI/pgserver instances the
+            # parity suite runs on) do not ship the extension control files, and
+            # a hard failure here used to abort the whole auto-schema.
+            for _ext in ('"uuid-ossp"', '"pgcrypto"'):
+                try:
+                    await conn.execute(f"CREATE EXTENSION IF NOT EXISTS {_ext};")
+                except Exception:
+                    pass  # optional — schema uses gen_random_uuid() (built-in)
             await conn.execute("""
-                CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-                CREATE EXTENSION IF NOT EXISTS "pgcrypto";
-
                 DO $$ BEGIN
                     CREATE TYPE consensus_level AS ENUM (
                         'unanimous','majority','split','facilitator_override'
@@ -43,7 +50,7 @@ async def get_pool() -> asyncpg.Pool:
                 END $$;
 
                 CREATE TABLE IF NOT EXISTS sessions (
-                    session_id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    session_id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     cohort_name         VARCHAR(120)    NOT NULL,
                     facilitator_id      VARCHAR(80)     NOT NULL,
                     start_time          TIMESTAMPTZ     NOT NULL DEFAULT now(),
@@ -57,7 +64,7 @@ async def get_pool() -> asyncpg.Pool:
                 CREATE INDEX IF NOT EXISTS idx_sessions_start  ON sessions (start_time);
 
                 CREATE TABLE IF NOT EXISTS global_round_states (
-                    state_id            UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    state_id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     session_id          UUID            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
                     round_number        SMALLINT        NOT NULL CHECK (round_number BETWEEN 1 AND 10),
                     corporate_treasury  NUMERIC(18,2)   NOT NULL,
@@ -72,7 +79,7 @@ async def get_pool() -> asyncpg.Pool:
                 CREATE INDEX IF NOT EXISTS idx_grs_round      ON global_round_states (round_number);
 
                 CREATE TABLE IF NOT EXISTS bu_round_states (
-                    bu_state_id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    bu_state_id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     global_state_id         UUID            NOT NULL REFERENCES global_round_states(state_id) ON DELETE CASCADE,
                     bu_id                   VARCHAR(40)     NOT NULL,
                     revenue_base            NUMERIC(18,2)   NOT NULL,
@@ -91,7 +98,7 @@ async def get_pool() -> asyncpg.Pool:
                 CREATE INDEX IF NOT EXISTS idx_bu_bu_id        ON bu_round_states (bu_id);
 
                 CREATE TABLE IF NOT EXISTS decision_audit_log (
-                    log_id                  UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+                    log_id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
                     session_id              UUID            NOT NULL REFERENCES sessions(session_id) ON DELETE CASCADE,
                     round_number            SMALLINT        NOT NULL CHECK (round_number BETWEEN 1 AND 10),
                     bu_id                   VARCHAR(40),
