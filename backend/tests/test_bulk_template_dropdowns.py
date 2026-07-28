@@ -131,6 +131,113 @@ def test_template_round_trips_through_its_own_parser(template_bytes):
     assert rows[1]["side_tracks"] == ["brsr_ngrbc", "supply_chain"]
 
 
+# ── Player + master provisioning templates ──────────────────────────────────
+
+@pytest.fixture(scope="module")
+def player_template(tmp_path_factory):
+    from player_bulk_excel import build_player_template
+    p = tmp_path_factory.mktemp("tpl") / "players.xlsx"
+    build_player_template(p)
+    return p.read_bytes()
+
+
+@pytest.fixture(scope="module")
+def master_template(tmp_path_factory):
+    from player_bulk_excel import build_master_template
+    p = tmp_path_factory.mktemp("tpl") / "master.xlsx"
+    build_master_template(p)
+    return p.read_bytes()
+
+
+def test_player_template_has_dropdowns_on_constrained_columns(player_template):
+    wb = load_workbook(io.BytesIO(player_template))
+    ws = wb["Players"]
+    letters = {"".join(c for c in str(dv.sqref).split(":")[0] if c.isalpha())
+               for dv in ws.data_validations.dataValidation}
+    assert "D" in letters, "assigned_bu needs a dropdown"
+    assert "E" in letters, "region_id needs a dropdown"
+    assert wb["_Options"].sheet_state == "hidden"
+
+
+def test_assigned_bu_offers_business_units_not_verticals():
+    """A cohort's bu_states only ever carry the four SEED SLOTS. Offering
+    'chemicals' (a vertical) would look plausible and match no BU — the
+    shipped template's own example row had exactly that bug."""
+    import excel_dropdowns as xd
+    slots = set(xd.seed_bu_slots())
+    assert slots == {"pharma", "electronics", "consumer_goods", "software"}
+    assert "chemicals" not in slots
+    assert not slots & {"oil_gas", "technology", "retail_fmcg"}, \
+        "verticals must not appear in the assigned_bu dropdown"
+
+
+@pytest.mark.parametrize("sheet,expected_fields", [
+    ("Facilitators", {"role"}),
+    ("Cohorts", {"simulation_mode", "industry_vertical", "decision_paradigm", "region_id"}),
+    ("Players", {"assigned_bu", "region_id"}),
+])
+def test_master_template_dropdowns_per_sheet(master_template, sheet, expected_fields):
+    """Every constrained column on all three sheets carries a dropdown."""
+    from openpyxl.utils import column_index_from_string
+    from player_bulk_excel import FACILITATOR_COLUMNS, COHORT_COLUMNS
+    cols = {
+        "Facilitators": list(FACILITATOR_COLUMNS),
+        "Cohorts": list(COHORT_COLUMNS),
+        "Players": ["cohort_ref", "name", "email", "programme", "assigned_bu", "region_id"],
+    }[sheet]
+
+    wb = load_workbook(io.BytesIO(master_template))
+    got = set()
+    for dv in wb[sheet].data_validations.dataValidation:
+        if dv.type != "list":
+            continue
+        letter = "".join(c for c in str(dv.sqref).split(":")[0] if c.isalpha())
+        got.add(cols[column_index_from_string(letter) - 1])
+    assert got == expected_fields
+
+
+def test_master_sheets_do_not_share_option_columns(master_template):
+    """add_dropdowns is called once per sheet and APPENDS to the shared hidden
+    _Options sheet. If a later call restarted at column A it would overwrite
+    the earlier sheet's lists, leaving its dropdowns pointing at the wrong
+    values — silently, since the file still opens."""
+    import re
+    from openpyxl.utils import column_index_from_string
+    from player_bulk_excel import FACILITATOR_COLUMNS, COHORT_COLUMNS
+
+    wb = load_workbook(io.BytesIO(master_template))
+    opts = wb["_Options"]
+    cols = {
+        "Facilitators": list(FACILITATOR_COLUMNS),
+        "Cohorts": list(COHORT_COLUMNS),
+        "Players": ["cohort_ref", "name", "email", "programme", "assigned_bu", "region_id"],
+    }
+    for sheet, sheet_cols in cols.items():
+        for dv in wb[sheet].data_validations.dataValidation:
+            if dv.type != "list":
+                continue
+            letter = "".join(c for c in str(dv.sqref).split(":")[0] if c.isalpha())
+            field = sheet_cols[column_index_from_string(letter) - 1]
+            m = re.search(r"\$([A-Z]+)\$\d+:\$[A-Z]+\$\d+", dv.formula1)
+            src_header = opts.cell(row=1, column=column_index_from_string(m.group(1))).value
+            assert src_header == field, (
+                f"{sheet}.{field} points at _Options column '{src_header}' — "
+                "option lists collided"
+            )
+
+
+def test_player_and_master_templates_round_trip(player_template, master_template):
+    from player_bulk_excel import parse_player_sheet, parse_master_workbook
+    rows = parse_player_sheet(player_template)
+    assert len(rows) == 2
+    assert {r["assigned_bu"] for r in rows} <= {"pharma", "electronics",
+                                                "consumer_goods", "software"}
+    out = parse_master_workbook(master_template)
+    assert (len(out["facilitators"]), len(out["cohorts"]), len(out["players"])) == (2, 2, 3)
+    for p in out["players"]:
+        assert p["assigned_bu"] in {"pharma", "electronics", "consumer_goods", "software"}
+
+
 def test_parser_finds_the_data_sheet_even_if_another_tab_was_active(template_bytes):
     """Excel stores the selected tab. An author who saves while reading the
     Reference sheet must not get 'header row must contain a name column'."""

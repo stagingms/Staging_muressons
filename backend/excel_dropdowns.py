@@ -64,6 +64,28 @@ def industry_verticals() -> list[str]:
     return _safe(_get, ["pharma", "electronics", "consumer_goods", "software"])
 
 
+def seed_bu_slots() -> list[str]:
+    """The BU ids a PLAYER can be assigned to.
+
+    Deliberately NOT industry_verticals(): a session's bu_states always carry
+    the four seed slot ids (verified against a freshly created session), and
+    router.VERTICAL_SLOT_MAP exists precisely to fold every vertical down to
+    one of them. Offering 'chemicals' here would look plausible and match no
+    business unit in the cohort.
+    """
+    def _get():
+        from router import VERTICAL_SLOT_MAP
+        return sorted(set(VERTICAL_SLOT_MAP.values()))
+    return _safe(_get, ["pharma", "electronics", "consumer_goods", "software"])
+
+
+def region_ids() -> list[str]:
+    def _get():
+        from stakeholder_bulk_excel import REGION_IDS
+        return list(REGION_IDS)
+    return _safe(_get, ["asean", "south_asia", "europe", "north_america", "africa"])
+
+
 def side_track_ids() -> list[str]:
     def _get():
         from side_tracks import get_track_catalog
@@ -88,6 +110,29 @@ def facilitator_column_choices() -> dict[str, list[str]]:
         "trading_floor_enabled": BOOLEANS,
         "situation_room_enabled": BOOLEANS,
     }
+
+
+def player_column_choices() -> dict[str, list[str]]:
+    """Single-cohort player roster (name, email, programme, assigned_bu,
+    region_id). name is free text; programme is an institutional label."""
+    return {
+        "assigned_bu": seed_bu_slots(),
+        "region_id": region_ids(),
+    }
+
+
+def master_cohort_column_choices() -> dict[str, list[str]]:
+    """Cohorts sheet of the master provisioning workbook."""
+    return {
+        "simulation_mode": SIMULATION_MODES,
+        "industry_vertical": industry_verticals(),
+        "decision_paradigm": decision_paradigms(),
+        "region_id": region_ids(),
+    }
+
+
+def master_facilitator_column_choices() -> dict[str, list[str]]:
+    return {"role": ROLES}
 
 
 # ── Workbook helpers ────────────────────────────────────────────────────────
@@ -116,7 +161,14 @@ def add_dropdowns(wb, ws, columns: list[str], choices: dict[str, list[str]],
 
     header_to_idx = {name: i + 1 for i, name in enumerate(columns)}
 
-    for col_no, (field, options) in enumerate(sorted(choices.items()), start=1):
+    # Allocate option columns AFTER whatever is already there. The master
+    # workbook calls this once per data sheet (Facilitators/Cohorts/Players);
+    # restarting at column A each time would overwrite the previous sheet's
+    # option lists and leave its dropdowns pointing at the wrong values.
+    used = lists.max_column if lists.max_row > 1 or lists.cell(row=1, column=1).value else 0
+
+    for offset, (field, options) in enumerate(sorted(choices.items()), start=1):
+        col_no = used + offset
         if field not in header_to_idx:
             continue  # column not in this template — skip rather than mis-target
         letter = _col_letter(col_no)

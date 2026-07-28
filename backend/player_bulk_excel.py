@@ -396,14 +396,25 @@ def _style_header(ws, headers, width=22):
 
 
 def build_player_template(out_path) -> str:
-    """Single-cohort player roster template."""
+    """Single-cohort player roster template, with dropdowns on the constrained
+    columns (assigned_bu, region_id) so ids are picked, never retyped."""
     from openpyxl import Workbook
+    import excel_dropdowns as xd
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Players"
-    _style_header(ws, ["name", "email", "programme", "assigned_bu", "region_id"])
+    cols = ["name", "email", "programme", "assigned_bu", "region_id"]
+    _style_header(ws, cols)
+    # NOTE: the second example used to say assigned_bu="chemicals" — a vertical,
+    # not a business unit. A cohort's bu_states only ever carry the four SEED
+    # SLOTS, so that row taught a value no cohort can match. Fixed, and the
+    # dropdown now makes the mistake unrepresentable.
     ws.append(["Priya Raman", "priya@example.edu", "MBA 2026", "pharma", "south_asia"])
-    ws.append(["Sam Okoye", "sam@example.edu", "", "chemicals", "europe"])
+    ws.append(["Sam Okoye", "sam@example.edu", "", "consumer_goods", "europe"])
+    ws.freeze_panes = "A2"
+
+    xd.add_dropdowns(wb, ws, cols, xd.player_column_choices())
 
     notes = wb.create_sheet("How to use")
     for line in (
@@ -411,6 +422,10 @@ def build_player_template(out_path) -> str:
         ["'name' is required. 'programme' is optional."],
         ["'email' is optional but must look like an email if present."],
         ["assigned_bu / region_id are optional and may be set later in the dashboard."],
+        ["Pick assigned_bu and region_id from the dropdowns — free text is rejected."],
+        ["assigned_bu values: " + ", ".join(xd.seed_bu_slots()) +
+         "  (business units, NOT industry verticals)"],
+        ["region_id values: " + ", ".join(xd.region_ids())],
         [f"Maximum {MAX_PLAYERS_CEILING} players per cohort."],
         ["A single bad row aborts the whole upload — nothing is created."],
         ["Each player gets a random temporary password, shown in the Player Registry."],
@@ -422,8 +437,11 @@ def build_player_template(out_path) -> str:
 
 
 def build_master_template(out_path) -> str:
-    """Three-sheet provisioning template for project admins."""
+    """Three-sheet provisioning template for project admins, with dropdowns on
+    every constrained column across all three sheets."""
     from openpyxl import Workbook
+    import excel_dropdowns as xd
+
     wb = Workbook()
 
     fac = wb.active
@@ -431,17 +449,31 @@ def build_master_template(out_path) -> str:
     _style_header(fac, list(FACILITATOR_COLUMNS))
     fac.append(["f1", "Dr Anita Rao", "anita@example.edu", "+91-99999-00000", "MBA", "facilitator", 3])
     fac.append(["f2", "Prof Liam Byrne", "liam@example.edu", "", "EMBA", "lead_facilitator", 5])
+    fac.freeze_panes = "A2"
 
     coh = wb.create_sheet("Cohorts")
     _style_header(coh, list(COHORT_COLUMNS))
     coh.append(["c1", "MBA 2026 — Section A", "f1", 20, "conglomerate", "", "", "legacy_abc"])
     coh.append(["c2", "EMBA Pharma Intensive", "f2", 12, "single_bu", "pharma", "south_asia", "multi_toggles"])
+    coh.freeze_panes = "A2"
 
     ply = wb.create_sheet("Players")
-    _style_header(ply, ["cohort_ref", "name", "email", "programme", "assigned_bu", "region_id"])
+    player_cols = ["cohort_ref", "name", "email", "programme", "assigned_bu", "region_id"]
+    _style_header(ply, player_cols)
+    # "chemicals" here was a vertical, not a business unit — see the note in
+    # build_player_template. Corrected to a real seed slot.
     ply.append(["c1", "Priya Raman", "priya@example.edu", "MBA 2026", "pharma", "south_asia"])
-    ply.append(["c1", "Sam Okoye", "sam@example.edu", "MBA 2026", "chemicals", "europe"])
+    ply.append(["c1", "Sam Okoye", "sam@example.edu", "MBA 2026", "consumer_goods", "europe"])
     ply.append(["c2", "Maria Silva", "maria@example.edu", "", "pharma", "south_asia"])
+    ply.freeze_panes = "A2"
+
+    # Dropdowns per sheet. add_dropdowns appends its option lists to the shared
+    # hidden _Options sheet, so three calls do not overwrite each other.
+    xd.add_dropdowns(wb, fac, list(FACILITATOR_COLUMNS), xd.master_facilitator_column_choices())
+    xd.add_numeric_validation(fac, list(FACILITATOR_COLUMNS), "max_cohorts", 1, 100)
+    xd.add_dropdowns(wb, coh, list(COHORT_COLUMNS), xd.master_cohort_column_choices())
+    xd.add_numeric_validation(coh, list(COHORT_COLUMNS), "max_players", 1, MAX_PLAYERS_CEILING)
+    xd.add_dropdowns(wb, ply, player_cols, xd.player_column_choices())
 
     notes = wb.create_sheet("How to use")
     for line in (
@@ -460,6 +492,12 @@ def build_master_template(out_path) -> str:
         ["Use Preview to see every error at once before committing."],
         [""],
         ["A role you are not permitted to grant is downgraded to 'facilitator'."],
+        [""],
+        ["DROPDOWNS: role, simulation_mode, industry_vertical, decision_paradigm,"],
+        ["assigned_bu and region_id are pick-lists — free text is rejected."],
+        ["  assigned_bu = BUSINESS UNIT (" + ", ".join(xd.seed_bu_slots()) + "),"],
+        ["  which is NOT the same vocabulary as a cohort's industry_vertical."],
+        ["  region_id: " + ", ".join(xd.region_ids())],
     ):
         notes.append(line)
     notes.column_dimensions["A"].width = 95
