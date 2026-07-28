@@ -1,7 +1,7 @@
 'use client';
 import React from 'react';
 import { useCurrency } from '../contexts/CurrencyContext';
-import { useAnalyticsVisibility } from '../hooks/useAnalyticsVisibility';
+import { useAnalyticsVisibility, isPanelVisible } from '../hooks/useAnalyticsVisibility';
 import { useCohortPolish } from '../hooks/useCohortPolish';
 
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
@@ -205,6 +205,14 @@ export default function ExecutiveCockpit({
   // Logout confirmation (2-click to prevent accidents)
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState('mailbox');
+  // Rail tab → player-visibility key. Declared here so the tab bar, the
+  // content switch and the fallback effect below all read ONE mapping.
+  const RAIL_TAB_VIS = {
+    mailbox: 'rail_mailbox',
+    decisions: 'decision_history',
+    engines: 'rail_engines',
+    climate: 'rail_climate',
+  };
   // Phase C (F-P2/F-P4): the context rail's tab CONTENT is collapsed by
   // default — the tab strip itself stays visible as badge tabs (unread
   // counts, pending markers), and nothing required to complete a turn lives
@@ -694,7 +702,23 @@ export default function ExecutiveCockpit({
 
   // Per-cohort player-panel visibility (fail-open): honour the facilitator's
   // analytics-visibility toggles for this cohort. Missing/loading map → visible.
-  const { isPlayerVisible } = useAnalyticsVisibility(sim?.sessionId || sim?.session_id);
+  // `player` (the raw map) is destructured alongside the predicate because the
+  // hook returns FRESH function identities every render — an effect depending
+  // on isPlayerVisible would loop. The map is state, so it is stable.
+  const { isPlayerVisible, player: playerVisibility } = useAnalyticsVisibility(sim?.sessionId || sim?.session_id);
+
+  // Keep the OPEN rail tab valid. Hiding a tab in cohort settings must not
+  // leave its content rendered underneath a tab bar that no longer offers it —
+  // fall back to the first tab the cohort still permits.
+  useEffect(() => {
+    const visible = Object.keys(RAIL_TAB_VIS).filter(
+      id => isPanelVisible(playerVisibility, RAIL_TAB_VIS[id])
+    );
+    if (visible.length && !visible.includes(rightPanelTab)) {
+      setRightPanelTab(visible[0]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerVisibility, rightPanelTab]);
 
   // LOW-tier polish: cohort accessibility defaults (applied at document level)
   // + white-label branding for the header. Fail-open — unconfigured cohorts
@@ -2968,12 +2992,17 @@ export default function ExecutiveCockpit({
               background: 'var(--bg-sidebar, #ffffff)',
               borderBottom: '1px solid var(--border-subtle, #e2e8f0)',
             }}>
+              {/* Rail tabs are cohort-gated (2026-07-20). Each tab maps to a
+                  player-visibility key so a facilitator can strip the rail back
+                  for introductory cohorts. `decisions` reuses the existing
+                  decision_history key — one surface, one switch. Fail-open: an
+                  unconfigured cohort shows everything, exactly as before. */}
               {[
-                { id: 'mailbox', label: '📬 Mailbox', color: '#3b82f6', badge: unreadCount > 0 ? unreadCount : null },
-                { id: 'decisions', label: '📜 Decisions', color: '#6366f1', badge: (!commitResults && hasDecision) ? '⏳' : null },
-                { id: 'engines', label: '🌎 Engines', color: '#10b981', badge: (events && Object.keys(events).length > 0 && !commitResults) ? '•' : null },
-                { id: 'climate', label: '🌡️ Climate', color: '#38bdf8', badge: null },
-              ].map(tab => {
+                { id: 'mailbox', vis: 'rail_mailbox', label: '📬 Mailbox', color: '#3b82f6', badge: unreadCount > 0 ? unreadCount : null },
+                { id: 'decisions', vis: 'decision_history', label: '📜 Decisions', color: '#6366f1', badge: (!commitResults && hasDecision) ? '⏳' : null },
+                { id: 'engines', vis: 'rail_engines', label: '🌎 Engines', color: '#10b981', badge: (events && Object.keys(events).length > 0 && !commitResults) ? '•' : null },
+                { id: 'climate', vis: 'rail_climate', label: '🌡️ Climate', color: '#38bdf8', badge: null },
+              ].filter(tab => isPlayerVisible(tab.vis)).map(tab => {
                 const isActive = rightPanelTab === tab.id;
                 return (
                   <button
@@ -3114,7 +3143,7 @@ export default function ExecutiveCockpit({
               folds to a one-line header so the rail shows ONE primary at a
               time. Active alerts still surface regardless (escalation keeps
               its rights). */}
-          {railExpanded && !activeAlert ? (
+          {!isPlayerVisible('market_reality_feed') ? null : railExpanded && !activeAlert ? (
             <div style={{ flex: '0 0 auto', padding: '4px 10px' }}>
               <button
                 onClick={() => setRailExpanded(false)}

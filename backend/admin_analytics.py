@@ -115,6 +115,15 @@ _analytics_visibility: dict = {
         "achievement_badges": True,    # gamified milestone badges
         "regret_meter": False,         # counterfactual regret meter
         "glossary": True,              # in-game technical glossary
+        # ── Right-hand context rail (2026-07-20) ──
+        # The rail's four tabs are player-facing surfaces like any other panel,
+        # but were never in this catalog — so a facilitator could not turn them
+        # off for a cohort. The Decisions tab renders DecisionHistory and is
+        # gated by the existing `decision_history` key rather than a duplicate.
+        "rail_mailbox": True,          # 📬 Executive Mailbox tab
+        "rail_engines": True,          # 🌎 Engine widgets tab
+        "rail_climate": True,          # 🌡️ TCFD climate-scenario tab
+        "market_reality_feed": True,   # 📡 live market/consequence feed
     },
 }
 

@@ -55,6 +55,16 @@ const PLAYER_ANALYTICS = [
     { key: 'achievement_badges', label: 'Achievement Badges', icon: '🏅', tooltip: 'Gamified milestone badges earned for strategic and sustainability achievements during the run. Drives engagement.' },
     { key: 'regret_meter', label: 'Regret Meter', icon: '😬', tooltip: 'A counterfactual "regret" gauge estimating value left on the table versus the best available path. Reflective tool. Disabled by default.' },
     { key: 'glossary', label: 'Glossary', icon: '📖', tooltip: 'In-game technical glossary explaining KPIs, engines, and sustainability terminology on demand. Answers: "What does this term mean?"' },
+    // ── Right-hand context rail ──
+    // The rail's tabs are player-facing surfaces like any other panel but were
+    // missing from this list, so a facilitator could not switch them off. The
+    // 'Decisions' tab is deliberately absent: it renders DecisionHistory and is
+    // gated by the existing `decision_history` toggle above (one surface, one
+    // switch — a duplicate key would let the two disagree).
+    { key: 'rail_mailbox', label: 'Rail · Mailbox', icon: '📬', tooltip: 'The right-hand rail\'s Executive Mailbox tab — board memos, stakeholder letters and injected messages. Turn off for a stripped-back cockpit or when running the narrative offline.' },
+    { key: 'rail_engines', label: 'Rail · Engines', icon: '🌎', tooltip: 'The right-hand rail\'s Engines tab — live engine widgets showing contagion, talent and systemic-risk state. Advanced; hide for introductory cohorts.' },
+    { key: 'rail_climate', label: 'Rail · Climate', icon: '🌡️', tooltip: 'The right-hand rail\'s Climate tab — the TCFD scenario dashboard. Hide when the cohort is not running the climate-disclosure thread.' },
+    { key: 'market_reality_feed', label: 'Market Reality Feed', icon: '📡', tooltip: 'The rail\'s live market/consequence feed with traceability back to the decisions that caused each event. Hide to reduce ambient noise during focused decision rounds.' },
 ];
 
 const PEDAGOGICAL_TOGGLES = [
