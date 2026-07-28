@@ -120,7 +120,17 @@ export default function AdminLogin({ onSuccess, subtitle }) {
               placeholder="Your password" disabled={loading} required style={inputStyle}
             />
           </div>
-          <button type="submit" disabled={loading} style={{
+          {/* Password managers / security extensions (NortonLifeLock stamps
+              data-nlok-ref-guid) decorate the SUBMIT button as well as the
+              credential fields — it is part of the login form they recognise.
+              The attribute lands before React hydrates, so the server HTML and
+              client tree differ and Next reports a hydration mismatch on this
+              button. Nothing in our markup is wrong and nothing we can change
+              stops a third-party extension, so the fix is to tell React not to
+              diff attributes here. suppressHydrationWarning is one level deep,
+              which is why it must sit on the button itself and not merely on
+              the form. */}
+          <button type="submit" disabled={loading} suppressHydrationWarning style={{
             marginTop: '0.5rem', padding: '0.75rem', borderRadius: '8px', border: 'none',
             background: loading ? 'rgba(99,102,241,0.5)' : 'linear-gradient(135deg, #6366f1, #4f46e5)',
             color: '#fff', fontSize: '0.9rem', fontWeight: 700,

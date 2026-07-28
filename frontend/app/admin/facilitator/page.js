@@ -238,8 +238,10 @@ function FacilitatorLoginGate({ onLogin }) {
                         </div>
                     )}
 
+                    {/* suppressHydrationWarning — see AdminLogin. */}
                     <button
                         type="submit"
+                        suppressHydrationWarning
                         disabled={loading || !facId.trim() || !password.trim()}
                         style={{
                             padding: '0.8rem',
@@ -2122,7 +2124,7 @@ function FacilitatorChangePasswordModal({ facilitatorId, onClose, forced = false
                                     fontSize: '0.85rem', fontWeight: 500, cursor: 'pointer',
                                 }}>Cancel</button>
                             )}
-                            <button type="submit" disabled={loading} style={{
+                            <button type="submit" disabled={loading} suppressHydrationWarning style={{
                                 background: 'linear-gradient(135deg, #3b82f6, #06b6d4)', color: '#fff', border: 'none',
                                 padding: '0.5rem 1.25rem', borderRadius: '6px', fontSize: '0.85rem',
                                 fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.6 : 1,

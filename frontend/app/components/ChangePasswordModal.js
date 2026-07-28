@@ -222,8 +222,10 @@ export default function ChangePasswordModal({ isOpen, onClose, prefillPlayerId =
                                         Cancel
                                     </button>
                                 )}
+                                {/* suppressHydrationWarning — see AdminLogin. */}
                                 <button
                                     type="submit"
+                                    suppressHydrationWarning
                                     disabled={loading}
                                     style={{
                                         background: '#3b82f6', color: '#fff', border: 'none',

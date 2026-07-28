@@ -142,8 +142,12 @@ export default function JoinCohortModal({ sim }) {
                             </div>
                         )}
 
+                        {/* suppressHydrationWarning: password managers stamp
+                            attributes on credential-form submit buttons before
+                            React hydrates (see AdminLogin). */}
                         <button
                             type="submit"
+                            suppressHydrationWarning
                             disabled={joining || !playerId.trim()}
                             className={styles.submitBtn}
                         >
