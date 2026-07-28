@@ -39,7 +39,7 @@ export const TOKEN_DEFAULTS = {
   high_carbon_bu:       'Electronics',
   supply_chain_risk_bu: 'Electronics',
   crisis_origin_bu:     'Electronics',
-  high_water_bus:       'Pharma and Electronics',
+  high_water_buses:     'Pharma and Electronics',
   high_margin_bu:       'Electronics',
   low_water_bu:         'Software',
   governance_bu:        'Software',
@@ -56,4 +56,52 @@ export const TOKEN_DEFAULTS = {
     'drug formulation and sterile manufacturing. <strong>Electronics</strong> (58) requires massive volumes for ' +
     'semiconductor wafer fabrication and cooling systems. <strong>Consumer Goods</strong> (65) depends on water ' +
     'for food and beverage processing lines. Only <strong>Software</strong> (12) has minimal direct water exposure.',
+
+  // ── Multi-BU phrasing (tokenised so single-BU sessions read naturally) ──
+  // Defaults reproduce the original 4-BU narrative exactly.
+  audit_scope_phrase:      'all four business units',
+  regulation_scope_phrase: 'all four of your business units',
+  bu_initiatives_phrase:   'each business unit\'s',
+  bu_waste_intro:          'Your four business units generate waste streams of varying complexity. Each division faces',
+  symbiosis_scope:         'cross-BU',
+  ai_contagion_scope:      'across all BUs',
+
+  // ── Scope 3 supply chain description (R3) ─────────────────────
+  scope3_supply_chain:
+    'raw material extraction in Southeast Asia, chip fabrication in Taiwan, pharmaceutical ingredients from India, ' +
+    'and consumer goods manufacturing across three continents',
+  scope3_driver_sentence:
+    'The Electronics division alone accounts for 40% of your total Scope 3 footprint, driven by energy-intensive ' +
+    'fabrication and rare earth mineral extraction.',
+
+  // ── Contagion crisis phrasing (R4) ────────────────────────────
+  contagion_scope_sentence:
+    'This is not just a Electronics problem — reputational damage will propagate across <strong>all your business units</strong>.',
+  contagion_market_reaction:
+    'Enterprise clients are reviewing their vendor ethics clauses. Boycott campaigns are spreading at major retailers.',
+  contagion_objective:      'Manage cross-BU reputational contagion',
+  social_license_objective: 'Protect Social License to Operate across all business units',
+
+  // ── AI ethics phrasing (R6) ───────────────────────────────────
+  governance_bu_possessive:     'your Software division\'s',
+  governance_bu_possessive_cap: 'Your Software division\'s',
+  governance_bu_ref:            'the Software division',
+
+  // ── Water crisis phrasing (R8) ────────────────────────────────
+  water_equity_sentence:
+    'If you prioritise water allocation to your highest-margin division (Electronics), you are essentially ' +
+    'sacrificing other operations — communities and workers who depend on those facilities will face devastating layoffs.',
+  water_option_b_phrase: 'divert resources to Electronics at $4M',
+  water_option_b_label:  'Prioritise Electronics',
+  water_penalty_scope:   'on other BUs',
+  water_equity_objective: 'Be aware that prioritising one BU devastates others\' Social License',
+
+  // ── Grand Finale phrasing (R10) ───────────────────────────────
+  activist_motion: 'dissolve the conglomerate structure',
+  activist_case:
+    'Your four business units — Pharmaceuticals, Electronics, Consumer Goods, and Software — are too fundamentally ' +
+    'different to be managed sustainably under one roof. Cross-subsidisation of high-carbon assets by green divisions ' +
+    'is a form of corporate greenwashing. Each unit deserves its own sustainability mandate, its own carbon budget, ' +
+    'and its own accountability structure.',
+  synergy_question: 'Did you build genuine cross-BU synergies that justify the structure?',
 };

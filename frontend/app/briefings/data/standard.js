@@ -22,7 +22,7 @@ export const STANDARD_BRIEFINGS = {
     stamp: 'PRIORITY: HIGH',
     narrative: [
       'The Board of Directors has convened an emergency session. Global regulators are tightening ESG disclosure requirements, and <strong>{{company_name}}</strong> — {{org_description}} — has never conducted a comprehensive ESG materiality assessment.',
-      'As the newly appointed <em>{{cso_title}}</em>, your first mandate is clear: determine the depth and scope of an initial ESG audit across all {{bu_count_word}} business units. The audit results will shape every strategic decision you make for the next decade.',
+      'As the newly appointed <em>{{cso_title}}</em>, your first mandate is clear: determine the depth and scope of an initial ESG audit across {{audit_scope_phrase}}. The audit results will shape every strategic decision you make for the next decade.',
       '{{bu_intro_paragraph}}',
       'Before making your audit decision, you must also complete the <strong>Stakeholder Power/Interest Grid</strong><span class="ped-academic"> (Mendelow\'s Matrix)</span> to map the political landscape. Understanding who holds power over your ESG agenda — regulators, investors, employees, communities — is essential groundwork for every crisis ahead.',
       'Choose carefully. A superficial scan may save money now, but <strong>blind spots in the {{supply_chain_risk_bu}} supply chain</strong> could come back to haunt you when scrutiny intensifies in later rounds. The consequences of this first decision cascade forward through all ten rounds.',
@@ -49,7 +49,7 @@ export const STANDARD_BRIEFINGS = {
     narrative: [
       'The CFO has imposed a new investment governance framework: the <strong>Double Materiality Matrix</strong>. Every capital allocation must now demonstrate alignment with both <em>high financial impact</em> and <em>high ESG impact</em> criteria.<span class="ped-academic"> This aligns with the EU\'s Corporate Sustainability Reporting Directive (CSRD), which requires companies to assess and report on both how sustainability issues affect the business (financial materiality) and how the business affects society and the environment (impact materiality).</span>',
       'This is not optional. Proposals that fall outside the top-right quadrant of the materiality matrix will be <strong>rejected by the CFO</strong> unless you invoke an executive override — at the cost of your reputation. The CFO has made clear: "Every dollar we invest must serve both our shareholders and our stakeholders. If it doesn\'t pass the double materiality test, it doesn\'t get funded."',
-      'You must complete the CSRD Materiality Assessment before making any strategic decisions this round. You will map each business unit\'s initiatives onto a 2×2 matrix of Financial Impact vs ESG Impact. Only initiatives landing in <strong>Quadrant 1 (High/High)</strong> will receive automatic approval. Everything else requires justification or override.',
+      'You must complete the CSRD Materiality Assessment before making any strategic decisions this round. You will map {{bu_initiatives_phrase}} initiatives onto a 2×2 matrix of Financial Impact vs ESG Impact. Only initiatives landing in <strong>Quadrant 1 (High/High)</strong> will receive automatic approval. Everything else requires justification or override.',
       'This is your first taste of regulatory friction — the tension between what is profitable and what is sustainable. How you navigate this framework will set the tone for your governance credibility throughout the simulation.',
     ],
     objectives: [
@@ -75,7 +75,7 @@ export const STANDARD_BRIEFINGS = {
     stamp: 'REGULATORY SIGNAL',
     narrative: [
       'Breaking news from Brussels: <strong>mandatory Scope 3 disclosure</strong> is now on the regulatory horizon.<span class="ped-academic"> The International Sustainability Standards Board (ISSB) has finalised standards requiring full value-chain emissions reporting.</span> Preliminary analysis shows that your supply chain carbon footprint is <em>four times</em> your direct emissions — and investors are watching.',
-      'Your supply chain spans raw material extraction in Southeast Asia, chip fabrication in Taiwan, pharmaceutical ingredients from India, and consumer goods manufacturing across three continents. Each link in this chain carries embedded carbon that will soon appear on your balance sheet. The {{high_carbon_bu}} division alone accounts for 40% of your total Scope 3 footprint, driven by energy-intensive fabrication and rare earth mineral extraction.',
+      'Your supply chain spans {{scope3_supply_chain}}. Each link in this chain carries embedded carbon that will soon appear on your balance sheet. {{scope3_driver_sentence}}',
       'The financial stakes are real. Scope 3 emissions will eventually feed into your <strong>Natural Capital Debt (NCD)</strong> — a running tally of your environmental liability that compounds over rounds and directly affects your Year 5 Terminal Valuation. Ignoring it now means paying more later.',
       'The clock is ticking. You can switch suppliers immediately (fast but disruptive, with risk of operational downtime in {{high_water_buses}}), issue a green bond for gradual transition (moderate cost, lower NCD), or buy carbon offsets and defer the hard decisions. Each path has very different consequences for your carbon intensity trajectory and treasury.',
     ],
@@ -100,15 +100,15 @@ export const STANDARD_BRIEFINGS = {
     stamp: 'CRISIS ALERT',
     narrative: [
       'A whistleblower exposé has gone viral: <strong>child labour allegations</strong> in your {{crisis_origin_bu}} supply chain. An investigative journalist has published footage from a tier-2 supplier facility in Southeast Asia showing underage workers. The story was broken by a major news outlet and is trending globally within hours. Hashtags calling for a {{company_name}} boycott are dominating social media.',
-      'The <em>Contagion Engine</em> is now active. This is not just a {{crisis_origin_bu}} problem — reputational damage will propagate across <strong>all your business units</strong>. Customers are questioning whether your operations follow the same ethical shortcuts. Enterprise clients are reviewing their vendor ethics clauses. Boycott campaigns are spreading at major retailers.',
+      'The <em>Contagion Engine</em> is now active. {{contagion_scope_sentence}} Customers are questioning whether your operations follow the same ethical shortcuts. {{contagion_market_reaction}}',
       'The base crisis severity is <strong>40 points</strong>, but if you failed to conduct a deep audit in Round 1, the {{crisis_origin_bu}} blind spot means this crisis hits at <strong>80 points</strong> — double the impact. The forensic audit you could have done would have caught these supplier issues before they became front-page news.',
       'Your response will define whether this crisis becomes a defining moment of transparency — earning long-term stakeholder trust — or the beginning of a death spiral. Full remediation costs $6M but repairs reputation. PR containment is cheaper but does not fix the root cause. Denial risks catastrophic long-term consequences. The board is watching. The market is watching. The world is watching.',
     ],
     objectives: [
       'Respond to the {{crisis_origin_bu}} supply chain scandal',
-      'Manage cross-BU reputational contagion',
+      '{{contagion_objective}}',
       'Choose between transparency, PR containment, or denial',
-      'Protect Social License to Operate across all business units',
+      '{{social_license_objective}}',
     ],
     metrics: [
       { icon: '⭐', label: 'Reputation' },
@@ -154,16 +154,16 @@ export const STANDARD_BRIEFINGS = {
     theme: 'Algorithmic Ethics & Brand Risk',
     stamp: 'ETHICS REVIEW',
     narrative: [
-      'An internal audit of your {{governance_bu}} division\'s AI-powered recruitment tool has revealed <strong>systematic discrimination</strong> against minority applicants. The algorithm, trained on a decade of historical hiring data, has been rejecting qualified minority candidates at 3× the rate of non-minority applicants. The bias is embedded in the training data itself — reflecting decades of structural inequality that the AI has learned to perpetuate.',
-      'The story has reached mainstream media. Civil rights organisations are mobilising class-action lawsuits. Your {{governance_bu}} division\'s lucrative government contracts — worth $3M annually — are now under formal review. The EU AI Act compliance team is demanding an immediate impact assessment, and the European Data Protection Board has opened a preliminary investigation.',
-      'Ironically, the biased algorithm is also commercially valuable. Several Fortune 500 companies have expressed interest in licensing it as a "workforce optimisation tool." Monetising it would generate $5M in immediate revenue for the {{governance_bu}} division but could trigger a contagion spike across all BUs if the story gains further traction.',
+      'An internal audit of {{governance_bu_possessive}} AI-powered recruitment tool has revealed <strong>systematic discrimination</strong> against minority applicants. The algorithm, trained on a decade of historical hiring data, has been rejecting qualified minority candidates at 3× the rate of non-minority applicants. The bias is embedded in the training data itself — reflecting decades of structural inequality that the AI has learned to perpetuate.',
+      'The story has reached mainstream media. Civil rights organisations are mobilising class-action lawsuits. {{governance_bu_possessive_cap}} lucrative government contracts — worth $3M annually — are now under formal review. The EU AI Act compliance team is demanding an immediate impact assessment, and the European Data Protection Board has opened a preliminary investigation.',
+      'Ironically, the biased algorithm is also commercially valuable. Several Fortune 500 companies have expressed interest in licensing it as a "workforce optimisation tool." Monetising it would generate $5M in immediate revenue for {{governance_bu_ref}} but could trigger a contagion spike {{ai_contagion_scope}} if the story gains further traction.',
       'You face a profound ethical crossroads. A full <strong>Ethical AI Overhaul</strong> costs $8M but builds genuine social capital and unlocks the coveted <em>Truth Premium</em> at Round 10 — a +0.15 bonus to your Regenerative Multiple. A quiet patch costs only $1M but increases governance risk by 10 points. Your choice here will echo through your Year 5 Terminal Valuation and define what kind of company {{company_name}} truly is.',
     ],
     objectives: [
       'Respond to the AI bias scandal in {{governance_bu}}',
       'Weigh the financial temptation of monetisation against reputational risk',
       'Consider the "Truth Premium" — ethical choices unlock R10 bonuses',
-      'Manage Social License and Governance Risk across all BUs',
+      'Manage Social License and Governance Risk {{ai_contagion_scope}}',
     ],
     metrics: [
       { icon: '⭐', label: 'Reputation' },
@@ -181,9 +181,9 @@ export const STANDARD_BRIEFINGS = {
     theme: 'Circular Economy Transition',
     stamp: 'EU REGULATION',
     narrative: [
-      'The European Commission has published its <strong>Circular Economy Action Plan</strong> with binding targets: all companies operating in the EU must achieve <em>60% waste diversion</em> by next fiscal year. Non-compliance fines: <strong>$15 million</strong>. This regulation applies across all {{bu_count_word}} of your business units, and the deadline is non-negotiable.',
-      'Your {{bu_count_word}} business units generate waste streams of varying complexity. Each division faces distinct circular economy challenges — from hazardous process waste to electronic waste, single-use packaging, and data centre thermal output.',
-      'This round introduces the concept of <strong>industrial symbiosis</strong> — the potential for cross-BU waste-to-resource exchanges. Thermal waste can power cold chain logistics. Organic waste can feed bio-energy systems. Decommissioned hardware contains recoverable rare metals. The question is whether you invest in making these connections real.',
+      'The European Commission has published its <strong>Circular Economy Action Plan</strong> with binding targets: all companies operating in the EU must achieve <em>60% waste diversion</em> by next fiscal year. Non-compliance fines: <strong>$15 million</strong>. This regulation applies across {{regulation_scope_phrase}}, and the deadline is non-negotiable.',
+      '{{bu_waste_intro}} distinct circular economy challenges — from hazardous process waste to electronic waste, single-use packaging, and data centre thermal output.',
+      'This round introduces the concept of <strong>industrial symbiosis</strong> — the potential for {{symbiosis_scope}} waste-to-resource exchanges. Thermal waste can power cold chain logistics. Organic waste can feed bio-energy systems. Decommissioned hardware contains recoverable rare metals. The question is whether you invest in making these connections real.',
       'A <strong>Waste-to-Energy partnership</strong> — while not the cheapest option — could unlock a critical <em>Synergy Multiplier boost (+0.35)</em> that amplifies your final Terminal Valuation. More importantly, it enables the "Resist & Integrate" option in Round 10, which is only available if your Synergy Score exceeds 80. This is a pivotal strategic fork.',
     ],
     objectives: [
@@ -210,14 +210,14 @@ export const STANDARD_BRIEFINGS = {
     narrative: [
       'A multi-year drought has reached critical levels. The primary watershed serving your <strong>{{high_water_buses}}</strong> facilities has been reclassified as "critically stressed" by the national water authority. Reservoir levels are at 18% capacity — the lowest in recorded history. Government water rationing is imminent, and industrial allocations will be cut by 40% within the next period.',
       '{{water_dependency_detail}}',
-      'The equity dimension is critical. If you prioritise water allocation to your highest-margin division ({{high_margin_bu}}), you are essentially sacrificing other operations — communities and workers who depend on those facilities will face devastating layoffs. Their Social License scores will crater by 25 points, and the ripple effects will follow you into the final rounds.',
-      'You must decide: invest $12M in water efficiency {{capital_target}} (equitable but expensive), divert resources to {{high_margin_bu}} at $4M (cheap but socially devastating), or commit to a $30M desalination mega-project that eliminates water dependency permanently — but at a cost that could strain your treasury to breaking point.',
+      'The equity dimension is critical. {{water_equity_sentence}} Their Social License scores will crater by 25 points, and the ripple effects will follow you into the final rounds.',
+      'You must decide: invest $12M in water efficiency {{capital_target}} (equitable but expensive), {{water_option_b_phrase}} (cheap but socially devastating), or commit to a $30M desalination mega-project that eliminates water dependency permanently — but at a cost that could strain your treasury to breaking point.',
     ],
     objectives: [
       'Respond to critical water scarcity across your operations',
       'Balance equitable resource allocation against profit maximisation',
       'Manage Water Dependency scores — they affect long-term resilience',
-      'Be aware that prioritising one BU devastates others\' Social License',
+      '{{water_equity_objective}}',
     ],
     metrics: [
       { icon: '💧', label: 'Water Dependency' },
@@ -225,7 +225,7 @@ export const STANDARD_BRIEFINGS = {
       { icon: '🌿', label: 'NCD' },
     ],
     warning: {
-      text: '<strong>🚫 Resilience Penalty:</strong> Choosing "Prioritise {{high_margin_bu}}" (Option B) causes a <strong>-25 Social License drop</strong> on other BUs, AND <strong>blocks your R10 resilience bonus</strong> (+0.20 on Regenerative Multiple).',
+      text: '<strong>🚫 Resilience Penalty:</strong> Choosing "{{water_option_b_label}}" (Option B) causes a <strong>-25 Social License drop</strong> {{water_penalty_scope}}, AND <strong>blocks your R10 resilience bonus</strong> (+0.20 on Regenerative Multiple).',
     },
   },
 
@@ -262,9 +262,9 @@ export const STANDARD_BRIEFINGS = {
     theme: 'Year 5 Activist Ultimatum & Terminal Valuation',
     stamp: 'FINAL ROUND',
     narrative: [
-      '<strong>Five years</strong> have passed. An activist investor consortium — the <em>FutureFirst Alliance</em> — has acquired a blocking stake in {{company_name}}. Led by Dr. Amara Osei, a former climate scientist turned institutional investor, the Alliance tables a formal motion to <strong>dissolve the conglomerate structure</strong> at a special Board meeting.',
-      'Dr. Osei\'s argument is compelling: "Your {{bu_count_word}} business units — {{bu_names_list}} — are too fundamentally different to be managed sustainably under one roof. Cross-subsidisation of high-carbon assets by green divisions is a form of corporate greenwashing. Each unit deserves its own sustainability mandate, its own carbon budget, and its own accountability structure."',
-      'As {{cso_title}}, you must now present your recommendation to the Board. Your evidence is the performance data from 9 rounds of strategic crisis management. Did you build genuine cross-BU synergies that justify the structure? Or did you paper over structural weaknesses?',
+      '<strong>Five years</strong> have passed. An activist investor consortium — the <em>FutureFirst Alliance</em> — has acquired a blocking stake in {{company_name}}. Led by Dr. Amara Osei, a former climate scientist turned institutional investor, the Alliance tables a formal motion to <strong>{{activist_motion}}</strong> at a special Board meeting.',
+      'Dr. Osei\'s argument is compelling: "{{activist_case}}"',
+      'As {{cso_title}}, you must now present your recommendation to the Board. Your evidence is the performance data from 9 rounds of strategic crisis management. {{synergy_question}} Or did you paper over structural weaknesses?',
       'This is your final decision. Your <strong>Terminal Valuation</strong> will be calculated as: <em>Terminal EBITDA × Exit Multiple (12×) × Regenerative Multiple (M_R)</em>. The Regenerative Multiple captures every strategic choice you\'ve made — synergy investments, climate resilience, ethical AI decisions, social license preservation. It determines whether {{company_name}} is remembered as a <strong>Regenerative Titan</strong>, a <strong>De-risked Safe-Haven</strong>, a <strong>Fragile Giant</strong>, or a <strong>Stranded Relic</strong>.',
     ],
     objectives: [

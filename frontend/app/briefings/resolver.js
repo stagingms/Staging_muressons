@@ -1,4 +1,5 @@
 import { TOKEN_DEFAULTS } from './tokens';
+import { singleBuTokens } from './singleBuVariants';
 
 // ─────────────────────────────────────────────────────────────────
 //  DEFAULT BU ID SET — used to detect the unmodified 4-BU baseline
@@ -128,7 +129,7 @@ export function deriveSimContext(businessUnits, sessionMeta) {
       ? `for ${bus[0]?.name || 'your business unit'}`
       : `across all ${buCount} BUs`;
 
-  return {
+  const tokens = {
     ...TOKEN_DEFAULTS,   // safe baseline — unknown tokens fall back to defaults
     company_name:               companyName,
     cohort_name:                cohortLabel,  // player/cohort label — separate from company brand
@@ -146,7 +147,39 @@ export function deriveSimContext(businessUnits, sessionMeta) {
     factory_closure_description: factoryClosureDescription,
     capital_target:             capitalTarget,
     water_dependency_detail:    waterDependencyDetail,
+
+    // ── Multi-BU phrasing, derived from live BU data ─────────────────────
+    audit_scope_phrase:         `all ${buCountWord} business units`,
+    regulation_scope_phrase:    `all ${buCountWord} of your business units`,
+    scope3_driver_sentence:
+      `The ${highCarbonBu.name} division alone accounts for 40% of your total Scope 3 footprint, ` +
+      'driven by energy-intensive fabrication and rare earth mineral extraction.',
+    contagion_scope_sentence:
+      `This is not just a ${highCarbonBu.name} problem — reputational damage will propagate across ` +
+      '<strong>all your business units</strong>.',
+    governance_bu_possessive:     `your ${govBu.name} division's`,
+    governance_bu_possessive_cap: `Your ${govBu.name} division's`,
+    governance_bu_ref:            `the ${govBu.name} division`,
+    water_equity_sentence:
+      `If you prioritise water allocation to your highest-margin division (${highMarginBu.name}), ` +
+      'you are essentially sacrificing other operations — communities and workers who depend on ' +
+      'those facilities will face devastating layoffs.',
+    water_option_b_phrase:      `divert resources to ${highMarginBu.name} at $4M`,
+    water_option_b_label:       `Prioritise ${highMarginBu.name}`,
+    activist_case:
+      `Your ${buCountWord} business units — ${buNamesList} — are too fundamentally different to be ` +
+      'managed sustainably under one roof. Cross-subsidisation of high-carbon assets by green divisions ' +
+      'is a form of corporate greenwashing. Each unit deserves its own sustainability mandate, its own ' +
+      'carbon budget, and its own accountability structure.',
   };
+
+  // ── Single-BU sessions: overlay variant passages so the narrative reads
+  //    as one integrated business (generic + per-vertical flavour). ──────
+  if (buCount === 1) {
+    Object.assign(tokens, singleBuTokens(bus[0]));
+  }
+
+  return tokens;
 }
 
 /**
