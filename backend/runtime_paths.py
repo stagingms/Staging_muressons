@@ -93,8 +93,21 @@ def data_file(name: str, legacy: Path | None = None) -> Path:
     `legacy` (an old non-standard location, e.g. backend/db/master_password.json),
     then from <repo>/db/<name>. No-op when MURESSONS_DATA_DIR is unset (target
     and repo copy are then the same path).
+
+    Set MURESSONS_NO_LEGACY_MIGRATION=1 to keep a fresh data dir FRESH — the
+    file is resolved inside it and nothing is ever copied in. Two uses:
+
+      * The test suite, which must not read (or inherit) the developer's live
+        runtime state. Without this, pointing the suite at a temp dir is not
+        actually isolation: the first data_file() call copies the real
+        memory_snapshot.json / facilitator_registry.json / master_password.json
+        straight back in, and the tests run against production data anyway.
+      * Pointing an existing deployment at a NEW volume when you want it to
+        start clean rather than inherit whatever shipped in the image.
     """
     target = data_dir() / name
+    if os.getenv("MURESSONS_NO_LEGACY_MIGRATION", "").strip().lower() in ("1", "true", "yes"):
+        return target
     if not target.exists():
         for candidate in (legacy, _REPO_DB_DIR / name):
             if candidate is None:

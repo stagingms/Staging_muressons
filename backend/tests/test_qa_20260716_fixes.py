@@ -130,6 +130,11 @@ def test_mod4_crisis_choices_solo_session_still_open():
 def test_runtime_paths_honours_data_dir_and_migrates(tmp_path, monkeypatch):
     import runtime_paths
 
+    # conftest sets MURESSONS_NO_LEGACY_MIGRATION for the whole run so the
+    # suite cannot inherit the developer's live db/ state. This test is about
+    # the migration itself, so opt back in for its duration.
+    monkeypatch.delenv("MURESSONS_NO_LEGACY_MIGRATION", raising=False)
+
     # Default (unset) → repo db/
     monkeypatch.delenv("MURESSONS_DATA_DIR", raising=False)
     assert runtime_paths.data_dir() == runtime_paths._REPO_DB_DIR
@@ -151,3 +156,29 @@ def test_runtime_paths_honours_data_dir_and_migrates(tmp_path, monkeypatch):
     target.write_text(json.dumps({"marker": 2}), encoding="utf-8")
     again = runtime_paths.data_file("qa716_migrated.json", legacy=legacy)
     assert json.loads(again.read_text(encoding="utf-8")) == {"marker": 2}
+
+
+def test_no_legacy_migration_keeps_a_fresh_data_dir_fresh(tmp_path, monkeypatch):
+    """MURESSONS_NO_LEGACY_MIGRATION=1 must resolve inside the data dir and
+    copy NOTHING in.
+
+    This is what makes test isolation real. Pointing the suite at a temp dir
+    is not enough on its own: the first data_file() call would migrate the
+    developer's live memory_snapshot.json / facilitator_registry.json /
+    master_password.json into it, and the tests would run against production
+    state while looking isolated."""
+    import runtime_paths
+
+    vol = tmp_path / "fresh"
+    monkeypatch.setenv("MURESSONS_DATA_DIR", str(vol))
+    monkeypatch.setenv("MURESSONS_NO_LEGACY_MIGRATION", "1")
+
+    legacy = tmp_path / "real_state.json"
+    legacy.write_text(json.dumps({"live": "do not copy me"}), encoding="utf-8")
+
+    target = runtime_paths.data_file("qa716_fresh.json", legacy=legacy)
+    assert target == vol / "qa716_fresh.json"
+    assert not target.exists(), "a fresh data dir must not inherit legacy state"
+
+    # And the legacy file is left untouched — never moved, never deleted.
+    assert json.loads(legacy.read_text(encoding="utf-8")) == {"live": "do not copy me"}

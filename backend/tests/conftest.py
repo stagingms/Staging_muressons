@@ -32,31 +32,39 @@ backend_dir = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(backend_dir))
 
 # ── Test-state isolation ─────────────────────────────────────────────────────
-# The suite was loading and writing the REAL runtime files — db/memory_snapshot.json
-# (which persists the shared marketplace + god-mode/pacing state) and db/rate_bans.json
-# (persisted rate-limit bans). That carried state across runs and failed the suite
-# with depleted marketplace pools and stale "Too many attempts" bans. Here we:
-#   1. delete any stale copies so THIS run starts clean, and
-#   2. repoint the snapshot / rate-ban paths at a throwaway temp dir BEFORE main is
-#      imported, so tests never load or write real runtime state again.
+# The suite must never read or write the developer's REAL runtime files under
+# <repo>/db — memory_snapshot.json (game state + shared marketplace + god-mode
+# and pacing settings), facilitator_registry.json, rate_bans.json,
+# master_password.json.
+#
+# BUG-2026-07-28. The previous approach repointed module-level path constants
+# AFTER importing database_memory — but database_memory calls _load_from_disk()
+# at import (line ~344), so the real snapshot was already loaded by then. The
+# only thing that made isolation "work" was the unlink loop that ran first:
+# the suite DELETED db/memory_snapshot.json on every run. Two consequences,
+# both observed:
+#
+#   * On a writable checkout the tests passed by destroying live state. A
+#     cohort mid-simulation did not survive a test run.
+#   * Where the unlink failed (read-only mount, Windows file lock, permissions)
+#     it was swallowed by `except Exception: pass`, the real snapshot loaded,
+#     and tests asserting platform defaults failed against whatever the
+#     developer happened to have configured — e.g. test_briefing_videos
+#     expecting {} and getting three real YouTube URLs.
+#
+# Correct isolation is environmental and must precede EVERY import: point the
+# data dir at a throwaway temp dir so the path constants are computed there in
+# the first place. MURESSONS_NO_LEGACY_MIGRATION stops runtime_paths.data_file()
+# from helpfully copying the real files into the fresh dir, which would put us
+# right back where we started. Nothing under <repo>/db is read, written or
+# deleted. Do not add an unlink here.
 _repo_root = backend_dir.parent
 _tmp_state = pathlib.Path(tempfile.mkdtemp(prefix="mur_tests_"))
-for _stale in ("db/memory_snapshot.json", "db/memory_snapshot.bak", "db/rate_bans.json"):
-    try:
-        (_repo_root / _stale).unlink()
-    except Exception:
-        pass
-
-try:
-    import database_memory as _dm_pre
-    _dm_pre._SNAPSHOT_PATH = _tmp_state / "memory_snapshot.json"
-    _dm_pre._BACKUP_PATH = _tmp_state / "memory_snapshot.bak"
-except Exception:
-    pass
+os.environ["MURESSONS_DATA_DIR"] = str(_tmp_state)
+os.environ["MURESSONS_NO_LEGACY_MIGRATION"] = "1"
 
 try:
     import rate_limit as _rl_pre
-    _rl_pre._RATE_BAN_FILE = str(_tmp_state / "rate_bans.json")
     _rl_pre._persistent_bans.clear()
     _rl_pre._rate_buckets.clear()
 except Exception:
@@ -70,9 +78,14 @@ import main
 # db/facilitator_registry.json — every suite run leaked dozens of fixture
 # accounts (BulkSoft*, C3 Gate Probe, Shockwave Probe, …) into the production
 # registry, and token-version / virtual-profile writes leaked alongside.
-# Repoint the persistence paths at the throwaway temp dir. The in-memory
-# registry was already loaded (import time), so reads keep working; only the
-# WRITES are redirected away from real state.
+#
+# Since the MURESSONS_DATA_DIR fix above these constants already resolve into
+# the temp dir at import time, so this block is now belt-and-braces rather than
+# the mechanism — and it stays for exactly that reason: it is the assertion
+# that these four paths are never the real ones, independent of whether some
+# future import happens to run before the env is set. Note the reads are no
+# longer served by the developer's registry either (the whole point), so tests
+# must create every facilitator they rely on.
 try:
     import admin_shared as _ash_iso
     _ash_iso._FAC_REGISTRY_PATH = str(_tmp_state / "facilitator_registry.json")
