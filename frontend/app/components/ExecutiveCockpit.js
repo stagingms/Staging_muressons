@@ -372,14 +372,22 @@ export default function ExecutiveCockpit({
     return () => { cancelled = true; };
   }, [commitResults, sim?.sessionId]);
 
-  // Pedagogical scaffolding toggles (fetched from god-mode settings)
+  // Pedagogical scaffolding toggles — COHORT-EFFECTIVE.
+  // BUG-2026-07-20: this fetched /global-settings with no session_id, so it
+  // returned PLATFORM defaults and every per-cohort pedagogy toggle
+  // (Real-World Case Cards, Round Recap, Debrief Protocol, Strategy Memo…)
+  // was ignored for players — the facilitator saw it saved and the card never
+  // appeared. Passing the cohort id makes the response cohort-effective; the
+  // deps re-fetch when the session resolves, since it is null on first render.
   const [pedToggles, setPedToggles] = useState({});
+  const _pedSid = sim?.sessionId || sim?.session_id;
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings`)
+    const qs = _pedSid ? `?session_id=${encodeURIComponent(_pedSid)}` : '';
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/admin/global-settings${qs}`)
       .then(r => r.ok ? r.json() : {})
       .then(d => setPedToggles(d || {}))
       .catch(() => {});
-  }, []);
+  }, [_pedSid]);
   const [predictions, setPredictions] = useState([]);
   const [checkpointData, setCheckpointData] = useState(null);
   useEffect(() => {

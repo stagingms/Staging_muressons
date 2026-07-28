@@ -352,6 +352,24 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
     """
     # GOD-012: resolve effective settings for this cohort (or global if no overrides)
     s = get_effective_settings(session_id)
+
+    # BUG-2026-07-20: pedagogical toggles live in a SEPARATE store —
+    # session["pedagogical_overrides"], written by
+    # PUT /cohort/{id}/pedagogical-settings — which get_effective_settings
+    # (backed by cohort_settings) knows nothing about. So a facilitator could
+    # switch on Real-World Case Cards / Round Recap / Debrief Protocol for a
+    # cohort, see it saved, and the player would still get the PLATFORM
+    # default. Layer that store on top here, so this endpoint really is the
+    # cohort-effective view its callers assume.
+    if session_id:
+        try:
+            _sess = await db.get_session_info(session_id) or {}
+            _ped = _sess.get("pedagogical_overrides") or {}
+            if _ped:
+                s = {**s, **_ped}
+        except Exception:
+            pass  # fail-open to the global view
+
     return {
         "simulation_mode": s.get("simulation_mode", "standard"),
         # C6: canonical climate branch, normalised so clients never read the
