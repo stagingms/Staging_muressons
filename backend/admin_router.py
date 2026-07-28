@@ -9064,11 +9064,26 @@ async def get_scenario_presets():
 
 @admin_router.put("/cohort/{session_id}/pedagogical-settings", summary="Save per-cohort pedagogical settings")
 async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(...), _guard: None = Depends(require_facilitator)):
-    """Store experience level, difficulty tier, and pedagogical toggles per-cohort."""
+    """Store experience level, difficulty tier, and pedagogical toggles per-cohort.
+
+    BUG-2026-07-20: this wrote ONLY into database_memory._sessions and called
+    _persist(). Under Postgres that dict is a startup CACHE rebuilt from the
+    database, and the snapshot file is not the source of truth — so on Railway
+    the override was lost on restart and, worse, was never visible to readers
+    that go through the db parity API (GET /global-settings does). A facilitator
+    enabled Real-World Case Cards, saw it saved, and players never got them.
+    The write now goes through db.update_session_metadata (durable in BOTH
+    stores) as well as the in-process dict, so the value survives and is
+    readable by the same API that serves it to the cockpit.
+    """
     from database_memory import _sessions as _dm_sessions
     session = _dm_sessions.get(session_id)
-    if not session:
-        raise HTTPException(404, "Session not found")
+    if session is None:
+        # Postgres: the cache may not hold this session. Fall back to the
+        # parity API rather than 404-ing on a cohort that genuinely exists.
+        session = dict(await db.get_session_info(session_id) or {})
+        if not session:
+            raise HTTPException(404, "Session not found")
     
     # Store per-cohort settings
     if "experience_level" in body:
@@ -9093,9 +9108,25 @@ async def save_cohort_pedagogical_settings(session_id: str, body: dict = Body(..
         if key in body:
             cohort_pedagogy[key] = body[key]
     session["pedagogical_overrides"] = cohort_pedagogy
-    
-    from database_memory import _persist
-    _persist()
+    # Keep the in-process cache coherent for readers still using it...
+    if _dm_sessions.get(session_id) is not None:
+        _dm_sessions[session_id]["pedagogical_overrides"] = cohort_pedagogy
+    try:
+        from database_memory import _persist
+        _persist()
+    except Exception:
+        pass
+    # ...and persist DURABLY through the parity API so Postgres deployments
+    # keep the override across restarts and expose it to /global-settings.
+    _durable = {"pedagogical_overrides": cohort_pedagogy}
+    if "experience_level" in body:
+        _durable["experience_level"] = body["experience_level"]
+    if "difficulty_tier" in body:
+        _durable["difficulty_tier"] = body["difficulty_tier"]
+    try:
+        await db.update_session_metadata(session_id, _durable)
+    except Exception:
+        _ar_log.exception("pedagogical-settings: durable write failed for %s", session_id)
     
     _audit("cohort_pedagogical_settings_saved", details={
         "session_id": session_id,

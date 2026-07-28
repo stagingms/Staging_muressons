@@ -4388,11 +4388,29 @@ async def get_peer_trend_history(session_id: str):
 
     parent_id = session_info.get("parent_cohort_id")
 
-    # ── Solo: Generate synthetic peer benchmarks ──────────────────
+    # Resolve cohort siblings FIRST, because a cohort that happens to have only
+    # ONE team needs exactly the same fallback as a solo run.
+    # BUG-2026-07-20: the AI benchmark was gated on `not parent_id`, so a
+    # single-team cohort fell through to the multiplayer branch, found no
+    # siblings and returned available=False. The "Cohort Trends" toggle then
+    # flipped but drew nothing — reported as "the toggle does not work". A
+    # one-team cohort is the normal case when piloting or running a small
+    # class, so it must still get a comparison line.
+    sibling_ids = []
+    _sess_by_id = {}
+    if parent_id:
+        _all_sessions = await db.fetch_all_sessions_raw()
+        _sess_by_id = {s.get("session_id"): s for s in _all_sessions}
+        sibling_ids = [
+            s["session_id"] for s in _all_sessions
+            if s.get("parent_cohort_id") == parent_id and s.get("session_id") != session_id
+        ]
+
+    # ── Solo OR single-team cohort: synthetic AI benchmarks ───────
     # NOTE: AI benchmarks use INDEPENDENT absolute trajectories, NOT
     # perturbations of the player's own data. This ensures the peer
     # comparison line is meaningfully different from the player's path.
-    if not parent_id:
+    if not parent_id or not sibling_ids:
         latest = await db.fetch_latest_state(session_id)
         if not latest:
             return {"available": False, "reason": "No simulation data yet", "rounds": []}
@@ -4505,17 +4523,9 @@ async def get_peer_trend_history(session_id: str):
         return {"available": True, "ai_benchmark": True, "peerCount": 3, "rounds": rounds_out}
 
     # ── Multiplayer: Real peer averages ──────────────────────────
-    # Parity API: siblings via fetch_all_sessions_raw. The previous code imported
-    # `_round_states` — a name that has NEVER existed in the store — so this whole
-    # branch always raised ImportError and silently returned "unavailable", even
-    # in memory mode. (The per-round reads below already use db.fetch_round_history.)
-    all_sessions = await db.fetch_all_sessions_raw()
-    sibling_ids = [
-        s["session_id"] for s in all_sessions
-        if s.get("parent_cohort_id") == parent_id and s.get("session_id") != session_id
-    ]
-    if not sibling_ids:
-        return {"available": False, "reason": "No peer sessions in this cohort", "rounds": []}
+    # sibling_ids resolved above. (Historical note: this branch once imported
+    # `_round_states` — a name that has NEVER existed in the store — so it
+    # always raised ImportError and silently returned "unavailable".)
 
     # Aggregate per-round metrics from all siblings
     round_accum = {}  # round_num → {ci: [], tco2e: [], ebitda: [], rep: [], peers: []}
@@ -4550,8 +4560,14 @@ async def get_peer_trend_history(session_id: str):
             round_accum[rn]["ebitda"].append(ebitda)
             round_accum[rn]["rep"].append(rep)
             
-            # Use cohort name or short code if available, fallback to Team X
-            sess_info = _sessions.get(sid, {})
+            # Use cohort name or short code if available, fallback to Team X.
+            # BUG-2026-07-20: this read `_sessions` — an UNDEFINED NAME (pyflakes
+            # flags it). Every 2+ team cohort raised NameError here, so the real
+            # peer-average branch never returned; combined with single-team
+            # cohorts short-circuiting to "unavailable", the Cohort Trends
+            # toggle drew nothing for ANY cohort. Use the parity-API map built
+            # above so this works on Postgres as well as in memory mode.
+            sess_info = _sess_by_id.get(sid, {}) or {}
             p_name = sess_info.get("cohort_name") or f"Team {sid[:4]}"
             round_accum[rn]["peers"].append({
                 "id": sid,
