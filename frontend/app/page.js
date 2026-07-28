@@ -473,6 +473,12 @@ export default function CockpitPage() {
 
   // Decision paradigm state
   const [decisionParadigm, setDecisionParadigm] = useState('legacy_abc');
+  // 'legacy_abc' above is a PLACEHOLDER, not a known value — the real
+  // paradigm arrives from /paradigm. Anything that branches on it (the
+  // materiality matrix picks its dictionary by BU in pillar modes) must
+  // wait for this, or it renders against a guess and is reset when the
+  // truth lands. See the mount guard on the CSRD matrix.
+  const [paradigmResolved, setParadigmResolved] = useState(false);
   const [pillarSelections, setPillarSelections] = useState({});
   const [pillarConfig, setPillarConfig] = useState(null);
 
@@ -508,12 +514,16 @@ export default function CockpitPage() {
 
   // Detect paradigm + assigned_bu from session (poll every 8s for facilitator changes)
   useEffect(() => {
-    if (!sim.sessionId || sim.sessionId === 'demo') return;
+    if (!sim.sessionId || sim.sessionId === 'demo') { setParadigmResolved(true); return; }
     let cancelled = false;
     const fetchParadigm = () => {
       fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/simulations/${sim.sessionId}/paradigm`)
         .then(r => r.json())
-        .then(data => { if (!cancelled) setDecisionParadigm(data.decision_paradigm || 'legacy_abc'); })
+        .then(data => {
+          if (cancelled) return;
+          setDecisionParadigm(data.decision_paradigm || 'legacy_abc');
+          setParadigmResolved(true);
+        })
         .catch((e) => console.warn('[paradigm-poll] failed:', e));  // QA #15
     };
     // Resolve assigned_bu: check session-info first (per-player), fall back to global-settings (whole deployment)
@@ -1710,8 +1720,19 @@ export default function CockpitPage() {
                 selection has resolved. Mounting the matrix before then lets buId
                 flip null→BU under the open exercise, which re-runs the config
                 fetch and wipes every quadrant — the "exercise repeats twice"
-                bug. Hold the mount until buId is settled. */}
-            {isPillarMode && !r2BuLoaded ? (
+                bug. Hold the mount until buId is settled.
+
+                2026-07-20: that guard was necessary but NOT sufficient.
+                decisionParadigm starts at the PLACEHOLDER 'legacy_abc' and is
+                fetched (then re-polled every 8s). If the matrix opened before
+                the fetch returned, isPillarMode was false, so this guard passed
+                immediately and r2BuLoaded was set true — then the paradigm
+                landed, isPillarMode flipped true, buId went null→BU, and the
+                exercise reset underneath the player. Waiting for
+                paradigmResolved closes that window; DoubleMaterialityMatrix
+                additionally FREEZES buId for the life of the mount so no later
+                churn can wipe placed issues. */}
+            {(!paradigmResolved || (isPillarMode && !r2BuLoaded)) ? (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>Preparing your business unit’s assessment…</div>

@@ -158,6 +158,13 @@ class GlobalStateOut(BaseModel):
     learning_bonuses_awarded: Optional[dict] = {}
     saved_allocations: Optional[dict] = {}
     saved_decision_choice: Optional[str] = None
+    # Round the mid-round save belongs to. REQUIRED for the client's resume
+    # guard: page.js hydrates the sliders only when saved_round === roundNumber,
+    # so an omitted field means the guard is permanently false — sliders start
+    # at zero (correct) but a mid-round refresh silently LOSES the player's
+    # in-progress allocations (not correct). Pydantic drops undeclared keys, so
+    # a field added to the store must be declared here too.
+    saved_round: Optional[int] = None
     materiality_budget_allocated: Optional[list] = None
     materiality_bu_id: Optional[str] = None
     csrd_completed: Optional[bool] = False

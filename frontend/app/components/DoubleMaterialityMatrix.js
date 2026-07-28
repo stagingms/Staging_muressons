@@ -358,11 +358,22 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     // Ref for initial containers (for reset)
     const initialContainersRef = useRef(null);
 
+    // FREEZE the BU for the lifetime of this mount. The config fetch below
+    // REBUILDS every quadrant, so if buId changed mid-exercise the player's
+    // placed issues would silently vanish and the assessment would restart —
+    // the "matrix repeats a second time" report. The parent already holds the
+    // mount until the paradigm and BU are settled; this makes the guarantee
+    // local, so no future prop churn can reset an exercise in progress.
+    // Swapping BU mid-assessment is not a real workflow: the modal is closed
+    // and reopened for that, which remounts and re-reads the prop.
+    const frozenBuIdRef = useRef(buId);
+    const effectiveBuId = frozenBuIdRef.current;
+
     useEffect(() => {
         const fetchConfig = async () => {
             try {
-                const endpoint = buId
-                    ? `${API}/api/admin/materiality-config/bu/${buId}`
+                const endpoint = effectiveBuId
+                    ? `${API}/api/admin/materiality-config/bu/${effectiveBuId}`
                     : `${API}/api/admin/materiality-config`;
                 const res = await fetch(endpoint);
                 if (res.ok) {
@@ -385,7 +396,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
             setLoading(false);
         };
         fetchConfig();
-    }, [buId]);
+    }, [effectiveBuId]);
 
     // Detect R1 blindspot and stakeholder boost from globalState
     useEffect(() => {
@@ -532,7 +543,11 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                 quadrant_4_bottom_left: containers.q4,
             },
             force_override_cfo: forceOverride === true,
-            bu_id: buId || undefined,
+            // MUST be the frozen id: the submission is scored against the
+            // dictionary the player actually saw, and the server's idempotency
+            // key includes bu_id — a mismatch would score the wrong issue set
+            // AND defeat double-submit protection.
+            bu_id: effectiveBuId || undefined,
         });
 
         if (result && result.error) {
