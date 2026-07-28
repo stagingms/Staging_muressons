@@ -64,6 +64,18 @@ const ESGImpactConstellation = dynamic(() => import('./ESGImpactConstellation'),
   loading: () => null,
 });
 
+// Stakeholder Negotiation Rooms (Phase 2) — the PLAYER entry point.
+// BUG-2026-07-20: the component, its endpoints, the per-cohort toggle, the
+// facilitator capability grant, the transcript viewer and the cohort-pulse
+// indicator all shipped, but NOTHING ever imported this component — so the
+// feature was unreachable and read as "not functional". StakeholderAgentPanel
+// already renders a "request meeting" button when an agent turns hostile; it
+// just never received a handler.
+const NegotiationRoom = dynamic(() => import('./NegotiationRoom'), {
+  ssr: false,
+  loading: () => null,
+});
+
 // Phase A (player redesign): module-scope pieces extracted verbatim to their
 // own files — BoardPersonas, EngineWidgetsPanel, ArchiveAccordion — and the
 // focus stage machine to hooks/useRoundStage. Zero behavioural change.
@@ -205,6 +217,9 @@ export default function ExecutiveCockpit({
   // Logout confirmation (2-click to prevent accidents)
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [rightPanelTab, setRightPanelTab] = useState('mailbox');
+  // Open negotiation room (agent id) — null when none. Gated on the
+  // cohort toggle; the server re-checks on every call regardless.
+  const [negotiationAgentId, setNegotiationAgentId] = useState(null);
   // Rail tab → player-visibility key. Declared here so the tab bar, the
   // content switch and the fallback effect below all read ONE mapping.
   const RAIL_TAB_VIS = {
@@ -3237,6 +3252,12 @@ export default function ExecutiveCockpit({
                     cascadesFired={aaDiag.cascades_fired || []}
                     interferenceActive={aaDiag.interference_active || []}
                     roundNumber={roundNumber}
+                    onRequestMeeting={pedToggles.negotiation_rooms_enabled
+                      ? (agentId) => setNegotiationAgentId(agentId)
+                      : null}
+                    negotiationHistory={
+                      (globalState?.negotiation_log?.history) || []
+                    }
                   />
                 );
               }
@@ -3421,6 +3442,29 @@ export default function ExecutiveCockpit({
             </div>
           </div>
         </aside>
+
+        {/* ── Stakeholder Negotiation Room ──
+             Slot: OverlayHost (interrupt). Summoned from the stakeholder
+             rail's "Request meeting" on a hostile/triggered agent; never
+             ambient, so it costs no permanent screen space (CLAUDE.md V-D).
+             The cohort toggle only decides whether the ENTRY POINT exists —
+             every endpoint re-checks server-side, so this can never become
+             the authorization. */}
+        {negotiationAgentId && typeof document !== 'undefined' && createPortal(
+          <NegotiationRoom
+            sessionId={sim?.sessionId}
+            agentId={negotiationAgentId}
+            onClose={() => {
+              setNegotiationAgentId(null);
+              // A committed deal moves cash, reputation and the agent's
+              // escalation stage. Re-read rather than trusting local state.
+              if (sim?.sessionId && typeof sim.fetchDashboard === 'function') {
+                sim.fetchDashboard(sim.sessionId);
+              }
+            }}
+          />,
+          document.body
+        )}
 
         {/* ── #8: Keyboard Shortcut Cheatsheet (portaled to body) ── */}
         {showKeyboardHelp && typeof document !== 'undefined' && createPortal(

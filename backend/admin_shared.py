@@ -798,6 +798,26 @@ def get_effective_settings(session_id: str | None = None) -> dict:
     When session_id is None or has no overrides, returns the global dict
     directly (no copy overhead for the 99 % case).
     """
+    # BUG-2026-07-20: a PLAYER's sub-session has its own id and never carries
+    # the cohort's overrides, so every per-cohort setting read with a player id
+    # silently resolved to the platform default. That is how Stakeholder
+    # Negotiation Rooms stayed 403 ("not enabled for this cohort") after the
+    # facilitator had enabled them: the gate is evaluated with the player's
+    # session id. resolve_analytics_visibility already walked up to the parent;
+    # this did not. Walk up here so EVERY caller gets the cohort's settings.
+    #
+    # Via the `db` parity API, not database_memory: admin_analytics does this
+    # same walk against the memory store, which is exactly the shape that only
+    # works in memory mode. resolve_cohort_id_sync exists in both backends.
+    if session_id and session_id not in cohort_settings:
+        try:
+            import database as db
+            _parent = db.resolve_cohort_id_sync(session_id)
+            if _parent and _parent in cohort_settings:
+                session_id = _parent
+        except Exception:
+            pass  # fail-open to the global view
+
     if not session_id or session_id not in cohort_settings:
         # Fast path: global default dict already has climate_paradigm set.
         return _god_mode_settings

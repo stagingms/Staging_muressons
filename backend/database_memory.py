@@ -657,6 +657,28 @@ async def get_session_info(session_id: str) -> Optional[dict]:
     return _sessions.get(session_id)
 
 
+def resolve_cohort_id_sync(session_id: str) -> str:
+    """Map ANY session id to the cohort that owns its settings — synchronously.
+
+    Parity API. A player who joins a cohort gets their OWN sub-session, and
+    that id is what every player-side request carries. Per-cohort settings live
+    on the PARENT, so a gate evaluated with the child id silently resolves to
+    the platform default. That is how Stakeholder Negotiation Rooms stayed
+    403 "not enabled for this cohort" after the facilitator had enabled them.
+
+    Sync on purpose: the callers (get_effective_settings and the gates built on
+    it) are synchronous, and making them async would ripple through most of the
+    admin surface. Both backends read the same synchronous session cache, which
+    database.py maintains under Postgres precisely for this kind of access.
+
+    Returns the parent cohort id when `session_id` is a sub-session, otherwise
+    `session_id` unchanged (including for unknown ids — callers fall back to
+    the global view rather than failing closed).
+    """
+    rec = _sessions.get(session_id) or {}
+    return rec.get("parent_cohort_id") or session_id
+
+
 async def fetch_all_sessions_raw() -> list[dict]:
     """ALL session records, INCLUDING per-player sub-sessions and shells.
 
