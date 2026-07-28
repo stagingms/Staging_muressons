@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import styles from './GameOverSummary.module.css';
+import { useAnalyticsVisibility } from '../hooks/useAnalyticsVisibility';
 import StudentReportExport from './StudentReportExport';
 import { useCurrency } from '../contexts/CurrencyContext';
 import RewindRibbon from './RewindRibbon';
@@ -29,6 +30,8 @@ const FALLBACK_THEME = { icon: '🏅', gradient: 'linear-gradient(135deg, #6366f
  * Simulation is definitively over. Player can download report or review scorecard.
  */
 export default function GameOverSummary({ data, businessUnits, globalState, history, onReviewScorecard, decisionParadigm, sessionId, onLogout }) {
+    // Cohort visibility for the terminal-screen panels (fail-open).
+    const { isPlayerVisible } = useAnalyticsVisibility(sessionId);
     const [showInterview, setShowInterview] = useState(false);
     const [interviewAvailable, setInterviewAvailable] = useState(false);
     const [interviewCompleted, setInterviewCompleted] = useState(false);
@@ -196,7 +199,9 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 <RewindRibbon flags={activeFlags} />
                 {/* WOW-10: M_R Ladder — animated stacking reveal of each M_R component */}
                 <MRLadderReveal mr={d.regenerative_multiple} flags={activeFlags} />
-                <RegretMeter mr={d.regenerative_multiple} flags={activeFlags} />
+                {isPlayerVisible('regret_meter') && (
+                    <RegretMeter mr={d.regenerative_multiple} flags={activeFlags} />
+                )}
                 {/* WOW-3: Mirror Debrief — single highest-impact counterfactual */}
                 <MirrorDebrief
                     mr={Number(d.regenerative_multiple) || 0}
@@ -220,13 +225,15 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     renders nothing if no scored predictions exist. */}
                 <CalibrationReport sessionId={sessionId} />
                 {/* WOW-12: ESG Leadership Profile — radar chart + PNG export */}
-                <ESGLeadershipProfile
-                    data={d}
-                    flags={activeFlags}
-                    sessionId={sessionId}
-                    cohortName={d.cohort_name || ''}
-                    businessUnits={businessUnits}
-                />
+                {isPlayerVisible('esg_leadership') && (
+                    <ESGLeadershipProfile
+                        data={d}
+                        flags={activeFlags}
+                        sessionId={sessionId}
+                        cohortName={d.cohort_name || ''}
+                        businessUnits={businessUnits}
+                    />
+                )}
 
                 {/* Message */}
                 <div className={styles.message}>

@@ -1023,7 +1023,7 @@ export default function ExecutiveCockpit({
         }
       `}</style>
       {/* ═══ W-C (W3): Year-End Integrated Annual Report — optional overlay ═══ */}
-      {showAnnualReport && focusStep === 'results' && commitResults && (
+      {showAnnualReport && focusStep === 'results' && commitResults && isPlayerVisible('annual_report') && (
         <AnnualReport
           open
           onClose={() => setShowAnnualReport(false)}
@@ -1403,9 +1403,10 @@ export default function ExecutiveCockpit({
           )}
 
           {/* ── TAB: Charts (KPI Dashboard + Benchmarks) ── */}
-          {leftPanelTab === 'charts' && (
+          {leftPanelTab === 'charts' && isPlayerVisible('kpi_dashboard') && (
           <div style={{ flex: 1, overflowY: 'auto', paddingBottom: 10 }}>
             <KPIDashboard
+            showStockPerformance={isPlayerVisible('stock_performance')}
             historyData={historyData}
             ebitda={ebitda}
             tco2e={tco2e}
@@ -1958,7 +1959,7 @@ export default function ExecutiveCockpit({
                 (R10) also renders the terminal FrontPage/GameOverSummary; this
                 stays an independent, dismissible OverlayHost button and does not
                 gate the advance path. */}
-            {roundNumber % 2 === 0 && (
+            {roundNumber % 2 === 0 && isPlayerVisible('annual_report') && (
               <div style={{ textAlign: 'center', marginBottom: 14 }}>
                 <button
                   onClick={() => setShowAnnualReport(true)}
@@ -2965,7 +2966,9 @@ export default function ExecutiveCockpit({
             {hasNewResources && <span className={styles.resourcesPillBadge} />}
           </button>
 
-          <CompetitorIntelligence globalState={globalState} ebitda={ebitda} roundNumber={roundNumber} />
+          {isPlayerVisible('competitor_intel') && (
+            <CompetitorIntelligence globalState={globalState} ebitda={ebitda} roundNumber={roundNumber} />
+          )}
 
           {/* MP-01: Round commit status — shows how many teams have committed */}
           {sim?.sessionId && sim.sessionId !== 'demo' && (globalState?.cohort_team_count > 0) && (
@@ -3977,11 +3980,13 @@ export default function ExecutiveCockpit({
               )}
               {/* PHASE-3: Risk Intelligence Layer — post-commit analysis */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                {isPlayerVisible('risk_radar') && (
                 <RiskRadar
                   buStates={commitResults.businessUnits || businessUnits}
                   allocations={allocations}
                   tippingState={commitResults.events?.systemic_tipping?.tipping_state || systemicTipping?.tipping_state || {}}
                 />
+                )}
                 <ConsequencePreview
                   selectedOption={decisionChoice || (Object.keys(pillarSelections || {}).length > 0 ? 'multi_pillars' : null)}
                   optionConfig={decisionChoice
@@ -4018,7 +4023,7 @@ export default function ExecutiveCockpit({
                   whatIfResult={null}
                 />
               </div>
-              {pedToggles.consequence_map_enabled !== false && (
+              {pedToggles.consequence_map_enabled !== false && isPlayerVisible('consequence_timeline') && (
                 <ConsequenceTimeline
                   currentRound={roundNumber}
                   activeFlags={commitResults.globalState?.active_event_flags || globalState?.active_event_flags || {}}

@@ -123,6 +123,7 @@ import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
 import CrisisAlerts, { CrisisScreen } from './components/CrisisAlerts';
 import useSimulation, { playerIdHeader } from './hooks/useSimulation';
+import { useAnalyticsVisibility } from './hooks/useAnalyticsVisibility';
 
 // ── New Improvement Components ──────────────────────────────────
 import RoundChecklist from './components/RoundChecklist';
@@ -368,6 +369,9 @@ export default function CockpitPage() {
     return modified;
   }, [assignedBu]);
   const roundNumber = sim.roundNumber || 1;
+  // Per-cohort player-panel visibility (fail-open): the facilitator's
+  // cohort-formation toggles must actually hide these surfaces.
+  const { isPlayerVisible } = useAnalyticsVisibility(sim?.sessionId);
 
   // Synergy score for R10 gate (multiplier × 100)
   const synergyScore = Math.round((globalState.synergy_multiplier || 1.0) * 100);
@@ -1121,7 +1125,23 @@ export default function CockpitPage() {
       return (
         <ArchetypeReveal
           payload={terminalData}
-          onContinue={() => setGameOverPhase('scorecard')}
+          onContinue={() => setGameOverPhase(
+            // Skip a hidden scorecard rather than stranding the player on a
+            // phase that renders nothing.
+            isPlayerVisible('balanced_scorecard') ? 'scorecard' : (!boardroomDone ? 'boardroom' : 'done')
+          )}
+          onLogout={sim.logout}
+        />
+      );
+    }
+    if (gameOverPhase === 'scorecard' && !isPlayerVisible('balanced_scorecard')) {
+      // Cohort hides the scorecard (or a session resumed straight into this
+      // phase) — move on instead of rendering a blank screen.
+      return (
+        <BoardroomShowdown
+          data={sim.finalReport}
+          sessionId={sim.sessionId}
+          onComplete={() => { setBoardroomDone(true); setGameOverPhase('done'); }}
           onLogout={sim.logout}
         />
       );
@@ -1509,12 +1529,12 @@ export default function CockpitPage() {
               menuItems={[
                 { icon: '🎧', label: 'Podcast', shortcut: null, onClick: () => setShowPodcast(true) },
                 { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
-                { icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) },
+                ...(isPlayerVisible('achievement_badges') ? [{ icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) }] : []),
                 { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
                 { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
                 { icon: '🌐', label: 'SDG Radar', shortcut: null, onClick: () => setSdgRadarOpen(true) },
                 ...(decisionParadigm === 'brsr_ngrbc' ? [{ icon: '🇮🇳', label: 'BRSR', shortcut: null, onClick: () => setBrsrDashboardOpen(true) }] : []),
-                { icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) },
+                ...(isPlayerVisible('glossary') ? [{ icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) }] : []),
                 { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound on' : 'Muted', shortcut: null, keepOpen: true, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
                 { icon: '👋', label: 'Log out', shortcut: null, onClick: () => { if(window.confirm('Log out from the simulation? Your progress is saved.')) sim.logout(); } },
               ]}
@@ -1822,15 +1842,19 @@ export default function CockpitPage() {
       )}
 
       {/* ═══ IMPROVEMENT: Glossary Panel (1.2) ═══ */}
-      <GlossaryPanel isOpen={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
+      {isPlayerVisible('glossary') && (
+        <GlossaryPanel isOpen={glossaryOpen} onClose={() => setGlossaryOpen(false)} />
+      )}
 
       {/* ═══ IMPROVEMENT: Achievement Badges (5.1) ═══ */}
-      <AchievementBadges
-        globalState={globalState}
-        roundNumber={roundNumber}
-        isOpen={achievementsOpen}
-        onClose={() => setAchievementsOpen(false)}
-      />
+      {isPlayerVisible('achievement_badges') && (
+        <AchievementBadges
+          globalState={globalState}
+          roundNumber={roundNumber}
+          isOpen={achievementsOpen}
+          onClose={() => setAchievementsOpen(false)}
+        />
+      )}
 
       {/* ═══ IMPROVEMENT: AI Advisor (4.1) ═══ */}
       <AIAdvisor

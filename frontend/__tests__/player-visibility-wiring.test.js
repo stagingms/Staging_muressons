@@ -66,6 +66,15 @@ function gatedKeys() {
         if (mapMatch && /isPlayerVisible\(\s*tab\.vis\s*\)/.test(src)) {
           for (const m of mapMatch[1].matchAll(/:\s*'([a-z0-9_]+)'/g)) found.add(m[1]);
         }
+
+        // (c) server-driven gating — PlayerAnalytics filters its TABS on the
+        // visibility map the analytics endpoint returns. Equally real, just
+        // enforced server-side; the payload is cohort-resolved (see
+        // admin_analytics.get_player_analytics).
+        const tabsMatch = src.match(/const TABS\s*=\s*\[([\s\S]*?)\];/);
+        if (tabsMatch && /visibility\[\s*t\.key\s*\]\s*!==\s*false/.test(src)) {
+          for (const m of tabsMatch[1].matchAll(/key:\s*'([a-z0-9_]+)'/g)) found.add(m[1]);
+        }
       }
     }
   };
@@ -73,13 +82,10 @@ function gatedKeys() {
   return found;
 }
 
-// Known-unwired as of 2026-07-20. THIS LIST MAY ONLY SHRINK.
-const UNWIRED = new Set([
-  'peer_benchmarking', 'decision_impact', 'kpi_dashboard', 'consequence_timeline',
-  'stock_performance', 'balanced_scorecard', 'risk_radar', 'esg_leadership',
-  'competitor_intel', 'annual_report', 'achievement_badges', 'regret_meter',
-  'glossary',
-]);
+// EMPTY as of 2026-07-20 — every player toggle now gates a real surface.
+// If this list ever needs an entry again, that is a regression: a switch the
+// facilitator can flip which changes nothing the player sees.
+const UNWIRED = new Set([]);
 
 describe('player visibility toggles', () => {
   test('every UI switch exists in the backend catalogue', () => {

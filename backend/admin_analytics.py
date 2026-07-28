@@ -693,11 +693,21 @@ async def get_player_analytics(session_id: str, request: Request):
                     "projected_reputation_diff": round(avg_r - impact["reputation_delta"], 2),
                 })
 
+    # BUG-2026-07-20: this used to hand back _analytics_visibility["player"] —
+    # the GLOBAL defaults — so PlayerAnalytics' tab gating ignored per-cohort
+    # overrides entirely. A facilitator who switched Peer Benchmarking off for
+    # their cohort still saw the tab, because only the platform default was
+    # consulted. resolve_analytics_visibility layers cohort overrides on top
+    # (and walks a player sub-session up to its parent cohort).
+    try:
+        _vis = resolve_analytics_visibility(session_id).get("player", {})
+    except Exception:
+        _vis = _analytics_visibility.get("player", {})  # fail-open to defaults
     return {
         "peer_benchmarking": peer_benchmarking,
         "decision_impact": decision_impact,
         "what_if": what_if,
-        "visibility": _analytics_visibility.get("player", {}),
+        "visibility": _vis,
     }
 
 

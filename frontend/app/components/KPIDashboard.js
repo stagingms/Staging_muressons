@@ -37,6 +37,10 @@ export default function KPIDashboard({
   businessUnits = [],
   roundNumber = 1,
   events,
+  // Cohort visibility for the stock-performance chart. Passed in (rather than
+  // fetched here) because this component has no sessionId and the parent
+  // already resolves the cohort's visibility map. Defaults true = fail-open.
+  showStockPerformance = true,
 }) {
   const [activeTab, setActiveTab] = useState('financial');
 
@@ -97,14 +101,16 @@ export default function KPIDashboard({
       {activeTab === 'financial' && (
         <>
           {/* Stock Performance */}
-          <StockPerformanceChart
-            historyData={historyData}
-            globalState={globalState}
-            businessUnits={businessUnits}
-            roundNumber={roundNumber}
-            events={events}
-            projectedCost={projectedCost}
-          />
+          {showStockPerformance && (
+            <StockPerformanceChart
+              historyData={historyData}
+              globalState={globalState}
+              businessUnits={businessUnits}
+              roundNumber={roundNumber}
+              events={events}
+              projectedCost={projectedCost}
+            />
+          )}
 
           {/* EBITDA Line Graph */}
           <div className={styles.kpiCard}>
