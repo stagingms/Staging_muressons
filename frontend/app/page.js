@@ -1146,7 +1146,29 @@ export default function CockpitPage() {
     }
     if (gameOverPhase === 'scorecard' && !isPlayerVisible('balanced_scorecard')) {
       // Cohort hides the scorecard (or a session resumed straight into this
-      // phase) — move on instead of rendering a blank screen.
+      // phase). Fall forward to the phase that has NOT been played yet.
+      //
+      // BUGFIX 2026-07-20: this used to render BoardroomShowdown
+      // unconditionally, so a player who had already finished the boardroom
+      // and tapped "Review Balanced Scorecard" was thrown back into a
+      // COMPLETED phase — the "does not go to the right page" report. The
+      // button is now hidden when the scorecard is hidden (see
+      // GameOverSummary), and this remains as the defensive path for a
+      // resumed session.
+      if (boardroomDone) {
+        return (
+          <GameOverSummary
+            data={sim.finalReport}
+            businessUnits={sim.businessUnits}
+            globalState={sim.globalState}
+            history={sim.history}
+            decisionParadigm={decisionParadigm}
+            sessionId={sim.sessionId}
+            onReviewScorecard={() => setGameOverPhase('scorecard')}
+            onLogout={sim.logout}
+          />
+        );
+      }
       return (
         <BoardroomShowdown
           data={sim.finalReport}
@@ -1190,7 +1212,9 @@ export default function CockpitPage() {
         history={sim.history}
         decisionParadigm={decisionParadigm}
         sessionId={sim.sessionId}
-        onReviewScorecard={() => setGameOverPhase('scorecard')}
+        onReviewScorecard={isPlayerVisible('balanced_scorecard')
+          ? () => setGameOverPhase('scorecard')
+          : null}
         onLogout={sim.logout}
       />
     );

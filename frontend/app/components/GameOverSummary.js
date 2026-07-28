@@ -939,9 +939,17 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             ✅ View Interview Assessment
                         </button>
                     )}
-                    <button className={styles.primaryBtn} onClick={onReviewScorecard}>
-                        📊 Review Balanced Scorecard
-                    </button>
+                    {/* Hidden when the cohort disables the Balanced Scorecard.
+                        Offering it anyway produced the "does not go to the right
+                        page" report: the click fell through to the phase router,
+                        which skipped the hidden scorecard and dropped the player
+                        into an ALREADY-COMPLETED boardroom. A control that leads
+                        nowhere is worse than no control. */}
+                    {onReviewScorecard && (
+                        <button className={styles.primaryBtn} onClick={onReviewScorecard}>
+                            📊 Review Balanced Scorecard
+                        </button>
+                    )}
                     <StudentReportExport
                         data={d}
                         globalState={globalState}
@@ -949,9 +957,15 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                         businessUnits={businessUnits}
                         sessionId={sessionId}
                     />
-                    <button className={styles.secondaryBtn} onClick={handleDownload}>
-                        📥 Download Report (PDF)
-                    </button>
+                    {/* The PDF path is implemented BY the scorecard (handleDownload
+                        opens it), so it is only offered when the scorecard is
+                        available — otherwise the button silently does nothing.
+                        StudentReportExport above remains available regardless. */}
+                    {onReviewScorecard && (
+                        <button className={styles.secondaryBtn} onClick={handleDownload}>
+                            📥 Download Report (PDF)
+                        </button>
+                    )}
                     {onLogout && (
                         <button className={styles.outlineBtn} onClick={() => { if (window.confirm('Log out? Your progress is saved and you can return anytime.')) onLogout(); }}>
                             🚪 Logout
