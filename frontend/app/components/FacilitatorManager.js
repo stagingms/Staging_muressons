@@ -1866,11 +1866,18 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 </code>
                 <p className={styles.bulkFormatHint}>
                     Only <strong>name</strong> is required; every other column is optional and defaults sensibly.
-                    <strong> Paradigm:</strong> <code>legacy_abc</code>, <code>multi_toggles</code>, <code>advanced_climate</code>, <code>healthcare</code>, <code>un_sdg</code>.
-                    <strong> Role:</strong> <code>facilitator</code>, <code>lead_facilitator</code> (a role above your own tier is ignored).
-                    <strong> Ending pathway:</strong> <code>activist_ultimatum</code>, <code>climate_black_swan</code>, <code>stakeholder_revolt</code>, <code>hostile_takeover</code>.
-                    <strong> side_tracks:</strong> semicolon-separated ids. <strong>Flags</strong> (shockwave / trading_floor / situation_room): <code>TRUE</code>/<code>FALSE</code>.
-                    Friendly aliases (<code>phone</code>, <code>cohorts</code>, <code>paradigm</code>) still work.
+                    {/* 2026-07-20: the Excel template now carries real DROPDOWNS for every
+                        constrained column, sourced from the server's own catalogues — so this
+                        text is orientation, not a list to retype. It previously advertised the
+                        `un_sdg` paradigm, which cohort creation rejects (422); the authoritative
+                        set is config.VALID_DECISION_PARADIGMS. */}
+                    <strong> The Excel template has dropdowns</strong> for paradigm, role, ending pathway,
+                    simulation mode, industry vertical and the TRUE/FALSE flags — pick from the list rather
+                    than typing. Its <em>Reference</em> tab documents every column.
+                    <strong> side_tracks</strong> stays free text (semicolon-separated ids) because a
+                    dropdown cannot express multi-select. Friendly aliases (<code>phone</code>,{' '}
+                    <code>cohorts</code>, <code>paradigm</code>) still work.
+                    The CSV template has no dropdowns — prefer Excel if you want the guardrails.
                 </p>
                 <button className={styles.bulkDownloadBtn} onClick={() => {
                     const csv = [

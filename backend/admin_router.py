@@ -1817,11 +1817,23 @@ def _bulk_list(v):
 
 @admin_router.get("/facilitators/bulk-upload/template", summary="Download the Excel template for facilitator bulk upload")
 async def facilitator_bulk_upload_template(_guard: None = Depends(require_registry_admin)):
-    """Generates the .xlsx template in memory: a header row (name is the only
-    required column) plus one example row."""
+    """Generates the .xlsx template in memory.
+
+    2026-07-20: every constrained column now carries a real Excel DROPDOWN
+    (data validation) instead of expecting the author to retype values from
+    the help text. Options are derived from the authoritative catalogues via
+    excel_dropdowns, so a new ending pathway or industry vertical appears in
+    the template automatically and the template can never offer a value the
+    server rejects. A visible Reference sheet documents the two columns a
+    dropdown cannot express (multi-select side_tracks, date formats).
+    """
     from io import BytesIO
     from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill
+    from openpyxl.utils import get_column_letter
     from fastapi.responses import StreamingResponse
+    import excel_dropdowns as xd
+
     wb = Workbook()
     ws = wb.active
     ws.title = "Facilitators"
@@ -1832,6 +1844,21 @@ async def facilitator_bulk_upload_template(_guard: None = Depends(require_regist
     ws.append(["Prof. B. Sample", "b.sample@university.edu", "", "Executive Programme",
                "", "", 5, "healthcare", "lead_facilitator", "stakeholder_revolt",
                "conglomerate", "", "brsr_ngrbc;supply_chain", "TRUE", "FALSE", "TRUE"])
+
+    # Header styling + sensible widths so the sheet is usable as-is.
+    head_fill = PatternFill("solid", fgColor="1E293B")
+    for i, name in enumerate(_BULK_UPLOAD_COLUMNS, start=1):
+        c = ws.cell(row=1, column=i)
+        c.font = Font(bold=True, color="FFFFFF")
+        c.fill = head_fill
+        ws.column_dimensions[get_column_letter(i)].width = max(14, min(26, len(name) + 4))
+    ws.freeze_panes = "A2"
+
+    # Dropdowns + numeric bound, then the human-readable reference sheet.
+    xd.add_dropdowns(wb, ws, _BULK_UPLOAD_COLUMNS, xd.facilitator_column_choices())
+    xd.add_numeric_validation(ws, _BULK_UPLOAD_COLUMNS, "max_cohorts", 1, 100)
+    xd.write_reference_sheet(wb)
+
     buf = BytesIO()
     wb.save(buf)
     buf.seek(0)
@@ -1860,7 +1887,26 @@ def _parse_bulk_upload_sheet(raw: bytes):
         wb = load_workbook(BytesIO(raw), read_only=True, data_only=True)
     except Exception:
         raise HTTPException(400, "Not a readable .xlsx file. Download the template and try again.")
-    ws = wb.active
+    # Pick the DATA sheet by name, not wb.active. The template now ships a
+    # hidden `_Options` sheet (dropdown sources) and a visible `Reference`
+    # sheet; wb.active is whatever tab was selected when the author last
+    # saved, so a file saved while reading Reference would otherwise be
+    # parsed as "no name column". Fall back to the first sheet that is
+    # neither of ours, then to wb.active, so hand-made sheets still work.
+    _skip = {"_options", "reference"}
+    ws = None
+    for cand in ("Facilitators", "facilitators"):
+        if cand in wb.sheetnames:
+            ws = wb[cand]
+            break
+    if ws is None:
+        for name in wb.sheetnames:
+            if name.strip().lower() not in _skip:
+                ws = wb[name]
+                break
+    if ws is None:
+        ws = wb.active
+
     rows = list(ws.iter_rows(values_only=True))
     if not rows:
         raise HTTPException(400, "The sheet is empty.")

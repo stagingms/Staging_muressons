@@ -1002,9 +1002,11 @@ async def start_simulation(body: StartSessionRequest, request: Request):
         except Exception:
             pass  # Non-critical — fall back to per-field defaults below.
 
-        # 2a. Validate decision paradigm before doing anything
+        # 2a. Validate decision paradigm before doing anything.
+        # Set lives in config.VALID_DECISION_PARADIGMS so the bulk-upload
+        # template's dropdown offers exactly what this check accepts.
         _req_paradigm = _raw_paradigm or 'legacy_abc'
-        _VALID_PARADIGMS = {"legacy_abc", "multi_toggles", "advanced_climate", "healthcare"}
+        from config import VALID_DECISION_PARADIGMS as _VALID_PARADIGMS
         if _req_paradigm not in _VALID_PARADIGMS:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,

@@ -14,6 +14,18 @@ DATABASE_URL: str = os.getenv(
     "postgresql://postgres:postgres@localhost:5432/muressons"
 )
 
+# ── Decision paradigms ──────────────────────────────────────────────────────
+# THE authoritative set. router.create_session validates against it and the
+# bulk-upload Excel template builds its dropdown from it, so the two can never
+# disagree. (2026-07-20: they already had — the bulk-upload help text offered
+# `un_sdg`, which create_session rejects with 422, so a "valid" import could
+# produce a facilitator whose default paradigm could not create a cohort.)
+# Adding a paradigm here is NOT sufficient on its own: the engine must handle
+# it end to end before it is offered to facilitators.
+VALID_DECISION_PARADIGMS: frozenset[str] = frozenset({
+    "legacy_abc", "multi_toggles", "advanced_climate", "healthcare",
+})
+
 # Connection pool settings
 DB_MIN_CONNECTIONS: int = int(os.getenv("DB_MIN_CONNECTIONS", "2"))
 DB_MAX_CONNECTIONS: int = int(os.getenv("DB_MAX_CONNECTIONS", "10"))
