@@ -2084,10 +2084,20 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                 </div>
                             </div>
                         </section>
-{/* ── Section 7: Advanced Controls (Quiz · Result Visibility · Teams · RNG Seed · Time/Timezone · Report Access · Templates) ── */}
+
+                        </AccordionItem>
+
+                        {/* ── Section 6: Advanced Controls — its own tab ──
+                            Was nested inside "Pedagogy & Analytics", so ~230 lines of
+                            quiz/roster/RNG/timezone/report/template settings were hidden
+                            behind an unrelated heading and only reachable by scrolling
+                            past the analytics toggles. Promoted to a sibling tab so it is
+                            findable, and collapsed by default like every other tab. */}
+                        <AccordionItem id="advanced" title="6. Advanced Controls" summary="Quizzes, result visibility, teams/roster, RNG seed, scheduling, report access & templates" isOpen={openTab === 'advanced'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+{/* ── Section 6: Advanced Controls (Quiz · Result Visibility · Teams · RNG Seed · Time/Timezone · Report Access · Templates) ── */}
                         <section className={styles.configSection}>
                             <div className={styles.sectionHeader}>
-                                <h3>7. Advanced Controls</h3>
+                                <h3>6. Advanced Controls</h3>
                                 <p>Quizzes &amp; grading, result-visibility gating, team/roster limits, and a fair-play RNG seed. All optional; sensible defaults keep behaviour unchanged.</p>
                             </div>
 
@@ -2316,7 +2326,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
                         </AccordionItem>
 
-                        <AccordionItem id="lock" title="6. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTab === 'lock'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
+                        <AccordionItem id="lock" title="7. Summary & Lock Configuration" summary="Review and permanently lock choices for this cohort" isOpen={openTab === 'lock'} onToggle={(id) => setOpenTab(openTab === id ? null : id)}>
                             {(() => {
                                 // ── Derived values for summary display ──
                                 const facId = currentFacilitatorId || facilitatorId;
