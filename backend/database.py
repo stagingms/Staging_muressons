@@ -4,14 +4,18 @@ Wraps asyncpg for all persistence operations.
 """
 
 from __future__ import annotations
+import asyncio
 import json
 import uuid
 from typing import Any, Optional
 from datetime import datetime, timezone
 
 import asyncpg
+from fastapi import HTTPException
 
-from config import DATABASE_URL, DB_MIN_CONNECTIONS, DB_MAX_CONNECTIONS, SIM_INITIAL_BUDGET, SIM_ROUNDS
+from config import (DATABASE_URL, DB_MIN_CONNECTIONS, DB_MAX_CONNECTIONS,
+                    DB_ACQUIRE_TIMEOUT_SECONDS, DB_COMMAND_TIMEOUT_SECONDS,
+                    SIM_INITIAL_BUDGET, SIM_ROUNDS)
 
 
 # ── JSON serialization parity with the memory store ─────────────────────────
@@ -52,11 +56,15 @@ async def get_pool() -> asyncpg.Pool:
             DATABASE_URL,
             min_size=DB_MIN_CONNECTIONS,
             max_size=DB_MAX_CONNECTIONS,
+            # PERF-AUDIT-2026-07-29: bound query execution too. An acquire
+            # timeout only helps if connections are actually returned; a query
+            # that hangs would otherwise pin one for the rest of the class.
+            command_timeout=DB_COMMAND_TIMEOUT_SECONDS,
         )
         # ── Auto-schema: create tables if they don't exist ──────────
         # Railway's managed Postgres does NOT auto-run init.sql.
         # This block is idempotent — safe on both fresh and existing DBs.
-        async with _pool.acquire() as conn:
+        async with _pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
             # Extensions are best-effort: gen_random_uuid() is BUILT IN since
             # Postgres 13, so the schema no longer depends on uuid-ossp. Some
             # managed/minimal Postgres builds (and the CI/pgserver instances the
@@ -217,13 +225,13 @@ async def get_pool() -> asyncpg.Pool:
             print("[POSTGRES] Auto-schema: tables, indexes, and immutability triggers verified.")
 
         # Ensure metadata column exists (for DBs created by older init.sql without it)
-        async with _pool.acquire() as conn:
+        async with _pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
             await conn.execute("ALTER TABLE sessions ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}'::jsonb;")
         
         # Populate database_memory._sessions from DB for synchronous access parity
         try:
             from database_memory import _sessions
-            async with _pool.acquire() as conn:
+            async with _pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
                 rows = await conn.fetch("SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions")
                 for row in rows:
                     metadata = json.loads(row["metadata"]) if row["metadata"] else {}
@@ -262,9 +270,32 @@ async def acquire_advisory_lock(session_id: str):
     Returns the held asyncpg connection on success (caller MUST later pass it
     to release_advisory_lock). Returns None if the lock is already held by
     another process — the caller should treat that as a 409 conflict.
+
+    PERF-AUDIT-2026-07-29: this connection is held for the WHOLE commit while
+    the commit's own queries acquire further connections from the same pool.
+    That makes each in-flight commit cost ~2 connections, so a cohort larger
+    than pool_size/2 committing together exhausted the pool — and because
+    `pool.acquire()` had no timeout, the requests waited on each other
+    FOREVER rather than erroring. Measured on real Postgres: 12 simultaneous
+    commits with the old default pool of 10 never returned; the same 12 with a
+    pool of 40 finished in 0.4s. That is precisely the moment a class commits
+    a round together, so it had to be fixed on both axes:
+      * the default pool now exceeds the 20-player roster ceiling (config.py);
+      * and this acquire times out, so an exhausted pool surfaces as a clean
+        error the facilitator can see instead of a silent hang.
     """
     pool = await get_pool()
-    conn = await pool.acquire()
+    try:
+        conn = await pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Database connection pool exhausted — too many simultaneous "
+                "commits. Retry in a moment; if this persists, raise "
+                "DB_MAX_CONNECTIONS above the cohort roster size."
+            ),
+        )
     try:
         # hashtext() maps the session_id to a stable int4 key, identical across
         # processes (unlike Python's randomized hash()).
@@ -317,7 +348,7 @@ def _load_seed(industry: str = "generic") -> dict:
 async def update_session_metadata(session_id: str, updates: dict) -> bool:
     """Public API: update the metadata dict for a session. Both backends implement this."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         row = await conn.fetchrow(
             "SELECT metadata FROM sessions WHERE session_id = $1",
             uuid.UUID(session_id),
@@ -368,7 +399,7 @@ async def create_session(
     # Prevent duplicate cohort names for top-level sessions
     if not parent_cohort_id:
         pool = await get_pool()
-        async with pool.acquire() as conn:
+        async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
             rows = await conn.fetch(
                 "SELECT session_id, metadata FROM sessions WHERE LOWER(TRIM(cohort_name)) = LOWER(TRIM($1))",
                 cohort_name
@@ -493,7 +524,7 @@ async def create_session(
     }
 
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         async with conn.transaction():
             # 1. Session row
             await conn.execute(
@@ -624,7 +655,7 @@ async def create_session(
 async def get_session_info(session_id: str) -> Optional[dict]:
     """Return basic session metadata by ID."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         row = await conn.fetchrow(
             "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions WHERE session_id = $1",
             uuid.UUID(session_id),
@@ -676,7 +707,7 @@ def resolve_cohort_id_sync(session_id: str) -> str:
 async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
     """Look up an existing session by cohort_name and return its latest state."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         row = await conn.fetchrow(
             """
             SELECT session_id
@@ -699,7 +730,7 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
 async def get_child_sessions(parent_id: str) -> list[dict]:
     """Return all child sessions for a parent session (facilitator views)."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch(
             "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions"
         )
@@ -721,7 +752,7 @@ async def get_child_sessions(parent_id: str) -> list[dict]:
 async def fetch_latest_state(session_id: str) -> Optional[dict]:
     """Return the latest round's global state + BU states for a session."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         grs = await conn.fetchrow(
             """
             SELECT state_id, round_number, corporate_treasury,
@@ -808,7 +839,7 @@ async def fetch_latest_round(session_id: str) -> Optional[int]:
     avoiding the fetchrow + BU fetch that fetch_latest_state performs.
     Used for the per-sibling commit-count fan-out."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rn = await conn.fetchval(
             """
             SELECT round_number FROM global_round_states
@@ -824,7 +855,7 @@ async def fetch_latest_round(session_id: str) -> Optional[int]:
 async def fetch_round_history(session_id: str) -> list[dict]:
     """Return all rounds for a session (for the dashboard history)."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rounds = await conn.fetch(
             """
             SELECT state_id, round_number, corporate_treasury,
@@ -946,7 +977,7 @@ async def insert_next_round(
         if k not in explicit_global_columns:
             flags[k] = v
 
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         async with conn.transaction():
             # Global state
             await conn.execute(
@@ -1034,7 +1065,7 @@ async def count_sessions() -> dict:
     """Mode-agnostic live session counts (Postgres). player_id / parent_cohort_id
     live inside the sessions.metadata JSON, so we read that and classify each row."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch("SELECT metadata FROM sessions")
     cohorts = players = 0
     for row in rows:
@@ -1051,7 +1082,7 @@ async def count_sessions() -> dict:
 async def fetch_all_sessions() -> list[dict]:
     """Return all sessions with basic metadata for the admin leaderboard."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch(
             """
             SELECT session_id, cohort_name, facilitator_id, start_time, metadata
@@ -1087,7 +1118,7 @@ async def fetch_all_decisions() -> list[dict]:
     """Every decision-audit row across all sessions (analytics aggregates).
     Parity API — mirrors database_memory.fetch_all_decisions."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch(
             """
             SELECT session_id, round_number, bu_id, decision_node_id,
@@ -1119,7 +1150,7 @@ async def update_latest_global_state(
 ) -> None:
     """Update the LATEST round's global and BU states in place."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         grs = await conn.fetchrow(
             """
             SELECT state_id FROM global_round_states
@@ -1208,7 +1239,7 @@ async def update_latest_global_state(
 async def undo_latest_round(session_id: str) -> dict:
     """Delete the latest round's state and restore the previous round."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         latest = await conn.fetchrow(
             """
             SELECT state_id, round_number
@@ -1294,7 +1325,7 @@ async def generate_player_id(session_id: str) -> Optional[str]:
 async def get_active_public_sessions() -> list[dict]:
     """Return all active public top-level sessions."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch(
             "SELECT session_id, cohort_name, facilitator_id, start_time, metadata FROM sessions"
         )
@@ -1324,7 +1355,7 @@ async def delete_session(session_id: str, hard: bool = False) -> bool:
       - Then removes the sessions row itself.
     """
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         row = await conn.fetchrow("SELECT session_id FROM sessions WHERE session_id = $1", uuid.UUID(session_id))
         if row is None:
             return False
@@ -1383,7 +1414,7 @@ async def delete_session(session_id: str, hard: bool = False) -> bool:
 async def delete_all_sessions(hard: bool = False) -> int:
     """Delete all sessions. Soft-deletes unless hard=True."""
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch("SELECT session_id FROM sessions")
         count = len(rows)
         if hard:
@@ -1463,7 +1494,7 @@ async def reset_session_to_round1(session_id: str) -> bool:
                 if cluster not in bu:
                     bu[cluster] = 50.0
 
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         async with conn.transaction():
             # Delete old states for this session (cascades or explicit)
             # Disable triggers for clean deletions
@@ -1575,7 +1606,7 @@ async def fetch_sessions_by_facilitator(facilitator_id: str) -> list[dict]:
     delete can permanently erase everything, and a soft delete can mark them.
     """
     pool = await get_pool()
-    async with pool.acquire() as conn:
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
         rows = await conn.fetch(
             """
             SELECT session_id, cohort_name, facilitator_id, start_time, metadata

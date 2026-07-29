@@ -694,13 +694,42 @@ def mark_cohort_settings_dirty() -> None:
 def resolve_roster_cap(session_id: str, default: int = 5) -> int:
     """Effective roster cap for a cohort's join flow.
 
-    Returns the configured team_count when set (> 0); otherwise `default` (the
-    legacy platform cap), so an unconfigured cohort behaves exactly as before."""
+    BUG-2026-07-29 (audit): this read ONLY `team_count`, so the `max_players`
+    control — the knob literally named for roster size, clamped to
+    MAX_PLAYERS_CEILING (20) and exposed in cohort setup — was silently inert.
+    A facilitator could set max_players=20, get HTTP 200, see it saved, and
+    still have the 6th student bounced with "roster cap of 5 player(s)". The
+    save succeeded; only the join gate disagreed, so nothing surfaced the
+    mismatch until a class was already in the room.
+
+    Either knob now raises the cap, and we take the LARGER of the two:
+      * setting either one to 20 does what the facilitator plainly meant;
+      * an existing cohort configured with team_count only keeps its cap
+        (max_players is absent → 0 → ignored), so no run changes behaviour;
+      * a stale/low value in one field can never silently shrink a roster the
+        other field already widened.
+
+    Neither set → `default`, the legacy platform cap, exactly as before.
+    """
     try:
-        tc = int(get_effective_settings(session_id).get("team_count", 0) or 0)
-    except (TypeError, ValueError, Exception):
+        cfg = get_effective_settings(session_id)
+    except Exception:
         return default
-    return tc if tc > 0 else default
+
+    def _as_int(key: str) -> int:
+        try:
+            return int(cfg.get(key, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
+    cap = max(_as_int("team_count"), _as_int("max_players"))
+    if cap <= 0:
+        return default
+    try:
+        from player_capacity import MAX_PLAYERS_CEILING
+        return min(cap, MAX_PLAYERS_CEILING)
+    except Exception:
+        return cap
 
 
 # C6: keys that carry the climate branch. `simulation_mode` is only treated as

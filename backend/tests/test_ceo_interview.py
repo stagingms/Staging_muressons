@@ -39,7 +39,14 @@ def test_ceo_interview_llm_scoring():
         "Test response 5",
     ]
     
-    resp = client.post(f"/api/simulations/{session_id}/ceo-interview/assess", json={"responses": responses})
+    # SEC-AUDIT-2026-07-29: this session has an owner ("test_player"), so the
+    # caller must identify as that player — the same X-Player-Id the real
+    # cockpit sends. Before the audit these CEO-interview endpoints took no
+    # `request` at all and ran no ownership check, so this call used to pass
+    # anonymously. It must not.
+    hdr = {"X-Player-Id": "test_player"}
+    resp = client.post(f"/api/simulations/{session_id}/ceo-interview/assess",
+                       json={"responses": responses}, headers=hdr)
     assert resp.status_code == 200, resp.text
     
     data = resp.json()

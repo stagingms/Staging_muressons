@@ -2943,9 +2943,14 @@ class NegotiationSayRequest(BaseModel):
 
 
 @router.post("/{session_id}/negotiation/open", summary="Open a Stakeholder Negotiation Room")
-async def open_negotiation_room(session_id: str, body: NegotiationOpenRequest):
+async def open_negotiation_room(request: Request, session_id: str, body: NegotiationOpenRequest):
     """Open a room with a stakeholder agent (only takes the meeting once the
     agent is hostile/triggered — enforced by the engine). Capability-gated."""
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     import negotiation
     await _require_negotiation_open(session_id)
 
@@ -2963,10 +2968,15 @@ async def open_negotiation_room(session_id: str, body: NegotiationOpenRequest):
 
 
 @router.post("/{session_id}/negotiation/say", summary="Send a turn in the open negotiation room")
-async def say_in_negotiation_room(session_id: str, body: NegotiationSayRequest):
+async def say_in_negotiation_room(request: Request, session_id: str, body: NegotiationSayRequest):
     """Record the player's line and get the agent's reply. Uses the LLM when a
     key is configured, else the deterministic scripted persona. Capability-gated
     on every call, so a revoke stops the conversation immediately."""
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     import negotiation
     await _require_negotiation_open(session_id)
 
@@ -3186,8 +3196,13 @@ class UpdateParadigmRequest(BaseModel):
     "/{session_id}/paradigm",
     summary="Update the decision paradigm for a session",
 )
-async def update_session_paradigm(session_id: str, body: UpdateParadigmRequest, _guard: None = Depends(require_facilitator)):
+async def update_session_paradigm(request: Request, session_id: str, body: UpdateParadigmRequest, _guard: None = Depends(require_facilitator)):
     """Set the decision paradigm for a session. Propagates to child player sessions."""
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     if body.decision_paradigm not in ("legacy_abc", "multi_toggles", "advanced_climate", "healthcare"):
         raise HTTPException(status_code=400, detail="Invalid paradigm. Must be 'legacy_abc', 'multi_toggles', 'advanced_climate', or 'healthcare'.")
 
@@ -4758,7 +4773,7 @@ class SideTrackCommitRequest(BaseModel):
 
 
 @router.post("/{session_id}/side-tracks/{track_id}/commit", summary="Commit a side track round")
-async def commit_side_track_turn(session_id: str, track_id: str, body: SideTrackCommitRequest):
+async def commit_side_track_turn(request: Request, session_id: str, track_id: str, body: SideTrackCommitRequest):
     """
     Processes one round of a side track using the FULL process_tick() engine.
 
@@ -4770,6 +4785,11 @@ async def commit_side_track_turn(session_id: str, track_id: str, body: SideTrack
       5. If final round, write back to main sim via data bridge
       6. Return new track state
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     from database_memory import _sessions, _persist
     from side_tracks import get_track
     import copy
@@ -5250,9 +5270,14 @@ async def get_interview_questions_endpoint(session_id: str):
 
 
 @router.post("/{session_id}/ceo-interview/assess", summary="Submit interview responses for assessment")
-async def submit_interview_responses(session_id: str, body: dict):
+async def submit_interview_responses(request: Request, session_id: str, body: dict):
     """Submit player responses for CEO interview assessment.
     Returns scored dimensions (spider diagram data) + narrative feedback."""
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     from admin_shared import _god_mode_settings
 
     latest = await db.fetch_latest_state(session_id)
@@ -5464,11 +5489,16 @@ async def get_interview_results(session_id: str):
 
 
 @router.post("/{session_id}/ceo-interview/self-assessment", summary="Submit self-assessment ratings")
-async def submit_self_assessment(session_id: str, body: dict):
+async def submit_self_assessment(request: Request, session_id: str, body: dict):
     """Store player's self-rated dimension scores before the interview.
 
     Body: { "ratings": { "strategic_thinking": 7.0, ... } }
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")
@@ -5487,11 +5517,16 @@ async def submit_self_assessment(session_id: str, body: dict):
 
 
 @router.post("/{session_id}/ceo-interview/adaptive-questions", summary="Get personalised interview questions")
-async def get_adaptive_questions(session_id: str):
+async def get_adaptive_questions(request: Request, session_id: str):
     """Generate interview questions tailored to the player's weak dimensions.
 
     Requires data scores to have been pre-calculated (calls calc_data_scores internally).
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")
@@ -5522,12 +5557,17 @@ async def get_adaptive_questions(session_id: str):
 
 
 @router.post("/{session_id}/ceo-interview/what-if", summary="Counterfactual 'What-If' analysis")
-async def what_if_analysis(session_id: str, body: dict):
+async def what_if_analysis(request: Request, session_id: str, body: dict):
     """Run a lightweight counterfactual scenario.
 
     Body: { "round": 5, "dimension": "stakeholder_empathy", "scenario": "What if I had invested in community fund earlier?" }
     Returns estimated score deltas.
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(404, "Session not found")
@@ -5566,12 +5606,17 @@ async def what_if_analysis(session_id: str, body: dict):
 
 
 @router.post("/{session_id}/ceo-interview/tts", summary="Synthesize CEO voice audio")
-async def synthesize_ceo_voice(session_id: str, body: dict):
+async def synthesize_ceo_voice(request: Request, session_id: str, body: dict):
     """Synthesize speech for a CEO interview text segment.
     
     Body: { "text": "...", "voice_id": "..." (optional) }
     Returns: { "audio_b64": "..." } — base64-encoded MP3
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     from admin_shared import _god_mode_settings
     tts_latest = await db.fetch_latest_state(session_id)
     if not tts_latest:
@@ -5705,8 +5750,13 @@ async def get_peer_stats(session_id: str, round_number: int):
 # ─────────────────────────────────────────────────────────────────
 
 @router.put("/{session_id}/pace-lock", summary="Set cohort pace lock")
-async def set_pace_lock(session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
+async def set_pace_lock(request: Request, session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
     """Set the maximum round players can advance to. Facilitator control."""
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     session_info = await db.get_session_info(session_id)
     if not session_info:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -5723,8 +5773,13 @@ async def set_pace_lock(session_id: str, body: dict, _guard: None = Depends(requ
 # ─────────────────────────────────────────────────────────────────
 
 @router.put("/{session_id}/round-timer", summary="Set round deadline")
-async def set_round_timer(session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
+async def set_round_timer(request: Request, session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
     """Set a deadline (Unix timestamp) for the current round. Auto-locks on expiry."""
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     session_info = await db.get_session_info(session_id)
     if not session_info:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -5793,11 +5848,16 @@ async def get_tcfd_scenarios(session_id: str, scenario_id: str = None):
     "/{session_id}/board-vote",
     summary="Submit a board vote on a shareholder resolution",
 )
-async def board_vote(session_id: str, body: dict):
+async def board_vote(request: Request, session_id: str, body: dict):
     """
     Vote on a pending shareholder resolution.
     Body: { "resolution_id": "...", "recommendation": "support" | "oppose" }
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -5845,11 +5905,16 @@ async def board_vote(session_id: str, body: dict):
     "/{session_id}/supply-chain-audit",
     summary="Conduct a supply chain due diligence audit",
 )
-async def supply_chain_audit(session_id: str, body: dict):
+async def supply_chain_audit(request: Request, session_id: str, body: dict):
     """
     Conduct a supply chain audit.
     Body: { "audit_depth": 1 | 2 | 3 }
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -5879,11 +5944,16 @@ async def supply_chain_audit(session_id: str, body: dict):
     "/{session_id}/coalition-check",
     summary="Check C-suite coalition support for a decision",
 )
-async def coalition_check(session_id: str, body: dict):
+async def coalition_check(request: Request, session_id: str, body: dict):
     """
     Check which C-suite members support or oppose a proposed decision.
     Body: { "decision_tags": ["cost_reduction", "science_based_targets"], "estimated_cost": 5000000 }
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -5973,11 +6043,16 @@ async def get_contextual_cases(session_id: str, max_cases: int = 3):
     "/{session_id}/regulatory-sandbox/activate",
     summary="Activate a regulatory instrument in sandbox mode",
 )
-async def activate_regulation(session_id: str, body: dict):
+async def activate_regulation(request: Request, session_id: str, body: dict):
     """
     Activate a regulation in the sandbox.
     Body: { "instrument_id": "carbon_tax", "parameters": {"rate_per_tonne": 75} }
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6068,12 +6143,17 @@ async def list_exogenous_events(session_id: str):
     "/{session_id}/regulatory-sandbox/trigger-event",
     summary="God Mode: Force-trigger an exogenous crisis event",
 )
-async def trigger_exogenous(session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
+async def trigger_exogenous(request: Request, session_id: str, body: dict, _guard: None = Depends(require_facilitator)):
     """
     Facilitator God Mode — manually fire an exogenous event.
     Body: { "event_id": "carbon_minsky_moment" }
     Bypasses trigger conditions. Requires sandbox to be active.
     """
+    # SEC-AUDIT-2026-07-29: bind the caller to this session. These handlers
+    # previously took no `request`, so NO ownership check could run and any
+    # anonymous caller holding a session id could mutate another team's run
+    # (proven: board-vote moved a victim's group_reputation and treasury).
+    await _assert_player_owns_session(request, session_id)
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -6217,18 +6297,49 @@ async def get_npc_stakeholders(session_id: str):
     "/{session_id}/extend",
     summary="Activate Extended Horizon Mode (Rounds 11–20)",
 )
-async def activate_extended_mode(session_id: str):
+async def activate_extended_mode(request: Request, session_id: str):
     """
     Activates Extended Horizon Mode (SI-3).
     Sets extended_horizon_mode=True, clears game_over, and advances
     round_number to 11 so the simulation loop continues seamlessly.
+
+    BUG-2026-07-29 (audit): this endpoint had TWO defects and was therefore
+    100 % broken for every caller.
+
+      1. NO AUTHORIZATION. It took no `request`, so neither the facilitator
+         guard nor player-ownership was ever evaluated — an anonymous caller
+         reached the handler body and mutated `game_over` / round state on
+         ANY session id. Unlocking rounds 11-20 is a run-management action,
+         so it now goes through the same ownership check as every other
+         live-run mutation.
+      2. It called `db.advance_round(...)`, which exists in NEITHER backend
+         (verified against database.py and database_memory.py). Every call
+         raised AttributeError → HTTP 500, so Extended Horizon could never be
+         activated by anyone. The real mechanism is `insert_next_round`, the
+         same call commit_turn uses to persist a new round.
     """
+    await _assert_player_owns_session(request, session_id)
+
     latest = await db.fetch_latest_state(session_id)
     if not latest:
         raise HTTPException(status_code=404, detail="Session not found")
 
     gs = latest["global_state"]
     bus = latest["bu_states"]
+    current_round = int(gs.get("round_number") or 0)
+    if current_round >= 11:
+        # Idempotent: already extended. Re-activating must not create a
+        # duplicate round row (uq_session_round) or rewind the run.
+        from branching_engine import get_extended_round_config
+        cfg = get_extended_round_config(current_round) or {}
+        return {
+            "ok": True,
+            "extended_horizon_mode": True,
+            "new_round": current_round,
+            "round_title": cfg.get("title", "Extended Horizon"),
+            "round_theme": cfg.get("theme", ""),
+            "message": "Extended Horizon was already active.",
+        }
 
     gs["extended_horizon_mode"] = True
     gs["game_over"] = False
@@ -6236,10 +6347,18 @@ async def activate_extended_mode(session_id: str):
 
     await db.update_latest_global_state(session_id, gs, bus)
 
-    # Advance to round 11 — reuse the existing advance-round mechanism
+    # Advance to round 11 through the parity API both backends implement.
     from branching_engine import get_extended_round_config
     r11 = get_extended_round_config(11) or {}
-    await db.advance_round(session_id, 11)
+    new_gs = dict(gs)
+    new_gs["round_number"] = 11
+    await db.insert_next_round(
+        session_id=session_id,
+        round_number=11,
+        global_state=new_gs,
+        bu_states=bus,
+        decisions=[],
+    )
 
     return {
         "ok": True,

@@ -27,8 +27,27 @@ VALID_DECISION_PARADIGMS: frozenset[str] = frozenset({
 })
 
 # Connection pool settings
+#
+# PERF-AUDIT-2026-07-29: the max was 10, which DEADLOCKED a normal class.
+# A commit holds one connection for its advisory lock for the whole commit
+# while its own queries take further connections from the same pool, so each
+# in-flight commit costs ~2. Measured on real Postgres: 12 students committing
+# simultaneously against a pool of 10 never returned (pool.acquire had no
+# timeout, so requests waited on each other indefinitely); the same 12 against
+# a pool of 40 completed in 0.4s, and 20 students in 0.5s.
+#
+# The floor therefore has to clear 2 x the 20-player roster ceiling with
+# headroom for facilitator dashboards and websockets. 40 does that and still
+# sits well inside a managed Postgres default of ~100 — but note the pool is
+# PER WORKER, so if you ever raise WEB_CONCURRENCY, keep
+# workers x DB_MAX_CONNECTIONS under the server's max_connections.
 DB_MIN_CONNECTIONS: int = int(os.getenv("DB_MIN_CONNECTIONS", "2"))
-DB_MAX_CONNECTIONS: int = int(os.getenv("DB_MAX_CONNECTIONS", "10"))
+DB_MAX_CONNECTIONS: int = int(os.getenv("DB_MAX_CONNECTIONS", "40"))
+
+# Never wait forever for a connection: an exhausted pool must surface as a
+# visible 503 the facilitator can act on, not a class-wide hang.
+DB_ACQUIRE_TIMEOUT_SECONDS: float = float(os.getenv("DB_ACQUIRE_TIMEOUT_SECONDS", "10"))
+DB_COMMAND_TIMEOUT_SECONDS: float = float(os.getenv("DB_COMMAND_TIMEOUT_SECONDS", "30"))
 
 # App settings
 APP_TITLE: str = "Muressons Global Corporation API"
