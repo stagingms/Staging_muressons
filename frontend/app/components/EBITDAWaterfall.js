@@ -1,16 +1,26 @@
 'use client';
 import { useMemo } from 'react';
+import { buildWaterfall } from './ebitdaWaterfallModel';
 
 /**
- * EBITDAWaterfall — Visual waterfall decomposition of round P&L.
+ * EBITDAWaterfall — Visual waterfall decomposition of the round.
+ *
+ * Slot: results stage (rendered after commit, inside the Focus Results block).
  *
  * Gap 1 from UX Audit: Harvard Business Publishing uses full-width waterfall
  * charts to show exactly how each factor flows to EBITDA. This replaces
  * text-heavy event feeds with a visual "strategic storytelling" element.
  *
+ * BUG-2026-07-29: this panel never rendered. It read six fields, five of which
+ * the backend never writes, so it always fell through `steps.length <= 2` and
+ * returned null. The step builder now lives in ebitdaWaterfallModel.js, keyed
+ * to fields the engine actually emits — see that file for the full account,
+ * including why carbon and crisis costs sit BELOW the EBITDA line rather than
+ * inside it (engine: historical_ebitda = revenue - opex, nothing else).
+ *
  * Props:
  *   businessUnits:  Current BU array (revenue_base, opex_base)
- *   globalState:    Current global state (tco2e, green_fund, etc.)
+ *   globalState:    Current global state (round_number, historical_ebitda, flags)
  *   events:         Round events from commit results
  *   commitResults:  Full commit results object
  *   isDark:         Theme mode (default true)
@@ -24,58 +34,10 @@ const fmt$ = (v) => {
 };
 
 export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, events = {}, commitResults = {}, isDark = true }) {
-  const steps = useMemo(() => {
-    const bus = businessUnits.length > 0 ? businessUnits : (commitResults?.businessUnits || []);
-    const totalRevenue = bus.reduce((acc, bu) => acc + (bu.revenue_base || 0), 0);
-    const totalOpex = bus.reduce((acc, bu) => acc + (bu.opex_base || 0), 0);
-    const grossMargin = totalRevenue - totalOpex;
-
-    // Extract costs from events/globalState
-    const flags = globalState?.active_event_flags || events || {};
-    const crisisResponse = events?.cost_impact || events?.crisis_cost || flags.crisis_cost || 0;
-    const carbonTax = flags.internal_carbon_fee_deducted || globalState?.carbon_tax_cost || 0;
-    const dividends = globalState?.dividends_paid || flags.dividends_paid || 0;
-    const inflationDrag = flags.inflation_opex_increase || 0;
-    const reputationBonus = flags.reputation_revenue_bonus || 0;
-    const investmentCost = globalState?.capex_spent || flags.capex_spent || 0;
-
-    // Compute net EBITDA
-    const netEBITDA = grossMargin
-      - Math.abs(crisisResponse)
-      - Math.abs(carbonTax)
-      - Math.abs(dividends)
-      - Math.abs(inflationDrag)
-      + Math.abs(reputationBonus)
-      - Math.abs(investmentCost);
-
-    const raw = [
-      { label: 'Revenue', value: totalRevenue, type: 'positive', icon: '💰' },
-      { label: 'OPEX', value: -totalOpex, type: 'negative', icon: '🏭' },
-    ];
-
-    if (crisisResponse > 0) {
-      raw.push({ label: 'Crisis Cost', value: -crisisResponse, type: 'negative', icon: '🚨' });
-    }
-    if (carbonTax > 0) {
-      raw.push({ label: 'Carbon Tax', value: -carbonTax, type: 'negative', icon: '🌡️' });
-    }
-    if (inflationDrag > 0) {
-      raw.push({ label: 'Inflation', value: -inflationDrag, type: 'negative', icon: '📈' });
-    }
-    if (reputationBonus > 0) {
-      raw.push({ label: 'Rep. Bonus', value: reputationBonus, type: 'positive', icon: '⭐' });
-    }
-    if (investmentCost > 0) {
-      raw.push({ label: 'CapEx', value: -investmentCost, type: 'negative', icon: '🔧' });
-    }
-    if (dividends > 0) {
-      raw.push({ label: 'Dividends', value: -dividends, type: 'negative', icon: '💸' });
-    }
-
-    raw.push({ label: 'EBITDA', value: netEBITDA, type: 'total', icon: '📊' });
-
-    return raw;
-  }, [businessUnits, globalState, events, commitResults]);
+  const { steps, reconciles } = useMemo(
+    () => buildWaterfall({ businessUnits, globalState, events, commitResults }),
+    [businessUnits, globalState, events, commitResults],
+  );
 
   // Compute waterfall geometry
   const maxAbsValue = Math.max(...steps.map(s => Math.abs(s.value)), 1);
@@ -108,7 +70,10 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
     rowHover: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
   };
 
-  if (steps.length <= 2) return null; // Skip if only Revenue+OPEX (no meaningful decomposition)
+  // Revenue + OPEX + EBITDA is already a real (if minimal) bridge, so 3 steps
+  // is legitimately renderable. The old threshold of >2 combined with the
+  // dead field names is what made this panel invisible for its whole life.
+  if (steps.length < 3) return null;
 
   return (
     <div style={{
@@ -130,7 +95,7 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
           textTransform: 'uppercase', letterSpacing: '0.1em',
           color: colors.total,
         }}>
-          EBITDA Decomposition
+          EBITDA Bridge & Cash Impact
         </span>
       </div>
 
@@ -138,12 +103,29 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
         {bars.map((bar, i) => {
           const isTotal = bar.type === 'total';
+          // The line that carries the lesson: everything below it moved CASH,
+          // not EBITDA. Without this the chart would imply carbon and crisis
+          // costs reduce EBITDA, which in this engine they do not.
+          const startsCashSection = bar.section === 'cash' && bars[i - 1]?.section !== 'cash';
           const barColor = isTotal
             ? (bar.isPositive ? colors.total : colors.totalNeg)
             : (bar.isPositive ? colors.positive : colors.negative);
 
           return (
-            <div key={i} style={{
+            <div key={i}>
+            {startsCashSection && (
+              <div style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                margin: '10px 0 6px', paddingTop: 8,
+                borderTop: `1px dashed ${colors.borderColor}`,
+              }}>
+                <span style={{ fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.09em',
+                               textTransform: 'uppercase', color: colors.mutedColor }}>
+                  Below EBITDA — cash movements this round
+                </span>
+              </div>
+            )}
+            <div style={{
               display: 'grid',
               gridTemplateColumns: '24px 80px 1fr 72px',
               alignItems: 'center',
@@ -195,9 +177,24 @@ export default function EBITDAWaterfall({ businessUnits = [], globalState = {}, 
                 {bar.value >= 0 ? '' : '−'}{fmt$(Math.abs(bar.value))}
               </span>
             </div>
+            </div>
           );
         })}
       </div>
+
+      {/* If the engine's own historical_ebitda stops matching revenue - opex,
+          this chart is no longer telling the truth. Say so rather than draw a
+          confident bar over a broken assumption. */}
+      {!reconciles && (
+        <div style={{
+          marginTop: 10, padding: '6px 10px', borderRadius: 6,
+          background: 'rgba(249,115,22,0.10)', border: '1px dashed rgba(249,115,22,0.45)',
+          color: colors.mutedColor, fontSize: '0.63rem', fontWeight: 600,
+        }}>
+          ⚠ Revenue − OPEX no longer equals the engine's reported EBITDA. The
+          bridge above may be incomplete.
+        </div>
+      )}
     </div>
   );
 }
