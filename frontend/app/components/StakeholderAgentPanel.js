@@ -61,6 +61,10 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMe
   // Resting stance — live dialogue if the agent spoke this round, else the F6
   // "what they want" demand. Gives every row a voice without expanding it.
   const stance = action?.message || action?.demand || agent?.demand || '';
+  // A meeting is possible only when the cohort has Negotiation Rooms on (the
+  // handler is null otherwise) AND this agent has escalated far enough.
+  const canNegotiate = !!onRequestMeeting
+    && ['hostile', 'triggered'].includes(action?.stage || agent?.stage);
 
   return (
     <motion.div
@@ -97,6 +101,29 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMe
             {stance && (
               <div className={styles.agentStance} style={{ '--stance-accent': stageMeta.color }}>
                 {stance}
+              </div>
+            )}
+            {/* DISCOVERABILITY-2026-07-30: the "Request a meeting" button lives
+                inside the EXPANDED card, so with the cohort toggle on and an
+                agent at the table, a player still saw nothing until they
+                happened to expand that particular row. Reported as "the
+                negotiation room is not visible". This chip is the only hint on
+                the collapsed card that the door exists; it is a label, not a
+                second control — the button itself stays the single entry
+                point, one slot, as before. */}
+            {canNegotiate && (
+              <div
+                style={{
+                  marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '2px 8px', borderRadius: 999,
+                  border: '1px solid rgba(239,68,68,0.40)',
+                  background: 'rgba(239,68,68,0.10)',
+                  fontSize: '0.62rem', fontWeight: 800, letterSpacing: '0.04em',
+                  color: '#fca5a5',
+                }}
+                title="This stakeholder will meet you. Expand the card to open a negotiation room."
+              >
+                🤝 Open to negotiation — expand to meet
               </div>
             )}
           </div>
@@ -208,7 +235,7 @@ function AgentCard({ agent, action, isExpanded, onToggle, index = 0, onRequestMe
 
             {/* …and the door to the table when they are hostile. Entry point
                 only — every rule is enforced server-side (negotiation.py). */}
-            {onRequestMeeting && ['hostile', 'triggered'].includes(action?.stage || agent?.stage) && (
+            {canNegotiate && (
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onRequestMeeting(agent.agent_id); }}

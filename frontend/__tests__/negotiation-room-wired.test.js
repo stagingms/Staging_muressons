@@ -52,9 +52,26 @@ describe('negotiation room is reachable from the cockpit', () => {
   });
 
   test('the meeting button appears only for hostile or triggered agents', () => {
-    expect(panel).toMatch(
-      /onRequestMeeting && \['hostile', 'triggered'\]\.includes/
-    );
+    // Assert the RULE, not its spelling. The predicate was extracted to
+    // `canNegotiate` so the collapsed-card hint chip and the button itself
+    // cannot drift apart — one of them showing while the other does not would
+    // be worse than either alone.
+    expect(panel).toMatch(/const canNegotiate\s*=\s*!!onRequestMeeting/);
+    expect(panel).toMatch(/\['hostile', 'triggered'\]\.includes\(action\?\.stage \|\| agent\?\.stage\)/);
+    // …and it is what actually gates the button.
+    const i = panel.indexOf('🤝 Request a meeting');
+    expect(i).toBeGreaterThan(-1);
+    expect(panel.slice(Math.max(0, i - 900), i)).toMatch(/\{canNegotiate && \(/);
+  });
+
+  test('the collapsed card hints that a negotiation is available', () => {
+    // Reported: "the negotiation room is not visible". Even with the cohort
+    // toggle ON and an agent at the table, the button lived inside the
+    // expanded card, so a player saw nothing until they expanded that exact
+    // row. The chip is the only affordance on the collapsed card.
+    expect(panel).toMatch(/Open to negotiation/);
+    const i = panel.indexOf('Open to negotiation');
+    expect(panel.slice(Math.max(0, i - 600), i)).toMatch(/\{canNegotiate && \(/);
   });
 
   test('closing the room re-reads server state', () => {
