@@ -284,9 +284,32 @@ def conduct_supply_chain_audit(
 
     sc_state["due_diligence_level"] = max(sc_state.get("due_diligence_level", 0), audit_depth)
 
+    # BUG-2026-07-30: the audit raised each supplier's `visibility` but left the
+    # AGGREGATE stale, because overall_visibility / overall_risk were only
+    # recomputed inside the round tick. A player spent up to $2,000,000, watched
+    # the headline "Supply Chain Visibility" not move at all, and only saw the
+    # benefit appear a round later — indistinguishable from a broken button.
+    # Measured: tier-1 visibility went 0.95 -> 0.975 immediately while
+    # overall_visibility sat at 0.482 until the next commit, then jumped to
+    # 0.645. Recompute here so the purchase pays for itself visibly, using the
+    # same formula the tick uses.
+    _all = (
+        sc_state.get("tier_1_suppliers", [])
+        + sc_state.get("tier_2_suppliers", [])
+        + sc_state.get("tier_3_suppliers", [])
+    )
+    if _all:
+        sc_state["overall_visibility"] = round(
+            sum(s["visibility"] for s in _all) / len(_all), 3
+        )
+        sc_state["overall_risk"] = round(
+            sum(s["risk_score"] for s in _all) / len(_all), 1
+        )
+
     return {
         "audit_depth": audit_depth,
         "cost": cost,
+        "overall_visibility": sc_state.get("overall_visibility"),
         "discoveries": discoveries,
         "discovery_count": len(discoveries),
         "message": (

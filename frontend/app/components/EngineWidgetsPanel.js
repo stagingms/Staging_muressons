@@ -24,24 +24,36 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
   const [open, setOpen] = useState({ bio: true, board: false, supply: false, bs: true });
   const [enginesLoaded, setEnginesLoaded] = useState(false); // Friction #5: track initial load
 
+  // BUG-2026-07-30: these three panels showed 0 for every metric, forever.
+  //
+  //   a) EVERY endpoint wraps its payload — /biodiversity returns
+  //      {biodiversity:{...}}, /board-governance returns {board_governance:{...}},
+  //      /supply-chain returns {supply_chain:{...}} — but we stored the wrapper
+  //      and then read fields off IT, so every lookup was undefined and the
+  //      `?? 0` fallbacks rendered 0.0 / 0%. (balance-sheet already unwrapped
+  //      correctly, which is why that panel worked and these did not.)
+  //   b) The deps were [sessionId] only, so this ran ONCE on mount and never
+  //      again. Even correct values would have frozen at the round the player
+  //      happened to load on — which is what "not changing after round 2"
+  //      looked like from the outside.
+  //
+  // Unwrap here, once, so every reader below sees the real engine object.
+  const roundNumber = globalState?.round_number;
   useEffect(() => {
     if (!sessionId) return;
-    // Biodiversity
+    const pick = (d, key) => (d && typeof d === 'object' && d[key]) ? d[key] : d;
     fetch(`${API}/api/simulations/${sessionId}/biodiversity`)
-      .then(r => r.ok ? r.json() : null).then(d => d && setBio(d)).catch(() => {});
-    // Board Governance
+      .then(r => r.ok ? r.json() : null).then(d => d && setBio(pick(d, 'biodiversity'))).catch(() => {});
     fetch(`${API}/api/simulations/${sessionId}/board-governance`)
-      .then(r => r.ok ? r.json() : null).then(d => d && setBoard(d)).catch(() => {});
-    // Supply Chain
+      .then(r => r.ok ? r.json() : null).then(d => d && setBoard(pick(d, 'board_governance'))).catch(() => {});
     fetch(`${API}/api/simulations/${sessionId}/supply-chain`)
-      .then(r => r.ok ? r.json() : null).then(d => d && setSupply(d)).catch(() => {});
-    // Balance Sheet
+      .then(r => r.ok ? r.json() : null).then(d => d && setSupply(pick(d, 'supply_chain'))).catch(() => {});
     fetch(`${API}/api/simulations/${sessionId}/balance-sheet`)
       .then(r => r.ok ? r.json() : null).then(d => d && setBalanceSheet(d.balance_sheet || d)).catch(() => {});
-    // Mark engines as loaded after a short delay (covers network round-trip)
     const t = setTimeout(() => setEnginesLoaded(true), 600);
     return () => clearTimeout(t);
-  }, [sessionId]);
+    // roundNumber in the deps is what makes these panels advance with the game.
+  }, [sessionId, roundNumber]);
 
   // Re-sync balance sheet after each commit (so sidebar panel shows latest)
   useEffect(() => {
@@ -103,10 +115,14 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
         </div>
         {open.bio && (bio ? (
           <div className={styles.ewBody}>
-            <Pill label="Ecosystem Health Index" value={`${(bio.ehi ?? bio.ecosystem_health_index ?? 0).toFixed(1)} / 100`} good={(bio.ehi ?? bio.ecosystem_health_index ?? 0) >= 60} />
-            <Bar value={bio.ehi ?? bio.ecosystem_health_index ?? 0} color="#34d399" />
-            <Pill label="Deforestation Risk" value={(bio.deforestation_risk ?? 'Low')} good={(bio.deforestation_risk ?? 'Low') === 'Low'} />
-            <Pill label="Water Stress Index" value={`${(bio.water_stress_index ?? 0).toFixed(1)}`} good={(bio.water_stress_index ?? 0) < 50} />
+            {/* Real emitted fields (see the unwrap note above): ehi/deforestation_risk
+                never existed. water_stress_index and habitat_integrity are 0-1 ratios,
+                so they are scaled here rather than printed raw as "0.4". */}
+            <Pill label="Ecosystem Health Index" value={`${(bio.ecosystem_health_index ?? 0).toFixed(1)} / 100`} good={(bio.ecosystem_health_index ?? 0) >= 60} />
+            <Bar value={bio.ecosystem_health_index ?? 0} color="#34d399" />
+            <Pill label="Habitat Integrity" value={`${((bio.habitat_integrity ?? 0) * 100).toFixed(0)}%`} good={(bio.habitat_integrity ?? 0) >= 0.6} />
+            <Pill label="Deforestation Rate" value={`${(bio.deforestation_rate ?? 0).toFixed(1)}%`} good={(bio.deforestation_rate ?? 0) < 2} />
+            <Pill label="Water Stress" value={`${((bio.water_stress_index ?? 0) * 100).toFixed(0)}%`} good={(bio.water_stress_index ?? 0) < 0.5} />
             {bio.tnfd_flags?.length > 0 && (
               <div style={{ marginTop: 6 }}>
                 <div style={{ fontSize: '0.6rem', color: '#64748b', marginBottom: 3 }}>TNFD Flags:</div>
@@ -127,9 +143,21 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
         </div>
         {open.board && (board ? (
           <div className={styles.ewBody}>
-            <Pill label="ESG Alignment Score" value={`${(board.esg_alignment_score ?? board.board_esg_score ?? 0).toFixed(1)} / 100`} good={(board.esg_alignment_score ?? board.board_esg_score ?? 0) >= 60} />
-            <Bar value={board.esg_alignment_score ?? board.board_esg_score ?? 0} color="#818cf8" />
-            <Pill label="Board Confidence" value={`${(board.board_confidence ?? 0).toFixed(1)}%`} good={(board.board_confidence ?? 0) >= 60} />
+            {/* esg_alignment_score / board_confidence are not emitted by the
+                engine. These are the real computed fields: avg_esg_alignment is
+                the mean over the director roster (0-1), board_effectiveness_score
+                is already 0-100. Labels match what is actually measured. */}
+            <Pill label="Board Effectiveness" value={`${(board.board_effectiveness_score ?? 0).toFixed(1)} / 100`} good={(board.board_effectiveness_score ?? 0) >= 60} />
+            <Bar value={board.board_effectiveness_score ?? 0} color="#818cf8" />
+            <Pill label="Board ESG Alignment" value={`${((board.avg_esg_alignment ?? 0) * 100).toFixed(0)}%`} good={(board.avg_esg_alignment ?? 0) >= 0.6} />
+            <Pill label="Independent Directors" value={`${((board.independence_ratio ?? 0) * 100).toFixed(0)}%`} good={(board.independence_ratio ?? 0) >= 0.5} />
+            <Pill label="Say-on-Pay Approval" value={`${(board.say_on_pay_approval ?? 0).toFixed(0)}%`} good={(board.say_on_pay_approval ?? 0) >= 70} />
+            {/* The board only shifts when its COMPOSITION shifts, so a static
+                reading is the engine working, not a stuck panel. Say so. */}
+            <div style={{ marginTop: 6, fontSize: '0.6rem', color: '#64748b', lineHeight: 1.4 }}>
+              Board ESG alignment moves when board composition changes — activist
+              nominees seated, or directors replaced.
+            </div>
             {board.resolution_outcome && (
               <div style={{ marginTop: 6, padding: '5px 8px', borderRadius: 5, background: 'rgba(99,102,241,0.1)', fontSize: '0.65rem', color: '#a5b4fc' }}>
                 📋 Last Resolution: {board.resolution_outcome}
@@ -147,10 +175,32 @@ export default function EngineWidgetsPanel({ sessionId, globalState, commitResul
         </div>
         {open.supply && (supply ? (
           <div className={styles.ewBody}>
-            <Pill label="Scope 3 Completeness" value={`${(supply.scope3_completeness ?? supply.data_completeness ?? 0).toFixed(0)}%`} good={(supply.scope3_completeness ?? supply.data_completeness ?? 0) >= 60} />
-            <Bar value={supply.scope3_completeness ?? supply.data_completeness ?? 0} color="#fbbf24" />
-            <Pill label="Tier 1 Compliance" value={`${(supply.tier1_compliance ?? 0).toFixed(0)}%`} good={(supply.tier1_compliance ?? 0) >= 70} />
-            <Pill label="Risk Exposure" value={supply.risk_level ?? 'Moderate'} good={(supply.risk_level ?? '') === 'Low'} />
+            {/* scope3_completeness / tier1_compliance / risk_level are not
+                emitted. overall_visibility is a 0-1 mean across all tiers and is
+                the honest proxy for how much of the chain the company can SEE;
+                Tier-1 compliance is derived from the per-supplier
+                compliance_status the engine really maintains. */}
+            <Pill label="Supply Chain Visibility" value={`${((supply.overall_visibility ?? 0) * 100).toFixed(0)}%`} good={(supply.overall_visibility ?? 0) >= 0.6} />
+            <Bar value={(supply.overall_visibility ?? 0) * 100} color="#fbbf24" />
+            {(() => {
+              const t1 = supply.tier_1_suppliers || [];
+              const audited = t1.filter(x => x?.compliance_status === 'audited').length;
+              const pct = t1.length ? (audited / t1.length) * 100 : 0;
+              return (
+                <Pill label="Tier 1 Audited"
+                      value={t1.length ? `${pct.toFixed(0)}% (${audited}/${t1.length})` : '—'}
+                      good={pct >= 70} />
+              );
+            })()}
+            <Pill label="Supply Chain Risk" value={`${(supply.overall_risk ?? 0).toFixed(1)} / 100`} good={(supply.overall_risk ?? 100) < 40} />
+            <Pill label="Scope 3 Estimate" value={`${((supply.scope_3_estimate ?? 0) / 1000).toFixed(1)}k tCO₂e`} good={false} />
+            {/* Visibility only rises when the player pays for an audit — the
+                intended lesson (disclosure costs money). A static reading here
+                means nobody has audited yet, not that the panel is broken. */}
+            <div style={{ marginTop: 6, fontSize: '0.6rem', color: '#64748b', lineHeight: 1.4 }}>
+              Visibility rises only when you commission a supply-chain audit —
+              deeper tiers cost more.
+            </div>
             {supply.disruption_events?.length > 0 && (
               <div style={{ marginTop: 6, fontSize: '0.68rem', color: '#ef4444' }}>
                 ⚡ {supply.disruption_events[0]}
