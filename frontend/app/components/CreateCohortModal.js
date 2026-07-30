@@ -225,6 +225,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // preset never rewrites their choices — the experience level is a starting
     // point, not a policy that fights them. Mirrors pedagogyCustomised.
     const [visibilityCustomised, setVisibilityCustomised] = useState(false);
+    // DISCOVERABILITY-2026-07-30: 65 switches across 11 groups, five of which
+    // sit below the fold. Reported as "Quick Reflection is not appearing in the
+    // toggles" — it was there, 41 rows down in group 8 of 11. The catalogue was
+    // complete and the render loop had no filter; the panel was simply too long
+    // to scan. Filtering by label OR key, because the two audiences differ: a
+    // facilitator knows "Quick Reflection", a developer reading a tooltip or a
+    // bug report knows `quick_reflection_box`.
+    const [visSearch, setVisSearch] = useState('');
     // The experience level the cohort was ALREADY on when Edit opened. Used to
     // tell "opened the form" apart from "changed the level" — see the effect
     // that applies preset visibility.
@@ -2271,7 +2279,96 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                         </div>
                                     );
                                 })()}
-                                {playerVisibilityGroups().map(({ group, cards }) => {
+                                {/* Search — the panel is long enough that scanning it is
+                                    the actual cost of using it. */}
+                                {(() => {
+                                    const q = visSearch.trim().toLowerCase();
+                                    const matches = q
+                                        ? PLAYER_ANALYTICS.filter(a =>
+                                            a.label.toLowerCase().includes(q)
+                                            || a.key.toLowerCase().includes(q)
+                                            || (a.group || '').toLowerCase().includes(q)).length
+                                        : PLAYER_ANALYTICS.length;
+                                    return (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8,
+                                                      marginTop: 8, marginBottom: 2 }}>
+                                            <div style={{ position: 'relative', flex: 1, maxWidth: 340 }}>
+                                                <span style={{ position: 'absolute', left: 9, top: '50%',
+                                                               transform: 'translateY(-50%)', fontSize: '0.72rem',
+                                                               color: '#64748b', pointerEvents: 'none' }}>🔍</span>
+                                                <input
+                                                    type="search"
+                                                    value={visSearch}
+                                                    onChange={(e) => setVisSearch(e.target.value)}
+                                                    placeholder="Filter panels — name or key (e.g. reflection)"
+                                                    aria-label="Filter player dashboard panels by name or key"
+                                                    style={{
+                                                        width: '100%', padding: '5px 26px 5px 26px',
+                                                        borderRadius: 7, fontSize: '0.72rem',
+                                                        color: '#e2e8f0',
+                                                        background: 'rgba(15,23,42,0.65)',
+                                                        border: '1px solid rgba(148,163,184,0.28)',
+                                                    }}
+                                                />
+                                                {visSearch && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setVisSearch('')}
+                                                        aria-label="Clear filter"
+                                                        style={{
+                                                            position: 'absolute', right: 6, top: '50%',
+                                                            transform: 'translateY(-50%)', cursor: 'pointer',
+                                                            border: 'none', background: 'transparent',
+                                                            color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1,
+                                                        }}
+                                                    >×</button>
+                                                )}
+                                            </div>
+                                            {visSearch && (
+                                                <span style={{ fontSize: '0.66rem',
+                                                               color: matches ? '#94a3b8' : '#f59e0b' }}>
+                                                    {matches} of {PLAYER_ANALYTICS.length} match
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+
+                                {/* No-match state: a silently empty panel would read as the
+                                    same "the toggle is missing" bug this search exists to
+                                    prevent. */}
+                                {visSearch.trim() && !PLAYER_ANALYTICS.some(a => {
+                                    const q = visSearch.trim().toLowerCase();
+                                    return a.label.toLowerCase().includes(q)
+                                        || a.key.toLowerCase().includes(q)
+                                        || (a.group || '').toLowerCase().includes(q);
+                                }) && (
+                                    <div style={{ marginTop: 10, padding: '10px 12px', borderRadius: 8,
+                                                  border: '1px dashed rgba(245,158,11,0.4)',
+                                                  background: 'rgba(245,158,11,0.07)',
+                                                  fontSize: '0.72rem', color: '#cbd5e1' }}>
+                                        No panel matches “{visSearch.trim()}”. Every one of the{' '}
+                                        {PLAYER_ANALYTICS.length} panels is still configured — clear the
+                                        filter to see them.
+                                    </div>
+                                )}
+
+                                {(() => {
+                                    const q = visSearch.trim().toLowerCase();
+                                    if (!q) return playerVisibilityGroups();
+                                    return playerVisibilityGroups()
+                                        .map(({ group, cards }) => ({
+                                            group,
+                                            // Group name matches too, so typing "prediction"
+                                            // surfaces the whole section rather than nothing.
+                                            cards: group.toLowerCase().includes(q)
+                                                ? cards
+                                                : cards.filter(c =>
+                                                    c.label.toLowerCase().includes(q)
+                                                    || c.key.toLowerCase().includes(q)),
+                                        }))
+                                        .filter(g => g.cards.length > 0);
+                                })().map(({ group, cards }) => {
                                     const on = cards.filter(c => visibility.player[c.key]).length;
                                     const allOn = on === cards.length;
                                     return (
