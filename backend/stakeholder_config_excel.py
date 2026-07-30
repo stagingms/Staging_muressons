@@ -330,6 +330,255 @@ def import_stakeholders_from_excel(xlsx_path: str | Path) -> list[dict]:
 #  CLI (standalone usage)
 # ═══════════════════════════════════════════════════════════════
 
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  MASTER WORKBOOK — every scope in ONE file
+#
+#  BUG-2026-07-30: the Stakeholder Configurator's "Master file (all verticals &
+#  regions)" tab called three endpoints that were never implemented —
+#  /bulk-template, /bulk-preview, /bulk-upload. Downloading showed
+#  "Template download failed" (a 404 surfacing as a generic message). The whole
+#  master-file mode was frontend-only; single-scope worked because
+#  /download/{config_id} does exist.
+#
+#  Two layouts are accepted on the way back IN, because the UI promises both:
+#    * one sheet per scope, sheet name == config_id  (what we WRITE)
+#    * a single sheet carrying "Vertical" and/or "Region" columns
+#  Excel caps sheet names at 31 chars, and config ids like
+#  vertical_banking_financial_services__north_america exceed that, so the
+#  written workbook also carries a Scopes index mapping sheet -> real id. The
+#  reader prefers that index and only falls back to the sheet title.
+# ═══════════════════════════════════════════════════════════════════════════
+
+# Column header -> stakeholder dict key. Mirrors the row order written by
+# export_stakeholders_to_excel, so the single-sheet and master exports can
+# never disagree about what a column means.
+_COLUMN_TO_KEY = {
+    "ID": "id",
+    "Name": "name",
+    "Icon": "icon",
+    "Correct Quadrant": "correct_quadrant",
+    "Alternate Quadrant": "alternate_quadrant",
+    "Urgency": "urgency",
+    "Legitimacy": "legitimacy",
+    "Description": "description",
+    "Urgency Rationale": "urgency_rationale",
+    "Alternate Rationale": "alternate_rationale",
+    "Intel Dossier 1": "intel_dossier",
+    "Intel Dossier 2": "intel_dossier",
+    "Intel Dossier 3": "intel_dossier",
+    "Engagement Tactic 1": "engagement_tactics",
+    "Engagement Tactic 2": "engagement_tactics",
+    "Engagement Tactic 3": "engagement_tactics",
+}
+
+INDEX_SHEET = "Scopes"
+_SHEET_LIMIT = 31
+
+
+def _safe_sheet_name(config_id: str, taken: set[str]) -> str:
+    """Excel-legal, unique, and stable-ish for a human reading tabs."""
+    bad = set('[]:*?/\\')
+    cleaned = "".join(("_" if ch in bad else ch) for ch in config_id)
+    name = cleaned[:_SHEET_LIMIT]
+    if name not in taken:
+        taken.add(name)
+        return name
+    for i in range(2, 100):
+        suffix = f"~{i}"
+        cand = name[: _SHEET_LIMIT - len(suffix)] + suffix
+        if cand not in taken:
+            taken.add(cand)
+            return cand
+    raise ValueError(f"could not make a unique sheet name for {config_id!r}")
+
+
+def export_master_workbook(scopes: dict, output_path) -> dict:
+    """Write {config_id: [stakeholder dicts]} to one workbook.
+
+    Returns {config_id: sheet_name} so callers can report what was written.
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    wb = Workbook()
+    index_ws = wb.active
+    index_ws.title = INDEX_SHEET
+
+    header_font = Font(name="Calibri", size=11, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1B4F72", end_color="1B4F72", fill_type="solid")
+
+    index_ws.append(["Config ID", "Sheet", "Stakeholders"])
+    for c in index_ws[1]:
+        c.font = header_font
+        c.fill = header_fill
+    index_ws.column_dimensions["A"].width = 46
+    index_ws.column_dimensions["B"].width = 34
+    index_ws.column_dimensions["C"].width = 14
+
+    taken: set[str] = {INDEX_SHEET}
+    written: dict = {}
+
+    for config_id in sorted(scopes):
+        rows = scopes[config_id] or []
+        sheet_name = _safe_sheet_name(str(config_id), taken)
+        ws = wb.create_sheet(title=sheet_name)
+        ws.append(list(COLUMNS))
+        for c in ws[1]:
+            c.font = header_font
+            c.fill = header_fill
+            c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        for sh in rows:
+            ws.append([_cell_for(sh, col) for col in COLUMNS])
+        for i, col in enumerate(COLUMNS, start=1):
+            letter = ws.cell(row=1, column=i).column_letter
+            ws.column_dimensions[letter].width = 40 if "Descr" in col or "Rationale" in col or "Dossier" in col or "Tactic" in col else 20
+        ws.freeze_panes = "A2"
+        index_ws.append([str(config_id), sheet_name, len(rows)])
+        written[str(config_id)] = sheet_name
+
+    from openpyxl.styles import Font as _F
+    index_ws["A1"].font = header_font
+    wb.save(str(output_path))
+    return written
+
+
+def _cell_for(sh: dict, column: str):
+    """Reuse the single-sheet encoding so both exports stay identical."""
+    key = _COLUMN_TO_KEY.get(column)
+    if key is None:
+        return ""
+    if column.startswith("Engagement Tactic"):
+        idx = int(column[-1]) - 1
+        tactics = sh.get("engagement_tactics") or []
+        return _encode_tactic(tactics[idx]) if idx < len(tactics) else ""
+    if column.startswith("Intel Dossier"):
+        idx = int(column[-1]) - 1
+        dossier = sh.get("intel_dossier") or []
+        return dossier[idx] if idx < len(dossier) else ""
+    val = sh.get(key, "")
+    return "" if val is None else val
+
+
+def import_master_workbook(xlsx_path) -> dict:
+    """Read a master workbook and return {config_id: [stakeholder dicts]}.
+
+    Accepts either layout described in this section's header. Raises ValueError
+    with a descriptive message when neither can be found, so the operator is
+    told what shape was expected rather than getting an empty result.
+    """
+    from openpyxl import load_workbook
+
+    wb = load_workbook(str(xlsx_path), read_only=True, data_only=True)
+
+    # Sheet -> config_id, from the index we write.
+    sheet_to_id: dict = {}
+    if INDEX_SHEET in wb.sheetnames:
+        ws = wb[INDEX_SHEET]
+        rows = list(ws.iter_rows(min_row=2, values_only=True))
+        for row in rows:
+            if not row:
+                continue
+            cid = (row[0] or "").strip() if isinstance(row[0], str) else row[0]
+            sheet = (row[1] or "").strip() if len(row) > 1 and isinstance(row[1], str) else None
+            if cid and sheet:
+                sheet_to_id[sheet] = str(cid)
+
+    out: dict = {}
+    for sheet_name in wb.sheetnames:
+        if sheet_name == INDEX_SHEET:
+            continue
+        ws = wb[sheet_name]
+        header = next(ws.iter_rows(min_row=1, max_row=1, values_only=True), None)
+        if not header:
+            continue
+        cols = {str(h).strip(): i for i, h in enumerate(header) if h}
+        if "ID" not in cols:
+            continue
+
+        has_scope_cols = ("Vertical" in cols) or ("Region" in cols)
+        grouped: dict = {}
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if not row or not any(row):
+                continue
+            if has_scope_cols:
+                vert = row[cols["Vertical"]] if "Vertical" in cols and cols["Vertical"] < len(row) else None
+                reg = row[cols["Region"]] if "Region" in cols and cols["Region"] < len(row) else None
+                cid = _compose_config_id(vert, reg)
+            else:
+                cid = sheet_to_id.get(sheet_name, sheet_name)
+            grouped.setdefault(cid, []).append(row)
+
+        for cid, raw_rows in grouped.items():
+            parsed = _rows_to_stakeholders(cols, raw_rows, cid)
+            if parsed:
+                out.setdefault(cid, []).extend(parsed)
+
+    if not out:
+        raise ValueError(
+            "No stakeholder rows found. Give each scope its own sheet (named as "
+            "in the Scopes index), or add 'Vertical' and/or 'Region' columns to "
+            "a single sheet."
+        )
+    return out
+
+
+def _compose_config_id(vertical, region) -> str:
+    v = str(vertical).strip().lower().replace(" ", "_") if vertical else ""
+    r = str(region).strip().lower().replace(" ", "_") if region else ""
+    if v and r:
+        return f"vertical_{v}__{r}"
+    if v:
+        return f"vertical_{v}"
+    if r:
+        return r
+    return "canonical"
+
+
+def _rows_to_stakeholders(cols: dict, rows: list, config_id: str) -> list:
+    """Turn raw rows into stakeholder dicts using the single-sheet key map."""
+    out = []
+    seen = set()
+    for row in rows:
+        def cell(name):
+            i = cols.get(name)
+            if i is None or i >= len(row):
+                return None
+            v = row[i]
+            return v.strip() if isinstance(v, str) else v
+
+        sid = cell("ID")
+        if not sid:
+            continue
+        sid = str(sid).strip()
+        if sid in seen:
+            raise ValueError(f"{config_id}: duplicate stakeholder ID {sid!r}")
+        seen.add(sid)
+
+        sh = {}
+        for column, key in _COLUMN_TO_KEY.items():
+            if column.startswith(("Engagement Tactic", "Intel Dossier")):
+                continue
+            v = cell(column)
+            if v is not None and v != "":
+                sh[key] = v
+        sh["id"] = sid
+
+        dossier = [cell(f"Intel Dossier {i}") for i in (1, 2, 3)]
+        sh["intel_dossier"] = [d for d in dossier if d]
+
+        tactics = []
+        for i in (1, 2, 3):
+            raw = cell(f"Engagement Tactic {i}")
+            if raw:
+                t = _parse_tactic(str(raw))
+                if t:
+                    tactics.append(t)
+        sh["engagement_tactics"] = tactics
+        out.append(sh)
+    return out
+
+
 def main():
     if len(sys.argv) < 2:
         print("Usage: python stakeholder_config_excel.py [export|import] [path]")

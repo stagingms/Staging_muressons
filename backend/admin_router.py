@@ -6847,6 +6847,230 @@ async def download_stakeholder_excel(
 
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  STAKEHOLDER CONFIG — MASTER FILE (all verticals & regions in one workbook)
+#
+#  BUG-2026-07-30: the Configurator's "Master file" tab called
+#  /bulk-template, /bulk-preview and /bulk-upload — NONE of which existed. The
+#  download button surfaced the 404 as "Template download failed"; the whole
+#  mode was frontend-only. Single-scope worked because /download/{config_id}
+#  is real. These three implement the contract the UI was already written for,
+#  including the preview shape it renders (scope_count + per-scope blast
+#  radius) and the upload response it reports.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _collect_all_scopes() -> dict:
+    """Every scope worth putting in a master file: canonical, each vertical,
+    and every saved region override.
+
+    A SAVED override always wins over the built-in Python definition. The first
+    cut of this exported stakeholder_map.STAKEHOLDERS for "canonical"
+    unconditionally, which meant downloading the master file and re-applying it
+    would silently overwrite a customised canonical set with the shipped
+    defaults — a round trip that quietly destroys work. Verified against a real
+    install whose canonical config had been replaced with an India-pharma set:
+    the export carried the built-ins instead. Prefer what is actually in force,
+    so download -> upload is identity.
+    """
+    from stakeholder_map import STAKEHOLDERS
+
+    saved: dict = {}
+    try:
+        from stakeholder_db import list_region_configs, get_region_config_raw
+        for cfg in list_region_configs():
+            raw = get_region_config_raw(cfg)
+            if raw:
+                saved[cfg] = raw
+    except Exception:
+        pass
+
+    scopes: dict = dict(saved)
+    scopes.setdefault("canonical", list(STAKEHOLDERS))
+
+    try:
+        from vertical_stakeholders import VERTICAL_STAKEHOLDER_SETS, get_stakeholders_for_vertical
+        for v_id in VERTICAL_STAKEHOLDER_SETS:
+            key = f"vertical_{v_id}"
+            if key in scopes:
+                continue  # a saved override is already in force
+            rows = get_stakeholders_for_vertical(v_id)
+            if rows:
+                scopes[key] = rows
+    except Exception:
+        pass
+
+    return scopes
+
+
+@admin_router.get(
+    "/stakeholder-config/bulk-template",
+    summary="Download ONE workbook containing every vertical & region scope",
+)
+async def download_stakeholder_master_template(
+    _guard: None = Depends(require_facilitator),
+):
+    import os
+    import tempfile
+    from fastapi.responses import StreamingResponse
+    from stakeholder_config_excel import export_master_workbook
+
+    scopes = _collect_all_scopes()
+    if not scopes:
+        raise HTTPException(status_code=404, detail="No stakeholder scopes available to export.")
+
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
+    os.close(tmp_fd)
+    try:
+        export_master_workbook(scopes, tmp_path)
+
+        def _iter_file():
+            with open(tmp_path, "rb") as f:
+                yield from iter(lambda: f.read(8192), b"")
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+        return StreamingResponse(
+            _iter_file(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": 'attachment; filename="stakeholder_master_all_scopes.xlsx"'},
+        )
+    except Exception:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
+
+
+def _read_master_upload(file) -> dict:
+    """Persist the upload to a temp file and parse it. Shared by preview+apply
+    so the two can never disagree about what the file says."""
+    import os
+    import tempfile
+    from stakeholder_config_excel import import_master_workbook
+
+    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".xlsx")
+    os.close(tmp_fd)
+    try:
+        with open(tmp_path, "wb") as out:
+            out.write(file.file.read())
+        return import_master_workbook(tmp_path)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        # A .csv, a PDF, or a truncated download reaches openpyxl as a
+        # zipfile.BadZipFile and would surface as an opaque 500. A facilitator
+        # dropping the wrong file deserves to be told which file and why.
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Could not read '{getattr(file, 'filename', 'the upload')}' as an "
+                f".xlsx workbook ({type(exc).__name__}). Export from Excel as "
+                ".xlsx — .csv and .xls are not accepted."
+            ),
+        )
+    finally:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+
+
+@admin_router.post(
+    "/stakeholder-config/bulk-preview",
+    summary="Preview what a master workbook would change — writes nothing",
+)
+async def preview_stakeholder_master(
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_super_admin),
+):
+    """Blast radius before anything is written: per scope, which stakeholder
+    ids are new, which replace an existing override, and which disappear
+    (reverting to the canonical definition)."""
+    from stakeholder_db import get_region_config_raw
+
+    parsed = _read_master_upload(file)
+
+    scopes = []
+    for config_id in sorted(parsed):
+        incoming = parsed[config_id]
+        incoming_ids = [s["id"] for s in incoming]
+        existing = get_region_config_raw(config_id) or []
+        existing_ids = {s.get("id") for s in existing}
+
+        scopes.append({
+            "config_id": config_id,
+            "scope_kind": (
+                "canonical" if config_id == "canonical"
+                else "vertical+region" if config_id.startswith("vertical_") and "__" in config_id
+                else "vertical" if config_id.startswith("vertical_")
+                else "region"
+            ),
+            "is_new_config": not existing,
+            "existing_overrides": len(existing),
+            "incoming_overrides": len(incoming),
+            "new_overrides": [i for i in incoming_ids if i not in existing_ids],
+            "replaced_overrides": [i for i in incoming_ids if i in existing_ids],
+            "reverting_to_canonical": sorted(existing_ids - set(incoming_ids)),
+        })
+
+    return {
+        "scope_count": len(scopes),
+        "total_stakeholders": sum(s["incoming_overrides"] for s in scopes),
+        "scopes": scopes,
+    }
+
+
+@admin_router.post(
+    "/stakeholder-config/bulk-upload",
+    summary="Apply a master workbook — writes every scope it contains",
+)
+async def apply_stakeholder_master(
+    file: UploadFile = File(...),
+    _guard: None = Depends(require_super_admin),
+):
+    from stakeholder_db import save_region_config, invalidate_cache
+
+    parsed = _read_master_upload(file)
+
+    written, failed, total = [], [], 0
+    for config_id, rows in parsed.items():
+        if save_region_config(config_id, rows):
+            written.append(config_id)
+            total += len(rows)
+        else:
+            # save_region_config rejects ids that are not lowercase slugs.
+            failed.append(config_id)
+
+    invalidate_cache()
+
+    if failed and not written:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No scopes could be written. Invalid scope id(s): "
+                + ", ".join(failed)
+                + ". Ids must be lowercase letters, digits or underscores."
+            ),
+        )
+
+    _audit("stakeholder_master_uploaded", details={
+        "scope_count": len(written),
+        "total_stakeholders": total,
+        "scopes": written,
+        "rejected": failed,
+    })
+
+    return {
+        "scope_count": len(written),
+        "total_stakeholders": total,
+        "scopes": written,
+        "rejected": failed,
+    }
+
+
 @admin_router.get(
     "/{session_id}/audit-trail",
     summary="Get the decision audit trail for a cohort",
