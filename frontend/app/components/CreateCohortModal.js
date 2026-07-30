@@ -229,6 +229,25 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // tell "opened the form" apart from "changed the level" — see the effect
     // that applies preset visibility.
     const initialExperienceLevelRef = useRef(null);
+    // ── Stakeholder Negotiation Rooms (Slice 5) ─────────────────────────────
+    // Per-cohort opt-in, OFF by default, and CAPABILITY-gated: the server
+    // (admin_router) rejects negotiation_rooms_enabled:true from any account
+    // that neither is an admin nor holds the capability on its facilitator
+    // record. The UI check below mirrors that rule (same localStorage source
+    // AnalyticsControlPanel uses) so we never show a switch whose save would
+    // 403 — but the server remains the enforcement point, not this.
+    const [negotiationRoomsEnabled, setNegotiationRoomsEnabled] = useState(false);
+    const [negoCapable, setNegoCapable] = useState(false);
+    useEffect(() => {
+        const adminByProp = ['super_admin', 'admin'].includes(currentFacilitatorRole);
+        try {
+            const auth = JSON.parse(localStorage.getItem('godmode_auth')
+                || localStorage.getItem('facilitator_auth') || '{}');
+            const isAdmin = adminByProp || auth.is_admin === true
+                || ['super_admin', 'god_mode', 'admin'].includes(auth.role);
+            setNegoCapable(isAdmin || auth.negotiation_rooms_enabled === true);
+        } catch { setNegoCapable(adminByProp); }
+    }, [currentFacilitatorRole]);
     const [visibility, setVisibility] = useState({
         facilitator: {},
         player: {},
@@ -298,6 +317,15 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             initialExperienceLevelRef.current =
                 editSession.scenario_preset || editSession.experience_level || 'workshop_standard';
             setPedagogyCustomised(false);
+            // Negotiation Rooms rides cohort-settings, which editSession does not
+            // carry — read the cohort-effective value the same way the Analytics
+            // Control Panel does. Fail-open to OFF: a failed read must not
+            // silently enable a capability-gated feature.
+            fetch(`${API}/api/admin/global-settings?session_id=${encodeURIComponent(editSession.session_id)}`,
+                  { credentials: 'include' })
+                .then(r => (r.ok ? r.json() : {}))
+                .then(d => setNegotiationRoomsEnabled(d.negotiation_rooms_enabled === true))
+                .catch(() => {});
             setEngageAdvancedClimate(editSession.simulation_mode === 'advanced_climate');
             setCarbonFee(editSession.global_carbon_fee ?? 40);
             setHostility(editSession.market_hostility_index ?? 5);
@@ -690,6 +718,15 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 // these and stamps rng_seed onto the cohort's stochastic stream.
                 rng_seed: rngSeed.trim(),
                 results_reveal_round: resultsRevealRound,
+                // Negotiation Rooms: sent ONLY by capability holders. Two traps
+                // this placement avoids: the pedagogical-settings PUT derives its
+                // allow-list from DEFAULT_PEDAGOGICAL_TOGGLES, which does not
+                // carry this key, so it would be silently dropped there; and the
+                // server 403s the WHOLE request when a non-holder sends true —
+                // which would take results_reveal_round and the quiz settings
+                // down with it. Holders send the value both ways so switching it
+                // OFF in edit mode actually persists.
+                ...(negoCapable ? { negotiation_rooms_enabled: negotiationRoomsEnabled } : {}),
                 redact_peer_identities: redactPeers,
                 quiz_enabled: quizEnabled,
                 quiz_graded: quizGraded,
@@ -2126,6 +2163,31 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                             </div>
                                         </div>
                                     ))}
+                                    {/* Negotiation Rooms — rendered OUTSIDE the
+                                        PEDAGOGICAL_TOGGLES map on purpose. It is
+                                        capability-gated (hidden from accounts whose
+                                        save the server would 403) and persists via
+                                        cohort-settings rather than the pedagogy PUT,
+                                        whose allow-list would silently drop it. Keep
+                                        it out of that const or the every-toggle-can-
+                                        persist test will rightly fail. */}
+                                    {negoCapable && (
+                                        <div
+                                            className={`${styles.visCard} ${negotiationRoomsEnabled ? styles.visCardActive : ''}`}
+                                            onClick={() => setNegotiationRoomsEnabled(v => !v)}
+                                            data-tooltip="Stakeholder Negotiation Rooms — live deal-making with an escalated NPC stakeholder. Players get a 'Request meeting' button on agent cards in triggered or hostile stage; dormant stakeholders take no meetings. Opt-in, OFF by default. You see this switch because your account holds the capability — the server enforces the same rule on save."
+                                        >
+                                            <span className={styles.visIcon}>🤝</span>
+                                            <span className={styles.visLabel}>Negotiation Rooms</span>
+                                            <div className={styles.visToggleTrack}
+                                                style={{ background: negotiationRoomsEnabled ? '#10b981' : '#475569' }}
+                                            >
+                                                <div className={styles.visToggleThumb}
+                                                    style={{ left: negotiationRoomsEnabled ? '14px' : '2px' }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </section>

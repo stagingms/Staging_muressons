@@ -162,3 +162,70 @@ test('opening the modal from closed does not violate the Rules of Hooks', async 
     expect(container.textContent).toContain('Core Configuration');  // it actually opened
   } finally { spy.mockRestore(); }
 });
+
+describe('Negotiation Rooms toggle', () => {
+  // Capability-gated: the server 403s negotiation_rooms_enabled:true from any
+  // account that is neither admin nor a capability holder — and a 403 there
+  // takes the WHOLE cohort-settings PATCH down with it (reveal round, quiz
+  // settings). So the switch must only exist where the save can succeed, and
+  // the payload must only carry the key for accounts allowed to send it.
+  afterEach(() => localStorage.clear());
+
+  const openPedagogy = async (container) => {
+    const { act } = require('@testing-library/react');
+    const btn = [...container.querySelectorAll('button')]
+      .find(b => /Pedagogy\s*&\s*Analytics/.test(b.textContent || ''));
+    await act(async () => { btn.click(); await new Promise(r => setTimeout(r, 250)); });
+  };
+
+  test('visible to a capability holder who is not an admin', async () => {
+    localStorage.setItem('facilitator_auth',
+      JSON.stringify({ role: 'facilitator', negotiation_rooms_enabled: true }));
+    const { container } = render(
+      <CreateCohortModal isOpen onClose={() => {}} onCreated={() => {}}
+                         currentFacilitatorId="FAC-7" currentFacilitatorRole="facilitator" />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    await act(async () => { await new Promise(r => setTimeout(r, 300)); });
+    await openPedagogy(container);
+    expect(container.textContent).toContain('Negotiation Rooms');
+  });
+
+  test('hidden from a plain facilitator without the capability', async () => {
+    localStorage.setItem('facilitator_auth', JSON.stringify({ role: 'facilitator' }));
+    const { container } = render(
+      <CreateCohortModal isOpen onClose={() => {}} onCreated={() => {}}
+                         currentFacilitatorId="FAC-7" currentFacilitatorRole="facilitator" />);
+    await waitFor(() => expect(global.fetch).toHaveBeenCalled());
+    await act(async () => { await new Promise(r => setTimeout(r, 300)); });
+    await openPedagogy(container);
+    expect(container.textContent).not.toContain('Negotiation Rooms');
+  });
+
+  test('admins see it without the per-account capability', async () => {
+    const { container } = await openForm();   // super_admin fixture
+    expect(container.textContent).toContain('Negotiation Rooms');
+  });
+
+  test('persists via cohort-settings, never the pedagogy PUT', () => {
+    // Trap 1: the pedagogy PUT allow-list derives from
+    // DEFAULT_PEDAGOGICAL_TOGGLES, which lacks this key — a save through it
+    // looks successful and stores nothing.
+    const fs = require('fs');
+    const path = require('path');
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', 'app', 'components', 'CreateCohortModal.js'), 'utf8');
+    const cohortStep = src.slice(src.indexOf('/cohort-settings`'),
+                                 src.indexOf('quiz_max_attempts'));
+    expect(cohortStep).toMatch(/negotiation_rooms_enabled: negotiationRoomsEnabled/);
+    // Trap 2: only capability holders may carry the key at all.
+    expect(cohortStep).toMatch(/\.\.\.\(negoCapable \? \{ negotiation_rooms_enabled/);
+    const pedStep = src.slice(src.indexOf('/pedagogical-settings`'),
+                              src.indexOf('/cohort-settings`'));
+    expect(pedStep).not.toMatch(/negotiation_rooms_enabled/);
+    // And it must stay out of the PEDAGOGICAL_TOGGLES const, whose every entry
+    // is asserted persistable through the pedagogy PUT.
+    const toggles = src.slice(src.indexOf('const PEDAGOGICAL_TOGGLES'),
+                              src.indexOf('const ENGINE_MODULE_TOGGLES'));
+    expect(toggles).not.toMatch(/negotiation_rooms_enabled/);
+  });
+});
