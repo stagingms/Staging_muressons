@@ -2868,8 +2868,14 @@ class PlayerInductRequest(BaseModel):
     email: str = Field(..., max_length=200)
     programme: str = Field("", max_length=200)  # optional programme/cohort label (parity with bulk upload)
     session_id: str = Field(..., max_length=100)
+    # assigned_bu is legacy on this request: the slot is DERIVED from the
+    # industry. It stays accepted (and is read as an industry hint when
+    # industry_vertical is absent) so older API clients keep working, but the
+    # cohort's roster shape decides what is actually stored — see
+    # _resolve_player_scope.
     assigned_bu: str = Field(..., max_length=100)
-    region_id: str = Field("", max_length=50)  # NEW — geographic region for single-BU localisation
+    industry_vertical: str = Field("", max_length=100)  # the player's own company (single_bu)
+    region_id: str = Field("", max_length=50)           # the market they run it in
 
 class MasterOverride(BaseModel):
     id: str
@@ -3795,6 +3801,7 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
 
     # Fetch cohort_name from session so login response can return it
     _cohort_name = ""
+    _sess_info = None
     try:
         _sess_info = await db.get_session_info(req.session_id)
         if _sess_info:
@@ -3802,13 +3809,27 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
     except Exception:
         pass
 
+    # Resolve this player's scope against the cohort's roster shape — the same
+    # gate the bulk upload runs. A conglomerate cohort yields empty scope
+    # whatever the request asked for, because every player there runs all four
+    # business units; a single-business cohort resolves the industry (defaulting
+    # to the cohort's own) and derives the slot from it.
+    _scope = _resolve_player_scope(_sess_info, req.industry_vertical or req.assigned_bu,
+                                   req.region_id)
+
     player = {
         "player_id": generated_id,
         "name": req.name,
         "email": req.email,
         "programme": req.programme,
-        "assigned_bu": req.assigned_bu,
-        "region_id": req.region_id,
+        # See the note in _create_players_bulk: an assigned_bu on a conglomerate
+        # cohort's player scopes that player to one BU at join. This path is
+        # API-only (the Player Registry UI uses generate-player), and _scope is
+        # resolved against the cohort's RosterShape below so it cannot smuggle in
+        # what the bulk path now refuses.
+        "assigned_bu": _scope["assigned_bu"],
+        "industry_vertical": _scope["industry_vertical"],
+        "region_id": _scope["region_id"],
         "session_id": req.session_id,
         "cohort_name": _cohort_name,
         "password": generated_password_hash,  # L-4: store bcrypt hash, never plaintext
@@ -4393,7 +4414,13 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
         "name": "",
         "email": "",
         "programme": "",
+        # A bare id carries NO scope: it is a seat, not yet a person, and the
+        # cohort's own settings decide what the seat runs. In single-business mode
+        # join_session falls back to the cohort's vertical for exactly this case,
+        # so an empty scope here is correct rather than merely unfilled.
         "assigned_bu": "",
+        "industry_vertical": "",
+        "region_id": "",
         "session_id": session_id,
         "password": hash_password(generated_password),  # L-4: store bcrypt hash
         "plaintext_password": generated_password,  # revealable temp credential; erased on personal change
@@ -4427,7 +4454,9 @@ async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dic
     """Shared bulk player-creation path (used by the bulk-upload endpoints).
 
     `players` is parser output (player_bulk_excel.parse_player_sheet): dicts with
-    name / email / programme / assigned_bu / region_id. Each is created with a
+    name / email / programme and a scope triple already resolved and validated
+    against the cohort's RosterShape (assigned_bu / industry_vertical /
+    region_id — all empty for a conglomerate cohort). Each is created with a
     per-player temp password, writing the SAME record shape as induct_player and
     generate_player_id (kept congruent by test_player_record_shape), and persisted
     durably (registry + registered_players via the db interface) so the credential
@@ -4457,7 +4486,16 @@ async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dic
             "name": p.get("name", ""),
             "email": p.get("email", ""),
             "programme": p.get("programme", ""),
+            # SCOPE. In a 4-BU conglomerate cohort the parser leaves all three
+            # of these EMPTY, and that emptiness is load-bearing: join_session
+            # treats a per-player assigned_bu as Priority 1 and create_session
+            # then filters bu_states down to it, so a stray value here is how a
+            # conglomerate player silently becomes a single-BU player.
+            # In single-business mode industry_vertical is the player's own
+            # company, region_id their market, and assigned_bu the slot derived
+            # from the vertical (never authored).
             "assigned_bu": p.get("assigned_bu", ""),
+            "industry_vertical": p.get("industry_vertical", ""),
             "region_id": p.get("region_id", ""),
             "session_id": session_id,
             "cohort_name": _cohort_name,
@@ -4474,6 +4512,11 @@ async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dic
             "name": player["name"],
             "email": player["email"],
             "programme": player["programme"],
+            # Echoed so the facilitator distributing credentials can see WHICH
+            # company each player got, in the one screen where that is checkable
+            # before anyone logs in. Empty in conglomerate mode, by design.
+            "industry_vertical": player["industry_vertical"],
+            "region_id": player["region_id"],
             "temp_password": temp,
         })
 
@@ -4518,11 +4561,138 @@ async def _cohort_remaining_capacity(session_id: str):
     return sess, cap, max(0, cap - used)
 
 
+def _resolve_player_scope(session_info: dict | None, industry: str, region: str) -> dict:
+    """The scope triple (assigned_bu, industry_vertical, region_id) a single
+    player may hold in a given cohort.
+
+    The bulk path gets this from the parser, which validates a whole sheet at
+    once. The single-player path needs the same answer for one row, and needs it
+    to be the SAME answer — otherwise adding twenty players by hand produces
+    records the spreadsheet route would have refused, and the two halves of a
+    cohort's roster stop meaning the same thing.
+
+    A conglomerate cohort always yields empty scope, regardless of what the
+    caller asked for. That is not the caller being ignored; it is the only value
+    that leaves the player running all four business units, which is what their
+    cohort is.
+    """
+    from roster_shape import INDUSTRY, REGION, resolve_roster_shape, vertical_slot
+    shape = resolve_roster_shape(session_info)
+    if not shape.per_player_scope:
+        return {"assigned_bu": "", "industry_vertical": "", "region_id": ""}
+
+    vertical = (industry or "").strip()
+    if vertical not in shape.choices.get(INDUSTRY, []):
+        # An unrecognised value (including a bare slot id from an older client
+        # that only knew assigned_bu) falls back to the cohort's own vertical
+        # rather than being stored as-is: an industry no catalogue contains
+        # cannot be rendered, priced or briefed.
+        vertical = shape.default_for(INDUSTRY)
+    reg = (region or "").strip()
+    if reg not in shape.choices.get(REGION, []):
+        reg = shape.default_for(REGION)
+    return {
+        "assigned_bu": vertical_slot(vertical),
+        "industry_vertical": vertical,
+        "region_id": reg,
+    }
+
+
+def _filename_slug(text: str, limit: int = 40) -> str:
+    """A cohort name reduced to something safe in a Content-Disposition filename.
+
+    Facilitators run several cohorts at once and download a template for each;
+    three files all called player_roster_template.xlsx in a Downloads folder is
+    how the wrong roster gets uploaded to the wrong cohort. Non-ASCII is dropped
+    rather than transliterated — the slug is a label for a human scanning a
+    folder, and the session_id fallback keeps it never-empty.
+    """
+    import re as _re
+    slug = _re.sub(r"[^A-Za-z0-9]+", "_", str(text or "")).strip("_")[:limit].strip("_")
+    return slug or "cohort"
+
+
+async def _cohort_roster_shape(session_id: str):
+    """(session_info, RosterShape) for a cohort, or raise 404.
+
+    ONE resolution site for all four roster endpoints — shape, template, preview
+    and upload — so the template a facilitator downloads, the errors they are
+    shown and the rows the commit accepts are literally the same object's
+    opinion. A second resolution site is how a template starts offering a column
+    the upload refuses.
+    """
+    from roster_shape import resolve_roster_shape
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(status_code=404, detail="Session not found.")
+    return sess, resolve_roster_shape(sess)
+
+
+@admin_router.get(
+    "/{session_id}/players/roster-shape",
+    summary="The roster shape for one cohort — which player columns exist, and their choices",
+)
+async def players_roster_shape(session_id: str, _guard: None = Depends(require_facilitator)):
+    """Lets the upload modal describe THIS cohort instead of describing rosters
+    in general. Without it the modal has to guess at the mode, and a modal that
+    guesses will eventually promise a column the template does not ship."""
+    from player_capacity import resolve_max_players
+    _sess, shape = await _cohort_roster_shape(session_id)
+    _cap = resolve_max_players(get_effective_settings(session_id))
+    used = len(_sess.get("registered_players", []) or [])
+    return {
+        "ok": True,
+        "session_id": session_id,
+        "shape": shape.as_api(),
+        "max_players": _cap,
+        "used": used,
+        "remaining": max(0, _cap - used),
+    }
+
+
+@admin_router.get(
+    "/{session_id}/players/bulk-template",
+    summary="Download the player roster .xlsx template shaped for ONE cohort",
+)
+async def players_bulk_template_for_cohort(
+    session_id: str, _guard: None = Depends(require_facilitator),
+):
+    """The template a facilitator should actually use.
+
+    A 4-BU conglomerate cohort gets a sheet with no per-player business unit to
+    fill in; a single-business cohort gets industry + region dropdowns holding
+    exactly the values its own upload accepts. Both come from the cohort's
+    RosterShape, so the file cannot fail the endpoint that produced it.
+    """
+    import os, tempfile
+    from fastapi.responses import FileResponse
+    from player_bulk_excel import build_player_template
+    sess, shape = await _cohort_roster_shape(session_id)
+    fd, path = tempfile.mkstemp(suffix=".xlsx", prefix="player_template_")
+    os.close(fd)
+    build_player_template(path, shape)
+    slug = _filename_slug(sess.get("cohort_name") or session_id)
+    return FileResponse(
+        path,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=f"player_roster_{slug}.xlsx",
+    )
+
+
 @admin_router.get(
     "/players/bulk-template",
-    summary="Download the single-cohort player roster .xlsx template",
+    summary="Download the generic (conglomerate) player roster .xlsx template",
 )
 async def players_bulk_template(_guard: None = Depends(require_facilitator)):
+    """Cohort-less template, kept for API compatibility.
+
+    It ships the CONGLOMERATE shape, which is the system default for
+    `simulation_mode` and the safe answer when no cohort is named: it omits the
+    per-player scope columns rather than offering ones whose vocabulary cannot be
+    checked against a cohort. Prefer
+    GET /{session_id}/players/bulk-template — a single-business cohort needs its
+    own industry and region dropdowns, and this route cannot know that.
+    """
     import os, tempfile
     from fastapi.responses import FileResponse
     from player_bulk_excel import build_player_template
@@ -4547,22 +4717,34 @@ async def players_bulk_preview(
 ):
     """Parse-only: every error at once, nothing created. A deliberately distinct
     route from bulk-upload so an older backend answers 404/405 and the frontend
-    falls back safely instead of accidentally creating players."""
+    falls back safely instead of accidentally creating players.
+
+    The preview echoes the RESOLVED industry / region / business-unit slot for
+    every row, not the raw cells. In single-business mode a blank scope cell
+    inherits the cohort's own value and the slot is derived from the industry, so
+    without echoing the resolution the operator would be approving a sheet whose
+    effect they cannot see. `shape` rides along so the modal renders exactly the
+    columns this cohort has.
+    """
     from player_bulk_excel import parse_player_sheet, BulkPlayerError
     _sess, cap, remaining = await _cohort_remaining_capacity(session_id)
+    _sess2, shape = await _cohort_roster_shape(session_id)
     raw = await file.read()
     try:
-        players = parse_player_sheet(raw, limit=remaining)
+        players = parse_player_sheet(raw, limit=remaining, shape=shape)
     except BulkPlayerError as e:
         return {"ok": False, "errors": e.errors, "total": 0,
-                "remaining": remaining, "max_players": cap}
+                "remaining": remaining, "max_players": cap,
+                "shape": shape.as_api()}
     return {
         "ok": True,
         "total": len(players),
         "remaining": remaining,
         "max_players": cap,
+        "shape": shape.as_api(),
         "players": [
-            {k: p.get(k, "") for k in ("name", "email", "programme", "assigned_bu", "region_id")}
+            {k: p.get(k, "") for k in ("name", "email", "programme",
+                                       "industry_vertical", "region_id", "assigned_bu")}
             for p in players
         ],
         "note": "Nothing was created. POST the same file to /players/bulk-upload to create these players.",
@@ -4580,16 +4762,24 @@ async def players_bulk_upload(
 ):
     """All-or-nothing: the parser validates the whole sheet (shape, duplicates,
     capacity) before a single player is created, so a rejected file leaves the
-    roster untouched. Returns the created credentials for one-time display."""
+    roster untouched. Returns the created credentials for one-time display.
+
+    The shape is resolved from the cohort here too, NOT carried from the client:
+    preview and commit must run the identical gate, and a mode arriving in the
+    request body would let a caller ask for the single-business contract on a
+    conglomerate cohort and get per-player business units after all.
+    """
     from player_bulk_excel import parse_player_sheet, BulkPlayerError
     _sess, cap, remaining = await _cohort_remaining_capacity(session_id)
+    _sess2, shape = await _cohort_roster_shape(session_id)
     raw = await file.read()
     try:
-        players = parse_player_sheet(raw, limit=remaining)
+        players = parse_player_sheet(raw, limit=remaining, shape=shape)
     except BulkPlayerError as e:
         raise HTTPException(status_code=400, detail=str(e))
     created = await _create_players_bulk(session_id, players)
-    return {"ok": True, "created": created, "total": len(created), "max_players": cap}
+    return {"ok": True, "created": created, "total": len(created),
+            "max_players": cap, "mode": shape.mode}
 
 
 @admin_router.get(
@@ -4701,6 +4891,7 @@ async def provisioning_master_upload(
     single record is written, so a workbook that fails validation leaves NO
     facilitator, NO cohort and NO player behind."""
     from player_capacity import clamp_max_players
+    from roster_shape import vertical_slot
     raw = await file.read()
     plan = await _validate_master_workbook(raw, request)
 
@@ -4737,6 +4928,13 @@ async def provisioning_master_upload(
     for c in plan["cohorts"]:
         fref = c["facilitator_ref"].strip().lower()
         fac_id = ref_to_fac_id.get(fref, c["facilitator_ref"])  # existing id passes through
+        # assigned_bu is DERIVED from the vertical, exactly as
+        # POST /api/simulations/start does it. This path used to omit it, so a
+        # single-business cohort provisioned from a master workbook kept all four
+        # BUs on its own session while an identically-configured cohort created
+        # through the UI had one — the same cohort, two shapes, depending only on
+        # how it was created. Players were unaffected (join derives the scope
+        # itself), which is precisely why the divergence went unnoticed.
         result = await db.create_session(
             c["cohort_name"],
             fac_id,
@@ -4744,6 +4942,9 @@ async def provisioning_master_upload(
             simulation_mode=c["simulation_mode"],
             industry_vertical=c["industry_vertical"] or None,
             region_id=c["region_id"] or None,
+            assigned_bu=(vertical_slot(c["industry_vertical"])
+                         if c["simulation_mode"] == "single_bu" and c["industry_vertical"]
+                         else None),
         )
         sid = str(result["session_id"])
         ref_to_session_id[c["ref"].strip().lower()] = sid
@@ -4784,7 +4985,11 @@ async def provisioning_master_upload(
 # means a field added to the player record later cannot leak by default.
 _ROSTER_PUBLIC_FIELDS = (
     "player_id", "name", "username", "email", "programme",
-    "assigned_bu", "status", "created_at",
+    # industry_vertical is projected alongside assigned_bu because in a
+    # single-business cohort the SLOT is not the answer to "what does this player
+    # run" — two players can share the pharma slot while running oil & gas and
+    # cosmetics. The registry shows the vertical and needs it here to do so.
+    "assigned_bu", "industry_vertical", "region_id", "status", "created_at",
 )
 # `temp_password` (the live temp credential) and `must_change_password` are
 # added by _roster_view; the bcrypt hash ("password") and "plaintext_password"
@@ -8945,6 +9150,17 @@ _scenario_presets = [
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
         },
+        # Foundation Visibility, as the subtitle promises: full narrative and every
+        # scaffold, but no finance vocabulary (waterfalls, covenants, terminal
+        # value) and no peer ranking — comparison anxiety in an undergraduate
+        # room costs more learning than it buys.
+        # Tags are defined in frontend/app/config/playerVisibilityRegistry.js
+        # (AUDIENCE_TAGS); visibilityForAudiences() turns this list into the
+        # cohort's player visibility map at creation time. Adding a new player
+        # surface needs NO edit here — it inherits its tag's policy.
+        "default_audiences": ["core", "scaffold", "narrative", "insight", "debrief",
+                              "flourish"],
+        "results_reveal_round": 0,
         "tunables": {
             "inflation_rate": 0.015,
             "overrun_probability": 0.10,
@@ -8976,6 +9192,17 @@ _scenario_presets = [
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
         },
+        # Progressive Disclosure: nearly everything, minus the specialist tab
+        # sprawl. "Progressive" is literal rather than decorative —
+        # results_reveal_round holds peer rankings back to round 3, so the data
+        # is present but earned instead of simply absent.
+        # Tags are defined in frontend/app/config/playerVisibilityRegistry.js
+        # (AUDIENCE_TAGS); visibilityForAudiences() turns this list into the
+        # cohort's player visibility map at creation time. Adding a new player
+        # surface needs NO edit here — it inherits its tag's policy.
+        "default_audiences": ["core", "scaffold", "narrative", "insight", "finance",
+                              "causal", "compare", "metacog", "debrief", "flourish"],
+        "results_reveal_round": 3,
         "tunables": {
             "inflation_rate": 0.025,
             "overrun_probability": 0.25,
@@ -9007,6 +9234,18 @@ _scenario_presets = [
             "strategy_memo_enabled": True,
             "self_learning_mode": False,
         },
+        # Full Visibility means full INSTRUMENTATION, not a bigger panel count: this
+        # profile is smaller than Workshop (51 vs 58) because it drops the
+        # scaffolding and the gamification an experienced room reads as
+        # patronising, and gains the specialist instruments in exchange. Add
+        # "scaffold" here if you would rather it be a strict superset.
+        # Tags are defined in frontend/app/config/playerVisibilityRegistry.js
+        # (AUDIENCE_TAGS); visibilityForAudiences() turns this list into the
+        # cohort's player visibility map at creation time. Adding a new player
+        # surface needs NO edit here — it inherits its tag's policy.
+        "default_audiences": ["core", "narrative", "insight", "finance", "causal",
+                              "specialist", "compare", "metacog", "debrief"],
+        "results_reveal_round": 0,
         "tunables": {
             "inflation_rate": 0.040,
             "overrun_probability": 0.35,
@@ -9038,6 +9277,16 @@ _scenario_presets = [
             "strategy_memo_enabled": False,
             "self_learning_mode": False,
         },
+        # No Scaffolding, taken at its word: every instrument, no teaching support
+        # and no metacognition either — calibration and regret prompts are
+        # scaffolding by another name.
+        # Tags are defined in frontend/app/config/playerVisibilityRegistry.js
+        # (AUDIENCE_TAGS); visibilityForAudiences() turns this list into the
+        # cohort's player visibility map at creation time. Adding a new player
+        # surface needs NO edit here — it inherits its tag's policy.
+        "default_audiences": ["core", "narrative", "insight", "finance", "causal",
+                              "specialist", "compare", "debrief"],
+        "results_reveal_round": 0,
         "tunables": {
             "inflation_rate": 0.060,
             "overrun_probability": 0.50,

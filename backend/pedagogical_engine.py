@@ -642,6 +642,13 @@ DEFAULT_PEDAGOGICAL_TOGGLES = {
     "difficulty_tier": "advanced",         # foundation | advanced | expert
     "prediction_gates_enabled": False,     # Facilitator toggle
     "board_room_moments_enabled": True,    # Always on by default
+    # Results-view Decision Consequence Map. It was readable per-cohort via
+    # GET /global-settings and settable from the Analytics Control Panel, but was
+    # absent from THIS dict — and save_cohort_pedagogical_settings derives its
+    # per-cohort allow-list from here, so a cohort-level override of it was
+    # silently dropped. Listing it makes the override persist like every other
+    # toggle. Default ON, so no existing cohort changes.
+    "consequence_map_enabled": True,
     "mental_model_tracker_enabled": True,  # Always on
     "confidence_calibration_enabled": False, # Facilitator toggle
     "mid_game_checkpoint_enabled": True,   # Always on

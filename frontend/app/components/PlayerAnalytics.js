@@ -32,6 +32,20 @@ export default function PlayerAnalytics({ sessionId, isOpen, onClose }) {
         return TABS.filter(t => data.visibility[t.key] !== false);
     }, [data]);
 
+    // Keep the OPEN tab one the cohort actually permits.
+    //
+    // This was a VISIBILITY LEAK, not merely an empty pane: `tab` initialises to
+    // 'benchmarking' and was never reconciled with visibleTabs, so a cohort with
+    // Peer Benchmarking switched off still rendered <PeerBenchmarking> in the
+    // body — the tab bar hid the tab while the panel underneath kept drawing
+    // peer data. The rail carries the same guard for the same reason.
+    useEffect(() => {
+        if (!visibleTabs.length) return;
+        if (!visibleTabs.some(t => t.id === tab)) setTab(visibleTabs[0].id);
+    }, [visibleTabs, tab]);
+
+    const shown = (id) => tab === id && visibleTabs.some(t => t.id === id);
+
     if (!isOpen) return null;
 
     return (
@@ -47,6 +61,13 @@ export default function PlayerAnalytics({ sessionId, isOpen, onClose }) {
                     <div className={styles.loading}>Loading your analytics…</div>
                 ) : !data ? (
                     <div className={styles.loading}>Analytics unavailable. Play more rounds to generate data.</div>
+                ) : !visibleTabs.length ? (
+                    // Every tab switched off for this cohort. Say so plainly
+                    // rather than presenting an empty chrome the player will
+                    // read as a broken screen.
+                    <div className={styles.loading}>
+                        Your facilitator has turned personal analytics off for this cohort.
+                    </div>
                 ) : (
                     <>
                         <div className={styles.tabBar}>
@@ -61,9 +82,13 @@ export default function PlayerAnalytics({ sessionId, isOpen, onClose }) {
                             ))}
                         </div>
                         <div className={styles.body}>
-                            {tab === 'benchmarking' && <PeerBenchmarking data={data.peer_benchmarking} />}
-                            {tab === 'impact' && <DecisionImpact data={data.decision_impact} />}
-                            {tab === 'whatif' && <WhatIfSimulator data={data.what_if} />}
+                            {/* Guarded on visibleTabs, not just on `tab`: the
+                                reconciling effect runs AFTER render, so the first
+                                paint following a settings change would otherwise
+                                still draw the hidden panel for one frame. */}
+                            {shown('benchmarking') && <PeerBenchmarking data={data.peer_benchmarking} />}
+                            {shown('impact') && <DecisionImpact data={data.decision_impact} />}
+                            {shown('whatif') && <WhatIfSimulator data={data.what_if} />}
                         </div>
                     </>
                 )}

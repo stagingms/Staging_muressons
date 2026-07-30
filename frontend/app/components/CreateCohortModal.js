@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import styles from './CreateCohortModal.module.css';
 import { CURRENCIES } from '../contexts/CurrencyContext';
 import { VERTICAL_CATALOG, VERTICAL_SLOT_MAP, SLOT_META } from '../lib/verticalCatalog';
+import { PLAYER_VISIBILITY_CARDS, playerVisibilityGroups, visibilityForAudiences } from '../config/playerVisibilityRegistry';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -35,39 +36,20 @@ const FACILITATOR_ANALYTICS = [
     { key: 'peer_evaluation', label: 'Peer Evaluation', icon: '🧑‍⚖️', tooltip: 'Aggregated inter-team peer-evaluation results and rubric scores. Surfaces only when the peer-evaluation exercise is run. Disabled by default.' },
 ];
 
-const PLAYER_ANALYTICS = [
-    // ── Core analytics ──
-    { key: 'peer_benchmarking', label: 'Peer Benchmarking', icon: '🏆', tooltip: 'Shows the player their anonymous percentile ranking vs. the cohort for Treasury, Reputation, and Synergy. Includes bar visualizations with their value compared against the cohort average. Answers: "How do I rank among my peers?"' },
-    { key: 'decision_impact', label: 'Decision Impact', icon: '🧠', tooltip: 'Per-round KPI attribution — shows how each choice affected Treasury, Reputation, and Synergy with colour-coded delta badges (+/-) and a narrative explanation of the outcome. Answers: "What impact did my decisions actually have?"' },
-    { key: 'what_if_simulator', label: 'What-If Simulator', icon: '📈', tooltip: 'Counterfactual analysis — shows what would have happened if the player had chosen the most popular alternative option. Displays projected Treasury and Reputation diffs. Only appears when choices differ from the majority. Disabled by default.' },
-    // ── Performance & history ──
-    { key: 'kpi_dashboard', label: 'KPI Dashboard', icon: '📟', tooltip: 'The player\'s personal KPI cockpit — Treasury, Reputation, Synergy, EBITDA and ESG headline metrics with round-on-round deltas. Answers: "Where do I stand right now?"' },
-    { key: 'decision_history', label: 'Decision History', icon: '🕰️', tooltip: 'A log of the player\'s own past decisions with the rationale captured and the outcome that followed. Answers: "What have I chosen so far and why?"' },
-    { key: 'consequence_timeline', label: 'Consequence Timeline', icon: '⏳', tooltip: 'Shows consequences unfolding across future rounds from earlier decisions (delayed effects, compounding debt). Answers: "What did my past choices set in motion?"' },
-    { key: 'stock_performance', label: 'Stock Performance', icon: '📉', tooltip: 'Share-price / enterprise-value chart tracking the market\'s valuation of the player\'s company over the ten rounds. Answers: "Is the market rewarding my strategy?"' },
-    { key: 'balanced_scorecard', label: 'Balanced Scorecard', icon: '🎯', tooltip: 'Sustainability balanced scorecard across financial, customer, internal-process and learning/ESG perspectives. Advanced pedagogy. Disabled by default.' },
-    // ── Risk & strategy lenses ──
-    { key: 'risk_radar', label: 'Risk Radar', icon: '🕸️', tooltip: 'Multi-axis radar of the player\'s current risk exposure (carbon, natural-capital, social-licence, governance, liquidity). Answers: "Where am I fragile?"' },
-    { key: 'esg_leadership', label: 'ESG Leadership Profile', icon: '🌱', tooltip: 'Profiles the player\'s ESG leadership style from the pattern of decisions taken across the run. Reflective debrief tool. Disabled by default.' },
-    { key: 'competitor_intel', label: 'Competitor Intel', icon: '🔭', tooltip: 'Rival-intelligence cards giving partial, fog-of-war signals about other teams\' moves. Disabled by default (competitive cohorts only).' },
-    // ── Reports & engagement ──
-    { key: 'annual_report', label: 'Annual Report', icon: '📕', tooltip: 'A narrative annual report generated from the player\'s results — financials, ESG highlights, and board commentary. Answers: "How does my year read as a story?"' },
-    { key: 'achievement_badges', label: 'Achievement Badges', icon: '🏅', tooltip: 'Gamified milestone badges earned for strategic and sustainability achievements during the run. Drives engagement.' },
-    { key: 'regret_meter', label: 'Regret Meter', icon: '😬', tooltip: 'A counterfactual "regret" gauge estimating value left on the table versus the best available path. Reflective tool. Disabled by default.' },
-    { key: 'glossary', label: 'Glossary', icon: '📖', tooltip: 'In-game technical glossary explaining KPIs, engines, and sustainability terminology on demand. Answers: "What does this term mean?"' },
-    // ── Right-hand context rail ──
-    // The rail's tabs are player-facing surfaces like any other panel but were
-    // missing from this list, so a facilitator could not switch them off. The
-    // 'Decisions' tab is deliberately absent: it renders DecisionHistory and is
-    // gated by the existing `decision_history` toggle above (one surface, one
-    // switch — a duplicate key would let the two disagree).
-    { key: 'rail_mailbox', label: 'Rail · Mailbox', icon: '📬', tooltip: 'The right-hand rail\'s Executive Mailbox tab — board memos, stakeholder letters and injected messages. Turn off for a stripped-back cockpit or when running the narrative offline.' },
-    { key: 'rail_engines', label: 'Rail · Engines', icon: '🌎', tooltip: 'The right-hand rail\'s Engines tab — live engine widgets showing contagion, talent and systemic-risk state. Advanced; hide for introductory cohorts.' },
-    { key: 'rail_climate', label: 'Rail · Climate', icon: '🌡️', tooltip: 'The right-hand rail\'s Climate tab — the TCFD scenario dashboard. Hide when the cohort is not running the climate-disclosure thread.' },
-    { key: 'market_reality_feed', label: 'Market Reality Feed', icon: '📡', tooltip: 'The rail\'s live market/consequence feed with traceability back to the decisions that caused each event. Hide to reduce ambient noise during focused decision rounds.' },
-];
+
+// Player-facing visibility catalog. Was a local array here; it had drifted from
+// the copy in AnalyticsControlPanel (19 keys vs 3), so both now read the shared
+// registry — see config/playerVisibilityRegistry.js.
+const PLAYER_ANALYTICS = PLAYER_VISIBILITY_CARDS;
 
 const PEDAGOGICAL_TOGGLES = [
+    // These two are PLAYER-FACING round surfaces that existed only in the
+    // Analytics Control Panel's own PLAYER_FEATURES list, so a facilitator
+    // setting a cohort up had no way to reach them — the reported gap ("Board
+    // Room Moment has no toggle"). They ride the same /pedagogical-settings PUT
+    // as everything else here. Both default ON, so no existing cohort changes.
+    { key: 'board_room_moments_enabled', label: 'Board Room Moment', icon: '🏢', tooltip: 'Guided post-round reflection shown after the player reviews their results: Noticing → Making Sense → Working with Meaning. Distinct from the end-of-game Boardroom Showdown, which has its own switch under Player Dashboard.', default: true },
+    { key: 'consequence_map_enabled', label: 'Decision Consequence Map', icon: '🗺️', tooltip: 'Results-view timeline linking each round\'s decisions to their downstream governance, climate, risk, social, supply-chain and strategic effects. Composes with the Consequence Timeline switch under Player Dashboard — either one off hides the map.', default: true },
     { key: 'prediction_gates_enabled', label: 'Prediction Gates', icon: '🔮', tooltip: 'Pre-mortem prediction prompt before each decision. Players predict outcomes before committing — compared post-round. Klein (2007) Prospective Hindsight.', default: false },
     { key: 'confidence_calibration_enabled', label: 'Confidence Calibration', icon: '🎰', tooltip: 'Players rate their confidence (1-5) for each decision. Generates a calibration curve at R10 showing overconfidence/underconfidence patterns. Dunning-Kruger awareness.', default: false },
     { key: 'round_recap_enabled', label: 'Round Recap', icon: '📋', tooltip: 'Post-round "What Just Happened?" narrative showing the top 3 causal chains, stochastic vs strategic labelling, and a 3-word facilitator anchor.', default: false },
@@ -195,6 +177,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // MEDIUM-tier cohort controls — timers/timezone, late-join, report access.
     const [cohortTimezone, setCohortTimezone] = useState('');       // '' = browser-local
     const [roundTimerSeconds, setRoundTimerSeconds] = useState(0);  // 0 = no timer
+    // Briefing video URL pattern for this cohort. '{round}' is substituted with
+    // the round number. Per-round overrides stay in the Analytics Control Panel;
+    // this is the one field that makes the Watch option usable at setup time,
+    // because a Briefing Video switch with no URL behind it does nothing.
+    const [briefingVideoBase, setBriefingVideoBase] = useState('');
     const [lateJoinPolicy, setLateJoinPolicy] = useState('anytime');// anytime | before_round_2 | closed
     const [reportAccess, setReportAccess] = useState('full');       // full | summary | facilitator_only
 
@@ -234,6 +221,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
 
     // Analytics visibility per-cohort overrides
     const [visibilityDefaults, setVisibilityDefaults] = useState(null);
+    // Set the moment the facilitator flips any switch by hand. From then on a
+    // preset never rewrites their choices — the experience level is a starting
+    // point, not a policy that fights them. Mirrors pedagogyCustomised.
+    const [visibilityCustomised, setVisibilityCustomised] = useState(false);
+    // The experience level the cohort was ALREADY on when Edit opened. Used to
+    // tell "opened the form" apart from "changed the level" — see the effect
+    // that applies preset visibility.
+    const initialExperienceLevelRef = useRef(null);
     const [visibility, setVisibility] = useState({
         facilitator: {},
         player: {},
@@ -300,6 +295,8 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             setRegionId(editSession.region_id || '');
             setFacilitatorId(editSession.facilitator_id || currentFacilitatorId || '');
             setSelectedExperienceLevel(editSession.scenario_preset || editSession.experience_level || 'workshop_standard');
+            initialExperienceLevelRef.current =
+                editSession.scenario_preset || editSession.experience_level || 'workshop_standard';
             setPedagogyCustomised(false);
             setEngageAdvancedClimate(editSession.simulation_mode === 'advanced_climate');
             setCarbonFee(editSession.global_carbon_fee ?? 40);
@@ -372,14 +369,34 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             })
             .catch(() => {});
 
-        // Fetch global analytics visibility defaults
+        // Analytics visibility.
+        //
+        // CREATE reads the global defaults and layers the experience level's
+        // profile on top. EDIT must read the COHORT'S OWN effective map instead:
+        // seeding an existing cohort's form from the globals showed settings it
+        // does not have, and saving then wrote those globals back over its real
+        // overrides. `visibilityDefaults` stays the GLOBAL map either way,
+        // because hasVisibilityOverrides() compares against it to decide whether
+        // a PUT is needed at all.
         fetch(`${API}/api/admin/god/analytics-visibility`, { credentials: 'include' })
             .then(res => res.json())
-            .then(data => {
+            .then(async (data) => {
                 setVisibilityDefaults(data);
+                let current = data;
+                if (isEditMode && editSession?.session_id) {
+                    try {
+                        const r = await fetch(
+                            `${API}/api/admin/cohort/${editSession.session_id}/analytics-visibility`,
+                            { credentials: 'include' });
+                        if (r.ok) {
+                            const eff = (await r.json()).effective;
+                            if (eff) current = eff;
+                        }
+                    } catch { /* fall back to globals rather than blocking the form */ }
+                }
                 setVisibility({
-                    facilitator: { ...data.facilitator },
-                    player: { ...data.player },
+                    facilitator: { ...current.facilitator },
+                    player: { ...current.player },
                 });
             })
             .catch(() => {});
@@ -534,11 +551,65 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     ];
 
     const toggleVis = (role, key) => {
+        setVisibilityCustomised(true);
         setVisibility(prev => ({
             ...prev,
             [role]: { ...prev[role], [key]: !prev[role][key] },
         }));
     };
+
+    // Seed the PLAYER visibility map from an experience level's audience tags.
+    //
+    // Facilitator visibility is deliberately untouched: an experience level
+    // describes the ROOM, and who is in the room says nothing about which
+    // analytics the person running it should see.
+    //
+    // Applied once, on selection — never re-resolved at read time. So a
+    // facilitator who picks Classroom and then switches four panels back on
+    // keeps those four, exactly as default_pedagogy already behaves.
+    // How many player panels an experience level leaves visible. Derived from the
+    // same helper that applies the profile, so the number the facilitator reads
+    // and the map they get can never disagree.
+    const presetVisibleCount = (preset) => (
+        preset?.default_audiences
+            ? Object.values(visibilityForAudiences(preset.default_audiences)).filter(Boolean).length
+            : PLAYER_ANALYTICS.length
+    );
+
+    // Put the cohort back on its experience level's profile after hand-edits.
+    // Without this, customising is a ONE-WAY door: applyPreset bails once
+    // visibilityCustomised is set, so a facilitator who flipped one switch by
+    // mistake had no way back short of reopening the form.
+    const resetVisibilityToPreset = () => {
+        const preset = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+        if (!preset?.default_audiences) return;
+        setVisibility(prev => ({ ...prev, player: visibilityForAudiences(preset.default_audiences) }));
+        if (typeof preset.results_reveal_round === 'number') setResultsRevealRound(preset.results_reveal_round);
+        setVisibilityCustomised(false);
+    };
+
+    // Runs when the experience level changes AND once both fetches have landed.
+    //
+    // An effect rather than a call inside the preset button: the scenario-preset
+    // fetch and the global-visibility fetch are independent, and whichever
+    // resolved second used to win. Seeding on click meant a preset chosen before
+    // the defaults arrived was silently overwritten by them a moment later.
+    useEffect(() => {
+        if (visibilityCustomised || !visibilityDefaults) return;
+        // In EDIT mode the cohort's stored map is the truth: merely opening the
+        // form must not re-profile a running cohort. Deliberately CHANGING the
+        // experience level still re-profiles, which is what the change means.
+        if (isEditMode && selectedExperienceLevel === initialExperienceLevelRef.current) return;
+        const preset = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+        if (!preset?.default_audiences) return;
+        setVisibility(prev => ({
+            ...prev,
+            player: visibilityForAudiences(preset.default_audiences),
+        }));
+        if (typeof preset.results_reveal_round === 'number') {
+            setResultsRevealRound(preset.results_reveal_round);
+        }
+    }, [selectedExperienceLevel, scenarioPresets, visibilityDefaults, visibilityCustomised]);
 
     // Check if any visibility setting differs from global defaults
     const hasVisibilityOverrides = () => {
@@ -577,6 +648,13 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                 } : {}),
             },
         });
+        if (briefingVideoBase.trim()) {
+            steps.push({
+                name: 'Briefing Videos', method: 'POST',
+                url: `${API}/api/admin/sessions/${sid}/briefing-videos`,
+                payload: { briefing_video_base: briefingVideoBase.trim() },
+            });
+        }
         steps.push({
             name: 'CEO Interview', method: 'PUT',
             url: `${API}/api/admin/sessions/${sid}/ceo-interview`,
@@ -1155,6 +1233,10 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                         if (!pedagogyCustomised && p.default_pedagogy) {
                                                             setPedagogicalToggles(prev => ({ ...prev, ...p.default_pedagogy }));
                                                         }
+                                                        // Visibility is applied by the effect that
+                                                        // watches selectedExperienceLevel — one
+                                                        // application point, so the preset fetch and
+                                                        // the defaults fetch cannot race.
                                                     }}
                                                     style={{
                                                         display: 'flex', alignItems: 'center', gap: 12,
@@ -1201,7 +1283,17 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 fontSize: '0.7rem', color: '#94a3b8',
                                             }}>
                                                 <strong style={{ color: '#cbd5e1' }}>This sets:</strong>{' '}
-                                                Engine difficulty ({sel.name}) · Visibility tier ({sel.difficulty_tier}) ·{' '}
+                                                Engine difficulty ({sel.name}) ·{' '}
+                                                {/* Was "Visibility tier ({difficulty_tier})", which printed
+                                                    "foundation"/"expert" — the DIFFICULTY string, in the slot
+                                                    that promised a visibility posture. Report what the preset
+                                                    actually does to the player's cockpit. */}
+                                                <span style={{ color: '#cbd5e1', fontWeight: 600 }}>
+                                                    {presetVisibleCount(sel)} of {PLAYER_ANALYTICS.length} player panels
+                                                </span>
+                                                {typeof sel.results_reveal_round === 'number' && sel.results_reveal_round > 0 && (
+                                                    <span> · peer data from round {sel.results_reveal_round}</span>
+                                                )} ·{' '}
                                                 {Object.entries(sel.default_pedagogy || {}).filter(([,v]) => v).map(([k]) =>
                                                     k.replace(/_enabled$/, '').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
                                                 ).join(', ') || 'No scaffolding'} enabled by default
@@ -2061,27 +2153,111 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                     ))}
                                 </div>
 
-                                <div className={styles.visRoleLabel}>👤 Player Dashboard</div>
-                                <div className={styles.visGrid}>
-                                    {PLAYER_ANALYTICS.map(a => (
-                                        <div
-                                            key={a.key}
-                                            className={`${styles.visCard} ${visibility.player[a.key] ? styles.visCardActive : ''}`}
-                                            onClick={() => toggleVis('player', a.key)}
-                                            data-tooltip={a.tooltip}
-                                        >
-                                            <span className={styles.visIcon}>{a.icon}</span>
-                                            <span className={styles.visLabel}>{a.label}</span>
-                                            <div className={styles.visToggleTrack}
-                                                style={{ background: visibility.player[a.key] ? '#10b981' : '#475569' }}
-                                            >
-                                                <div className={styles.visToggleThumb}
-                                                    style={{ left: visibility.player[a.key] ? '14px' : '2px' }}
-                                                />
+                                {/* Player Dashboard.
+                                    Sixty-five switches rendered as one flat wall is not a
+                                    control surface, it is a search problem — and after an
+                                    experience level silently rewrites a quarter of them, a
+                                    facilitator needs to see WHICH quarter. So: sectioned by
+                                    the registry's own groups, each with a live count, and a
+                                    header stating where the current state came from. */}
+                                {(() => {
+                                    const total = PLAYER_ANALYTICS.length;
+                                    const shown = PLAYER_ANALYTICS.filter(a => visibility.player[a.key]).length;
+                                    const preset = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+                                    return (
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10,
+                                                      flexWrap: 'wrap', marginTop: 4 }}>
+                                            <div className={styles.visRoleLabel} style={{ margin: 0 }}>
+                                                👤 Player Dashboard
+                                            </div>
+                                            <span style={{ fontSize: '0.7rem', color: '#94a3b8' }}>
+                                                <strong style={{ color: shown === total ? '#10b981' : '#cbd5e1' }}>
+                                                    {shown}
+                                                </strong>{' '}/ {total} shown
+                                            </span>
+                                            {preset && !visibilityCustomised && (
+                                                <span style={{ fontSize: '0.68rem', color: '#818cf8' }}>
+                                                    from {preset.icon} {preset.name}
+                                                </span>
+                                            )}
+                                            {visibilityCustomised && (
+                                                <>
+                                                    <span style={{ fontSize: '0.68rem', color: '#f59e0b', fontWeight: 700 }}>
+                                                        ⚙ Customised
+                                                    </span>
+                                                    {preset?.default_audiences && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={resetVisibilityToPreset}
+                                                            style={{
+                                                                fontSize: '0.66rem', fontWeight: 600, cursor: 'pointer',
+                                                                padding: '2px 9px', borderRadius: 6, color: '#cbd5e1',
+                                                                background: 'rgba(148,163,184,0.12)',
+                                                                border: '1px solid rgba(148,163,184,0.3)',
+                                                            }}
+                                                            data-tooltip={`Put every player panel back to what ${preset.name} sets. Your other settings are untouched.`}
+                                                        >↺ Reset to {preset.name}</button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                })()}
+                                {playerVisibilityGroups().map(({ group, cards }) => {
+                                    const on = cards.filter(c => visibility.player[c.key]).length;
+                                    const allOn = on === cards.length;
+                                    return (
+                                        <div key={group} style={{ marginTop: 12 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 5 }}>
+                                                <span style={{ fontSize: '0.64rem', fontWeight: 700, letterSpacing: '0.08em',
+                                                               textTransform: 'uppercase', color: '#64748b' }}>
+                                                    {group}
+                                                </span>
+                                                <span style={{ fontSize: '0.64rem', color: '#475569' }}>{on}/{cards.length}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setVisibilityCustomised(true);
+                                                        setVisibility(prev => ({
+                                                            ...prev,
+                                                            player: {
+                                                                ...prev.player,
+                                                                ...Object.fromEntries(cards.map(c => [c.key, !allOn])),
+                                                            },
+                                                        }));
+                                                    }}
+                                                    style={{
+                                                        marginLeft: 'auto', fontSize: '0.62rem', fontWeight: 600,
+                                                        cursor: 'pointer', padding: '1px 8px', borderRadius: 5,
+                                                        color: '#94a3b8', background: 'transparent',
+                                                        border: '1px solid rgba(148,163,184,0.25)',
+                                                    }}
+                                                    data-tooltip={allOn ? `Hide every ${group} panel` : `Show every ${group} panel`}
+                                                >{allOn ? 'none' : 'all'}</button>
+                                            </div>
+                                            <div className={styles.visGrid}>
+                                                {cards.map(a => (
+                                                    <div
+                                                        key={a.key}
+                                                        className={`${styles.visCard} ${visibility.player[a.key] ? styles.visCardActive : ''}`}
+                                                        onClick={() => toggleVis('player', a.key)}
+                                                        data-tooltip={a.tooltip}
+                                                    >
+                                                        <span className={styles.visIcon}>{a.icon}</span>
+                                                        <span className={styles.visLabel}>{a.label}</span>
+                                                        <div className={styles.visToggleTrack}
+                                                            style={{ background: visibility.player[a.key] ? '#10b981' : '#475569' }}
+                                                        >
+                                                            <div className={styles.visToggleThumb}
+                                                                style={{ left: visibility.player[a.key] ? '14px' : '2px' }}
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </div>
-                                    ))}
-                                </div>
+                                    );
+                                })}
                             </div>
                         </section>
 
@@ -2185,6 +2361,27 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                     onChange={e => setRngSeed(e.target.value)} style={{ ...inp, width: 260 }}
                                                     data-tooltip="A non-empty seed makes every stochastic event roll identically for all teams — rankings reflect strategy, not luck. Leave blank for legacy non-deterministic behaviour." />
                                                 <span style={{ fontSize: '0.66rem', color: '#64748b' }}>Same seed ⇒ identical rolls for every team (fair comparison).</span>
+                                            </div>
+                                        </div>
+
+                                        {/* Briefing media — the URL source behind the
+                                            "Briefing: Watch (video)" switch under Player
+                                            Dashboard. The switch decides whether players are
+                                            OFFERED the choice; this decides what they watch,
+                                            so a cohort can be set up in one pass instead of
+                                            returning to the Analytics Control Panel. */}
+                                        <div style={grp}>🎬 Briefing Media</div>
+                                        <div style={row}>
+                                            <div style={{ ...fld, flex: 1 }}>
+                                                <label style={lbl}>Briefing video URL pattern</label>
+                                                <input type="text" value={briefingVideoBase}
+                                                    placeholder="e.g. https://cdn.your-school.edu/briefing-{round}.mp4"
+                                                    onChange={e => setBriefingVideoBase(e.target.value)}
+                                                    style={{ ...inp, width: '100%', minWidth: 320 }}
+                                                    data-tooltip="YouTube, Vimeo or a direct file on your own hosting — the media never lives in the app. '{round}' is replaced by the round number, so one pattern covers all ten rounds. Players then get a 📄 Read | 🎬 Watch choice on each briefing. Blank = read-only briefings (and leaves any inherited setting untouched). Per-round exceptions are set in the Analytics Control Panel." />
+                                                <span style={{ fontSize: '0.66rem', color: '#64748b' }}>
+                                                    <code>{'{round}'}</code> is replaced by the round number. Blank = read-only briefings.
+                                                </span>
                                             </div>
                                         </div>
 

@@ -1,5 +1,5 @@
 'use client';
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * BulkPlayerUpload — Excel provisioning for players (and, in master mode, for
@@ -20,17 +20,53 @@ import React, { useCallback, useRef, useState } from 'react';
  * the operator never reviewed. Errors are always rendered in FULL — the whole
  * point of validating the workbook totally is that the author fixes every
  * problem in one pass instead of re-uploading to discover the next one.
+ *
+ * COHORT MODE HAS TWO VARIANTS, and this component does not decide which.
+ * It FETCHES the cohort's roster shape and renders that:
+ *
+ *   4-BU conglomerate → every player runs all four business units, so there is
+ *                       no per-player company to assign and the sheet is
+ *                       identity-only.
+ *   Single business   → each player runs their own company, so the sheet carries
+ *                       industry + region per row, picked from the cohort's own
+ *                       formation vocabulary.
+ *
+ * The shape is fetched rather than inferred from a prop because the server owns
+ * it: the same object shapes the .xlsx template and gates the upload (see
+ * backend/roster_shape.py). A modal that guessed the mode locally would
+ * eventually promise a column the template does not ship — which is the class of
+ * bug this replaces, not a new one to introduce. `shapeHint` is accepted only to
+ * avoid a blank frame on open, and is overwritten the moment the fetch lands.
  */
 
 const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+// Column → the label the operator sees. The set of columns is the server's;
+// only their presentation is ours.
+const COLUMN_LABELS = {
+    name: 'Name',
+    email: 'Email',
+    programme: 'Programme',
+    industry_vertical: 'Industry',
+    region_id: 'Region',
+    assigned_bu: 'BU slot',
+};
+
+const prettyId = (id) =>
+    !id ? '—' : String(id).replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
 const MODES = {
     cohort: {
         title: '📥 Bulk Add Players',
-        blurb: 'Upload one row per player. Only "name" is required — email, programme, '
-             + 'business unit and region are optional. Every player receives their own '
-             + 'temporary password, shown in the roster until they change it.',
-        templateUrl: () => `/api/admin/players/bulk-template`,
+        // Replaced by the shape's own description once it arrives; this is only
+        // what the first frame says.
+        blurb: 'Upload one row per player. Only "name" is required. Every player '
+             + 'receives their own temporary password, shown in the roster until '
+             + 'they change it.',
+        // Cohort-scoped: a single-business cohort needs its own industry and
+        // region dropdowns, which the cohort-less route cannot know about.
+        templateUrl: (sid) => `/api/admin/${sid}/players/bulk-template`,
+        shapeUrl: (sid) => `/api/admin/${sid}/players/roster-shape`,
         previewUrl: (sid) => `/api/admin/${sid}/players/bulk-preview`,
         commitUrl: (sid) => `/api/admin/${sid}/players/bulk-upload`,
         templateName: 'muressons_player_roster_template.xlsx',
@@ -54,7 +90,9 @@ function readError(payload) {
     return { message: detail?.message || 'Upload failed.', errors: detail?.errors || [] };
 }
 
-export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortName, onClose, onDone }) {
+export default function BulkPlayerUpload({
+    mode = 'cohort', sessionId, cohortName, shapeHint = null, onClose, onDone,
+}) {
     const cfg = MODES[mode] || MODES.cohort;
     const API = process.env.NEXT_PUBLIC_API_URL || '';
     const fileRef = useRef(null);
@@ -64,6 +102,33 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
     const [preview, setPreview] = useState(null);  // successful preview payload
     const [problem, setProblem] = useState(null);  // { message, errors[] }
     const [result, setResult] = useState(null);    // successful commit payload
+    const [shape, setShape] = useState(shapeHint); // cohort's roster shape
+
+    // Fetch the roster shape once per cohort. A failure is NOT surfaced as an
+    // error: the template and the upload are both gated server-side by the same
+    // shape, so a missing shape costs the operator the tailored copy and nothing
+    // more. Reporting it would be alarming about something that cannot cause a
+    // wrong import.
+    useEffect(() => {
+        if (mode !== 'cohort' || !sessionId) return;
+        let alive = true;
+        (async () => {
+            try {
+                const res = await fetch(`${API}${cfg.shapeUrl(sessionId)}`, { credentials: 'include' });
+                if (!res.ok) return;
+                const body = await res.json();
+                if (alive && body?.shape) setShape(body.shape);
+            } catch { /* keep the generic copy */ }
+        })();
+        return () => { alive = false; };
+    }, [API, cfg, mode, sessionId]);
+
+    const perPlayerScope = !!shape?.per_player_scope;
+    // Which columns the preview table shows. Server-driven, so it can never
+    // display a column this cohort's sheet does not have.
+    const previewColumns = mode === 'master'
+        ? ['name', 'email', 'programme']
+        : (shape?.columns || ['name', 'email', 'programme']);
 
     const post = useCallback(async (url, f) => {
         const fd = new FormData();
@@ -76,7 +141,7 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
 
     const downloadTemplate = useCallback(async () => {
         try {
-            const res = await fetch(`${API}${cfg.templateUrl()}`, { credentials: 'include' });
+            const res = await fetch(`${API}${cfg.templateUrl(sessionId)}`, { credentials: 'include' });
             if (!res.ok) {
                 setProblem({ message: `Could not download the template (${res.status}).`, errors: [] });
                 return;
@@ -93,7 +158,7 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
         } catch {
             setProblem({ message: 'Could not download the template — is the backend running?', errors: [] });
         }
-    }, [API, cfg]);
+    }, [API, cfg, sessionId]);
 
     const choose = (f) => {
         setFile(f || null);
@@ -120,8 +185,12 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
                 // A validated-but-rejected workbook comes back 200 with ok:false,
                 // because "your file has errors" is not an HTTP failure.
                 setProblem({ message: payload.message, errors: payload.errors || [] });
+                // A rejection still carries the shape, and it is exactly when the
+                // operator most needs the columns described.
+                if (payload.shape) setShape(payload.shape);
             } else {
                 setPreview(payload);
+                if (payload?.shape) setShape(payload.shape);
             }
         } catch {
             setProblem({ message: 'Network error — could not reach the server.', errors: [] });
@@ -186,6 +255,26 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
             border: '1px solid rgba(34,197,94,0.3)', borderRadius: 10, padding: '0.8rem 0.95rem',
         },
         mono: { fontFamily: 'monospace', fontSize: '0.78rem' },
+        modeChip: (single) => ({
+            display: 'inline-flex', alignItems: 'center', gap: 5,
+            marginTop: '0.55rem', padding: '3px 9px', borderRadius: 999,
+            fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.02em',
+            border: '1px solid',
+            ...(single
+                ? { background: 'rgba(99,102,241,0.12)', borderColor: 'rgba(99,102,241,0.45)', color: '#a5b4fc' }
+                : { background: 'rgba(34,197,94,0.10)', borderColor: 'rgba(34,197,94,0.40)', color: '#86efac' }),
+        }),
+        scopeBox: {
+            marginTop: '0.85rem', background: 'rgba(99,102,241,0.06)',
+            border: '1px solid rgba(99,102,241,0.22)', borderRadius: 10,
+            padding: '0.7rem 0.9rem',
+        },
+        pill: {
+            display: 'inline-block', margin: '2px 4px 2px 0', padding: '2px 7px',
+            borderRadius: 5, background: 'rgba(148,163,184,0.12)',
+            border: '1px solid rgba(148,163,184,0.22)', fontSize: '0.7rem',
+            color: '#cbd5e1', fontFamily: 'monospace',
+        },
         th: { textAlign: 'left', padding: '5px 8px', color: '#94a3b8', fontSize: '0.68rem',
               textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(148,163,184,0.2)' },
         td: { padding: '5px 8px', fontSize: '0.78rem', borderBottom: '1px solid rgba(148,163,184,0.08)' },
@@ -201,7 +290,29 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
                         {cfg.title}
                         {mode === 'cohort' && cohortName ? ` — ${cohortName}` : ''}
                     </h3>
-                    <p style={{ ...S.note, margin: '0.45rem 0 0' }}>{cfg.blurb}</p>
+                    <p style={{ ...S.note, margin: '0.45rem 0 0' }}>
+                        {mode === 'cohort' && shape
+                            ? (perPlayerScope
+                                ? 'One row per player. Each player runs their OWN company — pick '
+                                  + 'their industry and region per row. Only "name" is required; '
+                                  + 'leave the rest blank to inherit the cohort’s own settings. '
+                                  + 'Every player receives their own temporary password.'
+                                : 'One row per player. Every player in this cohort runs all four '
+                                  + 'business units, so there is no company to assign — just who '
+                                  + 'they are. Only "name" is required. Every player receives their '
+                                  + 'own temporary password.')
+                            : cfg.blurb}
+                    </p>
+                    {/* The mode, stated once and unmissably. The two variants
+                        differ in what they MEAN, not just in which columns they
+                        have, so naming the mode is worth the line. */}
+                    {mode === 'cohort' && shape && (
+                        <span style={S.modeChip(perPlayerScope)}>
+                            {perPlayerScope ? '🏭 Single Business' : '🏢 4-BU Conglomerate'}
+                            {' · '}
+                            {perPlayerScope ? 'one company per player' : 'all four BUs per player'}
+                        </span>
+                    )}
                 </div>
 
                 <div style={S.body}>
@@ -219,6 +330,48 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
                         />
                         {file && <span style={{ ...S.mono, color: '#a5b4fc' }}>{file.name}</span>}
                     </div>
+
+                    {/* What the sheet looks like, BEFORE the download — so the
+                        operator recognises the file they get, and so an author
+                        reusing last term's roster can see at a glance that the
+                        columns have changed. */}
+                    {mode === 'cohort' && shape && (
+                        <div style={S.scopeBox}>
+                            <div style={{ fontSize: '0.72rem', fontWeight: 700, color: '#cbd5e1',
+                                          textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                Columns on this cohort’s sheet
+                            </div>
+                            <div style={{ marginTop: '0.4rem' }}>
+                                {previewColumns.map((c) => (
+                                    <span key={c} style={S.pill}>
+                                        {c}{c === 'name' ? ' *' : ''}
+                                    </span>
+                                ))}
+                            </div>
+                            {perPlayerScope ? (
+                                <div style={{ ...S.note, marginTop: '0.5rem' }}>
+                                    <strong style={{ color: '#a5b4fc' }}>Industry</strong> and{' '}
+                                    <strong style={{ color: '#a5b4fc' }}>region</strong> are
+                                    dropdowns — free text is rejected. Blank inherits this cohort’s
+                                    own setting
+                                    {shape.cohort?.industry_vertical
+                                        ? ` (${prettyId(shape.cohort.industry_vertical)}`
+                                          + `${shape.cohort.region_id ? ` · ${prettyId(shape.cohort.region_id)}` : ''})`
+                                        : ''}
+                                    . Two players may run different industries in different regions.
+                                    You do not set a BU slot — it is derived from the industry.
+                                </div>
+                            ) : (
+                                <div style={{ ...S.note, marginTop: '0.5rem' }}>
+                                    No business unit, industry or region column: this cohort’s four
+                                    verticals and its region are set once for everyone in{' '}
+                                    <em>Edit Cohort</em>. A per-player business unit here would
+                                    scope that player down to a single business, so such a column is
+                                    refused on upload rather than half-honoured.
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <p style={{ ...S.note, marginTop: '0.9rem' }}>
                         <strong style={{ color: '#fcd34d' }}>All or nothing.</strong>{' '}
@@ -265,19 +418,41 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
                                     {preview.warnings.map((w, i) => <li key={i}>{w}</li>)}
                                 </ul>
                             )}
+                            {perPlayerScope && (
+                                <div style={{ ...S.note, marginTop: '0.5rem', color: '#a5b4fc' }}>
+                                    Industry and region below are the <strong>resolved</strong>{' '}
+                                    values — blanks already inherited from the cohort, and the BU
+                                    slot derived. This is what each player will actually run.
+                                </div>
+                            )}
                             {preview.players?.length > 0 && (
                                 <table style={{ width: '100%', marginTop: '0.75rem', borderCollapse: 'collapse' }}>
                                     <thead><tr>
-                                        <th style={S.th}>Name</th><th style={S.th}>Email</th>
-                                        <th style={S.th}>Programme</th>
+                                        {previewColumns.map((c) => (
+                                            <th key={c} style={S.th}>{COLUMN_LABELS[c] || c}</th>
+                                        ))}
+                                        {/* Derived, so it is shown but never
+                                            authored — the operator can confirm
+                                            the industry landed in the slot they
+                                            expect. */}
+                                        {perPlayerScope && <th style={S.th}>BU slot</th>}
                                         {mode === 'master' && <th style={S.th}>Cohort</th>}
                                     </tr></thead>
                                     <tbody>
                                         {preview.players.slice(0, 25).map((p, i) => (
                                             <tr key={i}>
-                                                <td style={S.td}>{p.name}</td>
-                                                <td style={S.td}>{p.email || '—'}</td>
-                                                <td style={S.td}>{p.programme || '—'}</td>
+                                                {previewColumns.map((c) => (
+                                                    <td key={c} style={S.td}>
+                                                        {c === 'industry_vertical' || c === 'region_id'
+                                                            ? prettyId(p[c])
+                                                            : (p[c] || '—')}
+                                                    </td>
+                                                ))}
+                                                {perPlayerScope && (
+                                                    <td style={{ ...S.td, ...S.mono, color: '#94a3b8' }}>
+                                                        {p.assigned_bu || '—'}
+                                                    </td>
+                                                )}
                                                 {mode === 'master' && <td style={S.td}>{p.cohort_ref}</td>}
                                             </tr>
                                         ))}
@@ -299,6 +474,9 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
                                 <table style={{ width: '100%', marginTop: '0.7rem', borderCollapse: 'collapse' }}>
                                     <thead><tr>
                                         <th style={S.th}>Player ID</th><th style={S.th}>Name</th>
+                                        {/* The one screen where "who runs what"
+                                            is checkable before anyone logs in. */}
+                                        {perPlayerScope && <th style={S.th}>Company</th>}
                                         <th style={S.th}>Temp password</th>
                                     </tr></thead>
                                     <tbody>
@@ -306,6 +484,16 @@ export default function BulkPlayerUpload({ mode = 'cohort', sessionId, cohortNam
                                             <tr key={c.player_id}>
                                                 <td style={{ ...S.td, ...S.mono, color: '#a5b4fc' }}>{c.player_id}</td>
                                                 <td style={S.td}>{c.name}</td>
+                                                {perPlayerScope && (
+                                                    <td style={S.td}>
+                                                        {prettyId(c.industry_vertical)}
+                                                        {c.region_id && (
+                                                            <span style={{ color: '#64748b' }}>
+                                                                {' · '}{prettyId(c.region_id)}
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                )}
                                                 <td style={{ ...S.td, ...S.mono, color: '#fcd34d' }}>{c.temp_password}</td>
                                             </tr>
                                         ))}

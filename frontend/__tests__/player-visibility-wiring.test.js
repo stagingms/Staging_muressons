@@ -2,7 +2,12 @@
  * Player-visibility toggles: catalogue ↔ UI ↔ actual gating.
  *
  * The cohort-formation "PLAYER DASHBOARD" group renders one switch per key in
- * CreateCohortModal.PLAYER_ANALYTICS. The backend setter SILENTLY DROPS any key
+ * the shared player registry (config/playerVisibilityRegistry.js). It used to
+ * read a local PLAYER_ANALYTICS array inside CreateCohortModal, which had drifted
+ * from a second copy in AnalyticsControlPanel — 19 keys against 3, with the
+ * short list feeding that panel's DEFAULT_VIS, so saving from there wrote a
+ * player map missing sixteen keys. Both surfaces now import the registry, and
+ * this test reads the registry for the same reason. The backend setter SILENTLY DROPS any key
  * missing from admin_analytics._analytics_visibility["player"], and a toggle
  * that no component reads gates nothing at all. Both failure modes are
  * invisible in review and to the facilitator flipping the switch.
@@ -22,16 +27,30 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const APP = path.join(__dirname, '..', 'app');
 
+const registrySrc = fs.readFileSync(path.join(APP, 'config', 'playerVisibilityRegistry.js'), 'utf8');
 const modalSrc = fs.readFileSync(path.join(APP, 'components', 'CreateCohortModal.js'), 'utf8');
 const analyticsSrc = fs.readFileSync(path.join(ROOT, 'backend', 'admin_analytics.py'), 'utf8');
 
 /** Keys rendered as switches in the cohort-formation Player Dashboard group. */
 function uiKeys() {
-  const block = modalSrc.slice(
-    modalSrc.indexOf('const PLAYER_ANALYTICS'),
-    modalSrc.indexOf('const PEDAGOGICAL_TOGGLES')
+  const block = registrySrc.slice(
+    registrySrc.indexOf('export const PLAYER_VISIBILITY_CARDS'),
+    registrySrc.indexOf('export const PLAYER_VISIBILITY_KEYS')
   );
   return [...block.matchAll(/\{\s*key:\s*'([a-z0-9_]+)'/g)].map((m) => m[1]);
+}
+
+/**
+ * The form must actually RENDER the registry rather than keep its own list —
+ * otherwise uiKeys() above would be measuring a file nothing displays.
+ */
+function modalRendersRegistry() {
+  // The grid is rendered through playerVisibilityGroups(), which derives from
+  // the same cards — so covering every group covers every key by construction.
+  // (It used to be a flat PLAYER_ANALYTICS.map; 65 switches in one wall is a
+  // search problem, not a control surface.)
+  return /PLAYER_ANALYTICS\s*=\s*PLAYER_VISIBILITY_CARDS/.test(modalSrc)
+      && /playerVisibilityGroups\(\)\.map/.test(modalSrc);
 }
 
 /** Keys the backend will actually persist. */
@@ -88,6 +107,19 @@ function gatedKeys() {
 const UNWIRED = new Set([]);
 
 describe('player visibility toggles', () => {
+  test('the cohort form renders the shared registry, not its own copy', () => {
+    expect(modalRendersRegistry()).toBe(true);
+  });
+
+  test('the control panel shares the registry and defaults every key', () => {
+    // Its old 3-key list fed DEFAULT_VIS, and this panel PUTs the WHOLE map —
+    // so a save from here dropped every key the short list omitted.
+    const src = fs.readFileSync(path.join(APP, 'components', 'AnalyticsControlPanel.js'), 'utf8');
+    expect(src).toMatch(/PLAYER_ANALYTICS\s*=\s*PLAYER_VISIBILITY_CARDS/);
+    expect(src).toMatch(/player:\s*PLAYER_VISIBILITY_DEFAULTS/);
+    expect(src).not.toMatch(/key !== 'what_if_simulator'/);
+  });
+
   test('every UI switch exists in the backend catalogue', () => {
     const backend = new Set(backendKeys());
     const missing = uiKeys().filter((k) => !backend.has(k));
@@ -128,5 +160,110 @@ describe('player visibility toggles', () => {
     const gated = gatedKeys();
     const nowWired = [...UNWIRED].filter((k) => gated.has(k));
     expect(nowWired).toEqual([]); // ratchet: delete it from UNWIRED
+  });
+});
+
+/**
+ * Player-facing round surfaces that live in the PEDAGOGICAL toggle system
+ * rather than the visibility catalogue.
+ *
+ * These are a separate mechanism (a cohort-settings override read through
+ * getPedagogicalToggles, not the analytics-visibility map), and that is fine —
+ * but they must still be reachable when a facilitator sets a cohort up. Board
+ * Room Moment was not: it existed only in AnalyticsControlPanel.PLAYER_FEATURES,
+ * which a facilitator creating a cohort never opens. Reported as "some toggles
+ * are missing for the player dashboard visibility".
+ *
+ * The persistence trap this also pins: save_cohort_pedagogical_settings derives
+ * its per-cohort allow-list from pedagogical_engine.DEFAULT_PEDAGOGICAL_TOGGLES,
+ * so a key offered in the form but absent from that dict is silently dropped on
+ * save — a switch that looks saved and changes nothing. consequence_map_enabled
+ * was exactly that.
+ */
+describe('player-facing pedagogical toggles', () => {
+  const pedSrc = fs.readFileSync(
+    path.join(ROOT, 'backend', 'pedagogical_engine.py'), 'utf8');
+
+  /** Keys offered in the cohort form's Pedagogical Features group. */
+  function formPedKeys() {
+    const block = modalSrc.slice(
+      modalSrc.indexOf('const PEDAGOGICAL_TOGGLES'),
+      modalSrc.indexOf('const ENGINE_MODULE_TOGGLES'),
+    );
+    return [...block.matchAll(/\{\s*key:\s*'([a-z0-9_]+)'/g)].map((m) => m[1]);
+  }
+
+  /** Keys a per-cohort override will actually persist for. */
+  function persistableKeys() {
+    const start = pedSrc.indexOf('DEFAULT_PEDAGOGICAL_TOGGLES = {');
+    const block = pedSrc.slice(start, pedSrc.indexOf('\n}', start));
+    return new Set([...block.matchAll(/^\s*"([a-z0-9_]+)":/gm)].map((m) => m[1]));
+  }
+
+  test('the player-facing round surfaces are reachable at cohort setup', () => {
+    const keys = new Set(formPedKeys());
+    expect(keys.has('board_room_moments_enabled')).toBe(true);
+    expect(keys.has('consequence_map_enabled')).toBe(true);
+  });
+
+  test('every toggle the form offers can actually persist per cohort', () => {
+    const persistable = persistableKeys();
+    const dropped = formPedKeys().filter(
+      (k) => k !== 'self_learning_mode' && !persistable.has(k));
+    expect(dropped).toEqual([]); // else the save is a no-op the facilitator trusts
+  });
+
+  test('Board Room Moment is not confused with the end-of-game Boardroom', () => {
+    // Two different surfaces, two different systems, similar names. The
+    // visibility key gates the R10 Boardroom Showdown; the pedagogical key gates
+    // the per-round reflection. Both must exist, and separately.
+    expect(new Set(uiKeys()).has('boardroom_showdown')).toBe(true);
+    expect(new Set(formPedKeys()).has('board_room_moments_enabled')).toBe(true);
+  });
+});
+
+/**
+ * Briefing videos: the switch and the source must BOTH be reachable at setup.
+ *
+ * The Read | Watch choice on round briefings was ungated — a cohort could not be
+ * made read-only — and its URL config lived only in the Analytics Control Panel,
+ * the same "control exists but not where a cohort is created" gap that hid Board
+ * Room Moment. A switch with no URL behind it does nothing, and a URL with no
+ * switch cannot be declined, so both belong in the cohort form.
+ */
+describe('briefing video configuration', () => {
+  const briefingSrc = fs.readFileSync(
+    path.join(APP, 'components', 'RoundBriefing.js'), 'utf8');
+
+  test('the Watch option is a cohort switch', () => {
+    expect(new Set(uiKeys()).has('briefing_video')).toBe(true);
+    expect(new Set(backendKeys()).has('briefing_video')).toBe(true);
+    expect(gatedKeys().has('briefing_video')).toBe(true);
+  });
+
+  test('one resolution point gates both the toggle and the video pane', () => {
+    // Checking the key twice would let the control and the pane disagree — and a
+    // player left in watch mode when the switch flips off would get a blank frame
+    // instead of the written briefing.
+    expect(briefingSrc).toMatch(
+      /const briefingEmbed = isPlayerVisible\('briefing_video'\) \? toEmbed\(briefingVideoUrl\) : null;/);
+    expect((briefingSrc.match(/isPlayerVisible\('briefing_video'\)/g) || []).length).toBe(1);
+  });
+
+  test('the cohort form can set the video URL, and only when one was entered', () => {
+    expect(modalSrc).toMatch(/briefingVideoBase/);
+    expect(modalSrc).toMatch(/sessions\/\$\{sid\}\/briefing-videos/);
+    // Guarded: an empty field must not POST and blank out a value inherited
+    // from a cohort template or the global default.
+    expect(modalSrc).toMatch(/if \(briefingVideoBase\.trim\(\)\) \{/);
+  });
+
+  test('the URL keys are cohort-overridable, or the per-cohort POST is a no-op', () => {
+    const shared = fs.readFileSync(
+      path.join(ROOT, 'backend', 'admin_shared.py'), 'utf8');
+    const start = shared.indexOf('COHORT_OVERRIDABLE_KEYS');
+    const block = shared.slice(start, shared.indexOf('}', start));
+    expect(block).toMatch(/"briefing_video_base"/);
+    expect(block).toMatch(/"briefing_videos"/);
   });
 });

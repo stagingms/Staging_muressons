@@ -124,6 +124,71 @@ _analytics_visibility: dict = {
         "rail_engines": True,          # 🌎 Engine widgets tab
         "rail_climate": True,          # 🌡️ TCFD climate-scenario tab
         "market_reality_feed": True,   # 📡 live market/consequence feed
+        # ── 2026-07-30: player-facing surfaces that had NO cohort switch ──
+        # Everything below was rendered unconditionally (or behind a round
+        # number / engine toggle / its own legacy flag), so a facilitator could
+        # not tailor the cockpit for an introductory vs an executive cohort.
+        #
+        # All default TRUE: adding a switch must not change what any existing
+        # cohort sees. The switch is a VETO that composes with the pre-existing
+        # gate — turning it on cannot make a Round-9 panel appear in Round 2.
+        #
+        # Keys mirror frontend/app/config/playerVisibilityRegistry.js; the
+        # setters below DROP unknown keys, so a key missing here can never
+        # persist. Kept in step by
+        # backend/tests/test_player_visibility_catalog.py.
+        # End of game & debrief
+        "boardroom_showdown": True,           # Boardroom Moment / Showdown
+        "archetype_reveal": True,             # Archetype Reveal
+        "mirror_debrief": True,               # Mirror Debrief
+        "rewind_ribbon": True,                # Rewind Ribbon
+        "mr_ladder_reveal": True,             # M_R Ladder Reveal
+        "archetype_card": True,               # Shareable Archetype Card
+        "three_key_insights": True,           # 3 Key Insights
+        "calibration_report": True,           # Calibration Report
+        "ceo_interview": True,                # CEO Interview & Assessment
+        "student_report_export": True,        # Student Report Export
+        "front_page_reveal": True,            # Front Page Reveal
+        "side_track_results": True,           # Side Track Results
+        # Valuation & causal analytics
+        "consequence_dna": True,              # Consequence DNA
+        "consequence_dna_sankey": True,       # Consequence DNA Sankey
+        "esg_constellation_3d": True,         # 3D ESG Constellation
+        "terminal_valuation_calc": True,      # Terminal Valuation Estimator
+        "synergy_tracker": True,              # Synergy Multiplier Tracker
+        "ebitda_waterfall": True,             # EBITDA Waterfall
+        "balance_sheet_modal": True,          # Balance Sheet & Covenants
+        "consequence_replay": True,           # Consequence Replay
+        "benchmarks_panel": True,             # FTSE 100 ESG Benchmarks
+        "living_planet_globe": True,          # Living Planet Globe
+        # Prediction & reflection
+        "prediction_prompts": True,             # Predict Before You Commit
+        "prediction_comparison": True,        # Prediction vs Reality
+        "quick_reflection_box": True,         # Quick Reflection box
+        "reflective_prompt": True,            # Reflective Nudge card
+        # Narrative & stakeholders
+        "briefing_video": True,          # Briefing: Watch (video) — the Read | Watch choice
+        "briefing_theory_card": True,         # Briefing: Academic Framework
+        "briefing_stakeholder_voices": True,  # Briefing: Stakeholder Voices
+        "briefing_midgame_valuation": True,   # Briefing: Mid-Game Valuation
+        "briefing_butterfly_hints": True,     # Briefing: Butterfly Hints
+        "briefing_last_round_recap": True,    # Briefing: Last Round Recap
+        "ceo_diary": True,                    # CEO Diary
+        "round_retrospect": True,             # What Happened This Round / Road Not Taken
+        "stakeholder_agent_panel": True,      # Autonomous Stakeholder Agents
+        "market_intel_cards": True,           # Market News & Rating Actions
+        "player_annotations": True,           # Facilitator Annotations
+        "flag_dependency_warnings": True,     # Flag Dependency Warnings
+        # Help & reference
+        "ai_advisor": True,                   # AI Strategic Advisor
+        "podcast_player": True,               # Boardroom Briefing Podcast
+        "learning_hub": True,                 # Learning Hub notebooks
+        "resources_sidebar": True,            # Resources Library
+        "detailed_option_descriptions": True, # Detailed Option Descriptions
+        # Dock & ambient
+        "dock_sdg_radar": True,               # Dock: SDG Alignment Radar
+        "market_ticker": True,                # Market Ticker
+        "decision_pressure_timer": True,      # Decision Pressure Timer
     },
 }
 

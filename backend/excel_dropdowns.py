@@ -80,10 +80,24 @@ def seed_bu_slots() -> list[str]:
 
 
 def region_ids() -> list[str]:
+    """Every region a cohort can be FORMED in.
+
+    Source is regional_reporting.REGION_FRAMEWORKS — the disclosure regimes the
+    engine actually models, and the same six the Create-Cohort form offers
+    (frontend REGIONS in CreateCohortModal).
+
+    This deliberately is NOT stakeholder_bulk_excel.REGION_IDS, which was the
+    previous source and carries only five: it has no `china`, so a cohort formed
+    in China could not have its own region named on its own roster — the exact
+    dropdown-vs-server drift this module exists to prevent, pointing the other
+    way. That constant stays as-is; it is an ALIAS table for parsing free-text
+    stakeholder sheets ("in", "usa", "emea"), not a catalogue of what exists.
+    """
     def _get():
-        from stakeholder_bulk_excel import REGION_IDS
-        return list(REGION_IDS)
-    return _safe(_get, ["asean", "south_asia", "europe", "north_america", "africa"])
+        from regional_reporting import REGION_FRAMEWORKS
+        return list(REGION_FRAMEWORKS)
+    return _safe(_get, ["south_asia", "china", "europe",
+                        "north_america", "asean", "africa"])
 
 
 def side_track_ids() -> list[str]:
@@ -113,8 +127,15 @@ def facilitator_column_choices() -> dict[str, list[str]]:
 
 
 def player_column_choices() -> dict[str, list[str]]:
-    """Single-cohort player roster (name, email, programme, assigned_bu,
-    region_id). name is free text; programme is an institutional label."""
+    """DEPRECATED — kept for the facilitator-template call sites only.
+
+    A player roster's columns depend on the COHORT: a 4-BU conglomerate roster
+    has no per-player business unit at all, and a single-business roster names an
+    industry rather than a slot. A mode-blind choice map cannot express either,
+    so `roster_shape.resolve_roster_shape(session_info).choices` is the source
+    for player rosters. See roster_shape.py for why the distinction is not
+    cosmetic.
+    """
     return {
         "assigned_bu": seed_bu_slots(),
         "region_id": region_ids(),

@@ -469,6 +469,23 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                 onClick={() => setBulkFor({
                                                     sessionId: session.session_id,
                                                     cohortName: session.cohort_name,
+                                                    // A first-frame hint only. The modal fetches the
+                                                    // authoritative shape from the server, which is
+                                                    // the same object that builds the template and
+                                                    // gates the upload.
+                                                    shapeHint: {
+                                                        mode: session.simulation_mode === 'single_bu'
+                                                            ? 'single_bu' : 'conglomerate',
+                                                        per_player_scope: session.simulation_mode === 'single_bu',
+                                                        columns: session.simulation_mode === 'single_bu'
+                                                            ? ['name', 'email', 'programme', 'industry_vertical', 'region_id']
+                                                            : ['name', 'email', 'programme'],
+                                                        cohort: {
+                                                            cohort_name: session.cohort_name,
+                                                            industry_vertical: session.industry_vertical || '',
+                                                            region_id: session.region_id || '',
+                                                        },
+                                                    },
                                                 })}
                                                 title="Create many players at once from an Excel file"
                                             >
@@ -682,8 +699,21 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                                                         </td>
                                                         <td>
                                                             {(() => {
-                                                            // In single_bu mode, show the industry vertical as the assigned BU
-                                                            const bu = p.assigned_bu || (session.simulation_mode === 'single_bu' ? (session.industry_vertical || 'Single BU') : '');
+                                                            // What this player actually runs.
+                                                            //
+                                                            // The PLAYER's own industry_vertical comes
+                                                            // first, because in single-business mode
+                                                            // players can run different companies —
+                                                            // falling straight through to the cohort's
+                                                            // vertical would show every player the
+                                                            // same business and hide exactly the
+                                                            // variation the roster set up. assigned_bu
+                                                            // is only the seed SLOT, so two rivals in
+                                                            // (say) oil & gas and cosmetics would both
+                                                            // read "Pharma".
+                                                            const bu = p.industry_vertical
+                                                                || p.assigned_bu
+                                                                || (session.simulation_mode === 'single_bu' ? (session.industry_vertical || 'Single BU') : '');
                                                             if (bu) {
                                                                 return (
                                                                     <span className={`${styles.buBadge} ${styles['bu_' + bu.toLowerCase()]}`}>
@@ -791,6 +821,7 @@ export default function PlayerRegistry({ leaderboard, isSuperAdmin, isLeadOrAdmi
                 mode="cohort"
                 sessionId={bulkFor.sessionId}
                 cohortName={bulkFor.cohortName}
+                shapeHint={bulkFor.shapeHint}
                 onClose={() => setBulkFor(null)}
                 onDone={(payload) => {
                     // Surface the new credentials immediately rather than waiting

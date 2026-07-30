@@ -209,6 +209,9 @@ export default function RoundBriefing({
   prevRoundData, activeFlags, globalState, businessUnits, sessionMeta,
   briefingVideoUrl,
   onLogout,
+  // Cohort player-visibility check, threaded from the page. Defaults to
+  // fail-open so the briefing renders in full when mounted standalone.
+  isPlayerVisible = () => true,
 }) {
   // ── Derive SimContext from live session data and resolve briefing ──────────
   const tokenMap = deriveSimContext(businessUnits, sessionMeta);
@@ -221,7 +224,12 @@ export default function RoundBriefing({
   const [recapOpen, setRecapOpen] = useState(false);
   // Read | Watch choice — Watch appears only when the facilitator configured
   // a video for this round (URL-only config; media is hosted externally).
-  const briefingEmbed = toEmbed(briefingVideoUrl);
+  // Resolved ONCE, so the Read | Watch control and the video pane below can
+  // never disagree. Two consequences worth stating: a cohort with the
+  // briefing_video switch off is read-only even where URLs are configured, and
+  // if the switch is turned off while a player is sitting in watch mode, the
+  // next poll drops them back to the written briefing rather than a blank frame.
+  const briefingEmbed = isPlayerVisible('briefing_video') ? toEmbed(briefingVideoUrl) : null;
   const [briefingMode, setBriefingMode] = useState('read');
   const [confirmLogout, setConfirmLogout] = useState(false);
   // Player briefing academic framing: OFF by default; facilitator can re-enable.
@@ -378,7 +386,7 @@ export default function RoundBriefing({
           </div>
 
           {/* Previous Round Recap */}
-          {prevRoundData && roundNumber > 1 && (
+          {prevRoundData && roundNumber > 1 && isPlayerVisible('briefing_last_round_recap') && (
             <div className={styles.recapPanel}>
               <button className={styles.recapToggle} onClick={() => setRecapOpen(!recapOpen)}>
                 <span>📋 Last Round Summary</span>
@@ -488,7 +496,7 @@ export default function RoundBriefing({
           )}
 
           {/* Butterfly Effect Panel */}
-          {butterflyHints.length > 0 && (
+          {butterflyHints.length > 0 && isPlayerVisible('briefing_butterfly_hints') && (
             <div className={styles.butterflyPanel}>
               <div className={styles.butterflyHeader}>
                 <span>🦋</span> Your earlier decisions shape this crisis...
@@ -571,8 +579,9 @@ export default function RoundBriefing({
 
             {/* Right Column */}
             <div>
-              {/* Theory Card — player-hidden unless briefing_theory_enabled */}
-              {showTheory && theory && (
+              {/* Theory Card — player-hidden unless briefing_theory_enabled;
+                  the cohort switch is a further veto on top of that flag. */}
+              {showTheory && theory && isPlayerVisible('briefing_theory_card') && (
                 <div className={styles.theoryCard}>
                   <div className={styles.theoryHeader}>
                     <span>📚</span> Academic Framework
@@ -583,7 +592,7 @@ export default function RoundBriefing({
               )}
 
               {/* Stakeholder Voices */}
-              {voices.length > 0 && (
+              {voices.length > 0 && isPlayerVisible('briefing_stakeholder_voices') && (
                 <div className={styles.voicesPanel}>
                   <div className={styles.voicesTitle}>💬 Stakeholder Voices</div>
                   {voices.map((v, i) => (
@@ -599,7 +608,7 @@ export default function RoundBriefing({
               )}
 
               {/* Preliminary Valuation (after R5) */}
-              {valuationEstimate && (
+              {valuationEstimate && isPlayerVisible('briefing_midgame_valuation') && (
                 <div className={styles.valuationCard}>
                   <div className={styles.valuationHeader}>📈 Mid-Game Valuation Estimate</div>
                   <div className={styles.valuationRange}>

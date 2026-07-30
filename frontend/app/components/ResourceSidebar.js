@@ -5,6 +5,7 @@ import styles from './ResourceSidebar.module.css';
 import InlinePodcastPlayer from './InlinePodcastPlayer';
 import InlineQuizEngine from './InlineQuizEngine';
 import InlineReviewViewer from './InlineReviewViewer';
+import { useAnalyticsVisibility } from '../hooks/useAnalyticsVisibility';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -106,6 +107,7 @@ function LearningHubCard({ notebook, onOpenPodcast, onOpenQuiz, onOpenReview, qu
 
 
 export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClose, onQuizComplete = null }) {
+    const { isPlayerVisible } = useAnalyticsVisibility(sessionId);
     const [resources, setResources] = useState({ new_this_round: [], archive: [], notebooklm_notebooks: [] });
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
@@ -149,6 +151,9 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
 
     const hasNew = (resources.new_this_round || []).length > 0;
     const notebooks = resources.notebooklm_notebooks || [];
+    // Hub cards only; the resource list, search and the (commit-gating) quiz are
+    // deliberately NOT governed by this switch.
+    const showLearningHub = notebooks.length > 0 && isPlayerVisible('learning_hub');
     const quizEnabled = resources.quiz_enabled !== false;
     const [quizQuestions, setQuizQuestions] = useState([]);
     const [quizDifficulty, setQuizDifficulty] = useState('medium');
@@ -191,7 +196,7 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
 
 
                     {/* Learning Hub (was NotebookLM Hub) */}
-                    {notebooks.length > 0 && (
+                    {showLearningHub && (
                         <div className={styles.nbHubSection}>
                             <div className={styles.sectionHeader}>
                                 📚 Learning Hub
@@ -226,7 +231,7 @@ export default function ResourceSidebar({ sessionId, roundNumber, isOpen, onClos
                         </div>
                     )}
 
-                    {notebooks.length > 0 && (filteredNew.length > 0 || filteredArchive.length > 0) && <hr className={styles.divider} />}
+                    {showLearningHub && (filteredNew.length > 0 || filteredArchive.length > 0) && <hr className={styles.divider} />}
 
                     {/* New This Round */}
                     {filteredNew.length > 0 && (

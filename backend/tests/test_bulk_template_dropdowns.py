@@ -135,9 +135,19 @@ def test_template_round_trips_through_its_own_parser(template_bytes):
 
 @pytest.fixture(scope="module")
 def player_template(tmp_path_factory):
+    """The SINGLE-BUSINESS roster template — the only player shape that has
+    constrained columns at all. The conglomerate shape deliberately ships none
+    (see roster_shape.py), so it has nothing to put a dropdown on and is covered
+    by its own test below."""
     from player_bulk_excel import build_player_template
+    from roster_shape import resolve_roster_shape
     p = tmp_path_factory.mktemp("tpl") / "players.xlsx"
-    build_player_template(p)
+    build_player_template(p, resolve_roster_shape({
+        "simulation_mode": "single_bu",
+        "industry_vertical": "oil_gas",
+        "region_id": "south_asia",
+        "cohort_name": "Dropdown Cohort",
+    }))
     return p.read_bytes()
 
 
@@ -150,31 +160,54 @@ def master_template(tmp_path_factory):
 
 
 def test_player_template_has_dropdowns_on_constrained_columns(player_template):
+    """Columns D/E are industry_vertical and region_id — the two facts that make
+    one player's company differ from another's in single-business mode."""
     wb = load_workbook(io.BytesIO(player_template))
     ws = wb["Players"]
+    assert [c.value for c in ws[1]] == ["name", "email", "programme",
+                                        "industry_vertical", "region_id"]
     letters = {"".join(c for c in str(dv.sqref).split(":")[0] if c.isalpha())
                for dv in ws.data_validations.dataValidation}
-    assert "D" in letters, "assigned_bu needs a dropdown"
+    assert "D" in letters, "industry_vertical needs a dropdown"
     assert "E" in letters, "region_id needs a dropdown"
     assert wb["_Options"].sheet_state == "hidden"
 
 
-def test_assigned_bu_offers_business_units_not_verticals():
-    """A cohort's bu_states only ever carry the four SEED SLOTS. Offering
-    'chemicals' (a vertical) would look plausible and match no BU — the
-    shipped template's own example row had exactly that bug."""
-    import excel_dropdowns as xd
-    slots = set(xd.seed_bu_slots())
-    assert slots == {"pharma", "electronics", "consumer_goods", "software"}
-    assert "chemicals" not in slots
-    assert not slots & {"oil_gas", "technology", "retail_fmcg"}, \
-        "verticals must not appear in the assigned_bu dropdown"
+def test_conglomerate_template_ships_no_scope_column_to_get_wrong():
+    """The strongest form of the fix: a column that does not exist cannot be
+    filled in with a value that would silently scope the player to one BU."""
+    from player_bulk_excel import build_player_template
+    from roster_shape import resolve_roster_shape
+    import tempfile, pathlib as _pl
+    out = _pl.Path(tempfile.mkdtemp()) / "cong.xlsx"
+    build_player_template(out, resolve_roster_shape({"simulation_mode": "conglomerate"}))
+    wb = load_workbook(out)
+    ws = wb["Players"]
+    assert [c.value for c in ws[1]] == ["name", "email", "programme"]
+    assert not ws.data_validations.dataValidation, \
+        "nothing on this sheet is a pick-list, so nothing needs a dropdown"
+    assert "_Options" not in wb.sheetnames, \
+        "no dropdowns means no hidden options sheet to confuse the author"
+
+
+def test_player_dropdowns_offer_verticals_and_never_bare_slots_alone():
+    """The roster names an INDUSTRY (oil_gas, semiconductor); the seed slot is
+    derived. The older template asked for the slot, which meant a facilitator
+    running an Oil & Gas cohort had to know it lives in the 'pharma' slot."""
+    import roster_shape as rs
+    verticals = set(rs.formation_verticals())
+    assert {"oil_gas", "semiconductor", "technology", "retail_fmcg"} <= verticals
+    assert {"pharma", "electronics", "consumer_goods", "software"} <= verticals, \
+        "the four native verticals are legitimate choices too"
+    assert "chemicals" not in verticals, "'chemicals' has never been a valid id"
 
 
 @pytest.mark.parametrize("sheet,expected_fields", [
     ("Facilitators", {"role"}),
     ("Cohorts", {"simulation_mode", "industry_vertical", "decision_paradigm", "region_id"}),
-    ("Players", {"assigned_bu", "region_id"}),
+    # No assigned_bu: the slot is derived from the industry, so the column is
+    # gone from the Players sheet entirely.
+    ("Players", {"industry_vertical", "region_id"}),
 ])
 def test_master_template_dropdowns_per_sheet(master_template, sheet, expected_fields):
     """Every constrained column on all three sheets carries a dropdown."""
@@ -183,7 +216,8 @@ def test_master_template_dropdowns_per_sheet(master_template, sheet, expected_fi
     cols = {
         "Facilitators": list(FACILITATOR_COLUMNS),
         "Cohorts": list(COHORT_COLUMNS),
-        "Players": ["cohort_ref", "name", "email", "programme", "assigned_bu", "region_id"],
+        "Players": ["cohort_ref", "name", "email", "programme",
+                    "industry_vertical", "region_id"],
     }[sheet]
 
     wb = load_workbook(io.BytesIO(master_template))
@@ -210,7 +244,8 @@ def test_master_sheets_do_not_share_option_columns(master_template):
     cols = {
         "Facilitators": list(FACILITATOR_COLUMNS),
         "Cohorts": list(COHORT_COLUMNS),
-        "Players": ["cohort_ref", "name", "email", "programme", "assigned_bu", "region_id"],
+        "Players": ["cohort_ref", "name", "email", "programme",
+                    "industry_vertical", "region_id"],
     }
     for sheet, sheet_cols in cols.items():
         for dv in wb[sheet].data_validations.dataValidation:
@@ -228,14 +263,26 @@ def test_master_sheets_do_not_share_option_columns(master_template):
 
 def test_player_and_master_templates_round_trip(player_template, master_template):
     from player_bulk_excel import parse_player_sheet, parse_master_workbook
-    rows = parse_player_sheet(player_template)
+    from roster_shape import resolve_roster_shape
+    shape = resolve_roster_shape({"simulation_mode": "single_bu",
+                                  "industry_vertical": "oil_gas",
+                                  "region_id": "south_asia"})
+    rows = parse_player_sheet(player_template, shape=shape)
     assert len(rows) == 2
+    # The DERIVED slot is always one of the four seed positions, whatever
+    # vertical the author picked.
     assert {r["assigned_bu"] for r in rows} <= {"pharma", "electronics",
                                                 "consumer_goods", "software"}
+    assert {r["industry_vertical"] for r in rows} - {""}, "the template demonstrates a vertical"
+
     out = parse_master_workbook(master_template)
-    assert (len(out["facilitators"]), len(out["cohorts"]), len(out["players"])) == (2, 2, 3)
+    assert (len(out["facilitators"]), len(out["cohorts"]), len(out["players"])) == (2, 2, 4)
     for p in out["players"]:
-        assert p["assigned_bu"] in {"pharma", "electronics", "consumer_goods", "software"}
+        # Conglomerate rows carry NO slot; single_bu rows carry a derived one.
+        assert p["assigned_bu"] in {"", "pharma", "electronics",
+                                    "consumer_goods", "software"}
+        assert bool(p["assigned_bu"]) == bool(p["industry_vertical"]), \
+            "slot and vertical are set together or not at all"
 
 
 def test_parser_finds_the_data_sheet_even_if_another_tab_was_active(template_bytes):

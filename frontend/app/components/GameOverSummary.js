@@ -196,34 +196,49 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 )}
 
                 {/* Wow moments: replay the journey, name the regret, keep a card */}
-                <RewindRibbon flags={activeFlags} />
+                {isPlayerVisible('rewind_ribbon') && (
+                    <RewindRibbon flags={activeFlags} />
+                )}
                 {/* WOW-10: M_R Ladder — animated stacking reveal of each M_R component */}
-                <MRLadderReveal mr={d.regenerative_multiple} flags={activeFlags} />
+                {isPlayerVisible('mr_ladder_reveal') && (
+                    <MRLadderReveal mr={d.regenerative_multiple} flags={activeFlags} />
+                )}
                 {isPlayerVisible('regret_meter') && (
                     <RegretMeter mr={d.regenerative_multiple} flags={activeFlags} />
                 )}
                 {/* WOW-3: Mirror Debrief — single highest-impact counterfactual */}
-                <MirrorDebrief
-                    mr={Number(d.regenerative_multiple) || 0}
-                    flags={activeFlags}
-                    terminalValue={Number(d.terminal_value) || 0}
-                />
-                <div style={{ textAlign: 'center' }}>
-                    <ArchetypeCard
-                        title={d.profile_title || theme.title}
-                        icon={theme.icon}
-                        mr={d.regenerative_multiple || 0}
-                        terminalValueM={(d.terminal_value || 0) / 1_000_000}
-                        sharePrice={d.price_per_share}
-                        equityWiped={d.equity_wiped_out ?? (d.equity_value != null ? d.equity_value < 0 : null)}
-                        accent={accentHex}
-                        cohortName={d.cohort_name || ''}
+                {isPlayerVisible('mirror_debrief') && (
+                    <MirrorDebrief
+                        mr={Number(d.regenerative_multiple) || 0}
+                        flags={activeFlags}
+                        terminalValue={Number(d.terminal_value) || 0}
                     />
-                </div>
-                <FrontPageReveal sessionId={sessionId} data={d} cohortName={d.cohort_name || ''} />
+                )}
+                {isPlayerVisible('archetype_card') && (
+                    <div style={{ textAlign: 'center' }}>
+                        <ArchetypeCard
+                            title={d.profile_title || theme.title}
+                            icon={theme.icon}
+                            mr={d.regenerative_multiple || 0}
+                            terminalValueM={(d.terminal_value || 0) / 1_000_000}
+                            sharePrice={d.price_per_share}
+                            equityWiped={d.equity_wiped_out ?? (d.equity_value != null ? d.equity_value < 0 : null)}
+                            accent={accentHex}
+                            cohortName={d.cohort_name || ''}
+                        />
+                    </div>
+                )}
+                {/* The cohort switch is an ADDITIONAL veto: FrontPageReveal still
+                    self-checks the `front_page_enabled` global flag internally, so
+                    both must allow it for the reveal to render. */}
+                {isPlayerVisible('front_page_reveal') && (
+                    <FrontPageReveal sessionId={sessionId} data={d} cohortName={d.cohort_name || ''} />
+                )}
                 {/* Calibration curve + Overconfidence Index (Phase 3) —
                     renders nothing if no scored predictions exist. */}
-                <CalibrationReport sessionId={sessionId} />
+                {isPlayerVisible('calibration_report') && (
+                    <CalibrationReport sessionId={sessionId} />
+                )}
                 {/* WOW-12: ESG Leadership Profile — radar chart + PNG export */}
                 {isPlayerVisible('esg_leadership') && (
                     <ESGLeadershipProfile
@@ -246,7 +261,11 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 </div>
 
                 {/* ── Final Peer Performance Leaderboard ── */}
-                {peerLeaderboard.length > 0 && (
+                {/* `peer_benchmarking` is the single switch for ALL peer data shown
+                    to players. This table was a leak: it named every team and their
+                    standing even for cohorts that had peer benchmarking turned off.
+                    The non-empty guard stays — the switch is an extra veto on top. */}
+                {isPlayerVisible('peer_benchmarking') && peerLeaderboard.length > 0 && (
                     <div style={{
                         background: 'linear-gradient(135deg, rgba(99,102,241,0.08), rgba(168,85,247,0.05))',
                         border: '1px solid rgba(99,102,241,0.25)',
@@ -341,7 +360,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
 
 
                 {/* ── 3 Key Insights ── */}
-                {history && history.length > 0 && (() => {
+                {isPlayerVisible('three_key_insights') && history && history.length > 0 && (() => {
                     // Build per-round deltas from actual history array.
                     // History entries may store absolute treasury values; compute delta from consecutive rounds.
                     const ROUND_NAMES = {
@@ -551,7 +570,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
 
 
                 {/* ── Side Track Results ── */}
-                {(() => {
+                {isPlayerVisible('side_track_results') && (() => {
                     const flags = globalState?.active_event_flags || {};
                     const SIDE_TRACKS = [
                         { id: 'supply_chain', label: 'Supply Chain Deep Dive', icon: '🔗', scoreKey: 'supply_chain_final_score', gradeKey: 'supply_chain_grade', archetypeKey: 'supply_chain_archetype', completedKey: 'supply_chain_track_completed', mrBonusKey: 'sc_track_mr_bonus', mrPenaltyKey: 'sc_track_mr_penalty' },
@@ -896,8 +915,11 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                                 </div>
                             )}
 
-                            {/* What-if: if they had NOT done the SDG track */}
-                            {sdgCompleted && vT > 0 && mSdg > 1.0 && (
+                            {/* What-if: if they had NOT done the SDG track.
+                                This line is itself a side-track result (it quantifies
+                                what the SDG track earned), so it follows
+                                `side_track_results` on top of its own guards. */}
+                            {isPlayerVisible('side_track_results') && sdgCompleted && vT > 0 && mSdg > 1.0 && (
                                 <div style={{ marginTop: '0.6rem', fontSize: '0.68rem', color: '#334155', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '0.6rem' }}>
                                     Without SDG track: V<sub>T</sub> would be{' '}
                                     <span style={{ color: '#64748b', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
@@ -916,7 +938,9 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
 
                 {/* Actions */}
                 <div className={styles.actions}>
-                    {interviewAvailable && !interviewCompleted && (
+                    {/* `interviewAvailable` is the facilitator-authored-questions probe;
+                        the cohort switch is ANDed on top so both must allow the entry point. */}
+                    {isPlayerVisible('ceo_interview') && interviewAvailable && !interviewCompleted && (
                         <button
                             className={styles.primaryBtn}
                             onClick={() => setShowInterview(true)}
@@ -928,7 +952,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             🎤 CEO Interview & Assessment
                         </button>
                     )}
-                    {interviewCompleted && (
+                    {isPlayerVisible('ceo_interview') && interviewCompleted && (
                         <button
                             className={styles.primaryBtn}
                             onClick={() => setShowInterview(true)}
@@ -950,13 +974,15 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                             📊 Review Balanced Scorecard
                         </button>
                     )}
-                    <StudentReportExport
-                        data={d}
-                        globalState={globalState}
-                        history={history}
-                        businessUnits={businessUnits}
-                        sessionId={sessionId}
-                    />
+                    {isPlayerVisible('student_report_export') && (
+                        <StudentReportExport
+                            data={d}
+                            globalState={globalState}
+                            history={history}
+                            businessUnits={businessUnits}
+                            sessionId={sessionId}
+                        />
+                    )}
                     {/* The PDF path is implemented BY the scorecard (handleDownload
                         opens it), so it is only offered when the scorecard is
                         available — otherwise the button silently does nothing.
@@ -974,7 +1000,7 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 </div>
 
                 {/* CEO Interview Modal */}
-                {showInterview && (
+                {isPlayerVisible('ceo_interview') && showInterview && (
                     <CEOInterview
                         sessionId={sessionId}
                         onClose={() => setShowInterview(false)}

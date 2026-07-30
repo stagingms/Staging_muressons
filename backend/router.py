@@ -794,24 +794,50 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     #                 as a single entity, e.g. god-mode global single-BU deployment).
     # player_record was already fetched above for password validation.
     _player_assigned_bu = ""
+    _player_industry = ""
+    _player_region = ""
     try:
         if player_record is None:
             from admin_shared import _player_registry as _reg
             player_record = next((p for p in _reg if p["player_id"] == req.player_id), None)
         if player_record:
             _player_assigned_bu = player_record.get("assigned_bu", "") or ""
+            _player_industry = player_record.get("industry_vertical", "") or ""
+            _player_region = player_record.get("region_id", "") or ""
     except Exception:
         pass
 
     _cohort_assigned_bu = cohort_info.get("assigned_bu", "") if cohort_info else ""
+    _cohort_region = cohort_info.get("region_id", "") if cohort_info else ""
     _effective_assigned_bu = _player_assigned_bu or _cohort_assigned_bu or None
+
+    # The player's OWN company, in a single-business cohort where each player
+    # runs one. The vertical decides the BU's profile (stats, label, icon) and
+    # the slot only decides which seed position it occupies, so a per-player
+    # vertical is what actually makes two players' businesses differ —
+    # create_session already builds the single BU from (slot, vertical); it was
+    # simply never handed the player's own vertical, only the cohort's, so every
+    # player in a single-business cohort ran the same company no matter what the
+    # roster said. The cohort's value remains the fallback: a player with no
+    # vertical of their own (a bare generated id, or a pre-existing roster) keeps
+    # exactly the behaviour they had.
+    _effective_industry = _cohort_industry
+    _effective_region = _cohort_region
+    if _cohort_sim_mode == "single_bu":
+        _effective_industry = _player_industry or _cohort_industry
+        _effective_region = _player_region or _cohort_region
+        if _player_industry:
+            # Keep the slot congruent with the vertical actually being built,
+            # rather than trusting a stored slot that may predate a roster edit.
+            _effective_assigned_bu = VERTICAL_SLOT_MAP.get(_player_industry, _player_industry)
+
     # Single-BU fallback (mirrors session-info Fallback 3): cohorts created
     # before the per-session assigned_bu write carry only industry_vertical —
     # derive the scope from it so a joining player never silently lands in the
     # 4-BU conglomerate. create_session resolves vertical ids itself, so the
     # raw industry_vertical is a valid value to pass here.
-    if not _effective_assigned_bu and _cohort_sim_mode == "single_bu" and _cohort_industry:
-        _effective_assigned_bu = VERTICAL_SLOT_MAP.get(_cohort_industry, _cohort_industry)
+    if not _effective_assigned_bu and _cohort_sim_mode == "single_bu" and _effective_industry:
+        _effective_assigned_bu = VERTICAL_SLOT_MAP.get(_effective_industry, _effective_industry)
 
     # Create an independent session for this player
     player_session = await db.create_session(
@@ -822,7 +848,8 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         decision_paradigm=cohort_info.get("decision_paradigm", "legacy_abc") if cohort_info else "legacy_abc",
         currency_symbol=cohort_info.get("currency_symbol", "$") if cohort_info else "$",
         simulation_mode=_cohort_sim_mode or None,
-        industry_vertical=_cohort_industry or None,
+        industry_vertical=_effective_industry or None,
+        region_id=_effective_region or None,
         assigned_bu=_effective_assigned_bu,
     )
 
@@ -1333,16 +1360,36 @@ async def get_session_info(session_id: str):
     # assignments; set by the facilitator during induction).  This covers both legacy
     # sub-sessions (created before assigned_bu was written at join time) and any future
     # cases where the registry entry is the only source of truth.
-    if not _assigned_bu:
-        _player_id = session.get("player_id", "")
-        if _player_id:
-            try:
-                from admin_shared import _player_registry as _reg
-                _prec = next((p for p in _reg if p.get("player_id") == _player_id), None)
-                if _prec:
-                    _assigned_bu = _prec.get("assigned_bu", "") or ""
-            except Exception:
-                pass
+    #
+    # The registry is also consulted for industry_vertical, and there it OUTRANKS
+    # the cohort's value rather than merely filling a gap: in single-business mode
+    # the cohort's vertical is the default for players who chose none, so a
+    # sub-session inheriting the cohort's vertical (Fallback 1) would report the
+    # wrong company for a player who has their own. Only the player's own value
+    # can be right about which business this player runs.
+    # NOTE on assigned_bu vs industry_vertical, because conflating them is easy
+    # and the failure is silent: the SESSION's assigned_bu is the bu_id actually
+    # present in bu_states, which for a substituted vertical IS the vertical id
+    # (create_session sets it from filtered[0]["bu_id"]), not the seed slot. So a
+    # session that already carries assigned_bu is authoritative and is never
+    # overwritten here — recomputing it as a slot would make the cockpit address a
+    # BU that does not exist in its own state.
+    _player_id = session.get("player_id", "")
+    if _player_id and (not _assigned_bu or _sim_mode == "single_bu"):
+        try:
+            from admin_shared import _player_registry as _reg
+            _prec = next((p for p in _reg if p.get("player_id") == _player_id), None)
+            if _prec:
+                _prec_vertical = _prec.get("industry_vertical") or ""
+                if _sim_mode == "single_bu" and _prec_vertical:
+                    _industry_vert = _prec_vertical
+                if not _assigned_bu:
+                    # Prefer the player's own vertical over their stored slot: the
+                    # vertical is what create_session would have scoped them to.
+                    _assigned_bu = (_prec_vertical if _sim_mode == "single_bu" and _prec_vertical
+                                    else (_prec.get("assigned_bu", "") or ""))
+        except Exception:
+            pass
 
     # Fallback 3 — single_bu mode: industry_vertical IS the BU.
     # If simulation_mode is 'single_bu' but assigned_bu is still unresolved

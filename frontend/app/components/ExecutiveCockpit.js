@@ -733,15 +733,26 @@ export default function ExecutiveCockpit({
   // Keep the OPEN rail tab valid. Hiding a tab in cohort settings must not
   // leave its content rendered underneath a tab bar that no longer offers it —
   // fall back to the first tab the cohort still permits.
+  const railTabsVisible = useMemo(
+    () => Object.keys(RAIL_TAB_VIS).filter(
+      id => isPanelVisible(playerVisibility, RAIL_TAB_VIS[id])),
+    [playerVisibility],
+  );
   useEffect(() => {
-    const visible = Object.keys(RAIL_TAB_VIS).filter(
-      id => isPanelVisible(playerVisibility, RAIL_TAB_VIS[id])
-    );
-    if (visible.length && !visible.includes(rightPanelTab)) {
-      setRightPanelTab(visible[0]);
+    if (railTabsVisible.length && !railTabsVisible.includes(rightPanelTab)) {
+      setRightPanelTab(railTabsVisible[0]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playerVisibility, rightPanelTab]);
+  }, [railTabsVisible, rightPanelTab]);
+
+  // Same guarantee for the LEFT panel: a cohort that hides kpi_dashboard must
+  // not leave the Charts pane rendered under a tab bar that no longer offers it.
+  useEffect(() => {
+    if (leftPanelTab === 'charts' && !isPanelVisible(playerVisibility, 'kpi_dashboard')) {
+      setLeftPanelTab('kpis');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playerVisibility, leftPanelTab]);
 
   // LOW-tier polish: cohort accessibility defaults (applied at document level)
   // + white-label branding for the header. Fail-open — unconfigured cohorts
@@ -1212,12 +1223,14 @@ export default function ExecutiveCockpit({
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <CountdownTimer sessionId={sim?.sessionId} roundNumber={roundNumber} />
             {/* WOW-11: Enhanced timer with competitive commit counter */}
-            <DecisionPressureTimer
-              sessionId={sim?.sessionId}
-              roundNumber={roundNumber}
-              isCommitted={!!commitResults}
-              globalState={globalState}
-            />
+            {isPlayerVisible('decision_pressure_timer') && (
+              <DecisionPressureTimer
+                sessionId={sim?.sessionId}
+                roundNumber={roundNumber}
+                isCommitted={!!commitResults}
+                globalState={globalState}
+              />
+            )}
             <span style={{
               padding: '2px 10px', borderRadius: 12,
               background: decisionParadigm === 'advanced_climate' ? 'rgba(16,185,129,0.18)' : 'rgba(99,102,241,0.12)',
@@ -1278,11 +1291,15 @@ export default function ExecutiveCockpit({
 
           {/* ── Left Panel Tab Bar ── */}
           <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--ck-border, rgba(148,163,184,0.08))', background: 'var(--ck-surface-1, #0e1222)', flexShrink: 0 }}>
+            {/* Charts is the only left tab whose CONTENT is cohort-gated, so it is
+                the only one that can lead nowhere. Offering the tab while
+                kpi_dashboard is off gave a player a button that opened an empty
+                panel — filtering the bar keeps the two in step. */}
             {[
               { id: 'kpis', label: '📊 KPIs' },
-              { id: 'charts', label: '📈 Charts' },
+              { id: 'charts', label: '📈 Charts', vis: 'kpi_dashboard' },
               { id: 'metrics', label: '⚙️ Metrics' },
-            ].map(tab => (
+            ].filter(tab => !tab.vis || isPlayerVisible(tab.vis)).map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setLeftPanelTab(tab.id)}
@@ -1421,7 +1438,9 @@ export default function ExecutiveCockpit({
             )}
           </div>
           </div>
-          <BenchmarksPanel sessionId={sim?.sessionId || sim?.session_id} roundNumber={roundNumber} />
+          {isPlayerVisible('benchmarks_panel') && (
+            <BenchmarksPanel sessionId={sim?.sessionId || sim?.session_id} roundNumber={roundNumber} />
+          )}
           </div>
           )}
 
@@ -1441,7 +1460,11 @@ export default function ExecutiveCockpit({
             roundNumber={roundNumber}
             events={events}
           />
-          <BenchmarksPanel sessionId={sim?.sessionId || sim?.session_id} roundNumber={roundNumber} />
+          {/* Nested inside the kpi_dashboard tab gate above — the benchmarks
+              switch ANDs onto it, it does not replace it. */}
+          {isPlayerVisible('benchmarks_panel') && (
+            <BenchmarksPanel sessionId={sim?.sessionId || sim?.session_id} roundNumber={roundNumber} />
+          )}
           </div>
           )}
 
@@ -1449,7 +1472,9 @@ export default function ExecutiveCockpit({
           {leftPanelTab === 'metrics' && (
           <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
             {/* WOW-7: Living Planet ESG State Globe */}
-            <LivingPlanet globalState={globalState} businessUnits={businessUnits} compact />
+            {isPlayerVisible('living_planet_globe') && (
+              <LivingPlanet globalState={globalState} businessUnits={businessUnits} compact />
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               {/* #3: BU Health Leaderboard — Deep Dive only */}
               {isDeepDive && businessUnits?.length > 0 && (
@@ -1755,7 +1780,9 @@ export default function ExecutiveCockpit({
                         value={selectedOpt || null}
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
-                        detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
+                        detailedDescs={isPlayerVisible('detailed_option_descriptions')
+                          ? (DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {})
+                          : {}}
                       />
                     </div>
                   );
@@ -2045,7 +2072,9 @@ export default function ExecutiveCockpit({
                     {/* Balance Sheet (Focus Results) — clickable */}
                     {(() => {
                       const bsF = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
+                      // Null-data guard stays; the visibility switch ANDs onto it.
                       if (!bsF || typeof bsF !== 'object' || bsF.net_assets == null) return null;
+                      if (!isPlayerVisible('balance_sheet_modal')) return null;
                       const cColor = { green: '#4ade80', amber: '#fbbf24', red: '#ef4444', breached: '#dc2626' };
                       const cIcon = { green: '🟢', amber: '🟡', red: '🔴', breached: '🚨' };
                       return (
@@ -2066,12 +2095,14 @@ export default function ExecutiveCockpit({
             </div>
 
             {/* WOW-1: Consequence Replay — animated causal chain after commit */}
-            <ConsequenceReplay
-              commitResults={commitResults}
-              sessionId={sim?.sessionId}
-              roundNumber={roundNumber}
-              globalState={globalState}
-            />
+            {isPlayerVisible('consequence_replay') && (
+              <ConsequenceReplay
+                commitResults={commitResults}
+                sessionId={sim?.sessionId}
+                roundNumber={roundNumber}
+                globalState={globalState}
+              />
+            )}
 
             {/* Events summary */}
             {commitResults.events && Object.keys(commitResults.events).length > 0 && (
@@ -2101,22 +2132,26 @@ export default function ExecutiveCockpit({
             {/* V-A (player v2, V-3): the retrospect lands where the learning
                 does — same component, same data, moved from the ambient rail.
                 Rendered against the just-committed state. */}
-            <div style={{ marginBottom: 16 }}>
-              <EngineEventsPanel
-                globalState={commitResults.globalState || globalState}
-                roundEvents={commitResults.events}
-                sections="retrospect"
-              />
-            </div>
+            {isPlayerVisible('round_retrospect') && (
+              <div style={{ marginBottom: 16 }}>
+                <EngineEventsPanel
+                  globalState={commitResults.globalState || globalState}
+                  roundEvents={commitResults.events}
+                  sections="retrospect"
+                />
+              </div>
+            )}
 
             {/* ── EBITDA Decomposition Waterfall (Gap 1: visual strategy storytelling) ── */}
-            <EBITDAWaterfall
-              businessUnits={commitResults.businessUnits || businessUnits}
-              globalState={commitResults.globalState || globalState}
-              events={commitResults.events || events}
-              commitResults={commitResults}
-              isDark={isDark}
-            />
+            {isPlayerVisible('ebitda_waterfall') && (
+              <EBITDAWaterfall
+                businessUnits={commitResults.businessUnits || businessUnits}
+                globalState={commitResults.globalState || globalState}
+                events={commitResults.events || events}
+                commitResults={commitResults}
+                isDark={isDark}
+              />
+            )}
 
             {/* ── Reveal-schedule lock notice ── */}
             {peerLockMsg && (
@@ -2126,7 +2161,11 @@ export default function ExecutiveCockpit({
             )}
 
             {/* ── Inline Peer Performance (Focus Results) ── */}
-            {peerLeaderboard.length > 0 && (
+            {/* peer_benchmarking is the ONE switch that governs peer data. This
+                leaderboard was ungated, so a cohort with Peer Benchmarking OFF
+                still saw peer rankings here. The reveal-schedule notice
+                (peerLockMsg) above is unaffected. */}
+            {peerLeaderboard.length > 0 && isPlayerVisible('peer_benchmarking') && (
               <div style={{ padding: '10px 14px', background: 'rgba(99,102,241,0.06)', borderRadius: 8, border: '1px solid rgba(99,102,241,0.2)', marginBottom: 16 }}>
                 <div style={{ fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#818cf8', marginBottom: 8, fontSize: '0.68rem', display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span>📊</span> {peerLeaderboard.some(t => t.isAI) ? 'AI Benchmark Comparison' : 'Cohort Leaderboard'}
@@ -2274,10 +2313,12 @@ export default function ExecutiveCockpit({
             )}
 
             {/* Flag Dependency Warnings — transparency layer */}
-            <FlagDependencyWarnings
-              roundNumber={roundNumber}
-              activeFlags={globalState?.active_event_flags || {}}
-            />
+            {isPlayerVisible('flag_dependency_warnings') && (
+              <FlagDependencyWarnings
+                roundNumber={roundNumber}
+                activeFlags={globalState?.active_event_flags || {}}
+              />
+            )}
 
             {/* ── Round Gates ── */}
             {roundNumber === 1 && !hasCompletedStakeholderMap && (
@@ -2679,7 +2720,9 @@ export default function ExecutiveCockpit({
                         value={selectedOpt || null}
                         onChange={(optKey) => handlePillarSelect(areaKey, optKey)}
                         fmtCurrency={fmtCurrency}
-                        detailedDescs={DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {}}
+                        detailedDescs={isPlayerVisible('detailed_option_descriptions')
+                          ? (DETAILED_DESCRIPTIONS.pillars?.[roundNumber]?.[areaKey] || {})
+                          : {}}
                       />
                     </div>
                   );
@@ -2703,7 +2746,9 @@ export default function ExecutiveCockpit({
                       onSelect={handleLegacySelect}
                       onHover={(id) => { setHoveredOpt(id); setHoveredOption(id); }}
                       onLeave={() => { setHoveredOpt(null); setHoveredOption(null); }}
-                      detailedDesc={DETAILED_DESCRIPTIONS.narrative?.[roundNumber]?.[optId]}
+                      detailedDesc={isPlayerVisible('detailed_option_descriptions')
+                        ? DETAILED_DESCRIPTIONS.narrative?.[roundNumber]?.[optId]
+                        : undefined}
                       fmtCurrency={fmtCurrency}
                       treasury={treasury}
                       reputation={reputation}
@@ -2817,21 +2862,29 @@ export default function ExecutiveCockpit({
             )}
 
             {/* Phase 3.3: Consequence DNA — causal chains from past decisions (R4+) */}
-            <ConsequenceDNA
-              history={history}
-              roundNumber={roundNumber}
-              globalState={globalState}
-              events={events}
-            />
+            {isPlayerVisible('consequence_dna') && (
+              <ConsequenceDNA
+                history={history}
+                roundNumber={roundNumber}
+                globalState={globalState}
+                events={events}
+              />
+            )}
 
             {/* Consequence DNA Visualizer Trigger (Sankey pop-out) */}
+            {/* The R4+ floor is the reveal schedule; each trigger below ANDs its
+                own visibility switch onto it so a switch can never surface a
+                pre-R4 affordance. */}
             {roundNumber >= 4 && (
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <ConsequenceDNATrigger
-                  ignited={dnaIgnited}
-                  onClick={() => setShowDNAVisualizer(true)}
-                />
+                {isPlayerVisible('consequence_dna_sankey') && (
+                  <ConsequenceDNATrigger
+                    ignited={dnaIgnited}
+                    onClick={() => setShowDNAVisualizer(true)}
+                  />
+                )}
                 {/* Antigravity: 3D Constellation Trigger */}
+                {isPlayerVisible('esg_constellation_3d') && (
                 <button
                   onClick={() => setShowConstellation(true)}
                   style={{
@@ -2855,19 +2908,22 @@ export default function ExecutiveCockpit({
                 >
                   🌐 3D Constellation
                 </button>
+                )}
               </div>
             )}
 
             {/* Consequence DNA Visualizer Pop-Out */}
-            <ConsequenceDNAVisualizer
-              sessionId={sim?.sessionId}
-              isOpen={showDNAVisualizer}
-              onClose={() => setShowDNAVisualizer(false)}
-              frozen={false}
-            />
+            {isPlayerVisible('consequence_dna_sankey') && (
+              <ConsequenceDNAVisualizer
+                sessionId={sim?.sessionId}
+                isOpen={showDNAVisualizer}
+                onClose={() => setShowDNAVisualizer(false)}
+                frozen={false}
+              />
+            )}
 
             {/* Antigravity Enhancement: 3D ESG Impact Constellation */}
-            {showConstellation && (
+            {showConstellation && isPlayerVisible('esg_constellation_3d') && (
               <ESGImpactConstellation
                 history={history}
                 currentRound={roundNumber}
@@ -2876,13 +2932,15 @@ export default function ExecutiveCockpit({
             )}
 
             {/* Phase 3.7: Terminal Valuation Calculator (R9-10 Finale tier) */}
-            <TerminalValuationCalc
-              globalState={globalState}
-              businessUnits={businessUnits}
-              roundNumber={roundNumber}
-              history={history}
-              fmtCurrency={fmtCurrency}
-            />
+            {isPlayerVisible('terminal_valuation_calc') && (
+              <TerminalValuationCalc
+                globalState={globalState}
+                businessUnits={businessUnits}
+                roundNumber={roundNumber}
+                history={history}
+                fmtCurrency={fmtCurrency}
+              />
+            )}
 
             {/* V-A+ (owner request, 2026-07-11): the "Active Infrastructure
                 Projects" panel was removed from the player screen — the
@@ -2981,13 +3039,18 @@ export default function ExecutiveCockpit({
 
         {/* ── RIGHT SIDEBAR ─── */}
         <aside id="tour-intelligence-target" className={styles.rightSidebar}>
-          {/* Floating Resources Pill */}
+          {/* Floating Resources Pill — the panel's only launcher besides the R
+              key, so it must disappear with it. page.js passes onResourcesOpen
+              as null when the resources_sidebar switch is off; rendering the
+              button anyway would leave a control that visibly does nothing. */}
+          {onResourcesOpen && (
           <button className={styles.resourcesPill} onClick={onResourcesOpen}>
             <span style={{ fontSize: '0.9rem' }}>📚</span>
             <span className={styles.resourcesPillLabel}>Resources</span>
             <span className={styles.resourcesPillArrow}>❯</span>
             {hasNewResources && <span className={styles.resourcesPillBadge} />}
           </button>
+          )}
 
           {isPlayerVisible('competitor_intel') && (
             <CompetitorIntelligence globalState={globalState} ebitda={ebitda} roundNumber={roundNumber} />
@@ -3009,7 +3072,12 @@ export default function ExecutiveCockpit({
             </div>
           )}
 
-          {/* Executive Mailbox / Decision History (tabbed) */}
+          {/* Executive Mailbox / Decision History (tabbed).
+              Hidden ENTIRELY when the cohort permits none of its tabs: the tab
+              bar is a bordered sticky strip and the body a flex-filled box, so
+              a zero-tab rail rendered as an empty framed column rather than
+              simply being absent. */}
+          {railTabsVisible.length > 0 && (
           <div className={styles.rightMailbox} style={{ flex: railExpanded ? undefined : '0 0 auto', minHeight: railExpanded ? undefined : 0 }}>
             {/* Sticky Tab Header */}
             <div style={{
@@ -3132,7 +3200,9 @@ export default function ExecutiveCockpit({
                   {/* W-B: Market Intelligence — client-derived rival press +
                       rating letters (rivalIntel.js). Not messages: no read
                       state, never counted in unreadCount. */}
-                  <MarketIntel history={history} roundNumber={roundNumber} />
+                  {isPlayerVisible('market_intel_cards') && (
+                    <MarketIntel history={history} roundNumber={roundNumber} />
+                  )}
 
                   {/* ── Previous Rounds Accordion ── */}
                   {(() => {
@@ -3162,6 +3232,7 @@ export default function ExecutiveCockpit({
               )}
             </div>
           </div>
+          )}
 
           {/* Market Reality Feed — with Consequence Traceability */}
           {/* V-C (player v2, V-1): single-open rail — while a tab panel
@@ -3209,7 +3280,9 @@ export default function ExecutiveCockpit({
           <div style={{
             flex: '1 1 auto', overflowY: 'auto', padding: '8px 10px',
           }}>
-            {(roundNumber > 1 || !!commitResults) && (
+            {/* Reveal condition (R2+ or post-commit) is preserved; the
+                retrospect switch ANDs onto it. */}
+            {(roundNumber > 1 || !!commitResults) && isPlayerVisible('round_retrospect') && (
               <div style={{ marginBottom: 6 }}>
                 <button
                   onClick={() => setRailRecapOpen(v => !v)}
@@ -3232,7 +3305,9 @@ export default function ExecutiveCockpit({
                 )}
               </div>
             )}
-            <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} sections="rest" />
+            {isPlayerVisible('ceo_diary') && (
+              <EngineEventsPanel globalState={globalState} roundEvents={events || commitResults?.events} sections="rest" />
+            )}
             {/* SI-2+: Autonomous Stakeholder Agents Panel */}
             {(() => {
               const evs = events || commitResults?.events || {};
@@ -3244,6 +3319,7 @@ export default function ExecutiveCockpit({
                 ? globalState.agent_summary
                 : (evs.agent_summary || []);
               const aaDiag = evs.autonomous_agents || {};
+              if (!isPlayerVisible('stakeholder_agent_panel')) return null;
               if (aaSummary.length > 0 || (aaDiag.agent_actions || []).length > 0) {
                 return (
                   <StakeholderAgentPanel
@@ -3265,18 +3341,22 @@ export default function ExecutiveCockpit({
             })()}
 
             {/* Gap 3: Facilitator Annotations — visible to students when enabled */}
-            <PlayerAnnotations
-              sessionId={sim?.sessionId || sim?.session_id}
-              roundNumber={roundNumber}
-            />
+            {isPlayerVisible('player_annotations') && (
+              <PlayerAnnotations
+                sessionId={sim?.sessionId || sim?.session_id}
+                roundNumber={roundNumber}
+              />
+            )}
           </div>
 
           {/* Phase 3.6: Synergy Tracker (R7+ Integration tier) */}
-          <SynergyTracker
-            globalState={globalState}
-            roundNumber={roundNumber}
-            workforceReady={globalState?.workforce_readiness}
-          />
+          {isPlayerVisible('synergy_tracker') && (
+            <SynergyTracker
+              globalState={globalState}
+              roundNumber={roundNumber}
+              workforceReady={globalState?.workforce_readiness}
+            />
+          )}
           {/* V-B (player v2, V-4): the rail's "Re-enter Focus Mode" button
               removed — three re-entry affordances (this, the left FOCUS MODE
               pill, the stepper) answered the same intent. The left pill and
@@ -3285,6 +3365,7 @@ export default function ExecutiveCockpit({
           {/* ── Commit Footer (compact) ── */}
           <div className={styles.rightCommit} style={{ flex: '0 0 auto', padding: '8px 12px', background: '#0f172a', borderTop: '1px solid #1e293b', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {/* #1: Decision Confidence Nudge — reflective prompt card */}
+            {isPlayerVisible('reflective_prompt') && (
             <div className={styles.reflectivePrompt}>
               <span style={{ fontSize: '0.85rem', flexShrink: 0 }}>💭</span>
               <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#94a3b8', fontStyle: 'italic', lineHeight: 1.4 }}>
@@ -3296,7 +3377,8 @@ export default function ExecutiveCockpit({
                 }[roundTier]}
               </span>
             </div>
-            
+            )}
+
             {/* Decision Quality Meter */}
             {(() => {
               const allocTotal = Object.values(allocations).reduce((a, b) => a + b, 0);
@@ -3584,7 +3666,7 @@ export default function ExecutiveCockpit({
 
 
       {/* Balance Sheet full modal — for Focus Mode BS card clicks */}
-      {resultsBsModalOpen && commitResults && (
+      {resultsBsModalOpen && commitResults && isPlayerVisible('balance_sheet_modal') && (
         <BalanceSheetModal
           balanceSheet={commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet || null}
           isOpen={resultsBsModalOpen}
@@ -3597,6 +3679,13 @@ export default function ExecutiveCockpit({
       {showPredictionModal && (
         <div className={styles.predictionOverlay} onClick={() => { setShowPredictionModal(false); }}>
           <div className={styles.predictionPanel} onClick={(e) => e.stopPropagation()}>
+            {/* Only the PREDICTION block is gated, not the enclosing modal: this
+                overlay also carries the staged-decision review and the sole
+                onCommit button, so hiding the whole modal would make committing
+                impossible. With prediction_prompts off the modal stays a
+                plain review-and-commit step. */}
+            {isPlayerVisible('prediction_prompts') && (
+            <>
             <div style={{ fontSize: '2rem', textAlign: 'center', marginBottom: 8 }}>🔮</div>
             <h2 className={styles.predictionTitle}>Predict Before You Commit</h2>
             <p className={styles.predictionSubtitle}>
@@ -3622,6 +3711,8 @@ export default function ExecutiveCockpit({
               placeholder="e.g., Option B is balanced — I expect a modest reputation boost with flat emissions..."
               rows={2}
             />
+            </>
+            )}
 
             {/* Summary of staged decisions */}
             <div style={{
@@ -3797,7 +3888,9 @@ export default function ExecutiveCockpit({
                       {/* Balance Sheet Health Card — clickable to open full IFRS balance sheet */}
                       {(() => {
                         const bsData = commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet;
+                        // Null-data guard stays; the visibility switch ANDs onto it.
                         if (!bsData) return null;
+                        if (!isPlayerVisible('balance_sheet_modal')) return null;
                         const bs = typeof bsData === 'object' && bsData.net_assets != null ? bsData : {};
                         const netAssets = bs.net_assets || 0;
                         const deRatio = bs.debt_to_equity || 0;
@@ -4084,7 +4177,11 @@ export default function ExecutiveCockpit({
               )}
 
               {/* ── Inline Peer Performance (Results Overlay) ── */}
-              {peerLeaderboard.length > 0 && (
+              {/* peer_benchmarking is the ONE switch that governs peer data. This
+                  leaderboard was ungated, so a cohort with Peer Benchmarking OFF
+                  still saw peer rankings here. The reveal-schedule notice
+                  (peerLockMsg) is unaffected. */}
+              {peerLeaderboard.length > 0 && isPlayerVisible('peer_benchmarking') && (
                 <div style={{
                   background: 'linear-gradient(135deg, rgba(99,102,241,0.06), rgba(168,85,247,0.04))',
                   border: '1px solid rgba(99,102,241,0.2)',
@@ -4163,12 +4260,14 @@ export default function ExecutiveCockpit({
                   }} />
                 )}
                 {/* Phase 3.4: Prediction vs Reality Comparison */}
-                <PredictionComparison
-                  predictions={predictions}
-                  roundNumber={roundNumber}
-                  commitResults={commitResults}
-                  globalState={globalState}
-                />
+                {isPlayerVisible('prediction_comparison') && (
+                  <PredictionComparison
+                    predictions={predictions}
+                    roundNumber={roundNumber}
+                    commitResults={commitResults}
+                    globalState={globalState}
+                  />
+                )}
                 {pedToggles.real_world_cards_enabled && (
                   <RealWorldCard roundNumber={roundNumber} />
                 )}
@@ -4276,6 +4375,7 @@ export default function ExecutiveCockpit({
                 return (
                   <>
                     {/* B2: Reflection box — optional, never blocks advance */}
+                    {isPlayerVisible('quick_reflection_box') && (
                     <div style={{
                       padding: '10px 12px', borderRadius: 10, marginBottom: 8,
                       background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.18)',
@@ -4304,6 +4404,7 @@ export default function ExecutiveCockpit({
                         }}
                       />
                     </div>
+                    )}
                     <motion.button
                       className={styles.advanceBtnLarge}
                       onClick={() => {
@@ -4323,12 +4424,14 @@ export default function ExecutiveCockpit({
                 );
               })()}
               {/* Balance Sheet full modal — triggered from results card */}
-              <BalanceSheetModal
-                balanceSheet={commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet || null}
-                isOpen={resultsBsModalOpen}
-                onClose={() => setResultsBsModalOpen(false)}
-                fmtCurrency={fmtCurrency}
-              />
+              {isPlayerVisible('balance_sheet_modal') && (
+                <BalanceSheetModal
+                  balanceSheet={commitResults.globalState?.balance_sheet || commitResults.events?.balance_sheet || null}
+                  isOpen={resultsBsModalOpen}
+                  onClose={() => setResultsBsModalOpen(false)}
+                  fmtCurrency={fmtCurrency}
+                />
+              )}
             </motion.div>
           </motion.div>
         )}

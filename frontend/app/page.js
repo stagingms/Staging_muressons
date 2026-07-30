@@ -123,6 +123,7 @@ import ResourceSidebar from './components/ResourceSidebar';
 import RoundBriefing from './components/RoundBriefing';
 import CrisisAlerts, { CrisisScreen } from './components/CrisisAlerts';
 import useSimulation, { playerIdHeader } from './hooks/useSimulation';
+import useSessionLatch from './hooks/useSessionLatch';
 import { useAnalyticsVisibility } from './hooks/useAnalyticsVisibility';
 
 // ── New Improvement Components ──────────────────────────────────
@@ -410,12 +411,18 @@ export default function CockpitPage() {
   // ── Decision modal state ──────────────────────────────────
   const [modalOpen, setModalOpen] = useState(false);
   const [decisionChoice, setDecisionChoice] = useState(null);
-  const [stakeholderDone, setStakeholderDone] = useState(false);
+  // "The player finished the R1 stakeholder map." Scoped to the session that
+  // earned it — see hooks/useSessionLatch.js. It used to be a plain useState
+  // cleared by the effect below, which worked only for as long as every new
+  // latch remembered to join that list; csrdDone and boardroomDone did not.
+  const [stakeholderDone, markStakeholderDone] = useSessionLatch(sim.sessionId);
   const [showStakeholderMap, setShowStakeholderMap] = useState(false);
 
-  // Reset transient minigame states when impersonating different cohorts in the same tab
+  // Reset transient minigame UI when impersonating different cohorts in the same
+  // tab. The completion LATCHES are no longer listed here: they scope themselves
+  // to their session, so they cannot be forgotten. What remains is state that has
+  // no natural owner — open panels and the briefing-seen tracker.
   useEffect(() => {
-    setStakeholderDone(false);
     setShowStakeholderMap(false);
     // Clear briefing-seen tracker so the briefing page shows on re-login
     seenBriefingRoundsRef.current = new Set();
@@ -497,7 +504,16 @@ export default function CockpitPage() {
   // flip it false→true, unmounting and remounting the open matrix and restarting
   // the whole assessment: the real "double materiality loops twice" cause.
   const r2LoadedRoundRef = useRef(null);
-  const [csrdDone, setCsrdDone] = useState(false);
+  // "The player submitted the R2 CSRD / double-materiality assessment."
+  //
+  // THE BUG THIS FIXES: as a plain useState(false) this survived a change of
+  // session in the same tab, and — because it was declared here, far below the
+  // reset effect above — it was never cleared. A tester or facilitator who
+  // submitted the assessment in one cohort saw the NEXT player open Round 2 with
+  // "✅ CSRD Assessment Submitted" already ticked without entering anything, and
+  // isCommitBlocked (which reads the same flag) let them commit Round 2 having
+  // never opened the assessment. Now scoped to its own session by construction.
+  const [csrdDone, markCsrdDone] = useSessionLatch(sim.sessionId);
 
   // Cohort-effective briefing-video config (Read | Watch on round briefings).
   // Fetched at page level — pedToggles lives inside ExecutiveCockpit and is
@@ -885,7 +901,9 @@ export default function CockpitPage() {
   // ── Game Over → Scorecard → BoardroomShowdown → Done ─────────
   const [gameOverPhase, setGameOverPhase] = useState('archetype'); // 'archetype' | 'scorecard' | 'boardroom' | 'done'
   const [showPodcast, setShowPodcast] = useState(false);
-  const [boardroomDone, setBoardroomDone] = useState(false);
+  // Same latch, same reason: as plain page state this skipped the boardroom for
+  // the NEXT player reaching game-over in the same tab.
+  const [boardroomDone, markBoardroomDone] = useSessionLatch(sim.sessionId);
   // EX-2/NF-4: Commit Ceremony state (must be before any early return)
   const [showCommitCeremony, setShowCommitCeremony] = useState(false);
 
@@ -1102,19 +1120,38 @@ export default function CockpitPage() {
 
       switch (e.key) {
         case '?': setGlossaryOpen(prev => !prev); break;
-        case 'r': case 'R': if (!e.ctrlKey) { setResourceSidebarOpen(prev => !prev); setHasNewResources(false); } break;
-        case 'a': case 'A': if (!e.ctrlKey) setAiAdvisorOpen(prev => !prev); break;
+        // A shortcut is a launcher too — it must not open a hidden panel.
+        case 'r': case 'R': if (!e.ctrlKey && isPlayerVisible('resources_sidebar')) { setResourceSidebarOpen(prev => !prev); setHasNewResources(false); } break;
+        case 'a': case 'A': if (!e.ctrlKey && isPlayerVisible('ai_advisor')) setAiAdvisorOpen(prev => !prev); break;
         case 'Escape': setGlossaryOpen(false); setAchievementsOpen(false); setPeerComparisonOpen(false); break;
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+    // isPlayerVisible is a fresh closure once the visibility map resolves —
+    // rebind so the shortcuts stop working the moment a panel is hidden.
+  }, [isPlayerVisible]);
 
 
 
   if (sim.gameOver) {
-    if (gameOverPhase === 'archetype') {
+    // End-of-game phase ladder: archetype → scorecard → boardroom → done.
+    // Any of these screens can be hidden for a cohort, and a hidden screen must
+    // hand the player ON to the next VISIBLE phase: skipping the hand-off would
+    // dead-end the run on a phase that renders nothing, with no way to reach
+    // the debrief. `phase` is the resolved phase actually rendered — the stored
+    // gameOverPhase is left alone (no setState during render).
+    const phaseAfterScorecard = (isPlayerVisible('boardroom_showdown') && !boardroomDone)
+      ? 'boardroom'
+      : 'done';
+    const phaseAfterArchetype = isPlayerVisible('balanced_scorecard')
+      ? 'scorecard'
+      : phaseAfterScorecard;
+    const phase = (gameOverPhase === 'archetype' && !isPlayerVisible('archetype_reveal'))
+      ? phaseAfterArchetype
+      : gameOverPhase;
+
+    if (phase === 'archetype') {
       // Build the terminal state payload from available sim data
       const terminalData = {
         final_mr:              sim.finalReport?.regenerative_multiple
@@ -1136,15 +1173,15 @@ export default function CockpitPage() {
         <ArchetypeReveal
           payload={terminalData}
           onContinue={() => setGameOverPhase(
-            // Skip a hidden scorecard rather than stranding the player on a
-            // phase that renders nothing.
-            isPlayerVisible('balanced_scorecard') ? 'scorecard' : (!boardroomDone ? 'boardroom' : 'done')
+            // Skip a hidden scorecard (and a hidden boardroom) rather than
+            // stranding the player on a phase that renders nothing.
+            phaseAfterArchetype
           )}
           onLogout={sim.logout}
         />
       );
     }
-    if (gameOverPhase === 'scorecard' && !isPlayerVisible('balanced_scorecard')) {
+    if (phase === 'scorecard' && !isPlayerVisible('balanced_scorecard')) {
       // Cohort hides the scorecard (or a session resumed straight into this
       // phase). Fall forward to the phase that has NOT been played yet.
       //
@@ -1155,7 +1192,9 @@ export default function CockpitPage() {
       // button is now hidden when the scorecard is hidden (see
       // GameOverSummary), and this remains as the defensive path for a
       // resumed session.
-      if (boardroomDone) {
+      // A hidden boardroom is treated exactly like an already-played one: there
+      // is no phase left to fall forward into, so land on the debrief.
+      if (boardroomDone || !isPlayerVisible('boardroom_showdown')) {
         return (
           <GameOverSummary
             data={sim.finalReport}
@@ -1173,12 +1212,12 @@ export default function CockpitPage() {
         <BoardroomShowdown
           data={sim.finalReport}
           sessionId={sim.sessionId}
-          onComplete={() => { setBoardroomDone(true); setGameOverPhase('done'); }}
+          onComplete={() => { markBoardroomDone(); setGameOverPhase('done'); }}
           onLogout={sim.logout}
         />
       );
     }
-    if (gameOverPhase === 'scorecard') {
+    if (phase === 'scorecard') {
       return (
       <SustainabilityBalancedScorecard
           data={sim.finalReport}
@@ -1186,19 +1225,23 @@ export default function CockpitPage() {
           globalState={sim.globalState}
           history={sim.history}
           decisionParadigm={decisionParadigm}
-          onProceed={!boardroomDone ? () => setGameOverPhase('boardroom') : undefined}
+          onProceed={(!boardroomDone && isPlayerVisible('boardroom_showdown'))
+            ? () => setGameOverPhase('boardroom')
+            : undefined}
           onClose={() => setGameOverPhase('done')}
           onLogout={sim.logout}
           sessionId={sim.sessionId}
         />
       );
     }
-    if (gameOverPhase === 'boardroom') {
+    // A hidden boardroom falls through to the 'done' debrief below rather than
+    // rendering a blank phase the player cannot leave.
+    if (phase === 'boardroom' && isPlayerVisible('boardroom_showdown')) {
       return (
         <BoardroomShowdown
           data={sim.finalReport}
           sessionId={sim.sessionId}
-          onComplete={() => { setBoardroomDone(true); setGameOverPhase('done'); }}
+          onComplete={() => { markBoardroomDone(); setGameOverPhase('done'); }}
           onLogout={sim.logout}
         />
       );
@@ -1321,6 +1364,7 @@ export default function CockpitPage() {
         onProceed={handleProceedFromDesktop}
         prevRoundData={sim.history?.[sim.history.length - 1]}
         activeFlags={Object.keys(globalState?.active_event_flags || {})}
+        isPlayerVisible={isPlayerVisible}
         onLogout={sim.logout}
       />
     );
@@ -1561,12 +1605,15 @@ export default function CockpitPage() {
                 }] : []),
               ]}
               menuItems={[
-                { icon: '🎧', label: 'Podcast', shortcut: null, onClick: () => setShowPodcast(true) },
-                { icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) },
+                ...(isPlayerVisible('podcast_player') ? [{ icon: '🎧', label: 'Podcast', shortcut: null, onClick: () => setShowPodcast(true) }] : []),
+                // Leaderboard IS peer data: `peer_benchmarking` is the single
+                // switch for it, so a cohort with peer comparison off must not
+                // reach cohort standings through this launcher either.
+                ...(isPlayerVisible('peer_benchmarking') ? [{ icon: '📈', label: 'Leaderboard', shortcut: null, onClick: () => setPeerComparisonOpen(true) }] : []),
                 ...(isPlayerVisible('achievement_badges') ? [{ icon: '🏅', label: 'Badges', shortcut: null, onClick: () => setAchievementsOpen(true) }] : []),
-                { icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) },
+                ...(isPlayerVisible('ai_advisor') ? [{ icon: '🧠', label: 'Advisor', shortcut: 'A', onClick: () => setAiAdvisorOpen(true) }] : []),
                 { icon: '📊', label: 'Analytics', shortcut: null, onClick: () => setAnalyticsOpen(true) },
-                { icon: '🌐', label: 'SDG Radar', shortcut: null, onClick: () => setSdgRadarOpen(true) },
+                ...(isPlayerVisible('dock_sdg_radar') ? [{ icon: '🌐', label: 'SDG Radar', shortcut: null, onClick: () => setSdgRadarOpen(true) }] : []),
                 ...(decisionParadigm === 'brsr_ngrbc' ? [{ icon: '🇮🇳', label: 'BRSR', shortcut: null, onClick: () => setBrsrDashboardOpen(true) }] : []),
                 ...(isPlayerVisible('glossary') ? [{ icon: '📖', label: 'Glossary', shortcut: '?', onClick: () => setGlossaryOpen(true) }] : []),
                 { icon: soundEnabled ? '🔊' : '🔇', label: soundEnabled ? 'Sound on' : 'Muted', shortcut: null, keepOpen: true, onClick: () => { const v = soundManager.toggle(); setSoundEnabled(v); } },
@@ -1608,8 +1655,12 @@ export default function CockpitPage() {
         csfPool={csfPool}
         allocations={allocations}
         onAllocationsChange={setAllocations}
-        onResourcesOpen={() => { setResourceSidebarOpen(true); setHasNewResources(false); }}
-        hasNewResources={hasNewResources}
+        // The floating Resources pill lives inside ExecutiveCockpit; neutering
+        // its handler here keeps the launcher from opening a hidden sidebar.
+        onResourcesOpen={isPlayerVisible('resources_sidebar')
+          ? () => { setResourceSidebarOpen(true); setHasNewResources(false); }
+          : null}
+        hasNewResources={isPlayerVisible('resources_sidebar') && hasNewResources}
         hasAllocated={Object.keys(allocations).length > 0}
         hasReadBriefing={!showDesktop}
         onLogout={sim.logout}
@@ -1618,7 +1669,7 @@ export default function CockpitPage() {
       />
 
       {/* ═══ INLINE PODCAST PLAYER ═══ */}
-      {showPodcast && sim.sessionId && (
+      {showPodcast && sim.sessionId && isPlayerVisible('podcast_player') && (
         <InlinePodcastPlayer
           isOpen={showPodcast}
           onClose={() => setShowPodcast(false)}
@@ -1635,7 +1686,7 @@ export default function CockpitPage() {
       )}
 
       {/* ═══ SDG ALIGNMENT RADAR ═══ */}
-      {sdgRadarOpen && sim.sessionId && (
+      {sdgRadarOpen && sim.sessionId && isPlayerVisible('dock_sdg_radar') && (
         <SDGAlignmentRadar
           sessionId={sim.sessionId}
           globalState={globalState}
@@ -1777,7 +1828,7 @@ export default function CockpitPage() {
                 // Submit the matrix. IMPORTANT: once the POST succeeds the server has
                 // already allocated the budget and set csrd_completed, so completion
                 // must be locked in from the POST result ALONE. Previously
-                // setCsrdDone(true) ran only AFTER `await sim.fetchDashboard()`, inside
+                // the latch was set only AFTER `await sim.fetchDashboard()`, inside
                 // the same try — so a transient failure of that follow-up refresh threw
                 // to the catch, surfaced a "Network error", and left csrdDone false even
                 // though the submission had succeeded. The player then re-did the whole
@@ -1812,7 +1863,7 @@ export default function CockpitPage() {
 
                 // Success is now committed server-side — record it before anything that
                 // can fail, so a flaky refresh can never trigger a re-do.
-                setCsrdDone(true);
+                markCsrdDone();
                 try { if (sim.fetchDashboard) await sim.fetchDashboard(); } catch { /* best-effort KPI refresh */ }
                 return { success: true, allocated_budget: data.allocated_budget };
               }}
@@ -1841,7 +1892,7 @@ export default function CockpitPage() {
               sessionId={sim.sessionId}
               onComplete={(result) => {
                 setShowStakeholderMap(false);
-                setStakeholderDone(true);
+                markStakeholderDone();
                 if (sim.sessionId) sim.fetchDashboard(sim.sessionId);
               }}
             />
@@ -1850,13 +1901,15 @@ export default function CockpitPage() {
       )}
 
       {/* ── Resource Sidebar ── */}
-      <ResourceSidebar
-        sessionId={sim.sessionId}
-        roundNumber={roundNumber}
-        isOpen={resourceSidebarOpen}
-        onClose={() => setResourceSidebarOpen(false)}
-        onQuizComplete={() => { if (sim.fetchDashboard) sim.fetchDashboard(sim.sessionId); }}
-      />
+      {isPlayerVisible('resources_sidebar') && (
+        <ResourceSidebar
+          sessionId={sim.sessionId}
+          roundNumber={roundNumber}
+          isOpen={resourceSidebarOpen}
+          onClose={() => setResourceSidebarOpen(false)}
+          onQuizComplete={() => { if (sim.fetchDashboard) sim.fetchDashboard(sim.sessionId); }}
+        />
+      )}
 
       {sim.error && (
         <div style={{
@@ -1877,7 +1930,7 @@ export default function CockpitPage() {
       {/* ═══ IMPROVEMENT: Action Toolbar has been moved to ExecutiveCockpit leftSidebar ═══ */}
 
       {/* ═══ IMPROVEMENT: Market Ticker (4.3) — W1: live engine-derived data ═══ */}
-      {sim.sessionId && !sim.gameOver && (
+      {sim.sessionId && !sim.gameOver && isPlayerVisible('market_ticker') && (
         <MarketTicker
           roundNumber={roundNumber}
           globalState={globalState}
@@ -1902,21 +1955,28 @@ export default function CockpitPage() {
       )}
 
       {/* ═══ IMPROVEMENT: AI Advisor (4.1) ═══ */}
-      <AIAdvisor
-        roundNumber={roundNumber}
-        globalState={globalState}
-        roundConfig={sim.roundConfig}
-        isOpen={aiAdvisorOpen}
-        onClose={() => setAiAdvisorOpen(false)}
-      />
+      {isPlayerVisible('ai_advisor') && (
+        <AIAdvisor
+          roundNumber={roundNumber}
+          globalState={globalState}
+          roundConfig={sim.roundConfig}
+          isOpen={aiAdvisorOpen}
+          onClose={() => setAiAdvisorOpen(false)}
+        />
+      )}
 
       {/* ═══ IMPROVEMENT: Peer Comparison (5.2) ═══ */}
-      <PeerComparison
-        sessionId={sim.sessionId}
-        roundNumber={roundNumber}
-        isOpen={peerComparisonOpen}
-        onClose={() => setPeerComparisonOpen(false)}
-      />
+      {/* Cohort standings are peer data: `peer_benchmarking` is the one switch
+          that governs them. This mount was ungated — the leak that let a cohort
+          with peer benchmarking OFF still see the leaderboard. */}
+      {isPlayerVisible('peer_benchmarking') && (
+        <PeerComparison
+          sessionId={sim.sessionId}
+          roundNumber={roundNumber}
+          isOpen={peerComparisonOpen}
+          onClose={() => setPeerComparisonOpen(false)}
+        />
+      )}
 
       {/* ═══ IMPROVEMENT: Player Analytics ═══ */}
       <PlayerAnalytics

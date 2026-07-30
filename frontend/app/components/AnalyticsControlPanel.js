@@ -9,12 +9,12 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
 // FACILITATOR_ANALYTICS name is re-exported for existing importers.
 import { ANALYTICS_CARDS } from '../config/analyticsRegistry';
 export const FACILITATOR_ANALYTICS = ANALYTICS_CARDS;
+import { PLAYER_VISIBILITY_CARDS, PLAYER_VISIBILITY_DEFAULTS, playerVisibilityGroups } from '../config/playerVisibilityRegistry';
 
-const PLAYER_ANALYTICS = [
-    { key: 'peer_benchmarking', label: 'Peer Benchmarking', icon: '🏆', desc: 'Anonymous percentile rankings', tooltip: 'Shows the player their anonymous percentile ranking vs. the cohort for Treasury, Reputation, and Synergy. Includes bar visualizations with their value compared against the cohort average. Answers: "How do I rank among my peers?"' },
-    { key: 'decision_impact', label: 'Decision Impact', icon: '🧠', desc: 'Per-round KPI attribution', tooltip: 'Per-round KPI attribution — shows how each choice affected Treasury, Reputation, and Synergy with colour-coded delta badges (+/-) and a narrative explanation of the outcome. Answers: "What impact did my decisions actually have?"' },
-    { key: 'what_if_simulator', label: 'What-If Simulator', icon: '📈', desc: 'Counterfactual analysis', tooltip: 'Counterfactual analysis — shows what would have happened if the player had chosen the most popular alternative option. Displays projected Treasury and Reputation diffs. Only appears when choices differ from the majority. Disabled by default.' },
-];
+// Player catalog from the shared registry. This array used to hold THREE keys
+// while the Create-Cohort form held nineteen, and DEFAULT_VIS below was built
+// from it — so a save from this panel wrote a player map missing sixteen keys.
+const PLAYER_ANALYTICS = PLAYER_VISIBILITY_CARDS;
 
 // Player-facing round surfaces. These are cohort SETTINGS (not analytics
 // visibility), so they persist to the per-cohort override layer via
@@ -170,7 +170,9 @@ export default function AnalyticsControlPanel({ sessionId }) {
 
     const DEFAULT_VIS = {
         facilitator: Object.fromEntries(FACILITATOR_ANALYTICS.map(a => [a.key, true])),
-        player: Object.fromEntries(PLAYER_ANALYTICS.map(a => [a.key, a.key !== 'what_if_simulator'])),
+        // Every key, with each card's own default — not a hand-written
+        // exception for what_if_simulator over a three-key list.
+        player: PLAYER_VISIBILITY_DEFAULTS,
     };
 
     useEffect(() => {
@@ -318,23 +320,43 @@ export default function AnalyticsControlPanel({ sessionId }) {
                         <span>👤</span>
                         <h3>Player Dashboard</h3>
                     </div>
-                    {PLAYER_ANALYTICS.map(a => (
-                        <div key={a.key} className={styles.toggleRow} data-tooltip={a.tooltip}>
-                            <div className={styles.toggleInfo}>
-                                <span className={styles.toggleIcon}>{a.icon}</span>
-                                <div>
-                                    <div className={styles.toggleLabel}>{a.label}</div>
-                                    <div className={styles.toggleDesc}>{a.desc}</div>
+                    {/* Sectioned by the registry's own groups. This list grew from 3
+                        keys to 65; as one flat column it was a scroll-and-hope
+                        surface, and this panel is the one a facilitator opens
+                        MID-RUN to change something specific. Same grouping the
+                        cohort-formation form uses, from the same helper. */}
+                    {playerVisibilityGroups().map(({ group, cards }) => {
+                        const on = cards.filter(c => visibility.player[c.key]).length;
+                        return (
+                            <div key={group}>
+                                <div className={styles.groupHeader ?? ''} style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    margin: '14px 0 4px', fontSize: '0.64rem', fontWeight: 700,
+                                    letterSpacing: '0.08em', textTransform: 'uppercase', color: '#64748b',
+                                }}>
+                                    <span>{group}</span>
+                                    <span style={{ color: '#475569', letterSpacing: 0 }}>{on}/{cards.length}</span>
                                 </div>
+                                {cards.map(a => (
+                                    <div key={a.key} className={styles.toggleRow} data-tooltip={a.tooltip}>
+                                        <div className={styles.toggleInfo}>
+                                            <span className={styles.toggleIcon}>{a.icon}</span>
+                                            <div>
+                                                <div className={styles.toggleLabel}>{a.label}</div>
+                                                <div className={styles.toggleDesc}>{a.desc || a.tooltip}</div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            className={`${styles.toggleBtn} ${visibility.player[a.key] ? styles.toggleOn : styles.toggleOff}`}
+                                            onClick={() => toggle('player', a.key)}
+                                        >
+                                            <span className={styles.toggleKnob} />
+                                        </button>
+                                    </div>
+                                ))}
                             </div>
-                            <button
-                                className={`${styles.toggleBtn} ${visibility.player[a.key] ? styles.toggleOn : styles.toggleOff}`}
-                                onClick={() => toggle('player', a.key)}
-                            >
-                                <span className={styles.toggleKnob} />
-                            </button>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {/* Player-facing round surfaces — per-cohort settings (not
                         analytics visibility). Persist via /player-feature-toggles. */}

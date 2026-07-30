@@ -21,7 +21,13 @@ os.environ.setdefault("MURESSONS_DATA_DIR", tempfile.mkdtemp(prefix="pbu_e2e_"))
 from fastapi.testclient import TestClient  # noqa: E402
 
 GOD = {"facilitator_id": "god_mode", "password": "sim2026@iim"}
-PLAYER_HEADER = ["name", "email", "programme", "assigned_bu", "region_id"]
+# A cohort created by /api/simulations/start with no simulation_mode is a 4-BU
+# conglomerate, so the default header carries NO per-player scope column. Single
+# business cohorts use SB_HEADER.
+PLAYER_HEADER = ["name", "email", "programme"]
+SB_HEADER = ["name", "email", "programme", "industry_vertical", "region_id"]
+MASTER_PLAYER_HEADER = ["cohort_ref", "name", "email", "programme",
+                        "industry_vertical", "region_id"]
 
 
 @pytest.fixture(scope="module")
@@ -61,11 +67,17 @@ def _upload(client, url, data: bytes, name="roster.xlsx"):
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")})
 
 
-def _new_cohort(client, name="E2E Cohort") -> str:
-    r = client.post("/api/simulations/start",
-                    json={"cohort_name": name, "facilitator_id": "god_mode"})
+def _new_cohort(client, name="E2E Cohort", **extra) -> str:
+    body = {"cohort_name": name, "facilitator_id": "god_mode"}
+    body.update(extra)
+    r = client.post("/api/simulations/start", json=body)
     assert r.status_code in (200, 201), r.text
     return str(r.json()["session_id"])
+
+
+def _new_single_bu_cohort(client, name, vertical="oil_gas", region="south_asia") -> str:
+    return _new_cohort(client, name, simulation_mode="single_bu",
+                       industry_vertical=vertical, region_id=region)
 
 
 # ── Templates are downloadable and self-consistent ──────────────────────────
@@ -82,7 +94,7 @@ def test_both_templates_download_as_xlsx(client):
 
 def test_preview_creates_nothing(client):
     sid = _new_cohort(client, "Preview Cohort")
-    data = _xlsx([["Priya", "p@x.edu", "MBA", "", ""], ["Sam", "s@x.edu", "", "", ""]])
+    data = _xlsx([["Priya", "p@x.edu", "MBA"], ["Sam", "s@x.edu", ""]])
     r = _upload(client, f"/api/admin/{sid}/players/bulk-preview", data)
     assert r.status_code == 200, r.text
     body = r.json()
@@ -96,8 +108,8 @@ def test_preview_creates_nothing(client):
 def test_bulk_upload_creates_players_with_demographics(client):
     sid = _new_cohort(client, "Upload Cohort")
     data = _xlsx([
-        ["Priya Raman", "priya@x.edu", "MBA 2026", "pharma", "south_asia"],
-        ["Sam Okoye", "sam@x.edu", "", "chemicals", "europe"],
+        ["Priya Raman", "priya@x.edu", "MBA 2026"],
+        ["Sam Okoye", "sam@x.edu", ""],
     ])
     r = _upload(client, f"/api/admin/{sid}/players/bulk-upload", data)
     assert r.status_code == 200, r.text
@@ -121,7 +133,7 @@ def test_uploaded_player_can_actually_log_in(client):
     memory and were rejected everywhere else."""
     sid = _new_cohort(client, "Login Cohort")
     r = _upload(client, f"/api/admin/{sid}/players/bulk-upload",
-                _xlsx([["Login Tester", "lt@x.edu", "", "", ""]]))
+                _xlsx([["Login Tester", "lt@x.edu", ""]]))
     assert r.status_code == 200, r.text
     cred = r.json()["created"][0]
 
@@ -144,7 +156,7 @@ def test_temp_password_is_readable_without_a_reset(client):
     point, not be forced to invalidate a credential they already handed out."""
     sid = _new_cohort(client, "Reveal Cohort")
     r = _upload(client, f"/api/admin/{sid}/players/bulk-upload",
-                _xlsx([["Reveal Me", "rm@x.edu", "", "", ""]]))
+                _xlsx([["Reveal Me", "rm@x.edu", ""]]))
     cred = r.json()["created"][0]
 
     lb = client.get("/api/admin/leaderboard").json()["leaderboard"]
@@ -158,7 +170,7 @@ def test_temp_password_disappears_once_the_player_owns_it(client):
     """...and stops being readable the moment it is no longer a temp password."""
     sid = _new_cohort(client, "Erase Cohort")
     r = _upload(client, f"/api/admin/{sid}/players/bulk-upload",
-                _xlsx([["Erase Me", "em@x.edu", "", "", ""]]))
+                _xlsx([["Erase Me", "em@x.edu", ""]]))
     cred = r.json()["created"][0]
 
     chg = client.post("/api/simulations/change-password", json={
@@ -179,7 +191,7 @@ def test_roster_never_ships_a_password_hash(client):
     """The projection is an allow-list precisely so this can be asserted."""
     sid = _new_cohort(client, "Hash Cohort")
     _upload(client, f"/api/admin/{sid}/players/bulk-upload",
-            _xlsx([["Hash Check", "hc@x.edu", "", "", ""]]))
+            _xlsx([["Hash Check", "hc@x.edu", ""]]))
     lb = client.get("/api/admin/leaderboard").json()["leaderboard"]
     row = next(s for s in lb if s["session_id"] == sid)
     for entry in row["registered_players"]:
@@ -193,7 +205,7 @@ def test_roster_never_ships_a_password_hash(client):
 def test_twenty_players_fit_in_one_cohort(client):
     """Request 3, proven end to end rather than at the parser."""
     sid = _new_cohort(client, "Full Cohort")
-    rows = [[f"Player {i:02d}", f"p{i}@x.edu", "MBA", "", ""] for i in range(20)]
+    rows = [[f"Player {i:02d}", f"p{i}@x.edu", "MBA"] for i in range(20)]
     r = _upload(client, f"/api/admin/{sid}/players/bulk-upload", _xlsx(rows))
     assert r.status_code == 200, r.text
     assert len(r.json()["created"]) == 20
@@ -212,7 +224,7 @@ def test_twenty_players_fit_in_one_cohort(client):
 def test_oversized_upload_creates_nothing(client):
     """All-or-nothing: a rejected file must leave the roster untouched."""
     sid = _new_cohort(client, "Overflow Cohort")
-    rows = [[f"Over {i:02d}", f"o{i}@x.edu", "", "", ""] for i in range(25)]
+    rows = [[f"Over {i:02d}", f"o{i}@x.edu", ""] for i in range(25)]
     r = _upload(client, f"/api/admin/{sid}/players/bulk-upload", _xlsx(rows))
     assert r.status_code == 400, r.text
 
@@ -223,7 +235,7 @@ def test_oversized_upload_creates_nothing(client):
 
 def test_a_bad_row_creates_nothing(client):
     sid = _new_cohort(client, "Badrow Cohort")
-    data = _xlsx([["Good", "g@x.edu", "", "", ""], ["Bad", "not-an-email", "", "", ""]])
+    data = _xlsx([["Good", "g@x.edu", ""], ["Bad", "not-an-email", ""]])
     r = _upload(client, f"/api/admin/{sid}/players/bulk-upload", data)
     assert r.status_code == 400
 
@@ -238,7 +250,7 @@ def test_lowering_the_cap_is_honoured(client):
     r = client.patch(f"/api/admin/sessions/{sid}/cohort-settings", json={"max_players": 3})
     assert r.status_code == 200, r.text
 
-    rows = [[f"Small {i}", f"s{i}@x.edu", "", "", ""] for i in range(4)]
+    rows = [[f"Small {i}", f"s{i}@x.edu", ""] for i in range(4)]
     over = _upload(client, f"/api/admin/{sid}/players/bulk-upload", _xlsx(rows))
     assert over.status_code == 400
     assert "3" in str(over.json()["detail"])
@@ -273,7 +285,7 @@ def _master_bytes(fac_rows, coh_rows, ply_rows) -> bytes:
     for r in coh_rows:
         c.append(list(r))
     p = wb.create_sheet("Players")
-    p.append(["cohort_ref"] + PLAYER_HEADER)
+    p.append(list(MASTER_PLAYER_HEADER))
     for r in ply_rows:
         p.append(list(r))
     buf = io.BytesIO()
@@ -340,3 +352,197 @@ def test_master_upload_rejects_an_unknown_facilitator_ref(client):
     r = _upload(client, "/api/admin/provisioning/master-upload", data, "dangle.xlsx")
     assert r.status_code == 400
     assert "facilitator_ref" in str(r.json()["detail"])
+
+
+# ── The two roster variants, end to end ─────────────────────────────────────
+# The unit tests prove the parser refuses and derives correctly. These prove the
+# WIRING: that the shape the endpoint resolves is the shape the template ships
+# and the upload enforces, and — the part no parser test can reach — that a
+# per-player industry survives all the way to the player's own bu_states.
+
+def test_roster_shape_endpoint_describes_a_conglomerate_cohort(client):
+    sid = _new_cohort(client, "Shape Cong")
+    r = client.get(f"/api/admin/{sid}/players/roster-shape")
+    assert r.status_code == 200, r.text
+    shape = r.json()["shape"]
+    assert shape["mode"] == "conglomerate"
+    assert shape["per_player_scope"] is False
+    assert shape["columns"] == ["name", "email", "programme"]
+    assert "assigned_bu" in shape["refused_columns"]
+
+
+def test_roster_shape_endpoint_describes_a_single_business_cohort(client):
+    sid = _new_single_bu_cohort(client, "Shape Single")
+    shape = client.get(f"/api/admin/{sid}/players/roster-shape").json()["shape"]
+    assert shape["mode"] == "single_bu"
+    assert shape["per_player_scope"] is True
+    assert shape["columns"] == ["name", "email", "programme",
+                               "industry_vertical", "region_id"]
+    assert "oil_gas" in shape["choices"]["industry_vertical"]
+    assert "china" in shape["choices"]["region_id"]
+    assert shape["cohort"]["industry_vertical"] == "oil_gas"
+
+
+@pytest.mark.parametrize("single_bu", [False, True], ids=["conglomerate", "single_bu"])
+def test_the_cohort_scoped_template_is_accepted_by_its_own_upload(client, single_bu):
+    """The whole point of one resolver: download, upload, no edits, no errors.
+    A template that fails the endpoint that produced it is the defect this
+    replaces."""
+    sid = (_new_single_bu_cohort(client, "RoundTrip Single") if single_bu
+           else _new_cohort(client, "RoundTrip Cong"))
+    tpl = client.get(f"/api/admin/{sid}/players/bulk-template")
+    assert tpl.status_code == 200, tpl.text
+    assert tpl.content[:2] == b"PK"
+
+    r = _upload(client, f"/api/admin/{sid}/players/bulk-upload", tpl.content)
+    assert r.status_code == 200, r.text
+    assert len(r.json()["created"]) == 2
+
+
+def test_the_template_filename_names_the_cohort(client):
+    """Three cohorts' templates in one Downloads folder all called
+    player_roster_template.xlsx is how the wrong roster reaches the wrong
+    cohort."""
+    sid = _new_cohort(client, "Filename Cohort 2026")
+    r = client.get(f"/api/admin/{sid}/players/bulk-template")
+    assert "Filename_Cohort_2026" in r.headers.get("content-disposition", "")
+
+
+def test_a_conglomerate_upload_refuses_a_business_unit_column(client):
+    """The corruption this feature exists to stop, at the endpoint: the roster is
+    refused and NOTHING is created, rather than 20 players being created as
+    single-BU by accident."""
+    sid = _new_cohort(client, "Refuse Cohort")
+    data = _xlsx([["Ana", "a@x.edu", "MBA", "pharma"]],
+                 header=PLAYER_HEADER + ["assigned_bu"])
+    r = _upload(client, f"/api/admin/{sid}/players/bulk-upload", data)
+    assert r.status_code == 400, r.text
+    assert "assigned_bu" in str(r.json()["detail"])
+
+    lb = client.get("/api/admin/leaderboard").json()["leaderboard"]
+    row = next(s for s in lb if s["session_id"] == sid)
+    assert row["registered_players"] == []
+
+
+def test_preview_echoes_the_resolved_scope_not_the_raw_cells(client):
+    """A blank industry inherits the cohort's, and the slot is derived. If the
+    preview echoed the raw cells the operator would be approving a sheet whose
+    actual effect they cannot see."""
+    sid = _new_single_bu_cohort(client, "Echo Cohort")
+    data = _xlsx([["Ana", "a@x.edu", "", "", ""],
+                  ["Bo", "b@x.edu", "", "semiconductor", "europe"]],
+                 header=SB_HEADER)
+    r = _upload(client, f"/api/admin/{sid}/players/bulk-preview", data)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["ok"], body
+    rows = {p["name"]: p for p in body["players"]}
+    assert rows["Ana"]["industry_vertical"] == "oil_gas"      # inherited
+    assert rows["Ana"]["assigned_bu"] == "pharma"             # derived
+    assert rows["Bo"]["industry_vertical"] == "semiconductor"
+    assert rows["Bo"]["assigned_bu"] == "electronics"
+    assert body["shape"]["mode"] == "single_bu"
+
+
+def test_single_business_players_really_do_run_different_companies(client):
+    """THE test. Everything else is plumbing; this is the behaviour the plumbing
+    is for.
+
+    Two players uploaded into one single-business cohort, each with their own
+    industry, must each end up with a session whose bu_states holds THEIR
+    company — not the cohort's default, and not four BUs. Before this change
+    join_session passed the COHORT's vertical to create_session regardless of the
+    roster, so every player in a single-business cohort ran the same business no
+    matter what the sheet said, and no test noticed because the parser was right.
+    """
+    sid = _new_single_bu_cohort(client, "Rivals Cohort", vertical="oil_gas")
+    data = _xlsx([["Rival Ana", "ra@x.edu", "", "oil_gas", "south_asia"],
+                  ["Rival Bo", "rb@x.edu", "", "semiconductor", "europe"]],
+                 header=SB_HEADER)
+    r = _upload(client, f"/api/admin/{sid}/players/bulk-upload", data)
+    assert r.status_code == 200, r.text
+    creds = {c["name"]: c for c in r.json()["created"]}
+    assert creds["Rival Ana"]["industry_vertical"] == "oil_gas"
+    assert creds["Rival Bo"]["industry_vertical"] == "semiconductor"
+
+    seen = {}
+    for name, cred in creds.items():
+        join = client.post(f"/api/simulations/public/sessions/{sid}/join", json={
+            "player_id": cred["player_id"],
+            "player_name": name,
+            "password": cred["temp_password"],
+        })
+        assert join.status_code == 200, join.text
+        psid = join.json()["session_id"]
+
+        info = client.get(f"/api/simulations/{psid}/session-info").json()
+        assert info["simulation_mode"] == "single_bu"
+
+        dash = client.get(f"/api/simulations/{psid}/dashboard",
+                          headers={"X-Player-Id": cred["player_id"]}).json()
+        bus = [b["bu_id"] for b in dash["business_units"]]
+        assert len(bus) == 1, f"{name} must run ONE business, got {bus}"
+        seen[name] = (bus[0], info.get("industry_vertical"))
+
+    assert seen["Rival Ana"][0] != seen["Rival Bo"][0], (
+        f"both players ended up running the same business: {seen} — a per-player "
+        "industry on the roster had no effect"
+    )
+    assert seen["Rival Bo"][1] == "semiconductor", \
+        "session-info must report the PLAYER's company, not the cohort's default"
+
+
+def test_a_conglomerate_player_still_gets_all_four_business_units(client):
+    """The other half of the same guarantee: refusing the columns must not
+    accidentally scope conglomerate players either."""
+    sid = _new_cohort(client, "Group Cohort")
+    r = _upload(client, f"/api/admin/{sid}/players/bulk-upload",
+                _xlsx([["Group Player", "gp@x.edu", "MBA"]]))
+    cred = r.json()["created"][0]
+    assert cred["industry_vertical"] == "", "no company is assigned in this mode"
+
+    join = client.post(f"/api/simulations/public/sessions/{sid}/join", json={
+        "player_id": cred["player_id"], "player_name": "Group Player",
+        "password": cred["temp_password"],
+    })
+    assert join.status_code == 200, join.text
+    dash = client.get(f"/api/simulations/{join.json()['session_id']}/dashboard",
+                      headers={"X-Player-Id": cred["player_id"]}).json()
+    assert len(dash["business_units"]) == 4, \
+        "a conglomerate player runs the whole group"
+
+
+def test_a_master_provisioned_single_business_cohort_matches_a_ui_created_one(client):
+    """Two routes to the same cohort must produce the same cohort.
+
+    The master-upload path called db.create_session without deriving assigned_bu,
+    so a single-business cohort provisioned from a workbook kept all four BUs on
+    its own session while the identical cohort created through
+    /api/simulations/start had one. Players were unaffected — join derives the
+    scope itself — which is exactly why nothing caught it.
+    """
+    data = _master_bytes(
+        [["sf1", "Single Fac", "sf@x.edu", "", "EMBA", "facilitator", 3]],
+        [["sc1", "Master Single Business", "sf1", 10, "single_bu",
+          "oil_gas", "south_asia", "legacy_abc"]],
+        [["sc1", "MS One", "ms1@x.edu", "", "semiconductor", "europe"]],
+    )
+    r = _upload(client, "/api/admin/provisioning/master-upload", data, "master.xlsx")
+    assert r.status_code == 200, r.text
+    sid = r.json()["cohorts"][0]["session_id"]
+
+    ui_sid = _new_single_bu_cohort(client, "UI Single Business", vertical="oil_gas")
+
+    def bu_ids(session_id):
+        dash = client.get(f"/api/simulations/{session_id}/dashboard").json()
+        return sorted(b["bu_id"] for b in dash["business_units"])
+
+    assert bu_ids(sid) == bu_ids(ui_sid) == ["oil_gas"], (
+        "a master-provisioned single-business cohort must be scoped exactly like "
+        "one created through the UI"
+    )
+
+    # And the roster shape a facilitator is offered is the same too.
+    for s in (sid, ui_sid):
+        shape = client.get(f"/api/admin/{s}/players/roster-shape").json()["shape"]
+        assert shape["mode"] == "single_bu" and shape["per_player_scope"] is True
