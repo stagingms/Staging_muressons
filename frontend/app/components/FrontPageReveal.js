@@ -38,7 +38,7 @@ function mrBand(mr) {
   return 'relic';
 }
 
-function bandFor(mr, d = {}) {
+export function bandFor(mr, d = {}) {
   const ev    = Number(d.terminal_value) || 0;
   const price = d.price_per_share;
   const eq    = d.equity_value;
@@ -188,7 +188,7 @@ function lineChartSVG(series, key, { w = 460, h = 190, title = '', x = 0, y = 0 
    paragraphs. `paras(t)` returns the article body; the achievement/misstep
    ledger and the "By the Numbers" box render as sidebars. */
 
-const TEMPLATES = {
+export const TEMPLATES = {
   titan: {
     tone: '#10b981',
     byline: 'A. Renard, Markets Correspondent',
