@@ -2,6 +2,7 @@
 
 import React, { useMemo, useState, useRef, useEffect, useCallback } from 'react';
 import {
+
     LineChart, Line, AreaChart, Area, ComposedChart,
     XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from 'recharts';
@@ -10,6 +11,56 @@ import StockPerformanceChart from './StockPerformanceChart';
 import ConsequenceDNAVisualizer from './ConsequenceDNAVisualizer';
 import { roundToQuarter } from '../utils/roundToQuarter';
 import { useCurrency } from '../contexts/CurrencyContext';
+
+/**
+ * Merge peer-trend rounds into the player's per-round chart rows.
+ *
+ * Exported for tests, and pure on purpose — this merge carried a data-integrity
+ * bug that survived every visual check: /peer-trend-history returns each round's
+ * cohort AGGREGATES under the SAME key names the player's own rows use (avgCI,
+ * tco2e, ebitda, rep), and the old code spread the whole round object into the
+ * row. Flipping "Show Cohort Trends" therefore silently REPLACED the player's
+ * solid lines with the cohort average — a player who finished at −$375M EBITDA
+ * saw +$26M the moment the toggle went on. Only the namespaced per-peer series
+ * (peer_<id>_*) may enter a row; the one aggregate the UI does use
+ * (peerStockPrice) is read from peerRounds directly, never from these rows.
+ */
+export function mergePeerTrendRows(chartRows, peerRounds, peerColors) {
+    const peerCum = {};
+    const peerIds = [];
+    const peerMap = {};
+
+    if (peerRounds.length > 0 && peerRounds[0].peers) {
+        peerRounds[0].peers.forEach((p, idx) => {
+            peerIds.push({
+                id: p.id,
+                name: p.name || p.id,
+                color: peerColors[idx % peerColors.length],
+            });
+            peerCum[p.id] = 0;
+        });
+    }
+
+    peerRounds.forEach(pr => {
+        const peersInfo = {};
+        (pr.peers || []).forEach(p => {
+            if (peerCum[p.id] === undefined) peerCum[p.id] = 0;
+            peerCum[p.id] += (p.tco2e || 0);
+            peersInfo[`peer_${p.id}_ci`] = p.ci;
+            peersInfo[`peer_${p.id}_tco2e`] = p.tco2e;
+            peersInfo[`peer_${p.id}_ebitda`] = p.ebitda;
+            peersInfo[`peer_${p.id}_rep`] = p.rep;
+            peersInfo[`peer_${p.id}_stock`] = p.stock;
+            peersInfo[`peer_${p.id}_cum`] = peerCum[p.id];
+        });
+        peerMap[pr.round] = peersInfo;   // namespaced keys ONLY — never ...pr
+    });
+
+    return {
+        peerIds,
+        rows: chartRows.map(d => (peerMap[d.round] ? { ...d, ...peerMap[d.round] } : d)),
+    };
+}
 
 // ═══════════════════════════════════════════════════════════════
 //  DYNAMIC DIAGNOSTIC FEEDBACK
@@ -1339,43 +1390,13 @@ export default function SustainabilityBalancedScorecard({ data, businessUnits = 
                     });
 
                     // ── Merge peer data into chart data (if toggle is on) ──
+                    // See mergePeerTrendRows for why this must never spread the
+                    // raw round objects: their aggregate keys shadow the
+                    // player's own series.
                     const peerRounds = (showPeerTrends && peerTrendData?.available) ? peerTrendData.rounds : [];
-                    const peerCumCarbonMap = {};
-                    const peerMap = {};
-                    const peerIds = [];
                     const peerColors = ['#fb923c', '#c084fc', '#f472b6', '#34d399', '#60a5fa', '#fcd34d', '#2dd4bf'];
-
-                    if (peerRounds.length > 0 && peerRounds[0].peers) {
-                        peerRounds[0].peers.forEach((p, idx) => {
-                            peerIds.push({
-                                id: p.id,
-                                name: p.name || p.id,
-                                color: peerColors[idx % peerColors.length]
-                            });
-                            peerCumCarbonMap[p.id] = 0;
-                        });
-                    }
-
-                    peerRounds.forEach(pr => {
-                        const peersInfo = {};
-                        (pr.peers || []).forEach(p => {
-                            if (peerCumCarbonMap[p.id] === undefined) peerCumCarbonMap[p.id] = 0;
-                            peerCumCarbonMap[p.id] += (p.tco2e || 0);
-                            
-                            peersInfo[`peer_${p.id}_ci`] = p.ci;
-                            peersInfo[`peer_${p.id}_tco2e`] = p.tco2e;
-                            peersInfo[`peer_${p.id}_ebitda`] = p.ebitda;
-                            peersInfo[`peer_${p.id}_rep`] = p.rep;
-                            peersInfo[`peer_${p.id}_stock`] = p.stock;
-                            peersInfo[`peer_${p.id}_cum`] = peerCumCarbonMap[p.id];
-                        });
-                        peerMap[pr.round] = { ...pr, ...peersInfo };
-                    });
-
-                    const chartDataMerged = chartDataWithCum.map(d => {
-                        const pr = peerMap[d.round];
-                        return pr ? { ...d, ...pr } : d;
-                    });
+                    const { peerIds, rows: chartDataMerged } =
+                        mergePeerTrendRows(chartDataWithCum, peerRounds, peerColors);
 
                     const isPeerActive = showPeerTrends && peerTrendData?.available;
                     const peerCountLabel = peerTrendData?.ai_benchmark
