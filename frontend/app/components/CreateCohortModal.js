@@ -450,6 +450,35 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         }
     }, [isOpen, currentFacilitatorId]);
 
+    // Runs when the experience level changes AND once both fetches have landed.
+    //
+    // MUST live above the `if (!isOpen) return null` guard below. It originally
+    // sat after it, so the closed modal rendered fewer hooks than the open one —
+    // React's "change in the order of Hooks / rendered more hooks" crash the
+    // moment the form opened. Every hook in this component belongs above that
+    // line; the guard may only be followed by plain functions and JSX.
+    //
+    // An effect rather than a call inside the preset button: the scenario-preset
+    // fetch and the global-visibility fetch are independent, and whichever
+    // resolved second used to win. Seeding on click meant a preset chosen before
+    // the defaults arrived was silently overwritten by them a moment later.
+    useEffect(() => {
+        if (visibilityCustomised || !visibilityDefaults) return;
+        // In EDIT mode the cohort's stored map is the truth: merely opening the
+        // form must not re-profile a running cohort. Deliberately CHANGING the
+        // experience level still re-profiles, which is what the change means.
+        if (isEditMode && selectedExperienceLevel === initialExperienceLevelRef.current) return;
+        const preset = scenarioPresets.find(p => p.id === selectedExperienceLevel);
+        if (!preset?.default_audiences) return;
+        setVisibility(prev => ({
+            ...prev,
+            player: visibilityForAudiences(preset.default_audiences),
+        }));
+        if (typeof preset.results_reveal_round === 'number') {
+            setResultsRevealRound(preset.results_reveal_round);
+        }
+    }, [selectedExperienceLevel, scenarioPresets, visibilityDefaults, visibilityCustomised]);
+
     if (!isOpen) return null;
 
     const toggleOverride = (id) => {
@@ -587,29 +616,6 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
         if (typeof preset.results_reveal_round === 'number') setResultsRevealRound(preset.results_reveal_round);
         setVisibilityCustomised(false);
     };
-
-    // Runs when the experience level changes AND once both fetches have landed.
-    //
-    // An effect rather than a call inside the preset button: the scenario-preset
-    // fetch and the global-visibility fetch are independent, and whichever
-    // resolved second used to win. Seeding on click meant a preset chosen before
-    // the defaults arrived was silently overwritten by them a moment later.
-    useEffect(() => {
-        if (visibilityCustomised || !visibilityDefaults) return;
-        // In EDIT mode the cohort's stored map is the truth: merely opening the
-        // form must not re-profile a running cohort. Deliberately CHANGING the
-        // experience level still re-profiles, which is what the change means.
-        if (isEditMode && selectedExperienceLevel === initialExperienceLevelRef.current) return;
-        const preset = scenarioPresets.find(p => p.id === selectedExperienceLevel);
-        if (!preset?.default_audiences) return;
-        setVisibility(prev => ({
-            ...prev,
-            player: visibilityForAudiences(preset.default_audiences),
-        }));
-        if (typeof preset.results_reveal_round === 'number') {
-            setResultsRevealRound(preset.results_reveal_round);
-        }
-    }, [selectedExperienceLevel, scenarioPresets, visibilityDefaults, visibilityCustomised]);
 
     // Check if any visibility setting differs from global defaults
     const hasVisibilityOverrides = () => {

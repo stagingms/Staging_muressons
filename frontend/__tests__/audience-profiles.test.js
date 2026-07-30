@@ -316,8 +316,11 @@ describe('cohort form — experience level feedback', () => {
     expect(modalSrc).toMatch(/↺ Reset to \{preset\.name\}/);
     // Reset must clear the flag, or the effect stays disabled and the preset
     // would never apply again for the rest of the session.
+    // Anchored to the NEXT function, not to the apply-effect's comment: the
+    // effect moved above the isOpen guard (Rules of Hooks fix) and a stale
+    // anchor made this slice empty.
     const fn = modalSrc.slice(modalSrc.indexOf('const resetVisibilityToPreset'),
-                              modalSrc.indexOf('// Runs when the experience level changes'));
+                              modalSrc.indexOf('const hasVisibilityOverrides'));
     expect(fn).toMatch(/setVisibilityCustomised\(false\)/);
   });
 
