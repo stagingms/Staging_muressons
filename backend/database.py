@@ -17,6 +17,20 @@ from config import (DATABASE_URL, DB_MIN_CONNECTIONS, DB_MAX_CONNECTIONS,
                     DB_ACQUIRE_TIMEOUT_SECONDS, DB_COMMAND_TIMEOUT_SECONDS,
                     SIM_INITIAL_BUDGET, SIM_ROUNDS)
 
+# ── Sync session cache: SHARED with the memory backend ──────────────────────
+# BUG-2026-07-31: router.py reads `db._sessions` in several fallbacks (e.g.
+# player-login's "survives server restart" registry-miss scan). In memory mode
+# `database` is aliased to database_memory, which has `_sessions`; under
+# Postgres this module had NO such attribute, so the exact code written to
+# recover after a restart raised AttributeError → 500 "unable to login" for
+# any player missing from the in-process registry. This module already
+# MAINTAINS database_memory._sessions as its synchronous cache (init_pool
+# pre-populates it from the sessions table; every write updates it) — it just
+# never exposed it. Re-export the SAME dict so every `db._sessions` callsite
+# reads one truth in both modes. (database_memory does not import this module,
+# so no cycle; its import already happens at init_pool under Postgres.)
+from database_memory import _sessions  # noqa: F401  (parity re-export)
+
 
 # ── JSON serialization parity with the memory store ─────────────────────────
 # BUG-2026-07-20: the memory store's snapshot serializer tolerates datetimes

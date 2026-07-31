@@ -419,7 +419,7 @@ async def set_username(req: SetUsernameRequest):
         raise HTTPException(status_code=400, detail="Username cannot be empty")
 
     for p in _player_registry:
-        if p.get("username", "").strip().lower() == username_lower and p["player_id"] != req.user_id:
+        if p.get("username", "").strip().lower() == username_lower and p.get("player_id") != req.user_id:
             raise HTTPException(status_code=400, detail="Username already taken.")
     for f in _facilitator_registry:
         if f.get("username", "").strip().lower() == username_lower and f["facilitator_id"] != req.user_id:
@@ -434,7 +434,7 @@ async def set_username(req: SetUsernameRequest):
 
     if req.role == "player":
         import database as db
-        player = next((p for p in _player_registry if p["player_id"] == req.user_id), None)
+        player = next((p for p in _player_registry if p.get("player_id") == req.user_id), None)
         
         target_session_id = None
         if not player:
@@ -528,7 +528,7 @@ async def player_login(request: Request, req: PlayerLoginRequest):
 
     # Find the player in the registry
     player_record = next(
-        (p for p in _player_registry if p["player_id"] == req.player_id),
+        (p for p in _player_registry if p.get("player_id") == req.player_id),
         None
     )
     
@@ -545,7 +545,7 @@ async def player_login(request: Request, req: PlayerLoginRequest):
                     player_record = rp
                     # Re-hydrate into _player_registry so future logins are fast
                     from admin_shared import _player_registry as _reg
-                    if not any(p["player_id"] == req.player_id for p in _reg):
+                    if not any(p.get("player_id") == req.player_id for p in _reg):
                         _reg.append(rp)
                     break
             if player_record:
@@ -661,7 +661,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     player_record = None
     try:
         from admin_shared import _player_registry
-        player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
+        player_record = next((p for p in _player_registry if p.get("player_id") == req.player_id), None)
         # QA-2026-07-16 #4: after a restart (or on another worker) the per-process
         # _player_registry may be empty, but the bcrypt credential is durable in
         # the cohort session's registered_players metadata. Fall back to it so the
@@ -703,7 +703,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
 
     # Check if this player already joined — return their existing session
     for p in players:
-        if p["player_id"] == req.player_id:
+        if p.get("player_id") == req.player_id:
             return {
                 "status": "rejoined",
                 "session_id": p["player_session_id"],
@@ -799,7 +799,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     try:
         if player_record is None:
             from admin_shared import _player_registry as _reg
-            player_record = next((p for p in _reg if p["player_id"] == req.player_id), None)
+            player_record = next((p for p in _reg if p.get("player_id") == req.player_id), None)
         if player_record:
             _player_assigned_bu = player_record.get("assigned_bu", "") or ""
             _player_industry = player_record.get("industry_vertical", "") or ""
@@ -874,7 +874,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
     # Update the player registry with the name so it shows in facilitator view
     try:
         from admin_shared import _player_registry
-        player_record = next((p for p in _player_registry if p["player_id"] == req.player_id), None)
+        player_record = next((p for p in _player_registry if p.get("player_id") == req.player_id), None)
         if player_record:
             if req.player_name:
                 player_record["name"] = req.player_name
@@ -899,7 +899,7 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         if parent_sess:
             rp = parent_sess.get("registered_players", [])
             for p in rp:
-                if p["player_id"] == req.player_id:
+                if p.get("player_id") == req.player_id:
                     if req.player_name:
                         p["name"] = req.player_name
                     p["status"] = "joined"
@@ -3944,7 +3944,7 @@ async def change_password(body: ChangePasswordRequest):
     except ImportError:
         raise HTTPException(500, "Player registry not available")
 
-    player = next((p for p in _player_registry if p["player_id"] == body.player_id), None)
+    player = next((p for p in _player_registry if p.get("player_id") == body.player_id), None)
     if not player:
         raise HTTPException(404, "Player ID not found")
 
