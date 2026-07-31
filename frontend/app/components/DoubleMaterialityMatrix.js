@@ -304,7 +304,7 @@ impacts people and the planet (Impact Materiality).</p>
 /**
  * Main Double Materiality Matrix Component
  */
-export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = Infinity, initialQ1 = [], globalState = {}, buId = null, buLabel = null, sessionId = null, onOpenAdvisor = null }) {
+export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = Infinity, initialQ1 = [], globalState = {}, buId = null, buLabel = null, sessionId = null, onOpenAdvisor = null, alreadySubmitted = false }) {
     const [issues, setIssues] = useState([]);
     const [consultantFee, setConsultantFee] = useState(1500000);
     const [loading, setLoading] = useState(true);
@@ -324,7 +324,23 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     const [stakeholderBoostedIds, setStakeholderBoostedIds] = useState([]);
 
     // Onboarding state
-    const [showOnboarding, setShowOnboarding] = useState(true);
+    // LOOP FIX (2026-07-31): the intro used to be a plain useState(true), so
+    // ANY remount of this component — paradigm churn, r2 selection churn, a
+    // dashboard refresh racing the open panel — replayed the full onboarding
+    // over a wiped board: the "matrix loops again" report. The CFO-override
+    // flow keeps the player inside the panel longest (submit → memo → decide),
+    // which is why the loop hit "especially" there. Dismissal is now latched
+    // per session in localStorage, and a session that has ALREADY submitted
+    // never sees the intro at all.
+    const [showOnboarding, setShowOnboarding] = useState(() => {
+        if (alreadySubmitted) return false;
+        try { return localStorage.getItem(`mur_dmm_intro_${sessionId || 'solo'}`) !== '1'; }
+        catch { return true; }
+    });
+    const dismissOnboarding = () => {
+        setShowOnboarding(false);
+        try { localStorage.setItem(`mur_dmm_intro_${sessionId || 'solo'}`, '1'); } catch { /* private mode */ }
+    };
 
     // Undo history
     const [history, setHistory] = useState([]);
@@ -531,6 +547,17 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
 
     const handleSubmit = async (forceOverride = false) => {
         if (!onSubmit) return;
+        // A committed submission is final for the round. The server replays the
+        // committed result on a duplicate POST anyway (idempotency guard), but
+        // the CLIENT must not walk the player through review→override again —
+        // that walk WAS the loop.
+        if (alreadySubmitted) {
+            setSubmitStatus({
+                type: 'error', overridable: false,
+                message: 'Your materiality matrix for this round is already with the CFO — no resubmission is needed. Close this panel to continue.',
+            });
+            return;
+        }
         setIsSubmitting(true);
         const result = await onSubmit({
             consultant_used: commissionedGroups.size > 0,
@@ -613,7 +640,7 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     return (
         <div className={styles.overlay}>
             {/* Fix 1: Onboarding */}
-            {showOnboarding && <OnboardingOverlay onDismiss={() => setShowOnboarding(false)} />}
+            {showOnboarding && <OnboardingOverlay onDismiss={dismissOnboarding} />}
 
             <div className={styles.header}>
                 <h2 className={styles.headerTitle}>
@@ -711,11 +738,11 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
                     </div>
                     <button
                         className={styles.submitBtn}
-                        disabled={isSubmitting || isOverBudget || !hasEnoughPlaced}
+                        disabled={alreadySubmitted || isSubmitting || isOverBudget || !hasEnoughPlaced}
                         onClick={() => handleSubmit(false)}
-                        data-tooltip={!hasEnoughPlaced ? `Place at least ${MIN_PLACED} issues into quadrants before submitting.` : isOverBudget ? "Your Quadrant 1 CapEx exceeds the total CSF pool balance." : "Submit your materiality assessment for CFO review."}
+                        data-tooltip={alreadySubmitted ? "Your matrix for this round is already committed with the CFO." : !hasEnoughPlaced ? `Place at least ${MIN_PLACED} issues into quadrants before submitting.` : isOverBudget ? "Your Quadrant 1 CapEx exceeds the total CSF pool balance." : "Submit your materiality assessment for CFO review."}
                     >
-                        {isSubmitting ? 'Submitting...' : !hasEnoughPlaced ? `Place ${MIN_PLACED - placedCount} More Issues` : 'Submit Matrix to CFO'}
+                        {alreadySubmitted ? '✅ Submitted — CFO has your matrix' : isSubmitting ? 'Submitting...' : !hasEnoughPlaced ? `Place ${MIN_PLACED - placedCount} More Issues` : 'Submit Matrix to CFO'}
                     </button>
                     {onClose && (
                         <button className={styles.submitBtn} onClick={onClose} style={{ background: 'rgba(255,255,255,0.12)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.2)', boxShadow: 'none' }}>

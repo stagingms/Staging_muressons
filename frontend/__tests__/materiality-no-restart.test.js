@@ -55,7 +55,19 @@ describe('materiality matrix — no mid-exercise restart', () => {
   });
 
   test('the matrix mount waits for the paradigm to resolve', () => {
-    expect(page).toMatch(/!paradigmResolved \|\| \(isPillarMode && !r2BuLoaded\)/);
+    // Strengthened 2026-07-31: the guard still waits for paradigm + r2, but
+    // it is now latched by matrixEverMountedRef — once mounted, later guard
+    // churn can never flip the panel back to loading (which unmounted the
+    // exercise and replayed the intro over a wiped board).
+    expect(page).toMatch(/paradigmResolved && \(!isPillarMode \|\| r2BuLoaded\)/);
+    expect(page).toMatch(/&& !matrixEverMountedRef\.current\) \?/);
+  });
+
+  test('the mount latch resets when the panel closes', () => {
+    // Without the reset, the NEXT open of the matrix would skip the guards
+    // entirely and mount before the r2 BU selection resolved — the original
+    // null→BU churn bug this guard exists to prevent.
+    expect(page).toMatch(/if \(!isMatrixOpen\) matrixEverMountedRef\.current = false/);
   });
 
   test('paradigmResolved is set once the fetch returns', () => {

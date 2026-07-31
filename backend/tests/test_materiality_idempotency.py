@@ -101,3 +101,53 @@ def test_response_always_conforms_to_schema():
     assert isinstance(body["allocated_budget"], int)
     assert isinstance(body["corporate_treasury"], (int, float))
     assert body["success"] is True
+
+
+def test_cfo_rejection_then_override_completes_and_stays_complete():
+    """The full override sequence the classroom reported as looping:
+    a non-material issue in Q1 → 400 CFO memo → Force Override → success.
+    Completion must then be VISIBLE (csrd_completed) and a further submit —
+    override or not — must replay, never re-open the exercise.
+
+    Verified live against real Postgres (pgserver) on 2026-07-31 before being
+    pinned here; the client-side layers are pinned in
+    frontend/__tests__/csrd-matrix-loop.test.js."""
+    sid = _solo()
+    bad_payload = {
+        "matrix_submission": {
+            # two genuinely doubly-material issues + one that is NOT
+            "quadrant_1_top_right": ["data_privacy_impact", "api_leakage_impact",
+                                     "energy_financial_risk"],
+            "quadrant_2_top_left": [],
+            "quadrant_3_bottom_right": [],
+            "quadrant_4_bottom_left": [],
+        },
+        "force_override_cfo": False,
+    }
+    r = client.post(f"/api/simulations/{sid}/materiality", json=bad_payload)
+    assert r.status_code == 400, f"CFO gate should reject: {r.status_code} {r.text[:120]}"
+    assert "CFO Override" in r.json()["detail"]
+
+    # The rejection must not have committed ANYTHING (no half-submission).
+    gs = dbm._global_states[sid][-1]
+    assert not (gs.get("active_event_flags") or {}).get("_materiality_idempotency")
+
+    bad_payload["force_override_cfo"] = True
+    r2 = client.post(f"/api/simulations/{sid}/materiality", json=bad_payload)
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["allocated_budget"] >= 0
+
+    gs = dbm._global_states[sid][-1]
+    assert gs.get("csrd_completed") is True
+    # The override marker's persisted location differs by design: Postgres
+    # unpacks every dynamic key to the top level; the memory store keeps
+    # non-allow-listed keys packed inside active_event_flags. Either location
+    # satisfies the parity contract — LOSING it entirely would not.
+    _flags = gs.get("active_event_flags") or {}
+    assert gs.get("cfo_override_used_r2") is True or _flags.get("cfo_override_used_r2") is True, (
+        "the governance-penalty marker was dropped on persist")
+
+    # Any further submit — the loop trigger — replays the committed result.
+    r3 = client.post(f"/api/simulations/{sid}/materiality", json=bad_payload)
+    assert r3.status_code == 200
+    assert r3.json()["allocated_budget"] == r2.json()["allocated_budget"]

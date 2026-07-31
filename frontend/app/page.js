@@ -300,6 +300,11 @@ export default function CockpitPage() {
   const sim = useSimulation();
   const [teamName, setTeamName] = useState('');
   const [isMatrixOpen, setIsMatrixOpen] = useState(false);
+  // Latches true the first time the matrix mounts while the panel is open, so
+  // later guard churn can only ever be ignored — never unmount the exercise.
+  // Reset on close so the next OPEN re-evaluates the guards from scratch.
+  const matrixEverMountedRef = useRef(false);
+  useEffect(() => { if (!isMatrixOpen) matrixEverMountedRef.current = false; }, [isMatrixOpen]);
   const [showDesktop, setShowDesktop] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
   // NEW-04: track which round briefings have already been seen — prevents re-showing on re-render
@@ -1807,7 +1812,16 @@ export default function CockpitPage() {
                 paradigmResolved closes that window; DoubleMaterialityMatrix
                 additionally FREEZES buId for the life of the mount so no later
                 churn can wipe placed issues. */}
-            {(!paradigmResolved || (isPillarMode && !r2BuLoaded)) ? (
+            {/* LOOP FIX (2026-07-31): once the matrix has mounted for THIS
+                open, it stays mounted — matrixEverMountedRef latches. The
+                loading branch previously re-engaged whenever the guard inputs
+                churned (paradigm re-poll, r2 refetch, dashboard refresh racing
+                the panel), UNMOUNTING the exercise mid-flight: intro modal
+                again, quadrants wiped — the "matrix loops" report. The CFO
+                override flow (submit → memo → decide) holds the player in the
+                panel longest, which is why it hit "especially" there. */}
+            {(() => { const ready = paradigmResolved && (!isPillarMode || r2BuLoaded); if (ready) matrixEverMountedRef.current = true; return null; })()}
+            {(!(paradigmResolved && (!isPillarMode || r2BuLoaded)) && !matrixEverMountedRef.current) ? (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#e2e8f0' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '1.1rem', fontWeight: 700 }}>Preparing your business unit’s assessment…</div>
@@ -1818,6 +1832,7 @@ export default function CockpitPage() {
             <DoubleMaterialityMatrix
               csfPool={csfPool}
               globalState={sim?.globalState}
+              alreadySubmitted={hasSubmittedMatrix}
               initialQ1={globalState?.materiality_budget_allocated || []}
               buId={isPillarMode ? r2BuSelection?.selected_bu : null}
               buLabel={isPillarMode ? r2BuSelection?.bu_label : null}
