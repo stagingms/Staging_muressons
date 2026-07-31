@@ -416,6 +416,11 @@ async def get_global_settings(request: Request, session_id: str | None = _Query(
         # ambiguous simulation_mode for the Timeline-Branch toggle.
         "climate_paradigm": resolve_climate_paradigm(s),
         "front_page_enabled": s.get("front_page_enabled", True),  # Feature 5 toggle (player-readable)
+        # Login-screen "Start Solo Session" visibility. Read by the (public)
+        # login page, so it must be in this unauthenticated payload. Default ON
+        # preserves pre-toggle behaviour; /solo-start enforces it server-side
+        # too, so hiding the button is never the only line of defence.
+        "solo_mode_enabled": s.get("solo_mode_enabled", True),
         # Briefing videos (Read | Watch on round briefings) — player-readable;
         # cohort-effective via GOD-012. URLs only; empty/{} = text-only briefings.
         "briefing_video_base": s.get("briefing_video_base", ""),
@@ -562,6 +567,7 @@ class GlobalSettingsPatch(BaseModel):
     real_world_cards_enabled: bool | None = None
     real_world_cards_teleprompter: bool | None = None
     front_page_enabled: bool | None = None  # Feature 5: Year-5 front page reveal
+    solo_mode_enabled: bool | None = None  # login-screen "Start Solo Session" (default ON; also gates /solo-start server-side)
     consequence_replay_enabled: bool | None = None  # WOW-1: post-commit causal chain animation
     debrief_protocol_enabled: bool | None = None
     self_learning_mode: bool | None = None

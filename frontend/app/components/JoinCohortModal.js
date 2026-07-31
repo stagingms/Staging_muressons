@@ -30,6 +30,20 @@ export default function JoinCohortModal({ sim }) {
         return () => clearInterval(iv);
     }, []);
 
+    // Sim Switchboard → solo_mode_enabled hides "Start Solo Session" here.
+    // Read from the public global-settings payload (this screen is
+    // pre-authentication, so it can only use the unauthenticated view).
+    // Fail-OPEN to visible: a settings hiccup must not strand self-paced
+    // learners — and /solo-start enforces the switch server-side anyway.
+    const [soloEnabled, setSoloEnabled] = useState(true);
+    useEffect(() => {
+        const API = process.env.NEXT_PUBLIC_API_URL || '';
+        fetch(`${API}/api/admin/global-settings`)
+            .then((r) => (r.ok ? r.json() : null))
+            .then((s) => { if (s && s.solo_mode_enabled === false) setSoloEnabled(false); })
+            .catch(() => {});
+    }, []);
+
     const handleLogin = async (e) => {
         e.preventDefault();
         if (!playerId.trim()) {
@@ -155,14 +169,16 @@ export default function JoinCohortModal({ sim }) {
                         </button>
                     </form>
 
-                    <button
-                        type="button"
-                        onClick={handleSoloSession}
-                        disabled={joining}
-                        className={styles.soloBtn}
-                    >
-                        {joining ? '⟳ INITIALIZING...' : 'START SOLO SESSION'}
-                    </button>
+                    {soloEnabled && (
+                        <button
+                            type="button"
+                            onClick={handleSoloSession}
+                            disabled={joining}
+                            className={styles.soloBtn}
+                        >
+                            {joining ? '⟳ INITIALIZING...' : 'START SOLO SESSION'}
+                        </button>
+                    )}
 
                     <p style={{
                         marginTop: '1rem', fontSize: '0.68rem', color: '#475569',

@@ -1167,6 +1167,23 @@ async def solo_start_simulation(body: SoloStartRequest):
     """
     from datetime import date, timedelta
 
+    # Solo mode is a PLATFORM switch (Sim Switchboard → solo_mode_enabled).
+    # The login screen hides its button when off, but this endpoint is public
+    # and unauthenticated, so the server must refuse too — a hidden button is
+    # never the only line of defence (V-B/V-C precedent). Default ON: absent
+    # key behaves exactly as before the toggle existed. Fail-open on store
+    # errors so a settings hiccup cannot strand self-paced learners.
+    try:
+        from admin_shared import _god_mode_settings as _gms
+        _solo_enabled = _gms.get("solo_mode_enabled", True)
+    except Exception:
+        _solo_enabled = True
+    if _solo_enabled is False:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Solo sessions are currently disabled by the administrator.",
+        )
+
     _req_paradigm = (body.decision_paradigm or "legacy_abc").strip()
     # C5: derive from the canonical set instead of a drifting inline copy.
     # Solo mode additionally accepts un_sdg (solo-only experience); COHORT

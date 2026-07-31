@@ -260,6 +260,48 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                             )}
                         </div>
 
+                        {/* ── Platform Access ── */}
+                        {/* Slot: admin switchboard control card (not a player surface). Lives
+                            beside Emergency Freeze because it governs platform ACCESS (the
+                            login screen), not pedagogy. Same togglePill mechanics as every
+                            other switch: PATCH global-settings, blast-radius confirm while
+                            players are connected, event-bus fan-out. The server enforces the
+                            switch on /solo-start too — hiding the button is presentation. */}
+                        <div className={styles.controlCard} style={{
+                            borderLeft: settings.solo_mode_enabled !== false
+                                ? '3px solid #14b8a6' : '3px solid rgba(148,163,184,0.15)',
+                        }}>
+                            <div style={{ flex: 1 }}>
+                                <div className={styles.controlTitle}>🚪 Platform Access</div>
+                                <div className={styles.controlDesc}>
+                                    What the pre-login screen offers before anyone authenticates.
+                                </div>
+                                <div style={{
+                                    display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.6rem',
+                                    alignItems: 'center',
+                                }}>
+                                    {[
+                                        { key: 'solo_mode_enabled', label: '🎮 Solo Sessions', default: true, tip: 'Shows "Start Solo Session" on the login screen — a self-contained, facilitator-less 24-hour demo run. Turn off to make the login screen cohort-only; the /solo-start endpoint is refused server-side as well.' },
+                                    ].map(t => (
+                                        <div key={t.key} className={styles.pillWrap} data-tip={t.tip}>
+                                        <button
+                                            onClick={() => togglePill(t)}
+                                            style={{
+                                                padding: '3px 9px', borderRadius: 4, border: 'none',
+                                                background: settings[t.key] !== false ? 'rgba(20,184,166,0.15)' : 'rgba(148,163,184,0.08)',
+                                                color: settings[t.key] !== false ? '#2dd4bf' : '#64748b',
+                                                fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
+                                                transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
+                                            }}
+                                        >
+                                            {pillMarker(t.key, settings[t.key] !== false)} {t.label}
+                                        </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
                         {/* ── Pedagogical Scaffolding Controls ── */}
                         <div className={styles.controlCard} style={{
                             borderLeft: settings.prediction_gates_enabled || settings.round_recap_enabled || settings.real_world_cards_enabled
