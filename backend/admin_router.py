@@ -24,7 +24,7 @@ import os
 import shutil
 from fastapi import APIRouter, HTTPException, Request, Response, WebSocket, WebSocketDisconnect, status, Body, UploadFile, File
 from pydantic import BaseModel, Field, validator
-from fastapi import Header, Depends
+from fastapi import Header, Depends, Form
 
 # ── audit #17: rate limiter extracted to rate_limit.py (behaviour unchanged) ──
 # Re-exported so `from admin_router import _check_rate_limit` (router.py) and the
@@ -6845,6 +6845,123 @@ async def download_stakeholder_excel(
         raise
 
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  STAKEHOLDER PACKS — one matrix per SBU, per region
+#
+#  A pack is an INDEX over stakeholder configs (see stakeholder_packs.py), so
+#  it owns no matrix data and can be created or deleted without touching one.
+#  Setup is god_mode / super-admin only; a cohort then selects a pack by id.
+#
+#  Read endpoints use require_facilitator so the cohort form can list packs;
+#  every WRITE is require_super_admin, matching the existing upload flow.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@admin_router.get(
+    "/stakeholder-packs",
+    summary="List stakeholder packs (per-SBU matrix bundles)",
+)
+async def list_stakeholder_packs(_guard: None = Depends(require_facilitator)):
+    from stakeholder_packs import list_packs, pack_coverage
+    packs = list_packs()
+    return {
+        "packs": [
+            {**p, "coverage": pack_coverage(p["pack_id"])}
+            for p in packs
+        ],
+        "count": len(packs),
+    }
+
+
+@admin_router.get(
+    "/stakeholder-packs/{pack_id}",
+    summary="One stakeholder pack, with slot coverage",
+)
+async def get_stakeholder_pack(pack_id: str, _guard: None = Depends(require_facilitator)):
+    from stakeholder_packs import get_pack, pack_coverage
+    pack = get_pack(pack_id)
+    if not pack:
+        raise HTTPException(status_code=404, detail=f"No stakeholder pack '{pack_id}'.")
+    return {**pack, "coverage": pack_coverage(pack_id)}
+
+
+class StakeholderPackRequest(BaseModel):
+    label: str = Field("", max_length=120)
+    region: str = Field("", max_length=50)
+    bus: dict = Field(default_factory=dict)
+
+
+@admin_router.put(
+    "/stakeholder-packs/{pack_id}",
+    summary="Create or update a stakeholder pack",
+)
+async def put_stakeholder_pack(
+    pack_id: str,
+    body: StakeholderPackRequest,
+    _guard: None = Depends(require_super_admin),
+):
+    from stakeholder_packs import save_pack, pack_coverage
+    if not save_pack(pack_id, body.label, body.region, body.bus):
+        raise HTTPException(
+            status_code=400,
+            detail=("Invalid pack id. Use lowercase letters, digits or "
+                    "underscores (max 50)."),
+        )
+    _audit("stakeholder_pack_saved", details={"pack_id": pack_id, "bus": body.bus})
+    return {"status": "success", "pack_id": pack_id, "coverage": pack_coverage(pack_id)}
+
+
+@admin_router.delete(
+    "/stakeholder-packs/{pack_id}",
+    summary="Delete a stakeholder pack (its matrices are left untouched)",
+)
+async def delete_stakeholder_pack(pack_id: str, _guard: None = Depends(require_super_admin)):
+    from stakeholder_packs import delete_pack
+    if not delete_pack(pack_id):
+        raise HTTPException(status_code=404, detail=f"No stakeholder pack '{pack_id}'.")
+    _audit("stakeholder_pack_deleted", details={"pack_id": pack_id})
+    # Deliberately does NOT clear the id from cohorts that reference it: an
+    # unknown pack falls through to the pre-existing resolution chain, so a
+    # running class degrades to the old behaviour instead of losing its map.
+    return {"status": "success", "pack_id": pack_id}
+
+
+@admin_router.post(
+    "/stakeholder-packs/{pack_id}/upload",
+    summary="Upload a region workbook (one sheet per SBU) and build the pack",
+)
+async def upload_stakeholder_pack(
+    pack_id: str,
+    file: UploadFile = File(...),
+    label: str = Form(""),
+    region: str = Form(""),
+    _guard: None = Depends(require_super_admin),
+):
+    """One workbook per region, one sheet per SBU — the 4-SBU format.
+
+    Sheets are matched to slots by name (case-insensitive), so "Pharma",
+    "pharma" and "vertical_pharma__europe" all bind to the pharma slot. Any
+    sheet that matches nothing is REPORTED rather than ignored, because a
+    silently skipped sheet is how a cohort reaches a classroom half-configured.
+    """
+    from stakeholder_packs import build_pack_from_region_workbook
+
+    parsed = _read_master_upload(file)
+    report = build_pack_from_region_workbook(pack_id, label, region, parsed)
+    if not report["saved"]:
+        raise HTTPException(
+            status_code=400,
+            detail=("Could not save the pack. Check the pack id is lowercase "
+                    "letters, digits or underscores."),
+        )
+    _audit("stakeholder_pack_uploaded", details={
+        "pack_id": report["pack_id"],
+        "region": report["region"],
+        "configs_written": report["configs_written"],
+        "unmatched_sheets": report["unmatched_sheets"],
+    })
+    return report
 
 
 # ═══════════════════════════════════════════════════════════════════════════

@@ -306,6 +306,48 @@ def _resolve_active_vertical(global_state: dict) -> str | None:
     return None
 
 
+def get_stakeholders_for_bu(global_state: dict, bu_id: str) -> list[dict]:
+    """Stakeholder set for ONE business unit.
+
+    In the 4-SBU conglomerate format every BU shared a single stakeholder map,
+    because get_stakeholders_for_session() resolves one vertical for the whole
+    cohort — a pharma BU and a software BU faced identical stakeholders. A
+    Stakeholder Pack binds a matrix per slot so each BU gets its own.
+
+    Resolution, highest first:
+
+      1. The cohort's PACK entry for this bu_id (stakeholder_pack_id on the
+         session / cohort settings).
+      2. Everything get_stakeholders_for_session() already does, unchanged.
+
+    Step 2 is the whole back-compatibility story: with no pack set, or a pack
+    that omits this slot, the answer is byte-identical to today. Nothing about
+    the round engine, the map scoring or the player UI needs to know packs
+    exist — they ask for a BU and get a list, as before.
+    """
+    pack_id = (
+        global_state.get("stakeholder_pack_id")
+        or (global_state.get("active_event_flags") or {}).get("stakeholder_pack_id")
+        or ""
+    )
+    if pack_id and bu_id:
+        try:
+            from stakeholder_packs import config_id_for_bu
+            from stakeholder_db import get_region_config_raw
+
+            config_id = config_id_for_bu(str(pack_id), str(bu_id))
+            if config_id:
+                rows = get_region_config_raw(config_id)
+                if rows:
+                    return rows
+                # A pack pointing at a deleted config must NOT yield an empty
+                # map mid-class; fall through to the session-wide chain below.
+        except Exception:
+            pass  # a broken pack never blocks a running simulation
+
+    return get_stakeholders_for_session(global_state)
+
+
 def get_stakeholders_for_session(global_state: dict) -> list[dict]:
     """Return the appropriate stakeholder set for a session (vertical or default).
 

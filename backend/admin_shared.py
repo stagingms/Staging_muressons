@@ -449,6 +449,9 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     "webhook_url",
     "briefing_video_base",
     "briefing_videos",
+    # Stakeholder Packs: which per-SBU matrix bundle this cohort runs.
+    # Empty = today's single-set resolution, unchanged.
+    "stakeholder_pack_id",
 })
 
 

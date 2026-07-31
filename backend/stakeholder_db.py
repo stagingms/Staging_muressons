@@ -24,8 +24,25 @@ import os
 import pathlib
 from typing import Any
 
-# Absolute path to the stakeholder config directory
-_CONFIG_DIR = pathlib.Path(__file__).resolve().parent.parent / "db" / "stakeholder_configs"
+# DURABILITY-2026-07-30: this pointed at <repo>/db/stakeholder_configs — inside
+# the IMAGE. On Railway the container filesystem is ephemeral, so every
+# stakeholder matrix uploaded by a super-admin was silently discarded on the
+# next deploy. It now resolves through runtime_paths, which puts it on the
+# mounted volume in production and migrates the existing files across once.
+# Unset MURESSONS_DATA_DIR (local dev, CI) still resolves to <repo>/db, so
+# behaviour off-Railway is byte-identical to before.
+#
+# Resolved EAGERLY into a module global because tests monkeypatch _CONFIG_DIR
+# directly; keeping it a plain Path preserves that seam.
+def _resolve_config_dir() -> pathlib.Path:
+    try:
+        from runtime_paths import data_subdir
+        return data_subdir("stakeholder_configs")
+    except Exception:
+        return pathlib.Path(__file__).resolve().parent.parent / "db" / "stakeholder_configs"
+
+
+_CONFIG_DIR = _resolve_config_dir()
 
 # In-memory cache:  region_id → list[dict]
 _region_cache: dict[str, list[dict]] = {}

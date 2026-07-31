@@ -86,6 +86,46 @@ def storage_status() -> dict:
     }
 
 
+def data_subdir(name: str) -> Path:
+    """Resolve a mutable runtime SUBDIRECTORY inside data_dir(), migrating an
+    existing copy from <repo>/db/<name> once.
+
+    DURABILITY-2026-07-30: stakeholder_db wrote uploaded stakeholder configs to
+    <repo>/db/stakeholder_configs — inside the IMAGE, not the mounted volume.
+    On Railway the container filesystem is ephemeral, so every stakeholder
+    matrix a super-admin uploaded was silently discarded on the next deploy.
+    The same class of bug this module was created to fix for the facilitator
+    registry; the config DIRECTORY was simply never migrated with it.
+
+    Directories need their own helper because data_file() migrates a single
+    file. Migration is one-shot and non-destructive: files already present in
+    the target win, and the legacy copy is left untouched so a rollback still
+    finds it.
+
+    Honours MURESSONS_NO_LEGACY_MIGRATION for the same reason data_file() does
+    — the test suite must not inherit the developer's real configs.
+    """
+    target = data_dir() / name
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        return target
+
+    if os.getenv("MURESSONS_NO_LEGACY_MIGRATION", "").strip().lower() in ("1", "true", "yes"):
+        return target
+
+    legacy_dir = _REPO_DB_DIR / name
+    try:
+        if legacy_dir.is_dir() and legacy_dir.resolve() != target.resolve():
+            for src in legacy_dir.glob("*.json"):
+                dest = target / src.name
+                if not dest.exists():
+                    shutil.copy2(src, dest)
+    except OSError:
+        pass
+    return target
+
+
 def data_file(name: str, legacy: Path | None = None) -> Path:
     """Resolve a mutable runtime file inside data_dir().
 
