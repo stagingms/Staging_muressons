@@ -49,8 +49,10 @@ const PARADIGM_OPTIONS = [
     { id: 'multi_toggles', label: 'Strategic Pillars', sub: 'Toggle-based multi-vector decisions', icon: '⊞' },
     { id: 'advanced_climate', label: 'Advanced Climate', sub: 'Full climate engine with carbon markets', icon: '🌍' },
     { id: 'healthcare', label: 'Healthcare Edition', sub: 'Clinical operations & patient outcomes', icon: '🏥' },
-    { id: 'un_sdg', label: 'UN SDG Goals', sub: 'Sustainable Development Goals framework', icon: '🎯' },
-    { id: 'brsr_ngrbc', label: 'BRSR NGRBC Edition', sub: 'India ESG responsibility framework', icon: '🇮🇳' },
+    // C5: un_sdg / brsr_ngrbc removed — cohort creation rejects both (422),
+    // so a facilitator defaulted to either could never create a cohort. The
+    // PARADIGM_META colour map above intentionally KEEPS the entries so any
+    // pre-existing facilitator row still renders its badge.
 ];
 
 const EMPTY_FORM = {

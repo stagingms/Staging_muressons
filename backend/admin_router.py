@@ -359,7 +359,7 @@ class FacilitatorBulkDeleteRequest(BaseModel):
 from fastapi import Query as _Query
 
 @admin_router.get("/global-settings", summary="Get current global simulation settings")
-async def get_global_settings(session_id: str | None = _Query(default=None)):
+async def get_global_settings(request: Request, session_id: str | None = _Query(default=None)):
     """Returns current god-mode settings including simulation_mode.
     Called by player sessions on mount to detect Advanced Climate Engine.
 
@@ -367,6 +367,13 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
     global defaults with any per-cohort overrides stored for that session.
     This lets 30 concurrent workshops each receive their own freeze state,
     simulation_mode, carbon_fee, etc. without affecting each other.
+
+    F-21: this endpoint is deliberately unauthenticated (players call it on
+    mount), which made the grading rubric (esg_profile_weights) publicly
+    readable MID-GAME — a student could optimise to the weights. The weights
+    are now disclosed only to an authenticated facilitator, or once the named
+    session is finished (the ESG Leadership Profile screen renders them at
+    end-of-game, when there is nothing left to optimise).
     """
     # GOD-012: resolve effective settings for this cohort (or global if no overrides)
     s = get_effective_settings(session_id)
@@ -387,6 +394,21 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
                 s = {**s, **_ped}
         except Exception:
             pass  # fail-open to the global view
+
+    # F-21: rubric disclosure gate — facilitator JWT, or a FINISHED session.
+    _weights_ok = False
+    try:
+        from auth_jwt import get_facilitator_from_request
+        _weights_ok = bool(get_facilitator_from_request(request))
+    except Exception:
+        _weights_ok = False
+    if not _weights_ok and session_id:
+        try:
+            _gs = await db.fetch_latest_state(session_id) or {}
+            _inner = _gs.get("global_state", _gs) if isinstance(_gs, dict) else {}
+            _weights_ok = bool(_inner.get("game_over")) or int(_gs.get("round_number") or _inner.get("round_number") or 0) >= 10
+        except Exception:
+            _weights_ok = False  # fail-CLOSED: when in doubt, don't leak the rubric
 
     return {
         "simulation_mode": s.get("simulation_mode", "standard"),
@@ -436,7 +458,10 @@ async def get_global_settings(session_id: str | None = _Query(default=None)):
         # fail-open (default ON) so existing cohorts keep the map unless turned off.
         "consequence_map_enabled": s.get("consequence_map_enabled", True),
         # ESG Leadership Profile signal weights (facilitator-tunable rubric).
-        "esg_profile_weights": s.get("esg_profile_weights", DEFAULT_ESG_WEIGHTS),
+        # F-21: None mid-game for anonymous callers — the client already
+        # falls back to DEFAULT_ESG_WEIGHTS for display when absent.
+        "esg_profile_weights": (s.get("esg_profile_weights", DEFAULT_ESG_WEIGHTS)
+                                if _weights_ok else None),
         "mental_model_tracker_enabled": s.get("mental_model_tracker_enabled", True),
         "confidence_calibration_enabled": s.get("confidence_calibration_enabled", False),
         "mid_game_checkpoint_enabled": s.get("mid_game_checkpoint_enabled", True),
@@ -3348,7 +3373,9 @@ def _sanitize_esg_weights(incoming: dict) -> dict:
 
 
 @admin_router.get("/esg-profile-weights", summary="Get ESG Leadership Profile signal weights")
-async def get_esg_profile_weights():
+async def get_esg_profile_weights(_guard: None = Depends(require_sim_manager)):
+    # F-21: was unguarded — the raw rubric endpoint must match its setter's
+    # gate (the only client, ESGWeightsEditor, already sends credentials).
     return {"esg_profile_weights": _god_mode_settings.get("esg_profile_weights", DEFAULT_ESG_WEIGHTS),
             "defaults": DEFAULT_ESG_WEIGHTS}
 

@@ -69,12 +69,20 @@ _COL_WIDTHS = [
 def _encode_tactic(tactic: dict) -> str:
     """Encode a single engagement tactic dict to pipe-delimited string.
 
-    Format: ``Label|true/false|Rationale``
+    Format: ``Label|true/false|Rationale|id``
+
+    C4: the id used to be DROPPED here and regenerated from the label on
+    import, so a round-trip (export → edit → reimport) silently rewrote every
+    tactic id — e.g. ``meet_privately`` became ``meet_privately_with_the_ceo``
+    — and anything keyed to the original id (correct-tactic scoring, history)
+    stopped matching. The id now travels with the row; _parse_tactic accepts
+    the old 3-field form for files exported before this fix.
     """
     label = tactic.get("label", "")
     correct = "true" if tactic.get("correct") else "false"
     rationale = tactic.get("rationale", "")
-    return f"{label}|{correct}|{rationale}"
+    tid = str(tactic.get("id") or "").strip()
+    return f"{label}|{correct}|{rationale}|{tid}" if tid else f"{label}|{correct}|{rationale}"
 
 
 def export_stakeholders_to_excel(
@@ -174,11 +182,22 @@ def _parse_tactic(raw: str) -> dict | None:
         return None
     label = parts[0].strip()
     correct = parts[1].strip().lower() in ("true", "1", "yes")
-    rationale = parts[2].strip()
+    rest = parts[2]
     if not label:
         return None
-    # Generate a stable tactic id from label
-    tactic_id = label.lower().replace(" ", "_")[:40]
+    # C4: an explicit id may trail as a 4th field (``...|Rationale|id``).
+    # Recognised only when the final segment is slug-shaped, so a rationale
+    # that legitimately contains a pipe cannot be misread as an id — and old
+    # 3-field files keep parsing exactly as before.
+    import re as _re
+    rationale, _sep, _maybe_id = rest.rpartition("|")
+    if _sep and _re.fullmatch(r"[a-z0-9_]{1,40}", _maybe_id.strip()):
+        tactic_id = _maybe_id.strip()
+        rationale = rationale.strip()
+    else:
+        rationale = rest.strip()
+        # Legacy fallback: derive from label (the pre-fix behaviour).
+        tactic_id = label.lower().replace(" ", "_")[:40]
     return {
         "id": tactic_id,
         "label": label,

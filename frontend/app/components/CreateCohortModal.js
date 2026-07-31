@@ -618,26 +618,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             bg: 'rgba(239,68,68,0.1)',
             border: 'rgba(239,68,68,0.3)',
         },
-        {
-            id: 'un_sdg',
-            label: 'UN SDG Edition',
-            sub: 'Sustainable Goals',
-            icon: '🌐',
-            desc: 'Strategy decisions are mapped to UN Sustainable Development Goals. Reputation is linked to SDG achievement scores.',
-            color: '#0ea5e9',
-            bg: 'rgba(14,165,233,0.1)',
-            border: 'rgba(14,165,233,0.3)',
-        },
-        {
-            id: 'brsr_ngrbc',
-            label: 'BRSR NGRBC Edition',
-            sub: 'India ESG Framework',
-            icon: '🇮🇳',
-            desc: 'A 10-round standalone paradigm focused on Business Responsibility and Sustainability Reporting under SEBI/NGRBC frameworks, defaulting display currency to Indian Rupees (₹).',
-            color: '#f97316',
-            bg: 'rgba(249,115,22,0.1)',
-            border: 'rgba(249,115,22,0.3)',
-        },
+        // C5: un_sdg and brsr_ngrbc were offered here but cohort creation
+        // 422s both (config.VALID_DECISION_PARADIGMS is the authority) — a
+        // facilitator picked one, filled the whole form, and hit a validation
+        // wall at submit. Removed until the server implements them; the drift
+        // test pins this list to the server's set.
     ];
 
     const toggleVis = (role, key) => {

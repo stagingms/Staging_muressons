@@ -77,6 +77,11 @@ const nextConfig = {
           { key: 'Referrer-Policy',           value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy',        value: 'geolocation=(), camera=(), microphone=()' },
           { key: 'Content-Security-Policy',   value: csp },
+          // F-20: HSTS. The backend middleware already sends this on /api
+          // responses, but the app shell is served by Next — so the header the
+          // browser actually latches onto for the origin was missing. Browsers
+          // ignore HSTS over plain http, so local dev is unaffected.
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
         ],
       },
     ];

@@ -1168,7 +1168,11 @@ async def solo_start_simulation(body: SoloStartRequest):
     from datetime import date, timedelta
 
     _req_paradigm = (body.decision_paradigm or "legacy_abc").strip()
-    _VALID_PARADIGMS = {"legacy_abc", "multi_toggles", "advanced_climate", "healthcare", "un_sdg"}
+    # C5: derive from the canonical set instead of a drifting inline copy.
+    # Solo mode additionally accepts un_sdg (solo-only experience); COHORT
+    # creation does not, and the cohort form must offer only the config set.
+    from config import VALID_DECISION_PARADIGMS as _CFG_PARADIGMS
+    _VALID_PARADIGMS = set(_CFG_PARADIGMS) | {"un_sdg"}
     if _req_paradigm not in _VALID_PARADIGMS:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
