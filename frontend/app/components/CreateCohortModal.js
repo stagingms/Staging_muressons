@@ -209,6 +209,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     const [simulationMode, setSimulationMode] = useState('conglomerate'); // 'conglomerate' | 'single_bu'
     const [industryVertical, setIndustryVertical] = useState('');
     const [regionId, setRegionId] = useState('');
+    // Stakeholder Packs: which per-SBU matrix bundle this cohort runs.
+    // Empty string = the pre-existing single-set resolution, unchanged — so
+    // "— Default —" is a real, safe choice and not an unconfigured state.
+    const [stakeholderPackId, setStakeholderPackId] = useState('');
+    const [stakeholderPacks, setStakeholderPacks] = useState([]);
     const [buRegions, setBuRegions] = useState({
         pharma: '',
         electronics: '',
@@ -320,6 +325,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             setSimulationMode(editSession.simulation_mode === 'single_bu' ? 'single_bu' : 'conglomerate');
             setIndustryVertical(editSession.industry_vertical || '');
             setRegionId(editSession.region_id || '');
+            setStakeholderPackId(editSession.stakeholder_pack_id || '');
             setFacilitatorId(editSession.facilitator_id || currentFacilitatorId || '');
             setSelectedExperienceLevel(editSession.scenario_preset || editSession.experience_level || 'workshop_standard');
             initialExperienceLevelRef.current =
@@ -368,6 +374,14 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     setPedagogicalToggles(prev => ({ ...prev, ...defaultPreset.default_pedagogy }));
                 }
             }).catch(() => {});
+
+        // Fetch stakeholder packs (per-SBU matrix bundles). Read is
+        // facilitator-level so the form can always show what a cohort is
+        // running; creating/uploading packs stays super-admin only.
+        fetch(`${API}/api/admin/stakeholder-packs`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : { packs: [] })
+            .then(d => setStakeholderPacks(d.packs || []))
+            .catch(() => {});  // no packs endpoint yet → dropdown simply stays on Default
 
         // Fetch available ending pathways
         fetch(`${API}/api/admin/ending-pathways`, { credentials: 'include' })
@@ -864,6 +878,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     simulation_mode: simulationMode === 'single_bu' ? 'single_bu' : 'standard',
                     industry_vertical: simulationMode === 'single_bu' ? industryVertical : null,
                     region_id: regionId,
+                    stakeholder_pack_id: stakeholderPackId || '',
                     currency_symbol: (CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0]).symbol,
                     scenario_preset: selectedExperienceLevel || null,
                     experience_level: selectedExperienceLevel || null,
@@ -945,6 +960,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     simulation_mode: simulationMode === 'single_bu' ? 'single_bu' : 'standard',
                     industry_vertical: simulationMode === 'single_bu' ? industryVertical : undefined,
                     region_id: regionId,
+                    stakeholder_pack_id: stakeholderPackId || '',
                 })
             });
 
@@ -1183,6 +1199,66 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 ? '⚠ Multi-Region: each Business Unit must be assigned its own region in the Industry Verticals tab.'
                                                 : 'Determines stakeholder grid, materiality matrix, and applicable regulations.'}
                                         </small>
+                                    </div>
+
+{/* ── Stakeholder Pack — one matrix per SBU, per region ──
+    Sits directly under Geographic Region because it REFINES that choice:
+    region picks one map for the cohort, a pack gives each of the four SBUs
+    its own. Left on Default, resolution is byte-identical to before, so this
+    control can be ignored entirely. */}
+                                    <div className={styles.formGroup}>
+                                        <label>Stakeholder Pack</label>
+                                        <select
+                                            value={stakeholderPackId}
+                                            onChange={e => setStakeholderPackId(e.target.value)}
+                                            aria-label="Stakeholder pack — per-SBU stakeholder matrices"
+                                        >
+                                            <option value="">— Default (one map for the cohort) —</option>
+                                            {stakeholderPacks.map(pk => (
+                                                <option key={pk.pack_id} value={pk.pack_id}>
+                                                    {pk.label || pk.pack_id}
+                                                    {pk.region ? ` · ${pk.region}` : ''}
+                                                    {pk.coverage && !pk.coverage.complete ? ' (incomplete)' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {(() => {
+                                            const sel = stakeholderPacks.find(pk => pk.pack_id === stakeholderPackId);
+                                            if (!stakeholderPackId) {
+                                                return (
+                                                    <small style={{ color: '#94a3b8' }}>
+                                                        Every business unit shares the region&apos;s stakeholder map.
+                                                        Choose a pack to give each SBU its own.
+                                                    </small>
+                                                );
+                                            }
+                                            if (!sel) {
+                                                // An id saved earlier whose pack has since been deleted. The
+                                                // server falls back safely, but the facilitator should know
+                                                // BEFORE class rather than wonder why the map looks generic.
+                                                return (
+                                                    <small style={{ color: '#f59e0b' }}>
+                                                        ⚠ Pack “{stakeholderPackId}” no longer exists — this cohort will
+                                                        use the default map. Pick another, or reselect Default.
+                                                    </small>
+                                                );
+                                            }
+                                            const cov = sel.coverage || {};
+                                            if (cov.complete) {
+                                                return (
+                                                    <small style={{ color: '#10b981' }}>
+                                                        ✓ All {(cov.covered || []).length} business units have their own
+                                                        stakeholder matrix.
+                                                    </small>
+                                                );
+                                            }
+                                            return (
+                                                <small style={{ color: '#f59e0b' }}>
+                                                    ⚠ Covers {(cov.covered || []).join(', ') || 'no'} — {(cov.missing || []).join(', ')}
+                                                    {' '}will fall back to the default map. Safe to run, but likely unintended.
+                                                </small>
+                                            );
+                                        })()}
                                     </div>
 
                                     <div className={styles.formGroup}>
