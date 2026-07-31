@@ -16,6 +16,7 @@ simulation runtime never depends on it.
 from __future__ import annotations
 
 import json
+import pathlib
 from pathlib import Path
 from typing import Any
 
@@ -438,3 +439,64 @@ if __name__ == "__main__":
     else:
         print(f"Unknown command: {command}")
         sys.exit(1)
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  REGION WORKBOOK — one file per region, one sheet per SBU
+#
+#  The single-config format above uses fixed sheets "Issues" and
+#  "Interdependencies". A region workbook instead names one sheet per SBU
+#  (pharma, electronics, consumer_goods, software), optionally paired with
+#  "<slot> Interdependencies".
+#
+#  Rather than reimplement the row parsing — and inevitably drift from its
+#  validation — each SBU sheet is lifted into a throwaway single-config
+#  workbook with the names the existing parser expects, and
+#  import_materiality_from_excel does the real work. Every validation rule,
+#  present and future, is inherited for free.
+# ═══════════════════════════════════════════════════════════════════════════
+
+def import_region_workbook(xlsx_path, slots=None) -> dict:
+    """Parse a region workbook into {slot: materiality config dict}.
+
+    Sheets are matched to slots case-insensitively. Anything unmatched is
+    simply absent from the result; the caller reports it, because a silently
+    skipped sheet is how a cohort reaches a classroom half-configured.
+    """
+    import tempfile
+    from openpyxl import load_workbook, Workbook
+
+    if slots is None:
+        try:
+            from bu_profiles import DEFAULT_SLOTS
+            slots = list(DEFAULT_SLOTS)
+        except Exception:
+            slots = ["pharma", "electronics", "consumer_goods", "software"]
+
+    src = load_workbook(str(xlsx_path), read_only=True, data_only=True)
+    names = {n.strip().lower(): n for n in src.sheetnames}
+
+    out: dict = {}
+    for slot in slots:
+        sheet = names.get(slot.lower())
+        if not sheet:
+            continue
+        interdep = names.get(f"{slot.lower()} interdependencies") or names.get(f"{slot.lower()}_interdependencies")
+
+        tmp_wb = Workbook()
+        tmp_wb.remove(tmp_wb.active)
+        for src_name, dest_name in ((sheet, "Issues"), (interdep, "Interdependencies")):
+            if not src_name:
+                continue
+            dest = tmp_wb.create_sheet(title=dest_name)
+            for row in src[src_name].iter_rows(values_only=True):
+                dest.append(list(row))
+
+        tmp_path = pathlib.Path(tempfile.mkdtemp()) / f"{slot}.xlsx"
+        tmp_wb.save(tmp_path)
+        try:
+            out[slot] = import_materiality_from_excel(tmp_path)
+        except ValueError:
+            # Malformed sheet for this slot: leave it out so the caller can
+            # report it, rather than aborting the other three.
+            continue
+    return out

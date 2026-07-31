@@ -214,6 +214,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
     // "— Default —" is a real, safe choice and not an unconfigured state.
     const [stakeholderPackId, setStakeholderPackId] = useState('');
     const [stakeholderPacks, setStakeholderPacks] = useState([]);
+    // Materiality Packs — same shape as stakeholder packs, for the CSRD
+    // double-materiality dictionaries. Empty = the pre-existing per-BU /
+    // cohort-override resolution, unchanged.
+    const [materialityPackId, setMaterialityPackId] = useState('');
+    const [materialityPacks, setMaterialityPacks] = useState([]);
     const [buRegions, setBuRegions] = useState({
         pharma: '',
         electronics: '',
@@ -326,6 +331,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             setIndustryVertical(editSession.industry_vertical || '');
             setRegionId(editSession.region_id || '');
             setStakeholderPackId(editSession.stakeholder_pack_id || '');
+            setMaterialityPackId(editSession.materiality_pack_id || '');
             setFacilitatorId(editSession.facilitator_id || currentFacilitatorId || '');
             setSelectedExperienceLevel(editSession.scenario_preset || editSession.experience_level || 'workshop_standard');
             initialExperienceLevelRef.current =
@@ -382,6 +388,11 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
             .then(r => r.ok ? r.json() : { packs: [] })
             .then(d => setStakeholderPacks(d.packs || []))
             .catch(() => {});  // no packs endpoint yet → dropdown simply stays on Default
+
+        fetch(`${API}/api/admin/materiality-packs`, { credentials: 'include' })
+            .then(r => r.ok ? r.json() : { packs: [] })
+            .then(d => setMaterialityPacks(d.packs || []))
+            .catch(() => {});
 
         // Fetch available ending pathways
         fetch(`${API}/api/admin/ending-pathways`, { credentials: 'include' })
@@ -879,6 +890,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     industry_vertical: simulationMode === 'single_bu' ? industryVertical : null,
                     region_id: regionId,
                     stakeholder_pack_id: stakeholderPackId || '',
+                    materiality_pack_id: materialityPackId || '',
                     currency_symbol: (CURRENCIES.find(c => c.code === selectedCurrency) || CURRENCIES[0]).symbol,
                     scenario_preset: selectedExperienceLevel || null,
                     experience_level: selectedExperienceLevel || null,
@@ -961,6 +973,7 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                     industry_vertical: simulationMode === 'single_bu' ? industryVertical : undefined,
                     region_id: regionId,
                     stakeholder_pack_id: stakeholderPackId || '',
+                    materiality_pack_id: materialityPackId || '',
                 })
             });
 
@@ -1256,6 +1269,63 @@ export default function CreateCohortModal({ isOpen, onClose, onCreated, currentF
                                                 <small style={{ color: '#f59e0b' }}>
                                                     ⚠ Covers {(cov.covered || []).join(', ') || 'no'} — {(cov.missing || []).join(', ')}
                                                     {' '}will fall back to the default map. Safe to run, but likely unintended.
+                                                </small>
+                                            );
+                                        })()}
+                                    </div>
+
+{/* ── Materiality Pack — one CSRD double-materiality dictionary per SBU ──
+    Directly under the Stakeholder Pack selector because the two answer the
+    same question for the two halves of Round 2: who is at the table, and
+    what counts as material to them. Default preserves today's per-BU /
+    cohort-override resolution exactly. */}
+                                    <div className={styles.formGroup}>
+                                        <label>Materiality Pack</label>
+                                        <select
+                                            value={materialityPackId}
+                                            onChange={e => setMaterialityPackId(e.target.value)}
+                                            aria-label="Materiality pack — per-SBU double-materiality matrices"
+                                        >
+                                            <option value="">— Default (one dictionary per BU) —</option>
+                                            {materialityPacks.map(pk => (
+                                                <option key={pk.pack_id} value={pk.pack_id}>
+                                                    {pk.label || pk.pack_id}
+                                                    {pk.region ? ` · ${pk.region}` : ''}
+                                                    {pk.coverage && !pk.coverage.complete ? ' (incomplete)' : ''}
+                                                </option>
+                                            ))}
+                                        </select>
+                                        {(() => {
+                                            const sel = materialityPacks.find(pk => pk.pack_id === materialityPackId);
+                                            if (!materialityPackId) {
+                                                return (
+                                                    <small style={{ color: '#94a3b8' }}>
+                                                        Each business unit uses its own default dictionary.
+                                                        Choose a pack for region-specific matrices (CSRD vs BRSR).
+                                                    </small>
+                                                );
+                                            }
+                                            if (!sel) {
+                                                return (
+                                                    <small style={{ color: '#f59e0b' }}>
+                                                        ⚠ Pack “{materialityPackId}” no longer exists — this cohort will
+                                                        use the default dictionaries. Pick another, or reselect Default.
+                                                    </small>
+                                                );
+                                            }
+                                            const cov = sel.coverage || {};
+                                            if (cov.complete) {
+                                                return (
+                                                    <small style={{ color: '#10b981' }}>
+                                                        ✓ All {(cov.covered || []).length} business units have their own
+                                                        materiality dictionary.
+                                                    </small>
+                                                );
+                                            }
+                                            return (
+                                                <small style={{ color: '#f59e0b' }}>
+                                                    ⚠ Covers {(cov.covered || []).join(', ') || 'no'} — {(cov.missing || []).join(', ')}
+                                                    {' '}will fall back to the default dictionary. Safe to run, but likely unintended.
                                                 </small>
                                             );
                                         })()}

@@ -452,6 +452,9 @@ COHORT_OVERRIDABLE_KEYS: frozenset[str] = frozenset({
     # Stakeholder Packs: which per-SBU matrix bundle this cohort runs.
     # Empty = today's single-set resolution, unchanged.
     "stakeholder_pack_id",
+    # Materiality Packs: per-SBU double-materiality matrices. Empty = the
+    # pre-existing per-BU / cohort-override resolution, unchanged.
+    "materiality_pack_id",
 })
 
 

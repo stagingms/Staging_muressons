@@ -611,6 +611,67 @@ def save_bu_config(bu_id: str, config_dict: dict) -> None:
         json.dump(config_dict, f, indent=2)
     os.replace(temp_file, filepath)
 
+def _regional_path(bu_id: str, region_id: str) -> Path:
+    """Where a REGION-specific matrix for this BU lives."""
+    return CONFIG_DIR / f"materiality_config_{bu_id}__{region_id}.json"
+
+
+def get_regional_bu_config(bu_id: str, region_id: str) -> dict | None:
+    """A BU's matrix for one market, or None to fall through.
+
+    PHASE 2 (2026-07-31). Materiality had NO region dimension at all — a grep
+    for "region" in this module returned only prose inside issue descriptions.
+    But double materiality genuinely differs by market: CSRD in Europe and BRSR
+    in India weight the same issue differently, which is much of the point of
+    teaching it. Stakeholders already expressed this as
+    vertical_<bu>__<region>; this is the same idea, same naming shape.
+
+    Returns None — never {} or a default — when no regional file exists, so the
+    caller falls through to the plain per-BU config exactly as before. A cohort
+    that has never heard of regions is unaffected.
+    """
+    if not bu_id or not region_id:
+        return None
+    path = _regional_path(str(bu_id), str(region_id).strip().lower())
+    try:
+        if not path.exists():
+            return None
+        with open(path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+    except (json.JSONDecodeError, IOError, OSError):
+        # A corrupt regional file must not take down a running class; the plain
+        # BU matrix is a correct, complete fallback.
+        return None
+    return cfg if isinstance(cfg, dict) and cfg.get("issues") is not None else None
+
+
+def save_regional_bu_config(bu_id: str, region_id: str, config_dict: dict) -> bool:
+    """Persist a BU x region matrix. Atomic, like save_bu_config."""
+    import re as _re
+    rid = str(region_id or "").strip().lower()
+    if not bu_id or not _re.match(r"^[a-z0-9_]{1,50}$", rid):
+        return False
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    path = _regional_path(str(bu_id), rid)
+    tmp = path.with_suffix(".tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(config_dict, f, indent=2)
+        os.replace(tmp, path)
+    except OSError:
+        return False
+    return True
+
+
+def resolve_bu_config(bu_id: str, region_id: str = "") -> dict:
+    """The read the simulation should use: region-specific if present, else the
+    BU's own matrix. One function so callers cannot forget the region step."""
+    regional = get_regional_bu_config(bu_id, region_id)
+    if regional is not None:
+        return regional
+    return get_bu_config(bu_id)
+
+
 def get_bu_config(bu_id: str) -> dict:
     global _cached_bu_configs
     if _cached_bu_configs.get(bu_id) is None:

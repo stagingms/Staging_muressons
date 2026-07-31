@@ -3374,7 +3374,33 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
         if bu_override_key in global_state:
             mat_config = global_state[bu_override_key]
         else:
-            mat_config = mat_db.get_bu_config(body.bu_id)
+            # PHASE 3/2 (2026-07-31). Two steps inserted ABOVE the plain per-BU
+            # read, both of which fall through when unset, so a cohort that
+            # configures neither resolves exactly as it did before:
+            #   a) the cohort's Materiality Pack entry for this BU
+            #   b) a region-specific matrix (materiality_config_<bu>__<region>)
+            # The explicit per-BU cohort override above still wins over both —
+            # a sandbox edit made for one class must not be overridden by a
+            # pack chosen for it.
+            _region = (
+                global_state.get("region_id")
+                or (global_state.get("active_event_flags") or {}).get("region_id")
+                or ""
+            )
+            mat_config = None
+            _pack_id = (
+                global_state.get("materiality_pack_id")
+                or (global_state.get("active_event_flags") or {}).get("materiality_pack_id")
+                or ""
+            )
+            if _pack_id:
+                try:
+                    from materiality_packs import config_for_bu as _pack_cfg
+                    mat_config = _pack_cfg(_pack_id, body.bu_id)
+                except Exception:
+                    mat_config = None  # a broken pack never blocks a class
+            if mat_config is None:
+                mat_config = mat_db.resolve_bu_config(body.bu_id, _region)
     elif "materiality_dictionary_override" in global_state:
         mat_config = global_state["materiality_dictionary_override"]
     else:

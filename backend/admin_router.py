@@ -6848,6 +6848,108 @@ async def download_stakeholder_excel(
 
 
 # ═══════════════════════════════════════════════════════════════════════════
+#  MATERIALITY PACKS — one double-materiality matrix per SBU, per region
+#  Same shape and same guarantees as Stakeholder Packs below: reads are
+#  facilitator-level so the cohort form can list them; every write is
+#  super-admin, matching the existing materiality-editing guard.
+# ═══════════════════════════════════════════════════════════════════════════
+
+@admin_router.get("/materiality-packs", summary="List materiality packs")
+async def list_materiality_packs(_guard: None = Depends(require_facilitator)):
+    from materiality_packs import list_packs, pack_coverage
+    packs = list_packs()
+    return {"packs": [{**p, "coverage": pack_coverage(p["pack_id"])} for p in packs],
+            "count": len(packs)}
+
+
+@admin_router.get("/materiality-packs/{pack_id}", summary="One materiality pack")
+async def get_materiality_pack(pack_id: str, _guard: None = Depends(require_facilitator)):
+    from materiality_packs import get_pack, pack_coverage
+    pack = get_pack(pack_id)
+    if not pack:
+        raise HTTPException(status_code=404, detail=f"No materiality pack '{pack_id}'.")
+    return {**pack, "coverage": pack_coverage(pack_id)}
+
+
+@admin_router.put("/materiality-packs/{pack_id}", summary="Create or update a materiality pack")
+async def put_materiality_pack(
+    pack_id: str,
+    body: StakeholderPackRequest,
+    _guard: None = Depends(require_super_admin),
+):
+    from materiality_packs import save_pack, pack_coverage
+    if not save_pack(pack_id, body.label, body.region, body.bus):
+        raise HTTPException(status_code=400, detail=(
+            "Invalid pack id. Use lowercase letters, digits or underscores (max 50)."))
+    _audit("materiality_pack_saved", details={"pack_id": pack_id, "bus": body.bus})
+    return {"status": "success", "pack_id": pack_id, "coverage": pack_coverage(pack_id)}
+
+
+@admin_router.delete("/materiality-packs/{pack_id}",
+                     summary="Delete a materiality pack (its matrices are left untouched)")
+async def delete_materiality_pack(pack_id: str, _guard: None = Depends(require_super_admin)):
+    from materiality_packs import delete_pack
+    if not delete_pack(pack_id):
+        raise HTTPException(status_code=404, detail=f"No materiality pack '{pack_id}'.")
+    _audit("materiality_pack_deleted", details={"pack_id": pack_id})
+    # Cohorts still naming this pack fall through to the pre-existing chain, so
+    # a running class degrades to the old matrix rather than losing one.
+    return {"status": "success", "pack_id": pack_id}
+
+
+@admin_router.post("/materiality-packs/{pack_id}/upload",
+                   summary="Upload a region workbook (one sheet per SBU) and build the pack")
+async def upload_materiality_pack(
+    pack_id: str,
+    file: UploadFile = File(...),
+    label: str = Form(""),
+    region: str = Form(""),
+    _guard: None = Depends(require_super_admin),
+):
+    """One workbook per region, one sheet per SBU, optionally paired with
+    "<slot> Interdependencies". Unmatched sheets are reported, not ignored."""
+    import os as _os
+    import tempfile as _tf
+    from materiality_config_excel import import_region_workbook
+    from materiality_packs import build_pack_from_region_workbook
+
+    fd, tmp_path = _tf.mkstemp(suffix=".xlsx")
+    _os.close(fd)
+    try:
+        with open(tmp_path, "wb") as out:
+            out.write(file.file.read())
+        try:
+            parsed = import_region_workbook(tmp_path)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=(
+                f"Could not read '{getattr(file, 'filename', 'the upload')}' as an "
+                f".xlsx workbook ({type(exc).__name__}). Export from Excel as .xlsx."))
+    finally:
+        try:
+            _os.unlink(tmp_path)
+        except OSError:
+            pass
+
+    if not parsed:
+        raise HTTPException(status_code=400, detail=(
+            "No SBU sheets recognised. Name one sheet per business unit "
+            "(pharma, electronics, consumer_goods, software)."))
+
+    report = build_pack_from_region_workbook(pack_id, label, region, parsed)
+    if not report["saved"]:
+        raise HTTPException(status_code=400, detail=(
+            "Could not save the pack. Check the pack id is lowercase letters, "
+            "digits or underscores."))
+    _audit("materiality_pack_uploaded", details={
+        "pack_id": report["pack_id"], "region": report["region"],
+        "configs_written": report["configs_written"],
+        "unmatched_sheets": report["unmatched_sheets"]})
+    return report
+
+
+# ═══════════════════════════════════════════════════════════════════════════
 #  STAKEHOLDER PACKS — one matrix per SBU, per region
 #
 #  A pack is an INDEX over stakeholder configs (see stakeholder_packs.py), so
