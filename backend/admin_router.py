@@ -277,6 +277,24 @@ _ar_log = _ar_logging.getLogger("muressons.admin")
 _next_facilitator_id: int = 1
 
 
+# Fields the login scan lowercases. None in any of them is unrepresentable as
+# an update and is stripped on load (admin_shared._sanitise_facilitator_row).
+_IDENTITY_FIELDS = frozenset({"facilitator_id", "username", "name"})
+
+
+def _lc(value) -> str:
+    """Lowercase an identity field that may be absent, None, or non-string.
+
+    `dict.get(key, "")` returns the default only when the key is ABSENT. A key
+    present with value None returns None, and None.lower() raises — which is
+    exactly how a single null `name` in the registry took production login down
+    with a 500 for EVERY account, god_mode included: the registry scan runs
+    before the master-password branch, so break-glass crashed too. Identity
+    comparisons must never assume a stored field is a string.
+    """
+    return value.lower() if isinstance(value, str) else ""
+
+
 class FacilitatorCreateRequest(BaseModel):
     name: str = Field(..., max_length=200)
     email: str | None = Field(None, max_length=200)
@@ -1211,8 +1229,8 @@ async def update_facilitator_role(
         # Look up the facilitator in the registry and verify their bcrypt hash
         caller_fac = next(
             (f for f in _facilitator_registry
-             if (f["facilitator_id"].lower() == caller_fac_id.lower() or
-                 f.get("name", "").lower() == caller_fac_id.lower())
+             if (_lc(f.get("facilitator_id")) == caller_fac_id.lower() or
+                 _lc(f.get("name")) == caller_fac_id.lower())
              and not f.get("deleted_at")),
             None,
         )
@@ -2103,6 +2121,12 @@ async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, request
             current_perms = fac.get("permissions", {})
             current_perms.update(value)
             fac["permissions"] = current_perms
+        elif key in _IDENTITY_FIELDS and value is None:
+            # An explicit `"name": null` from a client that PATCHes its whole
+            # form used to be written straight through and persisted, which
+            # bricked login for every account until the file was hand-edited.
+            # Clearing an identity field is never a legitimate update.
+            continue
         else:
             fac[key] = value
             
@@ -2396,9 +2420,9 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
     fac_id_lower = fac_id.lower()
     fac = next(
         (f for f in _facilitator_registry
-         if (f["facilitator_id"].lower() == fac_id_lower or
-             f.get("username", "").lower() == fac_id_lower or
-             f.get("name", "").lower() == fac_id_lower)
+         if (_lc(f.get("facilitator_id")) == fac_id_lower or
+             _lc(f.get("username")) == fac_id_lower or
+             _lc(f.get("name")) == fac_id_lower)
          and not f.get("deleted_at")),
         None,
     )

@@ -1175,6 +1175,25 @@ _DEFAULT_FACILITATOR = {
 }
 
 
+_FAC_IDENTITY_FIELDS = ("facilitator_id", "username", "name")
+
+
+def _sanitise_facilitator_row(fac: dict) -> dict:
+    """Coerce identity fields to strings so the login scan can never crash.
+
+    This is the SELF-HEALING half of the null-identity fix. Blocking the write
+    path stops NEW nulls, but a registry file that already contains one keeps
+    500-ing every login — including the god_mode break-glass — across restarts,
+    because the poisoned value lives on the durable volume. Repairing on load
+    means one redeploy restores access without hand-editing JSON on a mounted
+    volume during a class.
+    """
+    for key in _FAC_IDENTITY_FIELDS:
+        if key in fac and not isinstance(fac[key], str):
+            fac[key] = "" if fac[key] is None else str(fac[key])
+    return fac
+
+
 def _load_facilitator_registry() -> list[dict]:
     """Load facilitator registry from disk. Falls back to default if not found.
     Applies role migration for backward compatibility."""
@@ -1191,7 +1210,7 @@ def _load_facilitator_registry() -> list[dict]:
                     fid = fac.get("facilitator_id")
                     if fid and fid not in seen:
                         seen.add(fid)
-                        deduped.append(fac)
+                        deduped.append(_sanitise_facilitator_row(fac))
                 data = deduped
                 print(f"[persistence] Restored {len(data)} facilitator(s) from registry.")
                 return data
