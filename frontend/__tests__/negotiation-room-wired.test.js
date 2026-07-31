@@ -71,7 +71,11 @@ describe('negotiation room is reachable from the cockpit', () => {
     // row. The chip is the only affordance on the collapsed card.
     expect(panel).toMatch(/Open to negotiation/);
     const i = panel.indexOf('Open to negotiation');
-    expect(panel.slice(Math.max(0, i - 600), i)).toMatch(/\{canNegotiate && \(/);
+    // 600 chars clipped the guard mid-token once styling grew; anchor the
+    // guard itself instead of hoping a fixed window reaches it.
+    const guard = panel.lastIndexOf('{canNegotiate && (', i);
+    expect(guard).toBeGreaterThan(-1);
+    expect(i - guard).toBeLessThan(1200);
   });
 
   test('closing the room re-reads server state', () => {

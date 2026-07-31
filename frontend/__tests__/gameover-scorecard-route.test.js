@@ -39,18 +39,27 @@ describe('end-game scorecard routing', () => {
   });
 
   test('skipping a hidden scorecard never re-enters a completed boardroom', () => {
-    const i = page.indexOf("gameOverPhase === 'scorecard' && !isPlayerVisible");
+    // The phase ladder resolves gameOverPhase into a local `phase` before
+    // rendering (hidden phases hand forward), so the guard now reads
+    // `phase === ...`. The PROPERTY pinned is unchanged: a finished — or
+    // hidden — boardroom must fall through to the debrief, not replay.
+    const i = page.indexOf("phase === 'scorecard' && !isPlayerVisible");
     expect(i).toBeGreaterThan(-1);
-    const block = page.slice(i, i + 1400);
-    // Must branch on boardroomDone before falling through to BoardroomShowdown.
-    expect(block).toMatch(/if \(boardroomDone\)/);
-    const doneBranch = block.slice(block.indexOf('if (boardroomDone)'));
-    expect(doneBranch.slice(0, 400)).toContain('GameOverSummary');
+    const block = page.slice(i, i + 1800);
+    expect(block).toMatch(/if \(boardroomDone \|\| !isPlayerVisible\('boardroom_showdown'\)\)/);
+    const doneBranch = block.slice(block.indexOf('if (boardroomDone'));
+    expect(doneBranch.slice(0, 500)).toContain('GameOverSummary');
   });
 
   test('the archetype step also skips to done when the boardroom is finished', () => {
+    // Same ladder: after-archetype target is 'scorecard' when visible,
+    // otherwise the after-scorecard target, which itself is 'boardroom' only
+    // when the boardroom is visible AND not already played.
     expect(page).toMatch(
-      /isPlayerVisible\('balanced_scorecard'\) \? 'scorecard' : \(!boardroomDone \? 'boardroom' : 'done'\)/
+      /phaseAfterScorecard = \(isPlayerVisible\('boardroom_showdown'\) && !boardroomDone\)/
+    );
+    expect(page).toMatch(
+      /phaseAfterArchetype = isPlayerVisible\('balanced_scorecard'\)\s*\?\s*'scorecard'\s*:\s*phaseAfterScorecard/
     );
   });
 });

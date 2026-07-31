@@ -299,7 +299,10 @@ describe('cohort form — experience level feedback', () => {
   });
 
   test('the 65 switches are sectioned, not one flat wall', () => {
-    expect(modalSrc).toMatch(/playerVisibilityGroups\(\)\.map\(\(\{ group, cards \}\)/);
+    // The search box wrapped the call in a filter pipeline, so the call and
+    // its .map now sit on separate lines — anchor with \s* rather than
+    // pinning the exact old one-liner (the sectioning PROPERTY is the point).
+    expect(modalSrc).toMatch(/playerVisibilityGroups\(\)\s*\.map\(\(\{ group, cards \}\)/);
     // Per-group count and a bulk control, so a section is usable at a glance.
     expect(modalSrc).toMatch(/\{on\}\/\{cards\.length\}/);
     expect(modalSrc).toMatch(/\{allOn \? 'none' : 'all'\}/);

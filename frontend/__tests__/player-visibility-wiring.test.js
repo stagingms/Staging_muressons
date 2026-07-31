@@ -49,8 +49,10 @@ function modalRendersRegistry() {
   // the same cards — so covering every group covers every key by construction.
   // (It used to be a flat PLAYER_ANALYTICS.map; 65 switches in one wall is a
   // search problem, not a control surface.)
+  // \s* between the call and .map: the search box wrapped the pipeline and
+  // put them on separate lines (the same stale anchor bit audience-profiles).
   return /PLAYER_ANALYTICS\s*=\s*PLAYER_VISIBILITY_CARDS/.test(modalSrc)
-      && /playerVisibilityGroups\(\)\.map/.test(modalSrc);
+      && /playerVisibilityGroups\(\)\s*\.map/.test(modalSrc);
 }
 
 /** Keys the backend will actually persist. */
