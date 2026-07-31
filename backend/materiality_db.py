@@ -9,8 +9,53 @@ import json
 import os
 from pathlib import Path
 
-# We store the config in the backend directory
-CONFIG_DIR = Path(__file__).resolve().parent / "db"
+# DURABILITY-2026-07-30: this was backend/db — a SECOND in-image location,
+# separate from <repo>/db. On Railway the container filesystem is ephemeral, so
+# every edit an admin made to a materiality matrix was lost on the next deploy.
+# It failed in two different ways depending on the file:
+#
+#   * materiality_config.json and materiality_config_<bu>.json SHIP in git (31
+#     files), so an edit did not vanish — it silently REVERTED to the shipped
+#     version. Nastier than deletion: it saves, it reads back correctly, and
+#     days later a deploy quietly restores the original with nothing logged.
+#     Reproduced: edit "ADMIN EDITED THIS" -> reads back -> gone after redeploy.
+#   * bu_registry.json is NOT tracked, so a newly registered BU disappeared
+#     outright.
+#
+# Now resolved onto the mounted volume, migrating the existing files across
+# once. `legacy` is passed explicitly because these never lived under
+# <repo>/db, and without it the migration would find nothing and the volume
+# would start empty — resetting every matrix to defaults, the very failure
+# this fixes. With MURESSONS_DATA_DIR unset (local dev, CI) the path is
+# byte-identical to before.
+#
+# Note the seeds alongside them — industry_configs/ and
+# industry_master_materiality.xlsx — deliberately STAY in the image. They are
+# read-only templates, referenced by no Python code, and belong with the build.
+_SEED_DIR = Path(__file__).resolve().parent / "db"
+
+
+def _resolve_config_dir() -> Path:
+    """The volume when one is configured; otherwise backend/db, untouched.
+
+    The no-volume branch is deliberate. An earlier cut migrated
+    unconditionally, which on a developer machine created
+    <repo>/db/materiality_configs and left the 31 git-TRACKED files in
+    backend/db stale and ignored — a confusing split with untracked copies
+    shadowing tracked ones. Off Railway there is nothing to fix: backend/db is
+    as durable as the host disk. So migrate only where the bug actually exists.
+    """
+    import os
+    if not os.getenv("MURESSONS_DATA_DIR", "").strip():
+        return _SEED_DIR
+    try:
+        from runtime_paths import data_subdir
+        return data_subdir("materiality_configs", legacy=_SEED_DIR)
+    except Exception:
+        return _SEED_DIR
+
+
+CONFIG_DIR = _resolve_config_dir()
 CONFIG_FILE = CONFIG_DIR / "materiality_config.json"
 BU_REGISTRY_FILE = CONFIG_DIR / "bu_registry.json"
 

@@ -86,7 +86,7 @@ def storage_status() -> dict:
     }
 
 
-def data_subdir(name: str) -> Path:
+def data_subdir(name: str, legacy: Path | None = None) -> Path:
     """Resolve a mutable runtime SUBDIRECTORY inside data_dir(), migrating an
     existing copy from <repo>/db/<name> once.
 
@@ -102,6 +102,12 @@ def data_subdir(name: str) -> Path:
     the target win, and the legacy copy is left untouched so a rollback still
     finds it.
 
+    `legacy` overrides where the one-time migration reads from, for state that
+    never lived under <repo>/db. materiality_db keeps its JSON in backend/db —
+    a second, separate in-image location — so it must name that path explicitly
+    or the migration would silently find nothing and the volume would start
+    empty, resetting every matrix to the shipped defaults.
+
     Honours MURESSONS_NO_LEGACY_MIGRATION for the same reason data_file() does
     — the test suite must not inherit the developer's real configs.
     """
@@ -114,7 +120,7 @@ def data_subdir(name: str) -> Path:
     if os.getenv("MURESSONS_NO_LEGACY_MIGRATION", "").strip().lower() in ("1", "true", "yes"):
         return target
 
-    legacy_dir = _REPO_DB_DIR / name
+    legacy_dir = legacy if legacy is not None else (_REPO_DB_DIR / name)
     try:
         if legacy_dir.is_dir() and legacy_dir.resolve() != target.resolve():
             for src in legacy_dir.glob("*.json"):
