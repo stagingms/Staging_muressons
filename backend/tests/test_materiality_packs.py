@@ -187,9 +187,50 @@ def test_pack_id_is_a_cohort_setting():
 
 
 def test_explicit_cohort_override_still_beats_a_pack():
-    """router.py resolves the per-BU cohort override BEFORE consulting a pack.
-    A sandbox edit made for one class must not be silently replaced."""
-    src = (pathlib.Path(__file__).resolve().parents[1] / "router.py").read_text(encoding="utf-8")
-    i = src.index("bu_override_key = f\"materiality_dictionary_override_{body.bu_id}\"")
-    block = src[i:i + 1800]
-    assert block.index("if bu_override_key in global_state") < block.index("materiality_pack_id")
+    """The per-BU cohort override resolves BEFORE the pack. A sandbox edit made
+    for one class must not be silently replaced.
+
+    2026-07-31: the chain moved from router.submit_materiality_matrix into
+    materiality_packs.resolve_session_bu_config so the display endpoint
+    resolves identically (a player must be SHOWN the dictionary they are
+    SCORED on) — the ordering property is now pinned on the helper, and both
+    call sites are pinned to actually use it."""
+    import inspect
+    from materiality_packs import resolve_session_bu_config
+    src = inspect.getsource(resolve_session_bu_config)
+    # Anchor on the CALL expressions, not bare names — the docstring mentions
+    # the function names too and index() would match prose before code.
+    i_override = src.index('return global_state[override_key]')
+    i_pack = src.index('cfg = config_for_bu(')
+    i_bu = src.index('cfg = mat_db.resolve_bu_config(')
+    assert i_override < i_pack < i_bu
+
+    router_src = (pathlib.Path(__file__).resolve().parents[1] / "router.py").read_text(encoding="utf-8")
+    assert "resolve_session_bu_config(global_state, body.bu_id)" in router_src
+    admin_src = (pathlib.Path(__file__).resolve().parents[1] / "admin_router.py").read_text(encoding="utf-8")
+    assert "resolve_session_bu_config(_gs, bu_id)" in admin_src
+
+
+def test_resolve_session_bu_config_behaviour(volume):
+    """Behavioural pin of the chain, not just its source order."""
+    import materiality_db as m
+    from materiality_packs import save_pack, resolve_session_bu_config
+
+    m.save_regional_bu_config("pharma", "europe", _cfg("regional"))
+    save_pack("p", "P", "europe", {"pharma": "pharma__europe"})
+
+    # pack wins when set on the session
+    gs = {"materiality_pack_id": "p"}
+    assert resolve_session_bu_config(gs, "pharma")["issues"][0]["title"] == "regional"
+
+    # explicit cohort override beats the pack
+    gs["materiality_dictionary_override_pharma"] = _cfg("sandbox override")
+    assert resolve_session_bu_config(gs, "pharma")["issues"][0]["title"] == "sandbox override"
+
+    # region (via flags) without a pack
+    gs2 = {"active_event_flags": {"region_id": "europe"}}
+    assert resolve_session_bu_config(gs2, "pharma")["issues"][0]["title"] == "regional"
+
+    # nothing configured → plain BU matrix, exactly as before
+    gs3 = {}
+    assert resolve_session_bu_config(gs3, "pharma") == m.get_bu_config("pharma")

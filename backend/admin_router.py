@@ -6419,10 +6419,16 @@ async def set_bu_composition(session_id: str, body: dict = Body(...), _guard: No
     "/materiality-config/bu/{bu_id}",
     summary="Get the BU-specific materiality configuration"
 )
-async def get_bu_materiality_config(bu_id: str):
+async def get_bu_materiality_config(bu_id: str, session_id: str | None = None):
     """
     Returns the materiality issues dictionary for a specific Business Unit,
     plus panel_group_config and panel_recommendations (same as global endpoint).
+
+    When session_id is supplied the dictionary resolves through the SAME chain
+    the submit endpoint scores against (cohort override → pack → region → BU),
+    so the player is always shown the dictionary they will be graded on.
+    Without session_id the raw BU config returns exactly as before (admin
+    editors use that view).
     """
     from round2_csrd import (
         ROUND_2_DEFAULT_CONFIG,
@@ -6431,7 +6437,25 @@ async def get_bu_materiality_config(bu_id: str):
     valid = mat_db.get_bu_ids()
     if bu_id not in valid:
         raise HTTPException(status_code=400, detail=f"Invalid BU ID: {bu_id}. Valid: {valid}")
-    config = mat_db.get_bu_config(bu_id)
+    config = None
+    if session_id:
+        try:
+            latest = await db.fetch_latest_state(session_id)
+            if latest:
+                _gs = latest["global_state"]
+                # Parity gap #4 healing: older Postgres rounds carry no scope —
+                # hydrate region/vertical from the session record.
+                try:
+                    from router import _hydrate_scope_from_session
+                    _gs = await _hydrate_scope_from_session(_gs, session_id)
+                except Exception:
+                    pass
+                from materiality_packs import resolve_session_bu_config
+                config = resolve_session_bu_config(_gs, bu_id)
+        except Exception:
+            config = None  # fall through to the raw BU view
+    if config is None:
+        config = mat_db.get_bu_config(bu_id)
     issues = config.get("issues", [])
     panel_group_config = (
         ROUND_2_DEFAULT_CONFIG["round_2_config"]["stakeholder_panel"].get("groups", {})

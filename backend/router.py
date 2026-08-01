@@ -3390,38 +3390,17 @@ async def submit_materiality_matrix(request: Request, session_id: str, body: Mat
 
     # Load dynamic Materiality Config
     # Priority: 1) BU-specific dict (if bu_id), 2) Cohort sandbox, 3) Global
+    # Parity gap #4 healing: older Postgres-created rounds carry no
+    # region/vertical scope — hydrate from the session record so uploaded
+    # regional matrices resolve for existing cohorts too.
+    global_state = await _hydrate_scope_from_session(global_state, session_id)
     if body.bu_id:
-        bu_override_key = f"materiality_dictionary_override_{body.bu_id}"
-        if bu_override_key in global_state:
-            mat_config = global_state[bu_override_key]
-        else:
-            # PHASE 3/2 (2026-07-31). Two steps inserted ABOVE the plain per-BU
-            # read, both of which fall through when unset, so a cohort that
-            # configures neither resolves exactly as it did before:
-            #   a) the cohort's Materiality Pack entry for this BU
-            #   b) a region-specific matrix (materiality_config_<bu>__<region>)
-            # The explicit per-BU cohort override above still wins over both —
-            # a sandbox edit made for one class must not be overridden by a
-            # pack chosen for it.
-            _region = (
-                global_state.get("region_id")
-                or (global_state.get("active_event_flags") or {}).get("region_id")
-                or ""
-            )
-            mat_config = None
-            _pack_id = (
-                global_state.get("materiality_pack_id")
-                or (global_state.get("active_event_flags") or {}).get("materiality_pack_id")
-                or ""
-            )
-            if _pack_id:
-                try:
-                    from materiality_packs import config_for_bu as _pack_cfg
-                    mat_config = _pack_cfg(_pack_id, body.bu_id)
-                except Exception:
-                    mat_config = None  # a broken pack never blocks a class
-            if mat_config is None:
-                mat_config = mat_db.resolve_bu_config(body.bu_id, _region)
+        # The chain (explicit per-BU cohort override → pack → region → BU
+        # matrix) lives in materiality_packs.resolve_session_bu_config so the
+        # DISPLAY endpoint resolves IDENTICALLY — the player must be scored
+        # against the dictionary they were shown.
+        from materiality_packs import resolve_session_bu_config
+        mat_config = resolve_session_bu_config(global_state, body.bu_id)
     elif "materiality_dictionary_override" in global_state:
         mat_config = global_state["materiality_dictionary_override"]
     else:
@@ -3836,6 +3815,34 @@ def _collect_flags_from_state(flags_dict: dict) -> set:
 from stakeholder_map import evaluate_stakeholder_map, get_stakeholder_list, get_master_config, evaluate_stakeholder_map_for_session, get_stakeholders_for_session
 
 
+async def _hydrate_scope_from_session(global_state: dict, session_id: str) -> dict:
+    """Backfill industry_vertical / region_id from the SESSION record when the
+    round state lacks them.
+
+    HEALING half of parity gap #4: Postgres create_session did not seed these
+    two flags (the memory twin did), so every cohort created under Postgres has
+    round rows with no vertical/region scope — and admin-uploaded vertical and
+    regional Excel configs (stakeholders AND materiality) silently never
+    reached play. Seeding is now fixed for NEW sessions; this backfill makes
+    EXISTING cohorts resolve correctly without rewriting their stored rounds.
+    The session record has always carried both values in both backends.
+    """
+    try:
+        need = [k for k in ("industry_vertical", "region_id")
+                if not (global_state.get(k)
+                        or (global_state.get("active_event_flags") or {}).get(k))]
+        if not need:
+            return global_state
+        sess = await db.get_session_info(session_id) or {}
+        for k in need:
+            v = (sess.get(k) or "").strip() if isinstance(sess.get(k), str) else sess.get(k)
+            if v:
+                global_state[k] = v
+    except Exception:
+        pass  # resolution falls back to defaults exactly as before
+    return global_state
+
+
 class StakeholderMapSubmission(BaseModel):
     """Player's mapping of stakeholder IDs to quadrant IDs."""
     mapping: dict[str, str]  # {stakeholder_id: quadrant_id}
@@ -3852,7 +3859,7 @@ async def get_stakeholders(session_id: str = None):
     if session_id:
         latest = await db.fetch_latest_state(session_id)
         if latest:
-            gs = latest["global_state"]
+            gs = await _hydrate_scope_from_session(latest["global_state"], session_id)
             stakeholders = get_stakeholders_for_session(gs)
             return {"stakeholders": [
                 {
@@ -3876,8 +3883,12 @@ async def submit_stakeholder_map(request: Request, session_id: str, body: Stakeh
     # Session-aware: uses vertical stakeholders if BU substitutions are active
     latest_for_eval = await db.fetch_latest_state(session_id)
     if latest_for_eval:
+        # Scoring must see the SAME scoped stakeholder set the bank displayed —
+        # scoring against the default set while the player placed an uploaded
+        # vertical set would mark correct placements wrong.
         result = evaluate_stakeholder_map_for_session(
-            body.mapping, latest_for_eval["global_state"]
+            body.mapping,
+            await _hydrate_scope_from_session(latest_for_eval["global_state"], session_id),
         )
     else:
         result = evaluate_stakeholder_map(body.mapping)

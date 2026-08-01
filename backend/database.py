@@ -565,6 +565,18 @@ async def create_session(
                 "pending_capex_projects": [],
                 "inflation_index": 0.025,
                 "competitor_ebitda": baseline_ebitda,
+                # PARITY (2026-07-31, gap #4): the memory backend seeds these
+                # two at creation — with a comment explaining that the engine
+                # only ever sees global_state, so stakeholder/materiality
+                # resolution reads industry x region FROM THE FLAGS. This twin
+                # was never updated, so under Postgres every cohort resolved
+                # with no vertical and no region: admin-uploaded vertical and
+                # regional Excel configs (stakeholders AND materiality) were
+                # silently invisible during play, while the same cohort in
+                # memory mode showed them. Empty strings are ignored by the
+                # resolvers, exactly as in database_memory.create_session.
+                "industry_vertical": industry_vertical or "",
+                "region_id": region_id or "",
             }
 
             # C2: seed effective climate inputs (global + per-cohort override)

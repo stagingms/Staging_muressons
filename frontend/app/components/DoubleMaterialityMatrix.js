@@ -388,8 +388,13 @@ export default function DoubleMaterialityMatrix({ onSubmit, onClose, csfPool = I
     useEffect(() => {
         const fetchConfig = async () => {
             try {
+                // session_id makes the BU view resolve through the SAME chain
+                // the submit endpoint scores against (cohort override → pack →
+                // region → BU) — the player must see the dictionary they will
+                // be graded on, not the raw BU file.
+                const _sq = sessionId ? `?session_id=${encodeURIComponent(sessionId)}` : '';
                 const endpoint = effectiveBuId
-                    ? `${API}/api/admin/materiality-config/bu/${effectiveBuId}`
+                    ? `${API}/api/admin/materiality-config/bu/${effectiveBuId}${_sq}`
                     : `${API}/api/admin/materiality-config`;
                 const res = await fetch(endpoint);
                 if (res.ok) {

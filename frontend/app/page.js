@@ -1834,7 +1834,19 @@ export default function CockpitPage() {
               globalState={sim?.globalState}
               alreadySubmitted={hasSubmittedMatrix}
               initialQ1={globalState?.materiality_budget_allocated || []}
-              buId={isPillarMode ? r2BuSelection?.selected_bu : null}
+              buId={
+                // Pillar mode: the BU the r2 selection resolved. Otherwise a
+                // VERTICAL cohort scopes to its industry dictionary — an
+                // admin-uploaded vertical matrix (banking, oil & gas, …) was
+                // previously invisible in legacy mode because the matrix only
+                // ever fetched/scored the global set. Conglomerate cohorts
+                // have no vertical and keep the global dictionary unchanged.
+                isPillarMode
+                  ? r2BuSelection?.selected_bu
+                  : (globalState?.industry_vertical
+                     || globalState?.active_event_flags?.industry_vertical
+                     || null)
+              }
               buLabel={isPillarMode ? r2BuSelection?.bu_label : null}
               sessionId={sim.sessionId}
               onOpenAdvisor={() => setAiAdvisorOpen(true)}

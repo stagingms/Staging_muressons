@@ -183,6 +183,44 @@ def config_for_bu(pack_id: str, bu_id: str) -> dict | None:
     return cfg if isinstance(cfg, dict) and cfg.get("issues") else None
 
 
+def resolve_session_bu_config(global_state: dict, bu_id: str) -> dict:
+    """The ONE materiality resolution chain for a session + BU.
+
+    Order (highest wins):
+      1. explicit per-BU cohort override (a sandbox edit made for one class
+         must never be silently replaced by anything chosen later),
+      2. the cohort's Materiality Pack entry for this BU,
+      3. a region-specific matrix (materiality_config_<bu>__<region>),
+      4. the plain BU/vertical matrix (resolve_bu_config).
+
+    Extracted from router.submit_materiality_matrix (2026-07-31) so the
+    DISPLAY endpoint can resolve identically: previously the player's matrix
+    fetched the raw BU config while scoring resolved pack→region→BU, so a
+    cohort with a pack or regional matrix could be SHOWN one dictionary and
+    SCORED against another.
+    """
+    import materiality_db as mat_db
+
+    override_key = f"materiality_dictionary_override_{bu_id}"
+    if override_key in (global_state or {}):
+        return global_state[override_key]
+
+    flags = (global_state or {}).get("active_event_flags") or {}
+    region = (global_state or {}).get("region_id") or flags.get("region_id") or ""
+    pack_id = ((global_state or {}).get("materiality_pack_id")
+               or flags.get("materiality_pack_id") or "")
+
+    cfg = None
+    if pack_id:
+        try:
+            cfg = config_for_bu(pack_id, bu_id)
+        except Exception:
+            cfg = None  # a broken pack never blocks a class
+    if cfg is None:
+        cfg = mat_db.resolve_bu_config(bu_id, region)
+    return cfg
+
+
 def pack_coverage(pack_id: str) -> dict:
     """Which slots a pack covers and which fall back — surfaced in the admin UI
     so a half-configured pack is visible BEFORE a class, not during one."""
