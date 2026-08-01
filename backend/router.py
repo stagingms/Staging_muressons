@@ -855,6 +855,33 @@ async def join_session(session_id: str, req: JoinSessionRequest):
 
     player_sid = str(player_session["session_id"])
 
+    # ENDING PATHWAY INHERITANCE (2026-07-31, found by the 5-endings drill):
+    # /start writes the cohort's chosen (or 'random'-resolved) pathway onto the
+    # COHORT's round flags, but this child-session create never received it —
+    # memory seeded the child from the GLOBAL default and Postgres seeded
+    # nothing — so every player played activist_ultimatum no matter what the
+    # facilitator picked. Copy the cohort's resolved flag onto the child, the
+    # same write /start uses. Fail-open: a missing flag leaves the child on
+    # the default exactly as before.
+    try:
+        _cohort_latest = await db.fetch_latest_state(session_id)
+        _cohort_ep = ((_cohort_latest or {}).get("global_state", {})
+                      .get("active_event_flags", {}) or {}).get("ending_pathway")
+        if _cohort_ep:
+            _child_latest = await db.fetch_latest_state(player_sid)
+            if _child_latest:
+                _cgs = _child_latest["global_state"]
+                if (_cgs.get("active_event_flags", {}) or {}).get("ending_pathway") != _cohort_ep:
+                    # BOTH locations: the memory round also carries a TOP-LEVEL
+                    # ending_pathway, and the persist repack prefers top-level
+                    # keys — writing only the flag was silently overwritten by
+                    # the stale top-level value (verified step-by-step).
+                    _cgs["ending_pathway"] = _cohort_ep
+                    _cgs.setdefault("active_event_flags", {})["ending_pathway"] = _cohort_ep
+                    await db.update_latest_global_state(player_sid, _cgs, _child_latest["bu_states"])
+    except Exception:
+        pass  # never block a join over pathway bookkeeping
+
     # Consent capture (LOW-tier compliance): record the acceptance + timestamp
     # on the player's session so it is auditable and survives restarts.
     if _consent_required:
