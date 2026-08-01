@@ -765,13 +765,14 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         except Exception:
             pass  # fail-open: a state-read hiccup never blocks a legitimate join
 
-    # Roster cap: honour the cohort's configured team_count (fail-safe to the
-    # legacy default of 5). team_count == 0 ⇒ no explicit cap set ⇒ default.
+    # Roster cap: honour the cohort's configured team_count / max_players.
+    # Unconfigured ⇒ the platform default (20, the ceiling — raised from the
+    # legacy 5 on 2026-07-31 so a forgotten setting can't bounce students).
     try:
         from admin_shared import resolve_roster_cap as _rrc
         _roster_cap = _rrc(session_id)
     except Exception:
-        _roster_cap = 5
+        _roster_cap = 20
     if len(players) >= _roster_cap:
         raise HTTPException(
             status_code=400,
@@ -868,6 +869,12 @@ async def join_session(session_id: str, req: JoinSessionRequest):
         _cohort_ep = ((_cohort_latest or {}).get("global_state", {})
                       .get("active_event_flags", {}) or {}).get("ending_pathway")
         if _cohort_ep:
+            # 'random' on the cohort is intent, not a pathway: each player
+            # draws their OWN concrete ending here, so one cohort's debrief
+            # compares several finales. A named pathway copies verbatim.
+            if _cohort_ep == "random":
+                from ending_pathways import resolve_pathway as _resolve_ep
+                _cohort_ep = _resolve_ep("random")
             _child_latest = await db.fetch_latest_state(player_sid)
             if _child_latest:
                 _cgs = _child_latest["global_state"]
@@ -1144,9 +1151,14 @@ async def start_simulation(body: StartSessionRequest, request: Request):
         _ending_pathway = getattr(body, 'ending_pathway', None)
         if _ending_pathway:
             try:
-                if _ending_pathway == "random":
-                    from ending_pathways import resolve_pathway
-                    _ending_pathway = resolve_pathway("random")
+                # 'random' is stored UNRESOLVED on the cohort: it is intent,
+                # not a pathway. Each player's join draws their own concrete
+                # ending (see the inheritance block in join_session), so one
+                # classroom sees several endings — the pedagogical point of
+                # random. Named pathways still copy through verbatim. The
+                # cohort session itself is never played to round 10, so a
+                # literal 'random' on the cohort row is display-only
+                # ("Random — resolved per player").
                 # Write directly to the session's active_event_flags
                 gs = result["global_state"]
                 gs.setdefault("active_event_flags", {})["ending_pathway"] = _ending_pathway

@@ -51,7 +51,9 @@ def _cohort(client, patch=None):
 
 
 @pytest.mark.parametrize("patch,expected,why", [
-    (None,                            5,  "unconfigured cohort keeps the legacy platform cap"),
+    # 2026-07-31 (facilitator request): the unconfigured default rose 5 → 20
+    # (the ceiling) so a forgotten max_players cannot bounce the 6th student.
+    (None,                            20, "unconfigured cohort gets the full platform ceiling"),
     ({"max_players": 20},             20, "THE BUG: max_players was accepted and ignored"),
     ({"team_count": 20},              20, "team_count still works (no regression)"),
     ({"team_count": 8},               8,  "a smaller team_count is honoured exactly"),

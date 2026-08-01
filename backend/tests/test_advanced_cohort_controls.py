@@ -125,10 +125,12 @@ def test_no_seed_is_non_deterministic_fallback():
 
 # ── Roster cap (enforced at join) ────────────────────────────────────────────
 
-def test_roster_cap_defaults_to_five_when_unset():
+def test_roster_cap_defaults_to_the_ceiling_when_unset():
+    # 2026-07-31 (facilitator request): default rose 5 -> 20 (the ceiling) so
+    # a forgotten max_players cannot bounce the 6th student mid-class.
     sid = "cohort-roster-default"
     cohort_settings.pop(sid, None)
-    assert resolve_roster_cap(sid) == 5
+    assert resolve_roster_cap(sid) == 20
 
 
 def test_roster_cap_honours_configured_team_count():
@@ -144,7 +146,7 @@ def test_roster_cap_zero_falls_back_to_default():
     sid = "cohort-roster-zero"
     cohort_settings[sid] = {"team_count": 0}
     try:
-        assert resolve_roster_cap(sid) == 5
+        assert resolve_roster_cap(sid) == 20
         assert resolve_roster_cap(sid, default=12) == 12
     finally:
         cohort_settings.pop(sid, None)

@@ -697,7 +697,7 @@ def mark_cohort_settings_dirty() -> None:
             pass
 
 
-def resolve_roster_cap(session_id: str, default: int = 5) -> int:
+def resolve_roster_cap(session_id: str, default: int = 20) -> int:
     """Effective roster cap for a cohort's join flow.
 
     BUG-2026-07-29 (audit): this read ONLY `team_count`, so the `max_players`
@@ -730,6 +730,10 @@ def resolve_roster_cap(session_id: str, default: int = 5) -> int:
 
     cap = max(_as_int("team_count"), _as_int("max_players"))
     if cap <= 0:
+        # 2026-07-31 (facilitator request): the unconfigured default rose from
+        # the legacy 5 to the platform ceiling (20). A forgotten max_players no
+        # longer bounces the 6th student mid-class; cohorts that WANT a smaller
+        # roster set team_count/max_players explicitly, exactly as before.
         return default
     try:
         from player_capacity import MAX_PLAYERS_CEILING
