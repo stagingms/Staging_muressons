@@ -1085,10 +1085,24 @@ function DangerZonePanel({ apiBase }) {
         });
         if (!ok) return;
         try {
-            await Promise.all(
-                orphans.map(s => fetch(`${apiBase}/api/admin/sessions/${s.session_id}?hard=true`, { method: 'DELETE', credentials: 'include' }))
-            );
-            setActionMsg(`✅ Removed ${orphans.length} orphaned cohort(s).`);
+            // Same honest-failure handling as targeted deletion: a non-ok
+            // response must never render as success.
+            const results = await Promise.all(orphans.map(async (s) => {
+                try {
+                    const res = await fetch(`${apiBase}/api/admin/sessions/${s.session_id}?hard=true`, { method: 'DELETE', credentials: 'include' });
+                    if (res.ok) return { s, ok: true };
+                    const detail = (await res.json().catch(() => ({}))).detail || `HTTP ${res.status}`;
+                    return { s, ok: false, why: res.status === 401 ? 'session expired — sign in again' : detail };
+                } catch (e) {
+                    return { s, ok: false, why: e.message || 'network error' };
+                }
+            }));
+            const failed = results.filter(r => !r.ok);
+            if (failed.length === 0) {
+                setActionMsg(`✅ Removed ${orphans.length} orphaned cohort(s).`);
+            } else {
+                setActionMsg(`⚠️ ${results.length - failed.length} removed, ${failed.length} FAILED — ${failed.map(f => `${f.s.cohort_name || f.s.session_id.slice(0, 8)}: ${f.why}`).join('; ')}`);
+            }
             setSelectedIds(new Set());
             loadSessions(); // F4: refresh in place from the server, no stale local math
         } catch (e) {
@@ -1121,10 +1135,30 @@ function DangerZonePanel({ apiBase }) {
 
         try {
             // Same endpoints as before — only the gate in front changed.
-            await Promise.all(
-                Array.from(selectedIds).map(id => fetch(`${apiBase}/api/admin/sessions/${id}?hard=true`, { method: 'DELETE', credentials: 'include' }))
-            );
-            setActionMsg(`✅ ${selectedIds.size} cohort(s) deleted.`);
+            // fetch() resolves on HTTP errors, so the old unconditional
+            // "✅ deleted" LIED whenever the server refused (401 expired
+            // session, 403, 500): the user saw success, refreshed, and the
+            // cohorts were still there — "hard delete not working" with no
+            // clue why. Check every response and name each failure.
+            const ids = Array.from(selectedIds);
+            const results = await Promise.all(ids.map(async (id) => {
+                try {
+                    const res = await fetch(`${apiBase}/api/admin/sessions/${id}?hard=true`, { method: 'DELETE', credentials: 'include' });
+                    if (res.ok) return { id, ok: true };
+                    const detail = (await res.json().catch(() => ({}))).detail || `HTTP ${res.status}`;
+                    return { id, ok: false, why: res.status === 401 ? 'session expired — sign in again' : detail };
+                } catch (e) {
+                    return { id, ok: false, why: e.message || 'network error' };
+                }
+            }));
+            const failed = results.filter(r => !r.ok);
+            const okCount = results.length - failed.length;
+            if (failed.length === 0) {
+                setActionMsg(`✅ ${okCount} cohort(s) deleted.`);
+            } else {
+                const nameOf = (id) => (topLevelCohorts.find(s => s.session_id === id)?.cohort_name) || id.slice(0, 8);
+                setActionMsg(`⚠️ ${okCount} deleted, ${failed.length} FAILED — ${failed.map(f => `${nameOf(f.id)}: ${f.why}`).join('; ')}`);
+            }
             setSelectedIds(new Set());
             loadSessions(); // F4: refresh in place from the server
         } catch (e) {

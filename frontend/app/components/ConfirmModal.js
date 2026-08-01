@@ -53,7 +53,12 @@ export default function ConfirmModal({
     onClose,
 }) {
     const [phrase, setPhrase] = useState('');
-    const unlocked = !requirePhrase || phrase === requirePhrase;
+    // Trim + case-fold: a trailing space (autofill) or a mobile keyboard's
+    // auto-capitalised "Delete" left the button silently locked — the user
+    // typed the phrase, saw a disabled button, and reported "delete not
+    // working". The friction is the TYPING, not the exact casing.
+    const unlocked = !requirePhrase
+        || phrase.trim().toUpperCase() === String(requirePhrase).trim().toUpperCase();
 
     useEffect(() => {
         const onKey = (e) => { if (e.key === 'Escape') onClose(false); };
