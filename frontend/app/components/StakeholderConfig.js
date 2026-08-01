@@ -241,6 +241,12 @@ export default function StakeholderConfig() {
             const data = await res.json();
             setStakeholders(data.overrides || []);
             setLoaded(true);
+            if (data.is_baseline) {
+                // First-time region: the server hands back the platform
+                // defaults as an editable starting point (it used to 404 and
+                // dead-end the editor). Nothing exists until Save.
+                showToast(`ℹ️ ${data.message || 'Showing platform defaults — save to create this region config.'}`, 'success');
+            }
         } catch (err) {
             showToast(`❌ ${err.message}`, 'error');
         } finally {

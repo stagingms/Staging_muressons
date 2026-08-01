@@ -6698,16 +6698,26 @@ async def get_stakeholder_region_config(
     region_id: str, _guard: None = Depends(require_facilitator)
 ):
     """Returns the raw stakeholder override list for the given region_id.
-    Returns 404 if no config exists yet.
+
+    When no config exists yet, returns the CANONICAL stakeholder list as an
+    editable baseline (is_baseline=true) instead of 404. The 404 dead-ended
+    the Configurator: "Load → error → nothing to edit", so a facilitator who
+    wanted to create a region's FIRST config (e.g. All Verticals + India for a
+    standard-mode cohort) had no path to do it. Saving the returned baseline
+    creates the region file; until saved, nothing changes anywhere.
     """
     from stakeholder_db import get_region_config_raw
     data = get_region_config_raw(region_id)
     if data is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"No stakeholder config found for region '{region_id}'.",
-        )
-    return {"region_id": region_id, "overrides": data}
+        from stakeholder_map import get_stakeholder_list
+        return {
+            "region_id": region_id,
+            "overrides": get_stakeholder_list(),
+            "is_baseline": True,
+            "message": (f"No saved config for '{region_id}' yet — showing the "
+                        "platform default as a starting point. Save to create it."),
+        }
+    return {"region_id": region_id, "overrides": data, "is_baseline": False}
 
 
 @admin_router.put(
