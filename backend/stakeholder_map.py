@@ -363,6 +363,38 @@ def get_stakeholders_for_session(global_state: dict) -> list[dict]:
          top of the canonical STAKEHOLDERS list.
       4. Canonical STAKEHOLDERS — the global default set.
     """
+    # ── Step 0: the cohort's Stakeholder Pack (2026-07-31) ──────────────────
+    # A pack binds one uploaded matrix per SBU slot. The pack id and the
+    # session's slot (assigned_bu) are hydrated onto global_state by
+    # router._hydrate_scope_from_session. This step existed only in the
+    # unused per-BU helper (get_stakeholders_for_bu), so a cohort with a pack
+    # selected at setup played with the default bank — the pack dropdown
+    # changed nothing a player saw. Conglomerate cohorts have no single slot
+    # and fall through (their 4 BUs cannot share one bank); every fall-through
+    # resolves exactly as before, so no pack means no change.
+    _pack_id = (
+        global_state.get("stakeholder_pack_id")
+        or (global_state.get("active_event_flags") or {}).get("stakeholder_pack_id")
+        or ""
+    )
+    _slot = (
+        global_state.get("assigned_bu")
+        or (global_state.get("active_event_flags") or {}).get("assigned_bu")
+        or ""
+    )
+    if _pack_id and _slot:
+        try:
+            from stakeholder_packs import config_id_for_bu
+            from stakeholder_db import get_region_config_raw
+            _cfg_id = config_id_for_bu(str(_pack_id), str(_slot))
+            if _cfg_id:
+                _rows = get_region_config_raw(_cfg_id)
+                if _rows:
+                    return _rows
+                # Pack names a deleted config → never an empty bank mid-class.
+        except Exception:
+            pass  # a broken pack never blocks a running simulation
+
     v_id = _resolve_active_vertical(global_state)
     region_id = global_state.get("region_id", "") or global_state.get(
         "active_event_flags", {}

@@ -229,6 +229,11 @@ class StartSessionRequest(BaseModel):
     simulation_mode: Optional[str] = "conglomerate"  # 'conglomerate' | 'single_bu'
     industry_vertical: Optional[str] = None           # BU id for single_bu mode (e.g. 'pharma', 'electronics')
     region_id: Optional[str] = None                   # Geographic region for the cohort
+    # Packs chosen at cohort setup. These fields were MISSING, so the create
+    # form sent both ids and Pydantic silently discarded them — the pack
+    # dropdowns saved nothing and play resolved as if no pack existed.
+    stakeholder_pack_id: Optional[str] = None
+    materiality_pack_id: Optional[str] = None
 
 
 class StartSessionResponse(BaseModel):

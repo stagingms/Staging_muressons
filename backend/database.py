@@ -753,6 +753,90 @@ async def fetch_session_by_cohort(cohort_name: str) -> Optional[dict]:
         return state
 
 
+async def resolve_join_code(code: str) -> Optional[str]:
+    """Resolve a short join code to a session_id. Returns None if not found.
+
+    PARITY (2026-07-31 audit): this accessor existed only in the memory
+    backend, so the short-code join path (`/public/join/{code}`) raised
+    AttributeError → 500 under Postgres — a student joining by code in a
+    production classroom crashed. Postgres stores short_code in the session
+    metadata (create_session writes it), which is mirrored into the shared
+    session cache; scan that, falling back to a direct metadata query so the
+    answer does not depend on cache warmth.
+    """
+    wanted = (code or "").strip().upper()
+    if not wanted:
+        return None
+    try:
+        for sid, sess in list(_sessions.items()):
+            if (sess.get("short_code") or "").upper() == wanted:
+                return sid
+    except Exception:
+        pass
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        rows = await conn.fetch("SELECT session_id, metadata FROM sessions")
+        for row in rows:
+            try:
+                meta = json.loads(row["metadata"]) if row["metadata"] else {}
+            except (TypeError, ValueError):
+                continue
+            if (meta.get("short_code") or "").upper() == wanted:
+                return str(row["session_id"])
+    return None
+
+
+async def get_decision_log(session_id: str) -> list[dict]:
+    """All decisions for a session and its child player sessions.
+
+    PARITY (2026-07-31 audit): memory-only until now — the decision-journey
+    and admin decision views 500'd under Postgres. The data was ALWAYS
+    persisted (decision_audit_log, written by insert_next_round); only this
+    accessor was missing. Shape mirrors database_memory.get_decision_log:
+    entries carry player_id and cohort_name from the owning session, sorted
+    by (round, player).
+    """
+    related: dict[str, dict] = {}
+    sess = await get_session_info(session_id)
+    if sess:
+        related[session_id] = sess
+    for child in await get_child_sessions(session_id):
+        related[str(child.get("session_id"))] = child
+
+    results: list[dict] = []
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        for sid, meta in related.items():
+            try:
+                rows = await conn.fetch(
+                    """
+                    SELECT round_number, bu_id, decision_node_id, choice_selected,
+                           capex_allocated, time_to_decision_seconds, team_consensus
+                    FROM decision_audit_log
+                    WHERE session_id = $1
+                    ORDER BY round_number
+                    """,
+                    uuid.UUID(sid),
+                )
+            except (ValueError, asyncpg.PostgresError):
+                continue
+            for row in rows:
+                results.append({
+                    "session_id": sid,
+                    "round_number": int(row["round_number"]),
+                    "bu_id": row["bu_id"],
+                    "decision_node_id": row["decision_node_id"],
+                    "choice_selected": row["choice_selected"],
+                    "capex_allocated": float(row["capex_allocated"] or 0),
+                    "player_id": meta.get("player_id") or "unknown",
+                    "time_to_decision_seconds": int(row["time_to_decision_seconds"] or 0),
+                    "team_consensus": str(row["team_consensus"] or "majority"),
+                    "cohort_name": meta.get("cohort_name", ""),
+                })
+    results.sort(key=lambda x: (x.get("round_number", 0), x.get("player_id", "")))
+    return results
+
+
 async def get_child_sessions(parent_id: str) -> list[dict]:
     """Return all child sessions for a parent session (facilitator views)."""
     pool = await get_pool()

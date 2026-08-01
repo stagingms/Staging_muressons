@@ -3724,6 +3724,10 @@ async def patch_session_metadata(
         "start_date", "end_date", "created_by", "created_when",
         "simulation_mode", "industry_vertical", "region_id",
         "currency_symbol", "scenario_preset", "experience_level", "difficulty_tier",
+        # Packs: the edit form has always SENT these; this filter silently
+        # dropped them (no error surfaced anywhere), so pack changes made in
+        # the cohort editor never saved.
+        "stakeholder_pack_id", "materiality_pack_id",
     }
     updates = {k: v for k, v in body.items() if k in EDITABLE and v is not None}
     if not updates:

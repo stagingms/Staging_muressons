@@ -3963,10 +3963,15 @@ def _run_reporting_layer(ctx: TickContext) -> None:
     try:
         from stakeholder_sentiment import update_stakeholder_sentiment, initialise_sentiment
         from stakeholder_map import get_stakeholders_for_session
-        _session_meta  = current_global.get("metadata", {})
+        # BUGFIX 2026-07-31: this passed current_global["metadata"] — a key
+        # that does not exist on round state — so the resolver ALWAYS saw an
+        # empty dict and sentiment initialised from the default stakeholder
+        # set, ignoring the cohort's vertical/region/pack scope that the rest
+        # of play resolves. Pass the global state itself, which carries the
+        # scope (seeded at creation and hydrated at the read boundaries).
         _sh_list       = current_global.get("sentiment_stakeholders", [])
         if not _sh_list:
-            _raw_stakeholders = get_stakeholders_for_session(_session_meta)
+            _raw_stakeholders = get_stakeholders_for_session(current_global)
             if _raw_stakeholders:
                 _sh_list = initialise_sentiment(_raw_stakeholders)
         if _sh_list:

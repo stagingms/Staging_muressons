@@ -1079,7 +1079,21 @@ async def start_simulation(body: StartSessionRequest, request: Request):
             assigned_bu=_assigned_bu,
             region_id=getattr(body, 'region_id', None),
         )
-        
+
+        # 2b-ii. Persist the packs chosen at setup onto the session record —
+        # the one place BOTH backends carry, and where the scope-hydration
+        # helper reads them back for resolution during play. These ids were
+        # previously discarded twice over: absent from StartSessionRequest
+        # (Pydantic dropped them) and filtered out of the metadata PATCH's
+        # EDITABLE set — the pack dropdowns were decorative end-to-end.
+        _packs = {k: getattr(body, k) for k in ("stakeholder_pack_id", "materiality_pack_id")
+                  if (getattr(body, k, None) or "").strip()}
+        if _packs:
+            try:
+                await db.update_session_metadata(str(result["session_id"]), _packs)
+            except Exception:
+                pass  # cohort creation must not fail over pack bookkeeping
+
         # 2c. Persist decision_paradigm on the facilitator record
         #     so GET /facilitators always returns it (fixes paradigm disappearing on poll)
         try:
@@ -3828,16 +3842,38 @@ async def _hydrate_scope_from_session(global_state: dict, session_id: str) -> di
     The session record has always carried both values in both backends.
     """
     try:
-        need = [k for k in ("industry_vertical", "region_id")
+        _SCOPE_KEYS = ("industry_vertical", "region_id", "assigned_bu",
+                       "stakeholder_pack_id", "materiality_pack_id")
+        need = [k for k in _SCOPE_KEYS
                 if not (global_state.get(k)
                         or (global_state.get("active_event_flags") or {}).get(k))]
         if not need:
             return global_state
         sess = await db.get_session_info(session_id) or {}
+        # A player's sub-session may not carry cohort-level values (packs are
+        # set on the PARENT cohort) — walk up once. get_session_info is a
+        # parity API; parent_cohort_id exists in both backends.
+        parent = None
+        if sess.get("parent_cohort_id"):
+            try:
+                parent = await db.get_session_info(str(sess["parent_cohort_id"])) or {}
+            except Exception:
+                parent = None
+        # Cohort-settings fallback: pack ids are also COHORT_OVERRIDABLE_KEYS,
+        # so a pack applied through the settings fan-out resolves too.
+        eff = {}
+        try:
+            from admin_shared import get_effective_settings
+            eff = get_effective_settings(session_id) or {}
+        except Exception:
+            eff = {}
         for k in need:
-            v = (sess.get(k) or "").strip() if isinstance(sess.get(k), str) else sess.get(k)
-            if v:
-                global_state[k] = v
+            for source in (sess, parent or {}, eff):
+                v = source.get(k)
+                v = v.strip() if isinstance(v, str) else v
+                if v:
+                    global_state[k] = v
+                    break
     except Exception:
         pass  # resolution falls back to defaults exactly as before
     return global_state
@@ -3991,7 +4027,17 @@ async def change_password(body: ChangePasswordRequest):
                         rp.pop("plaintext_password", None)
                         rp.pop("temp_password", None)
                         break
-                _db._persist()
+                # PARITY (2026-07-31 audit): this called _db._persist(), which
+                # exists only in the memory backend. Under Postgres the
+                # AttributeError was swallowed by the except below, so the
+                # scrubbed temp credential was never written to the sessions
+                # table — after a restart the PLAINTEXT temp password
+                # re-surfaced on facilitator roster reads even though the
+                # player had replaced it. update_session_metadata persists in
+                # BOTH backends (and the memory version snapshots internally).
+                await _db.update_session_metadata(
+                    session_id, {"registered_players": sess.get("registered_players", [])}
+                )
     except Exception:
         pass  # Non-critical — in-memory flag is already cleared
 

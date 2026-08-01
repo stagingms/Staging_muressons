@@ -1147,16 +1147,16 @@ async def fetch_all_sessions() -> list[dict]:
     ]
 
 
-async def get_child_sessions(parent_session_id: str) -> list[dict]:
+async def get_child_sessions(parent_id: str) -> list[dict]:
     """Return all child player sessions for a given parent cohort session."""
     children = []
     for sid, sess in list(_sessions.items()):
-        if sess.get("parent_cohort_id") == parent_session_id:
+        if sess.get("parent_cohort_id") == parent_id:
             children.append({
                 "session_id": sid,
                 "player_id": sess.get("player_id", "unknown"),
                 "cohort_name": sess.get("cohort_name", ""),
-                "parent_cohort_id": parent_session_id,
+                "parent_cohort_id": parent_id,
             })
     return children
 
