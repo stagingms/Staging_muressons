@@ -13,6 +13,7 @@ import ESGLeadershipProfile from './ESGLeadershipProfile';
 import ArchetypeCard from './ArchetypeCard';
 import FrontPageReveal from './FrontPageReveal';
 import CalibrationReport from './CalibrationReport';
+import { deriveKeyInsights, fmtDeltaM } from '../lib/keyInsights';
 
 const CEOInterview = dynamic(() => import('./CEOInterview'), { ssr: false });
 
@@ -232,7 +233,13 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                     self-checks the `front_page_enabled` global flag internally, so
                     both must allow it for the reveal to render. */}
                 {isPlayerVisible('front_page_reveal') && (
-                    <FrontPageReveal sessionId={sessionId} data={d} cohortName={d.cohort_name || ''} />
+                    <FrontPageReveal
+                        sessionId={sessionId}
+                        data={d}
+                        cohortName={d.cohort_name || ''}
+                        history={history}
+                        peers={peerLeaderboard}
+                    />
                 )}
                 {/* Calibration curve + Overconfidence Index (Phase 3) —
                     renders nothing if no scored predictions exist. */}
@@ -359,61 +366,47 @@ export default function GameOverSummary({ data, businessUnits, globalState, hist
                 )}
 
 
-                {/* ── 3 Key Insights ── */}
+                {/* ── 3 Key Insights ──
+                    Derivation lives in ../lib/keyInsights so this block and the
+                    newspaper's "Inside the numbers" column can never disagree.
+
+                    It previously read `h.treasury ?? h.corporate_treasury` off a
+                    history row. Neither key exists — a row is
+                    { round_number, choice_selected, business_units, global_state }
+                    with the balance at global_state.corporate_treasury — so every
+                    delta computed as 0 − 0, and `best` and `worst` both collapsed
+                    onto the last row. The class was shown "Best Decision …
+                    +$0.0M" and "Most Costly Mistake … $0.0M" for the SAME round.
+                    deriveKeyInsights now reads the real balance AND returns null
+                    when the run genuinely cannot separate a best from a worst,
+                    so a degenerate case prints nothing instead of a false claim. */}
                 {isPlayerVisible('three_key_insights') && history && history.length > 0 && (() => {
-                    // Build per-round deltas from actual history array.
-                    // History entries may store absolute treasury values; compute delta from consecutive rounds.
-                    const ROUND_NAMES = {
-                        1: 'ESG Audit', 2: 'Double Materiality', 3: 'Scope 3 Emissions',
-                        4: 'Contagion Crisis', 5: 'Climate Event', 6: 'AI Bias Scandal',
-                        7: 'Circular Economy', 8: 'Water Scarcity', 9: 'Just Transition',
-                        10: 'Grand Finale',
-                    };
-
-                    const roundDeltas = history.map((h, i) => {
-                        // Support explicit delta field OR derive from adjacent treasury values
-                        let delta = h?.treasury_delta ?? null;
-                        if (delta === null) {
-                            const curr = h?.treasury ?? h?.corporate_treasury ?? 0;
-                            const prev = i > 0 ? (history[i - 1]?.treasury ?? history[i - 1]?.corporate_treasury ?? curr) : curr;
-                            delta = curr - prev;
-                        }
-                        // Choice label: prefer explicit title, then choice_selected, then raw choice key
-                        const choiceLabel = h?.choice_title || h?.choice_label ||
-                            (h?.choice_selected ? h.choice_selected.replace('option_', 'Option ').toUpperCase() : null) ||
-                            h?.choice || null;
-                        return {
-                            round: i + 1,
-                            treasury_delta: delta,
-                            choice_title: choiceLabel,
-                        };
-                    }).filter(r => r.round <= 10 && r.choice_title); // only rounds with real decisions
-
-                    // If no rounds have labelled choices yet, skip the section
-                    if (roundDeltas.length === 0) return null;
-
-                    const best = roundDeltas.reduce((a, b) => a.treasury_delta > b.treasury_delta ? a : b, roundDeltas[0]);
-                    const worst = roundDeltas.reduce((a, b) => a.treasury_delta < b.treasury_delta ? a : b, roundDeltas[0]);
+                    const ki = deriveKeyInsights(history);
+                    if (!ki) return null;
+                    const { best, worst, swing } = ki;
 
                     const insights = [
                         {
                             icon: '🏆',
                             title: 'Best Decision',
-                            text: `Round ${best.round} (${ROUND_NAMES[best.round] || '—'}): "${best.choice_title}" generated ${best.treasury_delta >= 0 ? '+' : ''}$${(best.treasury_delta / 1_000_000).toFixed(1)}M in treasury impact.`,
+                            text: `Round ${best.round}${best.name ? ` (${best.name})` : ''}: ${best.choice || 'your call'} moved the treasury ${fmtDeltaM(best.delta)} — the strongest single-round swing of the plan.`,
                             color: '#10b981',
                         },
                         {
                             icon: '💸',
-                            title: 'Most Costly Mistake',
-                            text: `Round ${worst.round} (${ROUND_NAMES[worst.round] || '—'}): "${worst.choice_title}" cost $${(Math.abs(worst.treasury_delta) / 1_000_000).toFixed(1)}M in treasury impact.`,
+                            title: 'Most Costly Decision',
+                            text: `Round ${worst.round}${worst.name ? ` (${worst.name})` : ''}: ${worst.choice || 'your call'} moved the treasury ${fmtDeltaM(worst.delta)} — the deepest drawdown on the ledger.`,
                             color: '#ef4444',
                         },
-                        {
-                            icon: '🔮',
-                            title: 'Road Not Taken',
-                            text: `In Round ${worst.round}, an alternative approach could have changed your trajectory. The choices we don't make often define us as much as the ones we do.`,
+                        // Third insight only when reputation actually moved. No
+                        // filler: the old "Road Not Taken" line asserted a
+                        // counterfactual nothing had computed.
+                        ...(swing ? [{
+                            icon: '📣',
+                            title: 'Sharpest Reputation Swing',
+                            text: `Round ${swing.round}${swing.name ? ` (${swing.name})` : ''}: group reputation moved from ${swing.from.toFixed(0)} to ${swing.reputation.toFixed(0)} out of 100 (${swing.change >= 0 ? '+' : '−'}${Math.abs(swing.change).toFixed(0)} points).`,
                             color: '#a78bfa',
-                        },
+                        }] : []),
                     ];
 
                     return (
