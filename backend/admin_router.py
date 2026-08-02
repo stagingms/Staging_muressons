@@ -3487,16 +3487,47 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
     pacing["_fa_round"] = None
     pacing["_fa_deadline_at"] = None
 
+    # PACING-1 (2026-08-02): entering a GATED mode must actually close the gate.
+    #
+    # Both gated branches used to do `max(pacing["unlocked_round"], 1)`, which
+    # can only ever raise the ceiling — it never lowers one. Every cohort starts
+    # at the free-play sentinel 999 (_get_pacing default, and what "free" and
+    # "Unlock all rounds" write), so switching to Manual computed max(999, 1) =
+    # 999 and left EVERY round open. The mode label changed, the badge read
+    # "Manual", and nothing was gated: reported as "manual mode implemented but
+    # not working", with the panel showing MODE Manual / UNLOCKED UP TO Round ∞.
+    # Scheduled/timed carried the identical defect.
+    #
+    # The clamp below distinguishes the two ways a ceiling can arise:
+    #   * > SIM_ROUNDS  — the free-play sentinel (or Unlock-All). NOT a
+    #     deliberate gate, so entering a gated mode clamps it to the round the
+    #     cohort is actually on: the round in progress stays playable, the next
+    #     one waits for the facilitator (or the timer).
+    #   * <= SIM_ROUNDS — a real ceiling a facilitator chose while already
+    #     gated. Preserved, so re-applying a mode never silently revokes rounds
+    #     a class has been told are open.
+    _current_round = 1
+    try:
+        _current_round = int(await db.fetch_latest_round(session_id) or 1)
+    except Exception:
+        _current_round = 1  # never block a mode change over a lookup failure
+
+    def _gated_ceiling() -> int:
+        existing = int(pacing.get("unlocked_round", 999) or 0)
+        if existing > SIM_ROUNDS:
+            return max(_current_round, 1)
+        return max(existing, 1)
+
     if body.mode == "free":
         pacing["unlocked_round"] = 999
         pacing["next_unlock_at"] = None
         pacing["schedule"] = []
     elif body.mode == "manual":
-        pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
+        pacing["unlocked_round"] = _gated_ceiling()
         pacing["next_unlock_at"] = None
         pacing["schedule"] = []
     elif body.mode == "timed":
-        pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
+        pacing["unlocked_round"] = _gated_ceiling()
 
         # ── Multi-round schedule (new feature) ──────────────────
         if body.schedule:
