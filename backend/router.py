@@ -1045,6 +1045,21 @@ async def start_simulation(body: StartSessionRequest, request: Request):
                 business_units=[_bu_out(bu) for bu in existing_state["bu_states"]],
             )
 
+        # 1b. RBAC-R2 (2026-08-01): the ONE server-side rule for who may create
+        # a cohort. Deliberately placed AFTER the resume branch above — an
+        # existing cohort must stay resumable by whoever already owns it; only
+        # bringing a NEW cohort into existence is a privileged action. Until
+        # now this endpoint enforced no role rule at all, so a base facilitator
+        # could create a cohort through a direct API call that both UI surfaces
+        # appeared to forbid. Both surfaces now render this same answer.
+        from admin_shared import may_create_cohort
+        _may_create, _deny_reason = may_create_cohort(caller_role)
+        if not _may_create:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=_deny_reason,
+            )
+
         # 2. No session found, create a new one
         # I4 (Workstream D): inherit omitted provisioning values (climate branch
         # + single-BU scope) from the global default so a super_admin's

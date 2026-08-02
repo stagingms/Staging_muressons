@@ -105,9 +105,9 @@ function FacilitatorLoginGate({ onLogin }) {
                 // RBAC-F1 (2026-08-01): `permissions` is no longer cached — the
                 // server no longer sends it and nothing reads it. Capability is
                 // role-derived (allowed_tabs + server-side guards).
-                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password } = data;
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, may_create_cohorts } = data;
                 localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password }
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, may_create_cohorts }
                 ));
                 onLogin(data);
             } else {
@@ -338,6 +338,7 @@ export default function FacilitatorPage() {
                             role: data.role,
                             is_admin: data.is_admin ?? (data.role === 'super_admin'),
                             allowed_tabs: data.allowed_tabs || cachedAuth.allowed_tabs,
+                            may_create_cohorts: data.may_create_cohorts ?? cachedAuth.may_create_cohorts,
                             name: data.name || cachedAuth.name,
                             username: data.username ?? cachedAuth.username,
                             shockwave_enabled: data.shockwave_enabled ?? cachedAuth.shockwave_enabled,
@@ -909,15 +910,17 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                 ) : null}
                             </div>
                         )}
-                        {/* RBAC-F1/F2 (2026-08-01): this used to read the
-                            per-profile can_create_cohorts permission, which
-                            enforced nothing server-side — the button and the
-                            Registry tab's own button disagreed, and the API
-                            allowed either way. The permission is gone; the
-                            role heuristic is now the single UI rule and it
-                            matches the Registry tab's gate exactly. */}
+                        {/* RBAC-R2 (2026-08-01): both create-cohort buttons now
+                            render the SERVER's answer (may_create_cohorts, from
+                            admin_shared.may_create_cohort) instead of each
+                            guessing — this one read a permission that enforced
+                            nothing, the Registry tab read the role string, and
+                            the API enforced neither. Fall back to the role
+                            heuristic only for an older cached auth blob. */}
                         <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} selectedSession={selectedSession} onCreateCohort={(
-                            (authData.role || 'facilitator') !== 'facilitator'
+                            authData.may_create_cohorts !== undefined
+                                ? authData.may_create_cohorts === true
+                                : (authData.role || 'facilitator') !== 'facilitator'
                         ) ? () => setCreateCohortOpen(true) : null} canAccessTab={canAccessTab} role={authData.role || 'facilitator'} />
                         <CreateCohortModal
                             isOpen={createCohortOpen}
@@ -998,7 +1001,10 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
             case 'registry':
                 return (
                     <>
-                        {authData.role !== 'facilitator' && (
+                        {/* RBAC-R2: same server answer as the dashboard button. */}
+                        {(authData.may_create_cohorts !== undefined
+                            ? authData.may_create_cohorts === true
+                            : authData.role !== 'facilitator') && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                                 <SoloModeToggle />
                                 <button

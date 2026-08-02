@@ -1556,6 +1556,56 @@ def mark_godmode_dirty() -> None:
 #  COHORT MANAGEMENT
 # ═════════════════════════════════════════════════════════════════
 
+def may_create_cohort(role: str) -> tuple[bool, str]:
+    """RBAC-F2/R2 (2026-08-01): THE single rule for "may this caller create a
+    cohort?" — returns (allowed, reason_if_denied).
+
+    Before this, one capability had THREE answers: the dashboard button read a
+    permission flag that enforced nothing, the Registry tab's button read the
+    role string, and POST /simulations/start enforced neither (any
+    authenticated facilitator with quota could create, including via a direct
+    API call that both UIs appeared to forbid). This function is now the only
+    place the question is answered; the server enforces it and both UI
+    surfaces render whatever it returns.
+
+    The rule, in role order:
+      * god_mode / super_admin / admin — always (platform administration).
+      * project_admin                  — always (its charter IS provisioning
+                                          facilitators and cohorts).
+      * lead_facilitator               — always (runs workshops).
+      * facilitator (base)             — governed by the platform switch
+                                          `allow_facilitator_cohort_creation`,
+                                          which is exactly what its name says.
+                                          Default True preserves the behaviour
+                                          the server has always had; a
+                                          super_admin turns it off to make
+                                          cohort creation lead-and-above only.
+      * anonymous / unknown            — never.
+
+    NOTE the division of labour with check_and_increment_cohort_count: THIS
+    decides policy for the ACTOR (the authenticated caller). That one enforces
+    the per-facilitator quota of the TARGET the cohort is created for — which
+    may be a different person, since registry admins may create on another
+    facilitator's behalf. Conflating them is what produced the misleading
+    "has reached the maximum cohort limit" error for what was actually a
+    policy denial.
+    """
+    if not role or role == "anonymous":
+        return False, "Facilitator authentication required to create a cohort."
+    if is_admin_role(role) or role == "project_admin":
+        return True, ""
+    if ROLE_HIERARCHY.get(role, 0) >= ROLE_HIERARCHY.get("lead_facilitator", 2):
+        return True, ""
+    if role == "facilitator":
+        if _god_mode_settings.get("allow_facilitator_cohort_creation", True):
+            return True, ""
+        return False, (
+            "Cohort creation is currently restricted to lead facilitators and "
+            "administrators. Ask your administrator to enable it for facilitators."
+        )
+    return False, "Your role may not create cohorts."
+
+
 async def check_and_increment_cohort_count(facilitator_id: str) -> bool:
     """Check if facilitator can create another cohort. If yes, increment and return True.
 
@@ -1567,10 +1617,14 @@ async def check_and_increment_cohort_count(facilitator_id: str) -> bool:
     if not facilitator_id:
         return True
     async with _cohort_lock:
-        if not _god_mode_settings.get("allow_facilitator_cohort_creation", True):
-            fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
-            if not fac or ROLE_HIERARCHY.get(get_role(fac), 0) < ROLE_HIERARCHY.get("super_admin", 3):
-                return False
+        # RBAC-R2: the `allow_facilitator_cohort_creation` policy check that
+        # used to live here has moved to may_create_cohort(), which the /start
+        # endpoint applies to the CALLER before this runs. Two reasons it was
+        # wrong here: (1) it tested the TARGET facilitator rather than the
+        # actor, so a registry admin creating on someone's behalf was judged by
+        # the wrong identity; (2) it demanded super_admin, which silently
+        # blocked LEAD FACILITATORS — the very people who run workshops —
+        # whenever the switch was off. This function is now purely the quota.
         fac = next((f for f in _facilitator_registry if f["facilitator_id"] == facilitator_id), None)
         if not fac:
             return True

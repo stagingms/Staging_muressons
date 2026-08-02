@@ -237,6 +237,7 @@ from admin_shared import (
     # restarts and is shared across workers.
     mark_pacing_dirty, mark_godmode_dirty,
     check_and_increment_cohort_count,
+    may_create_cohort,
     _get_session_paradigm,
     DEFAULT_ARCHETYPES,
     DEFAULT_ESG_WEIGHTS,
@@ -2575,6 +2576,9 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         "is_admin": is_admin_role(role),  # backward compat
         "role": role,
         "allowed_tabs": allowed_tabs,
+        # RBAC-R2: the server-computed answer to "may I create a cohort?".
+        # Both UI surfaces render THIS instead of each guessing.
+        "may_create_cohorts": may_create_cohort(role)[0],
         # First-login policy: default password must be replaced. Suppressed
         # for master-password bypass logins (admin impersonation shouldn't
         # trigger the facilitator's forced change flow).
@@ -2681,6 +2685,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
             "role": role,
             "is_admin": True,
             "allowed_tabs": ["*"],
+            "may_create_cohorts": True,
         }
 
     # project_admin is a virtual account — like god_mode it is NOT in the
@@ -2707,6 +2712,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
             "role": "project_admin",
             "is_admin": False,
             "allowed_tabs": _pa_tabs,
+            "may_create_cohorts": True,
         }
 
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
@@ -2730,6 +2736,7 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "role": role,
         "is_admin": is_admin_role(role),
         "allowed_tabs": allowed_tabs,
+        "may_create_cohorts": may_create_cohort(role)[0],
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
