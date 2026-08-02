@@ -192,25 +192,12 @@ def require_sim_manager(role: str = Depends(get_fac_role)):
         raise HTTPException(status_code=403, detail='Project admins provision cohorts but cannot manage simulation runs.')
 
 
-def _generate_temp_password() -> tuple[str, str]:
-    """Return a RANDOM per-user temporary password (QA-2026-07-16 #11).
-
-    Previously returned a fixed 'Muressons123' shared by every new player AND
-    facilitator — a predictable initial credential exploitable in the window
-    before first login. Now every call yields a fresh 12-char random password;
-    must_change_password=True is still set alongside, so it is only valid until
-    the user sets their own. The plaintext is returned so the facilitator can
-    distribute it once (surfaced per-user in the registry / creation response);
-    only the bcrypt hash is stored.
-
-    Returns (plaintext, hashed).
-    """
-    import secrets
-    import string
-    alphabet = string.ascii_letters + string.digits
-    plaintext = "".join(secrets.choice(alphabet) for _ in range(12))
-    hashed = hash_password(plaintext)
-    return plaintext, hashed
+# _generate_temp_password() was RETIRED 2026-08-01. Initial credentials are now
+# DETERMINISTIC and id-derived (default_credentials.make_player_credentials /
+# make_facilitator_credentials): player MUR-NNN@123, facilitator FAC-NNN@321,
+# both forced to change on first login. There is no random-temp path any more —
+# a resurrected one would silently reintroduce the copy-a-string-per-user
+# distribution failure this replaced. test_default_credentials pins it gone.
 
 
 import database as db
@@ -218,6 +205,12 @@ import materiality_db as mat_db
 from config import MASTER_PASSWORD, PROJECT_ADMIN_PASSWORD, SIM_ROUNDS, SIM_INITIAL_BUDGET
 from master_credentials import verify_master_password, set_master_password, master_override_active
 from password_hashing import hash_password, verify_password, maybe_upgrade_password
+from default_credentials import (
+    make_player_credentials,
+    make_facilitator_credentials,
+    default_player_password,
+    default_facilitator_password,
+)
 from models import MaterialityIssue, InterdependenceLink, MaterialityConfig
 
 # ARCH-002: Import all shared state from admin_shared.py
@@ -1776,10 +1769,6 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
             f"Your role ('{_caller_role}') may not create a facilitator with role "
             f"'{_requested_role}'. Allowed: {sorted(_grantable)}.",
         )
-    # GOD-003: Generate password outside the lock — bcrypt is CPU-intensive
-    # and does not touch shared state.
-    _temp_plain, _temp_hash = _generate_temp_password()
-
     async with _fac_registry_lock:
         # Recompute max_id inside the lock so two concurrent requests
         # cannot both read the same max and generate the same FAC-NNN.
@@ -1792,6 +1781,11 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
                 except ValueError:
                     pass
         new_fac_id = f"FAC-{max_id + 1:03d}"
+        # The default password is derived from the id (FAC-NNN@321), so the
+        # hash is computed here, once the id is known. bcrypt (~100ms) now runs
+        # inside the lock — acceptable: provisioning is not a hot path and is
+        # inherently serialised (two admins must not mint the same id anyway).
+        _temp_plain, _temp_hash = make_facilitator_credentials(new_fac_id)
         role = req.role or "facilitator"
         is_fac = role == "facilitator"
         default_perms = {
@@ -1811,7 +1805,7 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
             "start_date": req.start_date or "",
             "end_date": req.end_date or "",
             "password": _temp_hash,  # LOW-003: store bcrypt hash, never plaintext
-            "must_change_password": True,  # default Muressons123 must be replaced on first login
+            "must_change_password": True,  # FAC-NNN@321 must be replaced on first login
             "created_at": datetime.now(timezone.utc).isoformat(),
             "max_cohorts": req.max_cohorts,
             "cohorts_created": 0,
@@ -2058,8 +2052,6 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
     _grantable = assignable_roles_for(get_fac_role(request))
 
     created = []
-    # One bcrypt hash for the shared default password (bcrypt is ~100ms/call)
-    _plain, _hash = _generate_temp_password()
 
     async with _fac_registry_lock:
         max_id = 0
@@ -2076,10 +2068,13 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
             def cell(key, default=""):
                 return parsed.get(key, default) or default
             max_id += 1
+            _new_fac_id = f"FAC-{max_id:03d}"
+            # id-derived default (FAC-NNN@321) per row; hash after id is fixed.
+            _plain, _hash = make_facilitator_credentials(_new_fac_id)
             _req_role = parsed.get("role", "facilitator")
             _role = _req_role if _req_role in _grantable else "facilitator"
             fac = {
-                "facilitator_id": f"FAC-{max_id:03d}",
+                "facilitator_id": _new_fac_id,
                 "name": name,
                 "email": cell("email"),
                 "contact_number": cell("contact_number"),
@@ -2087,7 +2082,7 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
                 "start_date": cell("start_date"),
                 "end_date": cell("end_date"),
                 "password": _hash,  # bcrypt of the default; never plaintext
-                "must_change_password": True,  # default Muressons123 must be replaced on first login
+                "must_change_password": True,  # FAC-NNN@321 must be replaced on first login
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "max_cohorts": mc,
                 "cohorts_created": 0,
@@ -2176,10 +2171,6 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
     # a role above the caller's own tier.
     _grantable = assignable_roles_for(get_fac_role(request))
 
-    # GOD-003: Generate all passwords BEFORE acquiring the lock so bcrypt
-    # (CPU-intensive, ~100ms/call) does not block other coroutines.
-    passwords = [_generate_temp_password() for _ in req.facilitators]
-
     async with _fac_registry_lock:
         # Recompute max_id inside the lock for collision-free ID assignment.
         max_id = 0
@@ -2191,12 +2182,15 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
                 except ValueError:
                     pass
 
-        for fac_req, (_fac_plain, _fac_hash) in zip(req.facilitators, passwords):
+        for fac_req in req.facilitators:
             max_id += 1
+            _new_fac_id = f"FAC-{max_id:03d}"
+            # id-derived default (FAC-NNN@321); hash after the id is fixed.
+            _fac_plain, _fac_hash = make_facilitator_credentials(_new_fac_id)
             _req_role = (fac_req.role or "facilitator").strip().lower()
             _role = _req_role if _req_role in _grantable else "facilitator"
             fac = {
-                "facilitator_id": f"FAC-{max_id:03d}",
+                "facilitator_id": _new_fac_id,
                 "name": fac_req.name,
                 "email": fac_req.email or "",
                 "contact_number": fac_req.contact_number or "",
@@ -2204,7 +2198,7 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
                 "start_date": fac_req.start_date or "",
                 "end_date": fac_req.end_date or "",
                 "password": _fac_hash,  # store bcrypt hash, never plaintext
-                "must_change_password": True,  # default Muressons123 must be replaced on first login
+                "must_change_password": True,  # FAC-NNN@321 must be replaced on first login
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "max_cohorts": fac_req.max_cohorts,
                 "cohorts_created": 0,
@@ -2787,9 +2781,10 @@ async def admin_reset_facilitator_password(fac_id: str, request: Request, _guard
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id), None)
     if not fac:
         raise HTTPException(404, f"Facilitator {fac_id} not found")
-    # Reset to the fixed default (same policy as creation): the facilitator
-    # must set a personal password on their next login.
-    new_pw, _new_hash = _generate_temp_password()  # "Muressons123"
+    # Reset to the DETERMINISTIC default (same policy as creation, FAC-NNN@321)
+    # and force a personal password on the next login. The facilitator already
+    # knows the rule, so a lost-password reset needs no distribution step.
+    new_pw, _new_hash = make_facilitator_credentials(fac_id)
     fac["password"] = _new_hash
     fac["must_change_password"] = True
     _persist_facilitators()
@@ -3854,11 +3849,12 @@ async def induct_player(req: PlayerInductRequest, _guard: None = Depends(require
     # Generate MUR-XXX ID
     generated_id = f"MUR-{_next_player_id:03d}"
     _next_player_id += 1
-    
-    # SEC-3: random per-player temp password (was hardcoded "Welcome123").
-    # Shown once to the facilitator via registered_players.plaintext_password;
-    # must_change_password forces a reset on first login.
-    generated_password, generated_password_hash = _generate_temp_password()
+
+    # DETERMINISTIC default MUR-NNN@123 (policy in default_credentials).
+    # The facilitator tells the room the rule instead of reading 20 distinct
+    # strings; must_change_password forces a personal password on first login.
+    # plaintext_password still surfaces it once for a student who forgets.
+    generated_password, generated_password_hash = make_player_credentials(generated_id)
 
     # Fetch cohort_name from session so login response can return it
     _cohort_name = ""
@@ -4177,7 +4173,7 @@ async def set_player_password(body: dict = Body(...), _guard: None = Depends(req
     return {"status": "success"}
 
 
-@admin_router.post("/players/{player_id}/reset-password", summary="Reset a player's password to a new random temp password")
+@admin_router.post("/players/{player_id}/reset-password", summary="Reset a player's password to the default (MUR-NNN@123)")
 async def reset_player_password(player_id: str, _guard: None = Depends(require_sim_manager)):
     """
     Generates a new random temp password for a player and returns the plaintext to the facilitator.
@@ -4206,8 +4202,9 @@ async def reset_player_password(player_id: str, _guard: None = Depends(require_s
     if not player:
         raise HTTPException(status_code=404, detail=f"Player {player_id_upper} not found.")
 
-    # Generate a new random temp password
-    new_plaintext, new_hash = _generate_temp_password()
+    # Reset to the DETERMINISTIC default MUR-NNN@123 (same policy as creation);
+    # force a personal password on the next login.
+    new_plaintext, new_hash = make_player_credentials(player["player_id"])
     player["password"] = new_hash
     player["must_change_password"] = True
 
@@ -4466,8 +4463,9 @@ async def generate_player_id(session_id: str, _guard: None = Depends(require_sim
     if not player_id:
         raise HTTPException(status_code=404, detail="Session not found.")
     
-    # SEC-3: random per-player temp password (was hardcoded "Welcome123").
-    generated_password, _generated_password_hash = _generate_temp_password()
+    # DETERMINISTIC default MUR-NNN@123 (policy in default_credentials);
+    # must_change_password forces a personal password on first login.
+    generated_password, _generated_password_hash = make_player_credentials(player_id)
 
 
     player_entry = {
@@ -4541,7 +4539,8 @@ async def _create_players_bulk(session_id: str, players: list[dict]) -> list[dic
     for p in players:
         pid = f"MUR-{_next_player_id:03d}"
         _next_player_id += 1
-        temp, temp_hash = _generate_temp_password()
+        # DETERMINISTIC default MUR-NNN@123 per player; hash after id is fixed.
+        temp, temp_hash = make_player_credentials(pid)
         player = {
             "player_id": pid,
             "name": p.get("name", ""),
@@ -9336,10 +9335,6 @@ async def batch_create_facilitators(body: dict = Body(...), _guard: None = Depen
     if not names:
         raise HTTPException(400, "Provide a list of names")
 
-    # GOD-002 + GOD-003: Generate passwords outside the lock (bcrypt is slow)
-    # then assign IDs atomically inside the lock.
-    passwords = [_generate_temp_password() for _ in names]  # list of (plain, hash) tuples
-
     created = []
     async with _fac_registry_lock:
         max_id = 0
@@ -9355,11 +9350,13 @@ async def batch_create_facilitators(body: dict = Body(...), _guard: None = Depen
         # M-3: credentials dict — plaintext passwords separate from the main object
         # so API gateway logs that record the response body don't capture all passwords.
         credentials: dict[str, str] = {}
-        for name, (_plain, _hash) in zip(names, passwords):
+        for name in names:
             max_id += 1
             while f"FAC-{max_id:03d}" in existing_ids:
                 max_id += 1
             new_fac_id = f"FAC-{max_id:03d}"
+            # id-derived default (FAC-NNN@321); hash after the id is fixed.
+            _plain, _hash = make_facilitator_credentials(new_fac_id)
             fac = {
                 "facilitator_id": new_fac_id,
                 "name": name.strip(),

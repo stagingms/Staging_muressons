@@ -2,7 +2,10 @@
 QA-2026-07-16 regression tests for review fixes #10, #11, #13, #14.
 
 #10 — ws_fanout is a no-op in memory/single-worker mode; local delivery still works.
-#11 — _generate_temp_password returns a RANDOM per-call password (no fixed default).
+#11 — SUPERSEDED 2026-08-01: initial passwords are now DETERMINISTIC and
+      id-derived (default_credentials: player MUR-NNN@123 / facilitator
+      FAC-NNN@321), not random. The forced-change-on-first-login guarantee
+      is unchanged and is now pinned in test_default_credentials.py.
 #13 — sensitive admin GETs now reject anonymous callers.
 #14 — coordination_store gains delete()/delete_pacing() (no-op & non-raising in memory)
       and a publish-failure counter; the reaper reports reaped pacing ids.
@@ -18,16 +21,21 @@ from main import app
 client = TestClient(app)
 
 
-# ── #11: random temp passwords ───────────────────────────────────────────────
+# ── #11 (superseded): initial passwords are deterministic + id-derived ───────
 
-def test_generate_temp_password_is_random():
+def test_initial_passwords_are_deterministic_and_id_derived():
+    """Replaces the old 'random temp password' pin. The value is the id plus a
+    fixed suffix, differs by realm, and only the hash is stored. Forced-change
+    behaviour is covered in test_default_credentials.py."""
+    from default_credentials import make_player_credentials, make_facilitator_credentials
+    pp, ph = make_player_credentials("MUR-042")
+    fp, fh = make_facilitator_credentials("FAC-042")
+    assert pp == "MUR-042@123"
+    assert fp == "FAC-042@321"
+    assert ph != pp and fh != fp          # a hash is stored, not the plaintext
+    # the retired random generator must stay gone
     import admin_router
-    p1, h1 = admin_router._generate_temp_password()
-    p2, h2 = admin_router._generate_temp_password()
-    assert p1 != "Muressons123" and p2 != "Muressons123"
-    assert p1 != p2                      # random, not a shared default
-    assert len(p1) >= 10 and p1.isalnum()
-    assert h1 != p1                      # a hash is stored, not the plaintext
+    assert not hasattr(admin_router, "_generate_temp_password")
 
 
 # ── #10: ws_fanout no-op in memory, local delivery intact ────────────────────
