@@ -153,6 +153,13 @@ def require_super_admin(role: str = Depends(get_fac_role)):
 
 def require_lead_facilitator(role: str = Depends(get_fac_role)):
     """Allow lead_facilitator and super_admin. Blocks base facilitator and anonymous."""
+    if role == 'anonymous':
+        # RBAC-F7 (2026-08-01): 401, not 403 — the convention require_super_admin
+        # already documents (BUG-2026-07-18). An expired cookie previously read
+        # as "Lead Facilitator or higher required", sending the user to inspect
+        # their ROLE when all they needed was to sign in again. Observed live on
+        # the new Solo Sessions toggle.
+        raise HTTPException(status_code=401, detail='Facilitator authentication required')
     if ROLE_HIERARCHY.get(role, 0) < ROLE_HIERARCHY.get('lead_facilitator', 2):
         raise HTTPException(status_code=403, detail='Lead Facilitator or higher required')
 
@@ -167,6 +174,10 @@ def require_registry_admin(role: str = Depends(get_fac_role)):
     facilitator provisioning endpoints (create / bulk / Excel upload).
     C6: uses is_admin_role so the distinct god_mode tier is admitted, not just
     the literal 'super_admin' string."""
+    if role == 'anonymous':
+        # RBAC-F7: 401 for "no session", 403 for "wrong role" — same reason as
+        # require_lead_facilitator above.
+        raise HTTPException(status_code=401, detail='Facilitator authentication required')
     if not (is_admin_role(role) or role == "project_admin"):
         raise HTTPException(status_code=403, detail='Registry-admin access required')
 

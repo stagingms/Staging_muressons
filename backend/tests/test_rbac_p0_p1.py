@@ -153,3 +153,44 @@ def test_god_mode_is_never_assignable_by_anyone():
     from admin_shared import assignable_roles_for, ROLE_HIERARCHY
     for role in ROLE_HIERARCHY:
         assert "god_mode" not in assignable_roles_for(role)
+
+
+# ── F7: "no session" is 401, "wrong role" is 403 — on EVERY guard ──────────
+
+def test_every_role_guard_distinguishes_no_session_from_wrong_role():
+    """RBAC-F7 (2026-08-01), found by probing the live deploy: two guards
+    answered an anonymous caller with 403 ("Lead Facilitator or higher
+    required"), so an EXPIRED COOKIE read as a role refusal and sent the user
+    to inspect their permissions instead of signing in again. The codebase had
+    already adopted the 401/403 split (BUG-2026-07-18) — two guards just never
+    got it. Pin it for all of them so the next guard added inherits the rule."""
+    import inspect
+    import admin_router
+
+    for name in ("require_super_admin", "require_lead_facilitator",
+                 "require_facilitator", "require_registry_admin",
+                 "require_sim_manager"):
+        src = inspect.getsource(getattr(admin_router, name))
+        assert "role == 'anonymous'" in src or 'role == "anonymous"' in src, \
+            f"{name} does not special-case an absent session"
+        anon_branch = src[src.index("anonymous"):]
+        assert "401" in anon_branch[:300], \
+            f"{name} answers an unauthenticated caller with something other than 401"
+
+
+@pytest.mark.parametrize("method,path", [
+    ("patch", "/api/admin/solo-mode"),          # require_lead_facilitator
+    ("get", "/api/admin/solo-mode"),            # require_lead_facilitator
+    ("post", "/api/admin/facilitators/bulk"),   # require_registry_admin
+])
+def test_anonymous_callers_get_401_not_403(method, path):
+    from fastapi.testclient import TestClient
+    from main import app
+    import rate_limit
+    rate_limit._rate_buckets.clear()
+    rate_limit._persistent_bans.clear()
+    client = TestClient(app, raise_server_exceptions=False)
+    r = getattr(client, method)(path, json={}) if method != "get" else client.get(path)
+    assert r.status_code == 401, (
+        f"{method.upper()} {path} returned {r.status_code} to an anonymous caller — "
+        "an expired session must read as 'sign in again', not a role refusal")
