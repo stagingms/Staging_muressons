@@ -1002,7 +1002,7 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                     <>
                         {authData.role !== 'facilitator' && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                                <div />
+                                <SoloModeToggle />
                                 <button
                                     onClick={() => setCreateCohortOpen(true)}
                                     style={{
@@ -1689,6 +1689,83 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
 /* ═════════════════════════════════════════════════════════════════
  *  QUIZ CONTROL PANEL — Difficulty + Per-Cohort Enable/Disable
  * ═════════════════════════════════════════════════════════════════ */
+
+// Platform solo-session toggle, exposed to lead facilitators + super admins.
+// Reads/writes the dedicated /api/admin/solo-mode endpoint (gated
+// require_lead_facilitator server-side); the god-mode Sim Switchboard writes
+// the SAME flag, so there is one source of truth. Default OFF: a workshop that
+// wants the login-screen "Start Solo Session" option turns it on here.
+function SoloModeToggle() {
+    const [enabled, setEnabled] = useState(null); // null = loading / not permitted
+    const [saving, setSaving] = useState(false);
+    const [err, setErr] = useState('');
+
+    useEffect(() => {
+        let alive = true;
+        // The GET is require_lead_facilitator-gated. A 403 (base facilitator or
+        // project_admin) leaves enabled=null so the control never renders — the
+        // authorisation is the server's, mirrored here so no dead button shows.
+        fetch(`${API}/api/admin/solo-mode`, { credentials: 'include' })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((d) => { if (alive && d) setEnabled(d.solo_mode_enabled === true); })
+            .catch(() => {});
+        return () => { alive = false; };
+    }, []);
+
+    const toggle = async () => {
+        if (enabled === null || saving) return;
+        const next = !enabled;
+        setSaving(true);
+        setErr('');
+        try {
+            const r = await fetch(`${API}/api/admin/solo-mode`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ enabled: next }),
+            });
+            if (!r.ok) {
+                const d = await r.json().catch(() => ({}));
+                throw new Error(r.status === 403 ? 'Lead facilitator or admin only' : (d.detail || `HTTP ${r.status}`));
+            }
+            const d = await r.json();
+            setEnabled(d.solo_mode_enabled === true);
+        } catch (e) {
+            setErr(e.message);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (enabled === null) return null; // stay silent until we know the state
+    const on = enabled === true;
+    return (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }} title="Show 'Start Solo Session' on the login screen (self-paced 24-hour demo). Off by default.">
+            <button
+                type="button"
+                onClick={toggle}
+                disabled={saving}
+                style={{
+                    display: 'flex', alignItems: 'center', gap: '0.45rem',
+                    padding: '0.5rem 0.9rem', borderRadius: '8px', cursor: saving ? 'wait' : 'pointer',
+                    border: `1px solid ${on ? 'rgba(20,184,166,0.5)' : 'var(--border-subtle, #475569)'}`,
+                    background: on ? 'rgba(20,184,166,0.12)' : 'transparent',
+                    color: on ? '#2dd4bf' : 'var(--text-secondary, #94a3b8)',
+                    fontSize: '0.78rem', fontWeight: 700, whiteSpace: 'nowrap',
+                }}
+            >
+                <span>🎮 Solo Sessions</span>
+                <span style={{
+                    padding: '1px 7px', borderRadius: 999, fontSize: '0.68rem',
+                    background: on ? 'rgba(20,184,166,0.25)' : 'rgba(148,163,184,0.18)',
+                    color: on ? '#5eead4' : '#94a3b8',
+                }}>{saving ? '…' : on ? 'ON' : 'OFF'}</span>
+            </button>
+            {err && <span style={{ fontSize: '0.7rem', color: '#f87171' }}>{err}</span>}
+        </div>
+    );
+}
+
 
 function QuizControlPanel({ sessions = [] }) {
     const [quizDifficulty, setQuizDifficulty] = useState('medium');

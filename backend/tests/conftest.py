@@ -120,6 +120,20 @@ def clear_memory_db():
         _db._decision_log.clear()
     except ImportError:
         pass
+    # Solo sessions are OPT-IN in production (default OFF, 2026-08-01). ~30 test
+    # modules use /solo-start as a lightweight SESSION FACTORY for testing
+    # unrelated things (commit locks, investment-ratio recompute, BRSR, quiz
+    # gates, …); denying it by default would break all of them for reasons that
+    # have nothing to do with what they assert. So the TEST ENVIRONMENT enables
+    # it here. This does NOT weaken the policy check: test_solo_mode_toggle.py
+    # has its own autouse fixture that pops this key at setup (running closer to
+    # the test, so after this one), verifying the true default-OFF behaviour and
+    # the RBAC of the toggle explicitly.
+    try:
+        import admin_shared as _ash
+        _ash._god_mode_settings["solo_mode_enabled"] = True
+    except Exception:
+        pass
     # Rate-limit buckets/bans are per-process and otherwise accumulate across
     # tests, causing the "Too many attempts" cascade. Reset them per test so each
     # test starts with a clean limiter (a test that wants to trigger the limit

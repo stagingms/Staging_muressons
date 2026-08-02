@@ -268,7 +268,7 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                             players are connected, event-bus fan-out. The server enforces the
                             switch on /solo-start too — hiding the button is presentation. */}
                         <div className={styles.controlCard} style={{
-                            borderLeft: settings.solo_mode_enabled !== false
+                            borderLeft: settings.solo_mode_enabled === true
                                 ? '3px solid #14b8a6' : '3px solid rgba(148,163,184,0.15)',
                         }}>
                             <div style={{ flex: 1 }}>
@@ -281,20 +281,21 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                     alignItems: 'center',
                                 }}>
                                     {[
-                                        { key: 'solo_mode_enabled', label: '🎮 Solo Sessions', default: true, tip: 'Shows "Start Solo Session" on the login screen — a self-contained, facilitator-less 24-hour demo run. Turn off to make the login screen cohort-only; the /solo-start endpoint is refused server-side as well.' },
+                                        // default OFF (2026-08-01): solo is opt-in per workshop.
+                                        { key: 'solo_mode_enabled', label: '🎮 Solo Sessions', default: false, tip: 'Shows "Start Solo Session" on the login screen — a self-contained, facilitator-less 24-hour demo run. OFF by default; turn on for a workshop that needs it. Lead facilitators can also toggle this from their dashboard. The /solo-start endpoint is refused server-side when off.' },
                                     ].map(t => (
                                         <div key={t.key} className={styles.pillWrap} data-tip={t.tip}>
                                         <button
                                             onClick={() => togglePill(t)}
                                             style={{
                                                 padding: '3px 9px', borderRadius: 4, border: 'none',
-                                                background: settings[t.key] !== false ? 'rgba(20,184,166,0.15)' : 'rgba(148,163,184,0.08)',
-                                                color: settings[t.key] !== false ? '#2dd4bf' : '#64748b',
+                                                background: settings[t.key] === true ? 'rgba(20,184,166,0.15)' : 'rgba(148,163,184,0.08)',
+                                                color: settings[t.key] === true ? '#2dd4bf' : '#64748b',
                                                 fontWeight: 700, fontSize: '0.68rem', cursor: 'pointer',
                                                 transition: 'background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s, opacity 0.15s, transform 0.15s',
                                             }}
                                         >
-                                            {pillMarker(t.key, settings[t.key] !== false)} {t.label}
+                                            {pillMarker(t.key, settings[t.key] === true)} {t.label}
                                         </button>
                                         </div>
                                     ))}

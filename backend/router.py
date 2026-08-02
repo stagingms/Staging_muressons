@@ -1220,21 +1220,22 @@ async def solo_start_simulation(body: SoloStartRequest):
     """
     from datetime import date, timedelta
 
-    # Solo mode is a PLATFORM switch (Sim Switchboard → solo_mode_enabled).
-    # The login screen hides its button when off, but this endpoint is public
-    # and unauthenticated, so the server must refuse too — a hidden button is
-    # never the only line of defence (V-B/V-C precedent). Default ON: absent
-    # key behaves exactly as before the toggle existed. Fail-open on store
-    # errors so a settings hiccup cannot strand self-paced learners.
+    # Solo mode is a PLATFORM switch a lead_facilitator / super_admin enables
+    # per workshop (PATCH /api/admin/solo-mode). The login screen hides its
+    # button when off, but this endpoint is public and unauthenticated, so the
+    # server must refuse too — a hidden button is never the only line of
+    # defence (V-B/V-C precedent). DEFAULT OFF (2026-08-01): an unconfigured
+    # platform has NO solo access, and this fails CLOSED — an absent key or a
+    # settings-store error both deny, because solo is now opt-in, not opt-out.
     try:
         from admin_shared import _god_mode_settings as _gms
-        _solo_enabled = _gms.get("solo_mode_enabled", True)
+        _solo_enabled = _gms.get("solo_mode_enabled", False) is True
     except Exception:
-        _solo_enabled = True
-    if _solo_enabled is False:
+        _solo_enabled = False
+    if not _solo_enabled:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Solo sessions are currently disabled by the administrator.",
+            detail="Solo sessions are not enabled. Ask your lead facilitator or administrator to turn them on.",
         )
 
     _req_paradigm = (body.decision_paradigm or "legacy_abc").strip()

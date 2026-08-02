@@ -30,18 +30,20 @@ export default function JoinCohortModal({ sim }) {
         return () => clearInterval(iv);
     }, []);
 
-    // Sim Switchboard → solo_mode_enabled hides "Start Solo Session" here.
-    // Read from the public global-settings payload (this screen is
-    // pre-authentication, so it can only use the unauthenticated view).
-    // Fail-OPEN to visible: a settings hiccup must not strand self-paced
-    // learners — and /solo-start enforces the switch server-side anyway.
-    const [soloEnabled, setSoloEnabled] = useState(true);
+    // Solo access is OPT-IN (default OFF): a lead facilitator / super admin
+    // enables it per workshop. Read the flag from the public global-settings
+    // payload (this screen is pre-authentication) and show the button ONLY
+    // when it comes back explicitly true. Fail-CLOSED — start hidden, and a
+    // settings hiccup keeps it hidden — because solo is now opt-in, and
+    // /solo-start refuses server-side regardless. (The default flipped from
+    // opt-out on 2026-08-01.)
+    const [soloEnabled, setSoloEnabled] = useState(false);
     useEffect(() => {
         const API = process.env.NEXT_PUBLIC_API_URL || '';
         fetch(`${API}/api/admin/global-settings`)
             .then((r) => (r.ok ? r.json() : null))
-            .then((s) => { if (s && s.solo_mode_enabled === false) setSoloEnabled(false); })
-            .catch(() => {});
+            .then((s) => { setSoloEnabled(s?.solo_mode_enabled === true); })
+            .catch(() => setSoloEnabled(false));
     }, []);
 
     const handleLogin = async (e) => {

@@ -410,10 +410,12 @@ async def get_global_settings(request: Request, session_id: str | None = _Query(
         "climate_paradigm": resolve_climate_paradigm(s),
         "front_page_enabled": s.get("front_page_enabled", True),  # Feature 5 toggle (player-readable)
         # Login-screen "Start Solo Session" visibility. Read by the (public)
-        # login page, so it must be in this unauthenticated payload. Default ON
-        # preserves pre-toggle behaviour; /solo-start enforces it server-side
-        # too, so hiding the button is never the only line of defence.
-        "solo_mode_enabled": s.get("solo_mode_enabled", True),
+        # login page, so it must be in this unauthenticated payload. DEFAULT
+        # OFF (2026-08-01, by request): a default login has no solo option; a
+        # lead_facilitator or super_admin enables it per workshop via
+        # PATCH /api/admin/solo-mode. /solo-start enforces the same flag
+        # server-side, so hiding the button is never the only line of defence.
+        "solo_mode_enabled": s.get("solo_mode_enabled", False),
         # Briefing videos (Read | Watch on round briefings) — player-readable;
         # cohort-effective via GOD-012. URLs only; empty/{} = text-only briefings.
         "briefing_video_base": s.get("briefing_video_base", ""),
@@ -560,7 +562,7 @@ class GlobalSettingsPatch(BaseModel):
     real_world_cards_enabled: bool | None = None
     real_world_cards_teleprompter: bool | None = None
     front_page_enabled: bool | None = None  # Feature 5: Year-5 front page reveal
-    solo_mode_enabled: bool | None = None  # login-screen "Start Solo Session" (default ON; also gates /solo-start server-side)
+    solo_mode_enabled: bool | None = None  # login-screen "Start Solo Session" (default OFF; lead-fac/super toggle; also gates /solo-start server-side)
     consequence_replay_enabled: bool | None = None  # WOW-1: post-commit causal chain animation
     debrief_protocol_enabled: bool | None = None
     self_learning_mode: bool | None = None
@@ -649,6 +651,43 @@ async def patch_global_settings(body: GlobalSettingsPatch, request: Request, _gu
         "settings": {k: _god_mode_settings.get(k) for k in update_data},
     })
     return {"status": "ok", "settings": _god_mode_settings}
+
+
+# ── Solo-mode toggle (lead_facilitator / super_admin) ────────────────────────
+# The one platform flag a LEAD FACILITATOR may flip. The full Sim Switchboard
+# PATCH above is super_admin-gated (it controls dozens of engine settings), and
+# a lead facilitator does not have god-mode access at all — so solo access got
+# its own minimal, audited endpoint at require_lead_facilitator (admits
+# lead_facilitator, super_admin, god_mode; excludes base facilitator and
+# project_admin). It writes the SAME _god_mode_settings["solo_mode_enabled"]
+# the switchboard and the public login payload read, so there is exactly one
+# source of truth; the god-mode switchboard toggle keeps working unchanged.
+
+class SoloModeRequest(BaseModel):
+    enabled: bool
+
+
+@admin_router.get("/solo-mode", summary="Read the platform solo-session toggle")
+async def get_solo_mode(_guard: None = Depends(require_lead_facilitator)):
+    return {"solo_mode_enabled": _god_mode_settings.get("solo_mode_enabled", False) is True}
+
+
+@admin_router.patch("/solo-mode", summary="Enable/disable login-screen solo sessions (lead facilitator or super admin)")
+async def set_solo_mode(body: SoloModeRequest, request: Request, _guard: None = Depends(require_lead_facilitator)):
+    _god_mode_settings["solo_mode_enabled"] = bool(body.enabled)
+    mark_godmode_dirty()  # publish to workers + snapshot, same as the switchboard
+    _audit("solo_mode_toggled",
+           details={"enabled": bool(body.enabled)},
+           source_ip=(request.client.host if request and request.client else "unknown"))
+    try:
+        await manager.broadcast_admin({
+            "type": "settings_changed",
+            "changed_keys": ["solo_mode_enabled"],
+            "settings": {"solo_mode_enabled": bool(body.enabled)},
+        })
+    except Exception:
+        pass  # broadcast is best-effort; the write is what matters
+    return {"status": "ok", "solo_mode_enabled": bool(body.enabled)}
 
 
 # ── Apply-to-existing fan-out (Workstream D / C1 / C4) ───────────────────────
