@@ -77,14 +77,6 @@ const EMPTY_FORM = {
     notes: '',
     createdBy: '',
     dateCreated: new Date().toISOString().slice(0, 10),
-    permissions: {
-        can_undo_rounds: false,
-        can_override_decisions: false,
-        can_modify_materiality: false,
-        can_manage_auto_pause: false,
-        can_create_cohorts: false,
-        can_enable_side_tracks: false,
-    },
 };
 
 // ─── CSV/Excel Parser helpers ──────────────────────────────────────────────
@@ -157,9 +149,9 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
         } catch { return null; }
     })();
 
-    // Full permission override: super_admin operators can set ANY permission on
-    // ANY facilitator, regardless of the facilitatee's role.
-    const isElevatedOperator = operatorRole === 'super_admin';
+    // RBAC-F1 (2026-08-01): isElevatedOperator existed only to unlock the
+    // per-facilitator permission grid, which is gone — the grid granted
+    // nothing (capability comes from ROLE). Removed with its last consumer.
     const [facilitators, setFacilitators] = useState([]);
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState(null);
@@ -291,63 +283,8 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
         }
     };
 
-    // ── God Mode: inline can_create_cohorts toggle ───────────
-    // Allows super_admin operators to flip cohort-creation permission directly
-    // from the table row without opening the full edit drawer.
-    const toggleCohortCreationPermission = async (fac) => {
-        const currentVal = fac.permissions?.can_create_cohorts !== false;
-        const newVal = !currentVal;
-        // Optimistic update
-        setFacilitators(prev => prev.map(f =>
-            f.facilitator_id === fac.facilitator_id
-                ? { ...f, permissions: { ...(f.permissions || {}), can_create_cohorts: newVal } }
-                : f
-        ));
-        try {
-            const headers = { 'Content-Type': 'application/json' };
-            try {
-                const auth = JSON.parse(
-                    localStorage.getItem('godmode_auth') ||
-                    localStorage.getItem('facilitator_auth') || '{}'
-                );
-                if (auth.facilitator_id) headers['x-facilitator-id'] = auth.facilitator_id;
-            } catch { /* ignore */ }
-
-            // Send the minimal delta — backend merges with existing record
-            const res = await fetch(`${API}/api/admin/facilitators/${fac.facilitator_id}`, {
-                method: 'PUT',
-                headers,
-                credentials: 'include',
-                body: JSON.stringify({
-                    permissions: { ...(fac.permissions || {}), can_create_cohorts: newVal },
-                }),
-            });
-            if (res.ok) {
-                showToast(
-                    newVal
-                        ? `✅ Cohort creation enabled for ${fac.name}`
-                        : `🔒 Cohort creation disabled for ${fac.name}`
-                );
-            } else {
-                // Rollback on failure
-                setFacilitators(prev => prev.map(f =>
-                    f.facilitator_id === fac.facilitator_id
-                        ? { ...f, permissions: { ...(f.permissions || {}), can_create_cohorts: currentVal } }
-                        : f
-                ));
-                const err = await res.json().catch(() => ({}));
-                showToast(err.detail || 'Failed to update permission', 'error');
-            }
-        } catch {
-            // Rollback on network error
-            setFacilitators(prev => prev.map(f =>
-                f.facilitator_id === fac.facilitator_id
-                    ? { ...f, permissions: { ...(f.permissions || {}), can_create_cohorts: currentVal } }
-                    : f
-            ));
-            showToast('Network error — permission not saved', 'error');
-        }
-    };
+    // RBAC-F1: toggleCohortCreationPermission removed — the permission it
+    // flipped was never read by any authorization decision.
 
     // ── New Cohort Modal ─────────────────────────────────────────────
     const [showCohortModal, setShowCohortModal] = useState(false);
@@ -449,7 +386,6 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
             endDate: formatDateInput(fac.end_date),
             notes: fac.notes || '',
             role: fac.role || (fac.is_admin ? 'super_admin' : 'facilitator'),
-            permissions: fac.permissions || { ...EMPTY_FORM.permissions },
             // Console capabilities — hydrate from the record. (Pre-existing
             // bug fixed here: shockwaveEnabled was NOT hydrated on edit, so
             // saving any edit silently re-enabled Shockwave.)
@@ -466,23 +402,11 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     const closeDrawer = () => { setDrawerOpen(false); setStep(1); setForm({ ...EMPTY_FORM }); setEditingFacId(null); setPendingExcel(null); setExcelResult(null); setExcelPreview(null); };
 
     const updateForm = (field, value) => setForm(prev => ({ ...prev, [field]: value }));
-    const updatePermission = (key, value) => setForm(prev => ({
-        ...prev,
-        permissions: { ...prev.permissions, [key]: value },
-    }));
     const handleRoleSelect = (selectedRole) => {
         const isFac = selectedRole === 'facilitator';
         setForm(prev => ({
             ...prev,
             role: selectedRole,
-            permissions: {
-                can_undo_rounds: !isFac,
-                can_override_decisions: !isFac,
-                can_modify_materiality: !isFac,
-                can_manage_auto_pause: !isFac,
-                can_create_cohorts: !isFac,
-                can_enable_side_tracks: !isFac,
-            }
         }));
     };
 
@@ -512,7 +436,6 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 simulation_mode: form.simulationMode,
                 industry_vertical: form.industryVertical,
                 bu_substitutions: form.buSubstitutions,
-                permissions: form.permissions,
                 created_by: form.createdBy.trim(),
                 date_created: form.dateCreated,
                 role: form.role,
@@ -1146,90 +1069,11 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 </div>
             </div>
 
-            {form.role === 'super_admin' ? (
-                <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', padding: '16px', borderRadius: 10, marginBottom: '1.25rem' }}>
-                    <span style={{ fontSize: '1.25rem', marginRight: 8 }}>👑</span>
-                    <span style={{ fontSize: '0.82rem', color: '#f59e0b', fontWeight: 700 }}>Super Administrator Privileges Enabled</span>
-                    <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 6, lineHeight: 1.4 }}>Super administrators have unrestricted access across the entire platform, including user management, database resets, and all simulation orchestration tools. Permissions cannot be customized.</p>
-                </div>
-            ) : (
-                <div className={styles.permissionsSection} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '1.25rem' }}>
-                    <label className={styles.formLabel} style={{ marginBottom: '0.6rem' }}>Admin Permissions</label>
-                    <div className={styles.permGrid}>
-                        {/* God Mode Override Banner — visible only when operator is super_admin
-                             editing a plain facilitator (whose perms would normally be locked) */}
-                        {isElevatedOperator && form.role === 'facilitator' && (
-                            <div style={{
-                                gridColumn: '1 / -1',
-                                display: 'flex', alignItems: 'flex-start', gap: '10px',
-                                padding: '10px 14px',
-                                borderRadius: '8px',
-                                background: 'rgba(245,158,11,0.08)',
-                                border: '1px solid rgba(245,158,11,0.3)',
-                                marginBottom: '4px',
-                            }}>
-                                <span style={{ fontSize: '1rem', flexShrink: 0 }}>👑</span>
-                                <div>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', display: 'block' }}>
-                                        God Mode Override Active
-                                    </span>
-                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                                        All permissions are individually editable for this Facilitator.
-                                        Role-based locking is suspended for Super Administrators.
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {[
-                            { key: 'can_create_cohorts', label: 'Create Cohorts', icon: '🚀' },
-                            { key: 'can_undo_rounds', label: 'Undo Rounds', icon: '↩️' },
-                            { key: 'can_override_decisions', label: 'Override Decisions', icon: '🔧' },
-                            { key: 'can_modify_materiality', label: 'Modify Materiality', icon: '📊' },
-                            { key: 'can_manage_auto_pause', label: 'Manage Auto-Pause', icon: '⏸️' },
-                            { key: 'can_enable_side_tracks', label: 'Enable Side Tracks', icon: '🛤️' },
-                        ].map(perm => {
-                            // Elevated operators (super_admin) can set any permission on any
-                            // facilitatee regardless of role. Otherwise, plain Facilitator
-                            // role locks all permissions to their role defaults.
-                            const isEditable = isElevatedOperator || form.role !== 'facilitator';
-                            return (
-                                <div
-                                    key={perm.key}
-                                    className={`${styles.permCard} ${form.permissions[perm.key] ? styles.permCardActive : ''}`}
-                                    onClick={() => {
-                                        if (isEditable) {
-                                            updatePermission(perm.key, !form.permissions[perm.key]);
-                                        }
-                                    }}
-                                    style={{
-                                        opacity: !isEditable ? 0.5 : 1,
-                                        cursor: !isEditable ? 'not-allowed' : 'pointer',
-                                        // Subtle amber glow on god-mode-unlocked cards for a facilitator
-                                        ...(isElevatedOperator && form.role === 'facilitator' ? {
-                                            borderColor: 'rgba(245,158,11,0.25)',
-                                        } : {}),
-                                    }}
-                                >
-                                    <span className={styles.permIcon}>{perm.icon}</span>
-                                    <span className={styles.permLabel}>{perm.label}</span>
-                                    <div className={styles.permToggle}>
-                                        <div
-                                            className={styles.permToggleTrack}
-                                            style={{ background: form.permissions[perm.key] ? '#10b981' : '#475569' }}
-                                        >
-                                            <div
-                                                className={styles.permToggleThumb}
-                                                style={{ left: form.permissions[perm.key] ? '14px' : '2px' }}
-                                            />
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
+                {/* RBAC-F1 (2026-08-01): the Admin Permissions grid was REMOVED.
+                    Those toggles (can_undo_rounds, can_create_cohorts, …) were
+                    never read by any authorization decision — capability is
+                    granted by ROLE. A control that appears to grant authority and
+                    silently does not is worse than no control. Role is the lever. */}
 
             {form.role === 'super_admin' ? (
                 <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '16px', borderRadius: 10, marginTop: '1.25rem' }}>
@@ -1437,8 +1281,6 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
     // ── Step 4: Review ──────────────────────────────────────
     const renderStep4 = () => {
         const paradigmInfo = PARADIGM_LABELS[form.paradigm] || {};
-        const activePerms = Object.entries(form.permissions).filter(([_, v]) => v).length;
-        const totalPerms = Object.keys(form.permissions).length;
 
         return (
             <div className={styles.stepContent}>
@@ -1531,10 +1373,6 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                     {form.sideTracks && form.sideTracks.length > 0 ? form.sideTracks.map(tid => sideTrackCatalog.find(t => t.track_id === tid)?.display_name || tid).join(', ') : 'None'}
                                 </span>
                             </div>
-                            <div className={styles.reviewItem}>
-                                <span className={styles.reviewKey}>Permissions</span>
-                                <span className={styles.reviewValue}>{activePerms}/{totalPerms} enabled</span>
-                            </div>
                         </div>
                     </div>
                 </div>
@@ -1562,8 +1400,6 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
 
     // ── Edit form (all fields on one screen) ────────────────
     const renderEditForm = () => {
-        const activePerms = Object.entries(form.permissions).filter(([_, v]) => v).length;
-        const totalPerms = Object.keys(form.permissions).length;
         return (
             <div className={styles.stepContent}>
                 <div className={styles.stepHeader}>
@@ -1752,92 +1588,8 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                 </div>
 
                 {/* Edit Permissions */}
-                {form.role === 'super_admin' ? (
-                    <div style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem' }}>
-                        <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', padding: '16px', borderRadius: 10 }}>
-                            <span style={{ fontSize: '1.25rem', marginRight: 8 }}>👑</span>
-                            <span style={{ fontSize: '0.82rem', color: '#f59e0b', fontWeight: 700 }}>Super Administrator Privileges Enabled</span>
-                            <p style={{ fontSize: '0.72rem', color: '#94a3b8', marginTop: 6, lineHeight: 1.4 }}>Super administrators have unrestricted access across the entire platform. Permissions cannot be customized.</p>
-                        </div>
-                    </div>
-                ) : (
-                    <div className={styles.permissionsSection} style={{ marginTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.03)', paddingTop: '1rem' }}>
-                        <label className={styles.formLabel} style={{ marginBottom: '0.6rem' }}>Admin Permissions</label>
-                        <div className={styles.permGrid}>
-                            {/* God Mode Override Banner — shown in edit drawer when operator is
-                             super_admin and the target is a plain Facilitator */}
-                        {isElevatedOperator && form.role === 'facilitator' && (
-                            <div style={{
-                                gridColumn: '1 / -1',
-                                display: 'flex', alignItems: 'flex-start', gap: '10px',
-                                padding: '10px 14px',
-                                borderRadius: '8px',
-                                background: 'rgba(245,158,11,0.08)',
-                                border: '1px solid rgba(245,158,11,0.3)',
-                                marginBottom: '4px',
-                            }}>
-                                <span style={{ fontSize: '1rem', flexShrink: 0 }}>👑</span>
-                                <div>
-                                    <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#f59e0b', display: 'block' }}>
-                                        God Mode Override Active
-                                    </span>
-                                    <span style={{ fontSize: '0.68rem', color: '#94a3b8', lineHeight: 1.4 }}>
-                                        All permissions are individually editable for this Facilitator.
-                                        Role-based locking is suspended for Super Administrators.
-                                    </span>
-                                </div>
-                            </div>
-                        )}
-
-                        {[
-                                { key: 'can_create_cohorts', label: 'Create Cohorts', icon: '🚀' },
-                                { key: 'can_undo_rounds', label: 'Undo Rounds', icon: '↩️' },
-                                { key: 'can_override_decisions', label: 'Override Decisions', icon: '🔧' },
-                                { key: 'can_modify_materiality', label: 'Modify Materiality', icon: '📊' },
-                                { key: 'can_manage_auto_pause', label: 'Manage Auto-Pause', icon: '⏸️' },
-                                { key: 'can_enable_side_tracks', label: 'Enable Side Tracks', icon: '🛤️' },
-                            ].map(perm => {
-                                // Elevated operators (super_admin) can set any permission on any
-                                // facilitatee regardless of role. Otherwise, plain Facilitator
-                                // role locks all permissions to their role defaults.
-                                const isEditable = isElevatedOperator || form.role !== 'facilitator';
-                                return (
-                                    <div
-                                        key={perm.key}
-                                        className={`${styles.permCard} ${form.permissions[perm.key] ? styles.permCardActive : ''}`}
-                                        onClick={() => {
-                                            if (isEditable) {
-                                                updatePermission(perm.key, !form.permissions[perm.key]);
-                                            }
-                                        }}
-                                        style={{
-                                            opacity: !isEditable ? 0.5 : 1,
-                                            cursor: !isEditable ? 'not-allowed' : 'pointer',
-                                            // Subtle amber glow on god-mode-unlocked cards for a facilitator
-                                            ...(isElevatedOperator && form.role === 'facilitator' ? {
-                                                borderColor: 'rgba(245,158,11,0.25)',
-                                            } : {}),
-                                        }}
-                                    >
-                                        <span className={styles.permIcon}>{perm.icon}</span>
-                                        <span className={styles.permLabel}>{perm.label}</span>
-                                        <div className={styles.permToggle}>
-                                            <div
-                                                className={styles.permToggleTrack}
-                                                style={{ background: form.permissions[perm.key] ? '#10b981' : '#475569' }}
-                                            >
-                                                <div
-                                                    className={styles.permToggleThumb}
-                                                    style={{ left: form.permissions[perm.key] ? '14px' : '2px' }}
-                                                />
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
+                {/* RBAC-F1 (2026-08-01): Admin Permissions grid REMOVED here too —
+                    see the create-form note. Role is the sole capability lever. */}
 
                 <div className={styles.stepNavigation} style={{ marginTop: '1.5rem' }}>
                     <button className={styles.navBtnSecondary} onClick={closeDrawer} disabled={creating}>Cancel</button>
@@ -2396,113 +2148,19 @@ export default function FacilitatorManager({ onNavigate, authContext }) {
                                                     title={`Open Facilitator dashboard for ${fac.name}`}
                                                     style={{ color: '#60a5fa', borderColor: 'rgba(59,130,246,0.3)' }}
                                                 >🔗</button>
-                                                {/* ── Cohort Creation button ───────────────────────────────
-                                                 *  Elevated operators (super_admin / God Mode) always see a
-                                                 *  live 🚀 button plus an inline toggle pill to flip
-                                                 *  can_create_cohorts without opening the edit drawer.
-                                                 *  Non-elevated operators see the original behaviour.
-                                                 * ──────────────────────────────────────────────────────── */}
-                                                {isElevatedOperator ? (
-                                                    <>
-                                                        {/* Inline can_create_cohorts toggle pill */}
-                                                        <button
-                                                            onClick={() => toggleCohortCreationPermission(fac)}
-                                                            title={
-                                                                fac.permissions?.can_create_cohorts !== false
-                                                                    ? `Disable cohort creation for ${fac.name}`
-                                                                    : `Enable cohort creation for ${fac.name}`
-                                                            }
-                                                            style={{
-                                                                display: 'inline-flex',
-                                                                alignItems: 'center',
-                                                                gap: '4px',
-                                                                padding: '2px 8px',
-                                                                borderRadius: '20px',
-                                                                border: fac.permissions?.can_create_cohorts !== false
-                                                                    ? '1px solid rgba(16,185,129,0.4)'
-                                                                    : '1px solid rgba(245,158,11,0.4)',
-                                                                background: fac.permissions?.can_create_cohorts !== false
-                                                                    ? 'rgba(16,185,129,0.1)'
-                                                                    : 'rgba(245,158,11,0.08)',
-                                                                color: fac.permissions?.can_create_cohorts !== false
-                                                                    ? '#34d399'
-                                                                    : '#f59e0b',
-                                                                fontSize: '0.6rem',
-                                                                fontWeight: 700,
-                                                                letterSpacing: '0.04em',
-                                                                cursor: 'pointer',
-                                                                textTransform: 'uppercase',
-                                                                transition: 'all 0.15s ease',
-                                                                flexShrink: 0,
-                                                            }}
-                                                        >
-                                                            {/* Toggle track */}
-                                                            <span style={{
-                                                                position: 'relative',
-                                                                display: 'inline-block',
-                                                                width: '22px',
-                                                                height: '12px',
-                                                                borderRadius: '6px',
-                                                                background: fac.permissions?.can_create_cohorts !== false
-                                                                    ? '#10b981'
-                                                                    : '#f59e0b',
-                                                                transition: 'background 0.2s',
-                                                                flexShrink: 0,
-                                                            }}>
-                                                                <span style={{
-                                                                    position: 'absolute',
-                                                                    top: '2px',
-                                                                    left: fac.permissions?.can_create_cohorts !== false ? '12px' : '2px',
-                                                                    width: '8px',
-                                                                    height: '8px',
-                                                                    borderRadius: '50%',
-                                                                    background: '#fff',
-                                                                    transition: 'left 0.2s',
-                                                                }} />
-                                                            </span>
-                                                            Cohorts
-                                                        </button>
-
-                                                        {/* 🚀 always clickable for God Mode operators */}
-                                                        <button
-                                                            className={styles.actionBtn}
-                                                            onClick={() => handleOpenNewCohort(fac.facilitator_id)}
-                                                            title={
-                                                                fac.permissions?.can_create_cohorts !== false
-                                                                    ? `Set up a new cohort for ${fac.name}`
-                                                                    : `God Mode override — create cohort for ${fac.name} (permission is off)`
-                                                            }
-                                                            style={{
-                                                                color: fac.permissions?.can_create_cohorts !== false
-                                                                    ? '#34d399'
-                                                                    : '#f59e0b',
-                                                                borderColor: fac.permissions?.can_create_cohorts !== false
-                                                                    ? 'rgba(16,185,129,0.3)'
-                                                                    : 'rgba(245,158,11,0.35)',
-                                                            }}
-                                                        >
-                                                            🚀
-                                                        </button>
-                                                    </>
-                                                ) : fac.permissions?.can_create_cohorts !== false ? (
-                                                    <button
-                                                        className={styles.actionBtn}
-                                                        onClick={() => handleOpenNewCohort(fac.facilitator_id)}
-                                                        title={`Set up a new cohort for ${fac.name}`}
-                                                        style={{ color: '#34d399', borderColor: 'rgba(16,185,129,0.3)' }}
-                                                    >
-                                                        🚀
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        className={styles.actionBtn}
-                                                        disabled
-                                                        title="Cohort creation disabled for this facilitator"
-                                                        style={{ color: '#475569', borderColor: 'rgba(71,85,105,0.2)', cursor: 'not-allowed', opacity: 0.4 }}
-                                                    >
-                                                        🚀
-                                                    </button>
-                                                )}
+                                                {/* RBAC-F1 (2026-08-01): the inline can_create_cohorts
+                                                    pill and its permission-conditional 🚀 variants were
+                                                    removed — the permission gated nothing (the server
+                                                    authorises cohort creation by ROLE), so both the
+                                                    toggle and the disabled button lied. One plain action. */}
+                                                <button
+                                                    className={styles.actionBtn}
+                                                    onClick={() => handleOpenNewCohort(fac.facilitator_id)}
+                                                    title={`Set up a new cohort for ${fac.name}`}
+                                                    style={{ color: '#34d399', borderColor: 'rgba(16,185,129,0.3)' }}
+                                                >
+                                                    🚀
+                                                </button>
                                                 <button className={styles.actionBtn} onClick={() => handleResetPassword(fac.facilitator_id)} title="Reset password">🔑</button>
                                                 <button
                                                     className={styles.deleteBtn}

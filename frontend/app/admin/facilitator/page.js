@@ -102,13 +102,12 @@ function FacilitatorLoginGate({ onLogin }) {
                 // Sensitive profile fields (email, contact, programme) must not
                 // be persisted to localStorage — XSS can read everything there.
                 // The JWT cookie (HttpOnly) holds the real session credential.
-                // F-7 (v3/S5): `permissions` is a display-safe boolean map the
-                // backend has always returned — the destructure dropped it, so
-                // the UI couldn't know e.g. can_create_cohorts. Still C-2
-                // compliant: booleans only, no PII.
-                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, permissions } = data;
+                // RBAC-F1 (2026-08-01): `permissions` is no longer cached — the
+                // server no longer sends it and nothing reads it. Capability is
+                // role-derived (allowed_tabs + server-side guards).
+                const { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password } = data;
                 localStorage.setItem('facilitator_auth', JSON.stringify(
-                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password, permissions }
+                    { facilitator_id, role, allowed_tabs, is_admin, username, name, shockwave_enabled, trading_floor_enabled, situation_room_enabled, must_change_password }
                 ));
                 onLogin(data);
             } else {
@@ -339,7 +338,6 @@ export default function FacilitatorPage() {
                             role: data.role,
                             is_admin: data.is_admin ?? (data.role === 'super_admin'),
                             allowed_tabs: data.allowed_tabs || cachedAuth.allowed_tabs,
-                            permissions: data.permissions || cachedAuth.permissions,
                             name: data.name || cachedAuth.name,
                             username: data.username ?? cachedAuth.username,
                             shockwave_enabled: data.shockwave_enabled ?? cachedAuth.shockwave_enabled,
@@ -911,15 +909,15 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                                 ) : null}
                             </div>
                         )}
-                        {/* F-7 (v3/S5): the button's truth is the per-profile
-                            can_create_cohorts permission (toggled in the
-                            Registry), not the role string. Fallback to the old
-                            role heuristic when the flag is absent (older cached
-                            auth / project_admin virtual account). */}
+                        {/* RBAC-F1/F2 (2026-08-01): this used to read the
+                            per-profile can_create_cohorts permission, which
+                            enforced nothing server-side — the button and the
+                            Registry tab's own button disagreed, and the API
+                            allowed either way. The permission is gone; the
+                            role heuristic is now the single UI rule and it
+                            matches the Registry tab's gate exactly. */}
                         <DashboardHome leaderboard={leaderboard} onNavigate={setActiveTab} selectedSession={selectedSession} onCreateCohort={(
-                            authData.permissions?.can_create_cohorts !== undefined
-                                ? authData.permissions.can_create_cohorts !== false
-                                : (authData.role || 'facilitator') !== 'facilitator'
+                            (authData.role || 'facilitator') !== 'facilitator'
                         ) ? () => setCreateCohortOpen(true) : null} canAccessTab={canAccessTab} role={authData.role || 'facilitator'} />
                         <CreateCohortModal
                             isOpen={createCohortOpen}

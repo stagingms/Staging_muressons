@@ -59,8 +59,15 @@ _ASSIGNABLE_ROLES = {"super_admin", "admin", "lead_facilitator", "facilitator", 
 def assignable_roles_for(caller_role: str) -> set[str]:
     """C1/P1: which roles a caller of ``caller_role`` may grant when creating or
     updating a facilitator. A caller may never grant a role above its own tier,
-    and project_admin (a provisioning role) may grant only lead_facilitator and
-    facilitator. god_mode is never assignable by anyone."""
+    and god_mode is never assignable by anyone.
+
+    RBAC-F5a (2026-08-01): project_admin is the ONE deliberate exception to the
+    'never above your own tier' rule, and it is NOT a level comparison. Its
+    level (0) places it OFF the run ladder — a run-authority ranking, not a
+    provisioning-authority ranking. As a provisioning role its whole job is to
+    stand up facilitators (including leads), so it may grant lead_facilitator
+    and facilitator despite sitting below them on the RUN ladder. It may never
+    grant super_admin or god_mode, so it cannot escalate."""
     if caller_role == "project_admin":
         return {"lead_facilitator", "facilitator"}
     caller_level = ROLE_HIERARCHY.get(caller_role, 0)

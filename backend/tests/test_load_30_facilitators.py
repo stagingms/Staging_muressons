@@ -97,16 +97,18 @@ async def create_facilitators(client: httpx.AsyncClient) -> List[Dict]:
     print("\n[Phase 2] Creating 30 facilitators …")
     names = [f"LoadTest Fac {i:02d}" for i in range(1, NUM_FACILITATORS + 1)]
 
-    # Batch-create all 30 in one call
-    r = await timed(client, "post", f"{BASE}/api/admin/facilitators/batch",
-                    "batch_create",
-                    json={"names": names})
+    # Bulk-create all 30 in one call. /facilitators/batch was removed
+    # 2026-08-01 (RBAC-F4) as a divergent-authz duplicate; /facilitators/bulk
+    # is the single creation path.
+    r = await timed(client, "post", f"{BASE}/api/admin/facilitators/bulk",
+                    "bulk_create",
+                    json={"facilitators": [{"name": n} for n in names]})
     if r is None or r.status_code != 200:
-        print(f"  FATAL: batch create failed — {r and r.text[:200]}")
+        print(f"  FATAL: bulk create failed — {r and r.text[:200]}")
         return []
 
-    created = r.json()["created"]
-    print(f"  Created {len(created)} facilitators via batch endpoint")
+    created = r.json()["facilitators"]
+    print(f"  Created {len(created)} facilitators via bulk endpoint")
 
     # Update max_cohorts to 10 and promote first NUM_LEAD to lead_facilitator
     update_tasks = []

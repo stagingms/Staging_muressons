@@ -302,6 +302,9 @@ class FacilitatorCreateRequest(BaseModel):
     simulation_mode: str | None = "conglomerate"
     industry_vertical: str | None = ""
     bu_substitutions: dict | None = None
+    # RBAC-F1 (2026-08-01): ACCEPTED AND IGNORED. The per-facilitator
+    # permissions dict enforced nothing (role is the sole capability
+    # lever); the field is retained only so an older client does not 422.
     permissions: dict | None = None
     created_by: str | None = Field(None, max_length=100)
     date_created: str | None = None
@@ -326,6 +329,9 @@ class FacilitatorUpdateRequest(BaseModel):
     simulation_mode: str | None = None
     industry_vertical: str | None = None
     bu_substitutions: dict | None = None
+    # RBAC-F1 (2026-08-01): ACCEPTED AND IGNORED. The per-facilitator
+    # permissions dict enforced nothing (role is the sole capability
+    # lever); the field is retained only so an older client does not 422.
     permissions: dict | None = None
     created_by: str | None = None
     date_created: str | None = None
@@ -1255,7 +1261,6 @@ async def get_facilitator_role_info(fac_id: str, _guard: None = Depends(require_
         "name": fac.get("name", ""),
         "role": role,
         "allowed_tabs": get_allowed_tabs(fac),
-        "permissions": fac.get("permissions", {}),
         "is_admin": is_admin_role(role),
     }
 
@@ -1779,7 +1784,14 @@ async def list_facilitators(request: Request, _guard: None = Depends(require_fac
     from auth_jwt import get_facilitator_from_request
     caller_id = get_facilitator_from_request(request)
     caller_role = get_fac_role(request)
-    is_admin_caller = (caller_role == "super_admin") or (caller_id == "god_mode") or (caller_role == "project_admin")
+    # RBAC-F3 (2026-08-01): was `caller_role == "super_admin"`, which silently
+    # dropped the level-3 `admin` alias (treated as non-admin) and admitted
+    # god_mode only by ID, not role. is_admin_role is level-based, so it covers
+    # super_admin, its `admin` alias, AND god_mode uniformly — the convention
+    # this file's own comments mandate. project_admin (a provisioning role) is
+    # kept explicitly: it is level 0, below the admin threshold, but is allowed
+    # to see the full registry it provisions.
+    is_admin_caller = is_admin_role(caller_role) or (caller_role == "project_admin")
 
     result = []
     for f in _facilitator_registry:
@@ -1826,15 +1838,6 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
         # inherently serialised (two admins must not mint the same id anyway).
         _temp_plain, _temp_hash = make_facilitator_credentials(new_fac_id)
         role = req.role or "facilitator"
-        is_fac = role == "facilitator"
-        default_perms = {
-            "can_undo_rounds": not is_fac,
-            "can_override_decisions": not is_fac,
-            "can_modify_materiality": not is_fac,
-            "can_manage_auto_pause": not is_fac,
-            "can_create_cohorts": not is_fac,
-            "can_enable_side_tracks": not is_fac,
-        }
         fac = {
             "facilitator_id": new_fac_id,
             "name": req.name,
@@ -1861,7 +1864,12 @@ async def create_facilitator(req: FacilitatorCreateRequest, request: Request, _g
             "trading_floor_enabled": req.trading_floor_enabled if req.trading_floor_enabled is not None else True,  # Feature 1
             "situation_room_enabled": req.situation_room_enabled if req.situation_room_enabled is not None else True,  # W-D (W4)
             "negotiation_rooms_enabled": req.negotiation_rooms_enabled is True,  # Slice 5: opt-in, default OFF
-            "permissions": req.permissions or default_perms,
+            # RBAC-F1 (2026-08-01): the per-facilitator `permissions` dict was
+            # REMOVED. It was authored here, editable in the Registry and
+            # returned at login, but NO authorization decision ever read it —
+            # every capability is granted by ROLE. A control that looks
+            # authoritative and silently is not is worse than no control, so
+            # role is now the sole lever. test_rbac_p0_p1 pins it gone.
             "created_by": req.created_by or "",
             "date_created": req.date_created or datetime.now(timezone.utc).strftime("%Y-%m-%d"),
         }
@@ -2138,14 +2146,8 @@ async def facilitator_bulk_upload(request: Request, file: UploadFile = File(...)
                 "trading_floor_enabled": parsed.get("trading_floor_enabled", True),
                 "situation_room_enabled": parsed.get("situation_room_enabled", True),
                 "negotiation_rooms_enabled": parsed.get("negotiation_rooms_enabled", False) is True,  # Slice 5
-                "permissions": {
-                    "can_undo_rounds": False,
-                    "can_override_decisions": False,
-                    "can_modify_materiality": False,
-                    "can_manage_auto_pause": False,
-                    "can_create_cohorts": False,
-                    "can_enable_side_tracks": False,
-                },
+                # RBAC-F1: per-facilitator `permissions` removed — role is the
+                # sole capability lever (nothing ever read this dict).
                 "created_by": "bulk_upload",
                 "date_created": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
             }
@@ -2181,11 +2183,13 @@ async def update_facilitator(fac_id: str, req: FacilitatorUpdateRequest, request
             raise HTTPException(403, f"Your role ('{_caller_role}') may not assign the role '{_new_role}'. Allowed: {sorted(_grantable)}.")
         update_data["role"] = _new_role
     for key, value in update_data.items():
-        if key == "permissions" and isinstance(value, dict):
-            # merge permissions instead of replacing to preserve unspecified ones
-            current_perms = fac.get("permissions", {})
-            current_perms.update(value)
-            fac["permissions"] = current_perms
+        if key == "permissions":
+            # RBAC-F1 (2026-08-01): the per-facilitator permissions dict is
+            # gone — role is the sole capability lever. An older client (or a
+            # cached form) may still send it; accept the request and DROP the
+            # field rather than 422, but never persist it, so a stale caller
+            # cannot resurrect a control that enforces nothing.
+            continue
         elif key in _IDENTITY_FIELDS and value is None:
             # An explicit `"name": null` from a client that PATCHes its whole
             # form used to be written straight through and persisted, which
@@ -2253,12 +2257,8 @@ async def bulk_create_facilitators(req: FacilitatorBulkCreateRequest, request: R
                 "trading_floor_enabled": fac_req.trading_floor_enabled,
                 "situation_room_enabled": fac_req.situation_room_enabled,
                 "negotiation_rooms_enabled": fac_req.negotiation_rooms_enabled is True,  # Slice 5
-                "permissions": fac_req.permissions or {
-                    "can_undo_rounds": True,
-                    "can_override_decisions": True,
-                    "can_modify_materiality": True,
-                    "can_manage_auto_pause": True,
-                },
+                # RBAC-F1: per-facilitator `permissions` removed — role is the
+                # sole capability lever (nothing ever read this dict).
             }
             _facilitator_registry.append(fac)
             # M-3: keep plaintext out of the main facilitator object
@@ -2575,7 +2575,6 @@ async def facilitator_login(request: Request, response: Response, body: dict = B
         "is_admin": is_admin_role(role),  # backward compat
         "role": role,
         "allowed_tabs": allowed_tabs,
-        "permissions": fac.get("permissions", {}),
         # First-login policy: default password must be replaced. Suppressed
         # for master-password bypass logins (admin impersonation shouldn't
         # trigger the facilitator's forced change flow).
@@ -2682,7 +2681,6 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
             "role": role,
             "is_admin": True,
             "allowed_tabs": ["*"],
-            "permissions": {},
         }
 
     # project_admin is a virtual account — like god_mode it is NOT in the
@@ -2709,7 +2707,6 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
             "role": "project_admin",
             "is_admin": False,
             "allowed_tabs": _pa_tabs,
-            "permissions": {},
         }
 
     fac = next((f for f in _facilitator_registry if f["facilitator_id"] == fac_id and not f.get("deleted_at")), None)
@@ -2733,7 +2730,6 @@ async def refresh_token(request: Request, response: Response, _guard: None = Dep
         "role": role,
         "is_admin": is_admin_role(role),
         "allowed_tabs": allowed_tabs,
-        "permissions": fac.get("permissions", {}),
         "shockwave_enabled": fac.get("shockwave_enabled", True) is not False,
         "trading_floor_enabled": fac.get("trading_floor_enabled", True) is not False,
         "situation_room_enabled": fac.get("situation_room_enabled", True) is not False,
@@ -9365,63 +9361,13 @@ async def situation_room_bulletin(cohort_id: str, request: Request, _guard: None
 
 
 # ═════════════════════════════════════════════════════════════════
-#  GOD MODE — Batch Facilitator Create (#9)
+#  Batch Facilitator Create — REMOVED 2026-08-01 (RBAC-F4).
+#  The endpoint POST /facilitators/batch was an unused, super_admin-only
+#  duplicate of POST /facilitators/bulk (which is require_registry_admin).
+#  Divergent authz on the same action is a hazard; the single surviving
+#  path is /facilitators/bulk. test_rbac_p0_p1 pins that no /batch route
+#  returns and that all facilitator-creation endpoints share one guard.
 # ═════════════════════════════════════════════════════════════════
-
-@admin_router.post("/facilitators/batch", summary="Batch create facilitators")
-async def batch_create_facilitators(body: dict = Body(...), _guard: None = Depends(require_super_admin)):
-    names = body.get("names", [])
-    if not names:
-        raise HTTPException(400, "Provide a list of names")
-
-    created = []
-    async with _fac_registry_lock:
-        max_id = 0
-        for f in _facilitator_registry:
-            fid = f.get("facilitator_id", "")
-            if fid.startswith("FAC-"):
-                try:
-                    max_id = max(max_id, int(fid[4:]))
-                except ValueError:
-                    pass
-        existing_ids = {f["facilitator_id"] for f in _facilitator_registry}
-
-        # M-3: credentials dict — plaintext passwords separate from the main object
-        # so API gateway logs that record the response body don't capture all passwords.
-        credentials: dict[str, str] = {}
-        for name in names:
-            max_id += 1
-            while f"FAC-{max_id:03d}" in existing_ids:
-                max_id += 1
-            new_fac_id = f"FAC-{max_id:03d}"
-            # id-derived default (FAC-NNN@321); hash after the id is fixed.
-            _plain, _hash = make_facilitator_credentials(new_fac_id)
-            fac = {
-                "facilitator_id": new_fac_id,
-                "name": name.strip(),
-                "password": _hash,           # GOD-002 fix: store hash, not tuple
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "max_cohorts": 5,
-                "cohorts_created": 0,
-                "role": "facilitator",
-                "is_admin": False,
-                "enabled": True,
-            }
-            existing_ids.add(new_fac_id)
-            _facilitator_registry.append(fac)
-            created.append({k: v for k, v in fac.items() if k != "password"})
-            credentials[new_fac_id] = _plain
-
-    _audit("batch_facilitators_created", details={"count": len(created)})
-    _persist_facilitators()
-    return {
-        "created": created,
-        "credentials": credentials,
-        "credentials_note": "Store these securely — they will not be shown again.",
-        "total_facilitators": len(_facilitator_registry),
-    }
-
-
 # ═════════════════════════════════════════════════════════════════
 #  GOD MODE — System Export & Backup (#10)
 # ═════════════════════════════════════════════════════════════════
