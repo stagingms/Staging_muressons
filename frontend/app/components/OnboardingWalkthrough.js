@@ -219,7 +219,25 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
           {/* Invisible click blocker — prevents interaction with cockpit while tour runs */}
           <div style={{ position: 'absolute', inset: 0, zIndex: 1, pointerEvents: 'all' }} />
 
-          {/* Spotlight Cutout Overlay */}
+          {/* Spotlight Cutout Overlay.
+
+              VEIL OPACITY (2026-08-01): both branches used to sit at 0.75,
+              which reads as "the briefing and workspace are blacked out". Two
+              different jobs need two different weights:
+
+                * SPOTLIGHT branch — a real element is highlighted, so the veil
+                  must push everything else back while the ring draws the eye.
+                  0.55 still does that, and the cockpit stays legible behind it
+                  (context is the point of an orientation tour).
+
+                * NO-TARGET branch — reached whenever a step's element is not
+                  mounted yet, which is NORMAL, not an error: the Capital
+                  Allocation panel (tour-capital-target) only exists inside the
+                  deep-dive stage, so during Foundation the tour describes it
+                  while it is legitimately absent. With nothing to highlight,
+                  the veil's only job is to seat the card — at 0.75 it just
+                  hid the whole cockpit for no benefit. 0.38 keeps the card
+                  dominant while the screen behind it stays readable. */}
           {spot.w > 0 && spot.h > 0 ? (
             <div style={{
               position: 'absolute',
@@ -234,12 +252,12 @@ export default function OnboardingWalkthrough({ onComplete, roundNumber, decisio
               transition: 'all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)',
               pointerEvents: 'none',
               /* The 9999px box-shadow creates the dark overlay outside the box, while the box itself remains transparent */
-              boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.75), 0 0 20px rgba(165, 180, 252, 0.15)',
+              boxShadow: '0 0 0 9999px rgba(15, 23, 42, 0.55), 0 0 20px rgba(165, 180, 252, 0.15)',
             }} />
           ) : (
             <div style={{
               position: 'absolute', inset: 0,
-              background: 'rgba(15, 23, 42, 0.75)',
+              background: 'rgba(15, 23, 42, 0.38)',
               zIndex: 2, pointerEvents: 'none'
             }} />
           )}
