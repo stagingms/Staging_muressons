@@ -45,6 +45,17 @@ ROLE_HIERARCHY = {
     # name (require_registry_admin), not by level, and its run exclusion is
     # enforced by require_sim_manager. Level 0 (not the old 1) removes the
     # has_role_level(project_admin,'facilitator')==True inversion.
+    #
+    # RBAC-F5b (2026-08-01): project_admin exists in TWO forms, both legitimate
+    # and identical at every guard — the docs used to say only "virtual":
+    #   * VIRTUAL   — the PROJECT_ADMIN_PASSWORD break-glass identity (literal
+    #                 id "project_admin", one shared secret, no individual
+    #                 accountability; disabled when the env var is unset).
+    #   * REGISTRY  — a normal FAC-NNN account carrying role "project_admin",
+    #                 assignable by a super_admin. PREFERRED for a named
+    #                 programme administrator: per-person, auditable, revocable.
+    # Level 0 ranks RUN authority, not provisioning authority — see
+    # assignable_roles_for, which is why a level-0 role may still mint leads.
     "project_admin": 0,
 }
 
@@ -67,7 +78,20 @@ def assignable_roles_for(caller_role: str) -> set[str]:
     provisioning-authority ranking. As a provisioning role its whole job is to
     stand up facilitators (including leads), so it may grant lead_facilitator
     and facilitator despite sitting below them on the RUN ladder. It may never
-    grant super_admin or god_mode, so it cannot escalate."""
+    grant super_admin or god_mode, nor another project_admin, so the delegation
+    cannot spread.
+
+    RBAC-F5b — THE TRUST MODEL, stated plainly because it is easy to miss:
+    whoever provisions an account learns its initial credential (returned once
+    at creation, and defaults are the deterministic FAC-NNN@321). A
+    project_admin can therefore mint a lead_facilitator and sign in as it
+    before the intended owner does, acquiring the run rights its own role is
+    denied. That is inherent to delegated provisioning, not a hole in these
+    checks: must_change_password makes the takeover VISIBLE (the rightful owner
+    finds their default rejected), and the ceiling above stops it reaching
+    admin tiers. Give project_admin only to someone you would be willing to
+    make a lead facilitator. To make it strictly weaker, return just
+    {"facilitator"} here — one line."""
     if caller_role == "project_admin":
         return {"lead_facilitator", "facilitator"}
     caller_level = ROLE_HIERARCHY.get(caller_role, 0)

@@ -4491,6 +4491,23 @@ async def list_sessions(facilitator_id: Optional[str] = None, _guard: None = Dep
     summary="Generate a new allowed player ID and password",
 )
 async def generate_player_id(session_id: str, _guard: None = Depends(require_sim_manager)):
+    """Mint one player id (and its default credential) for a cohort.
+
+    RBAC-F6 — the cohort SHELL / cohort ROSTER seam, deliberate and worth
+    stating because it surprises people: require_sim_manager EXCLUDES
+    project_admin, so a project_admin who just created this cohort cannot add a
+    single player to it. That is correct — a player id is a live-run credential,
+    so issuing one is run management, and project_admin's charter is explicitly
+    "provisions facilitators + cohorts, NEVER manages runs". A cohort handed
+    over with an empty roster is a COMPLETE provisioning deliverable; the
+    facilitator who will run it generates the roster (and distributes the
+    passwords, which is also their job).
+
+    If that workflow ever needs to change, widen this to project_admin ONLY for
+    a not-yet-started cohort — round 1, no players joined — mirroring the
+    pre-start window patch_session_metadata already enforces. Never for a live
+    run.
+    """
     # Enforce the per-cohort roster cap at ID generation time.
     from player_capacity import resolve_max_players, capacity_error
     sess_check = await db.get_session_info(session_id)

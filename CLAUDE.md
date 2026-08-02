@@ -53,7 +53,7 @@ commit.
 | `admin` | 3 | Alias of `super_admin` (kept so the level is never undefined). |
 | `lead_facilitator` | 2 | Facilitator plus overrides / undo / auto-pause. (NOT materiality — the Materiality Matrix editor is super-admin only.) |
 | `facilitator` | 1 | Base simulation operator (own sessions). |
-| `project_admin` | 0 | Virtual (env-password) **provisioning-only** role — creates facilitators + cohorts. A **distinct role, OFF the run ladder** (level 0, below facilitator), NEVER manages runs. |
+| `project_admin` | 0 | **Provisioning-only** role — creates facilitators + cohorts, NEVER manages runs. A **distinct role, OFF the run ladder** (level 0, below facilitator). Exists in **two forms** (RBAC-F5b): a *virtual* break-glass identity via `PROJECT_ADMIN_PASSWORD` (one shared secret, no individual accountability — disabled when the env var is unset), and a *registry* account (`FAC-NNN` with `role: project_admin`, assignable by a super_admin) which is the preferred form for a named programme administrator because it is per-person, auditable and revocable. Both behave identically at every guard. |
 | *Player* | — | **Separate authz realm** — not in `ROLE_HIERARCHY`. Authenticated via `X-Player-Id` + session-ownership (SEC-3), never a facilitator role. |
 
 Conventions when touching auth:
@@ -76,3 +76,22 @@ Conventions when touching auth:
    a caller may never grant a role above its own tier, `project_admin` may grant
    only `lead_facilitator`/`facilitator`, and `god_mode` is never grantable by
    anyone.
+4. **Provisioning implies impersonation — that is the trust model, not a bug**
+   (RBAC-F5b). Whoever creates an account learns its initial credential (it is
+   returned once, and defaults are the deterministic `FAC-NNN@321`). A
+   `project_admin` can therefore mint a `lead_facilitator` and sign in as it
+   before the real person does, gaining run rights its own role forbids.
+   `must_change_password` makes the takeover visible (the rightful owner finds
+   their default rejected), and project_admin cannot mint admin tiers or another
+   project_admin, so it cannot spread. Give project_admin only to someone you
+   would be willing to make a lead facilitator. To make it strictly weaker,
+   narrow its grants to `facilitator` in `assignable_roles_for` — one line.
+5. **Cohort SHELL vs cohort ROSTER is a deliberate seam** (RBAC-F6).
+   `project_admin` may create a cohort (`/simulations/start`) but every
+   player-id mint is `require_sim_manager`, which excludes it — player ids are
+   live-run credentials, so issuing them is run management. A cohort handed over
+   with an empty roster is a COMPLETE provisioning deliverable; the facilitator
+   who runs it generates and distributes the roster. If this ever needs to
+   change, widen `generate-player` only for a not-yet-started cohort (round 1,
+   no players joined) — the same pre-start window `patch_session_metadata`
+   already uses — never for a live run.
