@@ -13,7 +13,7 @@ import { useState, useEffect, useCallback } from 'react';
 const BASE_STEPS = [
   {
     title: 'Welcome to the Executive Cockpit',
-    body: 'You are the Chief Sustainability Officer of Muressons Global — a diversified conglomerate with 4 business units. Your decisions over 10 rounds will shape the company\'s future.',
+    body: 'You are the Chief Sustainability Officer of Muressons Global — a diversified conglomerate with 4 business units. OBJECTIVE: finish Year 5 (Round 10) with the strongest Terminal Valuation and Regenerative Multiple (M_R) \u2014 the score that prices your profits AND your impact together. Every decision moves it.',
     icon: '🏢',
     target: null, // no spotlight — centered card
   },

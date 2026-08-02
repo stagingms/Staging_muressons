@@ -40,21 +40,17 @@ export const ANALYTICS_TABS = ANALYTICS_CARDS
 // dict in admin_analytics.py — the setter endpoints silently DROP any key not
 // present there, so add keys in both places in the same commit.
 export const EXTENDED_VISIBILITY_CARDS = [
-    // ── Live cohort monitoring ──
-    { key: 'cohort_pulse', label: 'Cohort Pulse', icon: '🩺', tooltip: 'Live cohort health pulse — real-time engagement, commit progress, and sentiment across all teams in the active round. Answers: "Is the room with me right now?"' },
-    { key: 'leaderboard_matrix', label: 'Leaderboard Matrix', icon: '🥇', tooltip: 'Ranked matrix of every team across the headline KPIs (Treasury, Reputation, Synergy, M_R) with movement since last round. Answers: "Who is leading and who is falling behind?"' },
-    { key: 'session_health', label: 'Session Health', icon: '💓', tooltip: 'Operational health of the live session — player connections, commit/lock status per team, pacing drift, and stalled players. Answers: "Is the session running cleanly?"' },
-    { key: 'engine_event_feed', label: 'Engine Event Feed', icon: '📡', tooltip: 'Chronological stream of engine/complexity events fired this run (crises, shockwaves, black swans, threshold breaches). Answers: "What has the engine thrown at the teams?"' },
-    // ── Deep-dive & audit ──
-    { key: 'consequence_dna', label: 'Consequence DNA', icon: '🧬', tooltip: 'Decision→outcome causal visualiser — traces how each choice propagated through the engines into KPI movement. Answers: "Why did this team get this result?"' },
-    { key: 'decision_timeline', label: 'Decision Timeline', icon: '🧭', tooltip: 'Per-team chronology of every decision, override, and intervention across the ten rounds. Answers: "What was this team\'s narrative arc?"' },
-    { key: 'stakeholder_map', label: 'Stakeholder Map', icon: '🗺️', tooltip: 'Region-specific Mendelow stakeholder grid (power × interest) with live satisfaction/trust state per stakeholder. Answers: "Who holds leverage over these teams?"' },
-    { key: 'audit_trail', label: 'Audit Trail', icon: '📜', tooltip: 'Immutable log of facilitator actions — overrides, unlocks, injections, grading, and God-Mode changes. Answers: "What was changed, by whom, and when?"' },
-    { key: 'shadow_board_audit', label: 'Shadow Board Audit', icon: '🕵️', tooltip: 'Advanced governance audit contrasting each team\'s decisions against a shadow board\'s recommendations. Executive-tier debrief tool. Disabled by default.' },
-    // ── ESG / disclosure dashboards ──
-    { key: 'sdg_alignment', label: 'SDG Alignment Radar', icon: '🌐', tooltip: 'Radar of each cohort\'s alignment to the 17 UN SDGs derived from decisions taken. Answers: "Which goals are teams advancing or neglecting?"' },
-    { key: 'tcfd_dashboard', label: 'TCFD Scenarios', icon: '🌡️', tooltip: 'TCFD climate-scenario dashboard (orderly 1.5°C / disorderly 2°C / hothouse 4°C) with each team\'s exposure. Advanced-climate cohorts. Disabled by default.' },
-    { key: 'peer_evaluation', label: 'Peer Evaluation', icon: '🧑‍⚖️', tooltip: 'Aggregated inter-team peer-evaluation results and rubric scores. Surfaces only when the peer-evaluation exercise is run. Disabled by default.' },
+    // VIS-1 (UX audit #16a, 2026-08-02): this catalog previously listed 11 more
+    // keys (leaderboard_matrix, session_health, engine_event_feed,
+    // consequence_dna, decision_timeline, stakeholder_map, audit_trail,
+    // shadow_board_audit, sdg_alignment, tcfd_dashboard, peer_evaluation) whose
+    // toggles were rendered in cohort setup but consumed NOWHERE — flipping
+    // them changed nothing on any surface, violating this repo's own
+    // tooltip-accuracy rule (CLAUDE.md). They are removed until a component
+    // actually gates on them; re-add a key ONLY in the same commit as its
+    // consumer. cohort_pulse remains — it is consumed by
+    // admin/facilitator/page.js (isFacilitatorVisible('cohort_pulse')).
+    { key: 'cohort_pulse', label: 'Cohort Pulse', icon: '🩺', tooltip: 'Live cohort KPI heatmap (Treasury, Reputation, Carbon, Social License, Synergy and climate fields) with per-player commit status for the active round. Answers: "Is the room with me right now?"' },
 ];
 
 // Full facilitator visibility catalog (what CreateCohortModal's visibility

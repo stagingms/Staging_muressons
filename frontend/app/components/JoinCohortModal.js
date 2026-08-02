@@ -139,10 +139,14 @@ export default function JoinCohortModal({ sim }) {
                         </div>
 
                         <div className={styles.optionsRow}>
-                            <label className={styles.rememberLabel}>
-                                <input type="checkbox" className={styles.checkbox} />
-                                <span>REMEMBER STATION</span>
-                            </label>
+                            {/* TF-3 (UX audit §7.7): the "REMEMBER STATION"
+                                checkbox was an unbound input — no state, no
+                                handler, no effect. Dead UI on the first screen
+                                a participant ever sees; removed. In its place,
+                                the one fact worth stating here: */}
+                            <span style={{ fontSize: '0.68rem', color: '#94a3b8', letterSpacing: '0.03em' }}>
+                                One login per person — you run your own company.
+                            </span>
                             <button
                                 type="button"
                                 onClick={() => setShowChangePassword(true)}

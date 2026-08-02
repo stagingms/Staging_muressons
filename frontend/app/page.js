@@ -760,9 +760,13 @@ export default function CockpitPage() {
     // Mark this round's briefing as seen so it doesn't re-open
     seenBriefingRoundsRef.current.add(roundNumber);
     setShowDesktop(false);
-    // Phase 2.1: Go directly to onboarding tour (ROUND 1 ONLY)
+    // Phase 2.1: Go directly to onboarding tour (ROUND 1 ONLY).
+    // OB-1 (UX audit #10): completion is now persisted per session — a
+    // refresh during Round 1 no longer replays the whole 7-step tour.
     if (roundNumber === 1) {
-      setShowOnboarding(true);
+      let seen = false;
+      try { seen = localStorage.getItem(`mur_tour_done_${sim.sessionId || ''}`) === '1'; } catch { /* private mode */ }
+      if (!seen) setShowOnboarding(true);
     }
   };
 
@@ -785,7 +789,13 @@ export default function CockpitPage() {
       choice_selected: isPillarMode ? '' : (decisionChoice || 'option_b'),
       decision_node_id: `round_${roundNumber}_${bu.bu_id}`,
       time_to_decision_seconds: 0,
-      team_consensus: 'majority',
+      // TF-2 (UX audit §7.7): previously hardcoded team_consensus:'majority' —
+      // a fabricated value written into the graded audit log for decisions no
+      // team made (one login per person, confirmed). Omitted here; NOTE the
+      // backend model still defaults the column to 'majority' (NOT NULL enum
+      // in Postgres) — making it truly null requires a schema migration,
+      // tracked as follow-up. This change documents intent and stops the
+      // client asserting a consensus that never happened.
       pillar_decisions: isPillarMode ? pillarSelections : null,
     }));
 
@@ -1278,37 +1288,57 @@ export default function CockpitPage() {
     }
   };
 
-  const attemptCommitTurn = () => {
-    // Side track blocking gate
+  // 7.4 (UX audit): ONE readiness check, run BEFORE the review modal opens —
+  // previously these gates fired only after "Confirm & Commit", so a player
+  // could review, confirm, and then be refused. Returns true when commit-ready;
+  // otherwise surfaces the blocker (with its resolving surface) and returns
+  // false. attemptCommitTurn re-runs it as a defensive backstop.
+  const preflightCommit = () => {
     if (sideTrackInfo?.mainBlocked) {
       setBlockAlert("A Side Track requires your attention before you can advance to the next round. Complete the active side track first.");
       setSideTracksOpen(true);
-      return;
+      return false;
     }
     if (roundNumber === 1 && !hasCompletedStakeholderMap) {
       setBlockAlert("You must complete the Stakeholder Power/Interest Grid before advancing. Click the ⚖️ Stakeholder Map button to begin.");
-    } else if (roundNumber === 2 && !hasSubmittedMatrix) {
+      return false;
+    }
+    if (roundNumber === 2 && !hasSubmittedMatrix) {
       setBlockAlert("You must complete and submit the CSRD Materiality Assessment before advancing.");
-    } else if (quizGateBlocked) {
+      return false;
+    }
+    if (quizGateBlocked) {
       const qt = globalState?.quiz_gate?.required_title;
       setBlockAlert(`This round's quiz is mandatory${qt ? ` (“${qt}”)` : ''}. Open 📚 Resources and complete the quiz before committing your decisions.`);
-    } else if (!hasDecision) {
+      return false;
+    }
+    if (!hasDecision) {
       setBlockAlert(isPillarMode
         ? "You must select at least one strategic pillar action before committing your turn."
         : "You must select a strategic option from the Decision section before committing your turn.");
-    } else if (Object.keys(allocations).length === 0) {
+      return false;
+    }
+    if (Object.keys(allocations).length === 0) {
       setBlockAlert("You must allocate capital to at least one business unit before committing your turn.");
-    } else {
-      // ONE confirmation screen, not two: the 'Predict Before You Commit'
-      // modal (which now carries the per-BU allocation breakdown and a
-      // Go Back & Edit action) is the single review+confirm step. The old
-      // 'Review Your Decisions' modal duplicated its content, so a commit
-      // proceeds straight to the ceremony from here.
-      setShowCommitCeremony(true);
-      setTimeout(() => {
-        setShowCommitCeremony(false);
-        handleCommitTurn();
-      }, 800);
+      return false;
+    }
+    return true;
+  };
+
+  const attemptCommitTurn = async () => {
+    if (!preflightCommit()) return;
+    // #5 (UX audit): the ceremony previously ran as a FIXED 800ms setTimeout
+    // BEFORE the network request, then vanished — a slow commit showed a dead
+    // UI. It is now bound to the actual request lifetime (minimum 800ms so the
+    // moment still lands), and always cleared in finally.
+    setShowCommitCeremony(true);
+    const startedAt = Date.now();
+    try {
+      await handleCommitTurn();
+    } finally {
+      const elapsed = Date.now() - startedAt;
+      const hold = Math.max(0, 800 - elapsed);
+      setTimeout(() => setShowCommitCeremony(false), hold);
     }
   };
 
@@ -1645,6 +1675,7 @@ export default function CockpitPage() {
         onDecisionChoice={setDecisionChoice}
         decisionChoice={decisionChoice}
         onCommit={attemptCommitTurn}
+        onPreflight={preflightCommit}
         onAdvance={handleAdvance}
         commitResults={sim.commitResults}
         isCommitBlocked={isCommitBlocked}
@@ -1951,7 +1982,11 @@ export default function CockpitPage() {
 
       {/* ═══ Phase 2.2: Onboarding Walkthrough (contextual, dismissible) ═══ */}
       {sim.sessionId && showOnboarding && !showDesktop && !sim.gameOver && (
-        <OnboardingWalkthrough roundNumber={roundNumber} decisionParadigm={decisionParadigm} onComplete={() => setShowOnboarding(false)} />
+        <OnboardingWalkthrough roundNumber={roundNumber} decisionParadigm={decisionParadigm} onComplete={() => {
+          setShowOnboarding(false);
+          // OB-1: remember completion (or explicit skip) for this session.
+          try { localStorage.setItem(`mur_tour_done_${sim.sessionId || ''}`, '1'); } catch { /* private mode */ }
+        }} />
       )}
 
       {/* ═══ IMPROVEMENT: Action Toolbar has been moved to ExecutiveCockpit leftSidebar ═══ */}

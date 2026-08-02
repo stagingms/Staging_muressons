@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import styles from './RoundPacingControl.module.css';
+import { useConfirm } from './ConfirmModal';
 
 const TOTAL_ROUNDS = 10;
 
@@ -63,6 +64,11 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
     const [loading, setLoading] = useState(false);
     const [status, setStatus] = useState('');
     const [statusOk, setStatusOk] = useState(true);
+    // RL-1 (UX audit §7.6): shared confirm pattern + the 60s post-unlock
+    // relock ("undo") window.
+    const [confirmDialog, confirmModal] = useConfirm();
+    const [relockWindow, setRelockWindow] = useState(null); // { round, expiresAt }
+    const relockTimerRef = useRef(null);
 
     // 10-element array of ISO strings (null = unscheduled)
     const [schedule, setSchedule] = useState(Array(TOTAL_ROUNDS).fill(null));
@@ -159,30 +165,121 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
         }
     };
 
+    // RB-2: live commit tally for confirm-dialog blast radius. Best-effort —
+    // the confirm still works (with generic copy) if the pulse is unreachable.
+    const fetchCommitTally = async () => {
+        try {
+            const res = await fetch(`${API}/api/admin/cohort-pulse/${sessionId}`, { credentials: 'include' });
+            if (res.ok) {
+                const d = await res.json();
+                return d?.commit_progress || null;
+            }
+        } catch { /* fall through */ }
+        return null;
+    };
+
+    // UX audit §7.1: this previously POSTed /unlock-next — an endpoint that has
+    // NEVER existed (backend route is /pacing/unlock) — so Manual mode's only
+    // advance control 404ed on every click. Fixed URL + credentials, plus a
+    // §7.6 blast-radius confirm and a 60s relock (undo) window on success.
     const unlockNext = async () => {
-        if (!sessionId) return;
+        if (!sessionId || loading) return;
+        const nextRound = (Number(pacing?.unlocked_round) || 1) + 1;
+        const tally = await fetchCommitTally();
+        const impact = [];
+        if (tally && tally.total_players > 0) {
+            impact.push(`${tally.committed_count} of ${tally.total_players} players have committed Round ${tally.target_round ?? '—'}.`);
+            const behind = tally.total_players - tally.committed_count;
+            if (behind > 0) impact.push(`${behind} player(s) have not committed — their current round stays open; nothing is auto-committed by unlocking.`);
+            if (tally.diverged) impact.push(`⚠ Players are already spread across rounds R${tally.min_round}–R${tally.target_round}.`);
+        }
+        const ok = await confirmDialog({
+            title: `Open Round ${nextRound} for this cohort?`,
+            message: 'Players will be able to commit the newly opened round as soon as they are ready. You can relock within 60 seconds if this was a misclick (as long as nobody has committed into it).',
+            impact: impact.length ? impact : null,
+            confirmLabel: `Unlock Round ${nextRound}`,
+            cancelLabel: 'Cancel',
+            danger: false,
+        });
+        if (!ok) return;
         setLoading(true);
         try {
-            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/unlock-next`, {
-                method: 'POST',
+            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing/unlock`, {
+                method: 'POST', credentials: 'include',
             });
             if (res.ok) {
                 const data = await res.json();
                 setPacing(prev => ({ ...prev, unlocked_round: data.unlocked_round }));
                 flash(`✅ Round ${data.unlocked_round} unlocked`);
+                // Arm the 60s relock window.
+                if (relockTimerRef.current) clearTimeout(relockTimerRef.current);
+                setRelockWindow({ round: data.unlocked_round, expiresAt: Date.now() + 60_000 });
+                relockTimerRef.current = setTimeout(() => setRelockWindow(null), 60_000);
+            } else if (res.status === 403) {
+                flash('❌ You do not have permission to advance this cohort.', false);
             } else {
-                flash('❌ Unlock failed', false);
+                let detail = '';
+                try { detail = (await res.json())?.detail || ''; } catch { /* ignore */ }
+                flash(`❌ Unlock failed${detail ? ` — ${detail}` : ''}`, false);
             }
         } catch {
-            flash('❌ Connection error', false);
+            flash('❌ Connection error — the round was NOT unlocked.', false);
         } finally {
             setLoading(false);
         }
     };
 
+    // RL-1 (UX audit §7.6): inverse of unlock — refused server-side (409) if any
+    // player already committed into the round being relocked.
+    const relockRound = async () => {
+        if (!sessionId || loading || !relockWindow) return;
+        setLoading(true);
+        try {
+            const res = await fetch(`${API}/api/admin/sessions/${sessionId}/pacing/relock`, {
+                method: 'POST', credentials: 'include',
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setPacing(prev => ({ ...prev, unlocked_round: data.unlocked_round }));
+                setRelockWindow(null);
+                if (relockTimerRef.current) clearTimeout(relockTimerRef.current);
+                flash(`↩️ Relocked — cohort is back to Round ${data.unlocked_round}`);
+            } else {
+                let detail = '';
+                try { detail = (await res.json())?.detail || ''; } catch { /* ignore */ }
+                flash(`❌ Could not relock${detail ? ` — ${detail}` : ''}`, false);
+            }
+        } catch {
+            flash('❌ Connection error — nothing was changed.', false);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => () => { if (relockTimerRef.current) clearTimeout(relockTimerRef.current); }, []);
+
     const forceAdvance = async () => {
-        if (!sessionId) return;
-        if (!window.confirm('Force-advance this cohort now? Any team that hasn’t committed will be auto-committed from its saved decisions.')) return;
+        if (!sessionId || loading) return;
+        const tally = await fetchCommitTally();
+        const impact = [];
+        if (tally && tally.total_players > 0) {
+            const behind = tally.total_players - tally.committed_count;
+            impact.push(`${tally.committed_count} of ${tally.total_players} players have committed Round ${tally.target_round ?? '—'}.`);
+            impact.push(behind > 0
+                ? `${behind} player(s) will be AUTO-COMMITTED — from their saved draft if one exists, otherwise with defaults (Option B, $1 per business unit).`
+                : 'Every player has already committed — this releases the barrier only.');
+        } else {
+            impact.push('Any player who hasn’t committed will be auto-committed from saved decisions (or defaults if nothing was saved).');
+        }
+        const ok = await confirmDialog({
+            title: 'Force-advance this cohort now?',
+            message: 'This releases the waiting barrier immediately. Auto-committed rounds are flagged and disclosed to the affected players and in the debrief.',
+            impact,
+            confirmLabel: 'Force Advance',
+            cancelLabel: 'Cancel',
+            danger: true,
+        });
+        if (!ok) return;
         setLoading(true);
         try {
             const res = await fetch(`${API}/api/admin/sessions/${sessionId}/force-advance`, {
@@ -395,9 +492,21 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
                     <button
                         className={styles.btnSuccess}
                         onClick={unlockNext}
-                        disabled={loading || !sessionId}
+                        disabled={loading || !sessionId || (Number(pacing?.unlocked_round) || 1) >= TOTAL_ROUNDS}
+                        title={(Number(pacing?.unlocked_round) || 1) >= TOTAL_ROUNDS ? 'All rounds are unlocked' : undefined}
                     >
-                        ⏭ Unlock Next Round
+                        {(Number(pacing?.unlocked_round) || 1) >= TOTAL_ROUNDS ? '✔ All Rounds Unlocked' : '⏭ Unlock Next Round'}
+                    </button>
+                )}
+
+                {mode === 'manual' && relockWindow && (
+                    <button
+                        className={styles.btnWarning}
+                        onClick={relockRound}
+                        disabled={loading}
+                        title="Undo the unlock you just made — refused automatically if a player has already committed into it"
+                    >
+                        ↩️ Undo — Relock Round {relockWindow.round}
                     </button>
                 )}
 
@@ -417,6 +526,7 @@ export default function RoundPacingControl({ sessions: propSessions, selectedSes
                     {status}
                 </div>
             )}
+            {confirmModal}
         </div>
     );
 }

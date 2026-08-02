@@ -223,6 +223,19 @@ async def lifespan(app: FastAPI):
     """Manage the database lifecycle."""
     await db.get_pool()
 
+    # RB-1 (UX audit §7.3): rebuild the process-local cohort→players roster map
+    # from the durable store so a restart doesn't silently disable the X/Y
+    # committed badge, the wait-for-all barrier and Force Advance until every
+    # player has re-logged in. Non-fatal — the lazy self-heal in router.py
+    # covers any startup-ordering miss.
+    try:
+        from router import rebuild_session_players as _rsp
+        _restored = await _rsp(force=True)
+        if _restored:
+            print(f"[startup] Roster rebuild: restored {_restored} player entr(ies)")
+    except Exception as _rsp_exc:
+        print(f"[startup] Roster rebuild skipped (non-fatal): {_rsp_exc}")
+
     # Fix #5: prepare the shared coordination store — create its table (PG only),
     # rehydrate this worker's in-process pacing/freeze caches from the shared
     # state, and start the background refresher that keeps workers converged.
@@ -475,6 +488,11 @@ app.include_router(teleprompter_router)  # ARCH-002: Extracted sub-router
 app.include_router(resources_router)     # ARCH-002: Extracted sub-router
 app.include_router(analytics_router)     # ARCH-002: Extracted sub-router
 app.include_router(god_router)           # audit #17: Extracted God-Mode controls sub-router
+
+# DN-1 (UX audit §9 / item #12): auto-assembled debrief narrative — read-only
+# aggregation over round history; separate module so admin_router stays untouched.
+from admin_debrief_narrative import debrief_narrative_router  # noqa: E402
+app.include_router(debrief_narrative_router)
 
 
 @app.get("/health", tags=["System"])

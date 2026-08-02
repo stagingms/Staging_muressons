@@ -625,6 +625,20 @@ export default function RoundBriefing({
 
         {/* ── Proceed Button ── */}
         <div className={styles.footer}>
+          {/* OBJ-1 (UX audit #10): the scored objective, stated where every
+              player will read it — previously it surfaced nowhere before
+              Round 10. One sentence, first briefing only. */}
+          {roundNumber === 1 && (
+            <p style={{
+              margin: '0 0 10px', fontSize: '0.78rem', lineHeight: 1.55,
+              color: 'var(--text-secondary, #cbd5e1)', textAlign: 'center', maxWidth: 560,
+              marginLeft: 'auto', marginRight: 'auto',
+            }}>
+              <strong style={{ color: 'var(--accent, #a5b4fc)' }}>Your objective:</strong>{' '}
+              finish Year 5 with the strongest Terminal Valuation and Regenerative
+              Multiple (M_R) — the score that prices your profits and your impact together.
+            </p>
+          )}
           <button className={styles.proceedBtn} onClick={onProceed}>
             Begin Simulation →
           </button>

@@ -183,6 +183,7 @@ export default function ExecutiveCockpit({
   onDecisionChoice,
   decisionChoice,
   onCommit,
+  onPreflight = null,  // 7.4 (UX audit): full readiness check BEFORE the review modal
   onAdvance,
   commitResults,
   isCommitBlocked,
@@ -1265,6 +1266,32 @@ export default function ExecutiveCockpit({
       {/* ═══ MAIN CONTENT (3 COLUMNS) ═══ */}
       <div className={`${styles.mainContent} ${isFocusActive ? focusStyles.dashboardFaded : ''}`}>
 
+        {/* AC-2 (UX audit §7.8) — Slot: Canvas stage (round-scoped disclosure).
+            When the previous round closed without this player committing, the
+            server auto-committed on their behalf; the old 5-second toast was
+            the only notice. This card persists for the whole round, states
+            exactly what was submitted, and self-clears when the flag does.
+            Caution tone, not danger: the player did nothing wrong. */}
+        {globalState?.active_event_flags?.auto_committed && (
+          <div
+            role="status"
+            style={{
+              gridColumn: '1 / -1',
+              margin: '8px 12px 0',
+              padding: '10px 14px', borderRadius: 10,
+              background: 'rgba(245,158,11,0.08)',
+              border: '1px solid rgba(245,158,11,0.35)',
+              fontSize: '0.74rem', lineHeight: 1.5, color: '#e2e8f0',
+            }}
+          >
+            <strong style={{ color: '#fbbf24' }}>⏱ This round was submitted for you.</strong>{' '}
+            {globalState.active_event_flags.auto_committed_source === 'draft'
+              ? 'The round closed before you committed, so your last saved draft was submitted.'
+              : 'The round closed before you committed, so defaults were submitted: Option B, $1 to each business unit.'}{' '}
+            Your results reflect that submission. It is flagged in your history and to the facilitator.
+          </div>
+        )}
+
         {/* ── LEFT: KPI Dashboard ─── */}
         <aside id="tour-kpi-target" className={`${styles.leftSidebar} ${kpiFlashActive ? styles.kpiFlash : ''}`}>
           
@@ -1805,6 +1832,14 @@ export default function ExecutiveCockpit({
                       key={optId}
                       className={`${styles.decisionTile} ${isActive ? styles.decisionTileActive : ''}`}
                       onClick={() => handleLegacySelect(optId)}
+                      /* A11Y-2 (UX audit #8): the core decision was mouse-only —
+                         no role/tabIndex/key handler. Same pattern as
+                         DecisionTile.js, which already did this correctly. */
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isActive}
+                      aria-label={`${optMeta.label}: ${opt.title || optId}`}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleLegacySelect(optId); } }}
                       style={{ flex: '1 1 0', minWidth: 0 }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -1976,6 +2011,10 @@ export default function ExecutiveCockpit({
                 if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
                 const allocTotal = Object.values(allocations || {}).reduce((s, v) => s + v, 0);
                 if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
+                // 7.4 (UX audit): run the FULL gate set (side-track, R1 map,
+                // R2 matrix, quiz) before the review modal — never let the
+                // player review+confirm and only then be refused.
+                if (onPreflight && !onPreflight()) return;
                 setShowPredictionModal(true);
               }}
             >
@@ -2200,7 +2239,7 @@ export default function ExecutiveCockpit({
                 </div>
                 {peerLeaderboard.length > 5 && (
                   <div style={{ fontSize: '0.6rem', color: '#64748b', textAlign: 'center', marginTop: 6 }}>
-                    +{peerLeaderboard.length - 5} more teams
+                    +{peerLeaderboard.length - 5} more players
                   </div>
                 )}
               </div>
@@ -2220,7 +2259,7 @@ export default function ExecutiveCockpit({
                 return (
                   <div style={{ padding: '12px 16px', borderRadius: 10, textAlign: 'center', background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)' }}>
                     <div style={{ fontSize: '1rem', marginBottom: 4 }}>⏳</div>
-                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>Waiting for Other Teams</div>
+                    <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>Waiting for Other Players</div>
                     <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>{commitsCount}/{teamCount} committed</div>
                   </div>
                 );
@@ -2534,6 +2573,17 @@ export default function ExecutiveCockpit({
                         // Select this option and enter deep dive for full interaction
                         if (canAccessStrategy) handleLegacySelect(optId);
                         if (businessUnits?.[0]) enterDeepDive(businessUnits[0].id || businessUnits[0].bu_id);
+                      }}
+                      /* A11Y-2 (UX audit #8): keyboard parity with the click. */
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          if (canAccessStrategy) handleLegacySelect(optId);
+                          if (businessUnits?.[0]) enterDeepDive(businessUnits[0].id || businessUnits[0].bu_id);
+                        }
                       }}
                     >
                       <span className={styles.optionMiniLabel}>
@@ -3511,6 +3561,8 @@ export default function ExecutiveCockpit({
                       if (!commitResults) {
                         if (!hasDecision) { showStageWarning('Select a Strategic Option before committing your turn.'); return; }
                         if (allocTotal <= 0) { showStageWarning('Allocate capital across your business units before committing.'); return; }
+                        // 7.4 (UX audit): full gates before review, not after.
+                        if (onPreflight && !onPreflight()) return;
                         setShowPredictionModal(true);
                       }
                     }}
@@ -3766,35 +3818,52 @@ export default function ExecutiveCockpit({
             </div>
 
             <div className={styles.predictionActions}>
-              {/* Go Back & Edit — closes WITHOUT committing so the player can
-                  adjust allocations/strategy. This is the review escape hatch;
-                  Skip & Commit is NOT a substitute (it commits immediately). */}
+              {/* 7.4 (UX audit): renamed from "Go Back & Edit / Skip & Commit /
+                  Confirm & Commit" — the escape hatch and an irreversible
+                  commit shared a visual class and adjacent copy ("Skip"),
+                  a misclick trap on the highest-stakes click in the product.
+                  The escape action now reads plainly and the two commit
+                  actions name the SAME verb so neither reads like a dismissal. */}
               <button
                 className={styles.predictionSkip}
+                style={{ marginRight: 'auto' }}
                 onClick={() => { setShowPredictionModal(false); }}
               >
-                ← Go Back &amp; Edit
+                ← Go back
               </button>
               <button
                 className={styles.predictionSkip}
                 onClick={() => { setShowPredictionModal(false); setPredictionText(''); onCommit?.(); }}
               >
-                Skip & Commit
+                Commit without predicting
               </button>
               <button
                 className={styles.predictionSubmit}
                 onClick={() => {
-                  // Store prediction for post-round comparison
+                  // PRED-2 (UX audit §9): persist the prediction SERVER-SIDE so
+                  // predicted-vs-actual survives into the facilitator debrief.
+                  // sessionStorage copy kept for the existing post-round
+                  // comparison; the POST is fire-and-forget and never blocks
+                  // the commit.
                   if (predictionText.trim()) {
                     const key = `prediction_r${roundNumber}_${sim?.sessionId || 'demo'}`;
                     try { sessionStorage.setItem(key, predictionText); } catch {}
+                    try {
+                      const API = process.env.NEXT_PUBLIC_API_URL || '';
+                      const pid = (typeof localStorage !== 'undefined' && localStorage.getItem('muressons_playerId')) || '';
+                      fetch(`${API}/api/simulations/${sim?.sessionId}/prediction`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...(pid ? { 'X-Player-Id': pid } : {}) },
+                        body: JSON.stringify({ round_number: roundNumber, text: predictionText }),
+                      }).catch(() => {});
+                    } catch {}
                   }
                   setShowPredictionModal(false);
                   setPredictionText('');
                   onCommit?.();
                 }}
               >
-                ✓ Confirm & Commit
+                ✓ Commit decisions
               </button>
             </div>
           </div>
@@ -4343,10 +4412,10 @@ export default function ExecutiveCockpit({
                     }}>
                       <div style={{ fontSize: '1rem', marginBottom: 4 }}>⏳</div>
                       <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#818cf8', marginBottom: 2 }}>
-                        Waiting for Other Teams
+                        Waiting for Other Players
                       </div>
                       <div style={{ fontSize: '0.65rem', color: '#94a3b8' }}>
-                        {commitsCount}/{teamCount} teams committed
+                        {commitsCount}/{teamCount} players committed
                         {secsLeft != null
                           ? ` — auto-advances in ~${secsLeft}s`
                           : ' — cannot advance yet'}

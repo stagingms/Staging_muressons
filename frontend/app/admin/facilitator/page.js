@@ -50,6 +50,8 @@ import CohortSelector from '../../components/CohortSelector';
 import { useConfirm } from '../../components/ConfirmModal';
 import ShortcutSheet from '../../components/ShortcutSheet';
 import FacilitatorTeachableMoments from '../../components/FacilitatorTeachableMoments';
+import RunBar from '../../components/RunBar';
+import DebriefNarrative from '../../components/DebriefNarrative';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 const WS_URL = process.env.NEXT_PUBLIC_WS_URL || `ws://${typeof window !== 'undefined' ? window.location.host : 'localhost:8000'}`;
@@ -1064,6 +1066,9 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 return <AuditTrail sessionId={selectedSession} />;
             case 'debrief':
                 return <DebriefReport sessionId={selectedSession} />;
+            case 'debrief_narrative':
+                // DN-1 (UX audit §9 / item #12): auto-assembled run narrative.
+                return <DebriefNarrative sessionId={selectedSession} />;
             case 'impersonate':
                 return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -1501,6 +1506,25 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                         <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🗺️</span>
                         <span>Region War-Map ↗</span>
                     </a>
+                    {/* PJ-1 (UX audit §9): room-screen projector — round, commit
+                        tally, countdown and top teams at back-of-room type sizes.
+                        Read-only over cohort-pulse. */}
+                    <a
+                        href={selectedSession ? `/admin/projector?cohort=${encodeURIComponent(selectedSession)}` : '/admin/projector'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={styles.navItem}
+                        data-tooltip="Project the live round board — round number, commit tally, next-round countdown and top teams, sized for the back of the room. Read-only."
+                        style={{
+                            display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 8px 0',
+                            padding: '8px 10px', borderRadius: '8px', textDecoration: 'none',
+                            color: '#a5b4fc', fontWeight: 700,
+                            border: '1px solid rgba(99,102,241,0.35)', background: 'rgba(99,102,241,0.08)',
+                        }}
+                    >
+                        <span style={{ width: '18px', textAlign: 'center', flexShrink: 0, fontSize: '0.85rem' }}>🖥️</span>
+                        <span>Projector Board ↗</span>
+                    </a>
                 </nav>
 
 
@@ -1526,6 +1550,15 @@ function FacilitatorDashboard({ authData, identityVerified = false, onLogout, on
                 </header>
 
                 <div className={styles.mainContent}>
+                    {/* RB-2 (UX audit §9): persistent Run Bar — round, commit
+                        tally, pacing and backend health stay visible on EVERY
+                        tab while a cohort is selected. */}
+                    {selectedSession && (
+                        <RunBar
+                            cohortId={selectedSession}
+                            onOpenPacing={canAccessTab('timeline') ? () => setActiveTab('timeline') : null}
+                        />
+                    )}
                     {renderActiveComponent()}
                 </div>
             </main>

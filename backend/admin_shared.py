@@ -112,6 +112,10 @@ ROLE_ALLOWED_TABS = {
         # dashboard (all run-managing facilitators tune the rubric; project_admin
         # never sees it because its tab set is fixed, not cumulative).
         "esg_weights",
+        # DN-1 (UX audit §9): auto-assembled debrief narrative — divergence
+        # round, per-player turning points, predicted-vs-actual. Base
+        # facilitator tier: it is read-only over completed rounds.
+        "debrief_narrative",
     ],
     "lead_facilitator": [
         # All facilitator tabs plus:

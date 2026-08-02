@@ -3228,6 +3228,10 @@ async def _auto_commit_player(player_session_id: str, current_round: int):
         )
         events.update(post_events)
         events["auto_committed"] = True
+        # AC-1 (UX audit §7.8): source is always "default" on this path — the
+        # scheduled-unlock auto-commit builds option_b/$1 decisions above and
+        # never reads the saved draft. The disclosure card must say so.
+        events["auto_committed_source"] = "default"
         events["auto_committed_reason"] = "Scheduled timer expired — default option_b applied"
         new_global["active_event_flags"] = events
 
@@ -3588,6 +3592,62 @@ async def unlock_next_round(session_id: str, request: Request, _guard: None = De
         "unlocked_round": pacing["unlocked_round"],
         "mode": pacing["mode"],
     }
+
+
+@admin_router.post("/sessions/{session_id}/pacing/relock", summary="Relock the last unlocked round (undo an accidental unlock)")
+async def relock_round(session_id: str, request: Request, _guard: None = Depends(require_sim_manager)):
+    """RL-1 (UX audit §7.6): one-field inverse of unlock_next_round, for the
+    'unlocked one too early, in front of the room' moment.
+
+    Decrements pacing.unlocked_round by 1, FLOORED at the highest round any
+    player in the cohort has actually committed — a relock can therefore never
+    strand a player mid-round or invalidate a committed result. If a player has
+    already committed the round being relocked, the request is refused with 409
+    and the caller is pointed at Undo Round (the heavier, lead-facilitator tool
+    that rolls committed state back). No round state rows are created, modified
+    or deleted by this endpoint — it only lowers the commit-eligibility gate."""
+    await _assert_session_ownership(request, session_id)
+    pacing = _get_pacing(session_id)
+    current_unlocked = int(pacing.get("unlocked_round", 1) or 1)
+    if current_unlocked <= 1:
+        raise HTTPException(status_code=409, detail="Round 1 cannot be relocked.")
+    target = current_unlocked - 1
+
+    # Floor: highest committed round across the cohort's player sub-sessions.
+    highest_committed = 0
+    try:
+        all_sessions = await db.fetch_all_sessions_raw()
+        for s in all_sessions:
+            if s.get("parent_cohort_id") == session_id and s.get("player_id"):
+                r = await db.fetch_latest_round(s.get("session_id"))
+                if r is not None:
+                    highest_committed = max(highest_committed, r)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Could not verify player progress: {exc}")
+
+    if highest_committed > target:
+        raise HTTPException(
+            status_code=409,
+            detail=(f"Cannot relock Round {current_unlocked}: a player has already "
+                    f"committed Round {highest_committed}. Their results stand — use "
+                    f"Undo Round to roll committed state back."),
+        )
+
+    pacing["unlocked_round"] = target
+    mark_pacing_dirty(session_id)
+
+    await manager.push_to_session(session_id, {
+        "type": "round_relocked",
+        "unlocked_round": target,
+        "mode": pacing["mode"],
+    })
+    await manager.broadcast_admin({
+        "type": "pacing_update",
+        "session_id": session_id,
+        "unlocked_round": target,
+        "mode": pacing["mode"],
+    })
+    return {"unlocked_round": target, "mode": pacing["mode"], "status": "relocked"}
 
 
 # ═════════════════════════════════════════════════════════════════
@@ -10818,14 +10878,60 @@ async def get_cohort_pulse(cohort_id: str):
                 },
                 "round": latest_rn,
                 "tipping_point": bool(latest.get("tipping_point_active", False)),
+                # RB-2 (UX audit §7.2): control-room fields. All read-only over
+                # state the engine already produced — nothing sim-level changes.
+                "is_cohort_shell": sid == cohort_id,
+                "player_id": sess.get("player_id"),
+                "auto_committed_last_round": bool(flags.get("auto_committed", False)),
+                "has_saved_draft": bool(
+                    latest.get("saved_allocations") or latest.get("saved_decision_choice")
+                ),
             })
 
     teams.sort(key=lambda t: -t["current"]["treasury"])
+
+    # ── RB-2 (UX audit §7.2): cohort-level commit progress + pacing ──
+    # Mirrors the rule in router._cohort_commit_progress (committed = at the
+    # furthest round any player has reached) so the facilitator's tally always
+    # equals the players' own "X/Y committed" badge. Computed over player
+    # sub-sessions only — the cohort shell row is excluded.
+    player_rows = [t for t in teams if not t["is_cohort_shell"]]
+    rounds_list = [t["round"] for t in player_rows]
+    target_round = max(rounds_list) if rounds_list else None
+    committed_count = sum(1 for r in rounds_list if r >= target_round) if rounds_list else 0
+    min_round = min(rounds_list) if rounds_list else None
+    for t in teams:
+        t["committed"] = (not t["is_cohort_shell"]) and target_round is not None and t["round"] >= target_round
+
+    pacing_out = {}
+    try:
+        from admin_shared import _get_pacing as _gp
+        _p = _gp(cohort_id)
+        pacing_out = {
+            "mode": _p.get("mode", "free"),
+            "unlocked_round": _p.get("unlocked_round"),
+            "next_unlock_at": _p.get("next_unlock_at"),
+        }
+    except Exception:
+        pacing_out = {}
+
     return {
         "teams": teams,
         "cohort_id": cohort_id,
         "total_teams": len(teams),
         "player_visible": all_sessions.get(cohort_id, {}).get("cohort_pulse_player_visible", False),
+        "commit_progress": {
+            "target_round": target_round,
+            "committed_count": committed_count,
+            "total_players": len(player_rows),
+            "min_round": min_round,
+            "diverged": (target_round is not None and min_round is not None
+                         and (target_round - min_round) > 1),
+            "auto_committed_count": sum(
+                1 for t in player_rows if t.get("auto_committed_last_round")
+            ),
+        },
+        "pacing": pacing_out,
     }
 
 

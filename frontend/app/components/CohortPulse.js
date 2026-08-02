@@ -11,6 +11,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || '';
  */
 export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
   const [teams, setTeams] = useState([]);
+  const [progress, setProgress] = useState(null); // RB-2: commit_progress block
   const [loading, setLoading] = useState(true);
   const [selectedMetric, setSelectedMetric] = useState('treasury');
   const [showToPlayers, setShowToPlayers] = useState(isPlayerVisible);
@@ -46,7 +47,10 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
         const res = await fetch(`${API}/api/admin/cohort-pulse/${cohortId}`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          setTeams(data.teams || []);
+          // RB-2 (UX audit §7.2): filter the cohort-shell row and keep the
+          // commit-progress block the endpoint now returns.
+          setTeams((data.teams || []).filter(t => !t.is_cohort_shell));
+          setProgress(data.commit_progress || null);
           // Seed toggle from server state on initial load
           if (first && data.player_visible !== undefined) {
             setShowToPlayers(!!data.player_visible);
@@ -116,7 +120,21 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
           <div>
             <h3 className={styles.headerTitle}>Cohort Pulse</h3>
             <span className={styles.headerSubtitle}>
-              {teams.length} team{teams.length !== 1 ? 's' : ''} · Live data
+              {teams.length} player{teams.length !== 1 ? 's' : ''} · Live data
+              {progress && progress.total_players > 0 && (
+                <>
+                  {' · '}
+                  <strong style={{ color: '#a5b4fc' }}>
+                    R{progress.target_round ?? '—'}: {progress.committed_count}/{progress.total_players} committed
+                  </strong>
+                  {progress.auto_committed_count > 0 && (
+                    <span style={{ color: '#fbbf24' }}> · {progress.auto_committed_count} auto</span>
+                  )}
+                  {progress.diverged && (
+                    <span style={{ color: '#fbbf24' }}> · ⚠ split R{progress.min_round}–R{progress.target_round}</span>
+                  )}
+                </>
+              )}
             </span>
           </div>
         </div>
@@ -169,12 +187,12 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
 
       {/* Heatmap Grid */}
       {teams.length === 0 ? (
-        <div className={styles.empty}>No teams in this cohort yet.</div>
+        <div className={styles.empty}>No players in this cohort yet.</div>
       ) : (
         <div className={styles.heatmapGrid}>
           {/* Header row */}
           <div className={styles.heatmapHeaderRow}>
-            <div className={styles.heatmapTeamHeader} title="One row per team in this cohort. Hover any cell for the exact value that round.">Team</div>
+            <div className={styles.heatmapTeamHeader} title="One row per player in this cohort (each player runs their own company). ✓ committed · ◐ draft saved · ○ nothing saved. Hover any cell for the exact value that round.">Player</div>
             {Array.from({ length: 10 }, (_, i) => (
               <div key={i} className={styles.heatmapRoundHeader} title={`Round ${i + 1} — the selected metric's committed value at the end of round ${i + 1}. Empty = not yet played.`}>R{i + 1}</div>
             ))}
@@ -186,7 +204,15 @@ export default function CohortPulse({ cohortId, isPlayerVisible = false }) {
           {teams.map((team, ti) => (
             <div key={ti} className={styles.heatmapRow}>
               <div className={styles.heatmapTeamName} title={team.name}>
-                {team.name?.substring(0, 12) || `Team ${ti + 1}`}
+                {/* RB-2: commit state — symbol + colour, never colour alone */}
+                <span
+                  title={team.committed ? `Committed R${progress?.target_round ?? ''}` : team.has_saved_draft ? 'Not committed — has a saved draft' : 'Not committed — no draft saved'}
+                  style={{ marginRight: 5, fontWeight: 800, color: team.committed ? '#4ade80' : team.has_saved_draft ? '#fbbf24' : '#94a3b8' }}
+                >{team.committed ? '✓' : team.has_saved_draft ? '◐' : '○'}</span>
+                {team.name?.substring(0, 12) || `Player ${ti + 1}`}
+                {team.auto_committed_last_round && (
+                  <span title="Last round was auto-committed, not played" style={{ marginLeft: 5, fontSize: '0.6rem', fontWeight: 800, padding: '1px 5px', borderRadius: 999, background: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.4)', color: '#fbbf24' }}>auto</span>
+                )}
                 {/* Negotiation rooms (Phase 2): live flag while a room is open */}
                 {team.current?.negotiating && (
                   <span

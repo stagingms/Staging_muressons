@@ -121,6 +121,57 @@ def _bu_out(bu: dict) -> BUStateOut:
 
 _session_players = {}
 
+# ── RB-1 (UX audit §7.3): _session_players is process-local and was only ever
+# rebuilt inside join_session, so after a backend restart every consumer
+# (_cohort_commit_progress, _auto_commit_laggards, _cohort_advance_status)
+# silently iterated an empty roster — the X/Y committed badge vanished and
+# Force Advance "succeeded" while advancing nobody. rebuild_session_players()
+# reconstructs the cohort→players map from the durable store via the parity
+# API (fetch_all_sessions_raw works in BOTH memory and Postgres modes — never
+# touches a store's private dicts), and only fills cohorts whose entry is
+# missing/empty so it can never clobber live in-process state. Called once at
+# startup (main.py lifespan) and as a throttled lazy self-heal from the
+# consumers above.
+import time as _rb_time
+_roster_rebuild_last: float = 0.0
+_ROSTER_REBUILD_MIN_INTERVAL_S = 30.0
+
+
+async def rebuild_session_players(force: bool = False) -> int:
+    """Rebuild _session_players from persisted sub-sessions. Returns the number
+    of player entries restored. Throttled to one attempt per 30s unless forced
+    (startup) so an empty-but-legitimate cohort can't turn every dashboard poll
+    into a full session scan."""
+    global _roster_rebuild_last
+    now = _rb_time.monotonic()
+    if not force and (now - _roster_rebuild_last) < _ROSTER_REBUILD_MIN_INTERVAL_S:
+        return 0
+    _roster_rebuild_last = now
+    try:
+        sessions = await db.fetch_all_sessions_raw()
+    except Exception as exc:
+        _log.warning(f"[ROSTER-REBUILD] fetch_all_sessions_raw failed: {exc}")
+        return 0
+    rebuilt: dict = {}
+    for s in sessions:
+        parent = s.get("parent_cohort_id")
+        pid = s.get("player_id")
+        sid = s.get("session_id")
+        if parent and pid and sid:
+            rebuilt.setdefault(parent, []).append(
+                {"player_id": pid, "player_session_id": sid}
+            )
+    restored = 0
+    for parent, players in rebuilt.items():
+        if not _session_players.get(parent):
+            _session_players[parent] = players
+            restored += len(players)
+    if restored:
+        _log.info(f"[ROSTER-REBUILD] restored {restored} player entr(ies) "
+                  f"across {len(rebuilt)} cohort(s)")
+    return restored
+
+
 # ── ITEM 4: Per-session commit rate limiter ──
 _commit_timestamps = {}
 
@@ -195,6 +246,12 @@ async def _cohort_commit_progress(session_info):
     if not parent:
         return None, None
     siblings = _session_players.get(parent, [])
+    if not siblings:
+        # RB-1 lazy self-heal: after a restart the roster map is empty even
+        # though this IS a cohort sub-session (parent_cohort_id is set).
+        # Rebuild from the durable store (throttled) before concluding solo.
+        await rebuild_session_players()
+        siblings = _session_players.get(parent, [])
     if not siblings:
         return None, None
     rounds = []
@@ -279,6 +336,12 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
     target, or one mid-commit, is skipped; a lost race is turned into a harmless
     409 by the uq_session_round guard. Returns the count advanced."""
     siblings = _session_players.get(parent_cohort_id, [])
+    if not siblings:
+        # RB-1 lazy self-heal (see rebuild_session_players): without this,
+        # Force Advance after a backend restart reports success and advances
+        # nobody because the process-local roster map is empty.
+        await rebuild_session_players()
+        siblings = _session_players.get(parent_cohort_id, [])
     advanced = 0
     for s in siblings:
         sid = s.get("player_session_id")
@@ -291,9 +354,31 @@ async def _auto_commit_laggards(parent_cohort_id: str, target_round: int) -> int
             state = await db.fetch_latest_state(sid)
             if not state:
                 continue
+            # AC-1 (UX audit §7.8): remember whether a saved draft existed so the
+            # disclosure below can tell the player exactly what was submitted.
+            _gs = state.get("global_state") or {}
+            had_draft = bool(_gs.get("saved_allocations") or _gs.get("saved_decision_choice"))
             body = _auto_commit_request(state["global_state"], state["bu_states"], latest)
             if await _run_commit_locked(sid, body) is not None:
                 advanced += 1
+                # AC-1: stamp a persistent disclosure onto the new round's flags.
+                # Metadata only — written AFTER the engine ran, never read by it.
+                try:
+                    newest = await db.fetch_latest_state(sid)
+                    if newest:
+                        ng = newest["global_state"]
+                        nflags = ng.get("active_event_flags") or {}
+                        nflags["auto_committed"] = True
+                        nflags["auto_committed_source"] = "draft" if had_draft else "default"
+                        nflags["auto_committed_reason"] = (
+                            "Facilitator advance / timeout — committed from your saved draft"
+                            if had_draft else
+                            "Facilitator advance / timeout — committed with defaults (Option B, $1 per business unit)"
+                        )
+                        ng["active_event_flags"] = nflags
+                        await db.update_latest_global_state(sid, ng, newest["bu_states"])
+                except Exception as _ac_exc:
+                    _log.warning(f"[FREE-ADVANCE] disclosure stamp failed for {sid}: {_ac_exc}")
         except Exception as exc:
             _log.warning(f"[FREE-ADVANCE] auto-commit failed for {sid}: {exc}")
     return advanced
@@ -2680,6 +2765,40 @@ async def save_decisions(request: Request, session_id: str, body: SaveDecisionsR
     await db.update_latest_global_state(session_id, global_state, bu_states)
 
     return {"status": "success", "message": "Decisions saved successfully."}
+
+
+# ─────────────────────────────────────────────────────────────────
+# POST /api/simulations/{session_id}/prediction
+# PRED-1 (UX audit §9): persist the player's "Predict Before You Commit" text
+# server-side. Previously it was thrown into sessionStorage and lost — the
+# aggregated predicted-vs-actual view is the debrief's highest-value artifact.
+# Stored in session METADATA (never in round state), so the engine, the golden
+# trace and the audit log are untouched.
+# ─────────────────────────────────────────────────────────────────
+
+class PredictionRequest(BaseModel):
+    round_number: int
+    text: str
+
+
+@router.post(
+    "/{session_id}/prediction",
+    status_code=status.HTTP_200_OK,
+    summary="Persist the player's pre-commit prediction for a round",
+)
+async def save_prediction(request: Request, session_id: str, body: PredictionRequest):
+    await _assert_player_owns_session(request, session_id)
+    sess = await db.get_session_info(session_id)
+    if not sess:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"Session {session_id} not found.")
+    text = (body.text or "").strip()[:2000]  # bound the payload
+    if not text:
+        return {"status": "skipped", "message": "Empty prediction not stored."}
+    predictions = dict(sess.get("round_predictions") or {})
+    predictions[str(int(body.round_number))] = text
+    await db.update_session_metadata(session_id, {"round_predictions": predictions})
+    return {"status": "success", "round_number": body.round_number}
 
 
 # ─────────────────────────────────────────────────────────────────
