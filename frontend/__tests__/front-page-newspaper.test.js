@@ -173,6 +173,24 @@ describe('tripwires', () => {
     expect(gameOverCode).toMatch(/if \(!ki\) return null;/);
   });
 
+  test('the toggle tooltip describes what the panel renders today', () => {
+    // CLAUDE.md: a tooltip must describe what its surface RENDERS today —
+    // change the surface, change the tooltip, same commit. Three prior audits
+    // found aspirational tooltips. This one advertised "Best Decision / Most
+    // Costly Mistake / Road Not Taken" after the third insight became the
+    // reputation swing and the second was renamed.
+    const registry = fs.readFileSync(path.join(APP, 'config', 'playerVisibilityRegistry.js'), 'utf8');
+    const entry = registry.split('\n').find((l) => l.includes("key: 'three_key_insights'"));
+    expect(entry).toBeDefined();
+    expect(entry).toMatch(/Sharpest Reputation Swing/);
+    expect(entry).not.toMatch(/Road Not Taken/);
+    expect(entry).not.toMatch(/Most Costly Mistake/);
+    // The insight titles the component actually renders.
+    for (const title of ['Best Decision', 'Most Costly Decision', 'Sharpest Reputation Swing']) {
+      expect(gameOverCode).toContain(title);
+    }
+  });
+
   test('no counterfactual is asserted without a computed counterfactual', () => {
     // The old third insight told players "an alternative approach could have
     // changed your trajectory" for a round nothing had modelled. The newspaper
