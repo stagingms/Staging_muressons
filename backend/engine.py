@@ -2512,8 +2512,18 @@ def _run_stochastic_layer(ctx: TickContext) -> None:
     ctx.events["macro_noise"] = macro_noise
     # Apply micro-strike: random BU gets a 5% OPEX spike
     if macro_noise["micro_strike_triggered"] and ctx.new_bus:
-        strike_idx  = macro_noise["micro_strike_bu_idx"] % len(ctx.new_bus)
-        target_bu   = ctx.new_bus[strike_idx]
+        # 4.1: resolve the target through the canonical slot order rather than
+        # trusting whatever order storage handed us. Belt and braces with the
+        # sort in both database modules: this line is the one that actually
+        # decided which company took a 5% OPEX hit, and it must not depend on
+        # an ORDER BY clause in a query three modules away.
+        from bu_profiles import sort_bu_states_canonically
+        _ordered    = sort_bu_states_canonically(list(ctx.new_bus), current_global)
+        strike_idx  = macro_noise["micro_strike_bu_idx"] % len(_ordered)
+        _target_id  = _ordered[strike_idx].get("bu_id")
+        # Mutate the object in ctx.new_bus, not the sorted copy's element — they
+        # are the same dicts, but resolve by identity to make that explicit.
+        target_bu   = next(b for b in ctx.new_bus if b.get("bu_id") == _target_id)
         micro_penalty = round(target_bu["opex_base"] * MICRO_STRIKE_OPEX_RATE, 2)
         target_bu["opex_base"] = round(target_bu["opex_base"] + micro_penalty, 2)
         ctx.events["micro_strike_applied"] = {

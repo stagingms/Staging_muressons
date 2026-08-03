@@ -970,6 +970,17 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
                     bu_dict[k] = v
             bu_states.append(bu_dict)
 
+        # 4.1: the SELECT above says ORDER BY bu_id, which is alphabetical and
+        # therefore a different order from the memory backend's (slot order).
+        # The engine indexes this list positionally, so that difference decided
+        # which business unit the micro-strike hit — differently in production
+        # than in any test. Re-order canonically here rather than in SQL: the
+        # canonical order depends on global_state["bu_substitutions"], which is
+        # not available to the query, and doing it in Python keeps ONE
+        # definition of the order for both backends.
+        from bu_profiles import sort_bu_states_canonically
+        bu_states = sort_bu_states_canonically(bu_states, global_state)
+
         return {
             "state_id": str(grs["state_id"]),
             "round_number": grs["round_number"],

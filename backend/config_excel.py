@@ -24,7 +24,10 @@ except ImportError:
 
 # ── Paths ────────────────────────────────────────────────────────
 _ROOT = Path(__file__).resolve().parent.parent
-JSON_PATH  = _ROOT / "simulation_config.json"
+from runtime_paths import config_file as _config_file
+# 3.1: the importer must WRITE where config.py READS, or an import "succeeds"
+# and changes nothing.
+JSON_PATH  = _config_file("simulation_config.json")
 EXCEL_PATH = _ROOT / "simulation_config.xlsx"
 
 # ── Description Catalog ──────────────────────────────────────────

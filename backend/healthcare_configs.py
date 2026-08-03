@@ -576,7 +576,8 @@ import json
 from pathlib import Path
 import os
 
-OVERRIDES_FILE = Path(__file__).parent / "decision_overrides.json"
+from runtime_paths import config_file as _config_file
+OVERRIDES_FILE = _config_file("decision_overrides.json")  # 3.1: durable location
 _merged_configs_cache = None
 _overrides_mtime = None
 

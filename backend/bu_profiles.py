@@ -473,3 +473,56 @@ def build_bu_states(substitutions: dict[str, str] | None = None) -> list[dict]:
             },
         })
     return bu_states
+
+
+def canonical_bu_order(substitutions: dict[str, str] | None = None) -> list[str]:
+    """The authoritative left-to-right BU order for a composition.
+
+    Identical to get_active_bus(); named separately because the two callers
+    mean different things by it. get_active_bus() answers "which BUs are in
+    play". This answers "in what ORDER does anything that indexes a BU list
+    have to see them" — a contract, not a lookup.
+    """
+    return get_active_bus(substitutions)
+
+
+def sort_bu_states_canonically(bu_states: list[dict], global_state: dict | None = None) -> list[dict]:
+    """Return bu_states in canonical slot order, whatever order storage gave us.
+
+    4.1 (2026-08-03). THE DEFECT THIS CLOSES
+        The two storage backends handed the engine the same four business units
+        in DIFFERENT ORDERS, and the engine indexes into that list positionally:
+
+            database_memory  ->  pharma, electronics, consumer_goods, software
+            database (PG)    ->  consumer_goods, electronics, pharma, software
+
+        Postgres sorts `ORDER BY bu_id`, which is alphabetical; the memory store
+        returns creation order, which is slot order. engine.py's micro-strike
+        does `micro_strike_bu_idx % len(new_bus)`, so a draw of 0 struck pharma
+        in every test ever run and consumer_goods in production. Two of the four
+        possible draws targeted a different company in the deployment than in
+        the suite that was supposedly validating it.
+
+    WHY SLOT ORDER AND NOT ALPHABETICAL
+        Alphabetical is an accident of the ORDER BY clause. Slot order is what
+        build_bu_states() creates, what the UI renders, what the Excel importer
+        writes and what the god-mode sliders address. It is also the ONLY order
+        that survives substitution: a cohort running oil & gas has bu_id
+        "oil_gas" occupying the "pharma" slot, so the slot is recoverable from
+        POSITION alone. Sorting by bu_id destroys it.
+
+    WHY NO SCHEMA CHANGE
+        The substitution map already rides in global_state["bu_substitutions"],
+        persisted per round alongside these very rows, so the canonical order is
+        reconstructible from data already on disk. Existing cohorts get correct
+        ordering on the next read with no migration and no backfill of rows that
+        sit behind an immutability trigger.
+
+    Unknown ids (a vertical no longer in the map) sort last, by bu_id, so the
+    result is total and stable rather than dependent on Python's sort being
+    stable over an undefined key.
+    """
+    order = canonical_bu_order((global_state or {}).get("bu_substitutions") or {})
+    position = {bu_id: i for i, bu_id in enumerate(order)}
+    unknown = len(position)
+    return sorted(bu_states, key=lambda b: (position.get(b.get("bu_id"), unknown), str(b.get("bu_id") or "")))

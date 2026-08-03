@@ -8722,8 +8722,11 @@ async def upload_simulation_config(
         # ── Paths ───────────────────────────────────────────────
         backend_dir = Path(__file__).resolve().parent
         project_root = backend_dir.parent
-        json_path = project_root / "simulation_config.json"
-        json_bak = project_root / "simulation_config.json.bak"
+        # 3.1: write to the durable copy config.py actually reads, and keep the
+        # backup beside it rather than in the ephemeral image.
+        from runtime_paths import config_file as _config_file
+        json_path = _config_file("simulation_config.json")
+        json_bak = json_path.with_suffix(json_path.suffix + ".bak")
         temp_xlsx = project_root / "simulation_config_upload.xlsx"
         live_xlsx = project_root / "simulation_config.xlsx"
 

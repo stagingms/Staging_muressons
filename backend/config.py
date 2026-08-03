@@ -99,7 +99,14 @@ LLM_MODEL: str = os.getenv("LLM_MODEL", "gpt-4o-mini")
 import json
 from pathlib import Path
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "simulation_config.json"
+# 3.1 (2026-08-03): resolve through the durable data dir. Previously this was
+# the copy inside the IMAGE, so every Excel import / god-mode save survived
+# until the next redeploy and then silently reverted, while the upload endpoint
+# still reported {"reload": "complete"}. config_file() seeds from the committed
+# copy when the volume is empty, so behaviour is unchanged wherever no volume
+# is configured (local dev, CI) — see runtime_paths.config_file.
+from runtime_paths import config_file as _config_file  # noqa: E402
+CONFIG_PATH = _config_file("simulation_config.json")
 SIMULATION_CONFIG = {}
 if CONFIG_PATH.exists():
     try:

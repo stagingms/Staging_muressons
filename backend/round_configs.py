@@ -11,7 +11,10 @@ import json
 import os
 from pathlib import Path
 
-OVERRIDES_FILE = Path(__file__).parent / "decision_overrides.json"
+from runtime_paths import config_file as _config_file
+# 3.1: durable location. admin_router imports THIS constant as
+# ROUND_OVERRIDES_FILE for its read-modify-write, so all four sites agree.
+OVERRIDES_FILE = _config_file("decision_overrides.json")
 
 # ═════════════════════════════════════════════════════════════════
 #  ROUND CONFIGS

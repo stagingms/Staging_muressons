@@ -20,10 +20,20 @@ and every mutable runtime file is read/written there instead. Unset, the
 default is <repo>/db — byte-identical to the old behaviour, so local dev and
 the test suite are unaffected.
 
-Deliberately NOT routed through here: seed/config files (seed_round1.json,
+Deliberately NOT routed through here: pure SEED files (seed_round1.json,
 init.sql, industry configs, upload templates). Those ship in the image under
 <repo>/db and must never be hidden by a volume mount — which is also why the
 volume should be mounted at its own path (e.g. /data), NOT over /app/db.
+
+TUNABLE CONFIG IS DIFFERENT — see config_file() (3.1, 2026-08-03).
+simulation_config.json and decision_overrides.json are BOTH seeded AND mutable:
+they ship in the image with sane defaults, and the Excel importer, the god-mode
+sliders and the decision-override editor all WRITE to them at runtime. Held in
+the image they behaved like the facilitator registry did before this module
+existed — every tuning change a facilitator made was silently reverted by the
+next redeploy, while the upload endpoint still answered {"reload":"complete"}.
+They need the durable directory, but with different absent-file semantics from
+data_file(); config_file() implements those.
 
 MIGRATION
 ---------
@@ -165,3 +175,61 @@ def data_file(name: str, legacy: Path | None = None) -> Path:
             except OSError:
                 continue
     return target
+
+
+# ── Tunable config: seeded in the image, mutated at runtime ────────────────
+
+_REPO_ROOT   = Path(__file__).resolve().parent.parent
+_BACKEND_DIR = Path(__file__).resolve().parent
+
+# name → the VERSION-CONTROLLED copy that ships inside the image. Both are
+# tracked in git, so seeding from them is deterministic and identical for every
+# developer, CI run and deployment.
+_CONFIG_IMAGE_DEFAULTS: dict[str, Path] = {
+    "simulation_config.json":  _REPO_ROOT / "simulation_config.json",
+    "decision_overrides.json": _BACKEND_DIR / "decision_overrides.json",
+}
+
+
+def config_file(name: str) -> Path:
+    """Resolve a TUNABLE CONFIG file in the durable data dir, seeding it once
+    from the copy that ships in the image.
+
+    HOW THIS DIFFERS FROM data_file(), AND WHY IT HAS TO
+    ----------------------------------------------------
+    data_file() honours MURESSONS_NO_LEGACY_MIGRATION, which means "start this
+    data dir EMPTY and never inherit state from elsewhere". That is exactly
+    right for the facilitator registry, the rate-ban list and the memory
+    snapshot: an empty registry is a clean registry, and the test suite must
+    never read the developer's real accounts.
+
+    It is exactly WRONG for config. An absent simulation_config.json does not
+    mean "no configuration" — config.py falls through to a hardcoded default
+    for every economic parameter in the model, so the engine keeps running and
+    quietly computes different numbers. `tests/conftest.py` sets both
+    MURESSONS_DATA_DIR (a temp dir) and MURESSONS_NO_LEGACY_MIGRATION=1, so
+    routing CONFIG_PATH through data_file() would have made every test in the
+    suite run against defaults rather than the committed configuration — the
+    golden traces included, silently, with nothing failing to say so.
+
+    So config_file() ALWAYS seeds from the in-image default when the durable
+    copy is absent. There is no "clean" state to protect here: the shipped file
+    IS the clean state, and it is in git.
+
+    Writes go to the returned path, so the first runtime edit lands on the
+    volume and every subsequent read sees it. If the data dir cannot be written
+    (misconfigured mount), the in-image path is returned instead — read-only,
+    but with the correct values, which beats an empty config every time.
+    """
+    default = _CONFIG_IMAGE_DEFAULTS.get(name)
+    target = data_dir() / name
+    if target.exists():
+        return target
+    if default is None or not default.exists():
+        return target          # nothing to seed from; caller handles absence
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(default, target)
+        return target
+    except OSError:
+        return default         # unwritable volume — correct values, read-only

@@ -782,6 +782,12 @@ async def fetch_latest_state(session_id: str) -> Optional[dict]:
     grs = rounds[-1]
     rn = grs.get("round_number", 1)
     bus = _bu_states.get(session_id, {}).get(rn, [])
+    # 4.1: apply the SAME canonical ordering as the Postgres backend. Creation
+    # order already equals slot order here, so this is a no-op for every
+    # unsubstituted cohort — it is present so that the two stores share one
+    # definition of the order rather than agreeing by coincidence.
+    from bu_profiles import sort_bu_states_canonically
+    bus = sort_bu_states_canonically(list(bus), grs.get("active_event_flags") or grs)
 
     # Defensive .get()s: legacy/minimal rows (and test fixtures) may omit
     # bookkeeping fields like state_id — a read API should degrade, not raise.
