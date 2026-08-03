@@ -3406,6 +3406,11 @@ async def force_advance_cohort(session_id: str, request: Request, _guard: None =
     pacing["_fa_force"] = True
     pacing["_fa_round"] = None
     pacing["_fa_deadline_at"] = None
+    # FA-1 (2026-08-02): publish the surrounding policy. The three _fa_* keys
+    # themselves are in _PACING_LOCAL_FIELDS (see admin_shared) precisely so the
+    # 3-second coordination refresher cannot revert this one-shot command — the
+    # defect that made Force Advance report {"status":"ok"} and then do nothing.
+    mark_pacing_dirty(cohort_id)
     return {
         "status": "ok",
         "cohort": cohort_id,
@@ -3502,16 +3507,53 @@ async def set_pacing(session_id: str, body: RoundPacingRequest, request: Request
     pacing["_fa_round"] = None
     pacing["_fa_deadline_at"] = None
 
+    # PACING-1 (2026-08-02): entering a GATED mode must actually close the gate.
+    #
+    # Both gated branches used to do `max(pacing["unlocked_round"], 1)`, which
+    # can only ever raise the ceiling — it never lowers one. Every cohort starts
+    # at the free-play sentinel 999 (_get_pacing default, and what "free" and
+    # "Unlock all rounds" write), so switching to Manual computed max(999, 1) =
+    # 999 and left EVERY round open. The mode label changed, the badge read
+    # "Manual", and nothing was gated: reported as "manual mode implemented but
+    # not working", with the panel showing MODE Manual / UNLOCKED UP TO Round ∞.
+    # Scheduled/timed carried the identical defect.
+    #
+    # The clamp below distinguishes the two ways a ceiling can arise:
+    #   * > SIM_ROUNDS  — the free-play sentinel (or Unlock-All). NOT a
+    #     deliberate gate, so entering a gated mode clamps it to the round the
+    #     cohort is actually on: the round in progress stays playable, the next
+    #     one waits for the facilitator (or the timer).
+    #   * <= SIM_ROUNDS — a real ceiling a facilitator chose while already
+    #     gated. Preserved, so re-applying a mode never silently revokes rounds
+    #     a class has been told are open.
+    #
+    # RE-APPLIED 2026-08-02 (second time): commit 42ac6b1 ("Accessibility:
+    # theme leaks, mailbox legibility, keyboard drag on both gates") reverted
+    # f3f5956 wholesale — it rewrote 440 lines of this file and took the fix
+    # with it, on main, the same day. tests/test_pacing_gated_modes.py has been
+    # red ever since. If you are regenerating a large region of this file,
+    # re-run that test before committing.
+    _current_round = 1
+    try:
+        _current_round = int(await db.fetch_latest_round(session_id) or 1)
+    except Exception:
+        _current_round = 1  # never block a mode change over a lookup failure
+
+    def _gated_ceiling() -> int:
+        existing = int(pacing.get("unlocked_round", 999) or 0)
+        if existing > SIM_ROUNDS:
+            return max(_current_round, 1)
+        return max(existing, 1)
     if body.mode == "free":
         pacing["unlocked_round"] = 999
         pacing["next_unlock_at"] = None
         pacing["schedule"] = []
     elif body.mode == "manual":
-        pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
+        pacing["unlocked_round"] = _gated_ceiling()
         pacing["next_unlock_at"] = None
         pacing["schedule"] = []
     elif body.mode == "timed":
-        pacing["unlocked_round"] = max(pacing["unlocked_round"], 1)
+        pacing["unlocked_round"] = _gated_ceiling()
 
         # ── Multi-round schedule (new feature) ──────────────────
         if body.schedule:
@@ -11234,11 +11276,24 @@ async def get_cohort_comparison(facilitator_id: str = None, _guard: None = Depen
 
 # ── Cohort Pulse — real-time KPI heatmap for CohortPulse.js ──────────────────
 @admin_router.get("/cohort-pulse/{cohort_id}", summary="Real-time KPI heatmap for cohort")
-async def get_cohort_pulse(cohort_id: str):
+async def get_cohort_pulse(cohort_id: str, request: Request,
+                           _guard: None = Depends(require_sim_manager)):
     """
     Returns per-team KPI history and current state for the CohortPulse heatmap.
     Includes climate-engine fields: green_fund, cost_of_capital, carbon_fee_paid.
+
+    SEC-2026-08-02: this route had NO guard and NO ownership check, and returned
+    every team's `session_id` AND `player_id`. Player REST auth is a string
+    compare of the X-Player-Id header against the session owner (router.py:251),
+    so that pair IS the credential — anyone who could reach this endpoint could
+    read or write any team's decisions before reveal. Cohort ids are obtainable
+    from the public join-code lookup, which is unrate-limited.
+
+    Now: require_sim_manager (a live-run read, so project_admin is excluded per
+    CLAUDE.md §2) + cohort ownership, and `player_id` is no longer returned —
+    CohortPulse.js never used it.
     """
+    await _assert_session_ownership(request, cohort_id)
     # Parity API: sessions + round history via db.* (direct _sessions /
     # _global_states / _bu_states reads return {} under Postgres).
     all_sessions = {s["session_id"]: s for s in await db.fetch_all_sessions_raw()}
@@ -11318,7 +11373,8 @@ async def get_cohort_pulse(cohort_id: str):
                 # RB-2 (UX audit §7.2): control-room fields. All read-only over
                 # state the engine already produced — nothing sim-level changes.
                 "is_cohort_shell": sid == cohort_id,
-                "player_id": sess.get("player_id"),
+                # SEC-2026-08-02: player_id removed — with session_id it forms the
+                # player REST credential. CohortPulse.js never read it.
                 "auto_committed_last_round": bool(flags.get("auto_committed", False)),
                 "has_saved_draft": bool(
                     latest.get("saved_allocations") or latest.get("saved_decision_choice")

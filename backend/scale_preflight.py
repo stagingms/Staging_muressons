@@ -70,6 +70,36 @@ def safe_worker_count(env: Mapping[str, str]) -> tuple[int, list[str]]:
         )
         return 1, warnings
 
+    # SCALE-2 (2026-08-02): Postgres is NECESSARY for multi-worker but nowhere
+    # near sufficient, and the check above is the only gate — so on a Postgres
+    # deployment (i.e. production) setting WEB_CONCURRENCY=4 was honoured
+    # silently. Externalising pacing + god-mode + WS fan-out covered three of
+    # the shared-state problems; roughly a dozen remain in per-process dicts:
+    #
+    #   _next_player_id / the FAC-NNN counter  -> duplicate ids across workers
+    #   _cohort_lock (facilitator cohort quota) -> quota bypassed
+    #   _config_file_lock (decision_overrides)  -> concurrent clobber
+    #   _rate_buckets                           -> effective limit x N workers
+    #   _facilitator_notes / _student_bonuses /
+    #   _peer_evaluations / _annotations /
+    #   _session_messages / _broadcast_history  -> visible on ONE worker only
+    #
+    # None of these fail loudly; they produce a classroom where two students
+    # share a credential and half the facilitator's notes have vanished. So the
+    # operator has to say they have verified it — load_tests/split_brain_probe.js
+    # exists precisely to produce that evidence.
+    if requested > 1 and not _truthy(env.get("MURESSONS_MULTIWORKER_VERIFIED")):
+        warnings.append(
+            f"WEB_CONCURRENCY={requested} requested, but ~12 stores are still "
+            "per-process (player/facilitator id counters, cohort quota, rate "
+            "limits, facilitator notes/bonuses/peer-evaluations/annotations). "
+            "Splitting them mints duplicate credentials and hides assessment "
+            "data on one worker. FORCING 1 WORKER. When you have run "
+            "load_tests/split_brain_probe.js green against a real multi-worker "
+            "deployment, set MURESSONS_MULTIWORKER_VERIFIED=true to opt in."
+        )
+        return 1, warnings
+
     return requested, warnings
 
 

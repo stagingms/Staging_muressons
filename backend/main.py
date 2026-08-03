@@ -306,6 +306,18 @@ async def lifespan(app: FastAPI):
     except Exception as _storage_exc:
         print(f"[storage] boot verification skipped (non-fatal): {_storage_exc}")
 
+    # PF-1 (2026-08-02): run the deployment preflight and PRINT it. The module
+    # (186 lines, five checks, each tied to an incident that actually happened)
+    # was written, tested — and never called: `grep run_preflight` found only a
+    # test. PREDEPLOY_CHECKLIST.md Layer 4 tells the operator to look in the
+    # logs for "[preflight] Deployment configuration looks correct.", a string
+    # that could never appear. It can now.
+    try:
+        from deploy_preflight import run_preflight as _run_preflight, format_findings as _fmt
+        print(_fmt(_run_preflight()))
+    except Exception as _pf_exc:  # a preflight must never block a boot
+        print(f"[preflight] skipped (non-fatal): {_pf_exc}")
+
     # Sync and seed missing cohort sessions for facilitators (e.g. if initial seeding failed)
     try:
         from admin_shared import _facilitator_registry
@@ -493,6 +505,15 @@ app.include_router(god_router)           # audit #17: Extracted God-Mode control
 # aggregation over round history; separate module so admin_router stays untouched.
 from admin_debrief_narrative import debrief_narrative_router  # noqa: E402
 app.include_router(debrief_narrative_router)
+
+# CFG-1: GET /api/admin/config/live — reports the configuration this PROCESS is
+# actually running, and every way it disagrees with what was configured (a file
+# on disk the process never picked up; a partial hot-reload leaving consumer
+# modules on old values; god-mode overrides that beat the constant; tunables
+# wired to nothing). Read-only, super-admin only, mounted last so its guard
+# import resolves after admin_router.
+from config_introspect import config_introspect_router  # noqa: E402
+app.include_router(config_introspect_router)
 
 
 @app.get("/health", tags=["System"])

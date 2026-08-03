@@ -13,6 +13,7 @@ import hmac
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 import copy
+import os as _os
 
 import database as db
 import materiality_db as mat_db
@@ -2118,16 +2119,62 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             detail="Simulation has already completed all 10 rounds.",
         )
 
-    # ── ITEM 1: Optimistic locking — expected_round guard ────
-    expected_round = getattr(body, 'expected_round', None)
-    if expected_round is not None and expected_round != current_round:
+    # ── R10-1 (2026-08-02): the finale is committed EXACTLY once ─────────────
+    # Round 10 persists in place via update_latest_global_state (there is no
+    # round 11 to insert), so the uq_session_round constraint that makes rounds
+    # 1-9 idempotent does not exist here — and fetch_latest_state keeps
+    # returning round_number == 10, so the "> 10" gate above never trips. A
+    # second POST five seconds later therefore re-ran process_tick over
+    # already-resolved terminal state and COMPOUNDED treasury, emissions and
+    # terminal valuation. The normal finale now sets game_over (see the R10
+    # persist branch below) and this gate refuses anything after it.
+    #
+    # Extended Horizon and the turnaround arc are unaffected: activate_extended_mode
+    # explicitly clears game_over, and the turnaround arc commits through its own
+    # endpoint rather than this one.
+    if (current.get("global_state") or {}).get("game_over"):
         if commit_lock.locked(): commit_lock.release()
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
-                f"Stale round: expected round {expected_round} but "
-                f"current is {current_round}. Refresh your dashboard."
+                "This simulation has already completed. Its final results are "
+                "locked — reload to see the Year-5 report."
             ),
+        )
+
+    # ── ITEM 1: Optimistic locking — expected_round guard ────
+    # Enforced whenever the client sends it. Deliberately still optional in the
+    # model: making it mandatory would 422 any browser tab running a cached
+    # bundle, which is a run-day failure mode, and the double-advance this
+    # guards against originates in the CLIENT's 429 retry loop — so shipping
+    # useSimulation.js's expected_round is what actually closes it. Set
+    # REQUIRE_EXPECTED_ROUND=true once the warning below stops appearing.
+    expected_round = getattr(body, 'expected_round', None)
+    if expected_round is None:
+        if _os.getenv("REQUIRE_EXPECTED_ROUND", "").strip().lower() in ("true", "1", "yes"):
+            if commit_lock.locked(): commit_lock.release()
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="expected_round is required. Refresh the page to load the current client.",
+            )
+        _log.warning(
+            "[COMMIT] session=%s round=%s committed WITHOUT expected_round — a stale "
+            "client that cannot be protected from the retry double-advance.",
+            session_id, current_round,
+        )
+    elif expected_round != current_round:
+        if commit_lock.locked(): commit_lock.release()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "code": "stale_round",
+                "expected": expected_round,
+                "current": current_round,
+                "message": (
+                    f"This round has already been committed (you are on round "
+                    f"{current_round}). Your decisions were saved — nothing was lost."
+                ),
+            },
         )
 
     # ── ITEM 5: Cohort pace lock — max_round enforcement ─────
@@ -2617,6 +2664,15 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
         except Exception as exc:
             _log.warning(f"[WARN] Consequence DNA snapshot capture failed: {exc}")
 
+    if current_round == 10:
+        # R10-1: mark the run complete BEFORE persisting, so the state that is
+        # written already carries the flag the gate above reads. Previously the
+        # normal finale never set game_over at all — completion was inferred as
+        # `rn >= 10` in three separate places — which is why R10 could be
+        # re-committed indefinitely.
+        new_global["game_over"] = True
+        new_global.setdefault("game_over_reason", "simulation_complete_r10")
+
     try:
         if current_round == 10:
             # R10: Update existing state in-place (don't insert new round 11)
@@ -2625,9 +2681,20 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
                 global_state=new_global,
                 bu_states=new_bus,
             )
-            # Still log R10 decisions to the audit trail
-            for dec in decisions_raw:
-                pass  # decisions are logged inline by insert_next_round; for R10 update we skip
+            # R10-2 (2026-08-02): actually log them. This loop was `pass` with a
+            # comment claiming they were "logged inline by insert_next_round" —
+            # but the R10 branch does not CALL insert_next_round, so the graded
+            # finale's decisions were never recorded anywhere. A grade you cannot
+            # reconstruct is a grade you cannot defend.
+            try:
+                await db.log_decisions(
+                    session_id=session_id, round_number=current_round, decisions=decisions_raw
+                )
+            except Exception as _audit_exc:
+                _log.error(
+                    "[R10] FAILED to write finale decisions to the audit log for "
+                    "session=%s: %s", session_id, _audit_exc,
+                )
         else:
             await db.insert_next_round(
                 session_id=session_id,

@@ -124,7 +124,15 @@ export const FACILITATOR_SIDEBAR = [
             { id: 'timeline',       label: 'Round Timeline',       icon: '📅', liveRound: true, tooltip: 'Visual timeline of round progression across all cohorts, plus the per-cohort Session Setup group: round pacing, quiz difficulty & availability, and the CEO Interview toggle. Answers: "Which cohorts are ahead or behind, and how is each session configured?"' },
             { id: 'teleprompter',   label: 'Teleprompter',         icon: '🎤', liveRound: true, tooltip: 'Full-screen teleprompter with round-by-round facilitator briefing scripts: talking points to deliver, engines likely to fire, discussion prompts for class debate, and key themes. Answers: "What should I say to the class before this round?"' },
             { id: 'leaderboard',    label: 'Leaderboard',          icon: '🏆', liveRound: true, tooltip: 'Ranked matrix of all cohorts and players showing Treasury, Reputation, Synergy, EBITDA, round progress, and terminal value scores. Sortable and searchable with delete/reset controls per session. Answers: "Who\'s winning and who needs help?"' },
-            { id: 'dry_run',        label: 'Dry-Run Simulator',    icon: '🛫', tooltip: 'Pre-flight check: plays four bot strategies (aggressive-green, extractive, balanced, chaotic) headlessly through the real engine from the selected cohort\'s current state to Round 10, several seeded repetitions each, WITHOUT touching the cohort. Reports a difficulty grade, bankruptcy risk and KPI trajectories per strategy, which crises bite hardest, and config warnings. Answers: "Is this cohort configuration survivable — and does strategy actually matter — before my class plays it?"' },
+            // DRY-RUN-1 (2026-08-02): tab hidden. DryRunSimulator.js POSTs to
+            // /api/admin/dry-run, and no such route exists — the backend's
+            // run_dry_run() has zero callers — so clicking this tab 404s.
+            // Restore it in the SAME commit that adds the route, and not
+            // before removing dry_run.py's `random.seed(seed)` (line ~119),
+            // which reseeds the PROCESS-GLOBAL PRNG and would rewind every
+            // live cohort's randomness while a workshop is running.
+            // Original entry, verbatim, for that commit:
+            // { id: 'dry_run',        label: 'Dry-Run Simulator',    icon: '🛫', tooltip: 'Pre-flight check: plays four bot strategies (aggressive-green, extractive, balanced, chaotic) headlessly through the real engine from the selected cohort\'s current state to Round 10, several seeded repetitions each, WITHOUT touching the cohort. Reports a difficulty grade, bankruptcy risk and KPI trajectories per strategy, which crises bite hardest, and config warnings. Answers: "Is this cohort configuration survivable — and does strategy actually matter — before my class plays it?"' },
         ]
     },
     {

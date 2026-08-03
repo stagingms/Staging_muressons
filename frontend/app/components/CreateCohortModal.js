@@ -74,7 +74,14 @@ const ENGINE_MODULE_TOGGLES = [
     { key: 'system_archetypes_enabled', label: 'System Archetypes', icon: '🔄', tooltip: 'Peter Senge archetype detection: shifting the burden, fixes that fail, limits to growth.', default: true },
     { key: 'peer_learning_prompts_enabled', label: 'Peer Prompts', icon: '💬', tooltip: 'Mid-game (R5) and post-game (R10) peer reflection prompts for collaborative sense-making.', default: true },
     { key: 'decision_timer_enabled', label: 'Decision Timer', icon: '⏱️', tooltip: 'Cognitive pressure timer forcing decisions within a time limit. Simulates boardroom urgency.', default: false },
-    { key: 'market_dynamics_enabled', label: 'Market Dynamics', icon: '📈', tooltip: 'Cross-player market: shared carbon credit pool, competitive talent hiring, scarcity pricing. Multiplayer only.', default: false },
+    // MKT-1 (2026-08-02): toggle removed. backend/market_dynamics.py is
+    // imported by NOTHING — verified by tracing the import graph from
+    // main.py across all 97 backend modules. Ticking this promised a
+    // shared carbon-credit pool, competitive talent hiring and scarcity
+    // pricing, and did nothing at all. The setting keys stay plumbed
+    // (admin_router.py:521,609) so re-enabling is one line here.
+    // Original entry, verbatim:
+    // { key: 'market_dynamics_enabled', label: 'Market Dynamics', icon: '📈', tooltip: 'Cross-player market: shared carbon credit pool, competitive talent hiring, scarcity pricing. Multiplayer only.', default: false },
     { key: 'regulatory_sandbox_enabled', label: 'Reg Sandbox', icon: '⚖️', tooltip: 'Expert-tier: students design carbon taxes, ETS, disclosure mandates with configurable parameters.', default: false },
     // Stakeholder realism waves (SPEC F1–F6) — default OFF; enable per cohort.
     // Recommended order: Memory → SLO Feedback → Promises, then the rest.

@@ -1206,6 +1206,47 @@ async def insert_next_round(
     return global_state_id
 
 
+async def log_decisions(session_id: str, round_number: int, decisions: list[dict]) -> int:
+    """Append decisions to the audit trail WITHOUT advancing the round.
+
+    R10-2 (2026-08-02): rounds 1-9 log their decisions as part of
+    insert_next_round, but round 10 persists in place via
+    update_latest_global_state and never calls it — so the graded finale's
+    decisions were written nowhere. commit-turn now calls this for R10.
+
+    Mirrors insert_next_round's decision write EXACTLY, including TEAM-3's
+    no-coercion rule on team_consensus. Append-only, and safe under the Postgres
+    immutability triggers, which block UPDATE and DELETE on decision_audit_log
+    but permit INSERT. Returns the number of rows written.
+    """
+    if not decisions:
+        return 0
+    pool = await get_pool()
+    async with pool.acquire(timeout=DB_ACQUIRE_TIMEOUT_SECONDS) as conn:
+        async with conn.transaction():
+            for dec in decisions:
+                await conn.execute(
+                    """
+                    INSERT INTO decision_audit_log
+                        (session_id, round_number, bu_id,
+                         decision_node_id, choice_selected,
+                         capex_allocated, time_to_decision_seconds,
+                         team_consensus)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                    """,
+                    uuid.UUID(session_id),
+                    round_number,
+                    dec.get("bu_id"),
+                    dec.get("decision_node_id", ""),
+                    dec.get("choice_selected", ""),
+                    dec.get("capex_allocated", 0),
+                    dec.get("time_to_decision_seconds", 0),
+                    # TEAM-3: no coercion — NULL means "not recorded".
+                    dec.get("team_consensus") or None,
+                )
+    return len(decisions)
+
+
 # ── Admin / God Mode Operations ───────────────────────────────
 
 async def count_sessions() -> dict:

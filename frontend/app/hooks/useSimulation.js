@@ -61,6 +61,9 @@ export default function useSimulation() {
     // staleness banner instead of silently displaying an out-of-date board.
     // 'ok' after a good fetch; 'stale' after consecutive failures.
     const [connectionState, setConnectionState] = useState('ok');
+    // CONN-1: consecutive failures of the 5s background poller. Separate from
+    // _dashFailuresRef because the two run independently.
+    const _pollFailuresRef = useRef(0);
     const [lastSyncAt, setLastSyncAt] = useState(null);
     const _dashFailuresRef = useRef(0);
     // audit #12: remember the highest round we already hold so a poll can ask
@@ -459,15 +462,37 @@ export default function useSimulation() {
                 }
 
                 // Live mode — call backend
+                //
+                // CMT-1 (2026-08-02): always send expected_round. The retry
+                // below re-POSTs the SAME payload after the 5s cooldown, so a
+                // commit whose RESPONSE was lost (proxy timeout, phone waking,
+                // flaky venue wifi) used to land a SECOND time — by which point
+                // the round had moved on, and the same decisions committed the
+                // NEXT round. uq_session_round does not catch that: the round
+                // numbers differ. The server has had this guard since ITEM 1;
+                // nothing ever sent the field, so it had never once fired.
                 const res = await fetch(
                     `${API_BASE}/api/simulations/${sessionId}/commit-turn`,
                     {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', ...playerIdHeader() },
-                        body: JSON.stringify(payload),
+                        body: JSON.stringify({ ...payload, expected_round: roundNumber }),
                     }
                 );
                 if (!res.ok) {
+                    // A stale-round 409 means an EARLIER attempt of ours already
+                    // landed. That is success arriving late, not a failure —
+                    // re-sync rather than showing the player an error they can
+                    // neither understand nor act on.
+                    if (res.status === 409) {
+                        const conflict = await res.json().catch(() => ({}));
+                        if (conflict?.detail?.code === 'stale_round') {
+                            console.warn('[commitTurn] stale round — an earlier attempt already committed; re-syncing');
+                            setRoundLocked(false);
+                            try { await fetchDashboard(sessionId); } catch { /* the poller will catch up */ }
+                            return null;
+                        }
+                    }
                     // Handle round-locked (403) specially
                     if (res.status === 403) {
                         setRoundLocked(true);
@@ -643,8 +668,17 @@ export default function useSimulation() {
                     `${API_BASE}/api/simulations/${sessionId}/dashboard`,
                     { headers: { ...playerIdHeader() } }
                 );
-                if (!res.ok || cancelled) return;
+                if (!res.ok) {                       // CONN-1: 5xx is a failure, not a no-op
+                    _pollFailuresRef.current += 1;
+                    if (_pollFailuresRef.current >= 2) setConnectionState('stale');
+                    return;
+                }
+                if (cancelled) return;
                 const data = await res.json();
+                // CONN-1: a good poll is the freshest evidence we have.
+                _pollFailuresRef.current = 0;
+                setConnectionState('ok');
+                setLastSyncAt(Date.now());
 
                 // Server round is ahead of client round → facilitator or timer advanced
                 if (data.current_round > roundNumber && !commitResults && !advanceInProgressRef.current) {
@@ -683,7 +717,18 @@ export default function useSimulation() {
                         await fetchRoundConfig(data.current_round);
                     }
                 }
-            } catch { /* silent */ }
+            } catch {
+                // CONN-1 (2026-08-02): this catch used to be `{ /* silent */ }`.
+                // ConnectionBanner was already built and already rendered — but
+                // connectionState was only ever written by fetchDashboard, which
+                // is event-driven (resume / post-commit / quiz). So a player
+                // sitting on a round with the backend down saw a frozen board
+                // with confident-looking numbers and NO banner at all. The 5s
+                // poller is the only thing running at that moment, so it has to
+                // be the thing that reports the connection.
+                _pollFailuresRef.current += 1;
+                if (_pollFailuresRef.current >= 2) setConnectionState('stale');
+            }
         };
 
         const interval = setInterval(poll, 5_000);

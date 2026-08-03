@@ -388,7 +388,14 @@ export default function GodModeStatus({ facilitatorId, status = null, loading = 
                                         { key: 'system_archetypes_enabled', label: '🔄 Archetypes', default: true, tip: 'Peter Senge system archetype detection: shifting the burden, fixes that fail, limits to growth, tragedy of the commons.' },
                                         { key: 'peer_learning_prompts_enabled', label: '💬 Peer Prompts', default: true, tip: 'Mid-game and post-game peer reflection prompts at R5 and R10. Encourages collaborative sense-making.' },
                                         { key: 'decision_timer_enabled', label: '⏱️ Timer', default: false, tip: 'Cognitive pressure timer: forces decisions within a time limit. Simulates real boardroom time pressure.' },
-                                        { key: 'market_dynamics_enabled', label: '📈 Market Sim', default: false, tip: 'Cross-player market dynamics for multiplayer: shared carbon credit pool, competitive talent hiring, scarcity pricing.' },
+                                        // MKT-1 (2026-08-02): toggle removed. backend/market_dynamics.py is
+                                        // imported by NOTHING — verified by tracing the import graph from
+                                        // main.py across all 97 backend modules. Ticking this promised a
+                                        // shared carbon-credit pool, competitive talent hiring and scarcity
+                                        // pricing, and did nothing at all. The setting keys stay plumbed
+                                        // (admin_router.py:521,609) so re-enabling is one line here.
+                                        // Original entry, verbatim:
+                                        // { key: 'market_dynamics_enabled', label: '📈 Market Sim', default: false, tip: 'Cross-player market dynamics for multiplayer: shared carbon credit pool, competitive talent hiring, scarcity pricing.' },
                                         { key: 'regulatory_sandbox_enabled', label: '⚖️ Reg Sandbox', default: false, tip: 'Expert-tier regulatory design: students create carbon taxes, ETS, disclosure mandates with configurable parameters.' },
                                         { key: 'sdg_linkage_engine_enabled', label: '🌐 SDG Linkage', default: true, tip: 'BU-to-SDG materiality mapping engine. Tracks per-BU alignment to material SDGs (3,6,8,9,10,12,15) with live gap analysis and M_SDG terminal multiplier.' },
                                         { key: 'brsr_ngrbc_enabled', label: '🇮🇳 BRSR NGRBC', default: false, tip: 'SEBI BRSR deep-dive: 10-round NGRBC track covering all nine NGRBC principles — Governance, Workforce, Environment, Value Chain, Human Rights, Policy Advocacy, MSME Protection, Assurance & Integrated Reporting. Injects dynamic crises and awards +0.05 ESG Alpha Dividend to BRSR Pioneers.' },

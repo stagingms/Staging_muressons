@@ -27,7 +27,29 @@ def test_allow_memory_in_prod_is_not_shared():
 
 
 def test_multiworker_allowed_on_postgres():
-    workers, warns = safe_worker_count({"USE_MEMORY_DB": "false", "DEBUG": "false", "WEB_CONCURRENCY": "5"})
+    """UPDATED 2026-08-02 (SCALE-2): Postgres is NECESSARY for multi-worker but
+    not SUFFICIENT, and this test previously asserted it was both.
+
+    Externalising pacing, god-mode and WS fan-out fixed three of the shared-state
+    problems. Roughly a dozen remain in per-process dicts — the MUR-NNN and
+    FAC-NNN counters, the cohort quota, decision_overrides.json, rate-limit
+    buckets, and every facilitator note, bonus, peer evaluation and annotation.
+    None fail loudly: you get a classroom where two students hold the same
+    credential and half the facilitator's notes are on the other worker.
+
+    So the Postgres check still has to pass, and the operator additionally has to
+    say they have verified it (load_tests/split_brain_probe.js exists to produce
+    that evidence). Both halves are pinned below.
+    """
+    pg = {"USE_MEMORY_DB": "false", "DEBUG": "false", "WEB_CONCURRENCY": "5"}
+
+    # Postgres alone: no longer enough.
+    workers, warns = safe_worker_count(pg)
+    assert workers == 1
+    assert any("MURESSONS_MULTIWORKER_VERIFIED" in w for w in warns)
+
+    # Postgres + an explicit, informed opt-in: honoured, as before.
+    workers, warns = safe_worker_count({**pg, "MURESSONS_MULTIWORKER_VERIFIED": "true"})
     assert workers == 5
     assert warns == []
 

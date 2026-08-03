@@ -1514,8 +1514,28 @@ def is_pacing_set_by_facilitator(session_id: str) -> bool:
 # ═════════════════════════════════════════════════════════════════
 
 # Fields on a pacing dict that are per-process and must never be serialised or
-# shipped to another worker (they hold live asyncio.Task handles).
-_PACING_LOCAL_FIELDS = frozenset({"_timer_tasks", "_timer_task"})
+# shipped to another worker.
+#
+#   _timer_task / _timer_tasks — live asyncio.Task handles.
+#   _fa_round / _fa_deadline_at / _fa_force — the free-advance BARRIER, which is
+#     a one-shot COMMAND, not replicated policy. Treating it as policy is what
+#     broke Force Advance: force_advance_cohort() set _fa_force=True locally and
+#     did not publish, so within COORDINATION_REFRESH_SECONDS the background
+#     refresher called restore_pacing_policy() with the shared row's stale
+#     _fa_force=False and reverted the facilitator's action. Whether the button
+#     worked came down to a race between the 3s refresh and the 5s player poll.
+#     Keeping these local means the refresher can never revert them.
+#
+#     Known limitation, deliberate: at WEB_CONCURRENCY>1 a Force Advance only
+#     releases the barrier for teams pinned to the worker that served it. That
+#     is strictly better than today (where it is a coin flip on every worker),
+#     and the real fix — publishing the command with a monotonic token so each
+#     worker applies it exactly once — belongs with RunService, not here. The
+#     supported deployment is one worker (see scale_preflight).
+_PACING_LOCAL_FIELDS = frozenset({
+    "_timer_tasks", "_timer_task",
+    "_fa_round", "_fa_deadline_at", "_fa_force",
+})
 
 
 def pacing_policy_snapshot(session_id: str) -> dict:
