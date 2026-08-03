@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { logoutAnchorStyle } from './logoutChrome';
 import styles from './RoundBriefing.module.css';
 import { sanitizeHtml } from '@/app/utils/sanitize';
 import { STANDARD_BRIEFINGS }   from '@/app/briefings/data/standard';
@@ -301,7 +300,7 @@ export default function RoundBriefing({
           onBlur={() => setConfirmLogout(false)}
           title={confirmLogout ? 'Click again to confirm logout' : 'Logout & Exit Simulation'}
           style={{
-            ...logoutAnchorStyle(19100),
+            position: 'fixed', top: 12, right: 16, zIndex: 19100,
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
             background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
             backdropFilter: 'blur(8px)',

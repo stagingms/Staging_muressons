@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { logoutAnchorStyle } from './logoutChrome';
 import styles from './BoardroomShowdown.module.css';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
@@ -112,7 +111,7 @@ export default function BoardroomShowdown({ data, sessionId, onComplete, onLogou
                 <button
                     onClick={() => { if (window.confirm('Log out? Your progress is saved and you can return anytime.')) onLogout(); }}
                     style={{
-                        ...logoutAnchorStyle(19000),
+                        position: 'fixed', top: 12, right: 16, zIndex: 19000,
                         display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
                         background: 'rgba(15,23,42,0.75)', backdropFilter: 'blur(8px)',
                         border: '1px solid rgba(248,113,113,0.25)', borderRadius: 8,

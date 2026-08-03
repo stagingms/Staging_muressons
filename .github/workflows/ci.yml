@@ -67,7 +67,28 @@ jobs:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/muressons
           DEBUG: "true"
           MASTER_PASSWORD: sim2026@iim   # test-only credential, matches conftest
-        run: python -m pytest tests/test_postgres_parity.py -q -p no:randomly
+        run: |
+          # The parity flows that broke in production...
+          python -m pytest tests/test_postgres_parity.py -q -p no:randomly
+          # ...plus the characterization + safety-net suites, run against REAL
+          # Postgres. CI-2 (2026-08-02): production is Postgres and every other
+          # job runs in memory mode, so the goldens, the route guards and the
+          # full-run HTTP game had only ever been verified on a backend
+          # production does not use. The two stores differ in ways that reach
+          # the engine — Postgres returns BUs ORDER BY bu_id while the memory
+          # store returns creation order, and the engine indexes into that list
+          # positionally (engine.py micro-strike) — so a green memory run is
+          # not evidence about the deployed system.
+          python -m pytest \
+            tests/test_financial_golden_trace.py \
+            tests/test_stakeholder_golden_trace.py \
+            tests/test_treasury_waterfall.py \
+            tests/test_full_run_e2e.py \
+            tests/test_admin_route_guards.py \
+            tests/test_phase0_run_day_fixes.py \
+            tests/test_config_introspect.py \
+            tests/test_join_password_not_bypassable.py \
+            -q -p no:randomly
 
   frontend-tests:
     name: Frontend — jest
