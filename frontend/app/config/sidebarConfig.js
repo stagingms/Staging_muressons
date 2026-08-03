@@ -63,7 +63,7 @@ export const GOD_MODE_SIDEBAR = [
         id: 'engine_core',
         items: [
             { id: 'macro_economics',     label: 'Macro Economics',      icon: '🔧', tooltip: 'Adjust global economic baselines, scenario presets, and override master variables' },
-            { id: 'sim_switchboard',     label: 'Sim Switchboard',      icon: '🛤️', tooltip: 'Toggle the Advanced Climate Engine, adjust carbon/hostility/Scope-3 parameters, and enable Side Track Simulations globally.' },
+            { id: 'sim_switchboard',     label: 'Sim Switchboard',      icon: '🛤️', tooltip: 'Toggle the Advanced Climate Engine, adjust carbon/hostility/Scope-3 parameters, and enable Side Track Simulations globally. Also holds the cohort settings matrix, the simulation-config uploader, and Live Engine Configuration — which reads the values the running process is ACTUALLY using and names every way they disagree with what was configured.' },
             { id: 'systemic_risk_controls', label: 'Systemic Risk',      icon: '🌡️', tooltip: 'Toggle Black Swan events, NPC cascades, tipping points, and foreshadowing signals. Difficulty tier is set per-cohort via Experience Level.' },
             { id: 'materiality_config',  label: 'Materiality Matrix',   icon: '🦭', tooltip: 'Configure double materiality weightings — global defaults that facilitators inherit' },
             { id: 'stakeholder_config',  label: 'Stakeholder Config',   icon: '👥', tooltip: 'Edit stakeholder profiles per geographic region — power, interest, quadrant, and engagement tactics' },

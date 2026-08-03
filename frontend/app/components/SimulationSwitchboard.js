@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import styles from './SimulationSwitchboard.module.css';
+import ConfigLiveStatus from './ConfigLiveStatus';
 
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -264,6 +265,9 @@ export default function SimulationSwitchboard() {
     const [saving, setSaving] = useState(false);
     const [saveMsg, setSaveMsg] = useState('');
     const [assignedBu, setAssignedBu] = useState('');  // '' = all BUs, 'pharma' = single-BU mode
+    // CFG-1: bumped after a successful config upload so ConfigLiveStatus re-reads
+    // the process and shows whether the upload actually reached the engine.
+    const [configProbe, setConfigProbe] = useState(0);
     const rootRef = useRef(null);
 
     // Load current global settings on mount
@@ -711,7 +715,11 @@ export default function SimulationSwitchboard() {
         {/* ══════════ COHORT SETTINGS MATRIX (I1/C3/I7) ══════════ */}
         <CohortSettingsMatrix />
         {/* ══════════ SIMULATION CONFIG UPLOAD & HOT-RELOAD ══════════ */}
-        <SimConfigUploader />
+        {/* CFG-1: the uploader reports {"reload":"complete"} whether or not the
+            values reached the engine, so the verification panel sits directly
+            beneath it and re-reads itself after every successful upload. */}
+        <SimConfigUploader onUploaded={() => setConfigProbe((n) => n + 1)} />
+        <ConfigLiveStatus refreshToken={configProbe} />
         </>
     );
 }
@@ -879,7 +887,7 @@ export function CohortSettingsMatrix() {
 
 
 /* ─── Simulation Config Upload & Hot-Reload Card ─────────────── */
-function SimConfigUploader() {
+function SimConfigUploader({ onUploaded }) {
     const [dragOver, setDragOver] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [result, setResult] = useState(null);   // { status, changes, ... }
@@ -909,6 +917,9 @@ function SimConfigUploader() {
             const data = await res.json();
             if (res.ok) {
                 setResult(data);
+                // CFG-1: tell ConfigLiveStatus to re-read. A "reload: complete"
+                // here is a claim; the panel below is the check.
+                if (typeof onUploaded === 'function') onUploaded();
             } else {
                 setError(data.detail || `Upload failed (HTTP ${res.status})`);
             }
@@ -979,8 +990,10 @@ function SimConfigUploader() {
                         📄 Simulation Config — Upload &amp; Hot-Reload
                     </span>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.5 }}>
-                        Upload a modified <code style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>simulation_config.xlsx</code> to update all engine parameters live.
-                        Changes take effect immediately — no server restart required.
+                        Upload a modified <code style={{ color: 'var(--accent-gold)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>simulation_config.xlsx</code> to update engine parameters.
+                        {' '}<strong>Verify below before you rely on it.</strong> The reload rebinds only some
+                        modules, and the uploaded file lives in the image — so a later redeploy reverts it.
+                        For a change that must stick, edit <code style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem' }}>simulation_config.json</code>, commit, redeploy.
                     </div>
                 </div>
                 <button

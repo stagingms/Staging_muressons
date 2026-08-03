@@ -40,7 +40,7 @@ Everything else is elastic. These are not.
 
 ---
 
-## Phase 1 — The instrument (D+2 to D+4, overlaps Phase 0)
+## Phase 1 — The instrument (D+2 to D+4, overlaps Phase 0) — ✅ **IMPLEMENTED 2026-08-02**
 
 *You retune daily. This is the half of that loop that does not exist yet.*
 
@@ -48,7 +48,9 @@ Everything else is elastic. These are not.
 |---|---|---|---|
 | 1.1 | ~~**#47** `GET /api/admin/config/live` — what the process is *actually* running~~ | — | ✅ **Built, 14 tests, mounted** |
 | — | **Note on my own error, recorded because it is the exact failure mode this plan warns about.** While adding `log_decisions` I wrote `database.py` and `database_memory.py` from a stale snapshot and silently reverted your committed **TEAM-3** work (`team_consensus` nullability — NULL meaning "not recorded" rather than a fabricated `'majority'`). I caught it on the post-commit diff review, restored both files from `HEAD`, and re-applied `log_decisions` on top with matching no-coercion semantics. Final diff vs HEAD: **73 insertions, 0 deletions.** Same shape as `42ac6b1`: a large write from a stale base, quietly undoing a same-day fix. **Always read `git diff --stat HEAD` before committing a regenerated file.** | — | ✅ Fixed |
-| 1.2 | Surface it in the god-mode UI next to the config upload button. Show `summary` and `problems` first; put `constants` behind a disclosure | 3 h | 🟠 |
+| 1.2 | ✅ **Done.** `frontend/app/components/ConfigLiveStatus.js`, rendered directly under the uploader in `SimulationSwitchboard` (god-mode → Sim Switchboard). Verdict line first, then problems worst-first with their messages intact, then the fingerprint; all 238 constants behind a `<details>` with a name filter. Re-reads itself automatically after a successful upload — the one moment the answer matters most. Colours use `tokens.css` semantic tokens only. **9 tests** (`__tests__/config-live-status.test.js`), RTL against the real DOM rather than source regex, plus one narrow wiring check because this repo has shipped an orphaned component before. Mutation-verified: silently dropping the problems list fails 2 of them. | 3 h | ✅ |
+| 1.2a | ✅ **Done.** Corrected the uploader's copy. It said *"Changes take effect immediately — no server restart required"*; both halves were false (the reload rebinds ~5 of ~13 consumer modules, and the file it writes lives in the image). It now says to verify below, and names the JSON-and-redeploy path as the one that sticks. A test asserts the old sentence never comes back. | 15 min | ✅ |
+| 1.2b | ✅ **Done.** Updated the `sim_switchboard` sidebar tooltip to describe what the tab now renders (`CLAUDE.md` convention: change the tab, change the tooltip, same commit). | 5 min | ✅ |
 | 1.3 | **Use it as a habit:** after every tuning change, call it. `problems: []` means the value you set is the value the engine is using. Anything else tells you exactly which of the three failure modes you hit | — | 🟠 |
 
 **What it already detects, verified against your code:** an on-disk `simulation_config.json` the process never loaded; a partial hot-reload leaving consumer modules on old values (proven — a simulated reload of `SIM_ROUNDS` flags **four** stale modules); god-mode overrides that beat the constant; and 16 `_engine_tunables` keys with no downstream consumer at all.
