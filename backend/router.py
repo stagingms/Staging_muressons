@@ -2687,6 +2687,11 @@ async def _commit_turn_impl(session_id: str, body: CommitTurnRequest, commit_loc
             # finale's decisions were never recorded anywhere. A grade you cannot
             # reconstruct is a grade you cannot defend.
             try:
+                # AUDIT-1: `current_round`, matching insert_next_round's corrected
+                # convention — decisions are filed under the round they were made
+                # in. R10 needs an explicit call because its branch persists in
+                # place via update_latest_global_state and never reaches
+                # insert_next_round, so the finale's decisions were written nowhere.
                 await db.log_decisions(
                     session_id=session_id, round_number=current_round, decisions=decisions_raw
                 )

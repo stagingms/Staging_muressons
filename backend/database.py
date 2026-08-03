@@ -1179,7 +1179,30 @@ async def insert_next_round(
                     _dumps(rf),
                 )
 
-            # Decision audit log
+            # AUDIT-1 (2026-08-02): decisions are filed under the round they were
+            # MADE in, which is `round_number - 1`.
+            #
+            # This used to pass `round_number` — the round the commit CREATED.
+            # The effect was that a team's round-3 choices were stored as round 4,
+            # every set was one round late, and round 1 had no rows at all. Any
+            # debrief, grade reconstruction or replay reading decision_audit_log
+            # therefore attributed each team's decisions to the wrong round, and
+            # showed nothing for the opening round. Found by
+            # tests/test_full_run_e2e.py, which is the first test that ever
+            # played a full game and then looked at the log.
+            #
+            # Safe at every call site: all three pass new_round = decision_round
+            # + 1 (router.py commit-turn, admin_router.py auto-commit), and the
+            # Extended Horizon insert passes decisions=[] so the arithmetic never
+            # applies there.
+            #
+            # NOT backfilled. decision_audit_log is append-only behind an
+            # immutability trigger, and rewriting recorded history to match a
+            # later opinion is worse than a documented discontinuity: runs
+            # committed before this change carry the old offset. No score has
+            # been graded from them yet, which is the window that makes this a
+            # clean break rather than a migration.
+            _decisions_round = max(1, round_number - 1)
             for dec in decisions:
                 await conn.execute(
                     """
@@ -1191,7 +1214,7 @@ async def insert_next_round(
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
                     """,
                     uuid.UUID(session_id),
-                    round_number,
+                    _decisions_round,
                     dec.get("bu_id"),
                     dec.get("decision_node_id", ""),
                     dec.get("choice_selected", ""),

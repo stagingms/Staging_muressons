@@ -371,6 +371,27 @@ def run_deterministic_simulation(
     bus = BU_COMPOSITION_FACTORIES[matrix.bu_composition]()
     gs = make_global_state(paradigm=matrix.decision_paradigm)
 
+    # RNG-2 (2026-08-02): this runner is called "deterministic" and, until now,
+    # was not. It seeds the global `random` module — but the GAME-4 engine paths
+    # do not draw from it. They call rng_util.event_rng(flags, ...), which
+    # derives its stream from flags["stochastic_seed"] and, WHEN THAT KEY IS
+    # ABSENT, returns `random.Random()` — a fresh, system-seeded generator that
+    # `random.seed()` cannot reach (rng_util.py:56).
+    #
+    # This harness never set the key, so every seeded-engine draw came from
+    # interpreter entropy. Two consecutive runs of the same command produced
+    # materially different simulations: unexplained treasury movement on
+    # DEFAULT_4_BU/multi_toggles measured $200,081,152 on one run and
+    # $402,477,721 on the next.
+    #
+    # Every invariant in this file was therefore being evaluated against a
+    # DIFFERENT simulation each time. They passed because they assert bounds and
+    # finiteness rather than values — which is exactly how a suite can be green
+    # for months without pinning anything.
+    #
+    # One line. Set the cohort seed the way a real cohort carries it.
+    gs.setdefault("active_event_flags", {})["stochastic_seed"] = f"ume-{DETERMINISTIC_SEED}"
+
     ledgers: list[RoundLedger] = []
 
     for rnd in range(1, num_rounds + 1):

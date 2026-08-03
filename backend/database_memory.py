@@ -1032,10 +1032,27 @@ async def insert_next_round(
         _bu_states[session_id] = {}
     _bu_states[session_id][round_number] = copy.deepcopy(bu_states)
 
+    # AUDIT-1 (2026-08-02): decisions are filed under the round they were MADE
+    # in, which is `round_number - 1`.
+    #
+    # This used to use `round_number` — the round the commit CREATED. A team's
+    # round-3 choices were stored as round 4, every set was one round late, and
+    # round 1 had no rows at all, so any debrief, grade reconstruction or replay
+    # reading the log attributed decisions to the wrong round. Found by
+    # tests/test_full_run_e2e.py — the first test that ever played a full game
+    # and then looked at the log.
+    #
+    # Safe at every call site: all three pass new_round = decision_round + 1,
+    # and the Extended Horizon insert passes decisions=[] so it never applies.
+    #
+    # NOT backfilled — runs committed before this change carry the old offset.
+    # No score has been graded from them yet, which is the window that makes
+    # this a clean break rather than a data migration.
+    _decisions_round = max(1, round_number - 1)
     for dec in decisions:
         _decision_log.append({
             "session_id": session_id,
-            "round_number": round_number,
+            "round_number": _decisions_round,
             "bu_id": dec.get("bu_id"),
             "decision_node_id": dec.get("decision_node_id", ""),
             "choice_selected": dec.get("choice_selected", ""),

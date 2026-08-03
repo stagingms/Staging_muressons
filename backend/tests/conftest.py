@@ -110,6 +110,70 @@ except Exception:
 
 
 @pytest.fixture(autouse=True)
+def no_auth_state_leaks_between_tests():
+    """Reset FastAPI dependency overrides after every test, and name the leaker.
+
+    ISO-1 (2026-08-02). Running the suite in random order reveals a class of
+    order-dependent failures that the default file order hides — and that CI
+    hides deliberately, with `-p no:randomly` on the Postgres job:
+
+        --randomly-seed=7   test_facilitator_bulk_delete::test_anonymous_is_refused
+                            test_ceo_interview::test_ceo_interview_llm_scoring
+        --randomly-seed=42  the same two, plus
+                            test_shockwave_catalog_endpoint::test_catalog_route_exists_and_is_gated
+
+    They are all authorisation tests, and the failure is the dangerous
+    direction: an ANONYMOUS caller got 200 and actually deleted a facilitator —
+
+        assert 200 == 401
+        {"status":"completed","deleted":1,
+         "results":[{"facilitator_id":"FAC-001","status":"deleted"}]}
+
+    So a guard that is meant to refuse an unauthenticated request had been
+    switched off by an earlier test in the same process. `app.dependency_overrides`
+    is process-global and survives between test files; one `finally` that does
+    not run disables that guard for every test after it.
+
+    This fixture does two things. It CLEARS any override a test added, so the
+    leak cannot propagate — and it FAILS the test that added one, so the next
+    time it happens the culprit is named rather than the victim. Override
+    deliberately? Pop it in a `finally`; that is all this asks.
+
+    Note what it does NOT do: the suite may still have other order-dependent
+    state (the reproduction above predates this fixture and has not been
+    re-confirmed as fully closed). Run `pytest -p randomly` occasionally — and
+    do not reach for `-p no:randomly` to make a red suite green. That is how
+    this got here.
+    """
+    try:
+        from main import app
+    except Exception:                      # a unit test that never builds the app
+        yield
+        return
+
+    before = dict(getattr(app, "dependency_overrides", {}) or {})
+    try:
+        yield
+    finally:
+        current = getattr(app, "dependency_overrides", None)
+        if current is None:
+            return
+        leaked = {k: v for k, v in current.items() if k not in before}
+        if leaked:
+            current.clear()
+            current.update(before)
+            names = ", ".join(getattr(k, "__name__", repr(k)) for k in leaked)
+            pytest.fail(
+                f"this test left {len(leaked)} FastAPI dependency override(s) in place: "
+                f"{names}.\n\napp.dependency_overrides is process-global. Anything left "
+                "here disables that guard for every test that runs afterwards, which is "
+                "how an anonymous caller came to receive 200 from a facilitator "
+                "bulk-delete. Pop the override in a `finally`.",
+                pytrace=False,
+            )
+
+
+@pytest.fixture(autouse=True)
 def restore_global_rng():
     """Snapshot and restore the global RNG around every test.
 
