@@ -200,6 +200,52 @@ def restore_global_rng():
 
 
 @pytest.fixture(autouse=True)
+def no_cookie_jar_leaks_between_tests():
+    """Empty every module-level TestClient's cookie jar before each test.
+
+    AUTH-1 (2026-08-03). Twenty-six test modules build a TestClient at import
+    time and share it across every test in the file. `TestClient` is an httpx
+    client, and httpx keeps a COOKIE JAR: the moment any test calls
+    `/facilitators/login`, the `mur_session` cookie is stored on that shared
+    client and is sent automatically on every later request from it — including
+    requests the test believes are anonymous.
+
+    That is the whole of the "intermittent auth failure" that has been
+    unexplained since the review. `test_facilitator_bulk_delete::
+    test_anonymous_is_refused` passes in file order because it happens to run
+    before any login, and fails under pytest-randomly because it does not:
+
+        jar before login : {}
+        login status     : 200
+        jar AFTER login  : ['mur_session']
+        'anonymous' bulk-delete -> 200 {"status":"partial", ...}
+        after cookies.clear()   -> 401 {"detail":"Facilitator authentication required"}
+
+    Note what the last two lines say. The PRODUCT is correct — a genuinely
+    anonymous request is refused. The TEST was not anonymous. Seven modules
+    assert some form of "unauthenticated is refused" against a shared client,
+    so seven proofs of a security property were order-dependent, and the CI
+    workaround (`-p no:randomly`) was hiding it rather than fixing it.
+
+    Clearing the jar per test restores the property each of those assertions
+    believes it already has: a request with no cookie is a request with no
+    cookie. Tests that want authentication pass `cookies=` explicitly, which is
+    unaffected — every helper in those files already does.
+    """
+    from fastapi.testclient import TestClient
+    for name, module in list(sys.modules.items()):
+        if module is None or not (name.startswith("test_") or name.startswith("tests.")):
+            continue
+        for value in list(getattr(module, "__dict__", {}).values()):
+            if isinstance(value, TestClient):
+                try:
+                    value.cookies.clear()
+                except Exception:      # noqa: BLE001 - hygiene, never fatal
+                    pass
+    yield
+
+
+@pytest.fixture(autouse=True)
 def clear_memory_db():
     """Clear transient global state before every test so nothing cascades."""
     try:
