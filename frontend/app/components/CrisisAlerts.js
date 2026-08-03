@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { logoutAnchorStyle } from './logoutChrome';
 import styles from './CrisisAlerts.module.css';
 
 /* ═════════════════════════════════════════════════════════════════
@@ -265,7 +266,7 @@ export function CrisisScreen({ crisisType, cfg, globalState, onDismiss, onLogout
           onBlur={() => setConfirmLogout(false)}
           title={confirmLogout ? 'Click again to confirm logout' : 'Logout & Exit Simulation'}
           style={{
-            position: 'fixed', top: 12, right: 16, zIndex: 19100,
+            ...logoutAnchorStyle(19100),
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
             background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
             backdropFilter: 'blur(8px)',

@@ -26,6 +26,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
+import { logoutAnchorStyle, LOGOUT_GUTTER } from './logoutChrome';
 import { motion, AnimatePresence, useMotionValue, useTransform } from 'framer-motion';
 import { REVEAL_EASE } from '../styles/reveal';
 import styles from './ArchetypeReveal.module.css';
@@ -423,7 +424,7 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
           onBlur={() => setConfirmLogout(false)}
           title={confirmLogout ? 'Click again to confirm logout' : 'Logout & Exit Simulation'}
           style={{
-            position: 'fixed', top: 12, right: 16, zIndex: 10001,
+            ...logoutAnchorStyle(10001),
             display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px',
             background: confirmLogout ? 'rgba(127,29,29,0.9)' : 'rgba(15,23,42,0.75)',
             backdropFilter: 'blur(8px)',
@@ -449,8 +450,14 @@ export default function ArchetypeReveal({ payload, onContinue, onLogout }) {
       <div className={styles.cornerBR} style={{ borderColor: theme.borderColor }} aria-hidden="true" />
 
       {/* ── Top status bar ─────────────────────────────────────────────── */}
+      {/* The grade pill sits flush right, and the Logout control is fixed over
+          that same corner — so the bar must reserve room for it or the button
+          paints on top of the grade. Inline (not in the CSS module) so the
+          reservation and the button's footprint share one source of truth, and
+          so it survives the <=640px rule that resets this bar's padding. */}
       <motion.div
         className={styles.statusBar}
+        style={{ paddingRight: LOGOUT_GUTTER }}
         initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, delay: 0.2, ease: REVEAL_EASE }}
